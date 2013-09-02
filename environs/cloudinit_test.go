@@ -43,10 +43,13 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcfg, gc.DeepEquals, &cloudinit.MachineConfig{
-		AuthorizedKeys:   "we-are-the-keys",
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		StateInfo:        &state.Info{Tag: "not touched"},
-		APIInfo:          &api.Info{Tag: "not touched"},
+		AuthorizedKeys: "we-are-the-keys",
+		AgentEnvironment: map[string]string{
+			agent.ProviderType:  "dummy",
+			agent.ContainerType: "",
+		},
+		StateInfo: &state.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: "not touched"},
 	})
 }
 

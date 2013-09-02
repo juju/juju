@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/upstart"
@@ -93,6 +94,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		return err
 	}
 	logger.Debugf("API addresses: %q", apiAddrs)
+	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:        dataDir,
@@ -102,6 +104,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			StateAddresses: stateAddrs,
 			APIAddresses:   apiAddrs,
 			CACert:         ctx.agentConfig.CACert(),
+			Values: map[string]string{
+				agent.ContainerType: containerType,
+			},
 		})
 	if err != nil {
 		return err
@@ -141,7 +146,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Cmd:     cmd,
 		Out:     logPath,
 		Env: map[string]string{
-			osenv.JujuContainerType: os.Getenv(osenv.JujuContainerType),
+			osenv.JujuContainerType: containerType,
 		},
 	}
 	return uconf.Install()
