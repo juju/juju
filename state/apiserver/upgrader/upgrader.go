@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -78,15 +79,44 @@ func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env
 	if err != nil {
 		return nil, err
 	}
-	requested := version.Binary{
-		Number: agentVersion,
-		Series: existingTools.Version.Series,
-		Arch:   existingTools.Version.Arch,
-	}
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
 	// in state, or even in the API servers
-	return envtools.FindExactTools(env, requested)
+	return envtools.FindExactTools(environs.StorageInstances(env), agentVersion, existingTools.Version.Series, existingTools.Version.Arch)
+}
+
+func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
+	// Get the Agent Version requested in the Environment Config
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return version.Number{}, nil, err
+	}
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		return version.Number{}, nil, errors.New("agent version not set in environment config")
+	}
+	return agentVersion, cfg, nil
+}
+
+// DesiredVersion reports the Agent Version that we want that agent to be running
+func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.AgentVersionResults, error) {
+	results := make([]params.AgentVersionResult, len(args.Entities))
+	if len(args.Entities) == 0 {
+		return params.AgentVersionResults{}, nil
+	}
+	agentVersion, _, err := u.getGlobalAgentVersion()
+	if err != nil {
+		return params.AgentVersionResults{}, common.ServerError(err)
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if u.authorizer.AuthOwner(entity.Tag) {
+			results[i].Version = &agentVersion
+			err = nil
+		}
+		results[i].Error = common.ServerError(err)
+	}
+	return params.AgentVersionResults{results}, nil
 }
 
 // Tools finds the Tools necessary for the given agents.
@@ -95,14 +125,9 @@ func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, err
 	if len(args.Entities) == 0 {
 		return params.AgentToolsResults{}, nil
 	}
-	// For now, all agents get the same proposed version
-	cfg, err := u.st.EnvironConfig()
+	agentVersion, cfg, err := u.getGlobalAgentVersion()
 	if err != nil {
-		return params.AgentToolsResults{}, err
-	}
-	agentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		return params.AgentToolsResults{}, errors.New("agent version not set in environment config")
+		return params.AgentToolsResults{}, common.ServerError(err)
 	}
 	env, err := environs.New(cfg)
 	if err != nil {

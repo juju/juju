@@ -27,5 +27,5 @@ var _ = gc.Suite(&localSuite{})
 func (*localSuite) TestProviderRegistered(c *gc.C) {
 	provider, error := environs.Provider(provider.Local)
 	c.Assert(error, gc.IsNil)
-	c.Assert(provider, gc.DeepEquals, &local.Provider)
+	c.Assert(provider, gc.DeepEquals, local.Provider)
 }

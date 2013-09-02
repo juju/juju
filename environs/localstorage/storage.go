@@ -69,7 +69,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 		if resp.StatusCode == http.StatusNotFound {
 			return []string{}, nil
 		}
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("%s", resp.Status)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)

@@ -102,7 +102,7 @@ func (test bootstrapTest) run(c *gc.C) {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 		}
-		list, err := envtools.FindTools(env, version.Current.Major, coretools.Filter{})
+		list, err := envtools.FindTools(environs.StorageInstances(env), version.Current.Major, version.Current.Minor, coretools.Filter{})
 		c.Check(err, gc.IsNil)
 		c.Logf("found: " + list.String())
 		urls := list.URLs()
@@ -227,8 +227,8 @@ func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
 	c.Check(code, gc.Equals, 0)
 
-	// Now check the available tools which are the 1.0.0 envtools.
-	checkTools(c, env, v100All)
+	// Now check the available tools which are the 1.2.0 envtools.
+	checkTools(c, env, v120All)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -255,7 +255,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
-	_, err := envtools.FindTools(env, version.Current.Major, coretools.Filter{})
+	_, err := envtools.FindTools(environs.StorageInstances(env), version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Assert(err, gc.ErrorMatches, "no tools available")
 
 	// Bootstrap the environment with the valid source. This time
@@ -265,8 +265,8 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	code = cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", source})
 	c.Check(code, gc.Equals, 0)
 
-	// Now check the available tools which are the 1.0.0 envtools.
-	checkTools(c, env, v100All)
+	// Now check the available tools which are the 1.2.0 envtools.
+	checkTools(c, env, v120All)
 }
 
 // createToolsStore creates the fake tools store.
@@ -305,7 +305,7 @@ func createToolsSource(c *gc.C) string {
 func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	fake := coretesting.MakeFakeHome(c, envConfig)
 	dummy.Reset()
-	env, err := environs.NewFromName("peckham")
+	env, err := environs.PrepareFromName("peckham")
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake
@@ -313,7 +313,7 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
-	list, err := envtools.FindTools(env, version.Current.Major, coretools.Filter{})
+	list, err := envtools.FindTools(environs.StorageInstances(env), version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
@@ -325,14 +325,22 @@ var (
 	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
 	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
 	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
+	v120d64 = version.MustParseBinary("1.2.0-defaultseries-amd64")
+	v120p64 = version.MustParseBinary("1.2.0-precise-amd64")
+	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
+	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	v100All = []version.Binary{
 		v100d64, v100p64, v100q64, v100q32,
 	}
+	v120All = []version.Binary{
+		v120d64, v120p64, v120q64, v120q32,
+	}
 	vAll = []version.Binary{
 		v100d64, v100p64, v100q32, v100q64,
+		v120d64, v120p64, v120q32, v120q64,
 		v190p32, v190q64,
 		v200p64,
 	}

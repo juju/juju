@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
@@ -35,7 +36,7 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	env, err := environs.NewFromAttrs(map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "test",
 		"type":            "dummy",
 		"state-server":    false,
@@ -44,7 +45,8 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 		"ca-private-key":  "",
 	})
 	c.Assert(err, gc.IsNil)
-	s.env = env
+	s.env, err = environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
 	s.dataDir = c.MkDir()
 }
 
@@ -71,7 +73,7 @@ func (s *StorageSuite) TestSetToolPrefix(c *gc.C) {
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	store := s.env.Storage()
-	_, err := envtools.ReadList(store, 2)
+	_, err := envtools.ReadList(store, 2, 0)
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
@@ -83,19 +85,28 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	t100 := envtesting.UploadFakeToolsVersion(c, store, v100)
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	t101 := envtesting.UploadFakeToolsVersion(c, store, v101)
+	v111 := version.MustParseBinary("1.1.1-precise-amd64")
+	t111 := envtesting.UploadFakeToolsVersion(c, store, v111)
 
 	for i, t := range []struct {
-		majorVersion int
-		list         coretools.List
+		majorVersion,
+		minorVersion int
+		list coretools.List
 	}{{
-		0, coretools.List{t001},
+		0, 0, coretools.List{t001},
 	}, {
-		1, coretools.List{t100, t101},
+		1, 0, coretools.List{t100, t101},
 	}, {
-		2, nil,
+		1, 1, coretools.List{t111},
+	}, {
+		1, -1, coretools.List{t100, t101, t111},
+	}, {
+		1, 2, nil,
+	}, {
+		2, 0, nil,
 	}} {
 		c.Logf("test %d", i)
-		list, err := envtools.ReadList(store, t.majorVersion)
+		list, err := envtools.ReadList(store, t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
 			c.Assert(list, gc.DeepEquals, t.list)
@@ -122,7 +133,7 @@ func (s *StorageSuite) TestUploadFakeSeries(c *gc.C) {
 	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
 
-	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major)
+	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, gc.HasLen, 3)
 	expectSeries := []string{"fake", "sham", version.CurrentSeries()}

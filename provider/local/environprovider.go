@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	constants "launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -21,34 +21,40 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 
 type environProvider struct{}
 
-var provider environProvider
+var providerInstance = &environProvider{}
 
 func init() {
-	environs.RegisterProvider(constants.Local, &environProvider{})
+	environs.RegisterProvider(provider.Local, providerInstance)
 }
 
 // Open implements environs.EnvironProvider.Open.
-func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error) {
+func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	if _, ok := cfg.AgentVersion(); !ok {
-		cfg, err = cfg.Apply(map[string]interface{}{
+		newCfg, err := cfg.Apply(map[string]interface{}{
 			"agent-version": version.CurrentNumber().String(),
 		})
 		if err != nil {
 			return nil, err
 		}
+		cfg = newCfg
 	}
 	if err := VerifyPrerequisites(); err != nil {
 		logger.Errorf("failed verification of local provider prerequisites: %v", err)
 		return nil, err
 	}
 	environ := &localEnviron{name: cfg.Name()}
-	err = environ.SetConfig(cfg)
-	if err != nil {
+	if err := environ.SetConfig(cfg); err != nil {
 		logger.Errorf("failure setting config: %v", err)
 		return nil, err
 	}
 	return environ, nil
+}
+
+// Prepare implements environs.EnvironProvider.Prepare.
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment
+	return p.Open(cfg)
 }
 
 // Validate implements environs.EnvironProvider.Validate.
@@ -139,8 +145,8 @@ func (environProvider) PrivateAddress() (string, error) {
 	return getAddressForInterface("eth0")
 }
 
-func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := provider.Validate(cfg, nil)
+func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}

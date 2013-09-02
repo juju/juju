@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
@@ -54,9 +55,33 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	newestTools, err := tools.FindBootstrapTools(environ, cons)
+	var vers *version.Number
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		vers = &agentVersion
+	}
+	newestTools, err := tools.FindBootstrapTools(
+		environs.StorageInstances(environ), vers, cfg.DefaultSeries(), cons.Arch, cfg.Development())
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot find bootstrap tools: %v", err)
+	}
+
+	// If agent version was not previously known, set it here using the latest compatible tools version.
+	if vers == nil {
+		// We probably still have a mix of versions available; discard older ones
+		// and update environment configuration to use only those remaining.
+		var newVersion version.Number
+		newVersion, newestTools = newestTools.Newest()
+		vers = &newVersion
+		logger.Infof("environs: picked newest version: %s", *vers)
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"agent-version": vers.String(),
+		})
+		if err == nil {
+			err = environ.SetConfig(cfg)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to update environment configuration: %v", err)
+		}
 	}
 	// ensure we have at least one valid tools
 	if len(newestTools) == 0 {
@@ -77,7 +102,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
 	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
-		if _, err = environs.LoadState(storage); err != nil {
+		if _, err = provider.LoadState(storage); err != nil {
 			break
 		}
 	}

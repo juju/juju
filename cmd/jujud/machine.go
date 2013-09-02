@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -117,7 +118,11 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
 		return a.APIWorker(ensureStateWorker)
 	})
-	err := agentDone(a.runner.Wait())
+	err := a.runner.Wait()
+	if err == worker.ErrTerminateAgent {
+		err = a.uninstallAgent()
+	}
+	err = agentDone(err)
 	a.tomb.Kill(err)
 	return err
 }
@@ -287,6 +292,15 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 
 func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
+}
+
+func (m *MachineAgent) uninstallAgent() error {
+	// TODO(axw) get this from agent config when it's available
+	name := os.Getenv("UPSTART_JOB")
+	if name != "" {
+		return upstart.NewService(name).Remove()
+	}
+	return nil
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

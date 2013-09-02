@@ -39,6 +39,12 @@ func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, err
 	return environ, nil
 }
 
+// Prepare is specified in the EnvironProvider interface.
+func (prov azureEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment as necessary
+	return prov.Open(cfg)
+}
+
 // PublicAddress is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) PublicAddress() (string, error) {
 	config, err := parseWALAConfig()

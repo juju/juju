@@ -26,3 +26,8 @@ func RemoveAll(stor Storage) error {
 	}
 	return err
 }
+
+// StorageInstances returns the storage instances associated with the environment.
+func StorageInstances(e Environ) []StorageReader {
+	return []StorageReader{e.Storage(), e.PublicStorage()}
+}

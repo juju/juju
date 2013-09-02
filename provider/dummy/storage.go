@@ -19,11 +19,11 @@ import (
 )
 
 func (e *environ) Storage() environs.Storage {
-	return e.state.storage
+	return e.state().storage
 }
 
 func (e *environ) PublicStorage() environs.StorageReader {
-	return e.state.publicStorage
+	return e.state().publicStorage
 }
 
 func newStorage(state *environState, path string) *storage {

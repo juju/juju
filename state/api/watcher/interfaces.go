@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package watcher
 
 // NotifyWatcher will send events when something changes.
 // It does not send content for those changes.

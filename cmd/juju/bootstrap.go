@@ -60,7 +60,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	environ, err := environs.NewFromName(c.EnvName)
+	// TODO(rog): arrange for PrepareFromName to write any additional
+	// config attributes, or do so after calling it.
+	environ, err := environs.PrepareFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
@@ -108,18 +110,25 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 	defer loggo.RemoveWriter("bootstrap")
 
 	// Try to find bootstrap tools.
-	_, err := tools.FindBootstrapTools(env, c.Constraints)
+	cfg := env.Config()
+	var vers *version.Number
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		vers = &agentVersion
+	}
+	_, err := tools.FindBootstrapTools(
+		environs.StorageInstances(env), vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
-			EnvName: c.EnvName,
-			Source:  c.Source,
+			Target: env,
+			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
 			return err
 		}
 		// Synchronization done, try again.
-		_, err = tools.FindBootstrapTools(env, c.Constraints)
+		_, err = tools.FindBootstrapTools(
+			environs.StorageInstances(env), vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
 	} else if err != nil {
 		return err
 	}

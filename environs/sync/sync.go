@@ -26,8 +26,8 @@ var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
-	// EnvName names the target environment for synchronization.
-	EnvName string
+	// Target holds the destination for the tool synchronization
+	Target environs.EnvironStorage
 
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
@@ -43,29 +43,22 @@ type SyncContext struct {
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
 
-	// Source allows to chose a location on the file system as source.
+	// Source, if non-empty, specifies a directory in the local file system
+	// to use as a source.
 	Source string
-
-	sourceStorage environs.StorageReader
-	targetStorage environs.Storage
 }
 
 // SyncTools copies the Juju tools tarball from the official bucket
 // or a specified source directory into the user's environment.
 func SyncTools(ctx *SyncContext) error {
-	var err error
-	ctx.sourceStorage, err = selectSourceStorage(ctx)
+	sourceStorage, err := selectSourceStorage(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to select source: %v", err)
-	}
-	targetEnv, err := environs.NewFromName(ctx.EnvName)
-	if err != nil {
-		return fmt.Errorf("unable to read %q from environment", ctx.EnvName)
 	}
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := envtools.ReadList(ctx.sourceStorage, majorVersion)
+	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, -1)
 	if err != nil {
 		return err
 	}
@@ -87,9 +80,9 @@ func SyncTools(ctx *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
-	ctx.targetStorage = targetEnv.Storage()
+	targetStorage := ctx.Target.Storage()
 	if ctx.PublicBucket {
-		switch _, err := envtools.ReadList(ctx.targetStorage, majorVersion); err {
+		switch _, err := envtools.ReadList(targetStorage, majorVersion, -1); err {
 		case envtools.ErrNoTools:
 		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
@@ -97,11 +90,11 @@ func SyncTools(ctx *SyncContext) error {
 			return err
 		}
 		var ok bool
-		if ctx.targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
+		if targetStorage, ok = ctx.Target.PublicStorage().(environs.Storage); !ok {
 			return fmt.Errorf("cannot write to public storage")
 		}
 	}
-	targetTools, err := envtools.ReadList(ctx.targetStorage, majorVersion)
+	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
@@ -113,7 +106,7 @@ func SyncTools(ctx *SyncContext) error {
 
 	missing := sourceTools.Exclude(targetTools)
 	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
-	err = copyTools(missing, ctx)
+	err = copyTools(missing, ctx, targetStorage, sourceStorage)
 	if err != nil {
 		return err
 	}
@@ -130,13 +123,13 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*coretools.Tools, ctx *SyncContext) error {
+func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage, source environs.StorageReader) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if ctx.DryRun {
 			continue
 		}
-		if err := copyOneToolsPackage(tool, ctx); err != nil {
+		if err := copyOneToolsPackage(tool, dest, source); err != nil {
 			return err
 		}
 	}
@@ -144,10 +137,10 @@ func copyTools(tools []*coretools.Tools, ctx *SyncContext) error {
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *coretools.Tools, ctx *SyncContext) error {
+func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
-	srcFile, err := ctx.sourceStorage.Get(toolsName)
+	srcFile, err := src.Get(toolsName)
 	if err != nil {
 		return err
 	}
@@ -162,7 +155,7 @@ func copyOneToolsPackage(tool *coretools.Tools, ctx *SyncContext) error {
 	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
 
-	if err := ctx.targetStorage.Put(toolsName, buf, nBytes); err != nil {
+	if err := dest.Put(toolsName, buf, nBytes); err != nil {
 		return err
 	}
 	return nil

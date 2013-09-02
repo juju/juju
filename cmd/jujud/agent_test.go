@@ -107,7 +107,19 @@ func runWithTimeout(r runner) error {
 
 // agentSuite is a fixture to be used by agent test suites.
 type agentSuite struct {
+	oldRestartDelay time.Duration
 	testing.JujuConnSuite
+}
+
+func (s *agentSuite) SetUpSuite(c *gc.C) {
+	s.oldRestartDelay = worker.RestartDelay
+	worker.RestartDelay = coretesting.ShortWait
+	s.JujuConnSuite.SetUpSuite(c)
+}
+
+func (s *agentSuite) TearDownSuite(c *gc.C) {
+	s.JujuConnSuite.TearDownSuite(c)
+	worker.RestartDelay = s.oldRestartDelay
 }
 
 // primeAgent writes the configuration file and tools for an agent with the

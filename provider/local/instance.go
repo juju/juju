@@ -6,8 +6,8 @@ package local
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 )
 
 type localInstance struct {
@@ -49,7 +49,7 @@ func (inst *localInstance) DNSName() (string, error) {
 
 // WaitDNSName implements instance.Instance.WaitDNSName.
 func (inst *localInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(inst)
+	return provider.WaitDNSName(inst)
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
