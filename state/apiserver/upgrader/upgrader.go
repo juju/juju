@@ -79,15 +79,10 @@ func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env
 	if err != nil {
 		return nil, err
 	}
-	requested := version.Binary{
-		Number: agentVersion,
-		Series: existingTools.Version.Series,
-		Arch:   existingTools.Version.Arch,
-	}
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
 	// in state, or even in the API servers
-	return envtools.FindExactTools(env, requested)
+	return envtools.FindExactTools(environs.StorageInstances(env), agentVersion, existingTools.Version.Series, existingTools.Version.Arch)
 }
 
 func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
