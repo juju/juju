@@ -10,12 +10,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"launchpad.net/juju-core/agent"
 	corecloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -81,7 +81,7 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	if err != nil {
 		return "", err
 	}
-	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Manual
+	mcfg.AgentEnvironment[agent.ProviderType] = provider.Manual
 	cloudcfg := corecloudinit.New()
 	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
 		return "", err
