@@ -20,24 +20,28 @@ const (
 )
 
 // MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.
-func MarshalToolsMetadataJSON(metadata []*ToolsMetadata) (index, products []byte, err error) {
-	if index, err = MarshalToolsMetadataIndexJSON(metadata); err != nil {
+//
+// updated is the time at which the JSON file was updated.
+func MarshalToolsMetadataJSON(metadata []*ToolsMetadata, updated time.Time) (index, products []byte, err error) {
+	if index, err = MarshalToolsMetadataIndexJSON(metadata, updated); err != nil {
 		return nil, nil, err
 	}
-	if products, err = MarshalToolsMetadataProductsJSON(metadata); err != nil {
+	if products, err = MarshalToolsMetadataProductsJSON(metadata, updated); err != nil {
 		return nil, nil, err
 	}
 	return index, products, err
 }
 
 // MarshalToolsMetadataIndexJSON marshals tools metadata to index JSON.
-func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata) (out []byte, err error) {
+//
+// updated is the time at which the JSON file was updated.
+func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata, updated time.Time) (out []byte, err error) {
 	productIds := make([]string, len(metadata))
 	for i, t := range metadata {
 		productIds[i] = t.productId()
 	}
 	var indices simplestreams.Indices
-	indices.Updated = time.Now().Format(time.RFC1123Z)
+	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = "index:1.0"
 	indices.Indexes = map[string]*simplestreams.IndexMetadata{
 		"com.ubuntu.juju:released:tools": &simplestreams.IndexMetadata{
@@ -52,12 +56,14 @@ func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata) (out []byte, err e
 }
 
 // MarshalToolsMetadataProductsJSON marshals tools metadata to products JSON.
-func MarshalToolsMetadataProductsJSON(metadata []*ToolsMetadata) (out []byte, err error) {
+//
+// updated is the time at which the JSON file was updated.
+func MarshalToolsMetadataProductsJSON(metadata []*ToolsMetadata, updated time.Time) (out []byte, err error) {
 	var cloud simplestreams.CloudMetadata
-	cloud.Updated = time.Now().Format(time.RFC1123Z)
+	cloud.Updated = updated.Format(time.RFC1123Z)
 	cloud.Format = "products:1.0"
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
-	itemsversion := time.Now().Format("20060201") // YYYYMMDD
+	itemsversion := updated.Format("20060201") // YYYYMMDD
 	for _, t := range metadata {
 		id := t.productId()
 		itemid := fmt.Sprintf("%s-%s-%s", t.Version, t.Release, t.Arch)

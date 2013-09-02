@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"launchpad.net/gnuflag"
 
@@ -101,7 +102,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 	}
 
-	index, products, err := tools.MarshalToolsMetadataJSON(metadata)
+	index, products, err := tools.MarshalToolsMetadataJSON(metadata, time.Now())
 	if err != nil {
 		return err
 	}
