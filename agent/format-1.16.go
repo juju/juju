@@ -10,6 +10,8 @@ import (
 	"path"
 
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 const (
@@ -172,6 +174,9 @@ func (*formatter_1_16) migrate(config *configInternal) {
 	}{{
 		JujuProviderType,
 		ProviderType,
+	}, {
+		osenv.JujuContainerType,
+		ContainerType,
 	}, {
 		JujuLxcBridge,
 		LxcBridge,

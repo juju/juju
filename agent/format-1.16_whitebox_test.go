@@ -13,6 +13,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -106,6 +107,7 @@ func (s *format_1_16Suite) TestReadWriteStateConfig(c *gc.C) {
 func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 	defer testing.PatchEnvironment(JujuLxcBridge, "lxc bridge")()
 	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
+	defer testing.PatchEnvironment(osenv.JujuContainerType, "container type")()
 	defer testing.PatchEnvironment(JujuStorageDir, "storage dir")()
 	defer testing.PatchEnvironment(JujuStorageAddr, "storage addr")()
 	defer testing.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")()
@@ -117,6 +119,7 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 	expected := map[string]string{
 		LxcBridge:         "lxc bridge",
 		ProviderType:      "provider type",
+		ContainerType:     "container type",
 		StorageDir:        "storage dir",
 		StorageAddr:       "storage addr",
 		SharedStorageDir:  "shared storage dir",
