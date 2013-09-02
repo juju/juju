@@ -78,18 +78,6 @@ func (*simplestreamsSuite) TestExtractCatalogsForProductsReturnsMatch(c *gc.C) {
 		[]simplestreams.MetadataCatalog{metadata.Products["foo"]})
 }
 
-func (*simplestreamsSuite) TestExtractCatalogsForProductsRegexpMatches(c *gc.C) {
-	metadata := simplestreams.CloudMetadata{
-		Products: map[string]simplestreams.MetadataCatalog{
-			"foo-1.2.3": {},
-		},
-	}
-	c.Check(
-		simplestreams.ExtractCatalogsForProducts(metadata, []string{`foo-1\.[0-9]\.3`}),
-		gc.DeepEquals,
-		[]simplestreams.MetadataCatalog{metadata.Products["foo-1.2.3"]})
-}
-
 func (*simplestreamsSuite) TestExtractCatalogsForProductsIgnoresNonMatches(c *gc.C) {
 	metadata := simplestreams.CloudMetadata{
 		Products: map[string]simplestreams.MetadataCatalog{
@@ -217,14 +205,6 @@ func (*simplestreamsSuite) TestHasProductFindsMatchingProduct(c *gc.C) {
 	metadata := simplestreams.IndexMetadata{ProductIds: []string{"x", "y", "z"}}
 	c.Check(
 		simplestreams.HasProduct(metadata, []string{"a", "b", metadata.ProductIds[1]}),
-		gc.Equals,
-		true)
-}
-
-func (*simplestreamsSuite) TestHasProductRegexpMatches(c *gc.C) {
-	metadata := simplestreams.IndexMetadata{ProductIds: []string{"x.y.z", "a.b.c", "1.2.3"}}
-	c.Check(
-		simplestreams.HasProduct(metadata, []string{"a.b", "x.y", `1\.[0-9]\.[0-9]`}),
 		gc.Equals,
 		true)
 }

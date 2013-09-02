@@ -35,7 +35,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, region, series, endp
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := MakeBoilerplate("", series, &tm, &cloudSpec, false)
+	_, err := MakeBoilerplate(&tm, &cloudSpec, false)
 	if err != nil {
 		return err
 	}

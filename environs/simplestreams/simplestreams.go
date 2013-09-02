@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -37,10 +36,7 @@ type CloudSpec struct {
 }
 
 type LookupConstraint interface {
-	// Generates a string array representing product ids or id gragments.
-	// Ids are formed similarly to an ISCSI qualified name (IQN).
-	// Since id's may be fragments corresponding to more than one product, matching is done
-	// using regexp. Since id's may contain '.', these need to be quoted accordingly.
+	// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 	Ids() ([]string, error)
 	// Returns the constraint parameters.
 	Params() LookupParams
@@ -162,6 +158,7 @@ type ItemCollection struct {
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch"`
 	Version    string                 `json:"version"`
+	Series     string                 `json:"release"`
 	RegionName string                 `json:"region"`
 	Endpoint   string                 `json:"endpoint"`
 }
@@ -251,11 +248,9 @@ func (entries MirrorRefSlice) filter(match func(*MirrorReference) bool) MirrorRe
 // the order of the parameter.
 func (metadata *CloudMetadata) extractCatalogsForProducts(productIds []string) []MetadataCatalog {
 	result := []MetadataCatalog{}
-	for id, catalog := range metadata.Products {
-		for _, pid := range productIds {
-			if productIdMatches(pid, id) {
-				result = append(result, catalog)
-			}
+	for _, id := range productIds {
+		if catalog, ok := metadata.Products[id]; ok {
+			result = append(result, catalog)
 		}
 	}
 	return result
@@ -642,19 +637,10 @@ func (mirrorMetadata *MirrorMetadata) getMirrorInfo(contentId string, cloud Clou
 	return &candidates[0], nil
 }
 
-// productIdMatches returns true if the product id expression equals or matches the product id.
-func productIdMatches(matchExpr, productId string) bool {
-	re, err := regexp.Compile("^" + matchExpr + "$")
-	if err != nil {
-		return false
-	}
-	return re.MatchString(productId)
-}
-
-// utility function to see if any of values matches element.
+// utility function to see if element exists in values slice.
 func containsString(values []string, element string) bool {
 	for _, value := range values {
-		if productIdMatches(value, element) {
+		if value == element {
 			return true
 		}
 	}

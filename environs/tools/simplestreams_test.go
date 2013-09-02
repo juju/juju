@@ -141,30 +141,6 @@ var fetchTests = []struct {
 		},
 	},
 }, {
-	series:  "",
-	arches:  []string{"amd64", "arm"},
-	version: "1.13.0",
-	tools: []*tools.ToolsMetadata{
-		{
-			Release:  "precise",
-			Version:  "1.13.0",
-			Arch:     "amd64",
-			Size:     2973595,
-			Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
-			FileType: "tar.gz",
-			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
-		},
-		{
-			Release:  "raring",
-			Version:  "1.13.0",
-			Arch:     "amd64",
-			Size:     2973173,
-			Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
-			FileType: "tar.gz",
-			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
-		},
-	},
-}, {
 	series:  "raring",
 	arches:  []string{"amd64", "arm"},
 	version: "1.11.4",
@@ -214,7 +190,7 @@ var fetchTests = []struct {
 			Version:  "1.11.5",
 			Arch:     "arm",
 			Size:     2031281,
-			Path:     "tools/releases/20130806/juju-1.11.5-precise-arm.tgz",
+			Path:     "tools/releases/20130803/juju-1.11.5-precise-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
@@ -257,7 +233,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.juju:1.13.0:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
@@ -267,9 +243,9 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{
-		"com.ubuntu.juju:1.11.3:amd64",
-		"com.ubuntu.juju:1.11.3:arm"})
+	c.Assert(ids, gc.DeepEquals, []string{
+		"com.ubuntu.juju:12.04:amd64",
+		"com.ubuntu.juju:12.04:arm"})
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
@@ -282,7 +258,7 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
 	}
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.juju:1.10.1:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:10.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
@@ -292,7 +268,7 @@ func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{`com\.ubuntu\.juju:1\.([0-9])*\.([0-9])*:amd64`})
+	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
 }
 
 func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
@@ -302,5 +278,5 @@ func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{`com\.ubuntu\.juju:1\.2\.([0-9])*:amd64`})
+	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
 }
