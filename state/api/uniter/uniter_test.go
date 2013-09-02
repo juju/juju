@@ -132,6 +132,14 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 func (s *uniterSuite) TestDestroy(c *gc.C) {
 	c.Assert(s.unit.Life(), gc.Equals, state.Alive)
 
+	// TODO(dimitern): Add the following test:
+	// 1. Add a subordinate
+	// 2. sub, err := s.uniter.Unit("sub/0")
+	// 3. sub.Destroy() - should succeeed.
+	// In order to do the above, the server-side
+	// Destroy() method should accept tags of the
+	// currently logged in unit's (principal)
+	// subordinates.
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 
@@ -423,7 +431,7 @@ func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
-	// NOTE: This test is not as exhaustive as the one it state,
+	// NOTE: This test is not as exhaustive as the one in state,
 	// because the watcher is already tested there. Here we just
 	// ensure we get the events when we expect them and don't get
 	// them when they're not expected.
