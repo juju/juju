@@ -120,7 +120,11 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 }
 
 func findMachineAgentTools(env environs.Environ, series, arch string) (*tools.Tools, error) {
-	possibleTools, err := envtools.FindInstanceTools(env, series, constraints.Value{})
+	agentVersion, ok := env.Config().AgentVersion()
+	if !ok {
+		return nil, fmt.Errorf("no agent version set in environment configuration")
+	}
+	possibleTools, err := envtools.FindInstanceTools(environs.StorageInstances(env), agentVersion, series, &arch)
 	if err != nil {
 		return nil, err
 	}
