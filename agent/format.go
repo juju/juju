@@ -56,7 +56,7 @@ func formatFile(dirName string) string {
 
 func readFormat(dirName string) (string, error) {
 	contents, err := ioutil.ReadFile(formatFile(dirName))
-	// Once the previousFormat is defined to have a format file (1.14 or
+	// Once the previousFormat is defined to have a format file (1.16 or
 	// above), not finding a format file should be a real error.
 	if err != nil {
 		return previousFormat, nil
