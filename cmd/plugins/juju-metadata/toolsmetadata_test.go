@@ -156,8 +156,6 @@ func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	s.makeTools(c, metadataDir, versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, nil)
-	fmt.Println(ctx.Stdout.(*bytes.Buffer).String())
-	fmt.Println(ctx.Stderr.(*bytes.Buffer).String())
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expected := fmt.Sprintf(expectedOutputDirectory, metadataDir, metadataDir)
