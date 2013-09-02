@@ -265,17 +265,17 @@ func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 
-	ok, err := unit.HasSubordinates()
+	found, err := unit.HasSubordinates()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(found, jc.IsFalse)
 
 	// Add a couple of subordinates and try again.
 	s.addRelatedService(c, "wordpress", "logging", s.unit)
 	s.addRelatedService(c, "wordpress", "monitoring", s.unit)
 
-	ok, err = unit.HasSubordinates()
+	found, err = unit.HasSubordinates()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestGetSetPublicAddress(c *gc.C) {
