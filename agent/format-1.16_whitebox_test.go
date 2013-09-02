@@ -17,14 +17,14 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-type format116Suite struct {
+type format_1_16Suite struct {
 	testing.LoggingSuite
-	formatter formatter116
+	formatter formatter_1_16
 }
 
-var _ = gc.Suite(&format116Suite{})
+var _ = gc.Suite(&format_1_16Suite{})
 
-func (s *format116Suite) newConfig(c *gc.C) *configInternal {
+func (s *format_1_16Suite) newConfig(c *gc.C) *configInternal {
 	params := agentParams
 	params.DataDir = c.MkDir()
 	config, err := newConfig(params)
@@ -32,7 +32,7 @@ func (s *format116Suite) newConfig(c *gc.C) *configInternal {
 	return config
 }
 
-func (s *format116Suite) TestWriteAgentConfig(c *gc.C) {
+func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
 	config := s.newConfig(c)
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
@@ -52,10 +52,10 @@ func (s *format116Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
 
 	formatContent, err := readFormat(config.Dir())
-	c.Assert(formatContent, gc.Equals, format116)
+	c.Assert(formatContent, gc.Equals, format_1_16)
 }
 
-func (s *format116Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
+func (s *format_1_16Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 	// The readConfig is missing the dataDir initially.
@@ -68,12 +68,12 @@ func (s *format116Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	c.Assert(readConfig, gc.DeepEquals, config)
 }
 
-func (s *format116Suite) TestRead(c *gc.C) {
+func (s *format_1_16Suite) TestRead(c *gc.C) {
 	config := s.newConfig(c)
 	s.assertWriteAndRead(c, config)
 }
 
-func (s *format116Suite) TestWriteCommands(c *gc.C) {
+func (s *format_1_16Suite) TestWriteCommands(c *gc.C) {
 	config := s.newConfig(c)
 	commands, err := s.formatter.writeCommands(config)
 	c.Assert(err, gc.IsNil)
@@ -85,7 +85,7 @@ func (s *format116Suite) TestWriteCommands(c *gc.C) {
 	c.Assert(commands[4], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
 }
 
-func (s *format116Suite) TestReadWriteStateConfig(c *gc.C) {
+func (s *format_1_16Suite) TestReadWriteStateConfig(c *gc.C) {
 	stateParams := StateMachineConfigParams{
 		AgentConfigParams: agentParams,
 		StateServerCert:   []byte("some special cert"),
@@ -103,7 +103,7 @@ func (s *format116Suite) TestReadWriteStateConfig(c *gc.C) {
 	s.assertWriteAndRead(c, config)
 }
 
-func (s *format116Suite) TestMigrate(c *gc.C) {
+func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 	defer testing.PatchEnvironment(JujuLxcBridge, "lxc bridge")()
 	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
 	defer testing.PatchEnvironment(JujuStorageDir, "storage dir")()
@@ -126,7 +126,7 @@ func (s *format116Suite) TestMigrate(c *gc.C) {
 	c.Assert(config.values, gc.DeepEquals, expected)
 }
 
-func (s *format116Suite) TestMigrateOnlySetsExisting(c *gc.C) {
+func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
 	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
 
 	config := s.newConfig(c)

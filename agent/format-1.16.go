@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	format116 = "format 1.16"
+	format_1_16 = "format 1.16"
 	// Old environment variables that are now stored in agent config.
 	JujuLxcBridge         = "JUJU_LXC_BRIDGE"
 	JujuProviderType      = "JUJU_PROVIDER_TYPE"
@@ -23,12 +23,12 @@ const (
 	JujuSharedStorageAddr = "JUJU_SHARED_STORAGE_ADDR"
 )
 
-// formatter116 is the formatter for the 1.16 format.
-type formatter116 struct {
+// formatter_1_16 is the formatter for the 1.16 format.
+type formatter_1_16 struct {
 }
 
-// format116Serialization holds information for a given agent.
-type format116Serialization struct {
+// format_1_16Serialization holds information for a given agent.
+type format_1_16Serialization struct {
 	Tag   string
 	Nonce string
 	// CACert is base64 encoded
@@ -48,28 +48,28 @@ type format116Serialization struct {
 	APIPort         int    `yaml:",omitempty"`
 }
 
-// Ensure that the formatter116 struct implements the formatter interface.
-var _ formatter = (*formatter116)(nil)
+// Ensure that the formatter_1_16 struct implements the formatter interface.
+var _ formatter = (*formatter_1_16)(nil)
 
-func (*formatter116) configFile(dirName string) string {
+func (*formatter_1_16) configFile(dirName string) string {
 	return path.Join(dirName, "agent.conf")
 }
 
 // decode makes sure that for an empty string we have a nil slice,
 // not an empty slice, which is what the DecodeString returns.
-func (*formatter116) decode(value string) (result []byte, err error) {
+func (*formatter_1_16) decode(value string) (result []byte, err error) {
 	if value != "" {
 		result, err = base64.StdEncoding.DecodeString(value)
 	}
 	return
 }
 
-func (formatter *formatter116) read(dirName string) (*configInternal, error) {
+func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
 	data, err := ioutil.ReadFile(formatter.configFile(dirName))
 	if err != nil {
 		return nil, err
 	}
-	var format format116Serialization
+	var format format_1_16Serialization
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
 	}
@@ -110,8 +110,8 @@ func (formatter *formatter116) read(dirName string) (*configInternal, error) {
 	return config, nil
 }
 
-func (formatter *formatter116) makeFormat(config *configInternal) *format116Serialization {
-	format := &format116Serialization{
+func (formatter *formatter_1_16) makeFormat(config *configInternal) *format_1_16Serialization {
+	format := &format_1_16Serialization{
 		Tag:             config.tag,
 		Nonce:           config.nonce,
 		CACert:          base64.StdEncoding.EncodeToString(config.caCert),
@@ -132,14 +132,14 @@ func (formatter *formatter116) makeFormat(config *configInternal) *format116Seri
 	return format
 }
 
-func (formatter *formatter116) write(config *configInternal) error {
+func (formatter *formatter_1_16) write(config *configInternal) error {
 	dirName := config.Dir()
 	conf := formatter.makeFormat(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {
 		return err
 	}
-	if err := writeFormatFile(dirName, format116); err != nil {
+	if err := writeFormatFile(dirName, format_1_16); err != nil {
 		return err
 	}
 	newFile := path.Join(dirName, "agent.conf-new")
@@ -152,20 +152,20 @@ func (formatter *formatter116) write(config *configInternal) error {
 	return nil
 }
 
-func (formatter *formatter116) writeCommands(config *configInternal) ([]string, error) {
+func (formatter *formatter_1_16) writeCommands(config *configInternal) ([]string, error) {
 	dirName := config.Dir()
 	conf := formatter.makeFormat(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {
 		return nil, err
 	}
-	commands := writeCommandsForFormat(dirName, format116)
+	commands := writeCommandsForFormat(dirName, format_1_16)
 	commands = append(commands,
 		writeFileCommands(formatter.configFile(dirName), string(data), 0600)...)
 	return commands, nil
 }
 
-func (*formatter116) migrate(config *configInternal) {
+func (*formatter_1_16) migrate(config *configInternal) {
 	for _, name := range []struct {
 		environment string
 		config      string

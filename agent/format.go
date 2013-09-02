@@ -31,13 +31,13 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = format116
-	previousFormat = format112
+	currentFormat  = format_1_16
+	previousFormat = format_1_12
 )
 
 var (
-	currentFormatter  = &formatter116{}
-	previousFormatter = &formatter112{}
+	currentFormatter  = &formatter_1_16{}
+	previousFormatter = &formatter_1_12{}
 )
 
 // The formatter defines the two methods needed by the formatters for
