@@ -58,13 +58,17 @@ func (tc *ToolsConstraint) Ids() ([]string, error) {
 
 // ToolsMetadata holds information about a particular tools tarball.
 type ToolsMetadata struct {
-	Release  string  `json:"release"`
-	Version  string  `json:"version"`
-	Arch     string  `json:"arch"`
-	Size     float64 `json:"size"`
-	Path     string  `json:"path"`
-	FileType string  `json:"ftype"`
-	SHA256   string  `json:"sha256"`
+	Release  string `json:"release"`
+	Version  string `json:"version"`
+	Arch     string `json:"arch"`
+	Size     int64  `json:"size"`
+	Path     string `json:"path"`
+	FileType string `json:"ftype"`
+	SHA256   string `json:"sha256"`
+}
+
+func (t *ToolsMetadata) productId() string {
+	return fmt.Sprintf("com.ubuntu.juju:%s:%s", t.Version, t.Arch)
 }
 
 // Fetch returns a list of tools for the specified cloud matching the constraint.
