@@ -228,7 +228,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	})
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestId(c *gc.C) {
@@ -239,7 +239,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 	})
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
@@ -250,7 +250,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	})
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{
+	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
 }
@@ -266,5 +266,5 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
 	}
 	c.Assert(err, gc.IsNil)
-	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
 }

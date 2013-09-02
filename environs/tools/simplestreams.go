@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/version"
-	"regexp"
 )
 
 func init() {
@@ -46,15 +45,13 @@ func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestre
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) Ids() ([]string, error) {
+	version, err := simplestreams.SeriesVersion(tc.Series)
+	if err != nil {
+		return nil, err
+	}
 	ids := make([]string, len(tc.Arches))
 	for i, arch := range tc.Arches {
-		if tc.Version != version.Zero {
-			ids[i] = regexp.QuoteMeta(fmt.Sprintf(`com.ubuntu.juju:%s:%s`, tc.Version, arch))
-		} else if tc.MinorVersion < 0 {
-			ids[i] = fmt.Sprintf(`com\.ubuntu\.juju:%d\.([0-9])*\.([0-9])*:%s`, tc.MajorVersion, arch)
-		} else {
-			ids[i] = fmt.Sprintf(`com\.ubuntu\.juju:%d\.%d\.([0-9])*:%s`, tc.MajorVersion, tc.MinorVersion, arch)
-		}
+		ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
 	}
 	return ids, nil
 }
@@ -100,7 +97,7 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 	toolsMap := make(map[string]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
-		toolsMap[fmt.Sprintf("%s-%s", tm.Release, tm.Version)] = tm
+		toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)] = tm
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
@@ -123,7 +120,7 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 				}
 			}
 		}
-		if _, ok := toolsMap[fmt.Sprintf("%s-%s", tm.Release, tm.Version)]; !ok {
+		if _, ok := toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)]; !ok {
 			matchingTools = append(matchingTools, tm)
 		}
 	}

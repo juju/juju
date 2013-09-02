@@ -8,7 +8,6 @@ package imagemetadata
 
 import (
 	"fmt"
-	"regexp"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 )
@@ -45,7 +44,7 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	}
 	ids := make([]string, len(ic.Arches))
 	for i, arch := range ic.Arches {
-		ids[i] = regexp.QuoteMeta(fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch))
+		ids[i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
 	}
 	return ids, nil
 }
