@@ -35,7 +35,7 @@ func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 var expectedIndex = `{
     "index": {
         "com.ubuntu.juju:released:tools": {
-            "updated": "Thu, 01 Jan 1970 08:00:00 +0800",
+            "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
             "path": "streams/v1/com.ubuntu.juju:released:tools.json",
@@ -45,7 +45,7 @@ var expectedIndex = `{
             ]
         }
     },
-    "updated": "Thu, 01 Jan 1970 08:00:00 +0800",
+    "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
     "format": "index:1.0"
 }`
 
@@ -99,7 +99,7 @@ var expectedProducts = `{
             }
         }
     },
-    "updated": "Thu, 01 Jan 1970 08:00:00 +0800",
+    "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
     "format": "products:1.0"
 }`
 
@@ -131,19 +131,19 @@ var toolMetadataForTesting = []*tools.ToolsMetadata{
 }
 
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
-	index, err := tools.MarshalToolsMetadataIndexJSON(toolMetadataForTesting, time.Unix(0, 0))
+	index, err := tools.MarshalToolsMetadataIndexJSON(toolMetadataForTesting, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
 }
 
 func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
-	products, err := tools.MarshalToolsMetadataProductsJSON(toolMetadataForTesting, time.Unix(0, 0))
+	products, err := tools.MarshalToolsMetadataProductsJSON(toolMetadataForTesting, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(products), gc.Equals, expectedProducts)
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
-	index, products, err := tools.MarshalToolsMetadataJSON(toolMetadataForTesting, time.Unix(0, 0))
+	index, products, err := tools.MarshalToolsMetadataJSON(toolMetadataForTesting, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
 	c.Assert(string(products), gc.Equals, expectedProducts)
