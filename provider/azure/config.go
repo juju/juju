@@ -147,9 +147,8 @@ const boilerplateYAML = `azure:
   # Pick a simplestreams stream to select OS images from: daily or released
   # images, or any other stream available on simplestreams.  Leave blank for
   # released images.
-  # For now, during development, only the daily 13.10 pre-release images work.
-  image-stream: daily
-  default-series: saucy
+  # image-stream: ""
+  # default-series: precise
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {

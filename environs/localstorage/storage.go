@@ -63,6 +63,12 @@ func (s *storage) List(prefix string) ([]string, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
+		// If the path is not found, it's not an error
+		// because it's only created when the first
+		// file is put.
+		if resp.StatusCode == http.StatusNotFound {
+			return []string{}, nil
+		}
 		return nil, fmt.Errorf("%s", resp.Status)
 	}
 	defer resp.Body.Close()
