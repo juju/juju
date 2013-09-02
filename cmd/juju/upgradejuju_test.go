@@ -193,7 +193,7 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
-	about:          "major version downgrade to compatible version",
+	about:          "major version downgrade to incompatible version",
 	private:        []string{"3.2.0-foo-bar"},
 	currentVersion: "3.2.0-foo-bar",
 	agentVersion:   "4.2.0",
