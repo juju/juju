@@ -318,14 +318,6 @@ func (u *UniterAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorRe
 	return result, nil
 }
 
-func (u *UniterAPI) unitNamesToTags(unitNames []string) []string {
-	var result []string
-	for _, unitName := range unitNames {
-		result = append(result, names.UnitTag(unitName))
-	}
-	return result
-}
-
 // HasSubordinates returns the whether each given unit has any subordinates.
 func (u *UniterAPI) HasSubordinates(args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
