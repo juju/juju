@@ -285,17 +285,15 @@ func (s *uniterSuite) TestGetSetPublicAddress(c *gc.C) {
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 
-	address, ok, err := unit.PublicAddress()
+	address, err := unit.PublicAddress()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
 	c.Assert(address, gc.Equals, "")
 
 	err = unit.SetPublicAddress("1.2.3.4")
 	c.Assert(err, gc.IsNil)
 
-	address, ok, err = unit.PublicAddress()
+	address, err = unit.PublicAddress()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ok, jc.IsTrue)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
@@ -303,17 +301,15 @@ func (s *uniterSuite) TestGetSetPrivateAddress(c *gc.C) {
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 
-	address, ok, err := unit.PrivateAddress()
+	address, err := unit.PrivateAddress()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
 	c.Assert(address, gc.Equals, "")
 
 	err = unit.SetPrivateAddress("1.2.3.4")
 	c.Assert(err, gc.IsNil)
 
-	address, ok, err = unit.PrivateAddress()
+	address, err = unit.PrivateAddress()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ok, jc.IsTrue)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
@@ -368,19 +364,17 @@ func (s *uniterSuite) TestGetSetCharmURL(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 
 	// Now check the same through the API.
-	curl, ok, err = unit.CharmURL()
+	curl, err = unit.CharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
 
 	err = unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, gc.IsNil)
 
-	curl, ok, err = unit.CharmURL()
+	curl, err = unit.CharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.NotNil)
 	c.Assert(curl.String(), gc.Equals, s.charm.String())
-	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {

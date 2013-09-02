@@ -317,10 +317,10 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	}}
 	result, err := s.uniter.PublicAddress(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
-		Results: []params.StringBoolResult{
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "1.2.3.4", Ok: true},
+			{Result: "1.2.3.4"},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -370,10 +370,10 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	}}
 	result, err := s.uniter.PrivateAddress(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
-		Results: []params.StringBoolResult{
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "1.2.3.4", Ok: true},
+			{Result: "1.2.3.4"},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
