@@ -175,7 +175,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		}
 		err = bootstrap.Bootstrap(env, cons)
 		if test.Err != nil {
-			c.Check(err, gc.ErrorMatches, ".*"+test.Err.Error())
+			c.Check(err, gc.ErrorMatches, test.Err.Error())
 			continue
 		} else {
 			c.Assert(err, gc.IsNil)
