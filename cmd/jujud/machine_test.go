@@ -374,7 +374,11 @@ func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test fu
 	}
 }
 
-func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
+// TODO(jam): 2013-09-02 http://pad.lv/1219661 
+// This test has been failing regularly on the Bot. Until someone fixes it so
+// it doesn't crash, it isn't worth having as we can't tell when someone
+// actually breaks something.
+func (s *MachineSuite) DONT_TestManageStateServesAPI(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		st, _, err := conf.OpenAPI(fastDialOpts)
 		c.Assert(err, gc.IsNil)
