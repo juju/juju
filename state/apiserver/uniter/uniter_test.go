@@ -516,26 +516,35 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	return relatedService, relatedUnit
 }
 
-func (s *uniterSuite) TestSubordinates(c *gc.C) {
-	// Add two subordinates to wordpressUnit.
-	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
-
+func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
+	// Try first without any subordinates for wordpressUnit.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-logging-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.Subordinates(args)
+	result, err := s.uniter.HasSubordinates(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
-		Results: []params.StringsResult{
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: []string{
-				"unit-logging-0",
-				"unit-monitoring-0",
-			}},
+			{Result: false},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Add two subordinates to wordpressUnit and try again.
+	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+
+	result, err = s.uniter.HasSubordinates(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

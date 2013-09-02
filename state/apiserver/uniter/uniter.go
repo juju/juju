@@ -326,14 +326,14 @@ func (u *UniterAPI) unitNamesToTags(unitNames []string) []string {
 	return result
 }
 
-// Subordinates returns the tags of any subordinate units, for each given unit.
-func (u *UniterAPI) Subordinates(args params.Entities) (params.StringsResults, error) {
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
+// HasSubordinates returns the whether each given unit has any subordinates.
+func (u *UniterAPI) HasSubordinates(args params.Entities) (params.BoolResults, error) {
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringsResults{}, err
+		return params.BoolResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -342,7 +342,7 @@ func (u *UniterAPI) Subordinates(args params.Entities) (params.StringsResults, e
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				subordinates := unit.SubordinateNames()
-				result.Results[i].Result = u.unitNamesToTags(subordinates)
+				result.Results[i].Result = len(subordinates) > 0
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
