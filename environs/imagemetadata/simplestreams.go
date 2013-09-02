@@ -8,6 +8,7 @@ package imagemetadata
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 

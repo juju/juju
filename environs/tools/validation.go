@@ -14,31 +14,42 @@ import (
 type ToolsMetadataLookupParams struct {
 	simplestreams.MetadataLookupParams
 	Version string
+	Major   int
+	Minor   int
 }
 
 // ValidateToolsMetadata attempts to load tools metadata for the specified cloud attributes and returns
 // any tools versions found, or an error if the metadata could not be loaded.
 func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) {
-	if params.Region == "" {
-		return nil, fmt.Errorf("required parameter region not specified")
-	}
-	if params.Endpoint == "" {
-		return nil, fmt.Errorf("required parameter endpoint not specified")
-	}
+	//	if params.Region == "" {
+	//		return nil, fmt.Errorf("required parameter region not specified")
+	//	}
+	//	if params.Endpoint == "" {
+	//		return nil, fmt.Errorf("required parameter endpoint not specified")
+	//	}
 	if len(params.Architectures) == 0 {
 		return nil, fmt.Errorf("required parameter arches not specified")
 	}
 	if len(params.BaseURLs) == 0 {
 		return nil, fmt.Errorf("required parameter baseURLs not specified")
 	}
-	if params.Version == "" {
+	if params.Version == "" && params.Major == 0 {
 		params.Version = version.CurrentNumber().String()
 	}
-	toolsConstraint := NewToolsConstraint(params.Version, simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-		Series:    params.Series,
-		Arches:    params.Architectures,
-	})
+	var toolsConstraint *ToolsConstraint
+	if params.Version == "" {
+		toolsConstraint = NewGeneralToolsConstraint(params.Major, params.Minor, simplestreams.LookupParams{
+			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
+			Series:    params.Series,
+			Arches:    params.Architectures,
+		})
+	} else {
+		toolsConstraint = NewVersionedToolsConstraint(params.Version, simplestreams.LookupParams{
+			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
+			Series:    params.Series,
+			Arches:    params.Architectures,
+		})
+	}
 	matchingTools, err := Fetch(params.BaseURLs, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		return nil, err
