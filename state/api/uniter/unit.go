@@ -239,16 +239,16 @@ func (u *Unit) IsPrincipal() (bool, error) {
 	return !result.Ok, nil
 }
 
-// SubordinateNames returns the names of any subordinate units.
+// Subordinates returns the tags of any subordinate units.
 //
-// NOTE: This differs from state.Unit.SubordinateNames() by returning
-// an error as well, because it needs to make an API call.
-func (u *Unit) SubordinateNames() ([]string, error) {
+// TODO(dimitern): Replace calls to state.Unit.SubordinateNames() with
+// a call to this method in the uniter code.
+func (u *Unit) Subordinates() ([]string, error) {
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "SubordinateNames", args, &results)
+	err := u.st.caller.Call("Uniter", "", "Subordinates", args, &results)
 	if err != nil {
 		return nil, err
 	}
