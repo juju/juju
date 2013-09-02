@@ -278,6 +278,43 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 	return result, nil
 }
 
+func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
+	subordinates := principal.SubordinateNames()
+	for _, subName := range subordinates {
+		unit, err := u.getUnit(names.UnitTag(subName))
+		if err != nil {
+			return err
+		}
+		if err = unit.Destroy(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DestroyAllSubordinates destroys all subordinates of each given unit.
+func (u *UniterAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				err = u.destroySubordinates(unit)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // SubordinateNames returns the names of any subordinate units, for each given unit.
 func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{

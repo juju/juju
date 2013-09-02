@@ -562,6 +562,42 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
+	// Add two subordinates to wordpressUnit.
+	_, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
+	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
+
+	err := s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	subordinates := s.wordpressUnit.SubordinateNames()
+	c.Assert(subordinates, gc.DeepEquals, []string{"logging/0", "monitoring/0"})
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.DestroyAllSubordinates(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit's subordinates were destroyed and removed.
+	err = loggingSub.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(loggingSub.Life(), gc.Equals, state.Dying)
+	err = monitoringSub.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(monitoringSub.Life(), gc.Equals, state.Dying)
+}
+
 func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	// Set wordpressUnit's charm URL first.
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
