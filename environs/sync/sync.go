@@ -62,7 +62,7 @@ func SyncTools(ctx *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion)
+	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, -1)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func SyncTools(ctx *SyncContext) error {
 	logger.Infof("listing target bucket")
 	targetStorage := ctx.Target.Storage()
 	if ctx.PublicBucket {
-		switch _, err := envtools.ReadList(targetStorage, majorVersion); err {
+		switch _, err := envtools.ReadList(targetStorage, majorVersion, -1); err {
 		case envtools.ErrNoTools:
 		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
@@ -98,7 +98,7 @@ func SyncTools(ctx *SyncContext) error {
 			return fmt.Errorf("cannot write to public storage")
 		}
 	}
-	targetTools, err := envtools.ReadList(targetStorage, majorVersion)
+	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
