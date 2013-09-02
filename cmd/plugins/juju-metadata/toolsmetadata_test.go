@@ -109,7 +109,7 @@ func (s *ToolsMetadataSuite) makeTools(c *gc.C, metadataDir string, versionStrin
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
-		err := ioutil.WriteFile(path, []byte(path), 0644)
+		err := ioutil.WriteFile(path, []byte(binary.String()), 0644)
 		c.Assert(err, gc.IsNil)
 	}
 }
@@ -226,18 +226,18 @@ Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 		Release:  "precise",
 		Version:  currentVersion.String(),
 		Arch:     "amd64",
-		Size:     85,
+		Size:     20,
 		Path:     fmt.Sprintf("releases/juju-%s-precise-amd64.tgz", currentVersion),
 		FileType: "tar.gz",
-		SHA256:   "6bd6e4ff34f88ac91f3a8ce975e7cdff30f1d57545a396f02f7c5858b0733951",
+		SHA256:   "015951733eca20aad4c42f1ee826c5a4904a66a12dd267ccefd6be414376fceb",
 	})
 	c.Assert(metadata[1], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String() + ".1",
 		Arch:     "amd64",
-		Size:     87,
+		Size:     22,
 		Path:     fmt.Sprintf("releases/juju-%s.1-precise-amd64.tgz", currentVersion),
 		FileType: "tar.gz",
-		SHA256:   "415df38683659b585ba854a22c3e4a6801cb51273e3f81e71c0b358318a5d5da",
+		SHA256:   "648422681cbb231d90b33394075aefe189d9c8c97a9da245e632f442357de340",
 	})
 }
