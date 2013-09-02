@@ -11,7 +11,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -31,6 +33,7 @@ type uniterSuite struct {
 	st      *api.State
 	machine *state.Machine
 	service *state.Service
+	charm   *state.Charm
 	unit    *state.Unit
 
 	uniter *uniter.State
@@ -46,7 +49,8 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.service, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.charm = s.AddTestingCharm(c, "wordpress")
+	s.service, err = s.State.AddService("wordpress", s.charm)
 	c.Assert(err, gc.IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -125,6 +129,27 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 }
 
+func (s *uniterSuite) TestDestroy(c *gc.C) {
+	c.Assert(s.unit.Life(), gc.Equals, state.Alive)
+
+	// TODO(dimitern): Add the following test:
+	// 1. Add a subordinate
+	// 2. sub, err := s.uniter.Unit("sub/0")
+	// 3. sub.Destroy() - should succeeed.
+	// In order to do the above, the server-side
+	// Destroy() method should accept tags of the
+	// currently logged in unit's (principal)
+	// subordinates.
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	err = unit.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	err = s.unit.Refresh()
+	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
+}
+
 func (s *uniterSuite) TestRefresh(c *gc.C) {
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
@@ -162,6 +187,254 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 	err = unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *uniterSuite) TestResolve(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, gc.IsNil)
+
+	mode, err := unit.Resolved()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
+
+	err = unit.ClearResolved()
+	c.Assert(err, gc.IsNil)
+
+	mode, err = unit.Resolved()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mode, gc.Equals, params.ResolvedNone)
+}
+
+func (s *uniterSuite) TestIsPrincipal(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	ok, err := unit.IsPrincipal()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
+	eps, err := s.State.InferEndpoints([]string{first, second})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	return rel
+}
+
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Service, *state.Unit) {
+	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
+	c.Assert(err, gc.IsNil)
+	rel := s.addRelation(c, firstSvc, relatedSvc)
+	relUnit, err := rel.Unit(unit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
+	c.Assert(err, gc.IsNil)
+	return relatedService, relatedUnit
+}
+
+func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	subordinates, err := unit.SubordinateNames()
+	c.Assert(err, gc.IsNil)
+	c.Assert(subordinates, gc.HasLen, 0)
+
+	// Add a couple of subordinates and try again.
+	s.addRelatedService(c, "wordpress", "logging", s.unit)
+	s.addRelatedService(c, "wordpress", "monitoring", s.unit)
+
+	subordinates, err = unit.SubordinateNames()
+	c.Assert(err, gc.IsNil)
+	c.Assert(subordinates, gc.DeepEquals, []string{"logging/0", "monitoring/0"})
+}
+
+func (s *uniterSuite) TestGetSetPublicAddress(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	address, ok, err := unit.PublicAddress()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(address, gc.Equals, "")
+
+	err = unit.SetPublicAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+
+	address, ok, err = unit.PublicAddress()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(address, gc.Equals, "1.2.3.4")
+}
+
+func (s *uniterSuite) TestGetSetPrivateAddress(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	address, ok, err := unit.PrivateAddress()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(address, gc.Equals, "")
+
+	err = unit.SetPrivateAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+
+	address, ok, err = unit.PrivateAddress()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(address, gc.Equals, "1.2.3.4")
+}
+
+func (s *uniterSuite) TestOpenClosePort(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	ports := s.unit.OpenedPorts()
+	c.Assert(ports, gc.HasLen, 0)
+
+	err = unit.OpenPort("foo", 1234)
+	c.Assert(err, gc.IsNil)
+	err = unit.OpenPort("bar", 4321)
+	c.Assert(err, gc.IsNil)
+
+	err = s.unit.Refresh()
+	c.Assert(err, gc.IsNil)
+	ports = s.unit.OpenedPorts()
+	// OpenedPorts returns a sorted slice.
+	c.Assert(ports, gc.DeepEquals, []instance.Port{
+		{Protocol: "bar", Number: 4321},
+		{Protocol: "foo", Number: 1234},
+	})
+
+	err = unit.ClosePort("bar", 4321)
+	c.Assert(err, gc.IsNil)
+
+	err = s.unit.Refresh()
+	c.Assert(err, gc.IsNil)
+	ports = s.unit.OpenedPorts()
+	// OpenedPorts returns a sorted slice.
+	c.Assert(ports, gc.DeepEquals, []instance.Port{
+		{Protocol: "foo", Number: 1234},
+	})
+
+	err = unit.ClosePort("foo", 1234)
+	c.Assert(err, gc.IsNil)
+
+	err = s.unit.Refresh()
+	c.Assert(err, gc.IsNil)
+	ports = s.unit.OpenedPorts()
+	c.Assert(ports, gc.HasLen, 0)
+}
+
+func (s *uniterSuite) TestGetSetCharmURL(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	// No charm URL set yet.
+	curl, ok := s.unit.CharmURL()
+	c.Assert(curl, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+
+	// Now check the same through the API.
+	curl, ok, err = unit.CharmURL()
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
+
+	curl, ok, err = unit.CharmURL()
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl, gc.NotNil)
+	c.Assert(curl.String(), gc.Equals, s.charm.String())
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *uniterSuite) TestConfigSettings(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	// Make sure ConfigSettings returns an error when
+	// no charm URL is set, as its state counterpart does.
+	settings, err := unit.ConfigSettings()
+	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+
+	// Now set the charm and try again.
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
+
+	settings, err = unit.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"blog-title": "My Title",
+	})
+
+	// Update the config and check we get the changes on the next call.
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "superhero paparazzi",
+	})
+	c.Assert(err, gc.IsNil)
+
+	settings, err = unit.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"blog-title": "superhero paparazzi",
+	})
+}
+
+func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(unit.Life(), gc.Equals, params.Alive)
+
+	// Make sure WatchConfigSettings returns an error when
+	// no charm URL is set, as its state counterpart does.
+	w, err := unit.WatchConfigSettings()
+	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+
+	// Now set the charm and try again.
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
+
+	w, err = unit.WatchConfigSettings()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	// Update config a couple of times, check a single event.
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "superhero paparazzi",
+	})
+	c.Assert(err, gc.IsNil)
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Non-change is not reported.
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// NOTE: This test is not as exhaustive as the one in state,
+	// because the watcher is already tested there. Here we just
+	// ensure we get the events when we expect them and don't get
+	// them when they're not expected.
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
