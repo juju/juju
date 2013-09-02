@@ -148,7 +148,7 @@ const boilerplateYAML = `azure:
   # images, or any other stream available on simplestreams.  Leave blank for
   # released images.
   # image-stream: ""
-  default-series: precise
+  # default-series: precise
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {
