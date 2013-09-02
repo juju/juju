@@ -24,6 +24,7 @@ var logger = loggo.GetLogger("juju.agent")
 const (
 	LxcBridge         = "LXC_BRIDGE"
 	ProviderType      = "PROVIDER_TYPE"
+	ContainerType     = "CONTAINER_TYPE"
 	StorageDir        = "STORAGE_DIR"
 	StorageAddr       = "STORAGE_ADDR"
 	SharedStorageDir  = "SHARED_STORAGE_DIR"
@@ -45,6 +46,10 @@ type Config interface {
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
 	Nonce() string
+
+	// CACert returns the CA certificate that is used to validate the state or
+	// API servier's certificate.
+	CACert() []byte
 
 	// OpenAPI tries to connect to an API end-point.  If a non-empty
 	// newPassword is returned, the password used to connect to the state
@@ -253,6 +258,10 @@ func (c *configInternal) DataDir() string {
 
 func (c *configInternal) Nonce() string {
 	return c.nonce
+}
+
+func (c *configInternal) CACert() []byte {
+	return c.caCert
 }
 
 func (c *configInternal) Value(key string) string {

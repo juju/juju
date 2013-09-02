@@ -134,32 +134,33 @@ func updateDistroInfo() error {
 type attributeValues map[string]string
 type aliasesByAttribute map[string]attributeValues
 
-// Exported for testing
 type CloudMetadata struct {
 	Products map[string]MetadataCatalog    `json:"products"`
-	Aliases  map[string]aliasesByAttribute `json:"_aliases"`
+	Aliases  map[string]aliasesByAttribute `json:"_aliases,omitempty"`
 	Updated  string                        `json:"updated"`
 	Format   string                        `json:"format"`
 }
 
-type itemsByVersion map[string]*ItemCollection
-
 type MetadataCatalog struct {
-	Series     string         `json:"release"`
-	Version    string         `json:"version"`
-	Arch       string         `json:"arch"`
-	RegionName string         `json:"region"`
-	Endpoint   string         `json:"endpoint"`
-	Items      itemsByVersion `json:"versions"`
+	Series     string `json:"release,omitempty"`
+	Version    string `json:"version,omitempty"`
+	Arch       string `json:"arch,omitempty"`
+	RegionName string `json:"region,omitempty"`
+	Endpoint   string `json:"endpoint,omitempty"`
+
+	// Items is a mapping from version to an ItemCollection,
+	// where the version is the date the items were produced,
+	// in the format YYYYMMDD.
+	Items map[string]*ItemCollection `json:"versions"`
 }
 
-// Exported for testing
 type ItemCollection struct {
+	rawItems   map[string]*json.RawMessage
 	Items      map[string]interface{} `json:"items"`
-	Arch       string                 `json:"arch"`
-	Version    string                 `json:"version"`
-	RegionName string                 `json:"region"`
-	Endpoint   string                 `json:"endpoint"`
+	Arch       string                 `json:"arch,omitempty"`
+	Version    string                 `json:"version,omitempty"`
+	RegionName string                 `json:"region,omitempty"`
+	Endpoint   string                 `json:"endpoint,omitempty"`
 }
 
 // These structs define the model used for metadata indices.
@@ -181,8 +182,8 @@ type IndexMetadata struct {
 	Updated          string      `json:"updated"`
 	Format           string      `json:"format"`
 	DataType         string      `json:"datatype"`
-	CloudName        string      `json:"cloudname"`
-	Clouds           []CloudSpec `json:"clouds"`
+	CloudName        string      `json:"cloudname,omitempty"`
+	Clouds           []CloudSpec `json:"clouds,omitempty"`
 	ProductsFilePath string      `json:"path"`
 	ProductIds       []string    `json:"products"`
 }
@@ -706,27 +707,12 @@ func (metadata *CloudMetadata) applyAliases() {
 func (metadata *CloudMetadata) construct(valueType reflect.Type) error {
 	for _, metadataCatalog := range metadata.Products {
 		for _, ItemCollection := range metadataCatalog.Items {
-			for i, item := range ItemCollection.Items {
-				val, err := structFromMap(valueType, item.(map[string]interface{}))
-				if err != nil {
-					return err
-				}
-				ItemCollection.Items[i] = val
+			if err := ItemCollection.construct(valueType); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
-}
-
-// structFromMap marshalls a mapf of values into a metadata struct.
-func structFromMap(valueType reflect.Type, attr map[string]interface{}) (interface{}, error) {
-	data, err := json.Marshal(attr)
-	if err != nil {
-		return nil, err
-	}
-	val := reflect.New(valueType).Interface()
-	err = json.Unmarshal([]byte(data), &val)
-	return val, err
 }
 
 type structTags map[reflect.Type]map[string]int

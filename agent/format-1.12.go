@@ -16,14 +16,14 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-const format112 = "format 1.12"
+const format_1_12 = "format 1.12"
 
-// formatter112 is the formatter for the 1.12 format.
-type formatter112 struct {
+// formatter_1_12 is the formatter for the 1.12 format.
+type formatter_1_12 struct {
 }
 
-// format112Serialization holds information stored in the agent.conf file.
-type format112Serialization struct {
+// format_1_12Serialization holds information stored in the agent.conf file.
+type format_1_12Serialization struct {
 	// StateServerCert and StateServerKey hold the state server
 	// certificate and private key in PEM format.
 	StateServerCert []byte `yaml:",omitempty"`
@@ -56,19 +56,19 @@ type format112Serialization struct {
 	APIInfo *api.Info `yaml:",omitempty"`
 }
 
-// Ensure that the formatter112 struct implements the formatter interface.
-var _ formatter = (*formatter112)(nil)
+// Ensure that the formatter_1_12 struct implements the formatter interface.
+var _ formatter = (*formatter_1_12)(nil)
 
-func (*formatter112) configFile(dirName string) string {
+func (*formatter_1_12) configFile(dirName string) string {
 	return path.Join(dirName, "agent.conf")
 }
 
-func (formatter *formatter112) read(dirName string) (*configInternal, error) {
+func (formatter *formatter_1_12) read(dirName string) (*configInternal, error) {
 	data, err := ioutil.ReadFile(formatter.configFile(dirName))
 	if err != nil {
 		return nil, err
 	}
-	var conf format112Serialization
+	var conf format_1_12Serialization
 	if err := goyaml.Unmarshal(data, &conf); err != nil {
 		return nil, err
 	}
@@ -107,8 +107,8 @@ func (formatter *formatter112) read(dirName string) (*configInternal, error) {
 	}, nil
 }
 
-func (formatter *formatter112) makeAgentConf(config *configInternal) *format112Serialization {
-	format := &format112Serialization{
+func (formatter *formatter_1_12) makeAgentConf(config *configInternal) *format_1_12Serialization {
+	format := &format_1_12Serialization{
 		StateServerCert: config.stateServerCert,
 		StateServerKey:  config.stateServerKey,
 		APIPort:         config.apiPort,
@@ -135,7 +135,7 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *format112S
 	return format
 }
 
-func (formatter *formatter112) write(config *configInternal) error {
+func (formatter *formatter_1_12) write(config *configInternal) error {
 	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
@@ -155,7 +155,7 @@ func (formatter *formatter112) write(config *configInternal) error {
 	return nil
 }
 
-func (formatter *formatter112) writeCommands(config *configInternal) ([]string, error) {
+func (formatter *formatter_1_12) writeCommands(config *configInternal) ([]string, error) {
 	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
@@ -173,5 +173,5 @@ func (formatter *formatter112) writeCommands(config *configInternal) ([]string, 
 	return commands, nil
 }
 
-func (*formatter112) migrate(config *configInternal) {
+func (*formatter_1_12) migrate(config *configInternal) {
 }

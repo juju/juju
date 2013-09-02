@@ -6,6 +6,7 @@
 package uniter
 
 import (
+	"fmt"
 	"strconv"
 
 	"launchpad.net/juju-core/charm"
@@ -85,15 +86,14 @@ func (u *UniterAPI) getService(tag string) (*state.Service, error) {
 	return entity.(*state.Service), nil
 }
 
-// PublicAddress returns for each given unit, a pair of the public
-// address of the unit and whether it's valid.
-func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResults, error) {
-	result := params.StringBoolResults{
-		Results: make([]params.StringBoolResult, len(args.Entities)),
+// PublicAddress returns the public address for each given unit, if set.
+func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringBoolResults{}, err
+		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -102,8 +102,11 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResult
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PublicAddress()
-				result.Results[i].Result = address
-				result.Results[i].Ok = ok
+				if ok {
+					result.Results[i].Result = address
+				} else {
+					err = fmt.Errorf("%q has no public address set", entity.Tag)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -134,15 +137,14 @@ func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.Err
 	return result, nil
 }
 
-// PrivateAddress returns for each given unit, a pair of the private
-// address of the unit and whether it's valid.
-func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResults, error) {
-	result := params.StringBoolResults{
-		Results: make([]params.StringBoolResult, len(args.Entities)),
+// PrivateAddress returns the private address for each given unit, if set.
+func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringBoolResults{}, err
+		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -151,8 +153,11 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResul
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PrivateAddress()
-				result.Results[i].Result = address
-				result.Results[i].Ok = ok
+				if ok {
+					result.Results[i].Result = address
+				} else {
+					err = fmt.Errorf("%q has no private address set", entity.Tag)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -229,7 +234,8 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 	return result, nil
 }
 
-// GetPrincipal returns the result of calling PrincipalName() on each given unit.
+// GetPrincipal returns the result of calling PrincipalName() and
+// converting it to a tag, on each given unit.
 func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
@@ -245,7 +251,9 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				principal, ok := unit.PrincipalName()
-				result.Results[i].Result = principal
+				if principal != "" {
+					result.Results[i].Result = names.UnitTag(principal)
+				}
 				result.Results[i].Ok = ok
 			}
 		}
@@ -278,14 +286,28 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 	return result, nil
 }
 
-// SubordinateNames returns the names of any subordinate units, for each given unit.
-func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResults, error) {
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
+func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
+	subordinates := principal.SubordinateNames()
+	for _, subName := range subordinates {
+		unit, err := u.getUnit(names.UnitTag(subName))
+		if err != nil {
+			return err
+		}
+		if err = unit.Destroy(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DestroyAllSubordinates destroys all subordinates of each given unit.
+func (u *UniterAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringsResults{}, err
+		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -293,7 +315,31 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResult
 			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
-				result.Results[i].Result = unit.SubordinateNames()
+				err = u.destroySubordinates(unit)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// HasSubordinates returns the whether each given unit has any subordinates.
+func (u *UniterAPI) HasSubordinates(args params.Entities) (params.BoolResults, error) {
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.BoolResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				subordinates := unit.SubordinateNames()
+				result.Results[i].Result = len(subordinates) > 0
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -321,8 +367,10 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 					CharmURL() (*charm.URL, bool)
 				})
 				curl, ok := charmURLer.CharmURL()
-				result.Results[i].Result = curl.String()
-				result.Results[i].Ok = ok
+				if curl != nil {
+					result.Results[i].Result = curl.String()
+					result.Results[i].Ok = ok
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

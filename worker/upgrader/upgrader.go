@@ -11,6 +11,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
@@ -67,11 +68,11 @@ type Upgrader struct {
 // If an upgrade is needed, the worker will exit with an
 // UpgradeReadyError holding details of the requested upgrade. The tools
 // will have been downloaded and unpacked.
-func New(st *upgrader.State, tag, dataDir string) *Upgrader {
+func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
 		st:      st,
-		dataDir: dataDir,
-		tag:     tag,
+		dataDir: agentConfig.DataDir(),
+		tag:     agentConfig.Tag(),
 	}
 	go func() {
 		defer u.tomb.Done()

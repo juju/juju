@@ -74,6 +74,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		mcfg.AgentEnvironment = make(map[string]string)
 	}
 	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
+	mcfg.AgentEnvironment[agent.ContainerType] = string(cfg.MachineContainerType)
 	if !mcfg.StateServer {
 		return nil
 	}
