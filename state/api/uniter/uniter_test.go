@@ -283,8 +283,7 @@ func (s *uniterSuite) TestGetSetPublicAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	address, err := unit.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(address, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
 	err = unit.SetPublicAddress("1.2.3.4")
 	c.Assert(err, gc.IsNil)
@@ -299,8 +298,7 @@ func (s *uniterSuite) TestGetSetPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	address, err := unit.PrivateAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(address, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	err = unit.SetPrivateAddress("1.2.3.4")
 	c.Assert(err, gc.IsNil)

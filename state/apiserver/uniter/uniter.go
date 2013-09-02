@@ -6,6 +6,7 @@
 package uniter
 
 import (
+	"fmt"
 	"strconv"
 
 	"launchpad.net/juju-core/charm"
@@ -100,8 +101,12 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
-				address, _ := unit.PublicAddress()
-				result.Results[i].Result = address
+				address, ok := unit.PublicAddress()
+				if ok {
+					result.Results[i].Result = address
+				} else {
+					err = fmt.Errorf("%q has no public address set", entity.Tag)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -147,8 +152,12 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
-				address, _ := unit.PrivateAddress()
-				result.Results[i].Result = address
+				address, ok := unit.PrivateAddress()
+				if ok {
+					result.Results[i].Result = address
+				} else {
+					err = fmt.Errorf("%q has no private address set", entity.Tag)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

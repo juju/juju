@@ -304,18 +304,31 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 }
 
 func (s *uniterSuite) TestPublicAddress(c *gc.C) {
-	err := s.wordpressUnit.SetPublicAddress("1.2.3.4")
-	c.Assert(err, gc.IsNil)
-	address, ok := s.wordpressUnit.PublicAddress()
-	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, jc.IsTrue)
-
+	// Try first without setting an address.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
+	expectErr := `"unit-wordpress-0" has no public address set`
 	result, err := s.uniter.PublicAddress(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: expectErr}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now set it an try again.
+	err = s.wordpressUnit.SetPublicAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, ok := s.wordpressUnit.PublicAddress()
+	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(ok, jc.IsTrue)
+
+	result, err = s.uniter.PublicAddress(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -357,18 +370,30 @@ func (s *uniterSuite) TestSetPublicAddress(c *gc.C) {
 }
 
 func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
-	err := s.wordpressUnit.SetPrivateAddress("1.2.3.4")
-	c.Assert(err, gc.IsNil)
-	address, ok := s.wordpressUnit.PrivateAddress()
-	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, jc.IsTrue)
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
+	expectErr := `"unit-wordpress-0" has no private address set`
 	result, err := s.uniter.PrivateAddress(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: expectErr}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now set it and try again.
+	err = s.wordpressUnit.SetPrivateAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, ok := s.wordpressUnit.PrivateAddress()
+	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(ok, jc.IsTrue)
+
+	result, err = s.uniter.PrivateAddress(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
