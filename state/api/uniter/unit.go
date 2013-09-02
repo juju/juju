@@ -172,6 +172,19 @@ func (u *Unit) Destroy() error {
 	return result.OneError()
 }
 
+// DestroyAllSubordinates destroys all subordinates of the unit.
+func (u *Unit) DestroyAllSubordinates() error {
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag}},
+	}
+	err := u.st.caller.Call("Uniter", "", "DestroyAllSubordinates", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // Resolved returns the resolved mode for the unit.
 //
 // NOTE: This differs from state.Unit.Resolved() by returning an

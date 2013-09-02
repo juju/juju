@@ -132,14 +132,6 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 func (s *uniterSuite) TestDestroy(c *gc.C) {
 	c.Assert(s.unit.Life(), gc.Equals, state.Alive)
 
-	// TODO(dimitern): Add the following test:
-	// 1. Add a subordinate
-	// 2. sub, err := s.uniter.Unit("sub/0")
-	// 3. sub.Destroy() - should succeeed.
-	// In order to do the above, the server-side
-	// Destroy() method should accept tags of the
-	// currently logged in unit's (principal)
-	// subordinates.
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 
@@ -148,6 +140,34 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 	err = s.unit.Refresh()
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
+}
+
+func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
+	c.Assert(s.unit.Life(), gc.Equals, state.Alive)
+
+	unit, err := s.uniter.Unit("unit-wordpress-0")
+	c.Assert(err, gc.IsNil)
+
+	// Call without subordinates - no change.
+	err = unit.DestroyAllSubordinates()
+	c.Assert(err, gc.IsNil)
+
+	// Add a couple of subordinates and try again.
+	_, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.unit)
+	_, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.unit)
+	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
+	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
+
+	err = unit.DestroyAllSubordinates()
+	c.Assert(err, gc.IsNil)
+
+	// Verify they got destroyed.
+	err = loggingSub.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(loggingSub.Life(), gc.Equals, state.Dying)
+	err = monitoringSub.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(monitoringSub.Life(), gc.Equals, state.Dying)
 }
 
 func (s *uniterSuite) TestRefresh(c *gc.C) {
