@@ -5,7 +5,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -222,22 +224,36 @@ Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 	c.Assert(output, gc.Matches, expectedOutput)
 	metadata := s.parseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, 2)
+
+	filename := fmt.Sprintf("juju-%s-precise-amd64.tgz", currentVersion)
 	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String(),
 		Arch:     "amd64",
 		Size:     20,
-		Path:     fmt.Sprintf("releases/juju-%s-precise-amd64.tgz", currentVersion),
+		Path:     "releases/" + filename,
 		FileType: "tar.gz",
-		SHA256:   "015951733eca20aad4c42f1ee826c5a4904a66a12dd267ccefd6be414376fceb",
+		SHA256:   sha256sum(c, filepath.Join(metadataDir, "tools", "releases", filename)),
 	})
+
+	filename = fmt.Sprintf("juju-%s.1-precise-amd64.tgz", currentVersion)
 	c.Assert(metadata[1], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String() + ".1",
 		Arch:     "amd64",
 		Size:     22,
-		Path:     fmt.Sprintf("releases/juju-%s.1-precise-amd64.tgz", currentVersion),
+		Path:     "releases/" + filename,
 		FileType: "tar.gz",
-		SHA256:   "648422681cbb231d90b33394075aefe189d9c8c97a9da245e632f442357de340",
+		SHA256:   sha256sum(c, filepath.Join(metadataDir, "tools", "releases", filename)),
 	})
+}
+
+func sha256sum(c *gc.C, path string) string {
+	f, err := os.Open(path)
+	c.Assert(err, gc.IsNil)
+	defer f.Close()
+	hash := sha256.New()
+	_, err = io.Copy(hash, f)
+	c.Assert(err, gc.IsNil)
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
