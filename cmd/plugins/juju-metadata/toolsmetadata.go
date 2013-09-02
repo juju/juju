@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
@@ -36,6 +36,10 @@ type ToolsMetadataCommand struct {
 	cmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
+
+	// noS3 is used in testing to disable the use of S3 public storage
+	// as a backup.
+	noS3 bool
 }
 
 func (c *ToolsMetadataCommand) Info() *cmd.Info {
@@ -60,17 +64,20 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	// Create a StorageReader that will get a tools list from the local disk.
 	// Since ReadList expects tools to be immediately under "tools/", and we
 	// want them to be in tools/releases, we have to wrap the storage.
-	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
+	listener, err := localstorage.Serve("127.0.0.1:0", c.metadataDir)
 	if err != nil {
 		return err
 	}
-	sourceStorage = prefixedToolsStorage{sourceStorage, "tools/"}
+	defer listener.Close()
+	var sourceStorage environs.StorageReader = localstorage.Client(listener.Addr().String())
+	sourceStorage = prefixedToolsStorage{sourceStorage}
 
 	fmt.Fprintln(context.Stdout, "Finding tools...")
-	toolsList, err := tools.ReadList(sourceStorage, version.Current.Major)
-	if err == tools.ErrNoTools {
+	const minorVersion = -1
+	toolsList, err := tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
+	if err == tools.ErrNoTools && !c.noS3 {
 		sourceStorage = ec2.NewHTTPStorageReader(sync.DefaultToolsLocation)
-		toolsList, err = tools.ReadList(sourceStorage, version.Current.Major)
+		toolsList, err = tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	}
 	if err != nil {
 		return err
@@ -145,25 +152,31 @@ func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
 	return size, sha256hash, err
 }
 
+const fromprefix = "tools/"
+const toprefix = "tools/releases/"
+
 type prefixedToolsStorage struct {
 	environs.StorageReader
-	prefix string
+}
+
+func (s prefixedToolsStorage) translate(name string) string {
+	return toprefix + name[len(fromprefix):]
 }
 
 func (s prefixedToolsStorage) Get(name string) (io.ReadCloser, error) {
-	return s.StorageReader.Get(name[len(s.prefix):])
+	return s.StorageReader.Get(s.translate(name))
 }
 
 func (s prefixedToolsStorage) List(prefix string) ([]string, error) {
-	names, err := s.StorageReader.List(prefix[len(s.prefix):])
+	names, err := s.StorageReader.List(s.translate(prefix))
 	if err == nil {
 		for i, name := range names {
-			names[i] = s.prefix + name
+			names[i] = fromprefix + name[len(toprefix):]
 		}
 	}
 	return names, err
 }
 
 func (s prefixedToolsStorage) URL(name string) (string, error) {
-	return s.StorageReader.URL(name[len(s.prefix):])
+	return s.StorageReader.URL(s.translate(name))
 }
