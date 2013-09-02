@@ -142,7 +142,8 @@ var stateJobs = map[params.MachineJob]bool{
 //
 // If a state worker is necessary, APIWorker calls ensureStateWorker.
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
-	st, entity, err := openAPIState(a.Conf.config, a)
+	agentConfig := a.Conf.config
+	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		// There was an error connecting to the API,
 		// https://launchpad.net/bugs/1199915 means that we may just
@@ -168,16 +169,16 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	// Only the machiner currently connects to the API.
 	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
+		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.dataDir), nil
+		return upgrader.New(st.Upgrader(), agentConfig), nil
 	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.dataDir)
+			deployerTask, err := newDeployer(st.Deployer(), agentConfig)
 			if err != nil {
 				return nil, err
 			}

@@ -5,6 +5,10 @@ package machiner_test
 
 import (
 	gc "launchpad.net/gocheck"
+	stdtesting "testing"
+	"time"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -13,8 +17,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machiner"
-	stdtesting "testing"
-	"time"
 )
 
 // worstCase is used for timeouts when timing out
@@ -87,13 +89,30 @@ func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatu
 
 var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
+type mockConfig struct {
+	agent.Config
+	tag string
+}
+
+func (mock *mockConfig) Tag() string {
+	return mock.tag
+}
+
+func agentConfig(tag string) agent.Config {
+	return &mockConfig{tag: tag}
+}
+
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, "eleventy-one")
+	mr := machiner.NewMachiner(s.machinerState, agentConfig("eleventy-one"))
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
+func (s *MachinerSuite) makeMachiner() worker.Worker {
+	return machiner.NewMachiner(s.machinerState, agentConfig(s.apiMachine.Tag()))
+}
+
 func (s *MachinerSuite) TestRunStop(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
+	mr := s.makeMachiner()
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
 	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
@@ -105,21 +124,21 @@ func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
+	mr := s.makeMachiner()
 	defer worker.Stop(mr)
 
 	s.waitMachineStatus(c, s.machine, params.StatusStarted)
 }
 
 func (s *MachinerSuite) TestSetsStatusWhenDying(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
+	mr := s.makeMachiner()
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.waitMachineStatus(c, s.machine, params.StatusStopped)
 }
 
 func (s *MachinerSuite) TestSetDead(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, s.machine.Tag())
+	mr := s.makeMachiner()
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
