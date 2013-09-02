@@ -173,7 +173,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return upgrader.New(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	for _, job := range entity.Jobs() {
 		switch job {
