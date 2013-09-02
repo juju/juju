@@ -229,7 +229,8 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 	return result, nil
 }
 
-// GetPrincipal returns the result of calling PrincipalName() on each given unit.
+// GetPrincipal returns the result of calling PrincipalName() and
+// converting it to a tag, on each given unit.
 func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
@@ -245,7 +246,9 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				principal, ok := unit.PrincipalName()
-				result.Results[i].Result = principal
+				if principal != "" {
+					result.Results[i].Result = names.UnitTag(principal)
+				}
 				result.Results[i].Ok = ok
 			}
 		}
@@ -315,14 +318,14 @@ func (u *UniterAPI) DestroyAllSubordinates(args params.Entities) (params.ErrorRe
 	return result, nil
 }
 
-// SubordinateNames returns the names of any subordinate units, for each given unit.
-func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResults, error) {
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
+// HasSubordinates returns the whether each given unit has any subordinates.
+func (u *UniterAPI) HasSubordinates(args params.Entities) (params.BoolResults, error) {
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringsResults{}, err
+		return params.BoolResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -330,7 +333,8 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResult
 			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
-				result.Results[i].Result = unit.SubordinateNames()
+				subordinates := unit.SubordinateNames()
+				result.Results[i].Result = len(subordinates) > 0
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

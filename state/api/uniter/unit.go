@@ -233,25 +233,22 @@ func (u *Unit) IsPrincipal() (bool, error) {
 	return !result.Ok, nil
 }
 
-// SubordinateNames returns the names of any subordinate units.
-//
-// NOTE: This differs from state.Unit.SubordinateNames() by returning
-// an error as well, because it needs to make an API call.
-func (u *Unit) SubordinateNames() ([]string, error) {
-	var results params.StringsResults
+// HasSubordinates returns the tags of any subordinate units.
+func (u *Unit) HasSubordinates() (bool, error) {
+	var results params.BoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "SubordinateNames", args, &results)
+	err := u.st.caller.Call("Uniter", "", "HasSubordinates", args, &results)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return false, fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return false, result.Error
 	}
 	return result.Result, nil
 }

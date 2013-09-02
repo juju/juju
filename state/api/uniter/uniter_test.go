@@ -261,21 +261,21 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	return relatedService, relatedUnit
 }
 
-func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
+func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 	unit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 
-	subordinates, err := unit.SubordinateNames()
+	found, err := unit.HasSubordinates()
 	c.Assert(err, gc.IsNil)
-	c.Assert(subordinates, gc.HasLen, 0)
+	c.Assert(found, jc.IsFalse)
 
 	// Add a couple of subordinates and try again.
 	s.addRelatedService(c, "wordpress", "logging", s.unit)
 	s.addRelatedService(c, "wordpress", "monitoring", s.unit)
 
-	subordinates, err = unit.SubordinateNames()
+	found, err = unit.HasSubordinates()
 	c.Assert(err, gc.IsNil)
-	c.Assert(subordinates, gc.DeepEquals, []string{"logging/0", "monitoring/0"})
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestGetSetPublicAddress(c *gc.C) {
