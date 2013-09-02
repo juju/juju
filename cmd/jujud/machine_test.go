@@ -248,10 +248,11 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 		inited: make(chan struct{}),
 	}
 	orig := newDeployContext
-	newDeployContext = func(dst *apideployer.State, dataDir string) (deployer.Context, error) {
+	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
 		ctx.st = st
+		ctx.agentConfig = agentConfig
 		close(ctx.inited)
-		return ctx, nil
+		return ctx
 	}
 	return ctx, func() { newDeployContext = orig }
 }

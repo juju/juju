@@ -26,6 +26,7 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/cleaner"
+	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
@@ -178,8 +179,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		switch job {
 		case params.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				context := newDeployContext(st, agentConfig)
-				return deployer.NewDeployer(st.Deployer(), context), nil
+				apiDeployer := st.Deployer()
+				context := newDeployContext(apiDeployer, agentConfig)
+				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
 			// Not yet implemented with the API.
