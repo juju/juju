@@ -160,9 +160,6 @@ func (u *Unit) ServiceName() string {
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
-//
-// TODO(dimitern): In uniter/modes.go:298 where we destroy subordinates,
-// instead of sub.Destroy(), we should use principal.DestroyAllSubordinates().
 func (u *Unit) Destroy() error {
 	var result params.ErrorResults
 	args := params.Entities{
@@ -176,9 +173,6 @@ func (u *Unit) Destroy() error {
 }
 
 // DestroyAllSubordinates destroys all subordinates of the unit.
-//
-// TODO(dimitern): In uniter/modes.go:298 where we destroy subordinates,
-// instead of sub.Destroy(), we should use principal.DestroyAllSubordinates().
 func (u *Unit) DestroyAllSubordinates() error {
 	var result params.ErrorResults
 	args := params.Entities{

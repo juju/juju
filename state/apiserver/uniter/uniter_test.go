@@ -589,7 +589,7 @@ func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 		},
 	})
 
-	// Verify wordpressUnit's subordinates were destroyed and removed.
+	// Verify wordpressUnit's subordinates were destroyed.
 	err = loggingSub.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Dying)
