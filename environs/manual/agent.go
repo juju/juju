@@ -81,7 +81,7 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	if err != nil {
 		return "", err
 	}
-	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Manual
+	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Null
 	cloudcfg := corecloudinit.New()
 	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
 		return "", err
