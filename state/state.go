@@ -474,8 +474,6 @@ func (st *State) Machine(id string) (*Machine, error) {
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
 	kind, id, err := names.ParseTag(tag, "")
-	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, add
-	// support for relation entities here.
 	switch kind {
 	case names.MachineTagKind:
 		return st.Machine(id)
@@ -497,11 +495,7 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		}
 		return st.Environment()
 	case names.RelationTagKind:
-		relId, err := strconv.Atoi(id)
-		if err != nil {
-			return nil, errors.NotFoundf("relation %s", id)
-		}
-		return st.Relation(relId)
+		return st.KeyRelation(id)
 	}
 	return nil, err
 }
