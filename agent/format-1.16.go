@@ -57,9 +57,9 @@ func (*formatter_1_16) configFile(dirName string) string {
 	return path.Join(dirName, "agent.conf")
 }
 
-// decode makes sure that for an empty string we have a nil slice,
-// not an empty slice, which is what the DecodeString returns.
-func (*formatter_1_16) decode(value string) (result []byte, err error) {
+// decode64 makes sure that for an empty string we have a nil slice, not an
+// empty slice, which is what the base64 DecodeString function returns.
+func (*formatter_1_16) decode64(value string) (result []byte, err error) {
 	if value != "" {
 		result, err = base64.StdEncoding.DecodeString(value)
 	}
@@ -75,15 +75,15 @@ func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
 	}
-	caCert, err := formatter.decode(format.CACert)
+	caCert, err := formatter.decode64(format.CACert)
 	if err != nil {
 		return nil, err
 	}
-	stateServerCert, err := formatter.decode(format.StateServerCert)
+	stateServerCert, err := formatter.decode64(format.StateServerCert)
 	if err != nil {
 		return nil, err
 	}
-	stateServerKey, err := formatter.decode(format.StateServerKey)
+	stateServerKey, err := formatter.decode64(format.StateServerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +141,12 @@ func (formatter *formatter_1_16) write(config *configInternal) error {
 	if err != nil {
 		return err
 	}
-	if err := writeFormatFile(dirName, format_1_16); err != nil {
-		return err
-	}
+	// Write the new config, then write the format, then rename the new config.
 	newFile := path.Join(dirName, "agent.conf-new")
 	if err := ioutil.WriteFile(newFile, data, 0600); err != nil {
+		return err
+	}
+	if err := writeFormatFile(dirName, format_1_16); err != nil {
 		return err
 	}
 	if err := os.Rename(newFile, formatter.configFile(dirName)); err != nil {

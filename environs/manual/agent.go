@@ -81,7 +81,7 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	if err != nil {
 		return "", err
 	}
-	mcfg.AgentEnvironment[agent.ProviderType] = provider.Manual
+	mcfg.AgentEnvironment[agent.ProviderType] = provider.Null
 	cloudcfg := corecloudinit.New()
 	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
 		return "", err

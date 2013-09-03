@@ -89,14 +89,16 @@ type Config interface {
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-// The configWriterMutex should be locked before any writing to disk
-// during the write commands, and unlocked when the writing is complete.
-// This process wide lock should stop any unintended concurrent writes.
-// This may happen when mutliple go-routines may be adding things to the
-// agent config, and wanting to persist them to disk. To ensure that the
-// correct data is written to disk, the mutex should be locked prior to
-// generating any disk state.  This way calls that might get interleaved
-// would always write the most recent state to disk.
+// The configWriterMutex should be locked before any writing to disk during
+// the write commands, and unlocked when the writing is complete.  This
+// process wide lock should stop any unintended concurrent writes.  This may
+// happen when mutliple go-routines may be adding things to the agent config,
+// and wanting to persist them to disk. To ensure that the correct data is
+// written to disk, the mutex should be locked prior to generating any disk
+// state.  This way calls that might get interleaved would always write the
+// most recent state to disk.  Since we different agent configs for each
+// agent, and there is only one process for each agent, a simple mutex is
+// enough for concurrency.
 var configWriterMutex sync.Mutex
 
 type connectionDetails struct {
@@ -211,6 +213,11 @@ func Dir(dataDir, agentName string) string {
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
+	// Even though the ReadConf is done at the start of the agent loading, and
+	// that this should not be called more than once by an agent, I feel that
+	// not locking the mutex that is used to protect writes is wrong.
+	configWriterMutex.Lock()
+	defer configWriterMutex.Unlock()
 	dir := Dir(dataDir, tag)
 	format, err := readFormat(dir)
 	if err != nil {
@@ -261,7 +268,10 @@ func (c *configInternal) Nonce() string {
 }
 
 func (c *configInternal) CACert() []byte {
-	return c.caCert
+	// Give the caller their own copy of the cert to avoid any possibility of
+	// modifying the config's copy.
+	result := append([]byte{}, c.caCert...)
+	return result
 }
 
 func (c *configInternal) Value(key string) string {
