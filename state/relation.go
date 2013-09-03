@@ -64,7 +64,7 @@ func (r *Relation) String() string {
 // Tag returns a name identifying the relation that is safe to use
 // as a file name.
 func (r *Relation) Tag() string {
-	return names.RelationTag(strconv.Itoa(r.doc.Id))
+	return names.RelationTag(r.doc.Key)
 }
 
 // Refresh refreshes the contents of the relation from the underlying
