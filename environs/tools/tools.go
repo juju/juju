@@ -29,19 +29,23 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
 	var toolsConstraint *ToolsConstraint
-	if filter.Number == version.Zero {
+	if filter.Number != version.Zero {
 		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(), simplestreams.LookupParams{
 			CloudSpec: cloudSpec,
 			Series:    filter.Series,
 		})
 	} else {
-		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, simplestreams.LookupParams{
-			CloudSpec: cloudSpec,
-			Series:    filter.Series,
-		})
+		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
+			simplestreams.LookupParams{
+				CloudSpec: cloudSpec,
+				Series:    filter.Series,
+			})
 	}
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}
+	} else {
+		logger.Infof("no architecture specified when finding tools, looking for any")
+		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
 	}
 	toolsMetadata, err := Fetch(urls, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
@@ -49,8 +53,13 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 	}
 	list = make(coretools.List, len(toolsMetadata))
 	for i, metadata := range toolsMetadata {
+		binary := version.Binary{
+			Number: version.MustParse(metadata.Version),
+			Arch: metadata.Arch,
+			Series: metadata.Release,
+		}
 		list[i] = &coretools.Tools{
-			Version: version.MustParseBinary(metadata.Version),
+			Version: binary,
 			URL:     metadata.Path,
 		}
 	}

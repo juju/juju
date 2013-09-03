@@ -108,6 +108,7 @@ var fetchTests = []struct {
 	version string
 	major   int
 	minor   int
+	released bool
 	arches  []string
 	tools   []*tools.ToolsMetadata
 }{{
@@ -195,6 +196,23 @@ var fetchTests = []struct {
 			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
 	},
+}, {
+	series:  "raring",
+	arches:  []string{"amd64", "arm"},
+	major:  1,
+	minor: -1,
+	released: true,
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "raring",
+			Version:  "1.14.0",
+			Arch:     "amd64",
+			Size:     2973173,
+			Path:     "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+			FileType: "tar.gz",
+			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
+		},
+	},
 }}
 
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
@@ -202,7 +220,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		c.Logf("test %d", i)
 		var toolsConstraint *tools.ToolsConstraint
 		if t.version == "" {
-			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, simplestreams.LookupParams{
+			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, t.released, simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 				Series:    t.series,
 				Arches:    t.arches,
@@ -262,7 +280,7 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
-	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, simplestreams.LookupParams{
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, false, simplestreams.LookupParams{
 		Series: "precise",
 		Arches: []string{"amd64"},
 	})
@@ -272,7 +290,7 @@ func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
-	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, simplestreams.LookupParams{
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, false, simplestreams.LookupParams{
 		Series: "precise",
 		Arches: []string{"amd64"},
 	})

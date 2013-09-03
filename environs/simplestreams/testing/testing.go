@@ -138,6 +138,13 @@ var imageData = map[string]string{
        "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
+      },
+      "1140raringamd64": {
+       "version": "1.14.0",
+       "size": 2973173,
+       "path": "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
      }
     }

@@ -30,6 +30,7 @@ type ToolsConstraint struct {
 	Version      version.Number
 	MajorVersion int
 	MinorVersion int
+	Released     bool
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
@@ -39,8 +40,9 @@ func NewVersionedToolsConstraint(vers string, params simplestreams.LookupParams)
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
-func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
-	return &ToolsConstraint{LookupParams: params, Version: version.Zero, MajorVersion: majorVersion, MinorVersion: minorVersion}
+func NewGeneralToolsConstraint(majorVersion, minorVersion int, released bool, params simplestreams.LookupParams) *ToolsConstraint {
+	return &ToolsConstraint{LookupParams: params, Version: version.Zero,
+		MajorVersion: majorVersion, MinorVersion: minorVersion, Released: released}
 }
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -116,6 +118,9 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
 			tmNumber := version.MustParse(tm.Version)
 			if toolsConstraint.Version == version.Zero {
+				if toolsConstraint.Released && tmNumber.IsDev() {
+					continue
+				}
 				if toolsConstraint.MajorVersion != tmNumber.Major {
 					continue
 				}

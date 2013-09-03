@@ -4,11 +4,16 @@
 package tools_test
 
 import (
+	"os"
+
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
+	"fmt"
+	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -17,14 +22,26 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"path/filepath"
+	"time"
+	"net/http"
 )
 
+// toolsTestHelper defines tools manipulation functions which are implemented differently for
+// legacy and simplestreams tools tests.
+type toolsTestHelper interface {
+	reset(c *gc.C, attrs map[string]interface{})
+	uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string
+	uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string
+	removeTools(c *gc.C)
+}
+
 type ToolsSuite struct {
+	toolsTestHelper
 	env environs.Environ
 	testing.LoggingSuite
 	envtesting.ToolsSuite
 	origCurrentVersion version.Binary
-	helper             toolsTestHelper
 }
 
 type LegacyToolsSuite struct {
@@ -33,30 +50,24 @@ type LegacyToolsSuite struct {
 
 type SimpleStreamsToolsSuite struct {
 	ToolsSuite
+	customToolsDir string
+	publicToolsDir string
+	oldClient *http.Client
 }
+
+var _ toolsTestHelper = (*LegacyToolsSuite)(nil)
+var _ toolsTestHelper = (*SimpleStreamsToolsSuite)(nil)
 
 func setupToolsTests() {
-	gc.Suite(&ToolsListSuite{})
-	gc.Suite(&LegacyToolsSuite{ToolsSuite: ToolsSuite{helper: &LegacyToolsHelper{}}})
-	gc.Suite(&SimpleStreamsToolsSuite{ToolsSuite: ToolsSuite{helper: &SimpleStreamsToolsHelper{}}})
+	gc.Suite(&LegacyToolsSuite{})
+	gc.Suite(&SimpleStreamsToolsSuite{})
 }
 
-// toolsTestHelper defines tools manipulation functions which are implemented differently for
-// legacy and simplestreams tools tests.
-type toolsTestHelper interface {
-	uploadCustom(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string
-	uploadPublic(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string
-	removeTools(c *gc.C, env environs.Environ)
+func (s *LegacyToolsSuite) removeTools(c *gc.C) {
+	envtesting.RemoveAllTools(c, s.env)
 }
 
-// LegacyToolsHelper implements helper functions for legacy tools tests.
-type LegacyToolsHelper struct{}
-
-func (h *LegacyToolsHelper) removeTools(c *gc.C, env environs.Environ) {
-	envtesting.RemoveAllTools(c, env)
-}
-
-func (h *LegacyToolsHelper) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *LegacyToolsSuite) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	for _, vers := range verses {
 		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
@@ -64,41 +75,104 @@ func (h *LegacyToolsHelper) uploadVersions(c *gc.C, storage environs.Storage, ve
 	return uploaded
 }
 
-func (h *LegacyToolsHelper) uploadCustom(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
-	return h.uploadVersions(c, env.Storage(), verses...)
+func (s *LegacyToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+	return s.uploadVersions(c, s.env.Storage(), verses...)
 }
 
-func (h *LegacyToolsHelper) uploadPublic(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
-	storage := env.PublicStorage().(environs.Storage)
-	return h.uploadVersions(c, storage, verses...)
+func (s *LegacyToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+	storage := s.env.PublicStorage().(environs.Storage)
+	return s.uploadVersions(c, storage, verses...)
 }
 
-// SimpleStreamsToolsHelper implements helper functions for simplestreams tools tests.
-type SimpleStreamsToolsHelper struct{}
-
-func (h *SimpleStreamsToolsHelper) removeTools(c *gc.C, env environs.Environ) {
-	//	todo
+func (s *LegacyToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
+	s.resetEnv(c, attrs)
 }
 
-func (h *SimpleStreamsToolsHelper) uploadVersions(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+func (s *LegacyToolsSuite) SetUpSuite(c *gc.C) {
+	s.toolsTestHelper = s
+}
+
+func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
+	s.toolsTestHelper = s
+	s.customToolsDir = c.MkDir()
+	s.publicToolsDir = c.MkDir()
+	t := &http.Transport{}
+	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
+	s.oldClient = simplestreams.SetHttpClient(&http.Client{Transport: t})
+
+}
+
+func (s *SimpleStreamsToolsSuite) TearDownSuite(c *gc.C) {
+	if s.oldClient != nil {
+		simplestreams.SetHttpClient(s.oldClient)
+	}
+}
+
+func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
+	final := map[string]interface{}{
+		"tools-url": "file://" + s.customToolsDir,
+	}
+	for k, v := range attrs {
+		final[k] = v
+	}
+	s.resetEnv(c, final)
+}
+
+func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
+	files, err := ioutil.ReadDir(s.customToolsDir)
+	c.Assert(err, gc.IsNil)
+	for _, f := range files {
+		err := os.RemoveAll(filepath.Join(s.customToolsDir, f.Name()))
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
-	//todo
+	var metadata = make([]*envtools.ToolsMetadata, len(verses))
+	for i, vers := range verses {
+		uploaded[vers] = fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		metadata[i] = &envtools.ToolsMetadata{
+			Release: vers.Series,
+			Version: vers.Number.String(),
+			Arch:    vers.Arch,
+			Path:    uploaded[vers],
+		}
+	}
+	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
+	c.Assert(err, gc.IsNil)
+	objects := []struct {
+		path string
+		data []byte
+	}{
+		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{envtools.ProductMetadataPath, products},
+	}
+	for _, object := range objects {
+		path := filepath.Join(dir, object.path)
+		dir := filepath.Dir(path)
+		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+			c.Assert(err, gc.IsNil)
+		}
+		err = ioutil.WriteFile(path, object.data, 0644)
+		c.Assert(err, gc.IsNil)
+	}
 	return uploaded
 }
 
-func (h *SimpleStreamsToolsHelper) uploadCustom(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
-	return h.uploadVersions(c, verses...)
+func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+	return s.uploadVersions(c, s.customToolsDir, verses...)
 }
 
-func (h *SimpleStreamsToolsHelper) uploadPublic(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
-	return h.uploadVersions(c, verses...)
+func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+	return s.uploadVersions(c, s.publicToolsDir, verses...)
 }
 
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsSuite.SetUpTest(c)
 	s.origCurrentVersion = version.Current
-	s.Reset(c, nil)
+	s.reset(c, nil)
 }
 
 func (s *ToolsSuite) TearDownTest(c *gc.C) {
@@ -108,7 +182,7 @@ func (s *ToolsSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
+func (s *ToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
 	final := map[string]interface{}{
@@ -127,7 +201,7 @@ func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	s.env = env
-	s.helper.removeTools(c, s.env)
+	s.removeTools(c)
 }
 
 var findToolsTests = []struct {
@@ -184,9 +258,9 @@ var findToolsTests = []struct {
 func (s *ToolsSuite) TestFindTools(c *gc.C) {
 	for i, test := range findToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
-		s.Reset(c, nil)
-		custom := s.helper.uploadCustom(c, s.env, test.custom...)
-		public := s.helper.uploadPublic(c, s.env, test.public...)
+		s.reset(c, nil)
+		custom := s.uploadCustom(c, test.custom...)
+		public := s.uploadPublic(c, test.public...)
 		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
@@ -220,6 +294,7 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
 		{loggo.INFO, "filtering tools by version: 1.2.3"},
+		{loggo.INFO, "no architecture specified when finding tools, looking for any"},
 		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
 		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
 		{loggo.DEBUG, "reading v1.* tools"},
@@ -237,16 +312,16 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
 	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
-			{loggo.INFO, "reading tools with major version 1"},
-			{loggo.INFO, "filtering tools by version: 1.2.3"},
-			{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
-			{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
-			{loggo.DEBUG, "reading v1.* tools"},
-			{loggo.DEBUG, "reading v1.* tools"},
-			{loggo.DEBUG, "found 1.13.3-precise-amd64"},
-			{loggo.DEBUG, "found 1.13.3-raring-amd64"},
-			{loggo.ERROR, `cannot match tools.Filter{Released:false, Number:version.Number{Major:1, Minor:2, Patch:3, Build:0}, Series:"", Arch:""}`},
-		})
+		{loggo.INFO, "reading tools with major version 1"},
+		{loggo.INFO, "filtering tools by version: 1.2.3"},
+		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
+		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
+		{loggo.DEBUG, "reading v1.* tools"},
+		{loggo.DEBUG, "reading v1.* tools"},
+		{loggo.DEBUG, "found 1.13.3-precise-amd64"},
+		{loggo.DEBUG, "found 1.13.3-raring-amd64"},
+		{loggo.ERROR, `cannot match tools.Filter{Released:false, Number:version.Number{Major:1, Minor:2, Patch:3, Build:0}, Series:"", Arch:""}`},
+	})
 }
 
 func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
@@ -261,12 +336,12 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			attrs["agent-version"] = test.AgentVersion.String()
 			agentVersion = &test.AgentVersion
 		}
-		s.Reset(c, attrs)
+		s.reset(c, attrs)
 		version.Current = test.CliVersion
-		available := s.helper.uploadCustom(c, s.env, test.Available...)
+		available := s.uploadCustom(c, test.Available...)
 		if len(available) > 0 {
 			// These should never be chosen.
-			s.helper.uploadPublic(c, s.env, envtesting.VAll...)
+			s.uploadPublic(c, envtesting.VAll...)
 		}
 
 		cfg := s.env.Config()
@@ -349,13 +424,13 @@ var findInstanceToolsTests = []struct {
 func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 	for i, test := range findInstanceToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
-		s.Reset(c, map[string]interface{}{
+		s.reset(c, map[string]interface{}{
 			"agent-version": test.agentVersion.String(),
 		})
-		available := s.helper.uploadCustom(c, s.env, test.available...)
+		available := s.uploadCustom(c, test.available...)
 		if len(available) > 0 {
 			// These should never be chosen.
-			s.helper.uploadPublic(c, s.env, envtesting.VAll...)
+			s.uploadPublic(c, envtesting.VAll...)
 		}
 
 		agentVersion, _ := s.env.Config().AgentVersion()
@@ -414,9 +489,9 @@ var findExactToolsTests = []struct {
 func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 	for i, test := range findExactToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
-		s.Reset(c, nil)
-		custom := s.helper.uploadCustom(c, s.env, test.custom...)
-		public := s.helper.uploadPublic(c, s.env, test.public...)
+		s.reset(c, nil)
+		custom := s.uploadCustom(c, test.custom...)
+		public := s.uploadPublic(c, test.public...)
 		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Series, test.seek.Arch)
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
