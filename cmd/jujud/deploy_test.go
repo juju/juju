@@ -11,6 +11,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/set"
@@ -23,10 +24,11 @@ import (
 // a sync and observe changes to the set of desired units (and thereby run
 // deployment tests in a reasonable amount of time).
 type fakeContext struct {
-	mu       sync.Mutex
-	deployed set.Strings
-	st       *state.State
-	inited   chan struct{}
+	mu          sync.Mutex
+	deployed    set.Strings
+	st          *state.State
+	agentConfig agent.Config
+	inited      chan struct{}
 }
 
 func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
@@ -75,4 +77,8 @@ func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 			}
 		}
 	}
+}
+
+func (ctx *fakeContext) AgentConfig() agent.Config {
+	return ctx.agentConfig
 }
