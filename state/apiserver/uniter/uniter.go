@@ -7,7 +7,6 @@ package uniter
 
 import (
 	"fmt"
-	"strconv"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
@@ -613,18 +612,11 @@ func (u *UniterAPI) CharmBundleSha256(args params.CharmURLs) (params.StringResul
 }
 
 func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.Relation, *state.Unit, error) {
-	_, id, err := names.ParseTag(relTag, names.RelationTagKind)
+	_, key, err := names.ParseTag(relTag, names.RelationTagKind)
 	if err != nil {
 		return nil, nil, common.ErrPerm
 	}
-	// TODO(dimitern): Once the relation tags have a different format
-	// (e.g. "relation-service1@name1+service2@name2"), change the
-	// following code accordingly.
-	relId, err := strconv.Atoi(id)
-	if err != nil {
-		return nil, nil, common.ErrPerm
-	}
-	rel, err := u.st.Relation(relId)
+	rel, err := u.st.KeyRelation(key)
 	if errors.IsNotFoundError(err) {
 		return nil, nil, common.ErrPerm
 	} else if err != nil {

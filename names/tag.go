@@ -27,8 +27,9 @@ var validKinds = map[string]bool{
 }
 
 var tagSuffixToId = map[string]func(string) string{
-	UnitTagKind:    unitTagSuffixToId,
-	MachineTagKind: machineTagSuffixToId,
+	UnitTagKind:     unitTagSuffixToId,
+	MachineTagKind:  machineTagSuffixToId,
+	RelationTagKind: relationTagSuffixToKey,
 }
 
 var verifyId = map[string]func(string) bool{
