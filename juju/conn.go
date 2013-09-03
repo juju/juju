@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -380,38 +379,12 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 // default paths based on the $JUJU_HOME or $HOME environment variables.
 // This function should be called before calling NewConn or Conn.Deploy.
 func InitJujuHome() error {
-	jujuHome := os.Getenv("JUJU_HOME")
+	jujuHome := osenv.JujuHomeDir()
 	if jujuHome == "" {
-		if runtime.GOOS == "windows" {
-			jujuHome = jujuHomeWin()
-		} else {
-			jujuHome = jujuHomeLinux()
-		}
-		if jujuHome == "" {
-			return stderrors.New(
-				"cannot determine juju home, neither $JUJU_HOME nor user home directory are set")
-		}
+		return stderrors.New(
+			"cannot determine juju home, required environment variables are not set")
 	}
-
 	config.SetJujuHome(jujuHome)
 	charm.CacheDir = filepath.Join(jujuHome, "charmcache")
 	return nil
-}
-
-// jujuHomeLinux returns the directory where juju should store application-specific files on Linux.
-func jujuHomeLinux() string {
-	home := osenv.Home()
-	if home == "" {
-		return ""
-	}
-	return filepath.Join(home, ".juju")
-}
-
-// jujuHomeWin returns the directory where juju should store application-specific files on Windows.
-func jujuHomeWin() string {
-	appdata := os.Getenv("LOCALAPPDATA")
-	if appdata == "" {
-		return ""
-	}
-	return filepath.Join(appdata, "Juju")
 }
