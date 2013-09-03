@@ -150,8 +150,8 @@ type sameContents struct {
 }
 
 // SameContents checks that the obtained slice contains all the values (and
-// same number of values) ofthe expected slice and vice versa, without worrying
-// about order. SameContents uses DeepEquals on maps to compare values.
+// same number of values) of the expected slice and vice versa, without respect
+// to order or duplicates. Uses DeepEquals on mapped contents to compare.
 var SameContents Checker = &sameContents{
 	&CheckerInfo{Name: "SameContents", Params: []string{"obtained", "expected"}},
 }
