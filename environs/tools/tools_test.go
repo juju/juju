@@ -22,9 +22,9 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"net/http"
 	"path/filepath"
 	"time"
-	"net/http"
 )
 
 // toolsTestHelper defines tools manipulation functions which are implemented differently for
@@ -52,7 +52,7 @@ type SimpleStreamsToolsSuite struct {
 	ToolsSuite
 	customToolsDir string
 	publicToolsDir string
-	oldClient *http.Client
+	oldClient      *http.Client
 }
 
 var _ toolsTestHelper = (*LegacyToolsSuite)(nil)

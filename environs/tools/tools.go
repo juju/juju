@@ -55,7 +55,7 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 	for i, metadata := range toolsMetadata {
 		binary := version.Binary{
 			Number: version.MustParse(metadata.Version),
-			Arch: metadata.Arch,
+			Arch:   metadata.Arch,
 			Series: metadata.Release,
 		}
 		list[i] = &coretools.Tools{
@@ -91,6 +91,7 @@ func FindTools(cloud environs.HasConfig, majorVersion, minorVersion int, filter 
 			Endpoint: cfg["endpoint"],
 		}
 	}
+	// If only one of region or endpoint is provided, that is a problem.
 	if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
 		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
 	}
@@ -112,7 +113,6 @@ func FindTools(cloud environs.HasConfig, majorVersion, minorVersion int, filter 
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-
 	urls, err := GetMetadataURLs(cloud)
 	if err != nil {
 		return nil, err

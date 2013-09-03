@@ -103,14 +103,14 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 var fetchTests = []struct {
-	region  string
-	series  string
-	version string
-	major   int
-	minor   int
+	region   string
+	series   string
+	version  string
+	major    int
+	minor    int
 	released bool
-	arches  []string
-	tools   []*tools.ToolsMetadata
+	arches   []string
+	tools    []*tools.ToolsMetadata
 }{{
 	series:  "precise",
 	arches:  []string{"amd64", "arm"},
@@ -197,10 +197,10 @@ var fetchTests = []struct {
 		},
 	},
 }, {
-	series:  "raring",
-	arches:  []string{"amd64", "arm"},
-	major:  1,
-	minor: -1,
+	series:   "raring",
+	arches:   []string{"amd64", "arm"},
+	major:    1,
+	minor:    -1,
 	released: true,
 	tools: []*tools.ToolsMetadata{
 		{
