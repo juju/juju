@@ -14,6 +14,7 @@ type itemCollection struct {
 	Items      map[string]*json.RawMessage `json:"items"`
 	Arch       string                      `json:"arch,omitempty"`
 	Version    string                      `json:"version,omitempty"`
+	Series     string                      `json:"release,omitempty"`
 	RegionName string                      `json:"region,omitempty"`
 	Endpoint   string                      `json:"endpoint,omitempty"`
 }
@@ -30,6 +31,7 @@ func (c *ItemCollection) UnmarshalJSON(b []byte) error {
 	c.Items = make(map[string]interface{}, len(raw.Items))
 	c.Arch = raw.Arch
 	c.Version = raw.Version
+	c.Series = raw.Series
 	c.RegionName = raw.RegionName
 	c.Endpoint = raw.Endpoint
 	for key, rawv := range raw.Items {

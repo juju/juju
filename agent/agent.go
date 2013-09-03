@@ -268,7 +268,10 @@ func (c *configInternal) Nonce() string {
 }
 
 func (c *configInternal) CACert() []byte {
-	return c.caCert
+	// Give the caller their own copy of the cert to avoid any possibility of
+	// modifying the config's copy.
+	result := append([]byte{}, c.caCert...)
+	return result
 }
 
 func (c *configInternal) Value(key string) string {

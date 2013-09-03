@@ -68,8 +68,10 @@ var imageData = map[string]string{
 		   "datatype": "content-download",
 		   "format": "products:1.0",
 		   "products": [
-		     "com.ubuntu.juju:1.13.0:amd64",
-		     "com.ubuntu.juju:1.11.4:arm"
+		     "com.ubuntu.juju:12.04:amd64",
+		     "com.ubuntu.juju:12.04:arm",
+		     "com.ubuntu.juju:13.04:amd64",
+		     "com.ubuntu.juju:13.04:arm"
 		   ],
 		   "path": "streams/v1/tools_metadata.json"
 		  }
@@ -107,21 +109,31 @@ var imageData = map[string]string{
  "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
  "format": "products:1.0",
  "products": {
-  "com.ubuntu.juju:1.13.0:amd64": {
-   "version": "1.13.0",
+  "com.ubuntu.juju:12.04:amd64": {
    "arch": "amd64",
+   "release": "precise",
    "versions": {
     "20130806": {
      "items": {
       "1130preciseamd64": {
-       "release": "precise",
+       "version": "1.13.0",
        "size": 2973595,
        "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
-      },
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:13.04:amd64": {
+   "arch": "amd64",
+   "release": "raring",
+   "versions": {
+    "20130806": {
+     "items": {
       "1130raringamd64": {
-       "release": "raring",
+       "version": "1.13.0",
        "size": 2973173,
        "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
        "ftype": "tar.gz",
@@ -131,23 +143,65 @@ var imageData = map[string]string{
     }
    }
   },
-  "com.ubuntu.juju:1.11.4:arm": {
-   "version": "1.11.4",
+  "com.ubuntu.juju:12.04:arm": {
    "arch": "arm",
+   "release": "precise",
    "versions": {
     "20130806": {
      "items": {
-      "1114preciseamd64": {
-       "release": "precise",
+      "201precisearm": {
+       "version": "2.0.1",
+       "size": 1951096,
+       "path": "tools/releases/20130806/juju-2.0.1-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
+      },
+      "1114precisearm": {
+       "version": "1.11.4",
        "size": 1951096,
        "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
+      }
+     }
+    },
+    "20130803": {
+     "items": {
+      "1114precisearm": {
+       "version": "1.11.4",
+       "size": 2851541,
+       "path": "tools/releases/20130803/juju-1.11.4-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       },
-      "1114raringamd64": {
-       "release": "raring",
+      "1115precisearm": {
+       "version": "1.11.5",
+       "size": 2031281,
+       "path": "tools/releases/20130803/juju-1.11.5-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:13.04:arm": {
+   "arch": "arm",
+   "release": "raring",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1114raringarm": {
+       "version": "1.11.4",
        "size": 1950327,
        "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      },
+      "201raringarm": {
+       "version": "2.0.1",
+       "size": 1950327,
+       "path": "tools/releases/20130806/juju-2.0.1-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
       }

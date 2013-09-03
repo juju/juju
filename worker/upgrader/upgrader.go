@@ -61,13 +61,12 @@ type Upgrader struct {
 	tag     string
 }
 
-// New returns a new upgrader worker. It watches changes to the
-// current version of the current agent (with the given tag)
-// and tries to download the tools for any new version
-// into the given data directory.
-// If an upgrade is needed, the worker will exit with an
-// UpgradeReadyError holding details of the requested upgrade. The tools
-// will have been downloaded and unpacked.
+// NewUpgrader returns a new upgrader worker. It watches changes to the
+// current version of the current agent (with the given tag) and tries to
+// download the tools for any new version into the given data directory.  If
+// an upgrade is needed, the worker will exit with an UpgradeReadyError
+// holding details of the requested upgrade. The tools will have been
+// downloaded and unpacked.
 func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
 		st:      st,
