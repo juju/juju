@@ -34,26 +34,12 @@ func (s *DeployerSuite) TestInstall(c *gc.C) {
 	})
 	err := d.Stage(bun, corecharm.MustParseURL("cs:s/c-1"))
 	c.Assert(err, gc.IsNil)
-
-	// Only one update dir should exist and be pointed to by the 'current'
-	// symlink since extra ones should have been cleaned up by
-	// cleanupOrphans.
-	updateDirs, err := filepath.Glob(filepath.Join(d.Path(), "update-*"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs, gc.HasLen, 1)
-	current, err := os.Readlink(d.Current().Path())
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs[0], gc.Equals, current)
+	s.checkCleanup(c, d)
 
 	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
-
-	// No install dirs should be left behind since the one created is
-	// renamed to the target path.
-	installDirs, err := filepath.Glob(filepath.Join(d.Path(), "install-*"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(installDirs, gc.HasLen, 0)
+	s.checkCleanup(c, d)
 
 	// Check content.
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
@@ -93,19 +79,11 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	})
 	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
 	c.Assert(err, gc.IsNil)
-
-	// Only one update dir should exist and be pointed to by the 'current'
-	// symlink since extra ones should have been cleaned up by
-	// cleanupOrphans.
-	updateDirs, err := filepath.Glob(filepath.Join(d.Path(), "update-*"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs, gc.HasLen, 1)
-	current, err := os.Readlink(d.Current().Path())
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs[0], gc.Equals, current)
+	s.checkCleanup(c, d)
 
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
+	s.checkCleanup(c, d)
 
 	// Check content.
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
@@ -149,16 +127,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = d.Deploy(target)
 	c.Assert(err, gc.Equals, charm.ErrConflict)
-
-	// Only one update dir should exist and be pointed to by the 'current'
-	// symlink since extra ones should have been cleaned up by
-	// cleanupOrphans.
-	updateDirs, err := filepath.Glob(filepath.Join(d.Path(), "update-*"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs, gc.HasLen, 1)
-	current, err := os.Readlink(d.Current().Path())
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs[0], gc.Equals, current)
+	s.checkCleanup(c, d)
 
 	// Check state.
 	conflicted, err := target.Conflicted()
@@ -181,6 +150,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
+	s.checkCleanup(c, d)
 
 	// And again.
 	err = d.Deploy(target)
@@ -188,6 +158,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
+	s.checkCleanup(c, d)
 
 	// Manually resolve, and commit.
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "some-file"), []byte("nu!"), 0644)
@@ -202,16 +173,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	// except the upgrade log line.
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
-
-	// Only one update dir should exist and be pointed to by the 'current'
-	// symlink since extra ones should have been cleaned up by
-	// cleanupOrphans.
-	updateDirs, err = filepath.Glob(filepath.Join(d.Path(), "update-*"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs, gc.HasLen, 1)
-	current, err = os.Readlink(d.Current().Path())
-	c.Assert(err, gc.IsNil)
-	c.Assert(updateDirs[0], gc.Equals, current)
+	s.checkCleanup(c, d)
 
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, gc.IsNil)
@@ -239,4 +201,22 @@ func (s *DeployerSuite) bundle(c *gc.C, customize func(path string)) *corecharm.
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, gc.IsNil)
 	return bun
+}
+
+func (s *DeployerSuite) checkCleanup(c *gc.C, d *charm.Deployer) {
+	// Only one update dir should exist and be pointed to by the 'current'
+	// symlink since extra ones should have been cleaned up by
+	// cleanupOrphans.
+	updateDirs, err := filepath.Glob(filepath.Join(d.Path(), "update-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs, gc.HasLen, 1)
+	current, err := os.Readlink(d.Current().Path())
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs[0], gc.Equals, current)
+
+	// No install dirs should be left behind since the one created is
+	// renamed to the target path.
+	installDirs, err := filepath.Glob(filepath.Join(d.Path(), "install-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(installDirs, gc.HasLen, 0)
 }
