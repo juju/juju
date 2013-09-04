@@ -91,7 +91,7 @@ var getTests = []struct {
 	about: "deployed service  #2",
 	charm: "dummy",
 	config: map[string]string{
-		// Empty string gives default
+		// Empty string gives default.
 		"title": "",
 		// Value when there's a default
 		"username": "foobie",
@@ -152,9 +152,12 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
-			settings, err := ch.Config().ParseSettingsStrings(t.config)
-			c.Assert(err, gc.IsNil)
-			err = svc.UpdateConfigSettings(settings)
+			// Using own api client because directly updating the
+			// charm settings behaves different since the empty
+			// option change.
+			// See http://pad.lv/1194945
+			apiclient := s.APIState.Client()
+			err := apiclient.ServiceSet(svc.Name(), t.config)
 			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect

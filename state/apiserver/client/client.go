@@ -147,7 +147,14 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
 	} else if len(args.Config) > 0 {
-		settings, err = ch.Config().ParseSettingsStrings(args.Config)
+		// Split settings due to compatability reasons.
+		esc := splitSettings(args.Config)
+		settings, err = ch.Config().ParseSettingsStrings(esc.setSettings)
+		if err == nil {
+			// Validate and merge the unset settings, again
+			// due to compatability.
+			err = esc.validateAndMerge(ch, settings)
+		}
 	}
 	if err != nil {
 		return err
@@ -244,7 +251,14 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	if err != nil {
 		return err
 	}
-	changes, err := ch.Config().ParseSettingsStrings(settings)
+	// Split settings due to compatability reasons.
+	esc := splitSettings(settings)
+	changes, err := ch.Config().ParseSettingsStrings(esc.setSettings)
+	if err != nil {
+		return err
+	}
+	// Validate and merge the unset settings, again due to compatability.
+	err = esc.validateAndMerge(ch, changes)
 	if err != nil {
 		return err
 	}
@@ -400,4 +414,42 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 		return err
 	}
 	return entity.SetAnnotations(args.Pairs)
+}
+
+// emptySettingCompatability is a helper type to keep the API behavior while the
+// setting of options with an empty string has changed from deleting the current
+// setting to set it to an empty string in case of string typed options and return
+// an error in case of other option types
+type emptySettingCompatability struct {
+	setSettings   map[string]string
+	unsetSettings charm.Settings
+}
+
+// splitSettings splits the passed settings into those with values and those
+// containing empty strings.
+func splitSettings(settings map[string]string) *emptySettingCompatability {
+	esc := &emptySettingCompatability{
+		setSettings:   map[string]string{},
+		unsetSettings: charm.Settings{},
+	}
+	for name, value := range settings {
+		if value == "" {
+			esc.unsetSettings[name] = nil
+			continue
+		}
+		esc.setSettings[name] = value
+	}
+	return esc
+}
+
+// validateAndMerge validates the unset settings and merges them into the changes.
+func (esc *emptySettingCompatability) validateAndMerge(ch *state.Charm, changes charm.Settings) error {
+	unsetSettings, err := ch.Config().ValidateSettings(esc.unsetSettings)
+	if err != nil {
+		return err
+	}
+	for name := range unsetSettings {
+		changes[name] = nil
+	}
+	return nil
 }

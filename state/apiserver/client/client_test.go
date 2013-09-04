@@ -34,8 +34,9 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
-		"title":    "xxx",
-		"username": "yyy",
+		"title":       "xxx",
+		"username":    "yyy",
+		"skill-level": "",
 	})
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
@@ -49,7 +50,7 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: aaa\n  username: bbb")
+	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: aaa\n  username: bbb\n  skill-level:")
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
