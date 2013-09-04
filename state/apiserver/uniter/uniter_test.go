@@ -1222,11 +1222,6 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	expectChanges := params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
-			"mysql/0": params.UnitSettings{2},
-		},
-	}
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
 		{Relation: rel.Tag(), Unit: "unit-wordpress-0"},
@@ -1242,6 +1237,17 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	}}
 	result, err := s.uniter.WatchRelationUnits(args)
 	c.Assert(err, gc.IsNil)
+	// UnitSettings versions are volatile, so we don't check them.
+	// We just make sure the keys of the Changed field are as
+	// expected.
+	c.Assert(result.Results, gc.HasLen, len(args.RelationUnits))
+	mysqlChanges := result.Results[1].Changes
+	c.Assert(mysqlChanges, gc.NotNil)
+	changed, ok := mysqlChanges.Changed["mysql/0"]
+	c.Assert(ok, jc.IsTrue)
+	expectChanges := params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{"mysql/0": changed},
+	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},

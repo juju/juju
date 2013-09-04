@@ -182,15 +182,20 @@ type RelationUnitsWatcherC struct {
 	*gc.C
 	State   *state.State
 	Watcher RelationUnitsWatcher
+	// settingsVersions keeps track of the settings version of each
+	// changed unit since the last received changes to ensure version
+	// always increases.
+	settingsVersions map[string]int64
 }
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
 // checks for aggressive event coalescence.
 func NewRelationUnitsWatcherC(c *gc.C, st *state.State, w RelationUnitsWatcher) RelationUnitsWatcherC {
 	return RelationUnitsWatcherC{
-		C:       c,
-		State:   st,
-		Watcher: w,
+		C:                c,
+		State:            st,
+		Watcher:          w,
+		settingsVersions: make(map[string]int64),
 	}
 }
 
@@ -219,9 +224,19 @@ func (c RelationUnitsWatcherC) AssertChange(changed map[string]params.UnitSettin
 		c.Assert(actual.Changed, gc.HasLen, len(changed))
 		// Because the versions can change, we only need to make sure
 		// the keys match, not the contents (UnitSettings == txnRevno).
-		for k, _ := range actual.Changed {
+		for k, settings := range actual.Changed {
 			_, ok := changed[k]
 			c.Assert(ok, jc.IsTrue)
+			oldVer, ok := c.settingsVersions[k]
+			if !ok {
+				// This is the first time we see this unit.
+				c.settingsVersions[k] = settings.Version
+			} else {
+				// Already seen; make sure the version increased.
+				if settings.Version <= oldVer {
+					c.Fatalf("expected unit settings version > %d (got %d)", oldVer, settings.Version)
+				}
+			}
 		}
 		c.Assert(actual.Departed, jc.SameContents, departed)
 	case <-timeout:
