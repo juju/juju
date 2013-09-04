@@ -10,14 +10,8 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-func GetDNSNames(instances []instance.Instance) []string {
-	return getDNSNames(instances)
-}
+var GetDNSNames = getDNSNames
 
-func GetStateInfo(cfg *config.Config, hostnames []string) (*state.Info, *api.Info) {
-	return getStateInfo(cfg, hostnames)
-}
+var GetStateInfo = getStateInfo
 
-func ComposeAddresses(hostnames []string, port int) []string {
-	return composeAddresses(hostnames, port)
-}
+var ComposeAddresses = composeAddresses
