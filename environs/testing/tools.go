@@ -20,11 +20,12 @@ import (
 // don't hit the real internet during tests.
 type ToolsSuite struct {
 	origDefaultURL string
+	DefaultBaseURL string
 }
 
 func (s *ToolsSuite) SetUpTest(c *C) {
 	s.origDefaultURL = envtools.DefaultBaseURL
-	envtools.DefaultBaseURL = ""
+	envtools.DefaultBaseURL = s.DefaultBaseURL
 }
 
 func (s *ToolsSuite) TearDownTest(c *C) {

@@ -54,7 +54,8 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
 	// The simplestreams metadata is keyed off series, so series must be specified in
-	// the search constraint. If no series is specified,
+	// the search constraint. If no series is specified, we gather all the series from
+	// lucid onwards and add those to the constraint.
 	var seriesToSearch []string
 	if filter.Series != "" {
 		seriesToSearch = []string{filter.Series}

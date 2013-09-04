@@ -110,8 +110,8 @@ func (s *SimpleStreamsToolsSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
+	s.ToolsSuite.DefaultBaseURL = "file://" + s.publicToolsDir
 	s.ToolsSuite.SetUpTest(c)
-	envtools.DefaultBaseURL = "file://" + s.publicToolsDir
 }
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
