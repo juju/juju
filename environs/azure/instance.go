@@ -62,7 +62,10 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 
 func (azInstance *azureInstance) netInfo() (ip, netname string, err error) {
 	err = azInstance.apiCall(false, func(c *azureManagementContext) error {
-		d, err := c.GetDeployment(&gwacl.GetDeploymentRequest{ServiceName: azInstance.ServiceName})
+		d, err := c.GetDeployment(&gwacl.GetDeploymentRequest{
+			ServiceName:    azInstance.ServiceName,
+			DeploymentName: azInstance.ServiceName,
+		})
 		if err != nil {
 			return err
 		}
