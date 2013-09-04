@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -45,6 +46,10 @@ func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
 func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId, logConfig string, env map[string]string) *Conf {
 	svc := NewService(name)
 	logFile := filepath.Join(logDir, tag+".log")
+	if env == nil {
+		env = make(map[string]string)
+	}
+	env[osenv.JujuLoggingConfig] = logConfig
 	return &Conf{
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", tag),
@@ -57,10 +62,6 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId,
 			" --data-dir " + utils.ShQuote(dataDir) +
 			" --machine-id " + machineId,
 		Out: logFile,
-		Env: map[string]string{
-			"JUJU_PROVIDER_TYPE":  providerType,
-			"JUJU_LOGGING_CONFIG": logConfig,
-		},
 		Env: env,
 	}
 }
