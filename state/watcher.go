@@ -613,7 +613,7 @@ func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key s
 		return -1, err
 	}
 	name := (&relationScopeDoc{key}).unitName()
-	settings := UnitSettings{node.txnRevno, node.Map()}
+	settings := UnitSettings{Version: node.txnRevno}
 	if changes.Changed == nil {
 		changes.Changed = map[string]UnitSettings{name: settings}
 	} else {

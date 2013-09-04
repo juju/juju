@@ -300,16 +300,12 @@ func (ctx *ContextRelation) ClearCache() {
 	ctx.cache = make(SettingsMap)
 }
 
-// UpdateMembers ensures that the context is aware of every supplied member
-// unit. For each supplied member that has non-nil settings, the cached
-// settings will be overwritten; but nil settings will not overwrite cached
-// ones.
+// UpdateMembers ensures that the context is aware of every supplied
+// member unit. For each supplied member, the cached settings will be
+// overwritten.
 func (ctx *ContextRelation) UpdateMembers(members SettingsMap) {
 	for m, s := range members {
-		_, found := ctx.members[m]
-		if !found || s != nil {
-			ctx.members[m] = s
-		}
+		ctx.members[m] = s
 	}
 }
 
