@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
 )
@@ -16,10 +16,10 @@ import (
 
 type S struct{}
 
-var _ = Suite(S{})
+var _ = gc.Suite(S{})
 
 func Test1(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 var ctests = []struct {
@@ -242,19 +242,38 @@ const (
 	header          = "#cloud-config\n"
 	addFileExpected = `runcmd:
 - install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
-- echo '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
+- printf '%s\n' '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
 `
 )
 
-func (S) TestOutput(c *C) {
+func (S) TestOutput(c *gc.C) {
 	for _, t := range ctests {
 		cfg := cloudinit.New()
 		t.setOption(cfg)
 		data, err := cfg.Render()
-		c.Assert(err, IsNil)
-		c.Assert(data, NotNil)
-		c.Assert(string(data), Equals, header+t.expect, Commentf("test %q output differs", t.name))
+		c.Assert(err, gc.IsNil)
+		c.Assert(data, gc.NotNil)
+		c.Assert(string(data), gc.Equals, header+t.expect, gc.Commentf("test %q output differs", t.name))
 	}
+}
+
+func (S) TestRunCmds(c *gc.C) {
+	cfg := cloudinit.New()
+	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
+	cfg.AddScripts("a", "b")
+	cfg.AddRunCmdArgs("c", "d")
+	cfg.AddRunCmd("e")
+	c.Assert(cfg.RunCmds(), gc.DeepEquals, []interface{}{
+		"a", "b", []string{"c", "d"}, "e",
+	})
+}
+
+func (S) TestPackages(c *gc.C) {
+	cfg := cloudinit.New()
+	c.Assert(cfg.Packages(), gc.HasLen, 0)
+	cfg.AddPackage("a b c")
+	cfg.AddPackage("d!")
+	c.Assert(cfg.Packages(), gc.DeepEquals, []string{"a b c", "d!"})
 }
 
 //#cloud-config

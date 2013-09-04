@@ -39,7 +39,7 @@ type Address struct {
 	NetworkScope
 }
 
-func deriveAddressType(value string) AddressType {
+func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
 	if ip != nil {
 		if ip.To4() != nil {
@@ -55,8 +55,29 @@ func deriveAddressType(value string) AddressType {
 }
 
 func NewAddress(value string) Address {
-	addresstype := deriveAddressType(value)
+	addresstype := DeriveAddressType(value)
 	return Address{value, addresstype, "", NetworkUnknown}
+}
+
+// HostAddresses looks up the IP addresses of the specified
+// host, and translates them into instance.Address values.
+func HostAddresses(host string) ([]Address, error) {
+	ipaddrs, err := net.LookupIP(host)
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]Address, len(ipaddrs))
+	for i, ipaddr := range ipaddrs {
+		switch len(ipaddr) {
+		case 4:
+			addrs[i].Type = Ipv4Address
+			addrs[i].Value = ipaddr.String()
+		case 16:
+			addrs[i].Type = Ipv6Address
+			addrs[i].Value = ipaddr.String()
+		}
+	}
+	return addrs, err
 }
 
 // SelectPublicAddress picks one address from a slice that would

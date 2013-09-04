@@ -149,12 +149,9 @@ type sameContents struct {
 	*CheckerInfo
 }
 
-// SameContents checks that the obtained slice contains all the values (and same number of values) of
-// the expected slice and vice versa, without worrying about order. SameContents uses DeepEquals to
-// compare values.
-//
-// This is a dumb implementation that takes n^2 time if the slices are the same lenth, so don't
-// use it on very large slices
+// SameContents checks that the obtained slice contains all the values (and
+// same number of values) of the expected slice and vice versa, without respect
+// to order or duplicates. Uses DeepEquals on mapped contents to compare.
 var SameContents Checker = &sameContents{
 	&CheckerInfo{Name: "SameContents", Params: []string{"obtained", "expected"}},
 }
@@ -165,6 +162,7 @@ func (checker *sameContents) Check(params []interface{}, names []string) (result
 	}
 	obtained := params[0]
 	expected := params[1]
+
 	tob := reflect.TypeOf(obtained)
 	if tob.Kind() != reflect.Slice {
 		return false, fmt.Sprintf("SameContents expects the obtained value to be a slice, got %q",
@@ -185,40 +183,20 @@ func (checker *sameContents) Check(params []interface{}, names []string) (result
 
 	vexp := reflect.ValueOf(expected)
 	vob := reflect.ValueOf(obtained)
+	length := vexp.Len()
 
-	lexp := vexp.Len()
-	lob := vob.Len()
-
-	if lexp != lob {
+	if vob.Len() != length {
 		// Slice has incorrect number of elements
 		return false, ""
 	}
 
-	// as we find matches from the expected slice, remove them from the obtained slice,
-	// that way we make sure the count of duplicate items is the same
-	// i.e. 1 1 2 won't match 1 2 2
-outer:
-	for i := 0; i < lexp; i++ {
-		val := vexp.Index(i)
-		for j := 0; j < vob.Len(); j++ {
-			if reflect.DeepEqual(val.Interface(), vob.Index(j).Interface()) {
-				if vob.Len() == 1 {
-					// found the last match in the obtained slice, all done
-					return true, ""
-				}
-				// remove the match from the obtained slice
-				if j == 0 {
-					vob = vob.Slice(1, vob.Len())
-				} else {
-					vob = reflect.AppendSlice(vob.Slice(0, j), vob.Slice(j+1, vob.Len()))
-				}
-				continue outer
-			}
-		}
-		// Value in expected slice not found in obtained slice
-		return false, ""
-	}
+	// spin up maps with the entries as keys and the counts as values
+	mob := make(map[interface{}]int, length)
+	mexp := make(map[interface{}]int, length)
 
-	// only ever get here with two empty slices
-	return true, ""
+	for i := 0; i < length; i++ {
+		mexp[vexp.Index(i).Interface()]++
+		mob[vob.Index(i).Interface()]++
+	}
+	return reflect.DeepEqual(mob, mexp), ""
 }

@@ -14,10 +14,12 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -58,7 +60,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	environ, err := environs.NewFromName(c.EnvName)
+	// TODO(rog): arrange for PrepareFromName to write any additional
+	// config attributes, or do so after calling it.
+	environ, err := environs.PrepareFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
@@ -77,12 +81,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		forceVersion := uploadVersion(version.Current.Number, nil)
 		cfg := environ.Config()
 		series := getUploadSeries(cfg, c.Series)
-		tools, err := uploadTools(environ.Storage(), &forceVersion, series...)
+		agenttools, err := uploadTools(environ.Storage(), &forceVersion, series...)
 		if err != nil {
 			return err
 		}
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": tools.Version.Number.String(),
+			"agent-version": agenttools.Version.Number.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)
@@ -95,7 +99,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environs.Bootstrap(environ, c.Constraints)
+	return bootstrap.Bootstrap(environ, c.Constraints)
 }
 
 // ensureToolsAvailability verifies the tools are available. If no tools are
@@ -106,18 +110,25 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 	defer loggo.RemoveWriter("bootstrap")
 
 	// Try to find bootstrap tools.
-	_, err := environs.FindBootstrapTools(env, c.Constraints)
+	cfg := env.Config()
+	var vers *version.Number
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		vers = &agentVersion
+	}
+	_, err := tools.FindBootstrapTools(
+		environs.StorageInstances(env), vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
-			EnvName: c.EnvName,
-			Source:  c.Source,
+			Target: env,
+			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
 			return err
 		}
 		// Synchronization done, try again.
-		_, err = environs.FindBootstrapTools(env, c.Constraints)
+		_, err = tools.FindBootstrapTools(
+			environs.StorageInstances(env), vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
 	} else if err != nil {
 		return err
 	}

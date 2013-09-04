@@ -14,11 +14,13 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -92,7 +94,8 @@ func StartInstance(c *C, env environs.Environ, machineId string) (instance.Insta
 func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
 	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
 	series := config.DefaultSeries
-	inst, metadata, err := env.StartInstance(
+	inst, metadata, err := provider.StartInstance(
+		env,
 		machineId,
 		"fake_nonce",
 		series,
@@ -211,11 +214,11 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, IsNil)
 
-	environ, err := environs.NewFromName("dummyenv")
+	environ, err := environs.PrepareFromName("dummyenv")
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, constraints.Value{}), IsNil)
+	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 

@@ -4,6 +4,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
@@ -96,11 +97,6 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 		return err
 	}
 	return serviceSetSettingsYAML(svc, p.Config)
-}
-
-// ServiceGet returns the configuration for a service.
-func (c *Client) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
-	return statecmd.ServiceGet(c.api.state, args)
 }
 
 // Resolved implements the server side of Client.Resolved.
@@ -264,9 +260,32 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	return serviceSetCharm(c.api.state, service, args.CharmUrl, args.Force)
 }
 
+// addServiceUnits adds a given number of units to a service.
+// TODO(jam): 2013-08-26 https://pad.lv/1216830
+// The functionality on conn.AddUnits should get pulled up into
+// state/apiserver/client, but currently we still have conn.DeployService that
+// depends on it. When that changes, clean up this function.
+func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
+	conn, err := juju.NewConnFromState(state)
+	if err != nil {
+		return nil, err
+	}
+	service, err := state.Service(args.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	if args.NumUnits < 1 {
+		return nil, errors.New("must add at least one unit")
+	}
+	if args.NumUnits > 1 && args.ToMachineSpec != "" {
+		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+	}
+	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
+}
+
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
-	units, err := statecmd.AddServiceUnits(c.api.state, args)
+	units, err := addServiceUnits(c.api.state, args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
 	}

@@ -15,7 +15,6 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -23,6 +22,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -63,11 +63,8 @@ const (
 
 // UnitSettings holds information about a service unit's settings
 // within a relation.
-// NOTE: Settings field may always be nil and should never be
-// dependent upon. We need to remove it in the future.
 type UnitSettings struct {
-	Version  int64
-	Settings map[string]interface{}
+	Version int64
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.
@@ -1088,6 +1085,9 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	if cons.Mem != nil && *cons.Mem > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"mem", D{{"$gte", *cons.Mem}}})
+	}
+	if cons.RootDisk != nil && *cons.RootDisk > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"rootdisk", D{{"$gte", *cons.RootDisk}}})
 	}
 	if cons.CpuCores != nil && *cons.CpuCores > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpucores", D{{"$gte", *cons.CpuCores}}})

@@ -7,16 +7,20 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"strings"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
-	"strings"
 )
 
 // Cloud-init write the URL to be used to load the bootstrap state into this file.
@@ -54,7 +58,8 @@ func (c *BootstrapCommand) Init(args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	if err := c.Conf.read("bootstrap"); err != nil {
+	err := c.Conf.read("bootstrap")
+	if err != nil {
 		return err
 	}
 	cfg, err := config.New(c.EnvConfig)
@@ -62,17 +67,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// There is no entity that's created at init time.
-	c.Conf.StateInfo.Tag = ""
-	st, err := state.Initialize(c.Conf.StateInfo, cfg, state.DefaultDialOpts())
+	// There is no entity that's created at init time
+	st, err := agent.InitialStateConfiguration(c.Conf.config, cfg, state.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-
-	if err := environs.BootstrapUsers(st, cfg, c.Conf.OldPassword); err != nil {
-		return err
-	}
 
 	// TODO(fwereade): we need to be able to customize machine jobs,
 	// not just hardcode these values; in particular, JobHostUnits
@@ -96,7 +96,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read provider-state-url file: %v", err)
 	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := environs.LoadStateFromURL(stateInfoURL)
+	bsState, err := provider.LoadStateFromURL(stateInfoURL)
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}
@@ -106,7 +106,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		characteristics = bsState.Characteristics[0]
 	}
 
-	return environs.ConfigureBootstrapMachine(st, c.Constraints, c.Conf.DataDir, jobs, instance.Id(instId), characteristics)
+	return bootstrap.ConfigureBootstrapMachine(st, c.Constraints, c.Conf.dataDir, jobs, instance.Id(instId), characteristics)
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

@@ -5,43 +5,43 @@ package jujutest
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"net/http"
 	"net/url"
 )
 
 type metadataSuite struct{}
 
-var _ = Suite(&metadataSuite{})
+var _ = gc.Suite(&metadataSuite{})
 
-func (s *metadataSuite) TestCannedRoundTripper(c *C) {
+func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
 	aContent := "a-content"
 	vrt := NewCannedRoundTripper(map[string]string{
 		"a": aContent,
 		"b": "b-content",
 	}, nil)
-	c.Assert(vrt, NotNil)
+	c.Assert(vrt, gc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, IsNil)
-	c.Assert(resp, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp, gc.NotNil)
 	content, err := ioutil.ReadAll(resp.Body)
-	c.Assert(string(content), Equals, aContent)
-	c.Assert(resp.ContentLength, Equals, int64(len(aContent)))
-	c.Assert(resp.StatusCode, Equals, http.StatusOK)
-	c.Assert(resp.Status, Equals, "200 OK")
+	c.Assert(string(content), gc.Equals, aContent)
+	c.Assert(resp.ContentLength, gc.Equals, int64(len(aContent)))
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.Status, gc.Equals, "200 OK")
 }
 
-func (s *metadataSuite) TestCannedRoundTripperMissing(c *C) {
+func (s *metadataSuite) TestCannedRoundTripperMissing(c *gc.C) {
 	vrt := NewCannedRoundTripper(map[string]string{"a": "a-content"}, nil)
-	c.Assert(vrt, NotNil)
+	c.Assert(vrt, gc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, IsNil)
-	c.Assert(resp, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp, gc.NotNil)
 	content, err := ioutil.ReadAll(resp.Body)
-	c.Assert(string(content), Equals, "")
-	c.Assert(resp.ContentLength, Equals, int64(0))
-	c.Assert(resp.StatusCode, Equals, http.StatusNotFound)
-	c.Assert(resp.Status, Equals, "404 Not Found")
+	c.Assert(string(content), gc.Equals, "")
+	c.Assert(resp.ContentLength, gc.Equals, int64(0))
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(resp.Status, gc.Equals, "404 Not Found")
 }

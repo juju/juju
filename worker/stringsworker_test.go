@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api"
+	apiWatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -56,7 +56,7 @@ type stringsHandler struct {
 
 var _ worker.StringsWatchHandler = (*stringsHandler)(nil)
 
-func (sh *stringsHandler) SetUp() (api.StringsWatcher, error) {
+func (sh *stringsHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
 	sh.actions = append(sh.actions, "setup")
@@ -118,7 +118,7 @@ type testStringsWatcher struct {
 	stopError error
 }
 
-var _ api.StringsWatcher = (*testStringsWatcher)(nil)
+var _ apiWatcher.StringsWatcher = (*testStringsWatcher)(nil)
 
 func (tsw *testStringsWatcher) Changes() <-chan []string {
 	return tsw.changes
@@ -283,28 +283,13 @@ func (s *stringsWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	s.worker = nil
 }
 
-func (s *stringsWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
-	h, ok := s.worker.(setMustErr)
-	c.Assert(ok, jc.IsTrue)
-	old := h.SetMustErr(noopHandler)
-	noErr := CannedErrer{nil}
-	stillAlive := CannedErrer{tomb.ErrStillAlive}
-	customErr := CannedErrer{fmt.Errorf("my special error")}
-
-	// The default handler should be watcher.MustErr which panics if the
-	// Errer doesn't actually have an error
-	c.Assert(func() { old(noErr) }, gc.PanicMatches, "watcher was stopped cleanly")
-	c.Assert(func() { old(stillAlive) }, gc.PanicMatches, "watcher is still running")
-	c.Assert(old(customErr), gc.Equals, customErr.Err())
-}
-
 func (s *stringsWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 	foundErr := fmt.Errorf("did not get an error")
 	triggeredHandler := func(errer watcher.Errer) error {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	s.worker.(setMustErr).SetMustErr(triggeredHandler)
+	worker.SetMustErr(triggeredHandler)
 	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
@@ -324,7 +309,7 @@ func (s *stringsWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	s.worker.(setMustErr).SetMustErr(triggeredHandler)
+	worker.SetMustErr(triggeredHandler)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)

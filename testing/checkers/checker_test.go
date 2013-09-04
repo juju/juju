@@ -62,6 +62,11 @@ func (s *CheckerSuite) TestSameContents(c *gc.C) {
 		[]int{1, 1, 2}, jc.SameContents,
 		[]int{2, 1, 1})
 
+	type test struct {
+		s string
+		i int
+	}
+
 	// test structs
 	c.Check(
 		[]test{{"a", 1}, {"b", 2}}, jc.SameContents,

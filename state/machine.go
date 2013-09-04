@@ -11,13 +11,13 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -119,6 +119,7 @@ type instanceData struct {
 	InstanceId instance.Id `bson:"instanceid"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
+	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
@@ -133,6 +134,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	}
 	hc.Arch = instData.Arch
 	hc.Mem = instData.Mem
+	hc.RootDisk = instData.RootDisk
 	hc.CpuCores = instData.CpuCores
 	hc.CpuPower = instData.CpuPower
 	return hc, nil
@@ -546,6 +548,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		InstanceId: id,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
+		RootDisk:   characteristics.RootDisk,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
 	}

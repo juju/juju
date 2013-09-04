@@ -1,0 +1,96 @@
+Introduction
+------------
+
+This document outlines the steps for producing a juju-core release.
+
+Step 1. Prepare release notes
+=============================
+
+The release notes are prepared in Google document form, for easlier colaboration with juju-core and provider authors. A sample release note document is here
+
+https://docs.google.com/a/canonical.com/document/d/1Vnf2_sDtxZYaFRE7B0hY_f9FHxAOgximUj6UaJ5NyuE/edit#
+
+Generally new documents are created using the 'make copy' function.
+
+This is generally done earlier in the week with a release on the weekend, this is purely by convention.
+
+Look on https://canonical.leankitkanban.com/ and launchpad for items which have been fixed during the release.
+
+Leankit cards in the Merged lane should be documented in the release notes if applicable -- many cards are for internal refactoring or work which has no customer visible effect; they can be omitted.
+
+LP Bugs marked fixed comitted should be similarly documented and moved to fixed released. Bugs in progress should be moved to the next milestone (and milestone created if necessary).
+
+note: this process does admit the real possiblity that commits which have no leankit card or LP bug, will be missed. 
+
+Step 2. Tag the release
+=======================
+
+Most juju-core components do not have tags, but goose and juju-core do. 
+
+Tag the juju-core and goose repos with `juju-x.y.z` tag, if you don't have permission to tag directly on the repo talk to jam who runs the bot.
+
+Don't try to submit a merge proposal with a tag, it doesn't work.
+
+Step 3. Build the release
+=========================
+
+For stable releases, skip this step and proceed to the tarball step.
+
+For development releases (x.y.z, where y is odd) they are packaged via a launchpad build recipe.
+
+https://code.launchpad.net/~dave-cheney/+recipe/juju-core
+
+Update the tag on juju-core and goose to match the tag produced in step 2 then kick off the build.
+
+Step 4. Build release tarball
+=============================
+
+Use the script located in scripts/build-release-tarball to produce a .tar.gz which contains all the source dependencies. Sign it and upload to LP.
+
+For stable release, the server team will feed this to the saucy release process and backport it previous series.
+
+Step 5. Update the version
+==========================
+
+Once a release has been built againsts a version you must update the version number in 
+
+version/version.go
+
+propose it and commit it. This moves the development version to the next release number in the series.
+
+Step 6. Upload tools to the s3 public bucket
+============================================
+
+For each artifact produced by the build recipe or the the server teams' release process, run scripts/release-public-tools/release-public-tools.bash $DEB_URL. This will download the .deb, extract the /usr/bin/jujud binary and upload it with the correct name to the s3 bucket.
+
+This setup requires credentials for the s3 bucket and the s3up tool (available on lp), currently, mgz and dfc have these credentials, the bucket is owned by Gustavo Niemeyer.
+
+Step 7. TEST!
+=============
+
+apt-get update && apt-get install juju-core should install the latest release on your system. 
+
+Test this release by bootstrapping an environment in ec2 (and hp cloud if you have access), and do a basic wordpress + mysql deployment. If you can relate wordpress and mysql, expose wordpress and get to the public address on the wordpress setup screen, this release is a success.
+
+If this step fails then this release is a failure and the release number is unused. Do not reuse release numbers. It is ok to have gaps in the sequence, we've done it before, water is still wet.
+
+The previous paragraph is mostly relevant for devel releases. For stable releases they are branched from a known working devel branch and then fed through the launchpad build process then backported into ppa:juju/stable so there is far less chance that they will be a failure.
+
+Step 7. Publish the release notes to launchpad, closing the milestone
+=====================================================================
+
+Publish the text of the release notes to LP, close the milestone.
+
+Step 8. Announce the release
+============================
+
+Announce the release to juju-dev@lists.ubuntu.com juju@lists.ubuntu.com and canonical-juju@lists.canonical.com, copying and pasting the body of the release notes.
+
+A sample release note is here
+
+https://lists.ubuntu.com/archives/juju-dev/2013-August/001338.html
+
+Step 9. Upload tools from the s3 bucket to all other CPCs
+=========================================================
+
+Procedure unknown.

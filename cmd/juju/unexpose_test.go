@@ -4,7 +4,7 @@
 package main
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
@@ -14,35 +14,35 @@ type UnexposeSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = Suite(&UnexposeSuite{})
+var _ = gc.Suite(&UnexposeSuite{})
 
-func runUnexpose(c *C, args ...string) error {
+func runUnexpose(c *gc.C, args ...string) error {
 	_, err := testing.RunCommand(c, &UnexposeCommand{}, args)
 	return err
 }
 
-func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
+func (s *UnexposeSuite) assertExposed(c *gc.C, service string, expected bool) {
 	svc, err := s.State.Service(service)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	actual := svc.IsExposed()
-	c.Assert(actual, Equals, expected)
+	c.Assert(actual, gc.Equals, expected)
 }
 
-func (s *UnexposeSuite) TestUnexpose(c *C) {
+func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	testing.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	err = runExpose(c, "some-service-name")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertExposed(c, "some-service-name", true)
 
 	err = runUnexpose(c, "some-service-name")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertExposed(c, "some-service-name", false)
 
 	err = runUnexpose(c, "nonexistent-service")
-	c.Assert(err, ErrorMatches, `service "nonexistent-service" not found`)
+	c.Assert(err, gc.ErrorMatches, `service "nonexistent-service" not found`)
 }

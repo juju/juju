@@ -7,13 +7,17 @@ import (
 	"fmt"
 	"os"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 
 	// Import the providers.
-	_ "launchpad.net/juju-core/environs/all"
+	_ "launchpad.net/juju-core/provider/all"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju")
 
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of environments
@@ -71,6 +75,7 @@ func Main(args []string) {
 	// Reporting commands.
 	jujucmd.Register(wrap(&StatusCommand{}))
 	jujucmd.Register(wrap(&SwitchCommand{}))
+	jujucmd.Register(wrap(&EndpointCommand{}))
 
 	// Error resolution and debugging commands.
 	jujucmd.Register(wrap(&SCPCommand{}))

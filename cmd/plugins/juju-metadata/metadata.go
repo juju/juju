@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/cmd"
-	_ "launchpad.net/juju-core/environs/all"
 	"launchpad.net/juju-core/juju"
+	_ "launchpad.net/juju-core/provider/all"
 )
 
 var metadataDoc = `
@@ -34,6 +34,9 @@ func Main(args []string) {
 
 	metadatacmd.Register(&ValidateImageMetadataCommand{})
 	metadatacmd.Register(&ImageMetadataCommand{})
+	metadatacmd.Register(&ToolsMetadataCommand{})
+
+	metadatacmd.Register(&ValidateToolsMetadataCommand{})
 
 	os.Exit(cmd.Main(metadatacmd, cmd.DefaultContext(), args[1:]))
 }

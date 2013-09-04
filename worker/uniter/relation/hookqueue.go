@@ -61,8 +61,7 @@ type unitInfo struct {
 
 	// version and settings hold the most recent settings known
 	// to the AliveHookQueue.
-	version  int64
-	settings map[string]interface{}
+	version int64
 
 	// joined is set to true when a "relation-joined" is popped for this unit.
 	joined bool
@@ -190,7 +189,6 @@ func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 			}
 		}
 		info.version = settings.Version
-		info.settings = settings.Settings
 	}
 
 	for _, unit := range ruc.Departed {
@@ -240,23 +238,11 @@ func (q *AliveHookQueue) next() hook.Info {
 		kind = q.head.hookKind
 	}
 	version := q.info[unit].version
-	members := make(map[string]map[string]interface{})
-	for unit, info := range q.info {
-		if info.joined {
-			members[unit] = info.settings
-		}
-	}
-	if kind == hooks.RelationJoined {
-		members[unit] = q.info[unit].settings
-	} else if kind == hooks.RelationDeparted {
-		delete(members, unit)
-	}
 	return hook.Info{
 		Kind:          kind,
 		RelationId:    q.relationId,
 		RemoteUnit:    unit,
 		ChangeVersion: version,
-		Members:       members,
 	}
 }
 

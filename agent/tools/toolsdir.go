@@ -13,6 +13,7 @@ import (
 	"path"
 	"strings"
 
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -32,16 +33,11 @@ func ToolsDir(dataDir, agentName string) string {
 	return path.Join(dataDir, "tools", agentName)
 }
 
-// Dir returns the agent-specific data directory.
-func Dir(dataDir, agentName string) string {
-	return path.Join(dataDir, "agents", agentName)
-}
-
 // UnpackTools reads a set of juju tools in gzipped tar-archive
 // format and unpacks them into the appropriate tools directory
 // within dataDir. If a valid tools directory already exists,
 // UnpackTools returns without error.
-func UnpackTools(dataDir string, tools *Tools, r io.Reader) (err error) {
+func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
@@ -118,7 +114,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 
 // ReadTools checks that the tools for the given version exist
 // in the dataDir directory, and returns a Tools instance describing them.
-func ReadTools(dataDir string, vers version.Binary) (*Tools, error) {
+func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
 	urlData, err := ioutil.ReadFile(path.Join(dir, urlFile))
 	if err != nil {
@@ -130,7 +126,7 @@ func ReadTools(dataDir string, vers version.Binary) (*Tools, error) {
 	}
 	// TODO(rog): do more verification here too, such as checking
 	// for the existence of certain files.
-	return &Tools{
+	return &coretools.Tools{
 		URL:     url,
 		Version: vers,
 	}, nil
@@ -139,7 +135,7 @@ func ReadTools(dataDir string, vers version.Binary) (*Tools, error) {
 // ChangeAgentTools atomically replaces the agent-specific symlink
 // under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
-func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*Tools, error) {
+func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*coretools.Tools, error) {
 	tools, err := ReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err

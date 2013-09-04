@@ -27,6 +27,10 @@ type Mode func(u *Uniter) (Mode, error)
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
 	logger.Infof("updating unit addresses")
+	// TODO(dimitern): Once the uniter is using the API, change the
+	// following block to use st.ProviderType() instead of calling
+	// st.EnvironConfig. Also, We might be able to drop all this
+	// address stuff entirely once we have machine addresses.
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -202,6 +206,8 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err
 			}
+			// TODO(dimitern): Once the uniter uses the API, call
+			// u.unit.HasSubordinates() here instead.
 			if len(u.unit.SubordinateNames()) > 0 {
 				continue
 			}
@@ -286,6 +292,9 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.unit.Refresh(); err != nil {
 		return nil, err
 	}
+	// TODO(dimitern): Once the uniter uses the API, use
+	// u.unit.DestroyAllSubordinates() here, instead of going
+	// through each subordinate calling Destroy() on it.
 	for _, name := range u.unit.SubordinateNames() {
 		if sub, err := u.st.Unit(name); errors.IsNotFoundError(err) {
 			continue

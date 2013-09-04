@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagemetadata
+package imagemetadata_test
 
 import (
 	"flag"
@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 )
@@ -26,7 +27,7 @@ type liveTestData struct {
 
 var liveUrls = map[string]liveTestData{
 	"ec2": {
-		baseURL:        simplestreams.DefaultBaseURL,
+		baseURL:        imagemetadata.DefaultBaseURL,
 		requireSigned:  true,
 		validCloudSpec: simplestreams.CloudSpec{"us-east-1", aws.Regions["us-east-1"].EC2Endpoint},
 	},
@@ -48,7 +49,7 @@ func Test(t *testing.T) {
 			keys := reflect.ValueOf(liveUrls).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
-		registerLiveSimpleStreamsTests(testData.baseURL, NewImageConstraint(simplestreams.LookupParams{
+		registerLiveSimpleStreamsTests(testData.baseURL, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: testData.validCloudSpec,
 			Series:    "quantal",
 			Arches:    []string{"amd64"},
@@ -63,7 +64,8 @@ func registerSimpleStreamsTests() {
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			BaseURL:       "test:",
 			RequireSigned: false,
-			ValidConstraint: NewImageConstraint(simplestreams.LookupParams{
+			DataType:      imagemetadata.ImageIds,
+			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
@@ -79,6 +81,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simples
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
 		BaseURL:         baseURL,
 		RequireSigned:   requireSigned,
+		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,
 	})
 }
@@ -102,13 +105,13 @@ var fetchTests = []struct {
 	region string
 	series string
 	arches []string
-	images []*ImageMetadata
+	images []*imagemetadata.ImageMetadata
 }{
 	{
 		region: "us-east-1",
 		series: "precise",
 		arches: []string{"amd64", "arm"},
-		images: []*ImageMetadata{
+		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
 				VType:      "hvm",
@@ -139,7 +142,7 @@ var fetchTests = []struct {
 		region: "us-east-1",
 		series: "precise",
 		arches: []string{"amd64"},
-		images: []*ImageMetadata{
+		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
 				VType:      "hvm",
@@ -162,7 +165,7 @@ var fetchTests = []struct {
 		region: "us-east-1",
 		series: "precise",
 		arches: []string{"arm"},
-		images: []*ImageMetadata{
+		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea699",
 				VType:      "pv",
@@ -177,7 +180,7 @@ var fetchTests = []struct {
 		region: "us-east-1",
 		series: "precise",
 		arches: []string{"amd64"},
-		images: []*ImageMetadata{
+		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
 				VType:      "hvm",
@@ -201,12 +204,12 @@ var fetchTests = []struct {
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
-		imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"},
 			Series:    "precise",
 			Arches:    t.arches,
 		})
-		images, err := Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
+		images, err := imagemetadata.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -219,7 +222,7 @@ type productSpecSuite struct{}
 var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Series: "precise",
 		Arches: []string{"amd64"},
 	})
@@ -229,7 +232,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestId(c *gc.C) {
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Series: "precise",
 		Arches: []string{"amd64"},
 		Stream: "daily",
@@ -240,7 +243,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Series: "precise",
 		Arches: []string{"amd64", "i386"},
 		Stream: "daily",
@@ -253,7 +256,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Series: "lucid",
 		Arches: []string{"amd64"},
 		Stream: "daily",

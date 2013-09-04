@@ -6,13 +6,14 @@ package main
 import (
 	"io/ioutil"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -20,7 +21,7 @@ type UpgradeJujuSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&UpgradeJujuSuite{})
+var _ = gc.Suite(&UpgradeJujuSuite{})
 
 var upgradeJujuTests = []struct {
 	about          string
@@ -192,7 +193,7 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
-	about:          "major version downgrade to compatible version",
+	about:          "major version downgrade to incompatible version",
 	private:        []string{"3.2.0-foo-bar"},
 	currentVersion: "3.2.0-foo-bar",
 	agentVersion:   "4.2.0",
@@ -283,8 +284,7 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*tools.Tools, error) {
-	storage := putter.(environs.Storage)
+func mockUploadTools(storage environs.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
@@ -299,12 +299,12 @@ func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, serie
 	return t, nil
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
+func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 	oldVersion := version.Current
 	uploadTools = mockUploadTools
 	defer func() {
 		version.Current = oldVersion
-		uploadTools = tools.Upload
+		uploadTools = envtools.Upload
 	}()
 
 	for i, test := range upgradeJujuTests {
@@ -316,23 +316,23 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		com := &UpgradeJujuCommand{}
 		if err := coretesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
-				c.Check(err, ErrorMatches, test.expectInitErr)
+				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
-				c.Check(err, IsNil)
+				c.Check(err, gc.IsNil)
 			}
 			continue
 		}
 
 		// Set up state and environ, and run the command.
 		cfg, err := s.State.EnvironConfig()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		cfg, err = cfg.Apply(map[string]interface{}{
 			"agent-version": test.agentVersion,
 			"development":   test.development,
 		})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = s.State.SetEnvironConfig(cfg)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		for _, v := range test.private {
 			vers := version.MustParseBinary(v)
 			envtesting.MustUploadFakeToolsVersion(s.Conn.Environ.Storage(), vers)
@@ -344,30 +344,30 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 		}
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
-			c.Check(err, ErrorMatches, test.expectErr)
+			c.Check(err, gc.ErrorMatches, test.expectErr)
 			continue
-		} else if !c.Check(err, IsNil) {
+		} else if !c.Check(err, gc.IsNil) {
 			continue
 		}
 
 		// Check expected changes to environ/state.
 		cfg, err = s.State.EnvironConfig()
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 		agentVersion, ok := cfg.AgentVersion()
-		c.Check(ok, Equals, true)
-		c.Check(agentVersion, Equals, version.MustParse(test.expectVersion))
-		c.Check(cfg.Development(), Equals, test.development)
+		c.Check(ok, gc.Equals, true)
+		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
+		c.Check(cfg.Development(), gc.Equals, test.development)
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := s.Conn.Environ.Storage().Get(tools.StorageName(vers))
-			if !c.Check(err, IsNil) {
+			r, err := s.Conn.Environ.Storage().Get(envtools.StorageName(vers))
+			if !c.Check(err, gc.IsNil) {
 				continue
 			}
 			data, err := ioutil.ReadAll(r)
 			r.Close()
-			c.Check(err, IsNil)
-			c.Check(string(data), Equals, uploaded)
+			c.Check(err, gc.IsNil)
+			c.Check(string(data), gc.Equals, uploaded)
 		}
 	}
 }
@@ -376,29 +376,29 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *C) {
 // tools to the environment's storage. We don't want
 // 'em there; but we do want a consistent default-series
 // in the environment state.
-func (s *UpgradeJujuSuite) Reset(c *C) {
+func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
 	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"default-series": "always",
 		"agent-version":  "1.2.3",
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *C) {
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	name := tools.StorageName(vers)
+	name := envtools.StorageName(vers)
 	r, err := s.Conn.Environ.Storage().Get(name)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	r.Close()
 }

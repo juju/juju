@@ -7,18 +7,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"path"
-	"path/filepath"
-	"sort"
 	"time"
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/ec2"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/environs/filestorage"
+	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/provider/ec2"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -29,8 +26,8 @@ var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
-	// EnvName names the target environment for synchronization.
-	EnvName string
+	// Target holds the destination for the tool synchronization
+	Target environs.EnvironStorage
 
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
@@ -46,35 +43,28 @@ type SyncContext struct {
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
 
-	// Source allows to chose a location on the file system as source.
+	// Source, if non-empty, specifies a directory in the local file system
+	// to use as a source.
 	Source string
-
-	sourceStorage environs.StorageReader
-	targetStorage environs.Storage
 }
 
 // SyncTools copies the Juju tools tarball from the official bucket
 // or a specified source directory into the user's environment.
 func SyncTools(ctx *SyncContext) error {
-	var err error
-	ctx.sourceStorage, err = selectSourceStorage(ctx)
+	sourceStorage, err := selectSourceStorage(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to select source: %v", err)
-	}
-	targetEnv, err := environs.NewFromName(ctx.EnvName)
-	if err != nil {
-		return fmt.Errorf("unable to read %q from environment", ctx.EnvName)
 	}
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := tools.ReadList(ctx.sourceStorage, majorVersion)
+	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, -1)
 	if err != nil {
 		return err
 	}
 	if !ctx.Dev {
 		// No development versions, only released ones.
-		filter := tools.Filter{Released: true}
+		filter := coretools.Filter{Released: true}
 		if sourceTools, err = sourceTools.Match(filter); err != nil {
 			return err
 		}
@@ -90,23 +80,23 @@ func SyncTools(ctx *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
-	ctx.targetStorage = targetEnv.Storage()
+	targetStorage := ctx.Target.Storage()
 	if ctx.PublicBucket {
-		switch _, err := tools.ReadList(ctx.targetStorage, majorVersion); err {
-		case tools.ErrNoTools:
-		case nil, tools.ErrNoMatches:
+		switch _, err := envtools.ReadList(targetStorage, majorVersion, -1); err {
+		case envtools.ErrNoTools:
+		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
 		default:
 			return err
 		}
 		var ok bool
-		if ctx.targetStorage, ok = targetEnv.PublicStorage().(environs.Storage); !ok {
+		if targetStorage, ok = ctx.Target.PublicStorage().(environs.Storage); !ok {
 			return fmt.Errorf("cannot write to public storage")
 		}
 	}
-	targetTools, err := tools.ReadList(ctx.targetStorage, majorVersion)
+	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
 	switch err {
-	case nil, tools.ErrNoMatches, tools.ErrNoTools:
+	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
 		return err
 	}
@@ -116,7 +106,7 @@ func SyncTools(ctx *SyncContext) error {
 
 	missing := sourceTools.Exclude(targetTools)
 	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
-	err = copyTools(missing, ctx)
+	err = copyTools(missing, ctx, targetStorage, sourceStorage)
 	if err != nil {
 		return err
 	}
@@ -129,17 +119,17 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 	if ctx.Source == "" {
 		return ec2.NewHTTPStorageReader(DefaultToolsLocation), nil
 	}
-	return newFileStorageReader(ctx.Source)
+	return filestorage.NewFileStorageReader(ctx.Source)
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
+func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage, source environs.StorageReader) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if ctx.DryRun {
 			continue
 		}
-		if err := copyOneToolsPackage(tool, ctx); err != nil {
+		if err := copyOneToolsPackage(tool, dest, source); err != nil {
 			return err
 		}
 	}
@@ -147,10 +137,10 @@ func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *tools.Tools, ctx *SyncContext) error {
-	toolsName := tools.StorageName(tool.Version)
+func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
+	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
-	srcFile, err := ctx.sourceStorage.Get(toolsName)
+	srcFile, err := src.Get(toolsName)
 	if err != nil {
 		return err
 	}
@@ -165,77 +155,10 @@ func copyOneToolsPackage(tool *tools.Tools, ctx *SyncContext) error {
 	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
 
-	if err := ctx.targetStorage.Put(toolsName, buf, nBytes); err != nil {
+	if err := dest.Put(toolsName, buf, nBytes); err != nil {
 		return err
 	}
 	return nil
-}
-
-// fileStorageReader implements StorageReader backed
-// by the local filesystem.
-type fileStorageReader struct {
-	path string
-}
-
-// newFileStorageReader returns a new storage reader for
-// a directory inside the local file system.
-func newFileStorageReader(path string) (environs.StorageReader, error) {
-	p := filepath.Clean(path)
-	fi, err := os.Stat(p)
-	if err != nil {
-		return nil, err
-	}
-	if !fi.Mode().IsDir() {
-		return nil, fmt.Errorf("specified source path is not a directory: %s", path)
-	}
-	return &fileStorageReader{p}, nil
-}
-
-// Get implements environs.StorageReader.Get.
-func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
-	filename, err := f.URL(name)
-	if err != nil {
-		return nil, err
-	}
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	return file, nil
-}
-
-// List implements environs.StorageReader.List.
-func (f *fileStorageReader) List(prefix string) ([]string, error) {
-	// Add one for the missing path separator.
-	pathlen := len(f.path) + 1
-	pattern := filepath.Join(f.path, prefix+"*")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, err
-	}
-	list := []string{}
-	for _, match := range matches {
-		fi, err := os.Stat(match)
-		if err != nil {
-			return nil, err
-		}
-		if !fi.Mode().IsDir() {
-			filename := match[pathlen:]
-			list = append(list, filename)
-		}
-	}
-	sort.Strings(list)
-	return list, nil
-}
-
-// URL implements environs.StorageReader.URL.
-func (f *fileStorageReader) URL(name string) (string, error) {
-	return path.Join(f.path, name), nil
-}
-
-// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
-func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{}
 }
 
 // NewSyncLogWriter creates a loggo writer for registration

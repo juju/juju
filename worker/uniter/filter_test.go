@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -24,29 +24,29 @@ type FilterSuite struct {
 	wpcharm    *state.Charm
 }
 
-var _ = Suite(&FilterSuite{})
+var _ = gc.Suite(&FilterSuite{})
 
-func (s *FilterSuite) SetUpTest(c *C) {
+func (s *FilterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.wpcharm = s.AddTestingCharm(c, "wordpress")
 	s.wordpress, err = s.State.AddService("wordpress", s.wpcharm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.unit, err = s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToNewMachine()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mid, err := s.unit.AssignedMachineId()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(mid)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *FilterSuite) TestUnitDeath(c *C) {
+func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.State.StartSync() },
@@ -57,40 +57,40 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 
 	// Irrelevant change.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	asserter.AssertNoReceive()
 
 	// Set dying.
 	err = s.unit.SetStatus(params.StatusStarted, "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.unit.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	asserter.AssertClosed()
 
 	// Another irrelevant change.
 	err = s.unit.ClearResolved()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	asserter.AssertClosed()
 
 	// Set dead.
 	err = s.unit.EnsureDead()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertAgentTerminates(c, f)
 }
 
-func (s *FilterSuite) TestUnitRemoval(c *C) {
+func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	// short-circuit to remove because no status set.
 	err = s.unit.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertAgentTerminates(c, f)
 }
 
 // Ensure we get a signal on f.Dead()
-func (s *FilterSuite) assertFilterDies(c *C, f *filter) {
+func (s *FilterSuite) assertFilterDies(c *gc.C, f *filter) {
 	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.State.StartSync() },
 		C:       c,
@@ -99,14 +99,14 @@ func (s *FilterSuite) assertFilterDies(c *C, f *filter) {
 	asserter.AssertClosed()
 }
 
-func (s *FilterSuite) assertAgentTerminates(c *C, f *filter) {
+func (s *FilterSuite) assertAgentTerminates(c *gc.C, f *filter) {
 	s.assertFilterDies(c, f)
-	c.Assert(f.Wait(), Equals, worker.ErrTerminateAgent)
+	c.Assert(f.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *FilterSuite) TestServiceDeath(c *C) {
+func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	dyingAsserter := coretesting.NotifyAsserterC{
 		C:       c,
@@ -116,9 +116,9 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 	dyingAsserter.AssertNoReceive()
 
 	err = s.unit.SetStatus(params.StatusStarted, "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.wordpress.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	timeout := time.After(coretesting.LongWait)
 loop:
 	for {
@@ -132,15 +132,15 @@ loop:
 		}
 	}
 	err = s.unit.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(s.unit.Life(), Equals, state.Dying)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
 
 	// Can't set s.wordpress to Dead while it still has units.
 }
 
-func (s *FilterSuite) TestResolvedEvents(c *C) {
+func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	resolvedAsserter := coretesting.ContentAsserterC{
@@ -156,15 +156,15 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 
 	// Change the unit in an irrelevant way; no events.
 	err = s.unit.SetStatus(params.StatusError, "blarg")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	resolvedAsserter.AssertNoReceive()
 
 	// Change the unit's resolved to an interesting value; new event received.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertChange := func(expect state.ResolvedMode) {
 		rm := resolvedAsserter.AssertOneReceive().(state.ResolvedMode)
-		c.Assert(rm, Equals, expect)
+		c.Assert(rm, gc.Equals, expect)
 	}
 	assertChange(state.ResolvedRetryHooks)
 
@@ -174,7 +174,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 
 	// Clear the resolved status *via the filter*; check not resent...
 	err = f.ClearResolved()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	resolvedAsserter.AssertNoReceive()
 
 	// ...even when requested.
@@ -183,23 +183,23 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 
 	// Induce several events; only latest state is reported.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = f.ClearResolved()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertChange(state.ResolvedNoHooks)
 }
 
-func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
+func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	oldCharm := s.AddTestingCharm(c, "upgrade1")
 	svc, err := s.State.AddService("upgradetest", oldCharm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	f, err := newFilter(s.State, unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	// No initial event is sent.
@@ -215,7 +215,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 
 	// Setting a charm generates no new events if it already matches.
 	err = f.SetCharm(oldCharm.URL())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertNoChange()
 
 	// Explicitly request an event relative to the existing state; nothing.
@@ -224,18 +224,18 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 
 	// Change the service in an irrelevant way; no events.
 	err = svc.SetExposed()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertNoChange()
 
 	// Change the service's charm; new event received.
 	newCharm := s.AddTestingCharm(c, "upgrade2")
 	err = svc.SetCharm(newCharm, false)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertChange := func(url *charm.URL) {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case upgradeCharm := <-f.UpgradeEvents():
-			c.Assert(upgradeCharm, DeepEquals, url)
+			c.Assert(upgradeCharm, gc.DeepEquals, url)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
@@ -254,7 +254,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 
 	// But when we have a forced upgrade to the same URL, no new event.
 	err = svc.SetCharm(oldCharm, true)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertNoChange()
 
 	// ...but a *forced* change to a different URL should generate an event.
@@ -263,9 +263,9 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 	assertNoChange()
 }
 
-func (s *FilterSuite) TestConfigEvents(c *C) {
+func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	// Test no changes before the charm URL is set.
@@ -281,12 +281,12 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertChange := func() {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, Equals, true)
+			c.Assert(ok, gc.Equals, true)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
@@ -299,7 +299,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		err := s.wordpress.UpdateConfigSettings(charm.Settings{
 			"blog-title": title,
 		})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	changeConfig("20,000 leagues in the cloud")
 	assertChange()
@@ -312,7 +312,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
-	s.State.Sync()
+	s.State.StartSync()
 	time.Sleep(250 * time.Millisecond)
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -320,9 +320,9 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
 	f, err = newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
-	s.State.Sync()
+	s.State.StartSync()
 	f.DiscardConfigEvent()
 	assertNoChange()
 
@@ -332,9 +332,9 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 }
 
-func (s *FilterSuite) TestCharmErrorEvents(c *C) {
+func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	assertNoChange := func() {
@@ -348,29 +348,29 @@ func (s *FilterSuite) TestCharmErrorEvents(c *C) {
 
 	// Check setting an invalid charm URL does not send events.
 	err = f.SetCharm(charm.MustParseURL("cs:missing/one-1"))
-	c.Assert(err, Equals, tomb.ErrDying)
+	c.Assert(err, gc.Equals, tomb.ErrDying)
 	assertNoChange()
 	s.assertFilterDies(c, f)
 
 	// Filter died after the error, so restart it.
 	f, err = newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	// Check with a nil charm URL, again no changes.
 	err = f.SetCharm(nil)
-	c.Assert(err, Equals, tomb.ErrDying)
+	c.Assert(err, gc.Equals, tomb.ErrDying)
 	assertNoChange()
 	s.assertFilterDies(c, f)
 }
 
-func (s *FilterSuite) TestRelationsEvents(c *C) {
+func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	f, err := newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	assertNoChange := func() {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case ids := <-f.RelationsEvents():
 			c.Fatalf("unexpected relations event %#v", ids)
@@ -383,10 +383,10 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	rel0 := s.addRelation(c)
 	rel1 := s.addRelation(c)
 	assertChange := func(expect []int) {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case got := <-f.RelationsEvents():
-			c.Assert(got, DeepEquals, expect)
+			c.Assert(got, gc.DeepEquals, expect)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
@@ -398,44 +398,44 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	// Destroy, thereby setting the relation to Dying); check event.
 	s.addRelation(c)
 	ru0, err := rel0.Unit(s.unit)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = ru0.EnterScope(nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = rel0.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertChange([]int{0, 2})
 
 	// Remove a relation completely; check no event, because the relation
 	// could not have been removed if the unit was in scope, and therefore
 	// the uniter never needs to hear about it.
 	err = rel1.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertNoChange()
 
 	// Start a new filter, check initial event.
 	f, err = newFilter(s.State, s.unit.Name())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	assertChange([]int{0, 2})
 
 	// Check setting the charm URL generates all new relation events.
 	err = f.SetCharm(s.wpcharm.URL())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertChange([]int{0, 2})
 }
 
-func (s *FilterSuite) addRelation(c *C) *state.Relation {
+func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	if s.mysqlcharm == nil {
 		s.mysqlcharm = s.AddTestingCharm(c, "mysql")
 	}
 	rels, err := s.wordpress.Relations()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	svcName := fmt.Sprintf("mysql%d", len(rels))
 	_, err = s.State.AddService(svcName, s.mysqlcharm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return rel
 }

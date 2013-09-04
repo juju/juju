@@ -33,15 +33,50 @@ func (envs *Environs) Open(name string) (Environ, error) {
 	return New(e.config)
 }
 
+// ConfigForName returns the configuration for the
+// environment with the given name from the default
+// environments file. If the name is blank, the default
+// environment will be used.
+func ConfigForName(name string) (*config.Config, error) {
+	envs, err := ReadEnvirons("")
+	if err != nil {
+		return nil, err
+	}
+	if name == "" {
+		name = envs.Default
+		if name == "" {
+			return nil, fmt.Errorf("no default environment found")
+		}
+	}
+	e, ok := envs.environs[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown environment %q", name)
+	}
+	if e.err != nil {
+		return nil, e.err
+	}
+	return e.config, nil
+}
+
 // NewFromName opens the environment with the given
 // name from the default environments file. If the
 // name is blank, the default environment will be used.
 func NewFromName(name string) (Environ, error) {
-	environs, err := ReadEnvirons("")
+	cfg, err := ConfigForName(name)
 	if err != nil {
 		return nil, err
 	}
-	return environs.Open(name)
+	return New(cfg)
+}
+
+// PrepareFromName is the same as NewFromName except
+// that the environment is is prepared as well as opened.
+func PrepareFromName(name string) (Environ, error) {
+	cfg, err := ConfigForName(name)
+	if err != nil {
+		return nil, err
+	}
+	return Prepare(cfg)
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
@@ -61,6 +96,15 @@ func New(config *config.Config) (Environ, error) {
 		return nil, err
 	}
 	return p.Open(config)
+}
+
+// Prepare prepares a new environment based on the provided configuration.
+func Prepare(config *config.Config) (Environ, error) {
+	p, err := Provider(config.Type())
+	if err != nil {
+		return nil, err
+	}
+	return p.Prepare(config)
 }
 
 // CheckEnvironment checks if an environment has a bootstrap-verify

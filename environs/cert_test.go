@@ -6,7 +6,7 @@ package environs_test
 import (
 	"io/ioutil"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -17,9 +17,9 @@ type EnvironsCertSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&EnvironsCertSuite{})
+var _ = gc.Suite(&EnvironsCertSuite{})
 
-func (*EnvironsCertSuite) TestWriteCertAndKey(c *C) {
+func (*EnvironsCertSuite) TestWriteCertAndKey(c *gc.C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
 
 	// Ensure that the juju home path is different
@@ -29,20 +29,20 @@ func (*EnvironsCertSuite) TestWriteCertAndKey(c *C) {
 
 	cert, key := []byte("a cert"), []byte("a key")
 	err := environs.WriteCertAndKey("foo", cert, key)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Check that the generated CA key has been written correctly.
 	caCertPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-cert.pem"))
-	c.Assert(err, IsNil)
-	c.Assert(caCertPEM, DeepEquals, cert)
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCertPEM, gc.DeepEquals, cert)
 
 	caKeyPEM, err := ioutil.ReadFile(config.JujuHomePath("foo-private-key.pem"))
-	c.Assert(err, IsNil)
-	c.Assert(caKeyPEM, DeepEquals, key)
+	c.Assert(err, gc.IsNil)
+	c.Assert(caKeyPEM, gc.DeepEquals, key)
 
 }
 
-func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *C) {
+func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig).Restore()
 	envName := testing.SampleEnvName
 
@@ -50,42 +50,42 @@ func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *C) {
 	ioutil.WriteFile(keyPath, []byte(testing.CACert), 0600)
 
 	// Need to create the environment after the cert has been written.
-	env, err := environs.NewFromName(envName)
-	c.Assert(err, IsNil)
+	env, err := environs.PrepareFromName(envName)
+	c.Assert(err, gc.IsNil)
 
 	writeCalled := false
 	_, err = environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
 		writeCalled = true
 		return nil
 	})
-	c.Assert(err, ErrorMatches, "environment configuration with a certificate but no CA private key")
-	c.Assert(writeCalled, Equals, false)
+	c.Assert(err, gc.ErrorMatches, "environment configuration with a certificate but no CA private key")
+	c.Assert(writeCalled, gc.Equals, false)
 }
 
-func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *C) {
+func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
-	env, err := environs.NewFromName(testing.SampleEnvName)
-	c.Assert(err, IsNil)
+	env, err := environs.PrepareFromName(testing.SampleEnvName)
+	c.Assert(err, gc.IsNil)
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
 		writeCalled = true
 		return nil
 	})
-	c.Assert(err, IsNil)
-	c.Assert(created, Equals, environs.CertExists)
-	c.Assert(writeCalled, Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(created, gc.Equals, environs.CertExists)
+	c.Assert(writeCalled, gc.Equals, false)
 }
 
-func (*EnvironsCertSuite) TestEnsureCertificate(c *C) {
+func (*EnvironsCertSuite) TestEnsureCertificate(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig).Restore()
-	env, err := environs.NewFromName(testing.SampleEnvName)
-	c.Assert(err, IsNil)
+	env, err := environs.PrepareFromName(testing.SampleEnvName)
+	c.Assert(err, gc.IsNil)
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
 		writeCalled = true
 		return nil
 	})
-	c.Assert(err, IsNil)
-	c.Assert(created, Equals, environs.CertCreated)
-	c.Assert(writeCalled, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(created, gc.Equals, environs.CertCreated)
+	c.Assert(writeCalled, gc.Equals, true)
 }

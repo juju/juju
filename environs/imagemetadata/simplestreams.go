@@ -8,6 +8,7 @@ package imagemetadata
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
@@ -16,8 +17,11 @@ func init() {
 }
 
 const (
-	imageIds = "image-ids"
+	ImageIds = "image-ids"
 )
+
+// This needs to be a var so we can override it for testing.
+var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
@@ -62,7 +66,7 @@ type ImageMetadata struct {
 // then unsigned data is used.
 func Fetch(baseURLs []string, indexPath string, cons *ImageConstraint, onlySigned bool) ([]*ImageMetadata, error) {
 	params := simplestreams.ValueParams{
-		DataType:      imageIds,
+		DataType:      ImageIds,
 		FilterFunc:    appendMatchingImages,
 		ValueTemplate: ImageMetadata{},
 	}

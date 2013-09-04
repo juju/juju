@@ -11,9 +11,11 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/agent"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -27,8 +29,8 @@ var retryAfter = func() <-chan time.Time {
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools  *tools.Tools
-	NewTools  *tools.Tools
+	OldTools  *coretools.Tools
+	NewTools  *coretools.Tools
 	DataDir   string
 }
 
@@ -40,7 +42,7 @@ func (e *UpgradeReadyError) Error() string {
 // It should be called just before an agent exits, so that
 // it will restart running the new tools.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
+	tools, err := agenttools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
 	if err != nil {
 		return err
 	}
@@ -59,18 +61,17 @@ type Upgrader struct {
 	tag     string
 }
 
-// New returns a new upgrader worker. It watches changes to the
-// current version of the current agent (with the given tag)
-// and tries to download the tools for any new version
-// into the given data directory.
-// If an upgrade is needed, the worker will exit with an
-// UpgradeReadyError holding details of the requested upgrade. The tools
-// will have been downloaded and unpacked.
-func New(st *upgrader.State, tag, dataDir string) *Upgrader {
+// NewUpgrader returns a new upgrader worker. It watches changes to the
+// current version of the current agent (with the given tag) and tries to
+// download the tools for any new version into the given data directory.  If
+// an upgrade is needed, the worker will exit with an UpgradeReadyError
+// holding details of the requested upgrade. The tools will have been
+// downloaded and unpacked.
+func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
 		st:      st,
-		dataDir: dataDir,
-		tag:     tag,
+		dataDir: agentConfig.DataDir(),
+		tag:     agentConfig.Tag(),
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -97,13 +98,13 @@ func (u *Upgrader) Stop() error {
 }
 
 func (u *Upgrader) loop() error {
-	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
+	currentTools, err := agenttools.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
 		logger.Warningf("cannot read current tools: %v", err)
-		currentTools = &tools.Tools{
+		currentTools = &coretools.Tools{
 			Version: version.Current,
 		}
 	}
@@ -123,25 +124,31 @@ func (u *Upgrader) loop() error {
 	// that we attempt an upgrade even if other workers are dying
 	// all around us.
 	var dying <-chan struct{}
-	var wantTools *tools.Tools
+	var wantTools *coretools.Tools
+	var wantVersion version.Number
 	for {
 		select {
 		case _, ok := <-changes:
 			if !ok {
 				return watcher.MustErr(versionWatcher)
 			}
-			wantTools, err = u.st.Tools(u.tag)
+			wantVersion, err = u.st.DesiredVersion(u.tag)
 			if err != nil {
 				return err
 			}
-			logger.Infof("required tools: %v", wantTools.Version)
+			logger.Infof("desired tool version: %v", wantVersion)
 			dying = u.tomb.Dying()
 		case <-retry:
 		case <-dying:
 			return nil
 		}
-		if wantTools.Version.Number != currentTools.Version.Number {
-			logger.Infof("upgrade required from %v to %v", currentTools.Version, wantTools.Version)
+		if wantVersion != currentTools.Version.Number {
+			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+			wantTools, err = u.st.Tools(u.tag)
+			if err != nil {
+				// Not being able to lookup Tools is considered fatal
+				return err
+			}
 			// The worker cannot be stopped while we're downloading
 			// the tools - this means that even if the API is going down
 			// repeatedly (causing the agent to be stopped), as long
@@ -162,7 +169,7 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
+func (u *Upgrader) fetchTools(agentTools *coretools.Tools) error {
 	logger.Infof("fetching tools from %q", agentTools.URL)
 	resp, err := http.Get(agentTools.URL)
 	if err != nil {
@@ -172,7 +179,7 @@ func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad HTTP response: %v", resp.Status)
 	}
-	err = tools.UnpackTools(u.dataDir, agentTools, resp.Body)
+	err = agenttools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}

@@ -108,9 +108,9 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-// NotifyWatcher will send events when something changes.
+// notifyWatcher will send events when something changes.
 // It does not send content for those changes.
-type NotifyWatcher struct {
+type notifyWatcher struct {
 	commonWatcher
 	caller          common.Caller
 	notifyWatcherId string
@@ -119,8 +119,8 @@ type NotifyWatcher struct {
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) *NotifyWatcher {
-	w := &NotifyWatcher{
+func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) NotifyWatcher {
+	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
 		out:             make(chan struct{}),
@@ -134,7 +134,7 @@ func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) *No
 	return w
 }
 
-func (w *NotifyWatcher) loop() error {
+func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
@@ -145,7 +145,7 @@ func (w *NotifyWatcher) loop() error {
 
 	for {
 		select {
-		// Since for a NotifyWatcher there are no changes to send, we
+		// Since for a notifyWatcher there are no changes to send, we
 		// just set the event (initial first, then after each change).
 		case w.out <- struct{}{}:
 		case <-w.tomb.Dying():
@@ -162,21 +162,21 @@ func (w *NotifyWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *NotifyWatcher) Changes() <-chan struct{} {
+func (w *notifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-// StringsWatcher will send events when something changes.
+// stringsWatcher will send events when something changes.
 // The content of the changes is a list of strings.
-type StringsWatcher struct {
+type stringsWatcher struct {
 	commonWatcher
 	caller           common.Caller
 	stringsWatcherId string
 	out              chan []string
 }
 
-func NewStringsWatcher(caller common.Caller, result params.StringsWatchResult) *StringsWatcher {
-	w := &StringsWatcher{
+func NewStringsWatcher(caller common.Caller, result params.StringsWatchResult) StringsWatcher {
+	w := &stringsWatcher{
 		caller:           caller,
 		stringsWatcherId: result.StringsWatcherId,
 		out:              make(chan []string),
@@ -189,7 +189,7 @@ func NewStringsWatcher(caller common.Caller, result params.StringsWatchResult) *
 	return w
 }
 
-func (w *StringsWatcher) loop(initialChanges []string) error {
+func (w *stringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
 	w.call = func(request string, result interface{}) error {
@@ -219,6 +219,6 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 
 // Changes returns a channel that receives a list of strings of watched
 // entites with changes.
-func (w *StringsWatcher) Changes() <-chan []string {
+func (w *stringsWatcher) Changes() <-chan []string {
 	return w.out
 }

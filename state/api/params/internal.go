@@ -4,7 +4,8 @@
 package params
 
 import (
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 // Entity identifies a single entity.
@@ -52,6 +53,18 @@ type StringResults struct {
 	Results []StringResult
 }
 
+// ResolvedModeResult holds a resolved mode or an error.
+type ResolvedModeResult struct {
+	Error *Error
+	Mode  ResolvedMode
+}
+
+// ResolvedModeResults holds the bulk operation result of an API call
+// that returns a resolved mode or an error.
+type ResolvedModeResults struct {
+	Results []ResolvedModeResult
+}
+
 // StringBoolResult holds the result of an API call that returns a
 // string and a boolean.
 type StringBoolResult struct {
@@ -66,8 +79,20 @@ type StringBoolResults struct {
 	Results []StringBoolResult
 }
 
+// BoolResult holds the result of an API call that returns a
+// a boolean or an error.
+type BoolResult struct {
+	Error  *Error
+	Result bool
+}
+
+// BoolResults holds multiple results with BoolResult each.
+type BoolResults struct {
+	Results []BoolResult
+}
+
 // Settings holds charm config options names and values.
-type Settings map[string]interface{}
+type Settings map[string]string
 
 // SettingsResult holds a charm settings map or an error.
 type SettingsResult struct {
@@ -79,6 +104,60 @@ type SettingsResult struct {
 // settings for multiple entities.
 type SettingsResults struct {
 	Results []SettingsResult
+}
+
+// RelationUnit holds a relation and a unit tag.
+type RelationUnit struct {
+	Relation string
+	Unit     string
+}
+
+// RelationUnits holds the parameters for API calls expecting a pair
+// of relation and unit tags.
+type RelationUnits struct {
+	RelationUnits []RelationUnit
+}
+
+// RelationUnitPair holds a relation tag, a local and remote unit tags.
+type RelationUnitPair struct {
+	Relation   string
+	LocalUnit  string
+	RemoteUnit string
+}
+
+// RelationUnitPairs holds the parameters for API calls expecting
+// multiple sets of a relation tag, a local and remote unit tags.
+type RelationUnitPairs struct {
+	RelationUnitPairs []RelationUnitPair
+}
+
+// RelationUnitSettings holds a relation tag, a unit tag and local
+// unit settings.
+type RelationUnitSettings struct {
+	Relation string
+	Unit     string
+	Settings Settings
+}
+
+// RelationUnitsSettings holds the arguments for making a EnterScope
+// or WriteSettings API calls.
+type RelationUnitsSettings struct {
+	RelationUnits []RelationUnitSettings
+}
+
+// RelationResult holds the relation id, key and the local endpoint
+// for a single relation or an error.
+type RelationResult struct {
+	Error    *Error
+	Id       int
+	Key      string
+	Endpoint Endpoint
+}
+
+// RelationResults holds the result of an API call that returns
+// information about multiple relations.
+type RelationResults struct {
+	Results []RelationResult
 }
 
 // EntityPort holds an entity's tag, a protocol and a port.
@@ -193,6 +272,18 @@ type AgentGetEntitiesResult struct {
 	Life  Life
 	Jobs  []MachineJob
 	Error *Error
+}
+
+// AgentVersionResult holds the version and possibly error for a given
+// DesiredVersion request
+type AgentVersionResult struct {
+	Version *version.Number
+	Error   *Error
+}
+
+// AgentVersionResults is a list of versions for the requested entities
+type AgentVersionResults struct {
+	Results []AgentVersionResult
 }
 
 // AgentToolsResult holds the tools and possibly error for a given AgentTools request
