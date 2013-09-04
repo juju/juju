@@ -151,12 +151,10 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 	s.assertHook(c, hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
-		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertHook(c, hook.Info{
 		Kind:       hooks.RelationChanged,
 		RemoteUnit: "u/1",
-		Members:    map[string]map[string]interface{}{"u/1": settings},
 	})
 	s.assertNoHook(c)
 
@@ -185,23 +183,16 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 	s.assertHook(c, hook.Info{
 		Kind:       hooks.RelationDeparted,
 		RemoteUnit: "u/1",
-		Members:    map[string]map[string]interface{}{},
 	})
 	s.assertHook(c, hook.Info{
 		Kind:          hooks.RelationJoined,
 		ChangeVersion: 1,
 		RemoteUnit:    "u/2",
-		Members: map[string]map[string]interface{}{
-			"u/2": {"private-address": "roehampton"},
-		},
 	})
 	s.assertHook(c, hook.Info{
 		Kind:          hooks.RelationChanged,
 		ChangeVersion: 1,
 		RemoteUnit:    "u/2",
-		Members: map[string]map[string]interface{}{
-			"u/2": {"private-address": "roehampton"},
-		},
 	})
 	s.assertNoHook(c)
 
@@ -223,9 +214,6 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 		Kind:          hooks.RelationChanged,
 		RemoteUnit:    "u/1",
 		ChangeVersion: 7,
-		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "glastonbury"},
-		},
 	}
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
@@ -237,30 +225,18 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	joined := hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
-		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.testing.invalid"},
-		},
 	}
 	name, err := r.PrepareHook(joined)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.HasLen, 0)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
-	s1, err := ctx.ReadSettings("u/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(s1, gc.DeepEquals, joined.Members["u/1"])
-
-	// Clear the changed hook's Members, as though it had been deserialized.
-	changed.Members = nil
 
 	// Check that preparing the following hook fails as before...
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
 	c.Assert(s.dir.State().Members, gc.HasLen, 0)
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
-	s1, err = ctx.ReadSettings("u/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(s1, gc.DeepEquals, joined.Members["u/1"])
 
 	// ...but that committing the previous hook updates the persistent
 	// relation state...
@@ -268,9 +244,6 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 0})
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
-	s1, err = ctx.ReadSettings("u/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(s1, gc.DeepEquals, joined.Members["u/1"])
 
 	// ...and allows us to prepare the next hook...
 	name, err = r.PrepareHook(changed)
@@ -278,9 +251,6 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	c.Assert(name, gc.Equals, "ring-relation-changed")
 	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 0})
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
-	s1, err = ctx.ReadSettings("u/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(s1, gc.DeepEquals, map[string]interface{}{"private-address": "u-1.testing.invalid"})
 
 	// ...and commit it.
 	err = r.CommitHook(changed)
@@ -293,7 +263,6 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	// membership is updated appropriately...
 	joined.RemoteUnit = "u/2"
 	joined.ChangeVersion = 3
-	joined.Members = nil
 	name, err = r.PrepareHook(joined)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.HasLen, 1)
@@ -320,9 +289,6 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	s.assertHook(c, hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
-		Members: map[string]map[string]interface{}{
-			"u/1": settings,
-		},
 	})
 
 	// While a changed hook is still pending, the relation (or possibly the unit,

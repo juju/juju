@@ -17,6 +17,7 @@ import (
 func Test(t *testing.T) {
 	registerSimpleStreamsTests()
 	gc.Suite(&signingSuite{})
+	gc.Suite(&jsonSuite{})
 	gc.TestingT(t)
 }
 

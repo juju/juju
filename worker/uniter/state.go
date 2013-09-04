@@ -135,13 +135,6 @@ func (f *StateFile) Read() (*State, error) {
 
 // Write stores the supplied state to the file.
 func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url *charm.URL) error {
-	if hi != nil {
-		// Strip membership info: it's potentially large, and can
-		// be reconstructed from relation state when required.
-		hiCopy := *hi
-		hiCopy.Members = nil
-		hi = &hiCopy
-	}
 	st := &State{
 		Started:  started,
 		Op:       op,

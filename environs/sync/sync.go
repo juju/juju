@@ -7,19 +7,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"path"
-	"path/filepath"
-	"sort"
 	"time"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/filestorage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -62,7 +58,7 @@ func SyncTools(ctx *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion)
+	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, -1)
 	if err != nil {
 		return err
 	}
@@ -86,7 +82,7 @@ func SyncTools(ctx *SyncContext) error {
 	logger.Infof("listing target bucket")
 	targetStorage := ctx.Target.Storage()
 	if ctx.PublicBucket {
-		switch _, err := envtools.ReadList(targetStorage, majorVersion); err {
+		switch _, err := envtools.ReadList(targetStorage, majorVersion, -1); err {
 		case envtools.ErrNoTools:
 		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
@@ -98,7 +94,7 @@ func SyncTools(ctx *SyncContext) error {
 			return fmt.Errorf("cannot write to public storage")
 		}
 	}
-	targetTools, err := envtools.ReadList(targetStorage, majorVersion)
+	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
@@ -123,7 +119,7 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 	if ctx.Source == "" {
 		return ec2.NewHTTPStorageReader(DefaultToolsLocation), nil
 	}
-	return newFileStorageReader(ctx.Source)
+	return filestorage.NewFileStorageReader(ctx.Source)
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -163,73 +159,6 @@ func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src envir
 		return err
 	}
 	return nil
-}
-
-// fileStorageReader implements StorageReader backed
-// by the local filesystem.
-type fileStorageReader struct {
-	path string
-}
-
-// newFileStorageReader returns a new storage reader for
-// a directory inside the local file system.
-func newFileStorageReader(path string) (environs.StorageReader, error) {
-	p := filepath.Clean(path)
-	fi, err := os.Stat(p)
-	if err != nil {
-		return nil, err
-	}
-	if !fi.Mode().IsDir() {
-		return nil, fmt.Errorf("specified source path is not a directory: %s", path)
-	}
-	return &fileStorageReader{p}, nil
-}
-
-// Get implements environs.StorageReader.Get.
-func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
-	filename, err := f.URL(name)
-	if err != nil {
-		return nil, err
-	}
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	return file, nil
-}
-
-// List implements environs.StorageReader.List.
-func (f *fileStorageReader) List(prefix string) ([]string, error) {
-	// Add one for the missing path separator.
-	pathlen := len(f.path) + 1
-	pattern := filepath.Join(f.path, prefix+"*")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, err
-	}
-	list := []string{}
-	for _, match := range matches {
-		fi, err := os.Stat(match)
-		if err != nil {
-			return nil, err
-		}
-		if !fi.Mode().IsDir() {
-			filename := match[pathlen:]
-			list = append(list, filename)
-		}
-	}
-	sort.Strings(list)
-	return list, nil
-}
-
-// URL implements environs.StorageReader.URL.
-func (f *fileStorageReader) URL(name string) (string, error) {
-	return path.Join(f.path, name), nil
-}
-
-// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
-func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{}
 }
 
 // NewSyncLogWriter creates a loggo writer for registration

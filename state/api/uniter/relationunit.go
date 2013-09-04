@@ -38,8 +38,9 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 // it is valid.
 //
 // NOTE: This differs from state.RelationUnit.PrivateAddress() by
-// returning an error as well, because it needs to make an API call.
-func (ru *RelationUnit) PrivateAddress() (string, bool, error) {
+// returning an error instead of a bool, because it needs to make an
+// API call.
+func (ru *RelationUnit) PrivateAddress() (string, error) {
 	return ru.unit.PrivateAddress()
 }
 

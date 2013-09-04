@@ -93,14 +93,14 @@ func (a *UnitAgent) StateWorkers() (worker.Worker, error) {
 }
 
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	st, entity, err := openAPIState(a.Conf.config, a)
+	agentConfig := a.Conf.config
+	st, _, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
-	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.New(st.Upgrader(), entity.Tag(), dataDir), nil
+		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	return newCloseWorker(runner, st), nil
 }
