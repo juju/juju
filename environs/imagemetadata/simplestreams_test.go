@@ -51,7 +51,7 @@ func Test(t *testing.T) {
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: testData.validCloudSpec,
-			Series:    "quantal",
+			Series:    []string{"quantal"},
 			Arches:    []string{"amd64"},
 		}), testData.requireSigned)
 	}
@@ -70,7 +70,7 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: "precise",
+				Series: []string{"precise"},
 				Arches: []string{"amd64", "arm"},
 			}),
 		},
@@ -206,7 +206,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		c.Logf("test %d", i)
 		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"},
-			Series:    "precise",
+			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
 		images, err := imagemetadata.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
@@ -223,7 +223,7 @@ var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := imageConstraint.Ids()
@@ -233,7 +233,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 
 func (s *productSpecSuite) TestId(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 		Stream: "daily",
 	})
@@ -244,7 +244,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64", "i386"},
 		Stream: "daily",
 	})
@@ -257,7 +257,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "lucid",
+		Series: []string{"lucid"},
 		Arches: []string{"amd64"},
 		Stream: "daily",
 	})

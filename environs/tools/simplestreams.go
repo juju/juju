@@ -47,15 +47,19 @@ func NewGeneralToolsConstraint(majorVersion, minorVersion int, released bool, pa
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) Ids() ([]string, error) {
-	version, err := simplestreams.SeriesVersion(tc.Series)
-	if err != nil {
-		return nil, err
+	var allIds []string
+	for _, series := range tc.Series {
+		version, err := simplestreams.SeriesVersion(series)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]string, len(tc.Arches))
+		for i, arch := range tc.Arches {
+			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
+		}
+		allIds = append(allIds, ids...)
 	}
-	ids := make([]string, len(tc.Arches))
-	for i, arch := range tc.Arches {
-		ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
-	}
-	return ids, nil
+	return allIds, nil
 }
 
 // ToolsMetadata holds information about a particular tools tarball.
@@ -101,6 +105,16 @@ func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigne
 	return metadata, nil
 }
 
+// utility function to see if element exists in values slice.
+func containsString(values []string, element string) bool {
+	for _, value := range values {
+		if value == element {
+			return true
+		}
+	}
+	return false
+}
+
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
 func appendMatchingTools(matchingTools []interface{}, tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
@@ -111,8 +125,7 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
-		consSeries := cons.Params().Series
-		if consSeries != "" && consSeries != tm.Release {
+		if !containsString(cons.Params().Series, tm.Release) {
 			continue
 		}
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {

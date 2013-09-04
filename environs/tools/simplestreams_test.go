@@ -53,7 +53,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    version.Current.Series,
+				Series:    []string{version.Current.Series},
 				Arches:    []string{"amd64"},
 			}), testData.requireSigned)
 	}
@@ -71,7 +71,7 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: "precise",
+				Series: []string{"precise"},
 				Arches: []string{"amd64", "arm"},
 			}),
 		},
@@ -222,13 +222,13 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		if t.version == "" {
 			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, t.released, simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-				Series:    t.series,
+				Series:    []string{t.series},
 				Arches:    t.arches,
 			})
 		} else {
 			toolsConstraint = tools.NewVersionedToolsConstraint(t.version, simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-				Series:    t.series,
+				Series:    []string{t.series},
 				Arches:    t.arches,
 			})
 		}
@@ -246,7 +246,7 @@ var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestId(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.Ids()
@@ -256,7 +256,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64", "arm"},
 	})
 	ids, err := toolsConstraint.Ids()
@@ -266,9 +266,21 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 		"com.ubuntu.juju:12.04:arm"})
 }
 
+func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
+	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+		Series: []string{"precise", "raring"},
+		Arches: []string{"amd64"},
+	})
+	ids, err := toolsConstraint.Ids()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{
+		"com.ubuntu.juju:12.04:amd64",
+		"com.ubuntu.juju:13.04:amd64"})
+}
+
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint("1.10.1", simplestreams.LookupParams{
-		Series: "lucid",
+		Series: []string{"lucid"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.Ids()
@@ -281,7 +293,7 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, false, simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.Ids()
@@ -291,7 +303,7 @@ func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 
 func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, false, simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.Ids()

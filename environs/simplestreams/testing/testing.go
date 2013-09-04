@@ -409,7 +409,7 @@ func NewTestConstraint(params simplestreams.LookupParams) *testConstraint {
 }
 
 func (tc *testConstraint) Ids() ([]string, error) {
-	version, err := simplestreams.SeriesVersion(tc.Series)
+	version, err := simplestreams.SeriesVersion(tc.Series[0])
 	if err != nil {
 		return nil, err
 	}
@@ -476,6 +476,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 	c.Assert(err, gc.IsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"bad", "spec"},
+		Series:    []string{"precise"},
 	})
 	_, err = indexRef.GetProductsPath(ic)
 	c.Assert(err, gc.NotNil)
@@ -486,7 +487,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 	c.Assert(err, gc.IsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
-		Series:    "precise",
+		Series:    []string{"precise"},
 		Arches:    []string{"bad"},
 		Stream:    "spec",
 	})

@@ -30,16 +30,21 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 
 	var toolsConstraint *ToolsConstraint
 	if filter.Number != version.Zero {
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(), simplestreams.LookupParams{
-			CloudSpec: cloudSpec,
-			Series:    filter.Series,
-		})
+		// A specific tools version is required, however, a general match based on major/minor
+		// version may also have been requested. This is used to ensure any agent version currently
+		// recorded in the environment matches the Juju cli version.
+		// We can short circuit any lookup here by checking the major/minor numbers against
+		// the filter version and exiting early if there is a mismatch.
+		majorMismatch := majorVersion > 0 && majorVersion != filter.Number.Major
+		minorMismacth := minorVersion != -1 && minorVersion != filter.Number.Minor
+		if majorMismatch || minorMismacth {
+			return nil, coretools.ErrNoMatches
+		}
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
+			simplestreams.LookupParams{CloudSpec: cloudSpec})
 	} else {
 		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
-			simplestreams.LookupParams{
-				CloudSpec: cloudSpec,
-				Series:    filter.Series,
-			})
+			simplestreams.LookupParams{CloudSpec: cloudSpec})
 	}
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}
@@ -47,9 +52,24 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 		logger.Infof("no architecture specified when finding tools, looking for any")
 		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
 	}
+	// The old tools search allowed finding tools without needing to specify a series.
+	// The simplestreams metadata is keyed off series, so series must be specified in
+	// the search constraint. If no series is specified,
+	var seriesToSearch []string
+	if filter.Series != "" {
+		seriesToSearch = []string{filter.Series}
+	} else {
+		logger.Infof("no series specified when finding tools, looking for any")
+		seriesToSearch = simplestreams.SupportedSeries()
+	}
+	toolsConstraint.Series = seriesToSearch
+
 	toolsMetadata, err := Fetch(urls, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		return nil, err
+	}
+	if len(toolsMetadata) == 0 {
+		return nil, coretools.ErrNoMatches
 	}
 	list = make(coretools.List, len(toolsMetadata))
 	for i, metadata := range toolsMetadata {
@@ -70,6 +90,11 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 	}
 	return list, err
 }
+
+// UseLegacyFallback is true is we try loading the tools from the env storage if the
+// new lookup using simplestreams fails.
+// Tests can turn off this feature.
+var UseLegacyFallback = true
 
 // FindTools returns a List containing all tools with a given
 // major.minor version number available in the storages, filtered by filter.
@@ -118,7 +143,7 @@ func FindTools(cloud environs.HasConfig, majorVersion, minorVersion int, filter 
 		return nil, err
 	}
 	list, err = NewFindTools(urls, cloudSpec, majorVersion, minorVersion, filter)
-	if err != nil || len(list) == 0 {
+	if UseLegacyFallback && err != nil || len(list) == 0 {
 		if env, ok := cloud.(environs.Environ); ok {
 			list, err = LegacyFindTools(
 				[]environs.StorageReader{env.Storage(), env.PublicStorage()}, majorVersion, minorVersion, filter)

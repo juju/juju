@@ -93,19 +93,25 @@ func (s *LegacyToolsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
+	s.ToolsSuite.SetUpSuite(c)
 	s.toolsTestHelper = s
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
 	t := &http.Transport{}
 	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 	s.oldClient = simplestreams.SetHttpClient(&http.Client{Transport: t})
-
+	envtools.UseLegacyFallback = false
 }
 
 func (s *SimpleStreamsToolsSuite) TearDownSuite(c *gc.C) {
 	if s.oldClient != nil {
 		simplestreams.SetHttpClient(s.oldClient)
 	}
+}
+
+func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
+	s.ToolsSuite.SetUpTest(c)
+	envtools.DefaultBaseURL = "file://" + s.publicToolsDir
 }
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
@@ -119,16 +125,21 @@ func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 }
 
 func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
-	files, err := ioutil.ReadDir(s.customToolsDir)
-	c.Assert(err, gc.IsNil)
-	for _, f := range files {
-		err := os.RemoveAll(filepath.Join(s.customToolsDir, f.Name()))
+	for _, dir := range []string{s.customToolsDir, s.publicToolsDir} {
+		files, err := ioutil.ReadDir(dir)
 		c.Assert(err, gc.IsNil)
+		for _, f := range files {
+			err := os.RemoveAll(filepath.Join(dir, f.Name()))
+			c.Assert(err, gc.IsNil)
+		}
 	}
 }
 
 func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
+	if len(verses) == 0 {
+		return uploaded
+	}
 	var metadata = make([]*envtools.ToolsMetadata, len(verses))
 	for i, vers := range verses {
 		uploaded[vers] = fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
@@ -295,32 +306,11 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.INFO, "reading tools with major version 1"},
 		{loggo.INFO, "filtering tools by version: 1.2.3"},
 		{loggo.INFO, "no architecture specified when finding tools, looking for any"},
+		{loggo.INFO, "no series specified when finding tools, looking for any"},
 		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
 		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
 		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
-	})
-}
-
-func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
-	defer loggo.RemoveWriter("filter-tester")
-	_, err := envtools.FindTools(s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	// This is slightly overly prescriptive, but feel free to change or add
-	// messages. This still helps to ensure that all log messages are
-	// properly formed.
-	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: 1.2.3"},
-		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
-		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
-		{loggo.DEBUG, "reading v1.* tools"},
-		{loggo.DEBUG, "reading v1.* tools"},
-		{loggo.DEBUG, "found 1.13.3-precise-amd64"},
-		{loggo.DEBUG, "found 1.13.3-raring-amd64"},
-		{loggo.ERROR, `cannot match tools.Filter{Released:false, Number:version.Number{Major:1, Minor:2, Patch:3, Build:0}, Series:"", Arch:""}`},
 	})
 }
 
