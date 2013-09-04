@@ -419,7 +419,8 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 // emptySettingCompatability is a helper type to keep the API behavior while the
 // setting of options with an empty string has changed from deleting the current
 // setting to set it to an empty string in case of string typed options and return
-// an error in case of other option types
+// an error in case of other option types.
+// See http://pad.lv/1194945
 type emptySettingCompatability struct {
 	setSettings   map[string]string
 	unsetSettings charm.Settings

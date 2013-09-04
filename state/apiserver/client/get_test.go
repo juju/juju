@@ -93,11 +93,11 @@ var getTests = []struct {
 	config: map[string]string{
 		// Empty string gives default.
 		"title": "",
-		// Value when there's a default
+		// Value when there's a default.
 		"username": "foobie",
-		// Numeric value
+		// Numeric value.
 		"skill-level": "0",
-		// String value
+		// String value.
 		"outlook": "phlegmatic",
 	},
 	expect: params.ServiceGetResults{
