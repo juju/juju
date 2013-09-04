@@ -141,12 +141,15 @@ func (formatter *formatter_1_16) write(config *configInternal) error {
 	if err != nil {
 		return err
 	}
-	// Write the new config, then write the format, then rename the new config.
-	newFile := path.Join(dirName, "agent.conf-new")
-	if err := ioutil.WriteFile(newFile, data, 0600); err != nil {
+	// Writing the format file makes sure that dirName exists.  We should
+	// really be writing the foramt and new config files into a separate
+	// directory, and renaming the directory, and moving the old agend
+	// directory to ".old".
+	if err := writeFormatFile(dirName, format_1_16); err != nil {
 		return err
 	}
-	if err := writeFormatFile(dirName, format_1_16); err != nil {
+	newFile := path.Join(dirName, "agent.conf-new")
+	if err := ioutil.WriteFile(newFile, data, 0600); err != nil {
 		return err
 	}
 	if err := os.Rename(newFile, formatter.configFile(dirName)); err != nil {
