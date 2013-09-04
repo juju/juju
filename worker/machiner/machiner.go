@@ -5,6 +5,7 @@ package machiner
 import (
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
@@ -24,8 +25,8 @@ type Machiner struct {
 // NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
-func NewMachiner(st *machiner.State, tag string) worker.Worker {
-	mr := &Machiner{st: st, tag: tag}
+func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
+	mr := &Machiner{st: st, tag: agentConfig.Tag()}
 	return worker.NewNotifyWorker(mr)
 }
 

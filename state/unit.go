@@ -63,11 +63,8 @@ const (
 
 // UnitSettings holds information about a service unit's settings
 // within a relation.
-// NOTE: Settings field may always be nil and should never be
-// dependent upon. We need to remove it in the future.
 type UnitSettings struct {
-	Version  int64
-	Settings map[string]interface{}
+	Version int64
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.

@@ -23,20 +23,15 @@ const (
 )
 
 // Boilerplate generates some basic simplestreams metadata using the specified cloud and tools details.
-// If name is non-empty, it will be used as a prefix for the names of the generated index and tools files.
-func Boilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplestreams.CloudSpec) ([]string, error) {
-	return MakeBoilerplate(name, series, tm, cloudSpec, true)
+func Boilerplate(tm *ToolsMetadata, cloudSpec *simplestreams.CloudSpec) ([]string, error) {
+	return MakeBoilerplate(tm, cloudSpec, true)
 }
 
 // MakeBoilerplate exists so it can be called by tests. See Boilerplate above. It provides an option to retain
 // the streams directories when writing the generated metadata files.
-func MakeBoilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplestreams.CloudSpec, flattenPath bool) ([]string, error) {
+func MakeBoilerplate(tm *ToolsMetadata, cloudSpec *simplestreams.CloudSpec, flattenPath bool) ([]string, error) {
 	indexFileName := defaultIndexFileName
 	toolsFileName := defaultToolsFileName
-	if name != "" {
-		indexFileName = fmt.Sprintf("%s-%s", name, indexFileName)
-		toolsFileName = fmt.Sprintf("%s-%s", name, toolsFileName)
-	}
 	now := time.Now()
 	imparams := toolsMetadataParams{
 		ToolsBinarySize:   tm.Size,
@@ -53,6 +48,12 @@ func MakeBoilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplest
 		VersionKey:        now.Format("20060102"),
 	}
 
+	var err error
+	imparams.SeriesVersion, err = simplestreams.SeriesVersion(tm.Release)
+	if err != nil {
+		return nil, fmt.Errorf("invalid series %q", tm.Release)
+	}
+
 	if !flattenPath {
 		streamsPath := config.JujuHomePath(streamsDir)
 		if err := os.MkdirAll(streamsPath, 0755); err != nil {
@@ -61,7 +62,7 @@ func MakeBoilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplest
 		indexFileName = filepath.Join(streamsDir, indexFileName)
 		toolsFileName = filepath.Join(streamsDir, toolsFileName)
 	}
-	err := writeJsonFile(imparams, indexFileName, indexBoilerplate)
+	err = writeJsonFile(imparams, indexFileName, indexBoilerplate)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +75,7 @@ func MakeBoilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplest
 
 type toolsMetadataParams struct {
 	ToolsBinaryPath   string
-	ToolsBinarySize   float64
+	ToolsBinarySize   int64
 	ToolsBinarySHA256 string
 	Region            string
 	URL               string
@@ -82,6 +83,7 @@ type toolsMetadataParams struct {
 	Arch              string
 	Path              string
 	Series            string
+	SeriesVersion     string
 	Version           string
 	VersionKey        string
 	ToolsFileName     string
@@ -110,7 +112,7 @@ var indexBoilerplate = `
      "datatype": "content-download",
      "format": "products:1.0",
      "products": [
-       "com.ubuntu.juju:{{.Version}}:{{.Arch}}"
+       "com.ubuntu.juju:{{.SeriesVersion}}:{{.Arch}}"
      ],
      "path": "{{.Path}}/{{.ToolsFileName}}"
    }
@@ -127,22 +129,21 @@ var productBoilerplate = `
   "updated": "{{.Updated}}",
   "datatype": "content-download",
   "products": {
-    "com.ubuntu.juju:{{.Version}}:{{.Arch}}": {
+    "com.ubuntu.juju:{{.SeriesVersion}}:{{.Arch}}": {
       "release": "{{.Series}}",
-      "version": "{{.Version}}",
       "arch": "{{.Arch}}",
       "versions": {
         "{{.VersionKey}}": {
           "items": {
             "{{.Series}}{{.Version}}": {
-              "release": "{{.Series}}",
+              "version": "{{.Version}}",
               "size": {{.ToolsBinarySize}},
               "path": "{{.ToolsBinaryPath}}",
               "ftype": "tar.gz",
               "sha256": "{{.ToolsBinarySHA256}}"
             }
           },
-          "pubname": "juju-{{.Version}}-{{.Series}}-{{.Arch}}-{{.VersionKey}}",
+          "pubname": "juju-{{.Series}}-{{.Arch}}-{{.VersionKey}}",
           "label": "custom"
         }
       }

@@ -155,7 +155,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(s.targetEnv, 1, coretools.Filter{})
+			targetTools, err := envtools.FindTools(environs.StorageInstances(s.targetEnv), 1, -1, coretools.Filter{})
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
@@ -208,7 +208,7 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 }
 
 func assertEmpty(c *gc.C, storage environs.StorageReader) {
-	list, err := envtools.ReadList(storage, 1)
+	list, err := envtools.ReadList(storage, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}

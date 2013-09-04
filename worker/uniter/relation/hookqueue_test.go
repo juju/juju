@@ -45,20 +45,20 @@ var aliveHookQueueTests = []hookQueueTest{
 	), fullTest(
 		"Joined and changed are both run when unit is first detected.",
 		send{msi{"u/0": 0}, nil},
-		expect{hooks.RelationJoined, "u/0", 0, msi{"u/0": 0}},
-		expect{hooks.RelationChanged, "u/0", 0, msi{"u/0": 0}},
+		expect{hooks.RelationJoined, "u/0", 0},
+		expect{hooks.RelationChanged, "u/0", 0},
 	), fullTest(
 		"Automatic changed is run with latest settings.",
 		send{msi{"u/0": 0}, nil},
-		expect{hooks.RelationJoined, "u/0", 0, msi{"u/0": 0}},
+		expect{hooks.RelationJoined, "u/0", 0},
 		send{msi{"u/0": 7}, nil},
-		expect{hooks.RelationChanged, "u/0", 7, msi{"u/0": 7}},
+		expect{hooks.RelationChanged, "u/0", 7},
 	), fullTest(
 		"Joined is also run with latest settings.",
 		send{msi{"u/0": 0}, nil},
 		send{msi{"u/0": 7}, nil},
-		expect{hooks.RelationJoined, "u/0", 7, msi{"u/0": 7}},
-		expect{hooks.RelationChanged, "u/0", 7, msi{"u/0": 7}},
+		expect{hooks.RelationJoined, "u/0", 7},
+		expect{hooks.RelationChanged, "u/0", 7},
 	), fullTest(
 		"Nothing happens if a unit departs before its joined is run.",
 		send{msi{"u/0": 0}, nil},
@@ -67,17 +67,17 @@ var aliveHookQueueTests = []hookQueueTest{
 	), fullTest(
 		"A changed is run after a joined, even if a departed is known.",
 		send{msi{"u/0": 0}, nil},
-		expect{hooks.RelationJoined, "u/0", 0, msi{"u/0": 0}},
+		expect{hooks.RelationJoined, "u/0", 0},
 		send{nil, []string{"u/0"}},
-		expect{hooks.RelationChanged, "u/0", 0, msi{"u/0": 0}},
-		expect{hooks.RelationDeparted, "u/0", 0, msi{}},
+		expect{hooks.RelationChanged, "u/0", 0},
+		expect{hooks.RelationDeparted, "u/0", 0},
 	), fullTest(
 		"A departed replaces a changed.",
 		send{msi{"u/0": 0}, nil},
 		advance{2},
 		send{msi{"u/0": 7}, nil},
 		send{nil, []string{"u/0"}},
-		expect{hooks.RelationDeparted, "u/0", 7, msi{}},
+		expect{hooks.RelationDeparted, "u/0", 7},
 	), fullTest(
 		"Changed events are ignored if the version has not changed.",
 		send{msi{"u/0": 0}, nil},
@@ -90,7 +90,7 @@ var aliveHookQueueTests = []hookQueueTest{
 		send{msi{"u/0": 3}, nil},
 		send{msi{"u/0": 7}, nil},
 		send{msi{"u/0": 79}, nil},
-		expect{hooks.RelationChanged, "u/0", 79, msi{"u/0": 79}},
+		expect{hooks.RelationChanged, "u/0", 79},
 	), fullTest(
 		"Latest hooks are run in the original unit order.",
 		send{msi{"u/0": 0, "u/1": 1}, nil},
@@ -98,8 +98,8 @@ var aliveHookQueueTests = []hookQueueTest{
 		send{msi{"u/0": 3}, nil},
 		send{msi{"u/1": 7}, nil},
 		send{nil, []string{"u/0"}},
-		expect{hooks.RelationDeparted, "u/0", 3, msi{"u/1": 7}},
-		expect{hooks.RelationChanged, "u/1", 7, msi{"u/1": 7}},
+		expect{hooks.RelationDeparted, "u/0", 3},
+		expect{hooks.RelationChanged, "u/1", 7},
 	), fullTest(
 		"Test everything we can think of at the same time.",
 		send{msi{"u/0": 0, "u/1": 0, "u/2": 0, "u/3": 0, "u/4": 0}, nil},
@@ -110,19 +110,19 @@ var aliveHookQueueTests = []hookQueueTest{
 		send{msi{"u/3": 2}, nil},
 		// - Finish off the rest of the initial state, ignoring u/4, but using
 		// the latest known settings.
-		expect{hooks.RelationJoined, "u/3", 2, msi{"u/0": 1, "u/1": 1, "u/2": 1, "u/3": 2}},
-		expect{hooks.RelationChanged, "u/3", 2, msi{"u/0": 1, "u/1": 1, "u/2": 1, "u/3": 2}},
+		expect{hooks.RelationJoined, "u/3", 2},
+		expect{hooks.RelationChanged, "u/3", 2},
 		// - u/0 was queued for change by the first RUC, but this change is
 		// no longer relevant; it's departed in the second RUC, so we run
 		// that hook instead.
-		expect{hooks.RelationDeparted, "u/0", 1, msi{"u/1": 1, "u/2": 1, "u/3": 2}},
+		expect{hooks.RelationDeparted, "u/0", 1},
 		// - Handle the remaining changes in the second RUC, still ignoring u/4.
 		// We do run new changed hooks for u/1 and u/2, because the latest settings
 		// are newer than those used in their original changed events.
-		expect{hooks.RelationChanged, "u/1", 1, msi{"u/1": 1, "u/2": 1, "u/3": 2}},
-		expect{hooks.RelationChanged, "u/2", 1, msi{"u/1": 1, "u/2": 1, "u/3": 2}},
-		expect{hooks.RelationJoined, "u/5", 0, msi{"u/1": 1, "u/2": 1, "u/3": 2, "u/5": 0}},
-		expect{hooks.RelationChanged, "u/5", 0, msi{"u/1": 1, "u/2": 1, "u/3": 2, "u/5": 0}},
+		expect{hooks.RelationChanged, "u/1", 1},
+		expect{hooks.RelationChanged, "u/2", 1},
+		expect{hooks.RelationJoined, "u/5", 0},
+		expect{hooks.RelationChanged, "u/5", 0},
 		// - Ignore the third RUC, because the original joined/changed on u/3
 		// was executed after we got the latest settings version.
 	), reconcileTest(
@@ -133,33 +133,33 @@ var aliveHookQueueTests = []hookQueueTest{
 		"Check that new settings versions cause appropriate changes.",
 		msi{"u/0": 0}, "",
 		send{msi{"u/0": 1}, nil},
-		expect{hooks.RelationChanged, "u/0", 1, msi{"u/0": 1}},
+		expect{hooks.RelationChanged, "u/0", 1},
 	), reconcileTest(
 		"Check that a just-joined unit gets its changed hook run first.",
 		msi{"u/0": 0}, "u/0",
 		send{msi{"u/0": 0}, nil},
-		expect{hooks.RelationChanged, "u/0", 0, msi{"u/0": 0}},
+		expect{hooks.RelationChanged, "u/0", 0},
 	), reconcileTest(
 		"Check that missing units are queued for depart as early as possible.",
 		msi{"u/0": 0}, "",
 		send{msi{"u/1": 0}, nil},
-		expect{hooks.RelationDeparted, "u/0", 0, msi{}},
-		expect{hooks.RelationJoined, "u/1", 0, msi{"u/1": 0}},
-		expect{hooks.RelationChanged, "u/1", 0, msi{"u/1": 0}},
+		expect{hooks.RelationDeparted, "u/0", 0},
+		expect{hooks.RelationJoined, "u/1", 0},
+		expect{hooks.RelationChanged, "u/1", 0},
 	), reconcileTest(
 		"Double-check that a pending changed happens before an injected departed.",
 		msi{"u/0": 0}, "u/0",
 		send{nil, nil},
-		expect{hooks.RelationChanged, "u/0", 0, msi{"u/0": -1}},
-		expect{hooks.RelationDeparted, "u/0", 0, msi{}},
+		expect{hooks.RelationChanged, "u/0", 0},
+		expect{hooks.RelationDeparted, "u/0", 0},
 	), reconcileTest(
 		"Check that missing units don't slip in front of required changed hooks.",
 		msi{"u/0": 0}, "u/0",
 		send{msi{"u/1": 0}, nil},
-		expect{hooks.RelationChanged, "u/0", 0, msi{"u/0": -1}},
-		expect{hooks.RelationDeparted, "u/0", 0, msi{}},
-		expect{hooks.RelationJoined, "u/1", 0, msi{"u/1": 0}},
-		expect{hooks.RelationChanged, "u/1", 0, msi{"u/1": 0}},
+		expect{hooks.RelationChanged, "u/0", 0},
+		expect{hooks.RelationDeparted, "u/0", 0},
+		expect{hooks.RelationJoined, "u/1", 0},
+		expect{hooks.RelationChanged, "u/1", 0},
 	),
 }
 
@@ -187,14 +187,14 @@ var dyingHookQueueTests = []hookQueueTest{
 	), reconcileTest(
 		"Each current member is departed before broken is sent.",
 		msi{"u/1": 7, "u/4": 33}, "",
-		expect{hooks.RelationDeparted, "u/1", 7, nil},
-		expect{hooks.RelationDeparted, "u/4", 33, nil},
+		expect{hooks.RelationDeparted, "u/1", 7},
+		expect{hooks.RelationDeparted, "u/4", 33},
 		expect{hook: hooks.RelationBroken},
 	), reconcileTest(
 		"If there's a pending changed, that must still be respected.",
 		msi{"u/0": 3}, "u/0",
-		expect{hooks.RelationChanged, "u/0", 3, nil},
-		expect{hooks.RelationDeparted, "u/0", 3, nil},
+		expect{hooks.RelationChanged, "u/0", 3},
+		expect{hooks.RelationDeparted, "u/0", 3},
 		expect{hook: hooks.RelationBroken},
 	),
 }
@@ -246,10 +246,7 @@ type send struct {
 func (d send) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
 	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
 	for name, version := range d.changed {
-		ruc.Changed[name] = state.UnitSettings{
-			Version:  version,
-			Settings: settings(name, version),
-		}
+		ruc.Changed[name] = state.UnitSettings{Version: version}
 	}
 	for _, name := range d.departed {
 		ruc.Departed = append(ruc.Departed, name)
@@ -275,7 +272,6 @@ type expect struct {
 	hook    hooks.Kind
 	unit    string
 	version int64
-	members msi
 }
 
 func (d expect) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
@@ -293,29 +289,10 @@ func (d expect) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.
 		RemoteUnit:    d.unit,
 		ChangeVersion: d.version,
 	}
-	if d.members != nil {
-		expect.Members = map[string]map[string]interface{}{}
-		for name, version := range d.members {
-			expect.Members[name] = settings(name, version)
-		}
-	}
 	select {
 	case actual := <-out:
 		c.Assert(actual, gc.DeepEquals, expect)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for %#v", expect)
-	}
-}
-
-func settings(name string, version int64) map[string]interface{} {
-	if version == -1 {
-		// Accommodate required events for units no longer present in the
-		// relation, whose settings will not be available through the stream
-		// of RelationUnitsChanged events.
-		return nil
-	}
-	return map[string]interface{}{
-		"unit-name":        name,
-		"settings-version": version,
 	}
 }

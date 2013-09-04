@@ -79,6 +79,18 @@ type StringBoolResults struct {
 	Results []StringBoolResult
 }
 
+// BoolResult holds the result of an API call that returns a
+// a boolean or an error.
+type BoolResult struct {
+	Error  *Error
+	Result bool
+}
+
+// BoolResults holds multiple results with BoolResult each.
+type BoolResults struct {
+	Results []BoolResult
+}
+
 // Settings holds charm config options names and values.
 type Settings map[string]string
 

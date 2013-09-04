@@ -55,9 +55,33 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	newestTools, err := tools.FindBootstrapTools(environ, cons)
+	var vers *version.Number
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		vers = &agentVersion
+	}
+	newestTools, err := tools.FindBootstrapTools(
+		environs.StorageInstances(environ), vers, cfg.DefaultSeries(), cons.Arch, cfg.Development())
 	if err != nil {
 		return fmt.Errorf("cannot find bootstrap tools: %v", err)
+	}
+
+	// If agent version was not previously known, set it here using the latest compatible tools version.
+	if vers == nil {
+		// We probably still have a mix of versions available; discard older ones
+		// and update environment configuration to use only those remaining.
+		var newVersion version.Number
+		newVersion, newestTools = newestTools.Newest()
+		vers = &newVersion
+		logger.Infof("environs: picked newest version: %s", *vers)
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"agent-version": vers.String(),
+		})
+		if err == nil {
+			err = environ.SetConfig(cfg)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to update environment configuration: %v", err)
+		}
 	}
 	// ensure we have at least one valid tools
 	if len(newestTools) == 0 {

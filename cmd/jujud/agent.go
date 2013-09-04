@@ -212,18 +212,6 @@ func (c *closeWorker) Wait() error {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Context, error) {
-	caCert, err := st.CACert()
-	if err != nil {
-		return nil, err
-	}
-	return deployer.NewSimpleContext(dataDir, caCert, st), nil
-}
-
-func newDeployer(st *apideployer.State, machineTag string, dataDir string) (worker.Worker, error) {
-	ctx, err := newDeployContext(st, dataDir)
-	if err != nil {
-		return nil, err
-	}
-	return deployer.NewDeployer(st, ctx, machineTag), nil
+var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
+	return deployer.NewSimpleContext(agentConfig, st)
 }

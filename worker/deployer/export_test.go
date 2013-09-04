@@ -3,6 +3,10 @@
 
 package deployer
 
+import (
+	"launchpad.net/juju-core/agent"
+)
+
 type fakeAddresser struct{}
 
 func (*fakeAddresser) StateAddresses() ([]string, error) {
@@ -13,12 +17,11 @@ func (*fakeAddresser) APIAddresses() ([]string, error) {
 	return []string{"a1:123", "a2:123"}, nil
 }
 
-func NewTestSimpleContext(initDir, dataDir, logDir, syslogConfigDir string) *SimpleContext {
+func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir, syslogConfigDir string) *SimpleContext {
 	return &SimpleContext{
 		addresser:       &fakeAddresser{},
-		caCert:          []byte("test-cert"),
+		agentConfig:     agentConfig,
 		initDir:         initDir,
-		dataDir:         dataDir,
 		logDir:          logDir,
 		syslogConfigDir: syslogConfigDir,
 	}
