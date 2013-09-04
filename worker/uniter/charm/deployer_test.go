@@ -1,14 +1,13 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charm_test
+package charm
 
 import (
 	"io/ioutil"
 	gc "launchpad.net/gocheck"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/charm"
 	"os"
 	"path/filepath"
 )
@@ -20,29 +19,46 @@ type DeployerSuite struct {
 var _ = gc.Suite(&DeployerSuite{})
 
 func (s *DeployerSuite) TestUnsetCharm(c *gc.C) {
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	err := d.Deploy(charm.NewGitDir(c.MkDir()))
+	d := NewDeployer(filepath.Join(c.MkDir(), "deployer"))
+	err := d.Deploy(NewGitDir(c.MkDir()))
 	c.Assert(err, gc.ErrorMatches, "charm deployment failed: no charm set")
 }
 
 func (s *DeployerSuite) TestInstall(c *gc.C) {
 	// Install.
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
+	d := NewDeployer(filepath.Join(c.MkDir(), "deployer"))
 	bun := s.bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
 	err := d.Stage(bun, corecharm.MustParseURL("cs:s/c-1"))
 	c.Assert(err, gc.IsNil)
-	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
+
+	// Only one update dir should exist and be pointed to by the 'current'
+	// symlink since extra ones should have been cleaned up by
+	// cleanupOrphans.
+	updateDirs, err := filepath.Glob(filepath.Join(d.path, "update-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs, gc.HasLen, 1)
+	current, err := os.Readlink(d.current.Path())
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs[0], gc.Equals, current)
+
+	target := NewGitDir(filepath.Join(c.MkDir(), "target"))
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
+
+	// No install dirs should be left behind since the one created is
+	// renamed to the target path.
+	installDirs, err := filepath.Glob(filepath.Join(d.path, "install-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(installDirs, gc.HasLen, 0)
 
 	// Check content.
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "hello")
-	url, err := charm.ReadCharmURL(target)
+	url, err := ReadCharmURL(target)
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-1"))
 	lines, err := target.Log()
@@ -54,7 +70,7 @@ func (s *DeployerSuite) TestInstall(c *gc.C) {
 
 func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	// Install.
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
+	d := NewDeployer(filepath.Join(c.MkDir(), "deployer"))
 	bun1 := s.bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
@@ -63,7 +79,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	})
 	err := d.Stage(bun1, corecharm.MustParseURL("cs:s/c-1"))
 	c.Assert(err, gc.IsNil)
-	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
+	target := NewGitDir(filepath.Join(c.MkDir(), "target"))
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
 
@@ -76,6 +92,17 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	})
 	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
 	c.Assert(err, gc.IsNil)
+
+	// Only one update dir should exist and be pointed to by the 'current'
+	// symlink since extra ones should have been cleaned up by
+	// cleanupOrphans.
+	updateDirs, err := filepath.Glob(filepath.Join(d.path, "update-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs, gc.HasLen, 1)
+	current, err := os.Readlink(d.current.Path())
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs[0], gc.Equals, current)
+
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
 
@@ -86,7 +113,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "a-symlink"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "not any more!")
-	url, err := charm.ReadCharmURL(target)
+	url, err := ReadCharmURL(target)
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-2"))
 	lines, err := target.Log()
@@ -97,14 +124,14 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 
 func (s *DeployerSuite) TestConflict(c *gc.C) {
 	// Install.
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
+	d := NewDeployer(filepath.Join(c.MkDir(), "deployer"))
 	bun1 := s.bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
 	err := d.Stage(bun1, corecharm.MustParseURL("cs:s/c-1"))
 	c.Assert(err, gc.IsNil)
-	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
+	target := NewGitDir(filepath.Join(c.MkDir(), "target"))
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
 
@@ -120,7 +147,17 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
 	c.Assert(err, gc.IsNil)
 	err = d.Deploy(target)
-	c.Assert(err, gc.Equals, charm.ErrConflict)
+	c.Assert(err, gc.Equals, ErrConflict)
+
+	// Only one update dir should exist and be pointed to by the 'current'
+	// symlink since extra ones should have been cleaned up by
+	// cleanupOrphans.
+	updateDirs, err := filepath.Glob(filepath.Join(d.path, "update-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs, gc.HasLen, 1)
+	current, err := os.Readlink(d.current.Path())
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs[0], gc.Equals, current)
 
 	// Check state.
 	conflicted, err := target.Conflicted()
@@ -139,14 +176,14 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 
 	// Try to upgrade again.
 	err = d.Deploy(target)
-	c.Assert(err, gc.Equals, charm.ErrConflict)
+	c.Assert(err, gc.Equals, ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
 
 	// And again.
 	err = d.Deploy(target)
-	c.Assert(err, gc.Equals, charm.ErrConflict)
+	c.Assert(err, gc.Equals, ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
@@ -164,6 +201,17 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	// except the upgrade log line.
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
+
+	// Only one update dir should exist and be pointed to by the 'current'
+	// symlink since extra ones should have been cleaned up by
+	// cleanupOrphans.
+	updateDirs, err = filepath.Glob(filepath.Join(d.path, "update-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs, gc.HasLen, 1)
+	current, err = os.Readlink(d.current.Path())
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs[0], gc.Equals, current)
+
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "nu!")
