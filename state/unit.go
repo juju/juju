@@ -61,12 +61,6 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
-// UnitSettings holds information about a service unit's settings
-// within a relation.
-type UnitSettings struct {
-	Version int64
-}
-
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in state/api/params.
 type unitDoc struct {
