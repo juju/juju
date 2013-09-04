@@ -12,6 +12,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
@@ -99,6 +100,12 @@ func (c *Settings) Get(key string) (value interface{}, found bool) {
 // Map returns all keys and values of the node.
 func (c *Settings) Map() map[string]interface{} {
 	return copyMap(c.core, nil)
+}
+
+// UnitSettings returns the underlying unit settings, including their
+// version.
+func (c *Settings) UnitSettings() params.UnitSettings {
+	return params.UnitSettings{c.txnRevno}
 }
 
 // Set sets key to value

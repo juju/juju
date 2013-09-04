@@ -1270,4 +1270,11 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewRelationUnitsWatcherC(c, s.State, resource.(state.RelationUnitsWatcher))
 	wc.AssertNoChange()
+
+	// Leave scope with mysqlUnit and check it's detected.
+	err = myRelUnit.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, false)
+
+	wc.AssertChange(nil, []string{"mysql/0"})
 }

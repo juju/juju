@@ -878,8 +878,8 @@ func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.Re
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
-// changes to each given pair or unit and relation. See also
-// state/watcher.go:RelationUnit.Watch().
+// changes to every unit in the supplied relation that is visible to
+// the supplied unit. See also state/watcher.go:RelationUnit.Watch().
 func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.RelationUnitsWatchResults, error) {
 	result := params.RelationUnitsWatchResults{
 		Results: make([]params.RelationUnitsWatchResult, len(args.RelationUnits)),
