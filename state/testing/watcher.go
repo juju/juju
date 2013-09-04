@@ -4,11 +4,14 @@
 package testing
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
 	"sort"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/testing"
 )
 
 type Stopper interface {
@@ -163,6 +166,66 @@ loop:
 }
 
 func (c StringsWatcherC) AssertClosed() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, Equals, false)
+	default:
+		c.Fatalf("watcher not closed")
+	}
+}
+
+// RelationUnitsWatcherC embeds a gocheck.C and adds methods to help
+// verify the behaviour of any watcher that uses a <-chan
+// params.RelationUnitsChange.
+type RelationUnitsWatcherC struct {
+	*C
+	State   *state.State
+	Watcher RelationUnitsWatcher
+}
+
+// NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
+// checks for aggressive event coalescence.
+func NewRelationUnitsWatcherC(c *C, st *state.State, w RelationUnitsWatcher) RelationUnitsWatcherC {
+	return RelationUnitsWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+type RelationUnitsWatcher interface {
+	Stop() error
+	Changes() <-chan params.RelationUnitsChange
+}
+
+func (c RelationUnitsWatcherC) AssertNoChange() {
+	c.State.StartSync()
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+// AssertChange asserts the given changes was reported by the watcher,
+// but does not assume there are no following changes.
+func (c RelationUnitsWatcherC) AssertChange(expect params.RelationUnitsChange) {
+	c.State.StartSync()
+	timeout := time.After(testing.LongWait)
+	var actual params.RelationUnitsChange
+	for {
+		select {
+		case changes, ok := <-c.Watcher.Changes():
+			c.Assert(ok, Equals, true)
+			actual = changes
+		case <-timeout:
+			c.Fatalf("watcher did not send change")
+		}
+	}
+	c.Assert(actual, DeepEquals, expect)
+}
+
+func (c RelationUnitsWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, false)

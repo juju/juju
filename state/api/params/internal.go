@@ -368,3 +368,17 @@ type RelationUnitsChange struct {
 	Changed  map[string]UnitSettings
 	Departed []string
 }
+
+// RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
+// and an error (if any).
+type RelationUnitsWatchResult struct {
+	RelationUnitsWatcherId string
+	Changes                RelationUnitsChange
+	Error                  *Error
+}
+
+// RelationUnitsWatchResults holds the results for any API call which ends up
+// returning a list of RelationUnitsWatchers.
+type RelationUnitsWatchResults struct {
+	Results []RelationUnitsWatchResult
+}

@@ -1210,3 +1210,64 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		"some": "different",
 	})
 }
+
+func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	// Enter scope with mysqlUnit.
+	myRelUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, true)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	expectChanges := params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"mysql/0": params.UnitSettings{2},
+		},
+	}
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: rel.Tag(), Unit: "unit-wordpress-0"},
+		{Relation: rel.Tag(), Unit: "unit-mysql-0"},
+		{Relation: "relation-42", Unit: "unit-wordpress-0"},
+		{Relation: "relation-foo", Unit: ""},
+		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "foo", Unit: "bar"},
+		{Relation: rel.Tag(), Unit: "unit-mysql-0"},
+		{Relation: rel.Tag(), Unit: "service-wordpress"},
+		{Relation: rel.Tag(), Unit: "service-mysql"},
+		{Relation: rel.Tag(), Unit: "user-admin"},
+	}}
+	result, err := s.uniter.WatchRelationUnits(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
+		Results: []params.RelationUnitsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				RelationUnitsWatcherId: "1",
+				Changes:                expectChanges,
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewRelationUnitsWatcherC(c, s.State, resource.(state.RelationUnitsWatcher))
+	wc.AssertNoChange()
+}
