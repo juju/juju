@@ -30,10 +30,15 @@ func (st *State) LoggingConfig(tag string) (string, error) {
 	err := st.caller.Call("Logger", "", "LoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
-		return nil, err
+		return "", err
 	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return nil, err
+		return "", err
 	}
 	return result.Result, nil
 }

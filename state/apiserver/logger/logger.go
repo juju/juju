@@ -4,23 +4,16 @@
 package logger
 
 import (
-	"errors"
-
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
-	agenttools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
 )
 
 // LoggerAPI defines the methods on the logger API end point.
 type LoggerAPI interface {
-	WatchLoggingConfig(args params.Entity) params.NotifyWatchResult
-	LoggingConfig(args params.Entity) params.StringResult
+	WatchLoggingConfig(args params.Entities) params.NotifyWatchResults
+	LoggingConfig(args params.Entities) params.StringResults
 }
 
 // NewLoggerAPI creates a new server-side logger API end point.
@@ -32,7 +25,7 @@ func NewLoggerAPI(
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	return &loggerAPI{st: st, resources: resources, authorizer: authorizer}, nil
+	return &loggerAPI{state: st, resources: resources, authorizer: authorizer}, nil
 }
 
 type loggerAPI struct {
@@ -48,16 +41,16 @@ var _ LoggerAPI = (*loggerAPI)(nil)
 // non-trivial, so currently any change to the config will cause the watcher
 // to notify the client.
 func (api *loggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
-	result := make([]param.NotifyWatchResult, len(arg.Entities))
+	result := make([]params.NotifyWatchResult, len(arg.Entities))
 	for i, entity := range arg.Entities {
 		err := common.ErrPerm
-		if u.authorizer.AuthOwner(entity.Tag) {
+		if api.authorizer.AuthOwner(entity.Tag) {
 			watch := api.state.WatchForEnvironConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
 			if _, ok := <-watch.Changes(); ok {
-				result[i].NotifyWatcherId = u.resources.Register(watch)
+				result[i].NotifyWatcherId = api.resources.Register(watch)
 				err = nil
 			} else {
 				err = watcher.MustErr(watch)
@@ -70,14 +63,14 @@ func (api *loggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 
 // DesiredVersion reports the Agent Version that we want that agent to be running
 func (api *loggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
-	results := make([]param.StringResult, len(arg.Entities))
+	results := make([]params.StringResult, len(arg.Entities))
 	// If someone is stupid enough to call this function with zero entities,
 	// lets punish them by making them wait for us to get the environ config
 	// from state.
 	config, configErr := api.state.EnvironConfig()
 	for i, entity := range arg.Entities {
 		err := common.ErrPerm
-		if u.authorizer.AuthOwner(entity.Tag) {
+		if api.authorizer.AuthOwner(entity.Tag) {
 			if configErr != nil {
 				results[i].Result = config.LoggingConfig()
 				err = nil
@@ -87,5 +80,5 @@ func (api *loggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return param.StringResults{result}
+	return params.StringResults{results}
 }
