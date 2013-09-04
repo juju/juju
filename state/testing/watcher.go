@@ -215,7 +215,12 @@ func (c RelationUnitsWatcherC) AssertNoChange() {
 
 // AssertChange asserts the given changes was reported by the watcher,
 // but does not assume there are no following changes.
-func (c RelationUnitsWatcherC) AssertChange(changed map[string]params.UnitSettings, departed []string) {
+func (c RelationUnitsWatcherC) AssertChange(changed []string, departed []string) {
+	// Get all items in changed in a map for easy lookup.
+	changedNames := make(map[string]bool)
+	for _, name := range changed {
+		changedNames[name] = true
+	}
 	c.State.StartSync()
 	timeout := time.After(testing.LongWait)
 	select {
@@ -225,7 +230,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed map[string]params.UnitSettin
 		// Because the versions can change, we only need to make sure
 		// the keys match, not the contents (UnitSettings == txnRevno).
 		for k, settings := range actual.Changed {
-			_, ok := changed[k]
+			_, ok := changedNames[k]
 			c.Assert(ok, jc.IsTrue)
 			oldVer, ok := c.settingsVersions[k]
 			if !ok {

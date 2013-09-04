@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -805,7 +804,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// check that nothing apparently happens.
 	err = ru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s0 := changeSettings(c, ru0)
+	changeSettings(c, ru0)
 	w0c.AssertNoChange()
 
 	// ---------- Two units ----------
@@ -815,11 +814,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ...and check that the first relation unit sees the change.
-	s1, err := ru1.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged := map[string]params.UnitSettings{
-		"riak/1": s1.UnitSettings(),
-	}
+	expectChanged := []string{"riak/1"}
 	w0c.AssertChange(expectChanged, nil)
 	w0c.AssertNoChange()
 
@@ -833,9 +828,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	w1 := ru1.Watch()
 	defer testing.AssertStop(c, w1)
 	w1c := testing.NewRelationUnitsWatcherC(c, s.State, w1)
-	expectChanged = map[string]params.UnitSettings{
-		"riak/0": s0.UnitSettings(),
-	}
+	expectChanged = []string{"riak/0"}
 	w1c.AssertChange(expectChanged, nil)
 	w1c.AssertNoChange()
 
@@ -845,21 +838,14 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	w2 := ru2.Watch()
 	defer testing.AssertStop(c, w2)
 	w2c := testing.NewRelationUnitsWatcherC(c, s.State, w2)
-	expectChanged = map[string]params.UnitSettings{
-		"riak/0": s0.UnitSettings(),
-		"riak/1": s1.UnitSettings(),
-	}
+	expectChanged = []string{"riak/0", "riak/1"}
 	w2c.AssertChange(expectChanged, nil)
 	w2c.AssertNoChange()
 
 	// Join the third unit, and check the first and second units see it.
 	err = ru2.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s2, err := ru2.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]params.UnitSettings{
-		"riak/2": s2.UnitSettings(),
-	}
+	expectChanged = []string{"riak/2"}
 	w0c.AssertChange(expectChanged, nil)
 	w0c.AssertNoChange()
 	w1c.AssertChange(expectChanged, nil)
@@ -867,11 +853,9 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 
 	// Change the second unit's settings, and check that only
 	// the first and third see changes.
-	s1 = changeSettings(c, ru1)
+	changeSettings(c, ru1)
 	w1c.AssertNoChange()
-	expectChanged = map[string]params.UnitSettings{
-		"riak/1": s1.UnitSettings(),
-	}
+	expectChanged = []string{"riak/1"}
 	w0c.AssertChange(expectChanged, nil)
 	w0c.AssertNoChange()
 	w2c.AssertChange(expectChanged, nil)
@@ -889,7 +873,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	w2c.AssertNoChange()
 
 	// Change its settings, and check the others don't observe anything.
-	s1 = changeSettings(c, ru1)
+	changeSettings(c, ru1)
 	w0c.AssertNoChange()
 	w2c.AssertNoChange()
 
@@ -943,7 +927,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// nothing apparently happens.
 	err = msru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	mss0 := changeSettings(c, msru0)
+	changeSettings(c, msru0)
 	msw0c.AssertNoChange()
 
 	// Join the second provider unit, start its watch, and check what it thinks the
@@ -958,7 +942,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 
 	// Change the unit's settings, and check that neither provider unit
 	// observes any change.
-	mss1 := changeSettings(c, msru1)
+	changeSettings(c, msru1)
 	msw1c.AssertNoChange()
 	msw0c.AssertNoChange()
 
@@ -966,10 +950,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 
 	// Start watches from both requirer units' perspectives, and check that
 	// they see the provider units.
-	expectChanged := map[string]params.UnitSettings{
-		"mysql/0": mss0.UnitSettings(),
-		"mysql/1": mss1.UnitSettings(),
-	}
+	expectChanged := []string{"mysql/0", "mysql/1"}
 	wpw0 := wpru0.Watch()
 	defer testing.AssertStop(c, wpw0)
 	wpw0c := testing.NewRelationUnitsWatcherC(c, s.State, wpw0)
@@ -984,11 +965,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Join the first requirer unit, and check the provider units see it.
 	err = wpru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	wps0, err := wpru0.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]params.UnitSettings{
-		"wordpress/0": wps0.UnitSettings(),
-	}
+	expectChanged = []string{"wordpress/0"}
 	msw0c.AssertChange(expectChanged, nil)
 	msw0c.AssertNoChange()
 	msw1c.AssertChange(expectChanged, nil)
@@ -1003,11 +980,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Join the second requirer, and check the provider units see the change.
 	err = wpru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	wps1, err := wpru1.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]params.UnitSettings{
-		"wordpress/1": wps1.UnitSettings(),
-	}
+	expectChanged = []string{"wordpress/1"}
 	msw0c.AssertChange(expectChanged, nil)
 	msw0c.AssertNoChange()
 	msw1c.AssertChange(expectChanged, nil)
@@ -1018,10 +991,8 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	wpw1c.AssertNoChange()
 
 	// Change settings for the first requirer, check providers see it...
-	wps0 = changeSettings(c, wpru0)
-	expectChanged = map[string]params.UnitSettings{
-		"wordpress/0": wps0.UnitSettings(),
-	}
+	changeSettings(c, wpru0)
+	expectChanged = []string{"wordpress/0"}
 	msw0c.AssertChange(expectChanged, nil)
 	msw0c.AssertNoChange()
 	msw1c.AssertChange(expectChanged, nil)
@@ -1098,7 +1069,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// nothing apparently happens.
 	err = msru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	mss0 := changeSettings(c, msru0)
+	changeSettings(c, msru0)
 	msw0c.AssertNoChange()
 
 	// Watch the relation from the perspective of the second provider, and
@@ -1117,7 +1088,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	msw0c.AssertNoChange()
 
 	// Change the unit's settings, and check that nothing apparently happens.
-	mss1 := changeSettings(c, msru1)
+	changeSettings(c, msru1)
 	msw1c.AssertNoChange()
 	msw0c.AssertNoChange()
 
@@ -1128,9 +1099,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	lgw0 := lgru0.Watch()
 	defer testing.AssertStop(c, lgw0)
 	lgw0c := testing.NewRelationUnitsWatcherC(c, s.State, lgw0)
-	expectChanged := map[string]params.UnitSettings{
-		"mysql/0": mss0.UnitSettings(),
-	}
+	expectChanged := []string{"mysql/0"}
 	lgw0c.AssertChange(expectChanged, nil)
 	lgw0c.AssertNoChange()
 
@@ -1138,11 +1107,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// observes the change.
 	err = lgru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	lgs0, err := lgru0.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]params.UnitSettings{
-		"logging/0": lgs0.UnitSettings(),
-	}
+	expectChanged = []string{"logging/0"}
 	msw0c.AssertChange(expectChanged, nil)
 	msw0c.AssertNoChange()
 	msw1c.AssertNoChange()
@@ -1153,20 +1118,14 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	lgw1 := lgru1.Watch()
 	defer testing.AssertStop(c, lgw1)
 	lgw1c := testing.NewRelationUnitsWatcherC(c, s.State, lgw1)
-	expectChanged = map[string]params.UnitSettings{
-		"mysql/1": mss1.UnitSettings(),
-	}
+	expectChanged = []string{"mysql/1"}
 	lgw1c.AssertChange(expectChanged, nil)
 	lgw1c.AssertNoChange()
 
 	// Join the second requirer, and check that the first provider observes it...
 	err = lgru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	lgs1, err := lgru1.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]params.UnitSettings{
-		"logging/1": lgs1.UnitSettings(),
-	}
+	expectChanged = []string{"logging/1"}
 	msw1c.AssertChange(expectChanged, nil)
 	msw1c.AssertNoChange()
 
@@ -1177,10 +1136,8 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 
 	// Change the second provider's settings and check that the second
 	// requirer notices...
-	mss1 = changeSettings(c, msru1)
-	expectChanged = map[string]params.UnitSettings{
-		"mysql/1": mss1.UnitSettings(),
-	}
+	changeSettings(c, msru1)
+	expectChanged = []string{"mysql/1"}
 	lgw1c.AssertChange(expectChanged, nil)
 	lgw1c.AssertNoChange()
 
@@ -1204,7 +1161,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// connections are in place.
 }
 
-func changeSettings(c *gc.C, ru *state.RelationUnit) *state.Settings {
+func changeSettings(c *gc.C, ru *state.RelationUnit) {
 	node, err := ru.Settings()
 	c.Assert(err, gc.IsNil)
 	value, _ := node.Get("value")
@@ -1212,5 +1169,4 @@ func changeSettings(c *gc.C, ru *state.RelationUnit) *state.Settings {
 	node.Set("value", v+1)
 	_, err = node.Write()
 	c.Assert(err, gc.IsNil)
-	return node
 }
