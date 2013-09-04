@@ -1204,7 +1204,7 @@ func changeSettings(c *gc.C, ru *state.RelationUnit) *state.Settings {
 }
 
 func (s *WatchScopeSuite) assertChange(
-	c *gc.C, w *state.RelationUnitsWatcher,
+	c *gc.C, w state.RelationUnitsWatcher,
 	changed map[string]map[string]interface{},
 	departed []string,
 ) {
@@ -1221,7 +1221,7 @@ func (s *WatchScopeSuite) assertChange(
 	}
 }
 
-func (s *WatchScopeSuite) assertNoChange(c *gc.C, w *state.RelationUnitsWatcher) {
+func (s *WatchScopeSuite) assertNoChange(c *gc.C, w state.RelationUnitsWatcher) {
 	s.State.StartSync()
 	select {
 	case ch := <-w.Changes():
