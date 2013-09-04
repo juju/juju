@@ -4,13 +4,16 @@
 package tools_test
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"path/filepath"
+	"time"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
-	"fmt"
-	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -22,9 +25,6 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"net/http"
-	"path/filepath"
-	"time"
 )
 
 // toolsTestHelper defines tools manipulation functions which are implemented differently for
