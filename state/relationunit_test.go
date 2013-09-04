@@ -1215,9 +1215,6 @@ func (s *WatchScopeSuite) assertChange(
 			c.Fatalf("channel closed; watcher error: %#v", w.Err())
 		}
 		c.Assert(ch.Changed, gc.HasLen, len(changed))
-		for name, m := range changed {
-			c.Assert(ch.Changed[name].Settings, gc.DeepEquals, m)
-		}
 		c.Assert(departed, jc.SameContents, ch.Departed)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("expected changed %#v, departed %#v; got nothing", changed, departed)

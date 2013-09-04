@@ -88,7 +88,9 @@ func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, metadataDir string) []*tools
 				toolsMetadata := item.(*tools.ToolsMetadata)
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
-				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", toolsMetadata.Version, toolsMetadata.Arch)
+				seriesVersion, err := simplestreams.SeriesVersion(toolsMetadata.Release)
+				c.Assert(err, gc.IsNil)
+				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
 				expectedProductIds.Add(productId)
 			}
 		}

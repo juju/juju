@@ -158,6 +158,7 @@ type ItemCollection struct {
 	rawItems   map[string]*json.RawMessage
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch,omitempty"`
+	Series     string                 `json:"release,omitempty"`
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`
@@ -872,7 +873,7 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFun
 		for product := range metadata.Products {
 			availableProducts = append(availableProducts, product)
 		}
-		logger.Debugf("index has no images for product ids %v; it does have product ids %v", prodIds, availableProducts)
+		logger.Debugf("index has no records for product ids %v; it does have product ids %v", prodIds, availableProducts)
 	}
 
 	var matchingItems []interface{}
