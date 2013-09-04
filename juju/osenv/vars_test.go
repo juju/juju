@@ -21,53 +21,44 @@ type importSuite struct{}
 var _ = gc.Suite(&importSuite{})
 
 func (*importSuite) TestJujuHomeWin(c *gc.C) {
-	old := os.Getenv("APPDATA")
-	defer func() {
-		os.Setenv("APPDATA", old)
-	}()
 	path := `P:\FooBar\AppData`
-	if err := os.Setenv("APPDATA", path); err != nil {
-		c.Fatalf("Error setting APPDATA: %s", err)
-	}
+	defer patchEnvironment("APPDATA", path)()
 	c.Assert(jujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
 }
 
 func (*importSuite) TestJujuHomeLinux(c *gc.C) {
-	old := os.Getenv("HOME")
-	defer func() {
-		os.Setenv("HOME", old)
-	}()
-	path := `/foo/bar/baz`
-	if err := os.Setenv("HOME", path); err != nil {
-		c.Fatalf("Error setting HOME: %s", err)
-	}
+	path := `/foo/bar/baz/`
+	defer patchEnvironment("HOME", path)()
 	c.Assert(jujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
 }
 
 func (*importSuite) TestJujuHomeEnvVar(c *gc.C) {
-	old := os.Getenv(JujuHome)
-	defer func() {
-		os.Setenv(JujuHome, old)
-	}()
 	path := "/foo/bar/baz"
-	if err := os.Setenv(JujuHome, path); err != nil {
-		c.Fatalf("Error setting jujuhome: %s", err)
-	}
+	defer patchEnvironment(JujuHome, path)()
 	c.Assert(JujuHomeDir(), gc.Equals, path)
 }
 
 func (*importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
-	old := os.Getenv(JujuHome)
-	// set OS specific default juju home locations
-	defer func() {
-		os.Setenv(JujuHome, old)
-	}()
-	if err := os.Setenv(JujuHome, ""); err != nil {
-		c.Fatalf("Error setting jujuhome: %s", err)
+	defer patchEnvironment(JujuHome, "")()
+
+	if runtime.GOOS == "windows" {
+		defer patchEnvironment("APPDATA", `P:\foobar`)()
+	} else {
+		defer patchEnvironment("HOME", "/foobar")()
 	}
+	c.Assert(JujuHomeDir(), gc.Not(gc.Equals), "")
+
 	if runtime.GOOS == "windows" {
 		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeWin())
 	} else {
 		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeLinux())
 	}
+}
+
+// yes this is a copy of coretesting's PatchEnvironment
+// but otherwise we get an import cycle
+func patchEnvironment(name, value string) func() {
+	oldValue := os.Getenv(name)
+	os.Setenv(name, value)
+	return func() { os.Setenv(name, oldValue) }
 }

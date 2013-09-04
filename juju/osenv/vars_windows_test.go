@@ -6,15 +6,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/testing"
 )
 
 func (*importSuite) TestHome(c *gc.C) {
-	oldhome := os.Getenv("HOMEPATH")
-	olddrive := os.Getenv("HOMEDRIVE")
-	defer func() {
-		os.Setenv("HOMEPATH", oldhome)
-		os.Setenv("HOMEDRIVE", olddrive)
-	}()
+	testing.PatchEnvironment("HOMEPATH", "")
+	testing.PatchEnvironment("HOMEDRIVE", "")
+
 	drive := "P:"
 	path := `\home\foo\bar`
 	h := drive + path
