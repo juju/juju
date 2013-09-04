@@ -229,7 +229,8 @@ func (c RelationUnitsWatcherC) AssertChange(changed map[string]params.UnitSettin
 			c.Assert(ok, jc.IsTrue)
 			oldVer, ok := c.settingsVersions[k]
 			if !ok {
-				// This is the first time we see this unit.
+				// This is the first time we see this unit, so
+				// save the settings version for later.
 				c.settingsVersions[k] = settings.Version
 			} else {
 				// Already seen; make sure the version increased.
