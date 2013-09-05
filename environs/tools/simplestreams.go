@@ -8,6 +8,7 @@ package tools
 
 import (
 	"fmt"
+	"path"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/version"
@@ -132,7 +133,7 @@ func containsString(values []string, element string) bool {
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
-func appendMatchingTools(matchingTools []interface{}, tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+func appendMatchingTools(baseURL string, matchingTools []interface{}, tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
 	toolsMap := make(map[string]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
@@ -162,25 +163,9 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 			}
 		}
 		if _, ok := toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)]; !ok {
+			tm.Path = path.Join(baseURL, tm.Path)
 			matchingTools = append(matchingTools, tm)
 		}
 	}
 	return matchingTools
-}
-
-// GetLatestToolsMetadata is provided so it can be call by tests outside the tools package.
-func GetLatestToolsMetadata(data []byte, cons *ToolsConstraint) ([]*ToolsMetadata, error) {
-	metadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", "<unknown>", ToolsMetadata{})
-	if err != nil {
-		return nil, err
-	}
-	items, err := simplestreams.GetLatestMetadata(metadata, cons, appendMatchingTools)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]*ToolsMetadata, len(items))
-	for i, md := range items {
-		result[i] = md.(*ToolsMetadata)
-	}
-	return result, nil
 }

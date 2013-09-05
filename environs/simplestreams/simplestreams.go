@@ -364,7 +364,7 @@ const (
 	UnsignedSuffix   = ".json"
 )
 
-type appendMatchingFunc func([]interface{}, map[string]interface{}, LookupConstraint) []interface{}
+type appendMatchingFunc func(string, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
 
 // ValueParams contains the information required to pull out from the metadata structs of a particular type.
 type ValueParams struct {
@@ -906,7 +906,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
-	matches, err := GetLatestMetadata(metadata, cons, indexRef.valueParams.FilterFunc)
+	matches, err := GetLatestMetadata(metadata, cons, indexRef.BaseURL, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -917,7 +917,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 }
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.
-func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFunc appendMatchingFunc) ([]interface{}, error) {
+func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, baseURL string, filterFunc appendMatchingFunc) ([]interface{}, error) {
 	prodIds, err := cons.Ids()
 	if err != nil {
 		return nil, err
@@ -943,7 +943,7 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFun
 		}
 		sort.Sort(bv)
 		for _, itemCollVersion := range bv {
-			matchingItems = filterFunc(matchingItems, itemCollVersion.ItemCollection.Items, cons)
+			matchingItems = filterFunc(baseURL, matchingItems, itemCollVersion.ItemCollection.Items, cons)
 		}
 	}
 	return matchingItems, nil

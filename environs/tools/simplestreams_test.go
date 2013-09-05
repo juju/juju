@@ -5,6 +5,7 @@ package tools_test
 
 import (
 	"flag"
+	"path"
 	"reflect"
 	"testing"
 
@@ -235,6 +236,9 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		tools, err := tools.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
+		}
+		for _, tm := range t.tools {
+			tm.Path = path.Join(s.BaseURL, tm.Path)
 		}
 		c.Check(tools, gc.DeepEquals, t.tools)
 	}
