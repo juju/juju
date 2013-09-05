@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -46,19 +47,19 @@ var getTests = []struct {
 	about       string
 	charm       string
 	constraints string
-	config      map[string]string
+	config      charm.Settings
 	expect      params.ServiceGetResults
 }{{
 	about:       "deployed service",
 	charm:       "dummy",
 	constraints: "mem=2G cpu-power=400",
-	config: map[string]string{
+	config: charm.Settings{
 		// Different from default.
 		"title": "Look To Windward",
 		// Same as default.
 		"username": "admin001",
 		// Use default (but there's no charm default)
-		"skill-level": "",
+		"skill-level": nil,
 		// Outlook is left unset.
 	},
 	expect: params.ServiceGetResults{
@@ -90,13 +91,13 @@ var getTests = []struct {
 }, {
 	about: "deployed service  #2",
 	charm: "dummy",
-	config: map[string]string{
-		// Empty string gives default.
-		"title": "",
+	config: charm.Settings{
+		// Set title to default.
+		"title": nil,
 		// Value when there's a default.
 		"username": "foobie",
 		// Numeric value.
-		"skill-level": "0",
+		"skill-level": 0,
 		// String value.
 		"outlook": "phlegmatic",
 	},
@@ -152,12 +153,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
-			// Using own api client because directly updating the
-			// charm settings behaves different since the empty
-			// option change.
-			// See http://pad.lv/1194945
-			apiclient := s.APIState.Client()
-			err := apiclient.ServiceSet(svc.Name(), t.config)
+			err = svc.UpdateConfigSettings(t.config)
 			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect

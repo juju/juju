@@ -147,14 +147,8 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
 	} else if len(args.Config) > 0 {
-		// Split settings due to compatability reasons.
-		esc := splitSettings(args.Config)
-		settings, err = ch.Config().ParseSettingsStrings(esc.setSettings)
-		if err == nil {
-			// Validate and merge the unset settings, again
-			// due to compatability.
-			err = esc.validateAndMerge(ch, settings)
-		}
+		// Parse config in a compatile way (see function comment).
+		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
 		return err
@@ -251,14 +245,8 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	if err != nil {
 		return err
 	}
-	// Split settings due to compatability reasons.
-	esc := splitSettings(settings)
-	changes, err := ch.Config().ParseSettingsStrings(esc.setSettings)
-	if err != nil {
-		return err
-	}
-	// Validate and merge the unset settings, again due to compatability.
-	err = esc.validateAndMerge(ch, changes)
+	// Parse config in a compatile way (see function comment).
+	changes, err := parseSettingsCompatible(ch, settings)
 	if err != nil {
 		return err
 	}
@@ -416,41 +404,35 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 	return entity.SetAnnotations(args.Pairs)
 }
 
-// emptySettingCompatability is a helper type to keep the API behavior while the
-// setting of options with an empty string has changed from deleting the current
-// setting to set it to an empty string in case of string typed options and return
-// an error in case of other option types.
-// See http://pad.lv/1194945
-type emptySettingCompatability struct {
-	setSettings   map[string]string
-	unsetSettings charm.Settings
-}
-
-// splitSettings splits the passed settings into those with values and those
-// containing empty strings.
-func splitSettings(settings map[string]string) *emptySettingCompatability {
-	esc := &emptySettingCompatability{
-		setSettings:   map[string]string{},
-		unsetSettings: charm.Settings{},
-	}
+// parseSettingsCompatible parses setting strings in a way that is
+// campatible with the behavior before this CL based on the issue
+// http://pad.lv/1194945. Until then setting options to empty strings
+// unsetted the option. Now empty strings are valid for string options
+// while they lead to an error for other types. This function helps
+// the API to keep the old behavior so that API users can rely on it.
+func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm.Settings, error) {
+	setSettings := map[string]string{}
+	unsetSettings := charm.Settings{}
+	// Split settings into those which set and those which unset a value.
 	for name, value := range settings {
 		if value == "" {
-			esc.unsetSettings[name] = nil
+			unsetSettings[name] = nil
 			continue
 		}
-		esc.setSettings[name] = value
+		setSettings[name] = value
 	}
-	return esc
-}
-
-// validateAndMerge validates the unset settings and merges them into the changes.
-func (esc *emptySettingCompatability) validateAndMerge(ch *state.Charm, changes charm.Settings) error {
-	unsetSettings, err := ch.Config().ValidateSettings(esc.unsetSettings)
+	// Validate the settings.
+	changes, err := ch.Config().ParseSettingsStrings(setSettings)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	// Validate the unsettings and merge them into the changes.
+	unsetSettings, err = ch.Config().ValidateSettings(unsetSettings)
+	if err != nil {
+		return nil, err
 	}
 	for name := range unsetSettings {
 		changes[name] = nil
 	}
-	return nil
+	return changes, nil
 }
