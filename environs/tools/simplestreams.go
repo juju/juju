@@ -8,10 +8,10 @@ package tools
 
 import (
 	"fmt"
-	"path"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/version"
+	"strings"
 )
 
 func init() {
@@ -70,6 +70,7 @@ type ToolsMetadata struct {
 	Arch     string `json:"arch"`
 	Size     int64  `json:"size"`
 	Path     string `json:"path"`
+	FullPath string `json:"-,omitempty"`
 	FileType string `json:"ftype"`
 	SHA256   string `json:"sha256"`
 }
@@ -163,7 +164,11 @@ func appendMatchingTools(baseURL string, matchingTools []interface{}, tools map[
 			}
 		}
 		if _, ok := toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)]; !ok {
-			tm.Path = path.Join(baseURL, tm.Path)
+			tm.FullPath = baseURL
+			if !strings.HasSuffix(baseURL, "/") {
+				tm.FullPath += "/"
+			}
+			tm.FullPath += tm.Path
 			matchingTools = append(matchingTools, tm)
 		}
 	}

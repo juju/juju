@@ -223,6 +223,7 @@ type environ struct {
 	ecfgMutex             sync.Mutex
 	publicStorageMutex    sync.Mutex
 	imageBaseMutex        sync.Mutex
+	toolsBaseMutex        sync.Mutex
 	ecfgUnlocked          *environConfig
 	client                client.AuthenticatingClient
 	novaUnlocked          *nova.Client
@@ -231,6 +232,9 @@ type environ struct {
 	// An ordered list of paths in which to find the simplestreams index files used to
 	// look up image ids.
 	imageBaseURLs []string
+	// An ordered list of paths in which to find the simplestreams index files used to
+	// look up tools ids.
+	toolsBaseURLs []string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -553,9 +557,9 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 		}
 	}
 	// Add the simplestreams base URL off the public bucket.
-	jujuToolsURL, err := e.PublicStorage().URL("")
+	jujuImageURL, err := e.PublicStorage().URL("")
 	if err == nil {
-		e.imageBaseURLs = append(e.imageBaseURLs, jujuToolsURL)
+		e.imageBaseURLs = append(e.imageBaseURLs, jujuImageURL)
 	}
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
@@ -563,6 +567,37 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
 	return e.imageBaseURLs, nil
+}
+
+// GetToolsBaseURLs returns a list of URLs which are used to search for simplestreams tools metadata.
+func (e *environ) GetToolsBaseURLs() ([]string, error) {
+	e.toolsBaseMutex.Lock()
+	defer e.toolsBaseMutex.Unlock()
+
+	if e.toolsBaseURLs != nil {
+		return e.toolsBaseURLs, nil
+	}
+	if !e.client.IsAuthenticated() {
+		err := e.client.Authenticate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Add the simplestreams base URL from keystone if it is defined.
+	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
+	if err == nil {
+		// Canonistack's tools URL is missing the "tools" suffix.
+		// Since this is currently the only Openstack cloud providing a tools
+		// URL via keystone, we can fix it here till Canonistack is updated.
+		if !strings.HasSuffix(toolsURL, "/tools") {
+			if !strings.HasSuffix(toolsURL, "/") {
+				toolsURL += "/"
+			}
+			toolsURL += "tools"
+		}
+		e.toolsBaseURLs = append(e.toolsBaseURLs, toolsURL)
+	}
+	return e.toolsBaseURLs, nil
 }
 
 // allocatePublicIP tries to find an available floating IP address, or

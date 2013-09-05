@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -139,7 +138,7 @@ func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...
 			Arch:    vers.Arch,
 			Path:    basePath,
 		}
-		uploaded[vers] = path.Join(fmt.Sprintf("file://%s", dir), basePath)
+		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
 	}
 	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)

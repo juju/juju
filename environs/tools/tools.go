@@ -81,7 +81,7 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 		}
 		list[i] = &coretools.Tools{
 			Version: binary,
-			URL:     metadata.Path,
+			URL:     metadata.FullPath,
 		}
 	}
 	if filter.Series != "" {

@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
@@ -474,7 +475,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *localServerSuite) TestGetMetadataURLs(c *gc.C) {
+func (s *localServerSuite) TestGetImageMetadataURLs(c *gc.C) {
 	urls, err := imagemetadata.GetMetadataURLs(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(urls), gc.Equals, 3)
@@ -483,6 +484,14 @@ func (s *localServerSuite) TestGetMetadataURLs(c *gc.C) {
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), gc.Equals, true)
 	c.Assert(urls[2], gc.Equals, imagemetadata.DefaultBaseURL)
+}
+
+func (s *localServerSuite) TestGetToolsMetadataURLs(c *gc.C) {
+	urls, err := tools.GetMetadataURLs(s.env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(urls), gc.Equals, 1)
+	// The juju-tools URL ends with "/tools".
+	c.Assert(strings.HasSuffix(urls[0], "/tools"), gc.Equals, true)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
