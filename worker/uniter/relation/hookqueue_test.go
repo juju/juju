@@ -10,7 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -167,7 +167,7 @@ func (s *HookQueueSuite) TestAliveHookQueue(c *gc.C) {
 	for i, t := range aliveHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := make(chan hook.Info)
-		in := make(chan state.RelationUnitsChange)
+		in := make(chan params.RelationUnitsChange)
 		ruw := &RUW{in, false}
 		q := relation.NewAliveHookQueue(t.initial, out, ruw)
 		for i, step := range t.steps {
@@ -216,11 +216,11 @@ func (s *HookQueueSuite) TestDyingHookQueue(c *gc.C) {
 // RUW exists entirely to send RelationUnitsChanged events to a tested
 // HookQueue in a synchronous and predictable fashion.
 type RUW struct {
-	in      chan state.RelationUnitsChange
+	in      chan params.RelationUnitsChange
 	stopped bool
 }
 
-func (w *RUW) Changes() <-chan state.RelationUnitsChange {
+func (w *RUW) Changes() <-chan params.RelationUnitsChange {
 	return w.in
 }
 
@@ -235,7 +235,7 @@ func (w *RUW) Err() error {
 }
 
 type checker interface {
-	check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info)
+	check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info)
 }
 
 type send struct {
@@ -243,10 +243,10 @@ type send struct {
 	departed []string
 }
 
-func (d send) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
-	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
+func (d send) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
+	ruc := params.RelationUnitsChange{Changed: map[string]params.UnitSettings{}}
 	for name, version := range d.changed {
-		ruc.Changed[name] = state.UnitSettings{Version: version}
+		ruc.Changed[name] = params.UnitSettings{Version: version}
 	}
 	for _, name := range d.departed {
 		ruc.Departed = append(ruc.Departed, name)
@@ -258,7 +258,7 @@ type advance struct {
 	count int
 }
 
-func (d advance) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d advance) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
@@ -274,7 +274,7 @@ type expect struct {
 	version int64
 }
 
-func (d expect) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d expect) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
 	if d.hook == "" {
 		select {
 		case unexpected := <-out:
