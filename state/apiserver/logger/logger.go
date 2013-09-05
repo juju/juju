@@ -4,11 +4,15 @@
 package logger
 
 import (
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
 )
+
+var logger = loggo.GetLogger("juju.api.logger")
 
 // LoggerAPI defines the methods on the logger API end point.
 type LoggerAPI interface {
@@ -71,7 +75,7 @@ func (api *loggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 	for i, entity := range arg.Entities {
 		err := common.ErrPerm
 		if api.authorizer.AuthOwner(entity.Tag) {
-			if configErr != nil {
+			if configErr == nil {
 				results[i].Result = config.LoggingConfig()
 				err = nil
 			} else {

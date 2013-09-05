@@ -43,9 +43,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
-		Client:       false,
 	}
 	s.logger, err = logger.NewLoggerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
@@ -59,7 +57,6 @@ func (s *loggerSuite) TearDownTest(c *gc.C) {
 func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
 	anAuthorizer.MachineAgent = false
 	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(endPoint, gc.IsNil)
@@ -82,6 +79,19 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	newConfig, err := envConfig.Apply(
+		map[string]interface{}{"logging-config": loggingConfig})
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(newConfig)
+	c.Assert(err, gc.IsNil)
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(envConfig.LoggingConfig(), gc.Equals, loggingConfig)
+}
+
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
@@ -97,14 +107,7 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertNoChange()
 
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	loggingConfig := envConfig.LoggingConfig()
-	newConfig, err := envConfig.Apply(
-		map[string]interface{}{"logging-config": loggingConfig + ":juju.log.test=DEBUG"})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
+	s.setLoggingConfig(c, "<root>=WARN;juju.log.test=DEBUG")
 
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
@@ -139,134 +142,16 @@ func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
 	c.Assert(result.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-// func (s *loggerSuite) TestToolsForAgent(c *gc.C) {
-// 	cur := version.Current
-// 	agent := params.Entity{Tag: s.rawMachine.Tag()}
+func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
+	loggingConfig := "<root>=WARN;juju.log.test=DEBUG"
+	s.setLoggingConfig(c, loggingConfig)
 
-// 	// The machine must have its existing tools set before we query for the
-// 	// next tools. This is so that we can grab Arch and Series without
-// 	// having to pass it in again
-// 	err := s.rawMachine.SetAgentTools(&tools.Tools{
-// 		URL:     "",
-// 		Version: version.Current,
-// 	})
-// 	c.Assert(err, gc.IsNil)
-
-// 	args := params.Entities{Entities: []params.Entity{agent}}
-// 	results, err := s.logger.Tools(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	c.Assert(results.Results[0].Error, gc.IsNil)
-// 	agentTools := results.Results[0].Tools
-// 	c.Assert(agentTools.URL, gc.Not(gc.Equals), "")
-// 	c.Assert(agentTools.Version, gc.DeepEquals, cur)
-// }
-
-// func (s *loggerSuite) TestSetToolsNothing(c *gc.C) {
-// 	// Not an error to watch nothing
-// 	results, err := s.logger.SetTools(params.SetAgentsTools{})
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 0)
-// }
-
-// func (s *loggerSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
-// 	anAuthorizer := s.authorizer
-// 	anAuthorizer.Tag = "machine-12354"
-// 	anLogger, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
-// 	c.Assert(err, gc.IsNil)
-// 	args := params.SetAgentsTools{
-// 		AgentTools: []params.SetAgentTools{{
-// 			Tag: s.rawMachine.Tag(),
-// 			Tools: &tools.Tools{
-// 				Version: version.Current,
-// 			},
-// 		}},
-// 	}
-
-// 	results, err := anLogger.SetTools(args)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-// }
-
-// func (s *loggerSuite) TestSetTools(c *gc.C) {
-// 	cur := version.Current
-// 	_, err := s.rawMachine.AgentTools()
-// 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-// 	args := params.SetAgentsTools{
-// 		AgentTools: []params.SetAgentTools{{
-// 			Tag: s.rawMachine.Tag(),
-// 			Tools: &tools.Tools{
-// 				Version: cur,
-// 			}},
-// 		},
-// 	}
-// 	results, err := s.logger.SetTools(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	c.Assert(results.Results[0].Error, gc.IsNil)
-// 	// Check that the new value actually got set, we must Refresh because
-// 	// it was set on a different Machine object
-// 	err = s.rawMachine.Refresh()
-// 	c.Assert(err, gc.IsNil)
-// 	realTools, err := s.rawMachine.AgentTools()
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(realTools.Version.Arch, gc.Equals, cur.Arch)
-// 	c.Assert(realTools.Version.Series, gc.Equals, cur.Series)
-// 	c.Assert(realTools.Version.Major, gc.Equals, cur.Major)
-// 	c.Assert(realTools.Version.Minor, gc.Equals, cur.Minor)
-// 	c.Assert(realTools.Version.Patch, gc.Equals, cur.Patch)
-// 	c.Assert(realTools.Version.Build, gc.Equals, cur.Build)
-// 	c.Assert(realTools.URL, gc.Equals, "")
-// }
-
-// func (s *loggerSuite) TestDesiredVersionNothing(c *gc.C) {
-// 	// Not an error to watch nothing
-// 	results, err := s.logger.DesiredVersion(params.Entities{})
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 0)
-// }
-
-// func (s *loggerSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
-// 	anAuthorizer := s.authorizer
-// 	anAuthorizer.Tag = "machine-12354"
-// 	anLogger, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
-// 	c.Assert(err, gc.IsNil)
-// 	args := params.Entities{
-// 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
-// 	}
-// 	results, err := anLogger.DesiredVersion(args)
-// 	// It is not an error to make the request, but the specific item is rejected
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	toolResult := results.Results[0]
-// 	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-// }
-
-// func (s *loggerSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
-// 	args := params.Entities{Entities: []params.Entity{
-// 		{Tag: s.rawMachine.Tag()},
-// 		{Tag: "machine-12345"},
-// 	}}
-// 	results, err := s.logger.DesiredVersion(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 2)
-// 	c.Assert(results.Results[0].Error, gc.IsNil)
-// 	agentVersion := results.Results[0].Version
-// 	c.Assert(agentVersion, gc.NotNil)
-// 	c.Assert(*agentVersion, gc.DeepEquals, version.Current.Number)
-
-// 	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-// 	c.Assert(results.Results[1].Version, gc.IsNil)
-
-// }
-
-// func (s *loggerSuite) TestDesiredVersionForAgent(c *gc.C) {
-// 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
-// 	results, err := s.logger.DesiredVersion(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	c.Assert(results.Results[0].Error, gc.IsNil)
-// 	agentVersion := results.Results[0].Version
-// 	c.Assert(agentVersion, gc.NotNil)
-// 	c.Assert(*agentVersion, gc.DeepEquals, version.Current.Number)
-// }
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+	}
+	results := s.logger.LoggingConfig(args)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, loggingConfig)
+}
