@@ -865,5 +865,35 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 	return result, nil
 }
 
-// TODO(dimitern): Add the following needed calls/features:
-// RelationUnitsWatcher
+func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
+	watch := relUnit.Watch()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.RelationUnitsWatchResult{
+			RelationUnitsWatcherId: u.resources.Register(watch),
+			Changes:                changes,
+		}, nil
+	}
+	return params.RelationUnitsWatchResult{}, watcher.MustErr(watch)
+}
+
+// WatchRelationUnits returns a RelationUnitsWatcher for observing
+// changes to every unit in the supplied relation that is visible to
+// the supplied unit. See also state/watcher.go:RelationUnit.Watch().
+func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.RelationUnitsWatchResults, error) {
+	result := params.RelationUnitsWatchResults{
+		Results: make([]params.RelationUnitsWatchResult, len(args.RelationUnits)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.RelationUnitsWatchResults{}, err
+	}
+	for i, arg := range args.RelationUnits {
+		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
+		if err == nil {
+			result.Results[i], err = u.watchOneRelationUnit(relUnit)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}

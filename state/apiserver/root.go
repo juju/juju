@@ -168,6 +168,24 @@ func (r *srvRoot) StringsWatcher(id string) (*srvStringsWatcher, error) {
 	}, nil
 }
 
+// RelationUnitsWatcher returns an object that provides API access to
+// methods on a state.RelationUnitsWatcher. Each client has its own
+// current set of watchers, stored in r.resources.
+func (r *srvRoot) RelationUnitsWatcher(id string) (*srvRelationUnitsWatcher, error) {
+	if err := r.requireAgent(); err != nil {
+		return nil, err
+	}
+	watcher, ok := r.resources.Get(id).(state.RelationUnitsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRelationUnitsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
+}
+
 // AllWatcher returns an object that provides API access to methods on
 // a state/multiwatcher.Watcher, which watches any changes to the
 // state. Each client has its own current set of watchers, stored in

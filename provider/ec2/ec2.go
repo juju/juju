@@ -166,7 +166,7 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/get-started/amazon/
+## https://juju.ubuntu.com/docs/config-aws.html
 amazon:
   type: ec2
   admin-secret: {{rand}}

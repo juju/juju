@@ -61,7 +61,7 @@ func init() {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/get-started/openstack/
+## https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
   type: openstack
   # Specifies whether the use of a floating IP address is required to give the nodes
@@ -86,7 +86,7 @@ openstack:
   # Usually set via the env variable OS_REGION_NAME, but can be specified here
   # region: <your region>
 
-## https://juju.ubuntu.com/get-started/hp-cloud/
+## https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
   type: openstack
   # Specifies whether the use of a floating IP address is required to give the nodes

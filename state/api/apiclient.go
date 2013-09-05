@@ -24,6 +24,9 @@ type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
 
+	// authTag holds the authenticated entity's tag after login.
+	authTag string
+
 	// broken is a channel that gets closed when the connection is
 	// broken.
 	broken chan struct{}

@@ -366,15 +366,14 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 	// Send a second update; check that members are only added, not removed.
 	ctx.UpdateMembers(uniter.SettingsMap{
 		"u/1": {"foo": 1},
-		"u/2": nil,
+		"u/2": {"abc": 2},
 		"u/3": {"bar": 3},
 	})
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1", "u/2", "u/3", "u/4"})
 
-	// Check that all settings remain cached, including u/2's (which lacked
-	// new settings data in the second update).
+	// Check that all settings remain cached.
 	assertSettings("u/1", map[string]interface{}{"foo": 1})
-	assertSettings("u/2", map[string]interface{}{"baz": 2})
+	assertSettings("u/2", map[string]interface{}{"abc": 2})
 	assertSettings("u/3", map[string]interface{}{"bar": 3})
 	assertSettings("u/4", map[string]interface{}{"qux": 4})
 
