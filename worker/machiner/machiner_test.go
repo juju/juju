@@ -4,9 +4,10 @@
 package machiner_test
 
 import (
-	gc "launchpad.net/gocheck"
 	stdtesting "testing"
 	"time"
+
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/juju/testing"

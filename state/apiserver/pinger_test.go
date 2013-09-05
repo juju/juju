@@ -4,10 +4,12 @@
 package apiserver_test
 
 import (
+	"time"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
-	"time"
 )
 
 type stateSuite struct {
