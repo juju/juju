@@ -46,7 +46,6 @@ var _ = gc.Suite(&UpgraderSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
 	s.state, s.machine = s.OpenAPIAsNewMachine(c)
 	s.oldRetryAfter = *upgrader.RetryAfter
 }
