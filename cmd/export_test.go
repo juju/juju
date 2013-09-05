@@ -3,6 +3,7 @@
 
 package cmd
 
-var GetDefaultEnvironment = getDefaultEnvironment
-
-var GetCurrentEnvironmentFilePath = getCurrentEnvironmentFilePath
+var (
+	GetDefaultEnvironment         = getDefaultEnvironment
+	GetCurrentEnvironmentFilePath = getCurrentEnvironmentFilePath
+)

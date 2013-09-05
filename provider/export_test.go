@@ -10,8 +10,8 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-var GetDNSNames = getDNSNames
-
-var GetStateInfo = getStateInfo
-
-var ComposeAddresses = composeAddresses
+var (
+	GetDNSNames      = getDNSNames
+	GetStateInfo     = getStateInfo
+	ComposeAddresses = composeAddresses
+)
