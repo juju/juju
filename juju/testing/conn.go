@@ -189,7 +189,8 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
-// OpenAPIAsNewMachine creates a new machine in state, and then uses that to open the API.
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state, and
+// then uses that to open the API.
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
