@@ -27,7 +27,7 @@ type uniterSuite struct {
 	uniter *uniter.State
 }
 
-var _ = gc.Suite(&relationUnitSuite{})
+var _ = gc.Suite(&uniterSuite{})
 
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)

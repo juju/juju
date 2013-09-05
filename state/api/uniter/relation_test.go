@@ -12,9 +12,8 @@ import (
 )
 
 type relationSuite struct {
-	// Since we're testing basically the same set of things,
-	// let's reuse the fields and set-up/tear-down from there.
-	relationUnitSuite
+	uniterSuite
+	commonRelationSuiteMixin
 
 	apiRelation *uniter.Relation
 }
@@ -22,7 +21,8 @@ type relationSuite struct {
 var _ = gc.Suite(&relationSuite{})
 
 func (s *relationSuite) SetUpTest(c *gc.C) {
-	s.relationUnitSuite.SetUpTest(c)
+	s.uniterSuite.SetUpTest(c)
+	s.commonRelationSuiteMixin.SetUpTest(c, s.uniterSuite)
 
 	var err error
 	s.apiRelation, err = s.uniter.Relation(s.stateRelation.Tag())
@@ -30,7 +30,7 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *relationSuite) TearDownTest(c *gc.C) {
-	s.relationUnitSuite.TearDownTest(c)
+	s.uniterSuite.TearDownTest(c)
 }
 
 func (s *relationSuite) TestString(c *gc.C) {
@@ -96,5 +96,5 @@ func (s *relationSuite) TestUnit(c *gc.C) {
 	c.Assert(apiRelUnit, gc.NotNil)
 	// We just ensure we get the correct type, more tests
 	// are done in relationunit_test.go.
-	c.Assert(apiRelUnit, gc.FitsTypeOf, uniter.RelationUnit)
+	c.Assert(apiRelUnit, gc.FitsTypeOf, (*uniter.RelationUnit)(nil))
 }
