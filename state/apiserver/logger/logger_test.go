@@ -123,28 +123,21 @@ func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-// func (s *loggerSuite) TestToolsNothing(c *gc.C) {
-// 	// Not an error to watch nothing
-// 	results, err := s.logger.Tools(params.Entities{})
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 0)
-// }
+func (s *loggerSuite) TestLoggingConfigForNoone(c *gc.C) {
+	// Not an error to request nothing, dumb, but not an error.
+	results := s.logger.LoggingConfig(params.Entities{})
+	c.Assert(results.Results, gc.HasLen, 0)
+}
 
-// func (s *loggerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
-// 	anAuthorizer := s.authorizer
-// 	anAuthorizer.Tag = "machine-12354"
-// 	anLogger, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
-// 	c.Assert(err, gc.IsNil)
-// 	args := params.Entities{
-// 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
-// 	}
-// 	results, err := anLogger.Tools(args)
-// 	// It is not an error to make the request, but the specific item is rejected
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(results.Results, gc.HasLen, 1)
-// 	toolResult := results.Results[0]
-// 	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-// }
+func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "machine-12354"}},
+	}
+	results := s.logger.LoggingConfig(args)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
 
 // func (s *loggerSuite) TestToolsForAgent(c *gc.C) {
 // 	cur := version.Current
