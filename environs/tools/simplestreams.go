@@ -81,11 +81,26 @@ func (t *ToolsMetadata) productId() (string, error) {
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
 }
 
+func excludeDefaultURL(urls []string) []string {
+	var result []string
+	for _, url := range urls {
+		if url != DefaultBaseURL {
+			result = append(result, url)
+		}
+	}
+	return result
+}
+
 // Fetch returns a list of tools for the specified cloud matching the constraint.
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
+
+	// TODO (wallyworld): 2013-09-05 bug 1220965
+	// Until the official tools repository is set up, we don't want to use its URL.
+	baseURLs = excludeDefaultURL(baseURLs)
+
 	params := simplestreams.ValueParams{
 		DataType:      ContentDownload,
 		FilterFunc:    appendMatchingTools,

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -57,10 +56,6 @@ func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, metadataDir string) []*tools
 	}
 
 	baseURL := "file://" + metadataDir + "/tools"
-	transport := &http.Transport{}
-	transport.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	old := simplestreams.SetHttpClient(&http.Client{Transport: transport})
-	defer simplestreams.SetHttpClient(old)
 
 	const requireSigned = false
 	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix

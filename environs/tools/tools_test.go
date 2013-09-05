@@ -6,7 +6,6 @@ package tools_test
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -52,7 +51,6 @@ type SimpleStreamsToolsSuite struct {
 	ToolsSuite
 	customToolsDir string
 	publicToolsDir string
-	oldClient      *http.Client
 }
 
 var _ toolsTestHelper = (*LegacyToolsSuite)(nil)
@@ -97,16 +95,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.toolsTestHelper = s
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
-	t := &http.Transport{}
-	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	s.oldClient = simplestreams.SetHttpClient(&http.Client{Transport: t})
 	envtools.UseLegacyFallback = false
-}
-
-func (s *SimpleStreamsToolsSuite) TearDownSuite(c *gc.C) {
-	if s.oldClient != nil {
-		simplestreams.SetHttpClient(s.oldClient)
-	}
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
@@ -484,7 +473,9 @@ func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 		public := s.uploadPublic(c, test.public...)
 		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Series, test.seek.Arch)
 		if test.err == nil {
-			c.Check(err, gc.IsNil)
+			if !c.Check(err, gc.IsNil) {
+				continue
+			}
 			c.Check(actual.Version, gc.Equals, test.seek)
 			source := custom
 			if len(source) == 0 {
