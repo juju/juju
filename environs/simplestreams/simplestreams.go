@@ -334,7 +334,7 @@ var httpClient *http.Client
 
 func init() {
 	httpClient = &http.Client{Transport: http.DefaultTransport}
-	RegisterProtocol("file",  http.NewFileTransport(http.Dir("/")))
+	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 }
 
 // RegisterProtocol registers a new protocol with the simplestreams http client.

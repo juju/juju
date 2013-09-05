@@ -14,7 +14,7 @@ import (
 
 type ValidateSuite struct {
 	coretesting.LoggingSuite
-	home      *coretesting.FakeHome
+	home *coretesting.FakeHome
 }
 
 var _ = gc.Suite(&ValidateSuite{})
