@@ -17,6 +17,8 @@ type relationUnitSuite struct {
 	mysqlService *state.Service
 	mysqlCharm   *state.Charm
 	mysqlUnit    *state.Unit
+
+	stateRelation *state.Relation
 }
 
 var _ = gc.Suite(&relationUnitSuite{})
@@ -27,6 +29,8 @@ func (s *relationUnitSuite) SetUpTest(c *gc.C) {
 	// Now create another machine, service and unit, so we can
 	// test relations and relation units.
 	s.mysqlMachine, s.mysqlService, s.mysqlCharm, s.mysqlUnit = s.addMachineServiceCharmAndUnit(c, "mysql")
+
+	s.stateRelation = s.addRelation(c, "wordpress", "mysql")
 }
 
 func (s *relationUnitSuite) TearDownTest(c *gc.C) {
@@ -34,16 +38,14 @@ func (s *relationUnitSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
-	// Add a relation between wordpress and mysql and enter scope with
-	// mysqlUnit.
-	rel := s.addRelation(c, "wordpress", "mysql")
-	myRelUnit, err := rel.Unit(s.mysqlUnit)
+	// Enter scope with mysqlUnit.
+	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
 	c.Assert(err, gc.IsNil)
 	err = myRelUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 	s.assertInScope(c, myRelUnit, true)
 
-	apiRel, err := s.uniter.Relation(rel.Tag())
+	apiRel, err := s.uniter.Relation(s.stateRelation.Tag())
 	c.Assert(err, gc.IsNil)
 	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
