@@ -35,17 +35,7 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine so we can log in as its agent.
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("password")
-	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
-
+	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)

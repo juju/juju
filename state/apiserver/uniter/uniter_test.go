@@ -1212,8 +1212,9 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
+	// Add a relation between wordpress and mysql and enter scope with
+	// mysqlUnit.
 	rel := s.addRelation(c, "wordpress", "mysql")
-	// Enter scope with mysqlUnit.
 	myRelUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, gc.IsNil)
 	err = myRelUnit.EnterScope(nil)
