@@ -14,15 +14,17 @@ import (
 // State provides access to the Uniter API facade.
 type State struct {
 	caller common.Caller
+	// unitTag contains the authenticated unit's tag.
+	unitTag string
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller common.Caller) *State {
-	return &State{caller}
+func NewState(caller common.Caller, authTag string) *State {
+	return &State{caller, authTag}
 }
 
-// unitLife requests the lifecycle of the given unit from the server.
-func (st *State) unitLife(tag string) (params.Life, error) {
+// life requests the lifecycle of the given entity from the server.
+func (st *State) life(tag string) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -40,9 +42,31 @@ func (st *State) unitLife(tag string) (params.Life, error) {
 	return result.Results[0].Life, nil
 }
 
+// relation requests relation information from the server.
+func (st *State) relation(relationTag, unitTag string) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	var result params.RelationResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{
+			{Relation: relationTag, Unit: unitTag},
+		},
+	}
+	err := st.caller.Call("Uniter", "", "Relation", args, &result)
+	if err != nil {
+		return nothing, err
+	}
+	if len(result.Results) != 1 {
+		return nothing, fmt.Errorf("expected one result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return nothing, err
+	}
+	return result.Results[0], nil
+}
+
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(tag string) (*Unit, error) {
-	life, err := st.unitLife(tag)
+	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +77,7 @@ func (st *State) Unit(tag string) (*Unit, error) {
 	}, nil
 }
 
-// Service returns a service state by name.
+// Service returns a service state by tag.
 func (st *State) Service(tag string) (*Service, error) {
 	// TODO: Return a new uniter.Service proxy object for tag.
 	panic("not implemented")
@@ -74,17 +98,26 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	panic("not implemented")
 }
 
-// Relation returns the existing relation with the given id.
-func (st *State) Relation(id int) (*Relation, error) {
-	// TODO: Return a new uniter.Relation proxy object.
-	panic("not implemented")
+// Relation returns the existing relation with the given tag.
+func (st *State) Relation(tag string) (*Relation, error) {
+	// Get the life, then get the id and other info.
+	life, err := st.life(tag)
+	if err != nil {
+		return nil, err
+	}
+	result, err := st.relation(tag, st.unitTag)
+	if err != nil {
+		return nil, err
+	}
+	return &Relation{
+		id:   result.Id,
+		tag:  tag,
+		life: life,
+		st:   st,
+	}, nil
 }
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	return &Environment{st}, nil
 }
-
-// TODO: Possibly add st.KeyRelation(key) as well, but we might
-// not need it, if the relation tags change to be "relation-<key>",
-// or it might just be a wrapper around tag-to-key conversion.

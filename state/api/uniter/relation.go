@@ -27,8 +27,8 @@ import (
 type Relation struct {
 	st   *State
 	tag  string
+	id   int
 	life params.Life
-	// TODO: Add fields.
 }
 
 // String returns the relation as a string.
@@ -45,8 +45,7 @@ func (r *Relation) String() string {
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
 // between relations with different services.
 func (r *Relation) Id() int {
-	// TODO: Convert the relation tag to id and return it.
-	panic("not implemented")
+	return r.id
 }
 
 // Life returns the relation's current life state.
@@ -76,7 +75,13 @@ func (r *Relation) Endpoint() Endpoint {
 
 // Unit returns a RelationUnit for the supplied unit.
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	// TODO: Just create and return a uniter.RelationUnit initialized
-	// properly and a nil error.
-	panic("not implemented")
+	if u == nil {
+		return nil, fmt.Errorf("unit is nil")
+	}
+	// TODO: Call r.st.relation to get the endpoint and set it below.
+	return &RelationUnit{
+		relation: r,
+		unit:     u,
+		st:       r.st,
+	}, nil
 }
