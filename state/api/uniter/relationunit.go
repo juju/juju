@@ -115,7 +115,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	panic("not implemented")
 }
 
-// Watch returns a watcher that notifies of changes to conterpart
+// Watch returns a watcher that notifies of changes to counterpart
 // units in the relation.
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	var results params.RelationUnitsWatchResults
