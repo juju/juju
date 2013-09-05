@@ -84,7 +84,7 @@ func (t *ToolsMetadata) productId() (string, error) {
 func excludeDefaultURL(urls []string) []string {
 	var result []string
 	for _, url := range urls {
-		if url != DefaultBaseURL {
+		if url != "http://juju.canonical.com/tools" {
 			result = append(result, url)
 		}
 	}
