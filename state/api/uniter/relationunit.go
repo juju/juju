@@ -3,6 +3,13 @@
 
 package uniter
 
+import (
+	"fmt"
+
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
+)
+
 // This module implements a subset of the interface provided by
 // state.RelationUnit, as needed by the uniter API.
 // Most of this is pretty much a verbatim copy of the code in
@@ -108,9 +115,26 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	panic("not implemented")
 }
 
-// Watch returns a watcher that notifies of changes to conterpart units in
-// the relation.
-// TODO: This is commented out because RelationUnitsWatcher is not yet
-// implemented at the server-side.
-//func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
-//}
+// Watch returns a watcher that notifies of changes to conterpart
+// units in the relation.
+func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
+	var results params.RelationUnitsWatchResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{
+			{Relation: ru.relation.tag, Unit: ru.unit.tag},
+		},
+	}
+	err := ru.st.caller.Call("Uniter", "", "WatchRelationUnits", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewRelationUnitsWatcher(ru.st.caller, result)
+	return w, nil
+}
