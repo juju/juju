@@ -60,6 +60,7 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -350,6 +351,19 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Endpoint:      ec2Region.EC2Endpoint,
 		BaseURLs:      baseURLs,
 		Architectures: []string{"amd64", "i386", "arm"},
+	}, nil
+}
+
+// Region is specified in the HasRegion interface.
+func (e *environ) Region() (simplestreams.CloudSpec, error) {
+	region := e.ecfg().region()
+	ec2Region, ok := allRegions[region]
+	if !ok {
+		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)
+	}
+	return simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
 }
 

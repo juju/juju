@@ -138,6 +138,13 @@ var imageData = map[string]string{
        "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
+      },
+      "1140raringamd64": {
+       "version": "1.14.0",
+       "size": 2973173,
+       "path": "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
      }
     }
@@ -402,7 +409,7 @@ func NewTestConstraint(params simplestreams.LookupParams) *testConstraint {
 }
 
 func (tc *testConstraint) Ids() ([]string, error) {
-	version, err := simplestreams.SeriesVersion(tc.Series)
+	version, err := simplestreams.SeriesVersion(tc.Series[0])
 	if err != nil {
 		return nil, err
 	}
@@ -469,6 +476,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 	c.Assert(err, gc.IsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"bad", "spec"},
+		Series:    []string{"precise"},
 	})
 	_, err = indexRef.GetProductsPath(ic)
 	c.Assert(err, gc.NotNil)
@@ -479,7 +487,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 	c.Assert(err, gc.IsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
-		Series:    "precise",
+		Series:    []string{"precise"},
 		Arches:    []string{"bad"},
 		Stream:    "spec",
 	})

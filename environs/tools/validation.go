@@ -21,12 +21,6 @@ type ToolsMetadataLookupParams struct {
 // ValidateToolsMetadata attempts to load tools metadata for the specified cloud attributes and returns
 // any tools versions found, or an error if the metadata could not be loaded.
 func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) {
-	//	if params.Region == "" {
-	//		return nil, fmt.Errorf("required parameter region not specified")
-	//	}
-	//	if params.Endpoint == "" {
-	//		return nil, fmt.Errorf("required parameter endpoint not specified")
-	//	}
 	if len(params.Architectures) == 0 {
 		return nil, fmt.Errorf("required parameter arches not specified")
 	}
@@ -38,15 +32,15 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) 
 	}
 	var toolsConstraint *ToolsConstraint
 	if params.Version == "" {
-		toolsConstraint = NewGeneralToolsConstraint(params.Major, params.Minor, simplestreams.LookupParams{
+		toolsConstraint = NewGeneralToolsConstraint(params.Major, params.Minor, false, simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-			Series:    params.Series,
+			Series:    []string{params.Series},
 			Arches:    params.Architectures,
 		})
 	} else {
 		toolsConstraint = NewVersionedToolsConstraint(params.Version, simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-			Series:    params.Series,
+			Series:    []string{params.Series},
 			Arches:    params.Architectures,
 		})
 	}

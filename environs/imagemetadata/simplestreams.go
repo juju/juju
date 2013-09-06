@@ -29,6 +29,10 @@ type ImageConstraint struct {
 }
 
 func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
+	if len(params.Series) != 1 {
+		// This can only happen as a result of a coding error.
+		panic(fmt.Sprintf("image constraint requires a single series, got %v", params.Series))
+	}
 	return &ImageConstraint{LookupParams: params}
 }
 
@@ -38,7 +42,7 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	if stream != "" {
 		stream = "." + stream
 	}
-	version, err := simplestreams.SeriesVersion(ic.Series)
+	version, err := simplestreams.SeriesVersion(ic.Series[0])
 	if err != nil {
 		return nil, err
 	}

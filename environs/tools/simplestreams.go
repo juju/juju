@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
@@ -30,6 +31,7 @@ type ToolsConstraint struct {
 	Version      version.Number
 	MajorVersion int
 	MinorVersion int
+	Released     bool
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
@@ -39,21 +41,26 @@ func NewVersionedToolsConstraint(vers string, params simplestreams.LookupParams)
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
-func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
-	return &ToolsConstraint{LookupParams: params, Version: version.Zero, MajorVersion: majorVersion, MinorVersion: minorVersion}
+func NewGeneralToolsConstraint(majorVersion, minorVersion int, released bool, params simplestreams.LookupParams) *ToolsConstraint {
+	return &ToolsConstraint{LookupParams: params, Version: version.Zero,
+		MajorVersion: majorVersion, MinorVersion: minorVersion, Released: released}
 }
 
-// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+// Ids generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) Ids() ([]string, error) {
-	version, err := simplestreams.SeriesVersion(tc.Series)
-	if err != nil {
-		return nil, err
+	var allIds []string
+	for _, series := range tc.Series {
+		version, err := simplestreams.SeriesVersion(series)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]string, len(tc.Arches))
+		for i, arch := range tc.Arches {
+			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
+		}
+		allIds = append(allIds, ids...)
 	}
-	ids := make([]string, len(tc.Arches))
-	for i, arch := range tc.Arches {
-		ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
-	}
-	return ids, nil
+	return allIds, nil
 }
 
 // ToolsMetadata holds information about a particular tools tarball.
@@ -109,13 +116,15 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
-		consSeries := cons.Params().Series
-		if consSeries != "" && consSeries != tm.Release {
+		if !set.NewStrings(cons.Params().Series...).Contains(tm.Release) {
 			continue
 		}
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
 			tmNumber := version.MustParse(tm.Version)
 			if toolsConstraint.Version == version.Zero {
+				if toolsConstraint.Released && tmNumber.IsDev() {
+					continue
+				}
 				if toolsConstraint.MajorVersion != tmNumber.Major {
 					continue
 				}

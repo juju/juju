@@ -235,6 +235,7 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
 	*nova.ServerDetail
@@ -1090,5 +1091,13 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Endpoint:      e.ecfg().authURL(),
 		BaseURLs:      baseURLs,
 		Architectures: []string{"amd64", "arm"},
+	}, nil
+}
+
+// Region is specified in the HasRegion interface.
+func (e *environ) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   e.ecfg().region(),
+		Endpoint: e.ecfg().authURL(),
 	}, nil
 }
