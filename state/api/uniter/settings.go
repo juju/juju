@@ -3,16 +3,27 @@
 
 package uniter
 
+import (
+	"launchpad.net/juju-core/state/api/params"
+)
+
 // This module implements a subset of the interface provided by
 // state.Settings, as needed by the uniter API.
 
-// TODO: Only the required calls are added as placeholders,
-// the actual implementation will come in a follow-up.
-
 // Settings manages changes to unit settings in a relation.
 type Settings struct {
-	st *State
-	// TODO: Add fields.
+	st       *State
+	settings params.Settings
+}
+
+func newSettings(st *State, settings params.Settings) *Settings {
+	if settings == nil {
+		settings = make(params.Settings)
+	}
+	return &Settings{
+		st:       st,
+		settings: settings,
+	}
 }
 
 // Map returns all keys and values of the node.
