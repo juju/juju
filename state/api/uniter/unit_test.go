@@ -11,18 +11,25 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type unitSuite struct {
 	uniterSuite
+
+	apiUnit *uniter.Unit
 }
 
 var _ = gc.Suite(&unitSuite{})
 
 func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
+
+	var err error
+	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag())
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *unitSuite) TearDownTest(c *gc.C) {
@@ -30,26 +37,21 @@ func (s *unitSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-foo-42")
+	apiUnitFoo, err := s.uniter.Unit("unit-foo-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-	c.Assert(apiUnit, gc.IsNil)
+	c.Assert(apiUnitFoo, gc.IsNil)
 
-	apiUnit, err = s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiUnit.Tag(), gc.Equals, "unit-wordpress-0")
+	c.Assert(s.apiUnit.Tag(), gc.Equals, "unit-wordpress-0")
 }
 
 func (s *unitSuite) TestSetStatus(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
 	status, info, err := s.wordpressUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = apiUnit.SetStatus(params.StatusStarted, "blah")
+	err = s.apiUnit.SetStatus(params.StatusStarted, "blah")
 	c.Assert(err, gc.IsNil)
 
 	status, info, err = s.wordpressUnit.Status()
@@ -61,17 +63,14 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
-	err = apiUnit.EnsureDead()
+	err := s.apiUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 
-	err = apiUnit.EnsureDead()
+	err = s.apiUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -82,7 +81,7 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	err = apiUnit.EnsureDead()
+	err = s.apiUnit.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 }
@@ -90,10 +89,7 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 func (s *unitSuite) TestDestroy(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
-	err = apiUnit.Destroy()
+	err := s.apiUnit.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	err = s.wordpressUnit.Refresh()
@@ -103,11 +99,8 @@ func (s *unitSuite) TestDestroy(c *gc.C) {
 func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
 	// Call without subordinates - no change.
-	err = apiUnit.DestroyAllSubordinates()
+	err := s.apiUnit.DestroyAllSubordinates()
 	c.Assert(err, gc.IsNil)
 
 	// Add a couple of subordinates and try again.
@@ -116,7 +109,7 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 
-	err = apiUnit.DestroyAllSubordinates()
+	err = s.apiUnit.DestroyAllSubordinates()
 	c.Assert(err, gc.IsNil)
 
 	// Verify they got destroyed.
@@ -129,25 +122,21 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
-	err = apiUnit.EnsureDead()
+	err := s.apiUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
-	err = apiUnit.Refresh()
+	err = s.apiUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiUnit.Life(), gc.Equals, params.Dead)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
-	w, err := apiUnit.Watch()
+	w, err := s.apiUnit.Watch()
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
@@ -157,12 +146,12 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = apiUnit.SetStatus(params.StatusStarted, "not really")
+	err = s.apiUnit.SetStatus(params.StatusStarted, "not really")
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Make the unit dead and check it's detected.
-	err = apiUnit.EnsureDead()
+	err = s.apiUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
@@ -171,38 +160,29 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 }
 
 func (s *unitSuite) TestResolve(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
+	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
-	c.Assert(err, gc.IsNil)
-
-	mode, err := apiUnit.Resolved()
+	mode, err := s.apiUnit.Resolved()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
 
-	err = apiUnit.ClearResolved()
+	err = s.apiUnit.ClearResolved()
 	c.Assert(err, gc.IsNil)
 
-	mode, err = apiUnit.Resolved()
+	mode, err = s.apiUnit.Resolved()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
 func (s *unitSuite) TestIsPrincipal(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
-	ok, err := apiUnit.IsPrincipal()
+	ok, err := s.apiUnit.IsPrincipal()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *unitSuite) TestHasSubordinates(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
-	found, err := apiUnit.HasSubordinates()
+	found, err := s.apiUnit.HasSubordinates()
 	c.Assert(err, gc.IsNil)
 	c.Assert(found, jc.IsFalse)
 
@@ -210,51 +190,42 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 
-	found, err = apiUnit.HasSubordinates()
+	found, err = s.apiUnit.HasSubordinates()
 	c.Assert(err, gc.IsNil)
 	c.Assert(found, jc.IsTrue)
 }
 
 func (s *unitSuite) TestGetSetPublicAddress(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
-	address, err := apiUnit.PublicAddress()
+	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
-	err = apiUnit.SetPublicAddress("1.2.3.4")
+	err = s.apiUnit.SetPublicAddress("1.2.3.4")
 	c.Assert(err, gc.IsNil)
 
-	address, err = apiUnit.PublicAddress()
+	address, err = s.apiUnit.PublicAddress()
 	c.Assert(err, gc.IsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
 func (s *unitSuite) TestGetSetPrivateAddress(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
-	address, err := apiUnit.PrivateAddress()
+	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
-	err = apiUnit.SetPrivateAddress("1.2.3.4")
+	err = s.apiUnit.SetPrivateAddress("1.2.3.4")
 	c.Assert(err, gc.IsNil)
 
-	address, err = apiUnit.PrivateAddress()
+	address, err = s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.IsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
 func (s *unitSuite) TestOpenClosePort(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
 	ports := s.wordpressUnit.OpenedPorts()
 	c.Assert(ports, gc.HasLen, 0)
 
-	err = apiUnit.OpenPort("foo", 1234)
+	err := s.apiUnit.OpenPort("foo", 1234)
 	c.Assert(err, gc.IsNil)
-	err = apiUnit.OpenPort("bar", 4321)
+	err = s.apiUnit.OpenPort("bar", 4321)
 	c.Assert(err, gc.IsNil)
 
 	err = s.wordpressUnit.Refresh()
@@ -266,7 +237,7 @@ func (s *unitSuite) TestOpenClosePort(c *gc.C) {
 		{Protocol: "foo", Number: 1234},
 	})
 
-	err = apiUnit.ClosePort("bar", 4321)
+	err = s.apiUnit.ClosePort("bar", 4321)
 	c.Assert(err, gc.IsNil)
 
 	err = s.wordpressUnit.Refresh()
@@ -277,7 +248,7 @@ func (s *unitSuite) TestOpenClosePort(c *gc.C) {
 		{Protocol: "foo", Number: 1234},
 	})
 
-	err = apiUnit.ClosePort("foo", 1234)
+	err = s.apiUnit.ClosePort("foo", 1234)
 	c.Assert(err, gc.IsNil)
 
 	err = s.wordpressUnit.Refresh()
@@ -287,41 +258,35 @@ func (s *unitSuite) TestOpenClosePort(c *gc.C) {
 }
 
 func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
 	// No charm URL set yet.
 	curl, ok := s.wordpressUnit.CharmURL()
 	c.Assert(curl, gc.IsNil)
 	c.Assert(ok, jc.IsFalse)
 
 	// Now check the same through the API.
-	curl, err = apiUnit.CharmURL()
+	_, err := s.apiUnit.CharmURL()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no charm url set`)
 
-	err = apiUnit.SetCharmURL(s.wordpressCharm.URL())
+	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, gc.IsNil)
 
-	curl, err = apiUnit.CharmURL()
+	curl, err = s.apiUnit.CharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.NotNil)
 	c.Assert(curl.String(), gc.Equals, s.wordpressCharm.String())
 }
 
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-
 	// Make sure ConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
-	settings, err := apiUnit.ConfigSettings()
+	settings, err := s.apiUnit.ConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit charm not set")
 
 	// Now set the charm and try again.
-	err = apiUnit.SetCharmURL(s.wordpressCharm.URL())
+	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, gc.IsNil)
 
-	settings, err = apiUnit.ConfigSettings()
+	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"blog-title": "My Title",
@@ -333,7 +298,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	settings, err = apiUnit.ConfigSettings()
+	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"blog-title": "superhero paparazzi",
@@ -341,20 +306,16 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiUnit.Life(), gc.Equals, params.Alive)
-
 	// Make sure WatchConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
-	w, err := apiUnit.WatchConfigSettings()
+	w, err := s.apiUnit.WatchConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit charm not set")
 
 	// Now set the charm and try again.
-	err = apiUnit.SetCharmURL(s.wordpressCharm.URL())
+	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, gc.IsNil)
 
-	w, err = apiUnit.WatchConfigSettings()
+	w, err = s.apiUnit.WatchConfigSettings()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 

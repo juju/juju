@@ -79,8 +79,15 @@ func (st *State) Unit(tag string) (*Unit, error) {
 
 // Service returns a service state by tag.
 func (st *State) Service(tag string) (*Service, error) {
-	// TODO: Return a new uniter.Service proxy object for tag.
-	panic("not implemented")
+	life, err := st.life(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{
+		tag:  tag,
+		life: life,
+		st:   st,
+	}, nil
 }
 
 // ProviderType returns a provider type used by the current juju
@@ -95,8 +102,13 @@ func (st *State) ProviderType() string {
 
 // Charm returns the charm with the given URL.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	// TODO: Return a new uniter.Service proxy object for tag.
-	panic("not implemented")
+	if curl == nil {
+		return nil, fmt.Errorf("charm url cannot be nil")
+	}
+	return &Charm{
+		st:  st,
+		url: curl.String(),
+	}, nil
 }
 
 // Relation returns the existing relation with the given tag.
