@@ -4,7 +4,10 @@
 package uniter
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils/set"
 )
 
 // This module implements a subset of the interface provided by
@@ -12,43 +15,83 @@ import (
 
 // Settings manages changes to unit settings in a relation.
 type Settings struct {
-	st       *State
-	settings params.Settings
+	st          *State
+	relationTag string
+	unitTag     string
+	settings    params.Settings
+	deletedKeys set.Strings
 }
 
-func newSettings(st *State, settings params.Settings) *Settings {
+func newSettings(st *State, relationTag, unitTag string, settings params.Settings) *Settings {
 	if settings == nil {
 		settings = make(params.Settings)
 	}
 	return &Settings{
-		st:       st,
-		settings: settings,
+		st:          st,
+		relationTag: relationTag,
+		unitTag:     unitTag,
+		settings:    settings,
+		deletedKeys: set.NewStrings(),
 	}
 }
 
 // Map returns all keys and values of the node.
 func (s *Settings) Map() map[string]interface{} {
-	panic("not implemented")
+	// Code expects map[string]interface{}, even
+	// though the actual settings are always strings,
+	// so we need to convert them.
+	result := make(map[string]interface{})
+	for k, v := range s.settings {
+		result[k] = v
+	}
+	return result
 }
 
 // Set sets key to value.
 // TODO: value must be a string. Change the code accordingy.
 func (s *Settings) Set(key string, value interface{}) {
-	panic("not implemented")
+	stringValue, ok := value.(string)
+	if !ok {
+		panic(fmt.Sprintf("cannot set non-string value %v for setting %q", value, key))
+	}
+	s.settings[key] = stringValue
+	s.deletedKeys.Remove(key)
 }
 
 // Delete removes key.
 func (s *Settings) Delete(key string) {
-	panic("not implemented")
+	s.deletedKeys.Add(key)
+	delete(s.settings, key)
 }
 
 // Write writes changes made to s back onto its node. Keys set to
 // empty values will be deleted, others will be updated to the new
 // value.
 func (s *Settings) Write() error {
-	// TODO: Call Uniter.UpdateSettings()
-	// The original state.Settings.Write() returns []ItemChange,
-	// but since it's not used by the uniter, this call just
-	// returns an error.
-	panic("not implemented")
+	// First make a copy and set to empty each deleted key.
+	settingsCopy := make(params.Settings)
+	for k, v := range s.settings {
+		if !s.deletedKeys.Contains(k) {
+			settingsCopy[k] = v
+		}
+	}
+
+	var result params.ErrorResults
+	args := params.RelationUnitsSettings{
+		RelationUnits: []params.RelationUnitSettings{{
+			Relation: s.relationTag,
+			Unit:     s.unitTag,
+			Settings: settingsCopy,
+		}},
+	}
+	err := s.st.caller.Call("Uniter", "", "UpdateSettings", args, &result)
+	if err != nil {
+		return err
+	}
+	err = result.OneError()
+	if err == nil {
+		s.settings = settingsCopy
+		s.deletedKeys = set.NewStrings()
+	}
+	return err
 }

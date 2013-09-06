@@ -183,6 +183,52 @@ func (s *relationUnitSuite) TestLeaveScope(c *gc.C) {
 	s.assertInScope(c, wpRelUnit, false)
 }
 
+func (s *relationUnitSuite) TestSettings(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	}
+	err := wpRelUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, settings)
+}
+
+func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
+	// First try to read the settings which are not set.
+	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, true)
+
+	// Try reading - should be ok.
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	s.assertInScope(c, wpRelUnit, false)
+	gotSettings, err := apiRelUnit.ReadSettings("mysql/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotSettings, gc.HasLen, 0)
+
+	// Now leave and re-enter scope with some settings.
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	}
+	err = myRelUnit.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, false)
+	err = myRelUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, true)
+	gotSettings, err = apiRelUnit.ReadSettings("mysql/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotSettings, gc.DeepEquals, settings)
+}
+
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	// Enter scope with mysqlUnit.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
