@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils/set"
 )
 
 // This module implements a subset of the interface provided by
@@ -17,7 +16,6 @@ type Settings struct {
 	relationTag string
 	unitTag     string
 	settings    params.Settings
-	deletedKeys set.Strings
 }
 
 func newSettings(st *State, relationTag, unitTag string, settings params.Settings) *Settings {
@@ -29,7 +27,6 @@ func newSettings(st *State, relationTag, unitTag string, settings params.Setting
 		relationTag: relationTag,
 		unitTag:     unitTag,
 		settings:    settings,
-		deletedKeys: set.NewStrings(),
 	}
 }
 
@@ -42,7 +39,10 @@ func newSettings(st *State, relationTag, unitTag string, settings params.Setting
 func (s *Settings) Map() params.Settings {
 	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
-		settingsCopy[k] = v
+		if v != "" {
+			// Skip deleted keys.
+			settingsCopy[k] = v
+		}
 	}
 	return settingsCopy
 }
@@ -50,38 +50,34 @@ func (s *Settings) Map() params.Settings {
 // Set sets key to value.
 //
 // TODO(dimitern): value must be a string. Change the code that uses
-// this accordingy.
+// this accordingly.
 func (s *Settings) Set(key, value string) {
 	s.settings[key] = value
-	s.deletedKeys.Remove(key)
 }
 
 // Delete removes key.
-//
-// TODO(dimitern) bug=lp:1221798
-// Once the machine addressability changes lands, we may need
-// to revise the logic here and/or in Write() to take into
-// account that the "private-address" setting for a unit can
-// be changed outside of the uniter's control. So we may need
-// to send diffs of what has changed to make sure we update the
-// address (and other settings) correctly, without overwritting.
 func (s *Settings) Delete(key string) {
-	s.deletedKeys.Add(key)
-	delete(s.settings, key)
+	// Keys are only marked as deleted, because we need to report them
+	// back to the server for deletion on Write().
+	s.settings[key] = ""
 }
 
 // Write writes changes made to s back onto its node. Keys set to
 // empty values will be deleted, others will be updated to the new
 // value.
+//
+// TODO(dimitern): 2013-09-06 bug 1221798
+// Once the machine addressability changes lands, we may need to
+// revise the logic here to take into account that the
+// "private-address" setting for a unit can be changed outside of the
+// uniter's control. So we may need to send diffs of what has changed
+// to make sure we update the address (and other settings) correctly,
+// without overwritting.
 func (s *Settings) Write() error {
-	// First make a copy of the map.
+	// First make a copy of the map, including deleted keys.
 	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
 		settingsCopy[k] = v
-	}
-	// Mark removed keys for deletion.
-	for _, k := range s.deletedKeys.Values() {
-		settingsCopy[k] = ""
 	}
 
 	var result params.ErrorResults
@@ -96,9 +92,5 @@ func (s *Settings) Write() error {
 	if err != nil {
 		return err
 	}
-	err = result.OneError()
-	if err == nil {
-		s.deletedKeys = set.NewStrings()
-	}
-	return err
+	return result.OneError()
 }
