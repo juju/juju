@@ -25,7 +25,7 @@ import (
 type BootstrapSuite struct {
 	coretesting.LoggingSuite
 	coretesting.MgoSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -38,7 +38,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.ToolsSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -47,7 +47,7 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
-	s.ToolsSuite.TearDownTest(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()

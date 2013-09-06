@@ -3,7 +3,9 @@
 
 package imagemetadata
 
-import "launchpad.net/juju-core/environs"
+import (
+	"launchpad.net/juju-core/environs/config"
+)
 
 // SupportsCustomURLs instances can host image metadata at provider specific URLs.
 type SupportsCustomURLs interface {
@@ -11,12 +13,12 @@ type SupportsCustomURLs interface {
 }
 
 // GetMetadataURLs returns the URLs to use when looking for simplestreams image id metadata.
-func GetMetadataURLs(cloud environs.HasConfig) ([]string, error) {
+func GetMetadataURLs(cloudInst config.HasConfig) ([]string, error) {
 	var urls []string
-	if userURL, ok := cloud.Config().ImageMetadataURL(); ok {
+	if userURL, ok := cloudInst.Config().ImageMetadataURL(); ok {
 		urls = append(urls, userURL)
 	}
-	if custom, ok := cloud.(SupportsCustomURLs); ok {
+	if custom, ok := cloudInst.(SupportsCustomURLs); ok {
 		customURLs, err := custom.GetImageBaseURLs()
 		if err != nil {
 			return nil, err

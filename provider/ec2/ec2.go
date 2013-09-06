@@ -60,7 +60,7 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
-var _ environs.HasIdAttributes = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -166,7 +166,7 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/get-started/amazon/
+## https://juju.ubuntu.com/docs/config-aws.html
 amazon:
   type: ec2
   admin-secret: {{rand}}
@@ -348,16 +348,16 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	}, nil
 }
 
-// IdAttributes is specified in the HasIdAttributes interface.
-func (e *environ) IdAttributes() (map[string]string, error) {
+// Region is specified in the HasRegion interface.
+func (e *environ) Region() (simplestreams.CloudSpec, error) {
 	region := e.ecfg().region()
 	ec2Region, ok := allRegions[region]
 	if !ok {
-		return nil, fmt.Errorf("unknown region %q", region)
+		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)
 	}
-	return map[string]string{
-		"region":   region,
-		"endpoint": ec2Region.EC2Endpoint,
+	return simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
 }
 

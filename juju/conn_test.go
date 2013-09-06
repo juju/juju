@@ -36,19 +36,19 @@ func Test(t *stdtesting.T) {
 
 type NewConnSuite struct {
 	coretesting.LoggingSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewConnSuite{})
 
 func (cs *NewConnSuite) SetUpTest(c *gc.C) {
 	cs.LoggingSuite.SetUpTest(c)
-	cs.ToolsSuite.SetUpTest(c)
+	cs.ToolsFixture.SetUpTest(c)
 }
 
 func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	cs.ToolsSuite.TearDownTest(c)
+	cs.ToolsFixture.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }
 
@@ -249,7 +249,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 type ConnSuite struct {
 	coretesting.LoggingSuite
 	coretesting.MgoSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 	conn *juju.Conn
 	repo *charm.LocalRepository
 }
@@ -259,7 +259,7 @@ var _ = gc.Suite(&ConnSuite{})
 func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.ToolsSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -290,7 +290,7 @@ func (s *ConnSuite) TearDownTest(c *gc.C) {
 	s.conn.Close()
 	s.conn = nil
 	dummy.Reset()
-	s.ToolsSuite.TearDownTest(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
