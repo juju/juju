@@ -68,12 +68,14 @@ func (s *Settings) Delete(key string) {
 // empty values will be deleted, others will be updated to the new
 // value.
 func (s *Settings) Write() error {
-	// First make a copy and set to empty each deleted key.
+	// First make a copy of the map.
 	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
-		if !s.deletedKeys.Contains(k) {
-			settingsCopy[k] = v
-		}
+		settingsCopy[k] = v
+	}
+	// Mark removed keys for deletion.
+	for _, k := range s.deletedKeys.Values() {
+		settingsCopy[k] = ""
 	}
 
 	var result params.ErrorResults
@@ -90,7 +92,6 @@ func (s *Settings) Write() error {
 	}
 	err = result.OneError()
 	if err == nil {
-		s.settings = settingsCopy
 		s.deletedKeys = set.NewStrings()
 	}
 	return err
