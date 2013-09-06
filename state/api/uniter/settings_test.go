@@ -40,32 +40,22 @@ func (s *settingsSuite) TestNewSettingsAndMap(c *gc.C) {
 	}
 	settings = uniter.NewSettings(s.uniter, "blah", "foo", rawSettings)
 	theMap = settings.Map()
-	c.Assert(theMap, gc.DeepEquals, map[string]interface{}{
-		"some":  "settings",
-		"other": "stuff",
-	})
+	c.Assert(theMap, gc.DeepEquals, rawSettings)
 }
 
 func (s *settingsSuite) TestSet(c *gc.C) {
 	settings := uniter.NewSettings(s.uniter, "blah", "foo", nil)
 
 	settings.Set("foo", "bar")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "bar",
 	})
 	settings.Set("foo", "qaz")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 	})
-	// Make sure we panic on non-string keys.
-	checkPanic := func() { settings.Set("bar", 123) }
-	c.Assert(checkPanic, gc.PanicMatches, `cannot set non-string value 123 for setting "bar"`)
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
-		"foo": "qaz",
-	})
-
 	settings.Set("bar", "Cheers")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 		"bar": "Cheers",
 	})
@@ -77,27 +67,27 @@ func (s *settingsSuite) TestDelete(c *gc.C) {
 	settings.Set("foo", "qaz")
 	settings.Set("abc", "tink")
 	settings.Set("bar", "tonk")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 		"abc": "tink",
 		"bar": "tonk",
 	})
 	settings.Delete("abc")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 		"bar": "tonk",
 	})
 	settings.Delete("bar")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 	})
 	settings.Set("abc", "123")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 		"abc": "123",
 	})
 	settings.Delete("missing")
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "qaz",
 		"abc": "123",
 	})
@@ -122,7 +112,10 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	settings, err := apiRelUnit.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings.Map(), gc.DeepEquals, rawSettings)
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "stuff",
+		"other": "things",
+	})
 
 	settings.Set("some", "bar")
 	settings.Delete("foo")
@@ -133,7 +126,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	settings, err = apiRelUnit.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
 		"foo":   "qaz",
 		"other": "days",
 	})

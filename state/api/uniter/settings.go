@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -36,29 +34,37 @@ func newSettings(st *State, relationTag, unitTag string, settings params.Setting
 }
 
 // Map returns all keys and values of the node.
-func (s *Settings) Map() map[string]interface{} {
-	// Code expects map[string]interface{}, even
-	// though the actual settings are always strings,
-	// so we need to convert them.
-	result := make(map[string]interface{})
+//
+// TODO(dimitern): This differes from state.Settings.Map() - it does
+// not return map[string]interface{}, but since all values are
+// expected to be strings anyway, we need to fix the uniter code
+// accordingly when migrating to the API.
+func (s *Settings) Map() params.Settings {
+	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
-		result[k] = v
+		settingsCopy[k] = v
 	}
-	return result
+	return settingsCopy
 }
 
 // Set sets key to value.
-// TODO: value must be a string. Change the code accordingy.
-func (s *Settings) Set(key string, value interface{}) {
-	stringValue, ok := value.(string)
-	if !ok {
-		panic(fmt.Sprintf("cannot set non-string value %v for setting %q", value, key))
-	}
-	s.settings[key] = stringValue
+//
+// TODO(dimitern): value must be a string. Change the code that uses
+// this accordingy.
+func (s *Settings) Set(key, value string) {
+	s.settings[key] = value
 	s.deletedKeys.Remove(key)
 }
 
 // Delete removes key.
+//
+// TODO(dimitern) bug=lp:1221798
+// Once the machine addressability changes lands, we may need
+// to revise the logic here and/or in Write() to take into
+// account that the "private-address" setting for a unit can
+// be changed outside of the uniter's control. So we may need
+// to send diffs of what has changed to make sure we update the
+// address (and other settings) correctly, without overwritting.
 func (s *Settings) Delete(key string) {
 	s.deletedKeys.Add(key)
 	delete(s.settings, key)
