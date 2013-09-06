@@ -331,13 +331,8 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return provider.StateInfo(e)
 }
 
-// MetadataLookupParams returns parameters which are used to query image metadata to
-// find matching image information.
+// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
-	if err != nil {
-		return nil, err
-	}
 	if region == "" {
 		region = e.ecfg().region()
 	}
@@ -349,7 +344,6 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		BaseURLs:      baseURLs,
 		Architectures: []string{"amd64", "i386", "arm"},
 	}, nil
 }

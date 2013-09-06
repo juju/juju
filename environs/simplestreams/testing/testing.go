@@ -369,9 +369,9 @@ type TestDataSuite struct {
 
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
 	s.testRoundTripper = &jujutest.ProxyRoundTripper{}
-	s.testRoundTripper.RegisterForScheme("test")
 	s.testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
 		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
+	simplestreams.RegisterProtocol("test", s.testRoundTripper)
 }
 
 func (s *TestDataSuite) TearDownSuite(c *gc.C) {
