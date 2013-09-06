@@ -259,8 +259,8 @@ func (u *Unit) HasSubordinates() (bool, error) {
 // NOTE: This differs from state.Unit.PublicAddres() by returning
 // an error instead of a bool, because it needs to make an API call.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) PublicAddress() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -282,8 +282,8 @@ func (u *Unit) PublicAddress() (string, error) {
 
 // SetPublicAddress sets the public address of the unit.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) SetPublicAddress(address string) error {
 	var result params.ErrorResults
 	args := params.SetEntityAddresses{
@@ -304,8 +304,8 @@ func (u *Unit) SetPublicAddress(address string) error {
 // NOTE: This differs from state.Unit.PrivateAddress() by returning
 // an error instead of a bool, because it needs to make an API call.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) PrivateAddress() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -327,8 +327,8 @@ func (u *Unit) PrivateAddress() (string, error) {
 
 // SetPrivateAddress sets the private address of the unit.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) SetPrivateAddress(address string) error {
 	var result params.ErrorResults
 	args := params.SetEntityAddresses{

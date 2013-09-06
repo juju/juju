@@ -195,7 +195,10 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 
 	gotSettings, err := apiRelUnit.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(gotSettings.Map(), gc.DeepEquals, settings)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
 }
 
 func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
