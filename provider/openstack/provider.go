@@ -586,15 +586,6 @@ func (e *environ) GetToolsBaseURLs() ([]string, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		// Canonistack's tools URL is missing the "tools" suffix.
-		// Since this is currently the only Openstack cloud providing a tools
-		// URL via keystone, we can fix it here till Canonistack is updated.
-		if !strings.HasSuffix(toolsURL, "/tools") {
-			if !strings.HasSuffix(toolsURL, "/") {
-				toolsURL += "/"
-			}
-			toolsURL += "tools"
-		}
 		e.toolsBaseURLs = append(e.toolsBaseURLs, toolsURL)
 	}
 	return e.toolsBaseURLs, nil
