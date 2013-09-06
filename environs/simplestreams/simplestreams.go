@@ -35,6 +35,14 @@ type CloudSpec struct {
 	Endpoint string
 }
 
+// HasRegion is implemented by instances which can provide a region to which they belong.
+// A region is defined by region name and endpoint.
+type HasRegion interface {
+	// Region returns the necessary attributes to uniquely identify this cloud instance.
+	// Currently these attributes are "region" and "endpoint" values.
+	Region() (CloudSpec, error)
+}
+
 type LookupConstraint interface {
 	// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 	Ids() ([]string, error)
@@ -62,6 +70,7 @@ func (p LookupParams) Params() LookupParams {
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
 // On non-Ubuntu systems, these values provide a nice fallback option.
+// Exported so tests can change the values to ensure the distro-info lookup works.
 var seriesVersions = map[string]string{
 	"precise": "12.04",
 	"quantal": "12.10",
@@ -122,8 +131,8 @@ func updateDistroInfo() error {
 	}
 	defer f.Close()
 	bufRdr := bufio.NewReader(f)
-	// Only find info for lucid or later.
-	lucidOrLaterFound := false
+	// Only find info for precise or later.
+	preciseOrLaterFound := false
 	for {
 		line, err := bufRdr.ReadString('\n')
 		if err == io.EOF {
@@ -139,10 +148,10 @@ func updateDistroInfo() error {
 			continue
 		}
 		series := parts[2]
-		if series == "lucid" {
-			lucidOrLaterFound = true
+		if series == "precise" {
+			preciseOrLaterFound = true
 		}
-		if series != "lucid" && !lucidOrLaterFound {
+		if series != "precise" && !preciseOrLaterFound {
 			continue
 		}
 		// the numeric version may contain a LTS moniker so strip that out.

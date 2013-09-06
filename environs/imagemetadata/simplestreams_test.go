@@ -254,17 +254,3 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
 }
-
-func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: []string{"lucid"},
-		Arches: []string{"amd64"},
-		Stream: "daily",
-	})
-	ids, err := imageConstraint.Ids()
-	if err != nil && err.Error() == `invalid series "lucid"` {
-		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
-	}
-	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
-}

@@ -19,7 +19,7 @@ import (
 )
 
 type OpenSuite struct {
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&OpenSuite{})

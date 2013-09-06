@@ -122,20 +122,6 @@ type EnvironStorage interface {
 	PublicStorage() StorageReader
 }
 
-// HasIdAttributes is implemented by environments which can supply attributes used to uniquely
-// identify the cloud provider.
-type HasIdAttributes interface {
-	// IdAttributes returns the necessary attributes to uniquely identify this cloud provider.
-	// Currently these attributes are "region" and "endpoint" values.
-	IdAttributes() (map[string]string, error)
-}
-
-// HasConfig instances have an environment configuration.
-type HasConfig interface {
-	// Config returns the current configuration of this environment.
-	Config() *config.Config
-}
-
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -152,7 +138,7 @@ type HasConfig interface {
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
 	InstanceBroker
-	HasConfig
+	config.HasConfig
 
 	// Name returns the Environ's name.
 	Name() string

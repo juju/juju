@@ -278,19 +278,6 @@ func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
 		"com.ubuntu.juju:13.04:amd64"})
 }
 
-func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.10.1", simplestreams.LookupParams{
-		Series: []string{"lucid"},
-		Arches: []string{"amd64"},
-	})
-	ids, err := toolsConstraint.Ids()
-	if err != nil && err.Error() == `invalid series "lucid"` {
-		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
-	}
-	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:10.04:amd64"})
-}
-
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, false, simplestreams.LookupParams{
 		Series: []string{"precise"},

@@ -49,7 +49,7 @@ type JujuConnSuite struct {
 	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 	Conn         *juju.Conn
 	State        *state.State
 	APIConn      *juju.APIConn
@@ -135,13 +135,13 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.ToolsSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
-	s.ToolsSuite.TearDownTest(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	config.SetJujuHome(s.oldJujuHome)

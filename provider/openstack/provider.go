@@ -235,7 +235,7 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
-var _ environs.HasIdAttributes = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
 	*nova.ServerDetail
@@ -1094,10 +1094,10 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	}, nil
 }
 
-// IdAttributes is specified in the HasIdAttributes interface.
-func (e *environ) IdAttributes() (map[string]string, error) {
-	return map[string]string{
-		"region":   e.ecfg().region(),
-		"endpoint": e.ecfg().authURL(),
+// Region is specified in the HasRegion interface.
+func (e *environ) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   e.ecfg().region(),
+		Endpoint: e.ecfg().authURL(),
 	}, nil
 }

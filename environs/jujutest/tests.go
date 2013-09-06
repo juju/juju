@@ -52,7 +52,7 @@ func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 	TestConfig TestConfig
 	Env        environs.Environ
 }
@@ -67,7 +67,7 @@ func (t *Tests) Open(c *C) environs.Environ {
 
 func (t *Tests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	t.ToolsSuite.SetUpTest(c)
+	t.ToolsFixture.SetUpTest(c)
 	cfg, err := config.New(t.TestConfig.Config)
 	c.Assert(err, IsNil)
 	t.Env, err = environs.Prepare(cfg)
@@ -80,7 +80,7 @@ func (t *Tests) TearDownTest(c *C) {
 		c.Check(err, IsNil)
 		t.Env = nil
 	}
-	t.ToolsSuite.TearDownTest(c)
+	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
