@@ -19,6 +19,9 @@ type Environment struct {
 //
 // NOTE: This differs from state.Environment.UUID() by returning an
 // error as well, because it needs to make an API call
+//
+// TODO(dimitern): 2013-09-06 bug 1221834
+// Cache this after getting it once - it's immutable.
 func (e Environment) UUID() (string, error) {
 	var result params.StringResult
 	err := e.st.caller.Call("Uniter", "", "CurrentEnvironUUID", nil, &result)

@@ -54,6 +54,10 @@ func (c *Charm) getBundleInfo(apiCall string) (string, error) {
 //
 // NOTE: This differs from state.Charm.BundleURL() by returning an
 // error as well, because it needs to make an API call
+//
+// TODO(dimitern): 2013-09-06 bug 1221834
+// Cache the result after getting it once for the same charm URL,
+// because it's immutable.
 func (c *Charm) BundleURL() (*url.URL, error) {
 	charmURL, err := c.getBundleInfo("CharmBundleURL")
 	if err != nil {
@@ -66,6 +70,10 @@ func (c *Charm) BundleURL() (*url.URL, error) {
 //
 // NOTE: This differs from state.Charm.BundleSha256() by returning an
 // error as well, because it needs to make an API call
+//
+// TODO(dimitern): 2013-09-06 bug 1221834
+// Cache the result after getting it once for the same charm URL,
+// because it's immutable.
 func (c *Charm) BundleSha256() (string, error) {
 	return c.getBundleInfo("CharmBundleSha256")
 }

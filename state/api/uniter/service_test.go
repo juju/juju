@@ -84,7 +84,7 @@ func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	wc.AssertChange(rel.String())
 
-	// Make the relation and check it's detected.
+	// Destroy the relation and check it's detected.
 	err = rel.Destroy()
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(rel.String())
