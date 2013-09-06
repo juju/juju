@@ -85,8 +85,9 @@ func (st *State) Service(tag string) (*Service, error) {
 
 // ProviderType returns a provider type used by the current juju
 // environment.
-// TODO: Once we have machine addresses, this might be completely
-// unnecessary though.
+//
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (st *State) ProviderType() string {
 	// TODO: Call Uniter.ProviderType()
 	panic("not implemented")

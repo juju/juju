@@ -847,16 +847,13 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 			var settings *state.Settings
 			settings, err = relUnit.Settings()
 			if err == nil {
-				mapSettings := make(map[string]interface{})
-				for _, k := range settings.Keys() {
-					if v, ok := arg.Settings[k]; ok && v == "" {
+				for k, v := range arg.Settings {
+					if v == "" {
 						settings.Delete(k)
-						delete(arg.Settings, k)
 					} else {
-						mapSettings[k] = arg.Settings[k]
+						settings.Set(k, v)
 					}
 				}
-				settings.Update(mapSettings)
 				_, err = settings.Write()
 			}
 		}

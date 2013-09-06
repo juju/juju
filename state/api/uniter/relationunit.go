@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -104,9 +105,25 @@ func (ru *RelationUnit) LeaveScope() error {
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	// TODO: Call Uniter.ReadSettings(), passing ru.relation.Tag() and
-	// ru.unit.Tag() as arguments.
-	panic("not implemented")
+	var results params.SettingsResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
+	}
+	err := ru.st.caller.Call("Uniter", "", "ReadSettings", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return newSettings(ru.st, ru.relation.tag, ru.unit.tag, result.Settings), nil
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -116,11 +133,33 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
-	// TODO: Convert uname to a remoteUnitTag, then call
-	// Uniter.ReadRemoteSettings(), passing ru.relation.Tag(),
-	// ru.unit.Tag() (as local unit), and remoteUnitTag as arguments.
-	panic("not implemented")
+func (ru *RelationUnit) ReadSettings(uname string) (map[string]interface{}, error) {
+	tag := names.UnitTag(uname)
+	var results params.SettingsResults
+	args := params.RelationUnitPairs{
+		RelationUnitPairs: []params.RelationUnitPair{{
+			Relation:   ru.relation.tag,
+			LocalUnit:  ru.unit.tag,
+			RemoteUnit: tag,
+		}},
+	}
+	err := ru.st.caller.Call("Uniter", "", "ReadRemoteSettings", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	// Code expects map[string]interface{}, so we need to convert.
+	settings := make(map[string]interface{})
+	for k, v := range result.Settings {
+		settings[k] = v
+	}
+	return settings, nil
 }
 
 // Watch returns a watcher that notifies of changes to counterpart
