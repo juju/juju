@@ -236,6 +236,9 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
+		for _, tm := range t.tools {
+			tm.FullPath = s.BaseURL + "/" + tm.Path
+		}
 		c.Check(tools, gc.DeepEquals, t.tools)
 	}
 }

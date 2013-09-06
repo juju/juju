@@ -131,13 +131,14 @@ func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...
 	}
 	var metadata = make([]*envtools.ToolsMetadata, len(verses))
 	for i, vers := range verses {
-		uploaded[vers] = fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
 		metadata[i] = &envtools.ToolsMetadata{
 			Release: vers.Series,
 			Version: vers.Number.String(),
 			Arch:    vers.Arch,
-			Path:    uploaded[vers],
+			Path:    basePath,
 		}
+		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
 	}
 	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)
