@@ -69,9 +69,10 @@ func (ru *RelationUnit) PrivateAddress() (string, error) {
 func (ru *RelationUnit) EnterScope() error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{
-			{Relation: ru.relation.tag, Unit: ru.unit.tag},
-		},
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
 	}
 	err := ru.st.caller.Call("Uniter", "", "EnterScope", args, &result)
 	if err != nil {
@@ -88,9 +89,10 @@ func (ru *RelationUnit) EnterScope() error {
 func (ru *RelationUnit) LeaveScope() error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{
-			{Relation: ru.relation.tag, Unit: ru.unit.tag},
-		},
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
 	}
 	err := ru.st.caller.Call("Uniter", "", "LeaveScope", args, &result)
 	if err != nil {
@@ -126,9 +128,10 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	var results params.RelationUnitsWatchResults
 	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{
-			{Relation: ru.relation.tag, Unit: ru.unit.tag},
-		},
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
 	}
 	err := ru.st.caller.Call("Uniter", "", "WatchRelationUnits", args, &results)
 	if err != nil {
