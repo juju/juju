@@ -111,8 +111,8 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Add a couple of subordinates and try again.
-	_, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	_, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 

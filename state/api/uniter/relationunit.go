@@ -15,10 +15,6 @@ import (
 // Most of this is pretty much a verbatim copy of the code in
 // state/relationunit.go, except for a few API-specific changes.
 
-// TODO: Only the calls that do not call the API are implemented,
-// without tests for now. Others are added as placeholders,
-// the actual implementation will come in a follow-up.
-
 // RelationUnit holds information about a single unit in a relation,
 // and allows clients to conveniently access unit-specific
 // functionality.
@@ -51,12 +47,6 @@ func (ru *RelationUnit) PrivateAddress() (string, error) {
 	return ru.unit.PrivateAddress()
 }
 
-// TODO: Translate ErrCannotEnterScope and ErrCannotEnterScopeYet
-// errors from EnterScope() into their api/params equivalents with the
-// respective codes ( CodeCannotEnterScope and
-// CodeCannotEnterScopeYet) and message contents, matching the part of
-// the error message after the colon.
-
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
 // success but make no changes to state.
@@ -77,9 +67,18 @@ func (ru *RelationUnit) PrivateAddress() (string, error) {
 // settings, because uniter only uses this to supply the unit's private
 // address, but this is not done at the server-side by the API.
 func (ru *RelationUnit) EnterScope() error {
-	// TODO: Call Uniter.EnterScope(), passing ru.relation.Tag() and
-	// ru.unit.Tag() as arguments.
-	panic("not implemented")
+	var result params.ErrorResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
+	}
+	err := ru.st.caller.Call("Uniter", "", "EnterScope", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -88,9 +87,18 @@ func (ru *RelationUnit) EnterScope() error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	// TODO: Call Uniter.LeaveScope(), passing ru.relation.Tag() and
-	// ru.unit.Tag() as arguments.
-	panic("not implemented")
+	var result params.ErrorResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
+	}
+	err := ru.st.caller.Call("Uniter", "", "LeaveScope", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }
 
 // Settings returns a Settings which allows access to the unit's settings
@@ -120,9 +128,10 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	var results params.RelationUnitsWatchResults
 	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{
-			{Relation: ru.relation.tag, Unit: ru.unit.tag},
-		},
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag,
+			Unit:     ru.unit.tag,
+		}},
 	}
 	err := ru.st.caller.Call("Uniter", "", "WatchRelationUnits", args, &results)
 	if err != nil {

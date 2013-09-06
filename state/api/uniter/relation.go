@@ -13,15 +13,6 @@ import (
 // This module implements a subset of the interface provided by
 // state.Relation, as needed by the uniter API.
 
-// TODO: Only the required calls are added as placeholders,
-// the actual implementation will come in a follow-up.
-
-// TODO: Once the relation tags format change from "relation-<id>" to
-// "relation-<key>", make the necessary changes here and at
-// server-side. This affects the methods Relation() and KeyRelation()
-// on uniter.State, as well Id() and String() defined here, and any
-// other method taking a relation tag as an argument.
-
 // Relation represents a relation between one or two service
 // endpoints.
 type Relation struct {
@@ -57,20 +48,25 @@ func (r *Relation) Life() params.Life {
 // state. It returns an error that satisfies IsNotFound if the relation has been
 // removed.
 func (r *Relation) Refresh() error {
-	// TODO: Call Uniter.Life(), passing the relation tag as argument.
-	// Update r.life accordingly after getting the result.
-	panic("not implemented")
+	life, err := r.st.life(r.tag)
+	if err != nil {
+		return err
+	}
+	r.life = life
+	return nil
 }
 
 // Endpoint returns the endpoint of the relation for the service the
 // uniter's managed unit belongs to.
-func (r *Relation) Endpoint() Endpoint {
+func (r *Relation) Endpoint() (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when
 	// talking to the API, there's already an authenticated entity - the
 	// unit, and we can find out its service name.
-	// TODO: Return an Endpoint initialized with the curret auth'ed unit's
-	// service name and relevent info.
-	panic("not implemented")
+	result, err := r.st.relation(r.tag, r.st.unitTag)
+	if err != nil {
+		return nil, err
+	}
+	return &Endpoint{result.Endpoint.Relation}, nil
 }
 
 // Unit returns a RelationUnit for the supplied unit.
@@ -78,10 +74,14 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 	if u == nil {
 		return nil, fmt.Errorf("unit is nil")
 	}
-	// TODO: Call r.st.relation to get the endpoint and set it below.
+	result, err := r.st.relation(r.tag, u.tag)
+	if err != nil {
+		return nil, err
+	}
 	return &RelationUnit{
 		relation: r,
 		unit:     u,
+		endpoint: Endpoint{result.Endpoint.Relation},
 		st:       r.st,
 	}, nil
 }
