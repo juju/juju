@@ -11,8 +11,8 @@ import (
 // LegacyFindTools returns a List containing all tools with a given
 // major.minor version number available in the storages, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
-// The storages are queries in order - if *any* tools are present in a storage,
-// *only* tools that storage are available for use.
+// The storages are queried in order - if *any* tools are present in a storage,
+// *only* tools in that storage are available for use.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
 func LegacyFindTools(storages []environs.StorageReader,

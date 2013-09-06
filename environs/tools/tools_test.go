@@ -39,7 +39,7 @@ type ToolsSuite struct {
 	toolsTestHelper
 	env environs.Environ
 	testing.LoggingSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 	origCurrentVersion version.Binary
 }
 
@@ -99,8 +99,8 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
-	s.ToolsSuite.DefaultBaseURL = "file://" + s.publicToolsDir
-	s.ToolsSuite.SetUpTest(c)
+	s.ToolsFixture.DefaultBaseURL = "file://" + s.publicToolsDir
+	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
@@ -170,7 +170,7 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.ToolsSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.origCurrentVersion = version.Current
 	s.reset(c, nil)
 }
@@ -178,7 +178,7 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 func (s *ToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	version.Current = s.origCurrentVersion
-	s.ToolsSuite.TearDownTest(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 

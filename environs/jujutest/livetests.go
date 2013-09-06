@@ -38,7 +38,7 @@ import (
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	coretesting.LoggingSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig TestConfig
@@ -74,7 +74,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 
 func (t *LiveTests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	t.ToolsSuite.SetUpTest(c)
+	t.ToolsFixture.SetUpTest(c)
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
@@ -100,7 +100,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 }
 
 func (t *LiveTests) TearDownTest(c *C) {
-	t.ToolsSuite.TearDownTest(c)
+	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 

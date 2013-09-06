@@ -42,18 +42,7 @@ var _ worker.StringsWatchHandler = (*deployer.Deployer)(nil)
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.SimpleToolsFixture.SetUp(c, s.DataDir())
-
-	// Create a machine to work with.
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
-
-	// Log in as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the deployer facade.

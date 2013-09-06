@@ -5,7 +5,11 @@ package apiserver_test
 
 import (
 	"io"
+	stdtesting "testing"
+	"time"
+
 	gc "launchpad.net/gocheck"
+
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -13,8 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
-	"time"
 )
 
 func TestAll(t *stdtesting.T) {

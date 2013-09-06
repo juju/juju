@@ -27,7 +27,7 @@ func TestPackage(t *testing.T) {
 
 type syncSuite struct {
 	coretesting.LoggingSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
 	origVersion  version.Binary
@@ -40,7 +40,7 @@ var _ = gc.Suite(&syncSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.ToolsSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
 	// It's important that this be v1 to match the test data.
 	version.Current.Number = version.MustParse("1.2.3")
@@ -82,7 +82,7 @@ func (s *syncSuite) tearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.home.Restore()
 	version.Current = s.origVersion
-	s.ToolsSuite.TearDownTest(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 

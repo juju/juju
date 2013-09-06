@@ -18,19 +18,19 @@ import (
 
 type NewAPIConnSuite struct {
 	coretesting.LoggingSuite
-	envtesting.ToolsSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewAPIConnSuite{})
 
 func (cs *NewAPIConnSuite) SetUpTest(c *gc.C) {
 	cs.LoggingSuite.SetUpTest(c)
-	cs.ToolsSuite.SetUpTest(c)
+	cs.ToolsFixture.SetUpTest(c)
 }
 
 func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	cs.ToolsSuite.TearDownTest(c)
+	cs.ToolsFixture.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }
 
