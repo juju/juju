@@ -75,7 +75,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
 	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	c.Assert(err, gc.IsNil)
 	rel := s.addRelation(c, firstSvc, relatedSvc)
@@ -85,7 +85,7 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	c.Assert(err, gc.IsNil)
 	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
 	c.Assert(err, gc.IsNil)
-	return relatedService, relatedUnit
+	return rel, relatedService, relatedUnit
 }
 
 func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {

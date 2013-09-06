@@ -6,6 +6,7 @@ package uniter_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
@@ -61,7 +62,46 @@ func (s *relationUnitSuite) getRelationUnits(c *gc.C) (*state.RelationUnit, *uni
 	return wpRelUnit, apiRelUnit
 }
 
-func (s *relationUnitSuite) TestEnterScope(c *gc.C) {
+func (s *relationUnitSuite) TestRelation(c *gc.C) {
+	_, apiRelUnit := s.getRelationUnits(c)
+
+	apiRel := apiRelUnit.Relation()
+	c.Assert(apiRel, gc.NotNil)
+	c.Assert(apiRel.String(), gc.Equals, "wordpress:db mysql:server")
+}
+
+func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
+	_, apiRelUnit := s.getRelationUnits(c)
+
+	apiEndpoint := apiRelUnit.Endpoint()
+	c.Assert(apiEndpoint, gc.DeepEquals, uniter.Endpoint{
+		charm.Relation{
+			Name:      "db",
+			Role:      "requirer",
+			Interface: "mysql",
+			Optional:  false,
+			Limit:     1,
+			Scope:     "global",
+		},
+	})
+}
+
+func (s *relationUnitSuite) TestPrivateAddress(c *gc.C) {
+	_, apiRelUnit := s.getRelationUnits(c)
+
+	// Try getting it first without an address set.
+	address, err := apiRelUnit.PrivateAddress()
+	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
+
+	// Set an address and try again.
+	err = s.wordpressUnit.SetPrivateAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, err = apiRelUnit.PrivateAddress()
+	c.Assert(err, gc.IsNil)
+	c.Assert(address, gc.Equals, "1.2.3.4")
+}
+
+func (s *relationUnitSuite) TestEnterScopeSuccessfully(c *gc.C) {
 	// NOTE: This test is not as exhaustive as the ones in state.
 	// Here, we just check the success case, while the two error
 	// cases are tested separately.
@@ -81,6 +121,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	err = myRelUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 	s.assertInScope(c, myRelUnit, true)
+
 	// Now we destroy mysqlService, so the relation is be set to
 	// dying.
 	err = s.mysqlService.Destroy()
@@ -88,6 +129,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	err = s.stateRelation.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.stateRelation.Life(), gc.Equals, state.Dying)
+
 	// Enter the scope with wordpressUnit.
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	s.assertInScope(c, wpRelUnit, false)
@@ -98,9 +140,47 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 }
 
 func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
+	// Test the ErrCannotEnterScopeYet gets forwarded correctly.
+	// First we need to destroy the stateRelation.
+	err := s.stateRelation.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	// Now we create a subordinate of wordpressUnit and enter scope.
+	subRel, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	wpRelUnit, err := subRel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	// Leave scope, destroy the subordinate and try entering again.
+	err = wpRelUnit.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, wpRelUnit, false)
+	err = loggingSub.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRel, err := s.uniter.Relation(subRel.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRelUnit, err := apiRel.Unit(apiUnit)
+	c.Assert(err, gc.IsNil)
+	err = apiRelUnit.EnterScope()
+	c.Assert(err, gc.NotNil)
+	c.Check(params.ErrCode(err), gc.Equals, params.CodeCannotEnterScopeYet)
+	c.Check(err, gc.ErrorMatches, "cannot enter scope yet: non-alive subordinate unit has not been removed")
 }
 
 func (s *relationUnitSuite) TestLeaveScope(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	s.assertInScope(c, wpRelUnit, false)
+
+	err := wpRelUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, wpRelUnit, true)
+
+	err = apiRelUnit.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, wpRelUnit, false)
 }
 
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
