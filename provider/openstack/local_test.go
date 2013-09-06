@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -490,8 +491,8 @@ func (s *localServerSuite) TestGetToolsMetadataURLs(c *gc.C) {
 	urls, err := tools.GetMetadataURLs(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(urls), gc.Equals, 1)
-	// The juju-tools URL ends with "/tools".
-	c.Assert(strings.HasSuffix(urls[0], "/tools"), gc.Equals, true)
+	_, err = url.Parse(urls[0])
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
