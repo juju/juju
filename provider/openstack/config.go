@@ -27,9 +27,9 @@ var configFields = schema.Fields{
 	"use-floating-ip":   schema.Bool(),
 	// These next keys are deprecated and ignored. We keep them them in the schema
 	// so existing configs do not error.
-	"default-image-id":      schema.String(),
-	"default-instance-type": schema.String(),
-        "disable-ssl-hostname-verify": schema.Bool(),
+	"default-image-id":            schema.String(),
+	"default-instance-type":       schema.String(),
+	"disable-ssl-hostname-verify": schema.Bool(),
 }
 var configDefaults = schema.Defaults{
 	"username":          "",
@@ -46,9 +46,9 @@ var configDefaults = schema.Defaults{
 	"use-floating-ip":   false,
 	// These next keys are deprecated and ignored. We keep them them in the schema
 	// so existing configs do not error.
-	"default-image-id":      "",
-	"default-instance-type": "",
-        "disable-ssl-hostname-verify": false,
+	"default-image-id":            "",
+	"default-instance-type":       "",
+	"disable-ssl-hostname-verify": false,
 }
 
 type environConfig struct {

@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -37,6 +38,7 @@ type ProviderSuite struct {
 }
 
 var _ = gc.Suite(&ProviderSuite{})
+var _ = gc.Suite(&localHTTPSServerSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
@@ -121,11 +123,17 @@ type localServer struct {
 	oldHandler      http.Handler
 	Service         *openstackservice.Openstack
 	restoreTimeouts func()
+	UseTLS          bool
 }
 
 func (s *localServer) start(c *gc.C, cred *identity.Credentials) {
 	// Set up the HTTP server.
-	s.Server = httptest.NewServer(nil)
+	if s.UseTLS {
+		s.Server = httptest.NewTLSServer(nil)
+	} else {
+		s.Server = httptest.NewServer(nil)
+	}
+	c.Assert(s.Server, gc.NotNil)
 	s.oldHandler = s.Server.Config.Handler
 	s.Mux = http.NewServeMux()
 	s.Server.Config.Handler = s.Mux
@@ -627,4 +635,97 @@ func (s *publicBucketSuite) TestPublicBucketFromKeystone(c *gc.C) {
 	swiftURL, err := openstack.GetSwiftURL(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.Equals, fmt.Sprintf("%s/juju-dist/", swiftURL))
+}
+
+// localHTTPSServerSuite contains tests that run against an Openstack service
+// double connected on an HTTPS port with a self-signed certificate. This
+// service is set up and torn down for every test.  This should only test
+// things that depend on the HTTPS connection, all other functional tests on a
+// local connection should be in localServerSuite
+type localHTTPSServerSuite struct {
+	coretesting.LoggingSuite
+	attrs                  map[string]interface{}
+	cred                   *identity.Credentials
+	srv                    localServer
+	env                    environs.Environ
+	writeablePublicStorage environs.Storage
+}
+
+func (s *localHTTPSServerSuite) createConfigAttrs() map[string]interface{} {
+	attrs := makeTestConfig(s.cred)
+	attrs["agent-version"] = version.CurrentNumber().String()
+	attrs["authorized-keys"] = "fakekey"
+	// In order to set up and tear down the environment properly, we must
+	// disable hostname verification
+	attrs["disable-ssl-hostname-verify"] = true
+	attrs["auth-url"] = s.cred.URL
+	return attrs
+}
+
+func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.srv.UseTLS = true
+	cred := &identity.Credentials{
+		User:       "fred",
+		Secrets:    "secret",
+		Region:     "some-region",
+		TenantName: "some tenant",
+	}
+	// Note: start() will change cred.URL to point to s.srv.Server.URL
+	s.srv.start(c, cred)
+	s.cred = cred
+	attrs := s.createConfigAttrs()
+	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
+	cfg, err := config.New(attrs)
+	c.Assert(err, gc.IsNil)
+	s.env, err = environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	s.attrs = s.env.Config().AllAttrs()
+}
+
+func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
+	if s.env != nil {
+		err := s.env.Destroy(nil)
+		c.Check(err, gc.IsNil)
+		s.env = nil
+	}
+	s.srv.stop()
+	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *localHTTPSServerSuite) TestCanUploadTools(c *gc.C) {
+	envtesting.UploadFakeTools(c, s.env.Storage())
+}
+
+func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
+	// If you don't have disable-ssl-hostname-verify set, then we fail to
+	// connect to the environment. Copy the attrs used by SetUp and force
+	// hostname verification.
+	newattrs := make(map[string]interface{}, len(s.attrs))
+	for k, v := range s.attrs {
+		newattrs[k] = v
+	}
+	newattrs["disable-ssl-hostname-verify"] = false
+	env, err := environs.NewFromAttrs(newattrs)
+	c.Assert(err, gc.IsNil)
+	err = env.Storage().Put("test-name", strings.NewReader("content"), 7)
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+	// However, it works just fine if you use the one with the credentials set
+	err = s.env.Storage().Put("test-name", strings.NewReader("content"), 7)
+	c.Assert(err, gc.IsNil)
+	_, err = env.Storage().Get("test-name")
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+	reader, err := s.env.Storage().Get("test-name")
+	c.Assert(err, gc.IsNil)
+	contents, err := ioutil.ReadAll(reader)
+	c.Assert(string(contents), gc.Equals, "content")
+}
+
+func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
+	// XXX: it seems that UploadFakeTools to your storage bucket no longer
+	// works? Instead we have to use the writeablePublicStorage workaround
+	writeablePublicStorage := openstack.WritablePublicStorage(s.env)
+	envtesting.UploadFakeTools(c, writeablePublicStorage)
+	err := bootstrap.Bootstrap(s.env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
 }

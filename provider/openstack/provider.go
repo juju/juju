@@ -504,7 +504,11 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
-	return client.NewClient(cred, authMode, nil)
+	if ecfg.disableSSLHostnameVerify() {
+		return client.NewNonValidatingClient(cred, authMode, nil)
+	} else {
+		return client.NewClient(cred, authMode, nil)
+	}
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
