@@ -29,7 +29,7 @@ var configFields = schema.Fields{
 	// so existing configs do not error.
 	"default-image-id":      schema.String(),
 	"default-instance-type": schema.String(),
-        "ssl-hostname-verify": schema.Bool(),
+        "disable-ssl-hostname-verify": schema.Bool(),
 }
 var configDefaults = schema.Defaults{
 	"username":          "",
@@ -48,7 +48,7 @@ var configDefaults = schema.Defaults{
 	// so existing configs do not error.
 	"default-image-id":      "",
 	"default-instance-type": "",
-        "ssl-hostname-verify": true,
+        "disable-ssl-hostname-verify": false,
 }
 
 type environConfig struct {
@@ -104,8 +104,8 @@ func (c *environConfig) useFloatingIP() bool {
 	return c.attrs["use-floating-ip"].(bool)
 }
 
-func (c *environConfig) sslHostnameVerify() bool {
-	return c.attrs["ssl-hostname-verify"].(bool)
+func (c *environConfig) disableSSLHostnameVerify() bool {
+	return c.attrs["disable-ssl-hostname-verify"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

@@ -68,7 +68,7 @@ type configTest struct {
 	secretKey     string
 	firewallMode  config.FirewallMode
 	err           string
-        sslHostnameVerify bool
+        disableSSLHostnameVerify bool
 }
 
 type attrs map[string]interface{}
@@ -172,7 +172,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
-	c.Assert(ecfg.sslHostnameVerify(), gc.Equals, t.sslHostnameVerify)
+	c.Assert(ecfg.disableSSLHostnameVerify(), gc.Equals, t.disableSSLHostnameVerify)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, gc.Equals, true)
@@ -435,6 +435,11 @@ var configTests = []configTest{
 		expect: attrs{
 			"future": "hammerstein",
 		},
+	}, {
+		change: attrs{
+			"disable-ssl-hostname-verify": true,
+		},
+                disableSSLHostnameVerify: true,
 	},
 }
 
