@@ -150,8 +150,8 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings
 }
 
-// RelationResult holds the relation id, lifecycle state, key and the
-// local endpoint for a single relation or an error.
+// RelationResult returns information about a single relation,
+// or an error.
 type RelationResult struct {
 	Error    *Error
 	Life     Life

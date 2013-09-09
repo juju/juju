@@ -52,7 +52,11 @@ func (r *Relation) Refresh() error {
 	if err != nil {
 		return err
 	}
+	// NOTE: The life cycle information is the only
+	// thing that can change - id, tag and endpoint
+	// information are static.
 	r.life = result.Life
+
 	return nil
 }
 
