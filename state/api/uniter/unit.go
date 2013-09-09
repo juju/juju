@@ -155,6 +155,11 @@ func (u *Unit) ServiceName() string {
 	return names.UnitService(u.Name())
 }
 
+// ServiceTag returns the service tag.
+func (u *Unit) ServiceTag() string {
+	return names.ServiceTag(u.ServiceName())
+}
+
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
 // possible; it otherwise has no effect. In most situations, the unit's
 // life is just set to Dying; but if a principal unit that is not assigned
