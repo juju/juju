@@ -626,6 +626,8 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 	nothing := params.RelationResult{}
 	ep, err := rel.Endpoint(unit.ServiceName())
 	if err != nil {
+		// An error here most likely means the unit's service is
+		// not part of the relation.
 		return nothing, err
 	}
 	return params.RelationResult{
@@ -663,9 +665,10 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 	}
 	result, err := u.prepareRelationResult(rel, unit)
 	if err != nil {
-		// Because we're not doing any other authorization
-		// here, if this fails we deem this failure as an
-		// unauthorized error.
+		// An error from prepareRelationResult most likely
+		// means the authenticated unit's service is not
+		// part of the requested relation. That's why it's
+		// appropriate to return ErrPerm here.
 		return nothing, common.ErrPerm
 	}
 	return result, nil
