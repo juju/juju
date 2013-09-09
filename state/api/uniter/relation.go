@@ -48,11 +48,11 @@ func (r *Relation) Life() params.Life {
 // state. It returns an error that satisfies IsNotFound if the relation has been
 // removed.
 func (r *Relation) Refresh() error {
-	life, err := r.st.life(r.tag)
+	result, err := r.st.relation(r.tag, r.st.unitTag)
 	if err != nil {
 		return err
 	}
-	r.life = life
+	r.life = result.Life
 	return nil
 }
 

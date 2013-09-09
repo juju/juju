@@ -164,10 +164,6 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.wordpress.Life(), gc.Equals, state.Dying)
 
-	// Check relation life as well.
-	c.Assert(rel.Refresh(), gc.IsNil)
-	c.Assert(rel.Life(), gc.Equals, state.Dying)
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -191,10 +187,8 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 			{Life: "dying"},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Life: "dying"},
-			{Error: &params.Error{
-				Code:    "not found",
-				Message: `relation "svc1:rel1 svc2:rel2" not found`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -905,8 +899,9 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:  rel.Id(),
-				Key: rel.String(),
+				Id:   rel.Id(),
+				Key:  rel.String(),
+				Life: params.Life(rel.Life().String()),
 				Endpoint: params.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
@@ -941,8 +936,9 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:  rel.Id(),
-				Key: rel.String(),
+				Id:   rel.Id(),
+				Key:  rel.String(),
+				Life: params.Life(rel.Life().String()),
 				Endpoint: params.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,

@@ -67,7 +67,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 	err = s.apiRelation.Refresh()
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {
