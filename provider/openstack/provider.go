@@ -566,7 +566,7 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return e.imageSources, nil
 }
 
-// GetToolsSourcesURLs returns a list of sources which are used to search for simplestreams tools metadata.
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	e.toolsBaseMutex.Lock()
 	defer e.toolsBaseMutex.Unlock()
