@@ -48,16 +48,9 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			return tag == names.ServiceTag(unit.ServiceName())
 		}, nil
 	}
-	accessRelation := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			_, _, err := names.ParseTag(tag, names.RelationTagKind)
-			return err == nil
-		}, nil
-	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	accessUnitServiceOrRelation := common.AuthEither(accessUnitOrService, accessRelation)
 	return &UniterAPI{
-		LifeGetter:         common.NewLifeGetter(st, accessUnitServiceOrRelation),
+		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
@@ -638,8 +631,9 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 		return nothing, err
 	}
 	return params.RelationResult{
-		Id:  rel.Id(),
-		Key: rel.String(),
+		Id:   rel.Id(),
+		Key:  rel.String(),
+		Life: params.Life(rel.Life().String()),
 		Endpoint: params.Endpoint{
 			ServiceName: ep.ServiceName,
 			Relation:    ep.Relation,

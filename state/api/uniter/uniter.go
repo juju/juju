@@ -114,11 +114,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 // Relation returns the existing relation with the given tag.
 func (st *State) Relation(tag string) (*Relation, error) {
-	// Get the life, then get the id and other info.
-	life, err := st.life(tag)
-	if err != nil {
-		return nil, err
-	}
 	result, err := st.relation(tag, st.unitTag)
 	if err != nil {
 		return nil, err
@@ -126,7 +121,7 @@ func (st *State) Relation(tag string) (*Relation, error) {
 	return &Relation{
 		id:   result.Id,
 		tag:  tag,
-		life: life,
+		life: result.Life,
 		st:   st,
 	}, nil
 }
@@ -149,15 +144,10 @@ func (st *State) RelationById(id int) (*Relation, error) {
 		return nil, err
 	}
 	relationTag := names.RelationTag(result.Key)
-
-	life, err := st.life(relationTag)
-	if err != nil {
-		return nil, err
-	}
 	return &Relation{
 		id:   result.Id,
 		tag:  relationTag,
-		life: life,
+		life: result.Life,
 		st:   st,
 	}, nil
 }
