@@ -17,6 +17,10 @@ type maasInstance struct {
 
 var _ instance.Instance = (*maasInstance)(nil)
 
+func (mi *maasInstance) String() string {
+	return string(mi.Id())
+}
+
 func (mi *maasInstance) Id() instance.Id {
 	// Use the node's 'resource_uri' value.
 	return instance.Id(mi.maasObject.URI().String())

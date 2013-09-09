@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"fmt"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
@@ -23,6 +25,13 @@ func (s *instanceTest) TestId(c *gc.C) {
 	instance := maasInstance{&obj, s.environ}
 
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
+}
+
+func (s *instanceTest) TestString(c *gc.C) {
+	jsonValue := `{"system_id": "system_id", "test": "test"}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	instance := &maasInstance{&obj, s.environ}
+	c.Assert(fmt.Sprint(instance), gc.Equals, string(instance.Id()))
 }
 
 func (s *instanceTest) TestRefreshInstance(c *gc.C) {
