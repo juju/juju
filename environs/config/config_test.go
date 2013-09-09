@@ -446,13 +446,39 @@ var configTests = []configTest{
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig.Delete("authorized-keys"),
 		err:         `authorized-keys missing from environment configuration`,
+	}, {
+		about:       "Config settings from juju 1.13.3 actual installation",
+		useDefaults: config.NoDefaults,
+		attrs: map[string]interface{}{
+			"public-bucket":             "juju-dist",
+			"public-bucket-region":      "us-east-1",
+			"name":                      "sample",
+			"development":               false,
+			"admin-secret":              "",
+			"ssl-hostname-verification": true,
+			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
+			"control-bucket":            "rog-some-control-bucket",
+			"region":                    "us-east-1",
+			"image-metadata-url":        "",
+			"ca-private-key":            "",
+			"default-series":            "precise",
+			"tools-url":                 "",
+			"secret-key":                "a-secret-key",
+			"access-key":                "an-access-key",
+			"agent-version":             "1.13.2",
+			"ca-cert":                   caCert,
+			"firewall-mode":             "instance",
+			"type":                      "ec2",
+		},
 	},
 	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
 	missingAttributeNoDefault("ssl-hostname-verification"),
-	missingAttributeNoDefault("state-port"),
-	missingAttributeNoDefault("api-port"),
+	// TODO(rog) reinstate these tests when we can lose
+	// backward compatibility with pre-1.13 config.
+	// missingAttributeNoDefault("state-port"),
+	// missingAttributeNoDefault("api-port"),
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -647,9 +673,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, path))
-	} else if v, ok := test.attrs["ca-cert"]; ok {
+	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, v)
+	} else if ok {
+		c.Check(cert, gc.HasLen, 0)
+		c.Assert(certPresent, jc.IsFalse)
 	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-cert.pem") {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, "my-name-cert.pem"))
@@ -662,9 +691,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, path))
-	} else if v, ok := test.attrs["ca-private-key"]; ok {
+	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, v)
+	} else if ok {
+		c.Check(key, gc.HasLen, 0)
+		c.Assert(keyPresent, jc.IsFalse)
 	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-private-key.pem") {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, "my-name-private-key.pem"))
@@ -678,14 +710,14 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()
-	if v, ok := test.attrs["image-metadata-url"]; ok {
+	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
 	url, urlPresent = cfg.ToolsURL()
-	if v, ok := test.attrs["tools-url"]; ok {
+	if v, _ := test.attrs["tools-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
@@ -714,6 +746,9 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
+	attrs["ca-private-key"] = ""
+	attrs["image-metadata-url"] = ""
+	attrs["tools-url"] = ""
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)

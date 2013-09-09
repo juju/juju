@@ -169,9 +169,13 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// Check that all other fields that have been specified are non-empty.
+	// Check that all other fields that have been specified are non-empty,
+	// unless they're allowed to be empty for backward compatibility,
 	for attr, val := range cfg.m {
-		if isEmpty(val) {
+		if !isEmpty(val) {
+			continue
+		}
+		if !allowEmpty(attr) {
 			return fmt.Errorf("empty %s in environment configuration", attr)
 		}
 	}
@@ -246,7 +250,7 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 	hasPath := path != ""
 	if !hasPath {
 		// No path and attribute is already set; leave it be.
-		if _, ok := m[attr]; ok {
+		if s, _ := m[attr].(string); s != "" {
 			return nil
 		}
 		path = defaultPath
@@ -341,7 +345,7 @@ func (c *Config) CACert() ([]byte, bool) {
 // CAPrivateKey returns the private key of the CA that signed the state
 // server certificate, in PEM format, and whether the setting is available.
 func (c *Config) CAPrivateKey() (key []byte, ok bool) {
-	if s, ok := c.m["ca-private-key"]; ok {
+	if s, ok := c.m["ca-private-key"]; ok && s != "" {
 		return []byte(s.(string)), true
 	}
 	return nil, false
@@ -350,7 +354,7 @@ func (c *Config) CAPrivateKey() (key []byte, ok bool) {
 // AdminSecret returns the administrator password.
 // It's empty if the password has not been set.
 func (c *Config) AdminSecret() string {
-	if s, ok := c.m["admin-secret"]; ok {
+	if s, ok := c.m["admin-secret"]; ok && s != "" {
 		return s.(string)
 	}
 	return ""
@@ -380,7 +384,7 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 // ToolsURL returns the URL that locates the tools tarballs and metadata,
 // and whether it has been set.
 func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.m["tools-url"]; ok {
+	if url, ok := c.m["tools-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -389,7 +393,7 @@ func (c *Config) ToolsURL() (string, bool) {
 // ImageMetadataURL returns the URL at which the metadata used to locate image ids is located,
 // and wether it has been set.
 func (c *Config) ImageMetadataURL() (string, bool) {
-	if url, ok := c.m["image-metadata-url"]; ok {
+	if url, ok := c.m["image-metadata-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -463,15 +467,30 @@ var fields = schema.Fields{
 // all defaults filled out.
 var alwaysOptional = schema.Defaults{
 	"agent-version":        schema.Omit,
-	"admin-secret":         schema.Omit,
 	"ca-cert":              schema.Omit,
-	"ca-private-key":       schema.Omit,
-	"image-metadata-url":   schema.Omit,
-	"tools-url":            schema.Omit,
 	"authorized-keys":      schema.Omit,
 	"authorized-keys-path": schema.Omit,
 	"ca-cert-path":         schema.Omit,
 	"ca-private-key-path":  schema.Omit,
+
+	// For backward compatibility reasons, the following
+	// attributes default to empty strings rather than being
+	// omitted.
+	// TODO(rog) remove this support when we can
+	// remove upgrade compatibility with versions prior to 1.14.
+	"admin-secret":       "", // TODO(rog) omit
+	"ca-private-key":     "", // TODO(rog) omit
+	"image-metadata-url": "", // TODO(rog) omit
+	"tools-url":          "", // TODO(rog) omit
+
+	// For backward compatibility only - default ports were
+	// not filled out in previous versions of the configuration.
+	"state-port": DefaultStatePort,
+	"api-port":   DefaultAPIPort,
+}
+
+func allowEmpty(attr string) bool {
+	return alwaysOptional[attr] == ""
 }
 
 var defaults = allDefaults()
@@ -517,6 +536,7 @@ var immutableAttributes = []string{
 	"state-port",
 	"api-port",
 }
+
 var (
 	withDefaultsChecker = schema.FieldMap(fields, defaults)
 	noDefaultsChecker   = schema.FieldMap(fields, alwaysOptional)
