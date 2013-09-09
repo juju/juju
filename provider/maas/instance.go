@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"fmt"
+
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/instance"
@@ -18,7 +20,12 @@ type maasInstance struct {
 var _ instance.Instance = (*maasInstance)(nil)
 
 func (mi *maasInstance) String() string {
-	return string(mi.Id())
+	hostname, err := mi.DNSName()
+	if err != nil {
+		// This is meant to be impossible, but be paranoid.
+		hostname = fmt.Sprintf("<DNSName failed: %q>", err)
+	}
+	return fmt.Sprintf("%s:%s", hostname, mi.Id())
 }
 
 func (mi *maasInstance) Id() instance.Id {
