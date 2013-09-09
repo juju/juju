@@ -486,7 +486,7 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 
 func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Add a subordinate to wordpressUnit.
-	_, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 
 	principal, ok := subordinate.PrincipalName()
 	c.Assert(principal, gc.Equals, s.wordpressUnit.Name())
@@ -528,7 +528,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
 	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	c.Assert(err, gc.IsNil)
 	rel := s.addRelation(c, firstSvc, relatedSvc)
@@ -538,7 +538,7 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	c.Assert(err, gc.IsNil)
 	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
 	c.Assert(err, gc.IsNil)
-	return relatedService, relatedUnit
+	return rel, relatedService, relatedUnit
 }
 
 func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
@@ -601,8 +601,8 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 	// Add two subordinates to wordpressUnit.
-	_, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	_, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 
@@ -886,7 +886,6 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 
 func (s *uniterSuite) TestRelation(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
-	c.Assert(rel.Id(), gc.Equals, 0)
 	wpEp, err := rel.Endpoint("wordpress")
 	c.Assert(err, gc.IsNil)
 
@@ -916,6 +915,39 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestRelationById(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	c.Assert(rel.Id(), gc.Equals, 0)
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, gc.IsNil)
+
+	// Add another relation to mysql service, so we can see we can't
+	// get it.
+	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+
+	args := params.RelationIds{
+		RelationIds: []int{-1, rel.Id(), otherRel.Id(), 42, 234},
+	}
+	result, err := s.uniter.RelationById(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationResults{
+		Results: []params.RelationResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Id:  rel.Id(),
+				Key: rel.String(),
+				Endpoint: params.Endpoint{
+					ServiceName: wpEp.ServiceName,
+					Relation:    wpEp.Relation,
+				},
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

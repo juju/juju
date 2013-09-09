@@ -629,14 +629,12 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTa
 	return rel, unit, err
 }
 
-func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
+func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
-	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
-	if err != nil {
-		return nothing, err
-	}
 	ep, err := rel.Endpoint(unit.ServiceName())
 	if err != nil {
+		// An error here means the unit's service is not part of the
+		// relation.
 		return nothing, err
 	}
 	return params.RelationResult{
@@ -647,6 +645,39 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 			Relation:    ep.Relation,
 		},
 	}, nil
+}
+
+func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
+	if err != nil {
+		return nothing, err
+	}
+	return u.prepareRelationResult(rel, unit)
+}
+
+func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	rel, err := u.st.Relation(relId)
+	if errors.IsNotFoundError(err) {
+		return nothing, common.ErrPerm
+	} else if err != nil {
+		return nothing, err
+	}
+	// Use the currently authenticated unit to get the endpoint.
+	unit, ok := u.auth.GetAuthEntity().(*state.Unit)
+	if !ok {
+		panic("authenticated entity is not a unit")
+	}
+	result, err := u.prepareRelationResult(rel, unit)
+	if err != nil {
+		// An error from prepareRelationResult means the authenticated
+		// unit's service is not part of the requested
+		// relation. That's why it's appropriate to return ErrPerm
+		// here.
+		return nothing, common.ErrPerm
+	}
+	return result, nil
 }
 
 func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.RelationUnit, error) {
@@ -669,6 +700,23 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	}
 	for i, rel := range args.RelationUnits {
 		relParams, err := u.getOneRelation(canAccess, rel.Relation, rel.Unit)
+		if err == nil {
+			result.Results[i] = relParams
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// RelationById returns information about all given relations,
+// specified by their ids, including their key and the local
+// endpoint.
+func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResults, error) {
+	result := params.RelationResults{
+		Results: make([]params.RelationResult, len(args.RelationIds)),
+	}
+	for i, relId := range args.RelationIds {
+		relParams, err := u.getOneRelationById(relId)
 		if err == nil {
 			result.Results[i] = relParams
 		}

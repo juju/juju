@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -125,6 +126,37 @@ func (st *State) Relation(tag string) (*Relation, error) {
 	return &Relation{
 		id:   result.Id,
 		tag:  tag,
+		life: life,
+		st:   st,
+	}, nil
+}
+
+// Relation returns the existing relation with the given tag.
+func (st *State) RelationById(id int) (*Relation, error) {
+	var results params.RelationResults
+	args := params.RelationIds{
+		RelationIds: []int{id},
+	}
+	err := st.caller.Call("Uniter", "", "RelationById", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	relationTag := names.RelationTag(result.Key)
+
+	life, err := st.life(relationTag)
+	if err != nil {
+		return nil, err
+	}
+	return &Relation{
+		id:   result.Id,
+		tag:  relationTag,
 		life: life,
 		st:   st,
 	}, nil

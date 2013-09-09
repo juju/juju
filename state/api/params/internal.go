@@ -118,6 +118,11 @@ type RelationUnits struct {
 	RelationUnits []RelationUnit
 }
 
+// RelationIds holds multiple relation ids.
+type RelationIds struct {
+	RelationIds []int
+}
+
 // RelationUnitPair holds a relation tag, a local and remote unit tags.
 type RelationUnitPair struct {
 	Relation   string
