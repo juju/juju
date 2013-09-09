@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -828,14 +829,11 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, IsNil)
 
-	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
-		"type":           "dummy",
-		"name":           "dummy storage",
-		"secret":         "pizza",
-		"state-server":   false,
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	})
+	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig.Merge(coretesting.Attrs{
+		"state-server": false,
+		"name": "dummy storage",
+	}))
+	dummyenv, err := environs.Prepare(dummyCfg)
 	c.Assert(err, IsNil)
 	defer dummyenv.Destroy(nil)
 

@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
@@ -48,20 +49,15 @@ func registerAmazonTests() {
 	// environment variables to make the Amazon testing work:
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
-	attrs := map[string]interface{}{
-		"name":                      "sample-" + uniqueName,
-		"type":                      "ec2",
-		"control-bucket":            "juju-test-" + uniqueName,
-		"public-bucket":             "juju-public-test-" + uniqueName,
-		"admin-secret":              "for real",
-		"ca-cert":                   coretesting.CACert,
-		"ca-private-key":            coretesting.CAKey,
-		"default-series":            config.DefaultSeries,
-		"development":               true,
-		"firewall-mode":             config.FwInstance,
-		"ssl-hostname-verification": true,
-		"authorized-keys":           "none",
-	}
+	attrs := coretesting.FakeConfig.Merge(map[string]interface{}{
+		"name":           "sample-" + uniqueName,
+		"type":           "ec2",
+		"control-bucket": "juju-test-" + uniqueName,
+		"public-bucket":  "juju-public-test-" + uniqueName,
+		"admin-secret":   "for real",
+		"firewall-mode":  config.FwInstance,
+		"agent-version": version.Current.Number.String(),
+	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
 			TestConfig:     attrs,

@@ -23,9 +23,9 @@ var FakeConfig = Attrs{
 	"ca-private-key":            CAKey,
 	"ssl-hostname-verification": true,
 	"development":               false,
-	"state-port":                1234,
-	"api-port":                  4321,
-	"default-series":            "precise",
+	"state-port":                19034,
+	"api-port":                  17777,
+	"default-series":            config.DefaultSeries,
 }
 
 // EnvironConfig returns a default environment configuration suitable for
