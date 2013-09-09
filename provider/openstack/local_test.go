@@ -722,10 +722,15 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
-	// XXX: it seems that UploadFakeTools to your storage bucket no longer
-	// works? Instead we have to use the writeablePublicStorage workaround
 	writeablePublicStorage := openstack.WritablePublicStorage(s.env)
 	envtesting.UploadFakeTools(c, writeablePublicStorage)
+	defer envtesting.RemoveFakeTools(c, writeablePublicStorage)
+	openstack.UseTestImageData(s.env, s.cred)
+	defer openstack.RemoveTestImageData(s.env)
+
+        // TODO: Currently this is broken because imagemetadat.FindInstanceSpec
+        // uses its own net/http.Client object which doesn't look at the
+        // ssl-hostname-verify flag
 	err := bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }

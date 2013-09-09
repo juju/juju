@@ -455,7 +455,11 @@ func (e *environ) PublicStorage() environs.StorageReader {
 			containerACL: swift.PublicRead,
 			swift:        swift.New(e.client)}
 	} else {
-		pc := client.NewPublicClient(publicBucketURL, nil)
+		newPublicClient := client.NewPublicClient
+		if ecfg.disableSSLHostnameVerify() {
+			newPublicClient = client.NewNonValidatingPublicClient
+		}
+		pc := newPublicClient(publicBucketURL, nil)
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
 			containerACL:  swift.PublicRead,
