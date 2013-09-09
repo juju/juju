@@ -4,6 +4,9 @@
 package openstack
 
 import (
+	"crypto/tls"
+	"net/http"
+
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -39,6 +42,13 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
+	}
+	if !e.Config().SSLHostnameVerification() {
+		insecureConfig := &tls.Config{InsecureSkipVerify: true}
+		insecureTransport := &http.Transport{TLSClientConfig: insecureConfig}
+		insecureClient := &http.Client{Transport: insecureTransport}
+		oldHTTPClient := simplestreams.SetHttpClient(insecureClient)
+		defer simplestreams.SetHttpClient(oldHTTPClient)
 	}
 	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
 	matchingImages, err := imagemetadata.Fetch(baseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)
