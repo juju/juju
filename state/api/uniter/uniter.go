@@ -149,7 +149,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 		return nil, err
 	}
 	relationTag := names.RelationTag(result.Key)
-	// Now get the life
+
 	life, err := st.life(relationTag)
 	if err != nil {
 		return nil, err
