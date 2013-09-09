@@ -98,3 +98,19 @@ func (s *relationSuite) TestUnit(c *gc.C) {
 	// are done in relationunit_test.go.
 	c.Assert(apiRelUnit, gc.FitsTypeOf, (*uniter.RelationUnit)(nil))
 }
+
+func (s *relationSuite) TestRelationById(c *gc.C) {
+	apiRel, err := s.uniter.RelationById(s.stateRelation.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiRel, gc.DeepEquals, s.apiRelation)
+
+	// Add a relation to mysql service, which cannot be retrived.
+	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+
+	// Test some invalid cases.
+	for _, relId := range []int{-1, 42, otherRel.Id()} {
+		apiRel, err = s.uniter.RelationById(relId)
+		c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+		c.Assert(apiRel, gc.IsNil)
+	}
+}
