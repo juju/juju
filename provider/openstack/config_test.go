@@ -49,26 +49,27 @@ var _ = gc.Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary                  string
-	config                   attrs
-	change                   attrs
-	expect                   attrs
-	envVars                  map[string]string
-	region                   string
-	controlBucket            string
-	publicBucket             string
-	pbucketURL               string
-	useFloatingIP            bool
-	username                 string
-	password                 string
-	tenantName               string
-	authMode                 string
-	authURL                  string
-	accessKey                string
-	secretKey                string
-	firewallMode             config.FirewallMode
-	err                      string
-	disableSSLHostnameVerify bool
+	summary                 string
+	config                  attrs
+	change                  attrs
+	expect                  attrs
+	envVars                 map[string]string
+	region                  string
+	controlBucket           string
+	publicBucket            string
+	pbucketURL              string
+	useFloatingIP           bool
+	username                string
+	password                string
+	tenantName              string
+	authMode                string
+	authURL                 string
+	accessKey               string
+	secretKey               string
+	firewallMode            config.FirewallMode
+	err                     string
+	sslHostnameVerification bool
+	sslHostnameSet          bool
 }
 
 type attrs map[string]interface{}
@@ -172,7 +173,12 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
-	c.Assert(ecfg.disableSSLHostnameVerify(), gc.Equals, t.disableSSLHostnameVerify)
+	// Default should be true
+	expectedHostnameVerification := true
+	if t.sslHostnameSet {
+		expectedHostnameVerification = t.sslHostnameVerification
+	}
+	c.Assert(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, gc.Equals, true)
@@ -437,9 +443,16 @@ var configTests = []configTest{
 		},
 	}, {
 		change: attrs{
-			"disable-ssl-hostname-verify": true,
+			"ssl-hostname-verification": false,
 		},
-		disableSSLHostnameVerify: true,
+		sslHostnameVerification: false,
+		sslHostnameSet:          true,
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": true,
+		},
+		sslHostnameVerification: true,
+		sslHostnameSet:          true,
 	},
 }
 

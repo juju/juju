@@ -456,7 +456,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 			swift:        swift.New(e.client)}
 	} else {
 		newPublicClient := client.NewPublicClient
-		if ecfg.disableSSLHostnameVerify() {
+		if !ecfg.SSLHostnameVerification() {
 			newPublicClient = client.NewNonValidatingPublicClient
 		}
 		pc := newPublicClient(publicBucketURL, nil)
@@ -508,10 +508,10 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
-	if ecfg.disableSSLHostnameVerify() {
-		return client.NewNonValidatingClient(cred, authMode, nil)
-	} else {
+	if ecfg.SSLHostnameVerification() {
 		return client.NewClient(cred, authMode, nil)
+	} else {
+		return client.NewNonValidatingClient(cred, authMode, nil)
 	}
 }
 

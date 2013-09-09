@@ -657,7 +657,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs() map[string]interface{} {
 	attrs["authorized-keys"] = "fakekey"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
-	attrs["disable-ssl-hostname-verify"] = true
+	attrs["ssl-hostname-verification"] = false
 	attrs["auth-url"] = s.cred.URL
 	return attrs
 }
@@ -698,14 +698,14 @@ func (s *localHTTPSServerSuite) TestCanUploadTools(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
-	// If you don't have disable-ssl-hostname-verify set, then we fail to
-	// connect to the environment. Copy the attrs used by SetUp and force
-	// hostname verification.
+	// If you don't have ssl-hostname-verification set to false, then we
+	// fail to connect to the environment. Copy the attrs used by SetUp and
+	// force hostname verification.
 	newattrs := make(map[string]interface{}, len(s.attrs))
 	for k, v := range s.attrs {
 		newattrs[k] = v
 	}
-	newattrs["disable-ssl-hostname-verify"] = false
+	newattrs["ssl-hostname-verification"] = true
 	env, err := environs.NewFromAttrs(newattrs)
 	c.Assert(err, gc.IsNil)
 	err = env.Storage().Put("test-name", strings.NewReader("content"), 7)
@@ -728,9 +728,9 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	openstack.UseTestImageData(s.env, s.cred)
 	defer openstack.RemoveTestImageData(s.env)
 
-        // TODO: Currently this is broken because imagemetadat.FindInstanceSpec
-        // uses its own net/http.Client object which doesn't look at the
-        // ssl-hostname-verify flag
+	// TODO: Currently this is broken because imagemetadat.FindInstanceSpec
+	// uses its own net/http.Client object which doesn't look at the
+	// ssl-hostname-verify flag
 	err := bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }

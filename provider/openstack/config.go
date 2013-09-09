@@ -27,9 +27,8 @@ var configFields = schema.Fields{
 	"use-floating-ip":   schema.Bool(),
 	// These next keys are deprecated and ignored. We keep them them in the schema
 	// so existing configs do not error.
-	"default-image-id":            schema.String(),
-	"default-instance-type":       schema.String(),
-	"disable-ssl-hostname-verify": schema.Bool(),
+	"default-image-id":      schema.String(),
+	"default-instance-type": schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"username":          "",
@@ -46,9 +45,8 @@ var configDefaults = schema.Defaults{
 	"use-floating-ip":   false,
 	// These next keys are deprecated and ignored. We keep them them in the schema
 	// so existing configs do not error.
-	"default-image-id":            "",
-	"default-instance-type":       "",
-	"disable-ssl-hostname-verify": false,
+	"default-image-id":      "",
+	"default-instance-type": "",
 }
 
 type environConfig struct {
@@ -102,10 +100,6 @@ func (c *environConfig) publicBucketURL() string {
 
 func (c *environConfig) useFloatingIP() bool {
 	return c.attrs["use-floating-ip"].(bool)
-}
-
-func (c *environConfig) disableSSLHostnameVerify() bool {
-	return c.attrs["disable-ssl-hostname-verify"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
