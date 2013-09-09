@@ -556,8 +556,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
-	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage()))
 	// Add the simplestreams source off the public bucket.
 	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage()))
 	// Add the simplestreams base URL from keystone if it is defined.
