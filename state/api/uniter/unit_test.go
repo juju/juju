@@ -348,3 +348,8 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
+
+func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
+	c.Assert(s.apiUnit.ServiceName(), gc.Equals, "wordpress")
+	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, "service-wordpress")
+}
