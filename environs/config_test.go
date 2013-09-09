@@ -254,7 +254,7 @@ func (suite) TestBootstrapConfig(c *gc.C) {
 
 	expect := cfg.AllAttrs()
 	delete(expect, "secret")
-	delete(expect, "admin-secret")
-	delete(expect, "ca-private-key")
+	expect["admin-secret"] = ""
+	expect["ca-private-key"] = ""
 	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
 }

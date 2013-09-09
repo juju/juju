@@ -49,13 +49,18 @@ func registerAmazonTests() {
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
 	attrs := map[string]interface{}{
-		"name":           "sample-" + uniqueName,
-		"type":           "ec2",
-		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
-		"admin-secret":   "for real",
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
+		"name":                      "sample-" + uniqueName,
+		"type":                      "ec2",
+		"control-bucket":            "juju-test-" + uniqueName,
+		"public-bucket":             "juju-public-test-" + uniqueName,
+		"admin-secret":              "for real",
+		"ca-cert":                   coretesting.CACert,
+		"ca-private-key":            coretesting.CAKey,
+		"default-series":            config.DefaultSeries,
+		"development":               true,
+		"firewall-mode":             config.FwInstance,
+		"ssl-hostname-verification": true,
+		"authorized-keys":           "none",
 	}
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
