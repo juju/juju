@@ -202,7 +202,8 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
-		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), "some-url", cons)
+		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
+			[]byte(jsonImagesContent), simplestreams.NewHttpDataSource("some-url"), cons)
 		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {

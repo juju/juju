@@ -369,12 +369,12 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 
 	arches := possibleTools.Arches()
 	storage := ebsStorage
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, nil, err
 	}
 	series := possibleTools.OneSeries()
-	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,

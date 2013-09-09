@@ -150,7 +150,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			params.BaseURLs, err = tools.GetMetadataURLs(environ)
+			params.Sources, err = tools.GetMetadataSources(environ)
 			if err != nil {
 				return err
 			}
@@ -190,7 +190,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-		params.BaseURLs = []string{"file://" + c.metadataDir}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewHttpDataSource("file://" + c.metadataDir)}
 	}
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
@@ -206,7 +206,14 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 	if len(versions) > 0 {
 		fmt.Fprintf(context.Stdout, "matching tools versions:\n%s\n", strings.Join(versions, "\n"))
 	} else {
-		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(params.BaseURLs, "\n"))
+		var urls []string
+		for _, s := range params.Sources {
+			url, err := s.URL("")
+			if err != nil {
+				urls = append(urls, url)
+			}
+		}
+		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(urls, "\n"))
 	}
 	return nil
 }

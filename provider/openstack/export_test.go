@@ -246,6 +246,11 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 	return
 }
 
+func ControlBucket(e environs.Environ) string {
+	env := e.(*environ)
+	return env.ecfg().controlBucket()
+}
+
 func GetSwiftURL(e environs.Environ) (string, error) {
 	return e.(*environ).client.MakeServiceURL("object-store", nil)
 }

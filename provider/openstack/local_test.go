@@ -476,22 +476,32 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *localServerSuite) TestGetImageMetadataURLs(c *gc.C) {
-	urls, err := imagemetadata.GetMetadataURLs(s.env)
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
+	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(urls), gc.Equals, 3)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], openstack.ControlBucket(s.env)), gc.Equals, true)
 	// The public bucket URL ends with "/juju-dist/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), gc.Equals, true)
+	c.Check(strings.HasSuffix(urls[1], "/juju-dist/"), gc.Equals, true)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), gc.Equals, true)
-	c.Assert(urls[2], gc.Equals, imagemetadata.DefaultBaseURL)
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), gc.Equals, true)
+	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
-func (s *localServerSuite) TestGetToolsMetadataURLs(c *gc.C) {
-	urls, err := tools.GetMetadataURLs(s.env)
+func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(urls), gc.Equals, 1)
-	_, err = url.Parse(urls[0])
+	c.Assert(len(sources), gc.Equals, 1)
+	baseURL, err := sources[0].URL("")
+	c.Assert(err, gc.IsNil)
+	_, err = url.Parse(baseURL)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -511,7 +521,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params, err := s.Env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
-	params.BaseURLs, err = imagemetadata.GetMetadataURLs(s.Env)
+	params.Sources, err = imagemetadata.GetMetadataSources(s.Env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

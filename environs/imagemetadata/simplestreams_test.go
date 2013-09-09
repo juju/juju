@@ -62,7 +62,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			BaseURL:       "test:",
+			Source:        simplestreams.NewHttpDataSource("test:"),
 			RequireSigned: false,
 			DataType:      imagemetadata.ImageIds,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
@@ -79,7 +79,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		BaseURL:         baseURL,
+		Source:          simplestreams.NewHttpDataSource(baseURL),
 		RequireSigned:   requireSigned,
 		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,
@@ -209,7 +209,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
-		images, err := imagemetadata.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
+		images, err := imagemetadata.Fetch([]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}

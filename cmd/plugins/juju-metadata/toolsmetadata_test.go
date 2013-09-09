@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -55,11 +54,11 @@ func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, metadataDir string) []*tools
 		ValueTemplate: tools.ToolsMetadata{},
 	}
 
-	baseURL := "file://" + metadataDir + "/tools"
+	source := simplestreams.NewHttpDataSource("file://" + metadataDir + "/tools")
 
 	const requireSigned = false
 	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
-	indexRef, err := simplestreams.GetIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned, params)
+	indexRef, err := simplestreams.GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 
@@ -69,7 +68,7 @@ func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, metadataDir string) []*tools
 	data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", toolsIndexMetadata.ProductsFilePath))
 	c.Assert(err, gc.IsNil)
 
-	url := path.Join(baseURL, toolsIndexMetadata.ProductsFilePath)
+	url, err := source.URL(toolsIndexMetadata.ProductsFilePath)
 	c.Assert(err, gc.IsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, tools.ToolsMetadata{})
 	c.Assert(err, gc.IsNil)
