@@ -4,8 +4,6 @@
 package tools
 
 import (
-	"net/http"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
@@ -15,8 +13,7 @@ import (
 
 type ValidateSuite struct {
 	coretesting.LoggingSuite
-	home      *coretesting.FakeHome
-	oldClient *http.Client
+	home *coretesting.FakeHome
 }
 
 var _ = gc.Suite(&ValidateSuite{})
@@ -39,10 +36,6 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, region, series, endp
 	if err != nil {
 		return err
 	}
-
-	t := &http.Transport{}
-	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	s.oldClient = simplestreams.SetHttpClient(&http.Client{Transport: t})
 	return nil
 }
 
@@ -53,9 +46,6 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 
 func (s *ValidateSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
-	if s.oldClient != nil {
-		simplestreams.SetHttpClient(s.oldClient)
-	}
 	s.LoggingSuite.TearDownTest(c)
 }
 

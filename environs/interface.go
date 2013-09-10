@@ -138,6 +138,7 @@ type EnvironStorage interface {
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
 	InstanceBroker
+	config.HasConfig
 
 	// Name returns the Environ's name.
 	Name() string
@@ -157,9 +158,6 @@ type Environ interface {
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
 	StateInfo() (*state.Info, *api.Info, error)
-
-	// Config returns the current configuration of this Environ.
-	Config() *config.Config
 
 	// SetConfig updates the Environ's configuration.
 	//

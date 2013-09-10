@@ -9,13 +9,14 @@ import (
 	"os"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -48,6 +49,7 @@ type JujuConnSuite struct {
 	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
+	envtesting.ToolsFixture
 	Conn         *juju.Conn
 	State        *state.State
 	APIConn      *juju.APIConn
@@ -85,13 +87,13 @@ func FakeAPIInfo(machineId string) *api.Info {
 
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
-func StartInstance(c *C, env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics) {
+func StartInstance(c *gc.C, env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics) {
 	return StartInstanceWithConstraints(c, env, machineId, constraints.Value{})
 }
 
 // StartInstanceWithConstraints is a test helper function that starts an instance on the
 // environment with the specified constraints, using the current series and invalid info states.
-func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
+func StartInstanceWithConstraints(c *gc.C, env environs.Environ, machineId string,
 	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
 	series := config.DefaultSeries
 	inst, metadata, err := provider.StartInstance(
@@ -103,7 +105,7 @@ func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
 		FakeStateInfo(machineId),
 		FakeAPIInfo(machineId),
 	)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return inst, metadata
 }
 
@@ -119,25 +121,27 @@ environments:
         agent-version: %s
 `
 
-func (s *JujuConnSuite) SetUpSuite(c *C) {
+func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
-func (s *JujuConnSuite) TearDownSuite(c *C) {
+func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *JujuConnSuite) SetUpTest(c *C) {
+func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) TearDownTest(c *C) {
+func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	config.SetJujuHome(s.oldJujuHome)
@@ -145,51 +149,63 @@ func (s *JujuConnSuite) TearDownTest(c *C) {
 
 // Reset returns environment state to that which existed at the start of
 // the test.
-func (s *JujuConnSuite) Reset(c *C) {
+func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.tearDownConn(c)
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
+func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
 	info, _, err := s.Conn.Environ.StateInfo()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	info.Password = "dummy-secret"
 	return info
 }
 
-func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
+func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	_, apiInfo, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	apiInfo.Tag = "user-admin"
 	apiInfo.Password = "dummy-secret"
 	return apiInfo
 }
 
-func (s *JujuConnSuite) openAPIAs(c *C, tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	info.Tag = tag
 	info.Password = password
 	info.Nonce = nonce
 	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, IsNil)
-	c.Assert(st, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(st, gc.NotNil)
 	return st
 }
 
 // OpenAPIAs opens the API using the given identity tag
 // and password for authentication.
-func (s *JujuConnSuite) OpenAPIAs(c *C, tag, password string) *api.State {
+func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag, password string) *api.State {
 	return s.openAPIAs(c, tag, password, "")
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag,
 // password and nonce for authentication.
-func (s *JujuConnSuite) OpenAPIAsMachine(c *C, tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *api.State {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
-func (s *JujuConnSuite) setUpConn(c *C) {
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state, and
+// then uses that to open the API.
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword("test-password")
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	return s.openAPIAs(c, machine.Tag(), "test-password", "fake_nonce"), machine
+}
+
+func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
@@ -197,38 +213,38 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	s.oldHome = os.Getenv("HOME")
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	os.Setenv("HOME", home)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	yaml := []byte(fmt.Sprintf(envConfig, version.Current.Number))
 	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), yaml, 0600)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	environ, err := environs.PrepareFromName("dummyenv")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), IsNil)
+	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
 	conn, err := juju.NewConn(environ)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.Conn = conn
 	s.State = conn.State
 
 	apiConn, err := juju.NewAPIConn(environ, api.DialOpts{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
 	s.environ = environ
@@ -238,7 +254,7 @@ type GetStater interface {
 	GetStateInAPIServer() *state.State
 }
 
-func (s *JujuConnSuite) tearDownConn(c *C) {
+func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	// Bootstrap will set the admin password, and render non-authorized use
 	// impossible. s.State may still hold the right password, so try to reset
 	// the password so that the MgoSuite soft-resetting works. If that fails,
@@ -247,8 +263,8 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	if err := s.State.SetAdminMongoPassword(""); err != nil {
 		c.Logf("cannot reset admin password: %v", err)
 	}
-	c.Assert(s.Conn.Close(), IsNil)
-	c.Assert(s.APIConn.Close(), IsNil)
+	c.Assert(s.Conn.Close(), gc.IsNil)
+	c.Assert(s.APIConn.Close(), gc.IsNil)
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil
@@ -276,13 +292,13 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 	}
 }
 
-func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
+func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:series/" + ident)
 	repo, err := charm.InferRepository(curl, testing.Charms.Path)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return sch
 }

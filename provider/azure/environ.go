@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -70,8 +71,9 @@ type azureEnviron struct {
 	storageAccountKey string
 }
 
-// azureEnviron implements Environ.
+// azureEnviron implements Environ and HasRegion.
 var _ environs.Environ = (*azureEnviron)(nil)
+var _ simplestreams.HasRegion = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -918,4 +920,13 @@ func (env *azureEnviron) getImageMetadataSigningRequired() bool {
 	// Hard-coded to true for now.  Once we support custom base URLs,
 	// this may have to change.
 	return true
+}
+
+// Region is specified in the HasRegion interface.
+func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
+	ecfg := env.getSnapshot().ecfg
+	return simplestreams.CloudSpec{
+		Region:   ecfg.location(),
+		Endpoint: string(gwacl.GetEndpoint(ecfg.location())),
+	}, nil
 }

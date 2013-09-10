@@ -36,7 +36,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, e.ecfg().authURL()},
-		Series:    ic.Series,
+		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 	})
 	baseURLs, err := imagemetadata.GetMetadataURLs(e)

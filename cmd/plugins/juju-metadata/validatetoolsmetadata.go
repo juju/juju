@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -151,6 +150,10 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 			if err != nil {
 				return err
 			}
+			params.BaseURLs, err = tools.GetMetadataURLs(environ)
+			if err != nil {
+				return err
+			}
 		} else {
 			if c.metadataDir == "" {
 				return err
@@ -183,18 +186,11 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 	if c.endpoint != "" {
 		params.Endpoint = c.endpoint
 	}
-	// If the metadata files are to be loaded from a directory, we need to register
-	// a file http transport.
 	if c.metadataDir != "" {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-
 		params.BaseURLs = []string{"file://" + c.metadataDir}
-		t := &http.Transport{}
-		t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-		c := &http.Client{Transport: t}
-		simplestreams.SetHttpClient(c)
 	}
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{

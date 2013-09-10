@@ -45,7 +45,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.unitLife(u.tag)
+	life, err := u.st.life(u.tag)
 	if err != nil {
 		return err
 	}
@@ -155,6 +155,11 @@ func (u *Unit) ServiceName() string {
 	return names.UnitService(u.Name())
 }
 
+// ServiceTag returns the service tag.
+func (u *Unit) ServiceTag() string {
+	return names.ServiceTag(u.ServiceName())
+}
+
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
 // possible; it otherwise has no effect. In most situations, the unit's
 // life is just set to Dying; but if a principal unit that is not assigned
@@ -259,8 +264,8 @@ func (u *Unit) HasSubordinates() (bool, error) {
 // NOTE: This differs from state.Unit.PublicAddres() by returning
 // an error instead of a bool, because it needs to make an API call.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) PublicAddress() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -282,8 +287,8 @@ func (u *Unit) PublicAddress() (string, error) {
 
 // SetPublicAddress sets the public address of the unit.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) SetPublicAddress(address string) error {
 	var result params.ErrorResults
 	args := params.SetEntityAddresses{
@@ -304,8 +309,8 @@ func (u *Unit) SetPublicAddress(address string) error {
 // NOTE: This differs from state.Unit.PrivateAddress() by returning
 // an error instead of a bool, because it needs to make an API call.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) PrivateAddress() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -327,8 +332,8 @@ func (u *Unit) PrivateAddress() (string, error) {
 
 // SetPrivateAddress sets the private address of the unit.
 //
-// TODO: We might be able to drop this, once we have machine
-// addresses implemented fully.
+// TODO(dimitern): We might be able to drop this, once we have machine
+// addresses implemented fully. See also LP bug 1221798.
 func (u *Unit) SetPrivateAddress(address string) error {
 	var result params.ErrorResults
 	args := params.SetEntityAddresses{

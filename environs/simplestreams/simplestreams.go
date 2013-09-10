@@ -35,6 +35,14 @@ type CloudSpec struct {
 	Endpoint string
 }
 
+// HasRegion is implemented by instances which can provide a region to which they belong.
+// A region is defined by region name and endpoint.
+type HasRegion interface {
+	// Region returns the necessary attributes to uniquely identify this cloud instance.
+	// Currently these attributes are "region" and "endpoint" values.
+	Region() (CloudSpec, error)
+}
+
 type LookupConstraint interface {
 	// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 	Ids() ([]string, error)
@@ -46,7 +54,7 @@ type LookupConstraint interface {
 // Derived structs implement the Ids() method.
 type LookupParams struct {
 	CloudSpec
-	Series string
+	Series []string
 	Arches []string
 	// Stream can be "" for the default "released" stream, or "daily" for
 	// daily images, or any other stream that the available simplestreams
@@ -62,6 +70,7 @@ func (p LookupParams) Params() LookupParams {
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
 // On non-Ubuntu systems, these values provide a nice fallback option.
+// Exported so tests can change the values to ensure the distro-info lookup works.
 var seriesVersions = map[string]string{
 	"precise": "12.04",
 	"quantal": "12.10",
@@ -74,23 +83,41 @@ var (
 	updatedseriesVersions bool
 )
 
+// SeriesVersion returns the version number for the specified Ubuntu series.
 func SeriesVersion(series string) (string, error) {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	if !updatedseriesVersions {
-		err := updateDistroInfo()
-		updatedseriesVersions = true
-		if err != nil {
-			return "", err
-		}
-	}
+	updateSeriesVersions()
 	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
 	return "", fmt.Errorf("invalid series %q", series)
+}
+
+// Supported series returns the Ubuntu series for which we expect to find metadata.
+func SupportedSeries() []string {
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
+	updateSeriesVersions()
+	series := []string{}
+	for s, _ := range seriesVersions {
+		series = append(series, s)
+	}
+	return series
+}
+
+func updateSeriesVersions() error {
+	if !updatedseriesVersions {
+		err := updateDistroInfo()
+		updatedseriesVersions = true
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
@@ -104,6 +131,8 @@ func updateDistroInfo() error {
 	}
 	defer f.Close()
 	bufRdr := bufio.NewReader(f)
+	// Only find info for precise or later.
+	preciseOrLaterFound := false
 	for {
 		line, err := bufRdr.ReadString('\n')
 		if err == io.EOF {
@@ -118,9 +147,16 @@ func updateDistroInfo() error {
 		if len(parts) < 3 {
 			continue
 		}
+		series := parts[2]
+		if series == "precise" {
+			preciseOrLaterFound = true
+		}
+		if series != "precise" && !preciseOrLaterFound {
+			continue
+		}
 		// the numeric version may contain a LTS moniker so strip that out.
 		seriesInfo := strings.Split(parts[0], " ")
-		seriesVersions[parts[2]] = seriesInfo[0]
+		seriesVersions[series] = seriesInfo[0]
 	}
 	return nil
 }
@@ -303,14 +339,32 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-var httpClient *http.Client = http.DefaultClient
+var httpClient *http.Client
 
-// SetHttpClient replaces the default http.Client used to fetch the metadata
-// and returns the old one.
-func SetHttpClient(c *http.Client) *http.Client {
-	old := httpClient
-	httpClient = c
-	return old
+func init() {
+	httpClient = &http.Client{Transport: http.DefaultTransport}
+	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
+}
+
+// RegisterProtocol registers a new protocol with the simplestreams http client.
+// Exported for testing.
+func RegisterProtocol(scheme string, rt http.RoundTripper) {
+	httpClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
+}
+
+// noMatchingProductsError is used to indicate that metadata files have been located,
+// but there is no metadata satisfying a product criteria.
+// It is used to distinguish from the situation where the metadata files could not be found.
+type noMatchingProductsError struct {
+	msg string
+}
+
+func (e *noMatchingProductsError) Error() string {
+	return e.msg
+}
+
+func newNoMatchingProductsError(message string, args ...interface{}) error {
+	return &noMatchingProductsError{fmt.Sprintf(message, args...)}
 }
 
 const (
@@ -319,7 +373,7 @@ const (
 	UnsignedSuffix   = ".json"
 )
 
-type appendMatchingFunc func([]interface{}, map[string]interface{}, LookupConstraint) []interface{}
+type appendMatchingFunc func(string, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
 
 // ValueParams contains the information required to pull out from the metadata structs of a particular type.
 type ValueParams struct {
@@ -361,6 +415,10 @@ func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupCons
 			if errors.IsNotFoundError(err) {
 				logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
 				continue
+			}
+			if _, ok := err.(*noMatchingProductsError); ok {
+				logger.Debugf("%v", err)
+				break
 			}
 			return nil, err
 		}
@@ -487,7 +545,7 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	}
 	candidates = candidates.filter(hasProduct)
 	if len(candidates) == 0 {
-		return "", errors.NotFoundf("index file has no data for product name(s) %q", prodIds)
+		return "", newNoMatchingProductsError("index file has no data for product name(s) %q", prodIds)
 	}
 
 	logger.Debugf("candidate matches for products %q are %v", prodIds, candidates)
@@ -857,11 +915,18 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
-	return GetLatestMetadata(metadata, cons, indexRef.valueParams.FilterFunc)
+	matches, err := GetLatestMetadata(metadata, cons, indexRef.BaseURL, indexRef.valueParams.FilterFunc)
+	if err != nil {
+		return nil, err
+	}
+	if len(matches) == 0 {
+		return nil, newNoMatchingProductsError("index has no matching records")
+	}
+	return matches, nil
 }
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.
-func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFunc appendMatchingFunc) ([]interface{}, error) {
+func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, baseURL string, filterFunc appendMatchingFunc) ([]interface{}, error) {
 	prodIds, err := cons.Ids()
 	if err != nil {
 		return nil, err
@@ -873,7 +938,8 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFun
 		for product := range metadata.Products {
 			availableProducts = append(availableProducts, product)
 		}
-		logger.Debugf("index has no records for product ids %v; it does have product ids %v", prodIds, availableProducts)
+		return nil, newNoMatchingProductsError(
+			"index has no records for product ids %v; it does have product ids %v", prodIds, availableProducts)
 	}
 
 	var matchingItems []interface{}
@@ -886,7 +952,7 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFun
 		}
 		sort.Sort(bv)
 		for _, itemCollVersion := range bv {
-			matchingItems = filterFunc(matchingItems, itemCollVersion.ItemCollection.Items, cons)
+			matchingItems = filterFunc(baseURL, matchingItems, itemCollVersion.ItemCollection.Items, cons)
 		}
 	}
 	return matchingItems, nil
