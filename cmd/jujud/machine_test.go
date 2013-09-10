@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
@@ -53,6 +54,7 @@ func (s *MachineSuite) TearDownSuite(c *gc.C) {
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+	newRunner = newMockRunner
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
@@ -484,4 +486,12 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
+}
+
+type mockRunner struct {
+	*worker.Runner
+}
+
+func newMockRunner(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) workerRunner {
+	return &mockRunner{worker.NewRunner(isFatal, moreImportant)}
 }
