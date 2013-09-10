@@ -46,3 +46,9 @@ func (*SetSuite) TestSetMapToNil(c *gc.C) {
 	restore()
 	c.Assert(m, gc.DeepEquals, oldMap)
 }
+
+func (*SetSuite) TestSetPanicsWhenNotAssignable(c *gc.C) {
+	i := 99
+	type otherInt int
+	c.Assert(func() { jc.Set(&i, otherInt(88)) }, gc.PanicMatches, `reflect\.Set: value of type checkers_test\.otherInt is not assignable to type int`)
+}

@@ -1,4 +1,5 @@
 package checkers
+
 import (
 	"reflect"
 )
