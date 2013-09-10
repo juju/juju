@@ -66,6 +66,15 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	// If the environment has a special bootstrap Storage, use it wherever
+	// we'd otherwise use environ.Storage.
+	if bs, ok := environ.(bootstrap.BootstrapStorage); ok {
+		bootstrapStorage, err := bs.BootstrapStorage()
+		if err != nil {
+			return fmt.Errorf("failed to acquire bootstrap storage: %v", err)
+		}
+		environ = &bootstrapStorageEnviron{environ, bootstrapStorage}
+	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
 	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
 	if err != nil {
@@ -165,4 +174,13 @@ func getUploadSeries(cfg *config.Config, series []string) []string {
 		unique.Add(cfg.DefaultSeries())
 	}
 	return unique.Values()
+}
+
+type bootstrapStorageEnviron struct {
+	environs.Environ
+	bootstrapStorage environs.Storage
+}
+
+func (b *bootstrapStorageEnviron) Storage() environs.Storage {
+	return b.bootstrapStorage
 }

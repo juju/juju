@@ -54,7 +54,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	args.Tools = toolsList[0]
 
-	for _, errorCode := range []int{255, 0} {
+	for i, errorCode := range []int{255, 0} {
 		defer sshresponse(c, "", "", errorCode)() // executing script
 		defer sshresponse(c, detectionScript, detectionoutput, 0)()
 		defer sshresponse(c, checkProvisionedScript, "", 0)()
@@ -65,9 +65,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		} else {
 			c.Assert(err, gc.IsNil)
 			c.Assert(m, gc.NotNil)
-			// machine ID will be 2, not 1. Even though we failed and the
+			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
-			c.Assert(m.Id(), gc.Equals, "2")
+			c.Assert(m.Id(), gc.Equals, fmt.Sprint(i))
 			instanceId, err := m.InstanceId()
 			c.Assert(err, gc.IsNil)
 			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))

@@ -1,0 +1,206 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package manual
+
+import (
+	"os"
+	"strings"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
+	jc "launchpad.net/juju-core/testing/checkers"
+)
+
+type bootstrapSuite struct {
+	testing.JujuConnSuite
+	env *localStorageEnviron
+}
+
+var _ = gc.Suite(&bootstrapSuite{})
+
+type localStorageEnviron struct {
+	environs.Environ
+	storage           environs.Storage
+	storageAddr       string
+	storageDir        string
+	sharedStorageAddr string
+	sharedStorageDir  string
+}
+
+func (e *localStorageEnviron) BootstrapStorage() (environs.Storage, error) {
+	return e.storage, nil
+}
+
+func (e *localStorageEnviron) StorageAddr() string {
+	return e.storageAddr
+}
+
+func (e *localStorageEnviron) StorageDir() string {
+	return e.storageDir
+}
+
+func (e *localStorageEnviron) SharedStorageAddr() string {
+	return e.sharedStorageAddr
+}
+
+func (e *localStorageEnviron) SharedStorageDir() string {
+	return e.sharedStorageDir
+}
+
+func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.env = &localStorageEnviron{
+		Environ:    s.Conn.Environ,
+		storageDir: c.MkDir(),
+	}
+	storage, err := filestorage.NewFileStorage(s.env.storageDir)
+	c.Assert(err, gc.IsNil)
+	s.env.storage = storage
+}
+
+func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
+	hostname, err := os.Hostname()
+	c.Assert(err, gc.IsNil)
+	series := s.Conn.Environ.Config().DefaultSeries()
+	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, nil, series, nil, false)
+	c.Assert(err, gc.IsNil)
+	return BootstrapArgs{
+		Host:          hostname,
+		Environ:       s.env,
+		MachineId:     "0",
+		PossibleTools: toolsList,
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
+	detectionoutput := strings.Join([]string{
+		s.Conn.Environ.Config().DefaultSeries(),
+		"amd64",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+
+	args := s.getArgs(c)
+	args.Host = "ubuntu@" + args.Host
+
+	defer sshresponse(c, "", "", 0)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	err := Bootstrap(args)
+	c.Assert(err, gc.IsNil)
+
+	bootstrapState, err := provider.LoadState(s.env.storage)
+	c.Assert(err, gc.IsNil)
+	c.Assert(
+		bootstrapState.StateInstances,
+		gc.DeepEquals,
+		[]instance.Id{BootstrapInstanceId},
+	)
+
+	// Do it all again; this should work, despite the fact that
+	// there's a bootstrap state file. Existence for that is
+	// checked in general bootstrap code (environs/bootstrap).
+	defer sshresponse(c, "", "", 0)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	err = Bootstrap(args)
+	c.Assert(err, gc.IsNil)
+
+	// We *do* check that the machine has no juju* upstart jobs, though.
+	defer sshresponse(c, checkProvisionedScript, "/etc/init/jujud-machine-0.conf", 0)()
+	err = Bootstrap(args)
+	c.Assert(err, gc.Equals, ErrProvisioned)
+}
+
+func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
+	detectionoutput := strings.Join([]string{
+		s.Conn.Environ.Config().DefaultSeries(),
+		"amd64",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+
+	args := s.getArgs(c)
+	args.Host = "ubuntu@" + args.Host
+	defer sshresponse(c, "", "", 1)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	err := Bootstrap(args)
+	c.Assert(err, gc.NotNil)
+
+	// Since the script failed, the state file should have been
+	// removed from storage.
+	_, err = provider.LoadState(s.env.storage)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *bootstrapSuite) TestBootstrapEmptyHost(c *gc.C) {
+	args := s.getArgs(c)
+	args.Host = ""
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "Host argument is empty")
+}
+
+func (s *bootstrapSuite) TestBootstrapNilEnviron(c *gc.C) {
+	args := s.getArgs(c)
+	args.Environ = nil
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "Environ argument is nil")
+}
+
+func (s *bootstrapSuite) TestBootstrapInvalidMachineId(c *gc.C) {
+	args := s.getArgs(c)
+	args.MachineId = ""
+	c.Assert(Bootstrap(args), gc.ErrorMatches, `"" is not a valid machine ID`)
+	args.MachineId = "bahhumbug"
+	c.Assert(Bootstrap(args), gc.ErrorMatches, `"bahhumbug" is not a valid machine ID`)
+}
+
+func (s *bootstrapSuite) TestBootstrapAlternativeMachineId(c *gc.C) {
+	detectionoutput := strings.Join([]string{
+		s.Conn.Environ.Config().DefaultSeries(),
+		"amd64",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+	args := s.getArgs(c)
+	args.MachineId = "1"
+	defer sshresponse(c, "", "", 0)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	c.Assert(Bootstrap(args), gc.IsNil)
+}
+
+func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
+	// Empty tools list.
+	detectionoutput := strings.Join([]string{
+		s.Conn.Environ.Config().DefaultSeries(),
+		"amd64",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+	args := s.getArgs(c)
+	args.PossibleTools = nil
+	defer sshresponse(c, "", "", 0)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
+
+	// Non-empty list, but none that match the series/arch.
+	detectionoutput = strings.Join([]string{
+		"edgy", // edgy will never match
+		"amd64",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+	args = s.getArgs(c)
+	defer sshresponse(c, "", "", 0)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
+}

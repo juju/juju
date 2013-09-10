@@ -91,6 +91,14 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		return nil, err
 	}
 
+	tools := args.Tools
+	if tools == nil {
+		tools, err = findInstanceTools(env, series, *hc.Arch)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Generate a unique nonce for the machine.
 	uuid, err := utils.NewUUID()
 	if err != nil {
@@ -126,13 +134,12 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:      args.Host,
 		dataDir:   args.DataDir,
-		env:       env,
-		machine:   m,
+		envcfg:    env.Config(),
+		machineId: m.Id(),
+		bootstrap: false,
 		nonce:     nonce,
 		stateInfo: stateInfo,
 		apiInfo:   apiInfo,
-		series:    series,
-		arch:      *hc.Arch,
 		tools:     args.Tools,
 	})
 	if err != nil {

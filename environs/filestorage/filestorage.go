@@ -21,6 +21,12 @@ type fileStorageReader struct {
 	path string
 }
 
+// fileStorage implements StorageReader and StorageWriter
+// backed by the local filesystem.
+type fileStorage struct {
+	*fileStorageReader
+}
+
 // newFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
 func NewFileStorageReader(path string) (environs.StorageReader, error) {
@@ -33,6 +39,14 @@ func NewFileStorageReader(path string) (environs.StorageReader, error) {
 		return nil, fmt.Errorf("specified source path is not a directory: %s", path)
 	}
 	return &fileStorageReader{p}, nil
+}
+
+func NewFileStorage(path string) (environs.Storage, error) {
+	r, err := NewFileStorageReader(path)
+	if err != nil {
+		return nil, err
+	}
+	return &fileStorage{r.(*fileStorageReader)}, nil
 }
 
 // Get implements environs.StorageReader.Get.
@@ -80,4 +94,33 @@ func (f *fileStorageReader) URL(name string) (string, error) {
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
 func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
+}
+
+// Put implements environs.StorageWriter.Put.
+func (f *fileStorage) Put(name string, r io.Reader, length int64) error {
+	dir, _ := path.Split(name)
+	if dir != "" {
+		dir := filepath.Join(f.path, dir)
+		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+			return err
+		}
+	}
+	filepath := filepath.Join(f.path, name)
+	file, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = io.CopyN(file, r, length)
+	return err
+}
+
+// Remove implements environs.StorageWriter.Remove.
+func (f *fileStorage) Remove(name string) error {
+	return os.RemoveAll(filepath.Join(f.path, name))
+}
+
+// RemoveAll implements environs.StorageWriter.RemoveAll.
+func (f *fileStorage) RemoveAll() error {
+	return os.RemoveAll(f.path)
 }

@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package storage
 
 import (
@@ -50,14 +53,18 @@ func (s *storageWorker) waitForDeath() error {
 
 	sharedStorageDir := os.Getenv(osenv.JujuSharedStorageDir)
 	sharedStorageAddr := os.Getenv(osenv.JujuSharedStorageAddr)
-	logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
+	if sharedStorageAddr != "" && sharedStorageDir != "" {
+		logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
 
-	sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)
-	if err != nil {
-		logger.Errorf("error with local storage: %v", err)
-		return err
+		sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)
+		if err != nil {
+			logger.Errorf("error with local storage: %v", err)
+			return err
+		}
+		defer sharedStorageListener.Close()
+	} else {
+		logger.Infof("no shared storage: dir=%q addr=%q", sharedStorageDir, sharedStorageAddr)
 	}
-	defer sharedStorageListener.Close()
 
 	logger.Infof("storage routines started, awaiting death")
 
