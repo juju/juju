@@ -156,3 +156,13 @@ func (st *State) RelationById(id int) (*Relation, error) {
 func (st *State) Environment() (*Environment, error) {
 	return &Environment{st}, nil
 }
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Uniter", "", "APIAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
