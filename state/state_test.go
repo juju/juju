@@ -63,6 +63,12 @@ func (s *StateSuite) TestStateInfo(c *gc.C) {
 	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
 }
 
+func (s *StateSuite) TestPing(c *gc.C) {
+	// TODO(rog) how can we take that mgo server down
+	// to check that this correctly returns an error?
+	c.Assert(s.State.Ping(), gc.IsNil)
+}
+
 func (s *StateSuite) TestAPIAddresses(c *gc.C) {
 	config, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)

@@ -85,7 +85,7 @@ func (a *UnitAgent) StateWorkers() (worker.Worker, error) {
 	}
 	unit := entity.(*state.Unit)
 	dataDir := a.Conf.dataDir
-	runner := worker.NewRunner(allFatal, moreImportant)
+	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st, unit.Name(), dataDir), nil
 	})
@@ -98,7 +98,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	runner := worker.NewRunner(allFatal, moreImportant)
+	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})

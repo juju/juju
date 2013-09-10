@@ -102,6 +102,12 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	return st.runner.Run(ops, "", nil)
 }
 
+// Ping probes the state's database connection to ensure
+// that it is still alive.
+func (st *State) Ping() error {
+	return st.db.Session.Ping()
+}
+
 func (st *State) Watch() *multiwatcher.Watcher {
 	st.mu.Lock()
 	if st.allManager == nil {

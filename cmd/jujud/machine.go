@@ -128,10 +128,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func allFatal(error) bool {
-	return true
-}
-
 var stateJobs = map[params.MachineJob]bool{
 	params.JobHostUnits:     true,
 	params.JobManageEnviron: true,
@@ -166,7 +162,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	if needsStateWorker {
 		ensureStateWorker()
 	}
-	runner := worker.NewRunner(allFatal, moreImportant)
+	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	// Only the machiner currently connects to the API.
 	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
@@ -195,6 +191,27 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
+type pinger interface {
+	Ping() error
+}
+
+// connectionIsFatal returns a function suitable for passing
+// as the isFatal argument to worker.NewRunner,
+// that diagnoses an error as fatal if the connection
+// has failed or if the error is otherwise fatal.
+func connectionIsFatal(conn pinger) func(err error) bool {
+	return func(err error) bool {
+		if isFatal(err) {
+			return true
+		}
+		if err := conn.Ping(); err != nil {
+			log.Infof("error pinging %T: %v", conn, err)
+			return true
+		}
+		return false
+	}
+}
+
 // StateJobs returns a worker running all the workers that require
 // a *state.State cofnnection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
@@ -207,7 +224,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
 	dataDir := a.Conf.dataDir
-	runner := worker.NewRunner(allFatal, moreImportant)
+	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
