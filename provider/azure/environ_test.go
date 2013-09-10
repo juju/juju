@@ -4,9 +4,11 @@
 package azure
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -22,6 +24,8 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -1285,4 +1289,47 @@ func (*environSuite) TestExtractStorageKeyFallsBackToSecondaryKey(c *gc.C) {
 
 func (*environSuite) TestExtractStorageKeyReturnsBlankIfNoneSet(c *gc.C) {
 	c.Check(extractStorageKey(&gwacl.StorageAccountKeys{}), gc.Equals, "")
+}
+
+func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
+	rc, _, err := source.Fetch(filename)
+	c.Assert(err, gc.IsNil)
+	defer rc.Close()
+	retrieved, err := ioutil.ReadAll(rc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(retrieved, gc.DeepEquals, content)
+}
+
+func (*environSuite) TestGetImageMetadataSources(c *gc.C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+
+	data := []byte{1, 2, 3, 4}
+	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
+
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 3)
+	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "http://cloud-images.ubuntu.com/daily/")
+	url, err = sources[2].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (*environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+
+	data := []byte{1, 2, 3, 4}
+	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
+
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	assertSourceContents(c, sources[0], "filename", data)
 }

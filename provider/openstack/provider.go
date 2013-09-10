@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -239,6 +240,7 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
+var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
@@ -556,6 +558,8 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
+	// Add the simplestreams source off the control bucket.
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage()))
 	// Add the simplestreams source off the public bucket.
 	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage()))
 	// Add the simplestreams base URL from keystone if it is defined.
@@ -566,7 +570,7 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return e.imageSources, nil
 }
 
-// GetToolsSourcesURLs returns a list of sources which are used to search for simplestreams tools metadata.
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	e.toolsBaseMutex.Lock()
 	defer e.toolsBaseMutex.Unlock()
@@ -580,6 +584,8 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
+	// Add the simplestreams source off the control bucket.
+	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage()))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {

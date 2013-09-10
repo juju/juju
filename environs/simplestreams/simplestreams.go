@@ -391,7 +391,9 @@ func GetMaybeSignedMetadata(sources []DataSource, indexPath string, cons LookupC
 	for _, source := range sources {
 		indexURL, err := source.URL(indexPath)
 		if err != nil {
-			return nil, err
+			// Some providers return an error if asked for the URL of a non-existent file.
+			// So the best we can do is use the relative path for the URL when logging messages.
+			indexURL = indexPath
 		}
 		indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
 		if err != nil {

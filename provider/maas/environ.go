@@ -16,6 +16,9 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
@@ -52,6 +55,8 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*maasEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*maasEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env := new(maasEnviron)
@@ -421,4 +426,16 @@ func (*maasEnviron) Ports() ([]instance.Port, error) {
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *maasEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage())}, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage())}, nil
 }

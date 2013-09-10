@@ -6,6 +6,7 @@ package maas
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 
 	gc "launchpad.net/gocheck"
@@ -16,7 +17,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -473,4 +477,40 @@ func (suite *environSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
 	// bootstrap.Bootstrap calls Environ.Bootstrap.  This works.
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
+}
+
+func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
+	rc, _, err := source.Fetch(filename)
+	c.Assert(err, gc.IsNil)
+	defer rc.Close()
+	retrieved, err := ioutil.ReadAll(rc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(retrieved, gc.DeepEquals, content)
+}
+
+func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	env := suite.makeEnviron()
+	// Add a dummy file to storage so we can use that to check the
+	// obtained source later.
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("filename", data)
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	env := suite.makeEnviron()
+	// Add a dummy file to storage so we can use that to check the
+	// obtained source later.
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("filename", data)
+	sources, err := envtools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	assertSourceContents(c, sources[0], "filename", data)
 }
