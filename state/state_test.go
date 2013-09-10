@@ -64,9 +64,9 @@ func (s *StateSuite) TestStateInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
-	// TODO(rog) how can we take that mgo server down
-	// to check that this correctly returns an error?
 	c.Assert(s.State.Ping(), gc.IsNil)
+	testing.MgoRestart()
+	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
 func (s *StateSuite) TestAPIAddresses(c *gc.C) {
