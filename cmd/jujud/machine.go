@@ -225,7 +225,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	if providerType == provider.Local && m.Id() == bootstrapMachineId {
+	if (providerType == provider.Local || providerType == provider.Null) && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
 			return localstorage.NewWorker(), nil
 		})
