@@ -1326,7 +1326,7 @@ func (*environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	defer cleanup()
 
 	data := []byte{1, 2, 3, 4}
-	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
+	env.Storage().Put("tools/filename", bytes.NewReader(data), int64(len(data)))
 
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)

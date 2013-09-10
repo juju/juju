@@ -46,15 +46,21 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 }
 
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
-	sources, err := tools.GetMetadataSources(s.env(c, ""))
+	env := s.env(c, "")
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"dummy-tools-url/", "http://juju.canonical.com/tools/"})
+		privateStorageURL, "http://juju.canonical.com/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
-	sources, err := tools.GetMetadataSources(s.env(c, "config-tools-url"))
+	env := s.env(c, "config-tools-url")
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-url/", "dummy-tools-url/", "http://juju.canonical.com/tools/"})
+		"config-tools-url/", privateStorageURL, "http://juju.canonical.com/tools/"})
 }

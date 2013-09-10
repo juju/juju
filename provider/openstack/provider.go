@@ -559,9 +559,9 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage()))
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
 	// Add the simplestreams source off the public bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage()))
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
@@ -585,7 +585,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage()))
+	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {

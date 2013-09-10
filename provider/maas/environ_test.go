@@ -508,7 +508,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("filename", data)
+	suite.testMAASObject.TestServer.NewFile("tools/filename", data)
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)

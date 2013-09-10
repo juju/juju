@@ -294,11 +294,11 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// properly formed.
 	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: 1.2.3"},
+		{loggo.INFO, "filtering tools by version: .*"},
 		{loggo.INFO, "no architecture specified when finding tools, looking for any"},
 		{loggo.INFO, "no series specified when finding tools, looking for any"},
-		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
-		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
+		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
 		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 	})
