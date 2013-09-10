@@ -370,7 +370,7 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(len(sources), gc.Equals, 1)
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(url, ec2.ControlBucketName(t.Env) + "/tools"), jc.IsTrue)
+	c.Assert(strings.Contains(url, ec2.ControlBucketName(t.Env)+"/tools"), jc.IsTrue)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

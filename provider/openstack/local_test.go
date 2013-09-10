@@ -507,7 +507,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env) + "/tools"), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 	// Check that the URL from keytone parses.
 	_, err = url.Parse(urls[1])

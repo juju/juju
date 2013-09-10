@@ -36,7 +36,7 @@ var BaseToolsPath = "tools"
 // A httpDataSource retrieves data from an environs.StorageReader.
 type storageSimpleStreamsDataSource struct {
 	basePath string
-	storage StorageReader
+	storage  StorageReader
 }
 
 // NewHttpDataSource returns a new http datasource reading from the specified storage.
