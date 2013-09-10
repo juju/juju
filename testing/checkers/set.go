@@ -1,11 +1,13 @@
 package checkers
-
 import (
 	"reflect"
 )
 
+// Restorer holds a function that can be used
+// to restore some previous state.
 type Restorer func()
 
+// Restore restores some previous state.
 func (r Restorer) Restore() {
 	r()
 }
