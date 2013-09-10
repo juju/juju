@@ -4,15 +4,20 @@
 package null
 
 import (
-    "errors"
+	"errors"
 	"fmt"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 )
 
 type nullProvider struct{}
+
+func init() {
+	environs.RegisterProvider(provider.Null, nullProvider{})
+}
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
@@ -29,7 +34,7 @@ func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
-	if old.attrs[key] != "" && old.attrs[key] != cfg.attrs[key] {
+	if old.attrs[key] != cfg.attrs[key] {
 		return fmt.Errorf("cannot change %s from %q to %q", key, old.attrs[key], cfg.attrs[key])
 	}
 	return nil

@@ -32,11 +32,11 @@ var errNoStopInstance = errors.New("null provider cannot stop instances")
 var errNoOpenPorts = errors.New("null provider cannot open ports")
 var errNoClosePorts = errors.New("null provider cannot close ports")
 
-func (_ *nullEnviron) StartInstance(_ constraints.Value, _ tools.List, _ *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (*nullEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	return nil, nil, errNoStartInstance
 }
 
-func (_ *nullEnviron) StopInstances([]instance.Instance) error {
+func (*nullEnviron) StopInstances([]instance.Instance) error {
 	return errNoStopInstance
 }
 
@@ -90,6 +90,8 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 		if id == manual.BootstrapInstanceId {
 			instances[i] = nullBootstrapInstance{}
 			found = true
+		} else {
+			err = environs.ErrPartialInstances
 		}
 	}
 	if !found {
@@ -131,7 +133,7 @@ func (e *nullEnviron) Ports() ([]instance.Port, error) {
 	return []instance.Port{}, nil
 }
 
-func (_ *nullEnviron) Provider() environs.EnvironProvider {
+func (*nullEnviron) Provider() environs.EnvironProvider {
 	return nullProvider{}
 }
 
@@ -144,9 +146,9 @@ func (e *nullEnviron) StorageDir() string {
 }
 
 func (e *nullEnviron) SharedStorageAddr() string {
-    return ""
+	return ""
 }
 
 func (e *nullEnviron) SharedStorageDir() string {
-    return ""
+	return ""
 }
