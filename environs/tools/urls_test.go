@@ -40,6 +40,8 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
+	env, err = environs.Prepare(env.Config())
+	c.Assert(err, gc.IsNil)
 	return env
 }
 
