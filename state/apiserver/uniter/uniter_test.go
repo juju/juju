@@ -1313,3 +1313,13 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 
 	wc.AssertChange(nil, []string{"mysql/0"})
 }
+
+func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	result, err := s.uniter.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiInfo.Addrs,
+	})
+}

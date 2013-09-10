@@ -15,6 +15,9 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
+// NOTE: This suite is intended for embedding into other suites,
+// so common code can be reused. Do not add test cases to it,
+// otherwise they'll be run by each other suite that embeds it.
 type uniterSuite struct {
 	testing.JujuConnSuite
 
