@@ -43,9 +43,10 @@ func (s *relationSuite) TestRelationKeyFormats(c *gc.C) {
 		for j, testSvc := range serviceNameTests {
 			peerKey := testSvc.pattern + ":" + testRel.pattern
 			key := peerKey + " " + peerKey
-			c.Logf("test %d: %q", i+j, key)
-			c.Assert(names.IsRelation(key), gc.Equals, testSvc.valid && testRel.valid)
-			c.Assert(names.IsRelation(peerKey), gc.Equals, testSvc.valid && testRel.valid)
+			isValid := testSvc.valid && testRel.valid
+			c.Logf("test %d: %q -> valid: %v", i*len(serviceNameTests)+j, key, isValid)
+			c.Assert(names.IsRelation(key), gc.Equals, isValid)
+			c.Assert(names.IsRelation(peerKey), gc.Equals, isValid)
 		}
 	}
 }
