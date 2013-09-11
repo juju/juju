@@ -248,10 +248,11 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 		inited: make(chan struct{}),
 	}
 	orig := newDeployContext
-	newDeployContext = func(dst *apideployer.State, dataDir string) (deployer.Context, error) {
+	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
 		ctx.st = st
+		ctx.agentConfig = agentConfig
 		close(ctx.inited)
-		return ctx, nil
+		return ctx
 	}
 	return ctx, func() { newDeployContext = orig }
 }
@@ -374,7 +375,12 @@ func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test fu
 	}
 }
 
+// TODO(jam): 2013-09-02 http://pad.lv/1219661
+// This test has been failing regularly on the Bot. Until someone fixes it so
+// it doesn't crash, it isn't worth having as we can't tell when someone
+// actually breaks something.
 func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
+	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		st, _, err := conf.OpenAPI(fastDialOpts)
 		c.Assert(err, gc.IsNil)

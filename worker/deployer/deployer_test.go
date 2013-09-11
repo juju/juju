@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
@@ -43,18 +42,7 @@ var _ worker.StringsWatchHandler = (*deployer.Deployer)(nil)
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.SimpleToolsFixture.SetUp(c, s.DataDir())
-
-	// Create a machine to work with.
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
-
-	// Log in as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the deployer facade.
@@ -71,6 +59,12 @@ func (s *deployerSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
+func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer.Context) {
+	// Create a deployer acting on behalf of the machine.
+	ctx := s.getContextForMachine(c, s.machine.Tag())
+	return deployer.NewDeployer(s.deployerState, ctx), ctx
+}
+
 func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	// Create a machine, and a couple of units.
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -80,9 +74,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	u1, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	// Create a deployer acting on behalf of the machine.
-	ctx := s.getContext(c)
-	dep := deployer.NewDeployer(s.deployerState, ctx, s.machine.Tag())
+	dep, ctx := s.makeDeployerAndContext(c)
 	defer stop(c, dep)
 
 	// Assign one unit, and wait for it to be deployed.
@@ -147,8 +139,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
-	ctx := s.getContext(c)
-	dep := deployer.NewDeployer(s.deployerState, ctx, s.machine.Tag())
+	dep, ctx := s.makeDeployerAndContext(c)
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, u0.Name()))
 	s.waitFor(c, isRemoved(s.State, u1.Name()))
@@ -181,14 +172,11 @@ func (s *deployerSuite) prepareSubordinates(c *gc.C) (*state.Unit, []*state.Rela
 func (s *deployerSuite) TestDeployRecallRemoveSubordinates(c *gc.C) {
 	// Create a deployer acting on behalf of the principal.
 	u, rus := s.prepareSubordinates(c)
-	ctx := s.getContext(c)
-	machineId, err := u.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
-	dep := deployer.NewDeployer(s.deployerState, ctx, names.MachineTag(machineId))
+	dep, ctx := s.makeDeployerAndContext(c)
 	defer stop(c, dep)
 
 	// Add a subordinate, and wait for it to be deployed.
-	err = rus[0].EnterScope(nil)
+	err := rus[0].EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
 	c.Assert(err, gc.IsNil)
@@ -218,7 +206,7 @@ func (s *deployerSuite) TestDeployRecallRemoveSubordinates(c *gc.C) {
 
 func (s *deployerSuite) TestNonAliveSubordinates(c *gc.C) {
 	// Add two subordinate units and set them to Dead/Dying respectively.
-	u, rus := s.prepareSubordinates(c)
+	_, rus := s.prepareSubordinates(c)
 	err := rus[0].EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
@@ -234,10 +222,7 @@ func (s *deployerSuite) TestNonAliveSubordinates(c *gc.C) {
 
 	// When we start a new deployer, neither unit will be deployed and
 	// both will be removed.
-	ctx := s.getContext(c)
-	machineId, err := u.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
-	dep := deployer.NewDeployer(s.deployerState, ctx, names.MachineTag(machineId))
+	dep, _ := s.makeDeployerAndContext(c)
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, sub0.Name()))
 	s.waitFor(c, isRemoved(s.State, sub1.Name()))

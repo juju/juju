@@ -34,6 +34,7 @@ import (
 type Tests struct {
 	coretesting.LoggingSuite
 	TestConfig coretesting.Attrs
+	envtesting.ToolsFixture
 	Env        environs.Environ
 }
 
@@ -48,6 +49,7 @@ func (t *Tests) Open(c *C) environs.Environ {
 func (t *Tests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	t.ToolsFixture.SetUpTest(c)
 	c.Assert(err, IsNil)
 	t.Env, err = environs.Prepare(cfg)
 	c.Assert(err, IsNil)
@@ -59,6 +61,7 @@ func (t *Tests) TearDownTest(c *C) {
 		c.Check(err, IsNil)
 		t.Env = nil
 	}
+	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 

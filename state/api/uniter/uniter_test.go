@@ -3,58 +3,48 @@
 
 package uniter_test
 
-// TODO: Possibly split this into multiple *_test.go modules with
-// separate suites, because it'll grow quite large.
-
 import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
-	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
+// NOTE: This suite is intended for embedding into other suites,
+// so common code can be reused. Do not add test cases to it,
+// otherwise they'll be run by each other suite that embeds it.
 type uniterSuite struct {
 	testing.JujuConnSuite
-	st      *api.State
-	machine *state.Machine
-	service *state.Service
-	unit    *state.Unit
+
+	st               *api.State
+	wordpressMachine *state.Machine
+	wordpressService *state.Service
+	wordpressCharm   *state.Charm
+	wordpressUnit    *state.Unit
 
 	uniter *uniter.State
 }
 
 var _ = gc.Suite(&uniterSuite{})
 
+func TestAll(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
+
 func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
+	err := s.wordpressUnit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
-	s.service, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	s.unit, err = s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	err = s.unit.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
-	err = s.unit.SetPassword("password")
-	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), "password")
+	s.st = s.OpenAPIAs(c, s.wordpressUnit.Tag(), "password")
 
 	// Create the uniter API facade.
 	s.uniter = s.st.Uniter()
@@ -67,102 +57,42 @@ func (s *uniterSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *uniterSuite) TestUnitAndUnitTag(c *gc.C) {
-	unit, err := s.uniter.Unit("unit-foo-42")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
-	c.Assert(unit, gc.IsNil)
-
-	unit, err = s.uniter.Unit("unit-wordpress-0")
+func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Tag(), gc.Equals, "unit-wordpress-0")
+	charm := s.AddTestingCharm(c, serviceName)
+	service, err := s.State.AddService(serviceName, charm)
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+	return machine, service, charm, unit
 }
 
-func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	unit, err := s.uniter.Unit("unit-wordpress-0")
+func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
+	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)
-
-	status, info, err := s.unit.Status()
+	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
-	c.Assert(info, gc.Equals, "")
-
-	err = unit.SetStatus(params.StatusStarted, "blah")
-	c.Assert(err, gc.IsNil)
-
-	status, info, err = s.unit.Status()
-	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
-	c.Assert(info, gc.Equals, "blah")
+	return rel
 }
 
-func (s *uniterSuite) TestEnsureDead(c *gc.C) {
-	c.Assert(s.unit.Life(), gc.Equals, state.Alive)
-
-	unit, err := s.uniter.Unit("unit-wordpress-0")
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
+	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	c.Assert(err, gc.IsNil)
-
-	err = unit.EnsureDead()
+	rel := s.addRelation(c, firstSvc, relatedSvc)
+	relUnit, err := rel.Unit(unit)
 	c.Assert(err, gc.IsNil)
-
-	err = s.unit.Refresh()
+	err = relUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit.Life(), gc.Equals, state.Dead)
-
-	err = unit.EnsureDead()
+	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
 	c.Assert(err, gc.IsNil)
-	err = s.unit.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit.Life(), gc.Equals, state.Dead)
-
-	err = s.unit.Remove()
-	c.Assert(err, gc.IsNil)
-	err = s.unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	err = unit.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	return rel, relatedService, relatedUnit
 }
 
-func (s *uniterSuite) TestRefresh(c *gc.C) {
-	unit, err := s.uniter.Unit("unit-wordpress-0")
+func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+	ok, err := relUnit.InScope()
 	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Life(), gc.Equals, params.Alive)
-
-	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Life(), gc.Equals, params.Alive)
-
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Life(), gc.Equals, params.Dead)
-}
-
-func (s *uniterSuite) TestWatch(c *gc.C) {
-	unit, err := s.uniter.Unit("unit-wordpress-0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Life(), gc.Equals, params.Alive)
-
-	w, err := unit.Watch()
-	c.Assert(err, gc.IsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	// Change something other than the lifecycle and make sure it's
-	// not detected.
-	err = unit.SetStatus(params.StatusStarted, "not really")
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
-
-	// Make the unit dead and check it's detected.
-	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
+	c.Assert(ok, gc.Equals, inScope)
 }

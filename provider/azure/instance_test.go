@@ -5,13 +5,14 @@ package azure
 
 import (
 	"encoding/base64"
+	"fmt"
+	"net/http"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
-	"fmt"
 	"launchpad.net/juju-core/instance"
-	"net/http"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceSuite struct{}
@@ -95,6 +96,14 @@ func serialize(c *gc.C, object gwacl.AzureObject) []byte {
 	return []byte(xml)
 }
 
+func prepareDeploymentInfoResponse(
+	c *gc.C, dep gwacl.Deployment) []gwacl.DispatcherResponse {
+	return []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(
+			serialize(c, &dep), http.StatusOK, nil),
+	}
+}
+
 func preparePortChangeConversation(
 	c *gc.C, service *gwacl.HostedServiceDescriptor,
 	deployments ...gwacl.Deployment) []gwacl.DispatcherResponse {
@@ -144,6 +153,42 @@ func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected
 		c.Check(request.Method, gc.Equals, expected[index].method)
 		c.Check(request.URL, gc.Matches, expected[index].urlpattern)
 	}
+}
+
+func (*instanceSuite) TestAddresses(c *gc.C) {
+	name := "service-name"
+	vnn := "Virt Net Name"
+	service := makeHostedServiceDescriptor(name)
+	responses := prepareDeploymentInfoResponse(c,
+		gwacl.Deployment{
+			RoleInstanceList: []gwacl.RoleInstance{
+				gwacl.RoleInstance{IPAddress: "1.2.3.4"},
+			},
+			VirtualNetworkName: vnn,
+		})
+
+	gwacl.PatchManagementAPIResponses(responses)
+	inst := azureInstance{*service, makeEnviron(c)}
+
+	expected := []instance.Address{
+		instance.Address{
+			"1.2.3.4",
+			instance.Ipv4Address,
+			vnn,
+			instance.NetworkCloudLocal,
+		},
+		instance.Address{
+			name + "." + AZURE_DOMAIN_NAME,
+			instance.HostName,
+			"",
+			instance.NetworkPublic,
+		},
+	}
+
+	addrs, err := inst.Addresses()
+	c.Check(err, gc.IsNil)
+
+	c.Check(addrs, jc.SameContents, expected)
 }
 
 func (*instanceSuite) TestOpenPorts(c *gc.C) {

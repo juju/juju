@@ -156,9 +156,7 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
-func MachineIdLessThan(id1, id2 string) bool {
-	return machineIdLessThan(id1, id2)
-}
+var MachineIdLessThan = machineIdLessThan
 
 // SCHEMACHANGE
 // This method is used to reset a deprecated machine attriute.

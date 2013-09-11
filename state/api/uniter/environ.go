@@ -3,11 +3,12 @@
 
 package uniter
 
+import (
+	"launchpad.net/juju-core/state/api/params"
+)
+
 // This module implements a subset of the interface provided by
 // state.Environment, as needed by the uniter API.
-
-// TODO: Only the required calls are added as placeholders,
-// the actual implementation will come in a follow-up.
 
 // Environment represents the state of an environment.
 type Environment struct {
@@ -15,7 +16,17 @@ type Environment struct {
 }
 
 // UUID returns the universally unique identifier of the environment.
-func (e Environment) UUID() string {
-	// TODO: Call Uniter.CurrentEnvironUUID()
-	panic("not implemented")
+//
+// NOTE: This differs from state.Environment.UUID() by returning an
+// error as well, because it needs to make an API call
+//
+// TODO(dimitern): 2013-09-06 bug 1221834
+// Cache this after getting it once - it's immutable.
+func (e Environment) UUID() (string, error) {
+	var result params.StringResult
+	err := e.st.caller.Call("Uniter", "", "CurrentEnvironUUID", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
 }

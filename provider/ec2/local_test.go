@@ -334,6 +334,8 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
+	params.BaseURLs, err = imagemetadata.GetMetadataURLs(t.Env)
+	c.Assert(err, gc.IsNil)
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)

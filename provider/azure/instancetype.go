@@ -132,7 +132,7 @@ func findMatchingImages(e *azureEnviron, location, series, stream string, arches
 	endpoint := getEndpoint(location)
 	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{location, endpoint},
-		Series:    series,
+		Series:    []string{series},
 		Arches:    arches,
 		Stream:    stream,
 	})

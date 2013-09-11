@@ -4,8 +4,6 @@
 package tools
 
 import (
-	"net/http"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
@@ -15,8 +13,7 @@ import (
 
 type ValidateSuite struct {
 	coretesting.LoggingSuite
-	home      *coretesting.FakeHome
-	oldClient *http.Client
+	home *coretesting.FakeHome
 }
 
 var _ = gc.Suite(&ValidateSuite{})
@@ -35,14 +32,10 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, region, series, endp
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := MakeBoilerplate("", series, &tm, &cloudSpec, false)
+	_, err := MakeBoilerplate(&tm, &cloudSpec, false)
 	if err != nil {
 		return err
 	}
-
-	t := &http.Transport{}
-	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	s.oldClient = simplestreams.SetHttpClient(&http.Client{Transport: t})
 	return nil
 }
 
@@ -53,17 +46,52 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 
 func (s *ValidateSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
-	if s.oldClient != nil {
-		simplestreams.SetHttpClient(s.oldClient)
-	}
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ValidateSuite) TestMatch(c *gc.C) {
+func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
+		MetadataLookupParams: simplestreams.MetadataLookupParams{
+			Region:        "region-2",
+			Series:        "raring",
+			Architectures: []string{"amd64"},
+			Endpoint:      "some-auth-url",
+			BaseURLs:      []string{"file://" + metadataDir},
+		},
+	}
+	versions, err := ValidateToolsMetadata(params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
+}
+
+func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
+	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
+	metadataDir := config.JujuHomePath("")
+	params := &ToolsMetadataLookupParams{
+		Major: 1,
+		Minor: -1,
+		MetadataLookupParams: simplestreams.MetadataLookupParams{
+			Region:        "region-2",
+			Series:        "raring",
+			Architectures: []string{"amd64"},
+			Endpoint:      "some-auth-url",
+			BaseURLs:      []string{"file://" + metadataDir},
+		},
+	}
+	versions, err := ValidateToolsMetadata(params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
+}
+
+func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
+	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
+	metadataDir := config.JujuHomePath("")
+	params := &ToolsMetadataLookupParams{
+		Major: 1,
+		Minor: 11,
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
 			Region:        "region-2",
 			Series:        "raring",

@@ -39,7 +39,7 @@ var liveUrls = map[string]liveTestData{
 	},
 }
 
-func Test(t *testing.T) {
+func setupSimpleStreamsTests(t *testing.T) {
 	if *live {
 		if *vendor == "" {
 			t.Fatal("missing vendor")
@@ -50,14 +50,14 @@ func Test(t *testing.T) {
 			keys := reflect.ValueOf(liveUrls).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
-		registerLiveSimpleStreamsTests(testData.baseURL, tools.NewToolsConstraint("1.13.0", simplestreams.LookupParams{
-			CloudSpec: testData.validCloudSpec,
-			Series:    version.Current.Series,
-			Arches:    []string{"amd64"},
-		}), testData.requireSigned)
+		registerLiveSimpleStreamsTests(testData.baseURL,
+			tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+				CloudSpec: testData.validCloudSpec,
+				Series:    []string{version.Current.Series},
+				Arches:    []string{"amd64"},
+			}), testData.requireSigned)
 	}
 	registerSimpleStreamsTests()
-	gc.TestingT(t)
 }
 
 func registerSimpleStreamsTests() {
@@ -66,12 +66,12 @@ func registerSimpleStreamsTests() {
 			BaseURL:       "test:",
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
-			ValidConstraint: tools.NewToolsConstraint("1.13.0", simplestreams.LookupParams{
+			ValidConstraint: tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: "precise",
+				Series: []string{"precise"},
 				Arches: []string{"amd64", "arm"},
 			}),
 		},
@@ -103,11 +103,14 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 var fetchTests = []struct {
-	region  string
-	series  string
-	version string
-	arches  []string
-	tools   []*tools.ToolsMetadata
+	region   string
+	series   string
+	version  string
+	major    int
+	minor    int
+	released bool
+	arches   []string
+	tools    []*tools.ToolsMetadata
 }{{
 	series:  "precise",
 	arches:  []string{"amd64", "arm"},
@@ -139,30 +142,6 @@ var fetchTests = []struct {
 		},
 	},
 }, {
-	series:  "",
-	arches:  []string{"amd64", "arm"},
-	version: "1.13.0",
-	tools: []*tools.ToolsMetadata{
-		{
-			Release:  "precise",
-			Version:  "1.13.0",
-			Arch:     "amd64",
-			Size:     2973595,
-			Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
-			FileType: "tar.gz",
-			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
-		},
-		{
-			Release:  "raring",
-			Version:  "1.13.0",
-			Arch:     "amd64",
-			Size:     2973173,
-			Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
-			FileType: "tar.gz",
-			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
-		},
-	},
-}, {
 	series:  "raring",
 	arches:  []string{"amd64", "arm"},
 	version: "1.11.4",
@@ -177,19 +156,88 @@ var fetchTests = []struct {
 			SHA256:   "6472014e3255e3fe7fbd3550ef3f0a11",
 		},
 	},
+}, {
+	series: "precise",
+	arches: []string{"amd64", "arm"},
+	major:  2,
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "precise",
+			Version:  "2.0.1",
+			Arch:     "arm",
+			Size:     1951096,
+			Path:     "tools/releases/20130806/juju-2.0.1-precise-arm.tgz",
+			FileType: "tar.gz",
+			SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
+		},
+	},
+}, {
+	series: "precise",
+	arches: []string{"amd64", "arm"},
+	major:  1,
+	minor:  11,
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "precise",
+			Version:  "1.11.4",
+			Arch:     "arm",
+			Size:     1951096,
+			Path:     "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
+			FileType: "tar.gz",
+			SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
+		},
+		{
+			Release:  "precise",
+			Version:  "1.11.5",
+			Arch:     "arm",
+			Size:     2031281,
+			Path:     "tools/releases/20130803/juju-1.11.5-precise-arm.tgz",
+			FileType: "tar.gz",
+			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
+		},
+	},
+}, {
+	series:   "raring",
+	arches:   []string{"amd64", "arm"},
+	major:    1,
+	minor:    -1,
+	released: true,
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "raring",
+			Version:  "1.14.0",
+			Arch:     "amd64",
+			Size:     2973173,
+			Path:     "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+			FileType: "tar.gz",
+			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
+		},
+	},
 }}
 
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
-		toolsConstraint := tools.NewToolsConstraint(t.version, simplestreams.LookupParams{
-			CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-			Series:    t.series,
-			Arches:    t.arches,
-		})
+		var toolsConstraint *tools.ToolsConstraint
+		if t.version == "" {
+			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, t.released, simplestreams.LookupParams{
+				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+				Series:    []string{t.series},
+				Arches:    t.arches,
+			})
+		} else {
+			toolsConstraint = tools.NewVersionedToolsConstraint(t.version, simplestreams.LookupParams{
+				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+				Series:    []string{t.series},
+				Arches:    t.arches,
+			})
+		}
 		tools, err := tools.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
+		}
+		for _, tm := range t.tools {
+			tm.FullPath = s.BaseURL + "/" + tm.Path
 		}
 		c.Check(tools, gc.DeepEquals, t.tools)
 	}
@@ -200,36 +248,96 @@ type productSpecSuite struct{}
 var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestId(c *gc.C) {
-	toolsConstraint := tools.NewToolsConstraint("1.13.0", simplestreams.LookupParams{
-		Series: "precise",
+	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:1.13.0:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
-	toolsConstraint := tools.NewToolsConstraint("1.11.3", simplestreams.LookupParams{
-		Series: "precise",
+	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+		Series: []string{"precise"},
 		Arches: []string{"amd64", "arm"},
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
-		"com.ubuntu.juju:1.11.3:amd64",
-		"com.ubuntu.juju:1.11.3:arm"})
+		"com.ubuntu.juju:12.04:amd64",
+		"com.ubuntu.juju:12.04:arm"})
 }
 
-func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
-	toolsConstraint := tools.NewToolsConstraint("1.10.1", simplestreams.LookupParams{
-		Series: "lucid",
+func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
+	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+		Series: []string{"precise", "raring"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := toolsConstraint.Ids()
-	if err != nil && err.Error() == `invalid series "lucid"` {
-		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
-	}
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:1.10.1:amd64"})
+	c.Assert(ids, gc.DeepEquals, []string{
+		"com.ubuntu.juju:12.04:amd64",
+		"com.ubuntu.juju:13.04:amd64"})
+}
+
+func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, false, simplestreams.LookupParams{
+		Series: []string{"precise"},
+		Arches: []string{"amd64"},
+	})
+	ids, err := toolsConstraint.Ids()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
+}
+
+func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, false, simplestreams.LookupParams{
+		Series: []string{"precise"},
+		Arches: []string{"amd64"},
+	})
+	ids, err := toolsConstraint.Ids()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
+}
+
+func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
+	json := `{
+        "updated": "Fri, 30 Aug 2013 16:12:58 +0800",
+        "format": "products:1.0",
+        "products": {
+            "com.ubuntu.juju:1.10.0:amd64": {
+                "version": "1.10.0",
+                "arch": "amd64",
+                "versions": {
+                    "20133008": {
+                        "items": {
+                            "1.10.0-precise-amd64": {
+                                "release": "precise",
+                                "version": "1.10.0",
+                                "arch": "amd64",
+                                "size": 9223372036854775807,
+                                "path": "releases/juju-1.10.0-precise-amd64.tgz",
+                                "ftype": "tar.gz",
+                                "sha256": ""
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }`
+	cloudMetadata, err := simplestreams.ParseCloudMetadata([]byte(json), "products:1.0", "", tools.ToolsMetadata{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cloudMetadata.Products, gc.HasLen, 1)
+	product := cloudMetadata.Products["com.ubuntu.juju:1.10.0:amd64"]
+	c.Assert(product, gc.NotNil)
+	c.Assert(product.Items, gc.HasLen, 1)
+	version := product.Items["20133008"]
+	c.Assert(version, gc.NotNil)
+	c.Assert(version.Items, gc.HasLen, 1)
+	item := version.Items["1.10.0-precise-amd64"]
+	c.Assert(item, gc.NotNil)
+	c.Assert(item, gc.FitsTypeOf, &tools.ToolsMetadata{})
+	c.Assert(item.(*tools.ToolsMetadata).Size, gc.Equals, int64(9223372036854775807))
 }

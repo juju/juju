@@ -8,6 +8,7 @@ package imagemetadata
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
@@ -28,6 +29,10 @@ type ImageConstraint struct {
 }
 
 func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
+	if len(params.Series) != 1 {
+		// This can only happen as a result of a coding error.
+		panic(fmt.Sprintf("image constraint requires a single series, got %v", params.Series))
+	}
 	return &ImageConstraint{LookupParams: params}
 }
 
@@ -37,7 +42,7 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	if stream != "" {
 		stream = "." + stream
 	}
-	version, err := simplestreams.SeriesVersion(ic.Series)
+	version, err := simplestreams.SeriesVersion(ic.Series[0])
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +96,7 @@ type imageKey struct {
 
 // appendMatchingImages updates matchingImages with image metadata records from images which belong to the
 // specified region. If an image already exists in matchingImages, it is not overwritten.
-func appendMatchingImages(matchingImages []interface{}, images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+func appendMatchingImages(baseURL string, matchingImages []interface{}, images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {
 		im := val.(*ImageMetadata)
@@ -110,12 +115,12 @@ func appendMatchingImages(matchingImages []interface{}, images map[string]interf
 }
 
 // GetLatestImageIdMetadata is provided so it can be call by tests outside the imagemetadata package.
-func GetLatestImageIdMetadata(data []byte, cons *ImageConstraint) ([]*ImageMetadata, error) {
+func GetLatestImageIdMetadata(data []byte, baseURL string, cons *ImageConstraint) ([]*ImageMetadata, error) {
 	metadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", "<unknown>", ImageMetadata{})
 	if err != nil {
 		return nil, err
 	}
-	items, err := simplestreams.GetLatestMetadata(metadata, cons, appendMatchingImages)
+	items, err := simplestreams.GetLatestMetadata(metadata, cons, baseURL, appendMatchingImages)
 	if err != nil {
 		return nil, err
 	}

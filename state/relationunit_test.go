@@ -796,15 +796,16 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// Start watching the relation from the perspective of the first unit.
 	w0 := ru0.Watch()
 	defer testing.AssertStop(c, w0)
-	s.assertChange(c, w0, nil, nil)
-	s.assertNoChange(c, w0)
+	w0c := testing.NewRelationUnitsWatcherC(c, s.State, w0)
+	w0c.AssertChange(nil, nil)
+	w0c.AssertNoChange()
 
 	// Join the first unit to the relation, and change the settings, and
 	// check that nothing apparently happens.
 	err = ru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s0 := changeSettings(c, ru0)
-	s.assertNoChange(c, w0)
+	changeSettings(c, ru0)
+	w0c.AssertNoChange()
 
 	// ---------- Two units ----------
 
@@ -813,65 +814,52 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ...and check that the first relation unit sees the change.
-	s1, err := ru1.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged := map[string]map[string]interface{}{
-		"riak/1": s1.Map(),
-	}
-	s.assertChange(c, w0, expectChanged, nil)
-	s.assertNoChange(c, w0)
+	expectChanged := []string{"riak/1"}
+	w0c.AssertChange(expectChanged, nil)
+	w0c.AssertNoChange()
 
 	// Join again, check it's a no-op.
 	err = ru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.assertNoChange(c, w0)
+	w0c.AssertNoChange()
 
 	// Start watching the relation from the perspective of the second unit,
 	// and check that it sees the right state.
 	w1 := ru1.Watch()
 	defer testing.AssertStop(c, w1)
-	expectChanged = map[string]map[string]interface{}{
-		"riak/0": s0.Map(),
-	}
-	s.assertChange(c, w1, expectChanged, nil)
-	s.assertNoChange(c, w1)
+	w1c := testing.NewRelationUnitsWatcherC(c, s.State, w1)
+	expectChanged = []string{"riak/0"}
+	w1c.AssertChange(expectChanged, nil)
+	w1c.AssertNoChange()
 
 	// ---------- Three units ----------
 
 	// Whoa, it works. Ok, check the third unit's opinion of the state.
 	w2 := ru2.Watch()
 	defer testing.AssertStop(c, w2)
-	expectChanged = map[string]map[string]interface{}{
-		"riak/0": s0.Map(),
-		"riak/1": s1.Map(),
-	}
-	s.assertChange(c, w2, expectChanged, nil)
-	s.assertNoChange(c, w2)
+	w2c := testing.NewRelationUnitsWatcherC(c, s.State, w2)
+	expectChanged = []string{"riak/0", "riak/1"}
+	w2c.AssertChange(expectChanged, nil)
+	w2c.AssertNoChange()
 
 	// Join the third unit, and check the first and second units see it.
 	err = ru2.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s2, err := ru2.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]map[string]interface{}{
-		"riak/2": s2.Map(),
-	}
-	s.assertChange(c, w0, expectChanged, nil)
-	s.assertNoChange(c, w0)
-	s.assertChange(c, w1, expectChanged, nil)
-	s.assertNoChange(c, w1)
+	expectChanged = []string{"riak/2"}
+	w0c.AssertChange(expectChanged, nil)
+	w0c.AssertNoChange()
+	w1c.AssertChange(expectChanged, nil)
+	w1c.AssertNoChange()
 
 	// Change the second unit's settings, and check that only
 	// the first and third see changes.
-	s1 = changeSettings(c, ru1)
-	s.assertNoChange(c, w1)
-	expectChanged = map[string]map[string]interface{}{
-		"riak/1": s1.Map(),
-	}
-	s.assertChange(c, w0, expectChanged, nil)
-	s.assertNoChange(c, w0)
-	s.assertChange(c, w2, expectChanged, nil)
-	s.assertNoChange(c, w2)
+	changeSettings(c, ru1)
+	w1c.AssertNoChange()
+	expectChanged = []string{"riak/1"}
+	w0c.AssertChange(expectChanged, nil)
+	w0c.AssertNoChange()
+	w2c.AssertChange(expectChanged, nil)
+	w2c.AssertNoChange()
 
 	// ---------- Two units again ----------
 
@@ -879,19 +867,19 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	err = ru1.LeaveScope()
 	c.Assert(err, gc.IsNil)
 	expectDeparted := []string{"riak/1"}
-	s.assertChange(c, w0, nil, expectDeparted)
-	s.assertNoChange(c, w0)
-	s.assertChange(c, w2, nil, expectDeparted)
-	s.assertNoChange(c, w2)
+	w0c.AssertChange(nil, expectDeparted)
+	w0c.AssertNoChange()
+	w2c.AssertChange(nil, expectDeparted)
+	w2c.AssertNoChange()
 
 	// Change its settings, and check the others don't observe anything.
-	s1 = changeSettings(c, ru1)
-	s.assertNoChange(c, w0)
-	s.assertNoChange(c, w2)
+	changeSettings(c, ru1)
+	w0c.AssertNoChange()
+	w2c.AssertNoChange()
 
 	// Check no spurious events showed up on the second unit's watch, and check
 	// it closes cleanly.
-	s.assertNoChange(c, w1)
+	w1c.AssertNoChange()
 	testing.AssertStop(c, w1)
 
 	// OK, we're done here. Cleanup, and error detection during same,
@@ -931,15 +919,16 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// check initial event.
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
-	s.assertChange(c, msw0, nil, nil)
-	s.assertNoChange(c, msw0)
+	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
+	msw0c.AssertChange(nil, nil)
+	msw0c.AssertNoChange()
 
 	// Join the unit to the relation, change its settings, and check that
 	// nothing apparently happens.
 	err = msru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	mss0 := changeSettings(c, msru0)
-	s.assertNoChange(c, msw0)
+	changeSettings(c, msru0)
+	msw0c.AssertNoChange()
 
 	// Join the second provider unit, start its watch, and check what it thinks the
 	// state of the relation is.
@@ -947,94 +936,84 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
-	s.assertChange(c, msw1, nil, nil)
-	s.assertNoChange(c, msw1)
+	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
+	msw1c.AssertChange(nil, nil)
+	msw1c.AssertNoChange()
 
 	// Change the unit's settings, and check that neither provider unit
 	// observes any change.
-	mss1 := changeSettings(c, msru1)
-	s.assertNoChange(c, msw1)
-	s.assertNoChange(c, msw0)
+	changeSettings(c, msru1)
+	msw1c.AssertNoChange()
+	msw0c.AssertNoChange()
 
 	// ---------- Two roles active ----------
 
 	// Start watches from both requirer units' perspectives, and check that
 	// they see the provider units.
-	expectChanged := map[string]map[string]interface{}{
-		"mysql/0": mss0.Map(),
-		"mysql/1": mss1.Map(),
-	}
+	expectChanged := []string{"mysql/0", "mysql/1"}
 	wpw0 := wpru0.Watch()
 	defer testing.AssertStop(c, wpw0)
-	s.assertChange(c, wpw0, expectChanged, nil)
-	s.assertNoChange(c, wpw0)
+	wpw0c := testing.NewRelationUnitsWatcherC(c, s.State, wpw0)
+	wpw0c.AssertChange(expectChanged, nil)
+	wpw0c.AssertNoChange()
 	wpw1 := wpru1.Watch()
 	defer testing.AssertStop(c, wpw1)
-	s.assertChange(c, wpw1, expectChanged, nil)
-	s.assertNoChange(c, wpw1)
+	wpw1c := testing.NewRelationUnitsWatcherC(c, s.State, wpw1)
+	wpw1c.AssertChange(expectChanged, nil)
+	wpw1c.AssertNoChange()
 
 	// Join the first requirer unit, and check the provider units see it.
 	err = wpru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	wps0, err := wpru0.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]map[string]interface{}{
-		"wordpress/0": wps0.Map(),
-	}
-	s.assertChange(c, msw0, expectChanged, nil)
-	s.assertNoChange(c, msw0)
-	s.assertChange(c, msw1, expectChanged, nil)
-	s.assertNoChange(c, msw1)
+	expectChanged = []string{"wordpress/0"}
+	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertNoChange()
+	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertNoChange()
 
 	// Join again, check no-op.
 	err = wpru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.assertNoChange(c, msw0)
-	s.assertNoChange(c, msw1)
+	msw0c.AssertNoChange()
+	msw1c.AssertNoChange()
 
 	// Join the second requirer, and check the provider units see the change.
 	err = wpru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	wps1, err := wpru1.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]map[string]interface{}{
-		"wordpress/1": wps1.Map(),
-	}
-	s.assertChange(c, msw0, expectChanged, nil)
-	s.assertNoChange(c, msw0)
-	s.assertChange(c, msw1, expectChanged, nil)
-	s.assertNoChange(c, msw1)
+	expectChanged = []string{"wordpress/1"}
+	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertNoChange()
+	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertNoChange()
 
 	// Verify that neither requirer has observed any change to the relation.
-	s.assertNoChange(c, wpw0)
-	s.assertNoChange(c, wpw1)
+	wpw0c.AssertNoChange()
+	wpw1c.AssertNoChange()
 
 	// Change settings for the first requirer, check providers see it...
-	wps0 = changeSettings(c, wpru0)
-	expectChanged = map[string]map[string]interface{}{
-		"wordpress/0": wps0.Map(),
-	}
-	s.assertChange(c, msw0, expectChanged, nil)
-	s.assertNoChange(c, msw0)
-	s.assertChange(c, msw1, expectChanged, nil)
-	s.assertNoChange(c, msw1)
+	changeSettings(c, wpru0)
+	expectChanged = []string{"wordpress/0"}
+	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertNoChange()
+	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertNoChange()
 
 	// ...and requirers don't.
-	s.assertNoChange(c, wpw0)
-	s.assertNoChange(c, wpw1)
+	wpw0c.AssertNoChange()
+	wpw1c.AssertNoChange()
 
 	// Depart the second requirer and check the providers see it...
 	err = wpru1.LeaveScope()
 	c.Assert(err, gc.IsNil)
 	expectDeparted := []string{"wordpress/1"}
-	s.assertChange(c, msw0, nil, expectDeparted)
-	s.assertNoChange(c, msw0)
-	s.assertChange(c, msw1, nil, expectDeparted)
-	s.assertNoChange(c, msw1)
+	msw0c.AssertChange(nil, expectDeparted)
+	msw0c.AssertNoChange()
+	msw1c.AssertChange(nil, expectDeparted)
+	msw1c.AssertNoChange()
 
 	// ...and the requirers don't.
-	s.assertNoChange(c, wpw0)
-	s.assertNoChange(c, wpw1)
+	wpw0c.AssertNoChange()
+	wpw1c.AssertNoChange()
 
 	// Cleanup handled by defers as before.
 }
@@ -1082,34 +1061,36 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// check the initial event.
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
-	s.assertChange(c, msw0, nil, nil)
-	s.assertNoChange(c, msw0)
+	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
+	msw0c.AssertChange(nil, nil)
+	msw0c.AssertNoChange()
 
 	// Join the unit to the relation, change its settings, and check that
 	// nothing apparently happens.
 	err = msru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	mss0 := changeSettings(c, msru0)
-	s.assertNoChange(c, msw0)
+	changeSettings(c, msru0)
+	msw0c.AssertNoChange()
 
 	// Watch the relation from the perspective of the second provider, and
 	// check initial event.
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
-	s.assertChange(c, msw1, nil, nil)
-	s.assertNoChange(c, msw1)
+	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
+	msw1c.AssertChange(nil, nil)
+	msw1c.AssertNoChange()
 
 	// Join the second provider unit to the relation, and check that neither
 	// watching unit observes any change.
 	err = msru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.assertNoChange(c, msw1)
-	s.assertNoChange(c, msw0)
+	msw1c.AssertNoChange()
+	msw0c.AssertNoChange()
 
 	// Change the unit's settings, and check that nothing apparently happens.
-	mss1 := changeSettings(c, msru1)
-	s.assertNoChange(c, msw1)
-	s.assertNoChange(c, msw0)
+	changeSettings(c, msru1)
+	msw1c.AssertNoChange()
+	msw0c.AssertNoChange()
 
 	// ---------- Two roles active ----------
 
@@ -1117,82 +1098,70 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// only sees the first provider (with which it shares a container).
 	lgw0 := lgru0.Watch()
 	defer testing.AssertStop(c, lgw0)
-	expectChanged := map[string]map[string]interface{}{
-		"mysql/0": mss0.Map(),
-	}
-	s.assertChange(c, lgw0, expectChanged, nil)
-	s.assertNoChange(c, lgw0)
+	lgw0c := testing.NewRelationUnitsWatcherC(c, s.State, lgw0)
+	expectChanged := []string{"mysql/0"}
+	lgw0c.AssertChange(expectChanged, nil)
+	lgw0c.AssertNoChange()
 
 	// Join the first requirer unit, and check that only the first provider
 	// observes the change.
 	err = lgru0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	lgs0, err := lgru0.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]map[string]interface{}{
-		"logging/0": lgs0.Map(),
-	}
-	s.assertChange(c, msw0, expectChanged, nil)
-	s.assertNoChange(c, msw0)
-	s.assertNoChange(c, msw1)
-	s.assertNoChange(c, lgw0)
+	expectChanged = []string{"logging/0"}
+	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertNoChange()
+	msw1c.AssertNoChange()
+	lgw0c.AssertNoChange()
 
 	// Watch from the second requirer's perspective, and check it only sees the
 	// second provider.
 	lgw1 := lgru1.Watch()
 	defer testing.AssertStop(c, lgw1)
-	expectChanged = map[string]map[string]interface{}{
-		"mysql/1": mss1.Map(),
-	}
-	s.assertChange(c, lgw1, expectChanged, nil)
-	s.assertNoChange(c, lgw1)
+	lgw1c := testing.NewRelationUnitsWatcherC(c, s.State, lgw1)
+	expectChanged = []string{"mysql/1"}
+	lgw1c.AssertChange(expectChanged, nil)
+	lgw1c.AssertNoChange()
 
 	// Join the second requirer, and check that the first provider observes it...
 	err = lgru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	lgs1, err := lgru1.Settings()
-	c.Assert(err, gc.IsNil)
-	expectChanged = map[string]map[string]interface{}{
-		"logging/1": lgs1.Map(),
-	}
-	s.assertChange(c, msw1, expectChanged, nil)
-	s.assertNoChange(c, msw1)
+	expectChanged = []string{"logging/1"}
+	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertNoChange()
 
 	// ...and that nothing else sees anything.
-	s.assertNoChange(c, msw0)
-	s.assertNoChange(c, lgw0)
-	s.assertNoChange(c, lgw1)
+	msw0c.AssertNoChange()
+	lgw0c.AssertNoChange()
+	lgw1c.AssertNoChange()
 
 	// Change the second provider's settings and check that the second
 	// requirer notices...
-	mss1 = changeSettings(c, msru1)
-	expectChanged = map[string]map[string]interface{}{
-		"mysql/1": mss1.Map(),
-	}
-	s.assertChange(c, lgw1, expectChanged, nil)
-	s.assertNoChange(c, lgw1)
+	changeSettings(c, msru1)
+	expectChanged = []string{"mysql/1"}
+	lgw1c.AssertChange(expectChanged, nil)
+	lgw1c.AssertNoChange()
 
 	// ...but that nothing else does.
-	s.assertNoChange(c, msw0)
-	s.assertNoChange(c, msw1)
-	s.assertNoChange(c, msw0)
+	msw0c.AssertNoChange()
+	msw1c.AssertNoChange()
+	msw0c.AssertNoChange()
 
 	// Finally, depart the first provider, and check that only the first
 	// requirer observes any change.
 	err = msru0.LeaveScope()
 	c.Assert(err, gc.IsNil)
 	expectDeparted := []string{"mysql/0"}
-	s.assertChange(c, lgw0, nil, expectDeparted)
-	s.assertNoChange(c, lgw0)
-	s.assertNoChange(c, lgw1)
-	s.assertNoChange(c, msw0)
-	s.assertNoChange(c, msw1)
+	lgw0c.AssertChange(nil, expectDeparted)
+	lgw0c.AssertNoChange()
+	lgw1c.AssertNoChange()
+	msw0c.AssertNoChange()
+	msw1c.AssertNoChange()
 
 	// Again, I think we're done, and can be comfortable that the appropriate
 	// connections are in place.
 }
 
-func changeSettings(c *gc.C, ru *state.RelationUnit) *state.Settings {
+func changeSettings(c *gc.C, ru *state.RelationUnit) {
 	node, err := ru.Settings()
 	c.Assert(err, gc.IsNil)
 	value, _ := node.Get("value")
@@ -1200,35 +1169,4 @@ func changeSettings(c *gc.C, ru *state.RelationUnit) *state.Settings {
 	node.Set("value", v+1)
 	_, err = node.Write()
 	c.Assert(err, gc.IsNil)
-	return node
-}
-
-func (s *WatchScopeSuite) assertChange(
-	c *gc.C, w *state.RelationUnitsWatcher,
-	changed map[string]map[string]interface{},
-	departed []string,
-) {
-	s.State.StartSync()
-	select {
-	case ch, ok := <-w.Changes():
-		if !ok {
-			c.Fatalf("channel closed; watcher error: %#v", w.Err())
-		}
-		c.Assert(ch.Changed, gc.HasLen, len(changed))
-		for name, m := range changed {
-			c.Assert(ch.Changed[name].Settings, gc.DeepEquals, m)
-		}
-		c.Assert(departed, jc.SameContents, ch.Departed)
-	case <-time.After(5 * time.Second):
-		c.Fatalf("expected changed %#v, departed %#v; got nothing", changed, departed)
-	}
-}
-
-func (s *WatchScopeSuite) assertNoChange(c *gc.C, w *state.RelationUnitsWatcher) {
-	s.State.StartSync()
-	select {
-	case ch := <-w.Changes():
-		c.Fatalf("got %#v, expected nothing", ch)
-	case <-time.After(50 * time.Millisecond):
-	}
 }

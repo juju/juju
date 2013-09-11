@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -49,6 +49,7 @@ type JujuConnSuite struct {
 	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
+	envtesting.ToolsFixture
 	Conn         *juju.Conn
 	State        *state.State
 	APIConn      *juju.APIConn
@@ -134,11 +135,13 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
+	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	config.SetJujuHome(s.oldJujuHome)
@@ -190,6 +193,18 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state, and
+// then uses that to open the API.
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword("test-password")
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	return s.openAPIAs(c, machine.Tag(), "test-password", "fake_nonce"), machine
+}
+
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
@@ -205,9 +220,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
 
-	// TODO(rog) remove these files and add them only when
-	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
+	yaml := []byte(fmt.Sprintf(envConfig, version.Current.Number))
+	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), yaml, 0600)
+	c.Assert(err, gc.IsNil)
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, gc.IsNil)

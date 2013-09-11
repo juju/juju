@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -35,12 +36,19 @@ func Test(t *stdtesting.T) {
 
 type NewConnSuite struct {
 	coretesting.LoggingSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewConnSuite{})
 
+func (cs *NewConnSuite) SetUpTest(c *gc.C) {
+	cs.LoggingSuite.SetUpTest(c)
+	cs.ToolsFixture.SetUpTest(c)
+}
+
 func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	cs.ToolsFixture.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }
 
@@ -215,6 +223,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 type ConnSuite struct {
 	coretesting.LoggingSuite
 	coretesting.MgoSuite
+	envtesting.ToolsFixture
 	conn *juju.Conn
 	repo *charm.LocalRepository
 }
@@ -224,6 +233,7 @@ var _ = gc.Suite(&ConnSuite{})
 func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
 	c.Assert(err, gc.IsNil)
 	environ, err := environs.Prepare(cfg)
@@ -246,6 +256,7 @@ func (s *ConnSuite) TearDownTest(c *gc.C) {
 	s.conn.Close()
 	s.conn = nil
 	dummy.Reset()
+	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }

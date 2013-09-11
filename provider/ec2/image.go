@@ -42,7 +42,7 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 	ec2Region := allRegions[ic.Region]
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
-		Series:    ic.Series,
+		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 	})
 	matchingImages, err := imagemetadata.Fetch(

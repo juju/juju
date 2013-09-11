@@ -17,6 +17,7 @@ import (
 func Test(t *testing.T) {
 	registerSimpleStreamsTests()
 	gc.Suite(&signingSuite{})
+	gc.Suite(&jsonSuite{})
 	gc.TestingT(t)
 }
 
@@ -31,7 +32,7 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: "precise",
+				Series: []string{"precise"},
 				Arches: []string{"amd64", "arm"},
 			}),
 		},
@@ -370,6 +371,24 @@ func (s *simplestreamsSuite) TestGetMirrorRefDefaultCloud(c *gc.C) {
 	c.Assert(mirrorRef.Format, gc.Equals, sstesting.Mirror_v1)
 	c.Assert(mirrorRef.Path, gc.Equals, "streams/v1/tools_metadata:more-mirrors.json")
 	c.Assert(mirrorRef.DataType, gc.Equals, "content-download")
+}
+
+func (s *simplestreamsSuite) TestSeriesVersion(c *gc.C) {
+	cleanup := simplestreams.SetSeriesVersions(make(map[string]string))
+	defer cleanup()
+	vers, err := simplestreams.SeriesVersion("precise")
+	if err != nil && err.Error() == `invalid series "precise"` {
+		c.Fatalf(`Unable to lookup series "precise", you may need to: apt-get install distro-info`)
+	}
+	c.Assert(err, gc.IsNil)
+	c.Assert(vers, gc.Equals, "12.04")
+}
+
+func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
+	cleanup := simplestreams.SetSeriesVersions(make(map[string]string))
+	defer cleanup()
+	series := simplestreams.SupportedSeries()
+	c.Assert(series, gc.DeepEquals, []string{"precise", "quantal", "raring", "saucy"})
 }
 
 var getMirrorTests = []struct {

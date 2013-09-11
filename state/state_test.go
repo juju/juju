@@ -1483,8 +1483,8 @@ var findEntityTests = []struct {
 	tag: "relation-blah",
 	err: `"relation-blah" is not a valid relation tag`,
 }, {
-	tag: "relation-42",
-	err: "relation 42 not found",
+	tag: "relation-svc1.rel1#svc2.rel2",
+	err: `relation "svc1:rel1 svc2:rel2" not found`,
 }, {
 	tag: "unit-foo",
 	err: `"unit-foo" is not a valid unit tag`,
@@ -1511,7 +1511,7 @@ var findEntityTests = []struct {
 }, {
 	tag: "service-ser-vice2",
 }, {
-	tag: "relation-0",
+	tag: "relation-wordpress.db#ser-vice2.server",
 }, {
 	tag: "unit-ser-vice2-0",
 }, {
@@ -1544,7 +1544,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
-	c.Assert(rel.Id(), gc.Equals, 0)
+	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)

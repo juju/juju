@@ -22,6 +22,15 @@ type storageSuite struct{}
 
 var _ = gc.Suite(&storageSuite{})
 
+func (s *storageSuite) TestList(c *gc.C) {
+	listener, _, _ := startServer(c)
+	defer listener.Close()
+	storage := localstorage.Client(listener.Addr().String())
+	names, err := storage.List("a/b/c")
+	c.Assert(err, gc.IsNil)
+	c.Assert(names, gc.HasLen, 0)
+}
+
 // TestPersistence tests the adding, reading, listing and removing
 // of files from the local storage.
 func (s *storageSuite) TestPersistence(c *gc.C) {

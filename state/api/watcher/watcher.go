@@ -222,3 +222,62 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 func (w *stringsWatcher) Changes() <-chan []string {
 	return w.out
 }
+
+// relationUnitsWatcher will sends notifications of units entering and
+// leaving the scope of a RelationUnit, and changes to the settings of
+// those units known to have entered.
+type relationUnitsWatcher struct {
+	commonWatcher
+	caller                 common.Caller
+	relationUnitsWatcherId string
+	out                    chan params.RelationUnitsChange
+}
+
+func NewRelationUnitsWatcher(caller common.Caller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
+	w := &relationUnitsWatcher{
+		caller:                 caller,
+		relationUnitsWatcherId: result.RelationUnitsWatcherId,
+		out: make(chan params.RelationUnitsChange),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(result.Changes))
+	}()
+	return w
+}
+
+func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) error {
+	changes := initialChanges
+	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
+	w.call = func(request string, result interface{}) error {
+		return w.caller.Call("RelationUnitsWatcher", w.relationUnitsWatcherId, request, nil, &result)
+	}
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		select {
+		// Send the initial event or subsequent change.
+		case w.out <- changes:
+		case <-w.tomb.Dying():
+			return nil
+		}
+		// Read the next change.
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error
+			// at this point, so just return.
+			return nil
+		}
+		changes = data.(*params.RelationUnitsWatchResult).Changes
+	}
+	return nil
+}
+
+// Changes returns a channel that will receive the changes to
+// counterpart units in a relation. The first event on the channel
+// holds the initial state of the relation in its Changed field.
+func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+	return w.out
+}
