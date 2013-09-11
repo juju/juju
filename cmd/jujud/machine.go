@@ -168,13 +168,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		ensureStateWorker()
 	}
 	runner := worker.NewRunner(allFatal, moreImportant)
-	// Only the machiner currently connects to the API.
-	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+	})
+	runner.StartWorker("logger", func() (worker.Worker, error) {
+		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	for _, job := range entity.Jobs() {
 		switch job {
@@ -209,9 +210,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
 	runner := worker.NewRunner(allFatal, moreImportant)
-	runner.StartWorker("logger", func() (worker.Worker, error) {
-		return logger.NewLogger(st), nil
-	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
