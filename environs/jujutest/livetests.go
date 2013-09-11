@@ -843,7 +843,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 
 	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig.Merge(coretesting.Attrs{
 		"state-server": false,
-		"name": "dummy storage",
+		"name":         "dummy storage",
 	}))
 	dummyenv, err := environs.Prepare(dummyCfg)
 	c.Assert(err, IsNil)

@@ -84,7 +84,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.APIPort, gc.Equals, cfg.APIPort())
 	c.Check(mcfg.Constraints, gc.DeepEquals, cons)
 
-	oldAttrs["ca-private-key"] = ""	 
+	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
 	delete(oldAttrs, "secret")
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)

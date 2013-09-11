@@ -19,13 +19,13 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -56,7 +56,7 @@ func registerAmazonTests() {
 		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
-		"agent-version": version.Current.Number.String(),
+		"agent-version":  version.Current.Number.String(),
 	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{

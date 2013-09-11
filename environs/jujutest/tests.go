@@ -35,7 +35,7 @@ type Tests struct {
 	coretesting.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
-	Env        environs.Environ
+	Env environs.Environ
 }
 
 // Open opens an instance of the testing environment.

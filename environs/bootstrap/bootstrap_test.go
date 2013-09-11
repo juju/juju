@@ -13,12 +13,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/environs/localstorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -145,9 +145,9 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()
 		attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
-			"state-server": false,
-			"development":     test.Development,
-			"default-series":  test.DefaultSeries,
+			"state-server":   false,
+			"development":    test.Development,
+			"default-series": test.DefaultSeries,
 		})
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
