@@ -15,7 +15,7 @@ import (
 var logger = loggo.GetLogger("juju.api.logger")
 
 // LoggerAPI defines the methods on the logger API end point.
-type LoggerAPI interface {
+type Logger interface {
 	WatchLoggingConfig(args params.Entities) params.NotifyWatchResults
 	LoggingConfig(args params.Entities) params.StringResults
 }
@@ -25,26 +25,26 @@ func NewLoggerAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (LoggerAPI, error) {
+) (*LoggerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	return &loggerAPI{state: st, resources: resources, authorizer: authorizer}, nil
+	return &LoggerAPI{state: st, resources: resources, authorizer: authorizer}, nil
 }
 
-type loggerAPI struct {
+type LoggerAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-var _ LoggerAPI = (*loggerAPI)(nil)
+var _ Logger = (*LoggerAPI)(nil)
 
 // WatchLoggingConfig starts a watcher to track changes to the logging config.
 // Unfortunately the current infrastruture makes watching parts of the config
 // non-trivial, so currently any change to the config will cause the watcher
 // to notify the client.
-func (api *loggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
+func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
 	result := make([]params.NotifyWatchResult, len(arg.Entities))
 	for i, entity := range arg.Entities {
 		err := common.ErrPerm
@@ -66,7 +66,7 @@ func (api *loggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 }
 
 // DesiredVersion reports the Agent Version that we want that agent to be running
-func (api *loggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
+func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 	results := make([]params.StringResult, len(arg.Entities))
 	// If someone is stupid enough to call this function with zero entities,
 	// lets punish them by making them wait for us to get the environ config
