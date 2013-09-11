@@ -8,17 +8,20 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/cert"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 func expandTilde(f string) string {
 	// TODO expansion of other user's home directories.
 	// Q what characters are valid in a user name?
 	if strings.HasPrefix(f, "~"+string(filepath.Separator)) {
-		return os.Getenv("HOME") + f[1:]
+		return path.Join(osenv.Home(), f[2:])
 	}
 	return f
 }
@@ -42,7 +45,7 @@ func readAuthorizedKeys(path string) (string, error) {
 	for _, f := range files {
 		f = expandTilde(f)
 		if !filepath.IsAbs(f) {
-			f = filepath.Join(os.Getenv("HOME"), ".ssh", f)
+			f = filepath.Join(osenv.Home(), ".ssh", f)
 		}
 		data, err := ioutil.ReadFile(f)
 		if err != nil {
