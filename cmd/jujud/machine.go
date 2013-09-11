@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -208,6 +209,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
 	runner := worker.NewRunner(allFatal, moreImportant)
+	runner.StartWorker("logger", func() (worker.Worker, error) {
+		return logger.NewLogger(st), nil
+	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
