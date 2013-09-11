@@ -464,7 +464,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	logConfig := env.config.LoggingConfig()
 	machineEnvironment := map[string]string{
 		"USER": env.config.user,
-		"HOME": os.Getenv("HOME"),
+		"HOME": osenv.Home(),
 	}
 	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),

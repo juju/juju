@@ -107,7 +107,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 	return result, nil
 }
 
-// SetPrivateAddress sets the public address of each of the given units.
+// SetPublicAddress sets the public address of each of the given units.
 func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
