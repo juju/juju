@@ -5,6 +5,7 @@ package sync
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"time"
@@ -27,7 +28,7 @@ var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
 	// Target holds the destination for the tool synchronization
-	Target environs.EnvironStorage
+	Target environs.Storage
 
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
@@ -35,10 +36,6 @@ type SyncContext struct {
 	// DryRun controls that nothing is copied. Instead it's logged
 	// what would be coppied.
 	DryRun bool
-
-	// PublicBucket controls the copy into the public pucket of the
-	// account instead of the private of the environment.
-	PublicBucket bool
 
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
@@ -58,13 +55,18 @@ func SyncTools(ctx *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, -1)
+	minorVersion := -1
+	if !ctx.AllVersions {
+		minorVersion = version.Current.Minor
+	}
+	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, minorVersion)
 	if err != nil {
 		return err
 	}
 	if !ctx.Dev {
-		// No development versions, only released ones.
-		filter := coretools.Filter{Released: true}
+		// If we are running from a dev version, then it is appropriate to allow
+		// dev version tools to be used.
+		filter := coretools.Filter{Released: !version.Current.IsDev()}
 		if sourceTools, err = sourceTools.Match(filter); err != nil {
 			return err
 		}
@@ -80,20 +82,7 @@ func SyncTools(ctx *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
-	targetStorage := ctx.Target.Storage()
-	if ctx.PublicBucket {
-		switch _, err := envtools.ReadList(targetStorage, majorVersion, -1); err {
-		case envtools.ErrNoTools:
-		case nil, coretools.ErrNoMatches:
-			return fmt.Errorf("private tools present: public tools would be ignored")
-		default:
-			return err
-		}
-		var ok bool
-		if targetStorage, ok = ctx.Target.PublicStorage().(environs.Storage); !ok {
-			return fmt.Errorf("cannot write to public storage")
-		}
-	}
+	targetStorage := ctx.Target
 	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
@@ -111,6 +100,16 @@ func SyncTools(ctx *SyncContext) error {
 		return err
 	}
 	logger.Infof("copied %d tools", len(missing))
+
+	logger.Infof("generating tools metadata")
+	if !ctx.DryRun {
+		targetTools = append(targetTools, missing...)
+		err = envtools.WriteMetadata(targetTools, false, targetStorage)
+		if err != nil {
+			return err
+		}
+	}
+	logger.Infof("tools metadata written")
 	return nil
 }
 
@@ -126,10 +125,7 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage, source environs.StorageReader) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
-		if ctx.DryRun {
-			continue
-		}
-		if err := copyOneToolsPackage(tool, dest, source); err != nil {
+		if err := copyOneToolsPackage(ctx, tool, dest, source); err != nil {
 			return err
 		}
 	}
@@ -137,7 +133,7 @@ func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
+func copyOneToolsPackage(ctx *SyncContext, tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := src.Get(toolsName)
@@ -154,11 +150,15 @@ func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src envir
 	}
 	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
+	sha256hash := sha256.New()
+	sha256hash.Write(buf.Bytes())
+	tool.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
+	tool.Size = nBytes
 
-	if err := dest.Put(toolsName, buf, nBytes); err != nil {
-		return err
+	if ctx.DryRun {
+		return nil
 	}
-	return nil
+	return dest.Put(toolsName, buf, nBytes)
 }
 
 // NewSyncLogWriter creates a loggo writer for registration

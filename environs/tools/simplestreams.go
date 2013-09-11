@@ -7,12 +7,20 @@
 package tools
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"hash"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
+	"bytes"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
-	"strings"
 )
 
 func init() {
@@ -74,6 +82,10 @@ type ToolsMetadata struct {
 	FullPath string `json:"-,omitempty"`
 	FileType string `json:"ftype"`
 	SHA256   string `json:"sha256"`
+}
+
+func (t *ToolsMetadata) String() string {
+	return fmt.Sprintf("%+v", *t)
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
@@ -163,4 +175,80 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 		}
 	}
 	return matchingTools
+}
+
+type MetadataFile struct {
+	Path string
+	Data []byte
+}
+
+func WriteMetadata(toolsList coretools.List, fetch bool, stor environs.StorageWriter) error {
+	metadataInfo, err := generateMetadata(toolsList, fetch)
+	if err != nil {
+		return err
+	}
+	for _, md := range metadataInfo {
+		logger.Infof("Writing %s", "tools/"+md.Path)
+		err = stor.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func generateMetadata(toolsList coretools.List, fetch bool) ([]MetadataFile, error) {
+	metadata := make([]*ToolsMetadata, len(toolsList))
+	for i, t := range toolsList {
+		var size int64
+		var sha256hex string
+		var err error
+		if fetch && t.Size == 0 {
+			logger.Infof("Fetching tools to generate hash: %v", t.URL)
+			var sha256hash hash.Hash
+			size, sha256hash, err = fetchToolsHash(t.URL)
+			if err != nil {
+				return nil, err
+			}
+			sha256hex = fmt.Sprintf("%x", sha256hash.Sum(nil))
+		} else {
+			size = t.Size
+			sha256hex = t.SHA256
+		}
+
+		path := fmt.Sprintf("releases/juju-%s-%s-%s.tgz", t.Version.Number, t.Version.Series, t.Version.Arch)
+		metadata[i] = &ToolsMetadata{
+			Release:  t.Version.Series,
+			Version:  t.Version.Number.String(),
+			Arch:     t.Version.Arch,
+			Path:     path,
+			FileType: "tar.gz",
+			Size:     size,
+			SHA256:   sha256hex,
+		}
+	}
+
+	index, products, err := MarshalToolsMetadataJSON(metadata, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	objects := []MetadataFile{
+		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{ProductMetadataPath, products},
+	}
+	return objects, nil
+}
+
+// fetchToolsHash fetches the file at the specified URL,
+// and calculates its size in bytes and computes a SHA256
+// hash of its contents.
+func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, nil, err
+	}
+	sha256hash = sha256.New()
+	size, err = io.Copy(sha256hash, resp.Body)
+	resp.Body.Close()
+	return size, sha256hash, err
 }

@@ -342,6 +342,9 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.INFO, "no series specified when finding tools, looking for any"},
 		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
 		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+		{loggo.WARNING, `no tools found using simplestreams metadata, using legacy fallback`},
+		{loggo.DEBUG, "reading v1.* tools"},
+		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 	})

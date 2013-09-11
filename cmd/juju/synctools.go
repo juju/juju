@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
 )
 
@@ -18,11 +19,11 @@ var syncTools = sync.SyncTools
 // bucket.
 type SyncToolsCommand struct {
 	cmd.EnvCommandBase
-	allVersions  bool
-	dryRun       bool
-	publicBucket bool
-	dev          bool
-	source       string
+	allVersions bool
+	dryRun      bool
+	dev         bool
+	source      string
+	destination string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -49,8 +50,8 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
-	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
 	f.StringVar(&c.source, "source", "", "chose a location on the file system as source")
+	f.StringVar(&c.destination, "destination", "", "chose a location on the file system as destination")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
 	// location, rather than only copying from us-east-1
@@ -68,14 +69,22 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
+	var target environs.Storage = environ.Storage()
+	if c.destination != "" {
+		target, err = filestorage.NewFileStorageWriter(c.destination)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Prepare syncing.
 	sctx := &sync.SyncContext{
-		Target:       environ,
-		AllVersions:  c.allVersions,
-		DryRun:       c.dryRun,
-		PublicBucket: c.publicBucket,
-		Dev:          c.dev,
-		Source:       c.source,
+		Target:      target,
+		AllVersions: c.allVersions,
+		DryRun:      c.dryRun,
+		Dev:         c.dev,
+		Source:      c.source,
 	}
 	return syncTools(sctx)
 }

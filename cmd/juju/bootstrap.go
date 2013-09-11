@@ -120,7 +120,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
-			Target: env,
+			Target: env.Storage(),
 			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {

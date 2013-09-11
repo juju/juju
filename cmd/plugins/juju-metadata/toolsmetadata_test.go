@@ -5,27 +5,22 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	_ "launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
@@ -42,74 +37,12 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)
+	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 }
 
 func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
+	loggo.ResetLoggers()
 	s.home.Restore()
-}
-
-func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
-	params := simplestreams.ValueParams{
-		DataType:      tools.ContentDownload,
-		ValueTemplate: tools.ToolsMetadata{},
-	}
-
-	source := simplestreams.NewHttpDataSource("file://" + metadataDir + "/tools")
-
-	const requireSigned = false
-	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
-	indexRef, err := simplestreams.GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
-	c.Assert(err, gc.IsNil)
-	c.Assert(indexRef.Indexes, gc.HasLen, 1)
-
-	toolsIndexMetadata := indexRef.Indexes["com.ubuntu.juju:released:tools"]
-	c.Assert(toolsIndexMetadata, gc.NotNil)
-
-	data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", toolsIndexMetadata.ProductsFilePath))
-	c.Assert(err, gc.IsNil)
-
-	url, err := source.URL(toolsIndexMetadata.ProductsFilePath)
-	c.Assert(err, gc.IsNil)
-	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, tools.ToolsMetadata{})
-	c.Assert(err, gc.IsNil)
-
-	toolsMetadataMap := make(map[string]*tools.ToolsMetadata)
-	var expectedProductIds set.Strings
-	var toolsVersions set.Strings
-	for _, mc := range cloudMetadata.Products {
-		for _, items := range mc.Items {
-			for key, item := range items.Items {
-				toolsMetadata := item.(*tools.ToolsMetadata)
-				toolsMetadataMap[key] = toolsMetadata
-				toolsVersions.Add(key)
-				seriesVersion, err := simplestreams.SeriesVersion(toolsMetadata.Release)
-				c.Assert(err, gc.IsNil)
-				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
-				expectedProductIds.Add(productId)
-			}
-		}
-	}
-
-	// Make sure index's product IDs are all represented in the products metadata.
-	sort.Strings(toolsIndexMetadata.ProductIds)
-	c.Assert(toolsIndexMetadata.ProductIds, gc.DeepEquals, expectedProductIds.SortedValues())
-
-	toolsMetadata := make([]*tools.ToolsMetadata, len(toolsMetadataMap))
-	for i, key := range toolsVersions.SortedValues() {
-		toolsMetadata[i] = toolsMetadataMap[key]
-	}
-	return toolsMetadata
-}
-
-func (s *ToolsMetadataSuite) makeTools(c *gc.C, metadataDir string, versionStrings []string) {
-	toolsDir := filepath.Join(metadataDir, "tools", "releases")
-	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	for _, versionString := range versionStrings {
-		binary := version.MustParseBinary(versionString)
-		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
-		err := ioutil.WriteFile(path, []byte(binary.String()), 0644)
-		c.Assert(err, gc.IsNil)
-	}
 }
 
 var currentVersionStrings = []string{
@@ -131,13 +64,13 @@ var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
 	expected := `Finding tools\.\.\.
-Fetching tools to generate hash: http://.*/tools/releases/juju-1\.12\.0-precise-amd64\.tgz
-Fetching tools to generate hash: http://.*/tools/releases/juju-1\.12\.0-precise-i386\.tgz
-Fetching tools to generate hash: http://.*/tools/releases/juju-1\.12\.0-raring-amd64\.tgz
-Fetching tools to generate hash: http://.*/tools/releases/juju-1\.12\.0-raring-i386\.tgz
-Fetching tools to generate hash: http://.*/tools/releases/juju-1\.13\.0-precise-amd64\.tgz
+.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-precise-amd64\.tgz
+.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-precise-i386\.tgz
+.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-raring-amd64\.tgz
+.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-raring-i386\.tgz
+.*Fetching tools to generate hash: .*/tools/.*juju-1\.13\.0-precise-amd64\.tgz
 `
-	f := "Fetching tools to generate hash: http://.*/tools/releases/juju-%s\\.tgz\n"
+	f := ".*Fetching tools to generate hash: .*/tools/.*juju-%s\\.tgz\n"
 	for _, v := range currentVersionStrings {
 		expected += fmt.Sprintf(f, regexp.QuoteMeta(v))
 	}
@@ -145,20 +78,23 @@ Fetching tools to generate hash: http://.*/tools/releases/juju-1\.13\.0-precise-
 }
 
 var expectedOutputDirectory = expectedOutputCommon + `
-Writing %s/tools/streams/v1/index\.json
-Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
+.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `
 
-func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
+func (s *ToolsMetadataSuite) assertGenerateDefaultDirectory(c *gc.C, subdir string) {
 	metadataDir := config.JujuHome() // default metadata dir
-	s.makeTools(c, metadataDir, versionStrings)
+	ttesting.MakeTools(c, metadataDir, subdir, versionStrings)
 	ctx := coretesting.Context(c)
+	oldWriter, err := loggo.ReplaceDefaultWriter(loggo.NewSimpleWriter(ctx.Stdout, &loggo.DefaultFormatter{}))
+	c.Assert(err, gc.IsNil)
+	defer loggo.ReplaceDefaultWriter(oldWriter)
+
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	expected := fmt.Sprintf(expectedOutputDirectory, metadataDir, metadataDir)
-	c.Assert(output, gc.Matches, expected)
-	metadata := s.parseMetadata(c, metadataDir)
+	c.Assert(output, gc.Matches, expectedOutputDirectory)
+	metadata := ttesting.ParseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -168,16 +104,27 @@ func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
+func (s *ToolsMetadataSuite) TestGenerateDefaultDirectoryLegacyToolsLocation(c *gc.C) {
+	s.assertGenerateDefaultDirectory(c, "")
+}
+
+func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
+	s.assertGenerateDefaultDirectory(c, "releases")
+}
+
 func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	metadataDir := c.MkDir()
-	s.makeTools(c, metadataDir, versionStrings)
+	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
+	oldWriter, err := loggo.ReplaceDefaultWriter(loggo.NewSimpleWriter(ctx.Stdout, &loggo.DefaultFormatter{}))
+	c.Assert(err, gc.IsNil)
+	defer loggo.ReplaceDefaultWriter(oldWriter)
+
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	expected := fmt.Sprintf(expectedOutputDirectory, metadataDir, metadataDir)
-	c.Assert(output, gc.Matches, expected)
-	metadata := s.parseMetadata(c, metadataDir)
+	c.Assert(output, gc.Matches, expectedOutputDirectory)
+	metadata := ttesting.ParseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -205,51 +152,47 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 		currentVersion.String() + ".1-precise-amd64",
 	}
 	metadataDir := config.JujuHome() // default metadata dir
-	s.makeTools(c, metadataDir, versionStrings)
+	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
+	oldWriter, err := loggo.ReplaceDefaultWriter(loggo.NewSimpleWriter(ctx.Stdout, &loggo.DefaultFormatter{}))
+	c.Assert(err, gc.IsNil)
+	defer loggo.ReplaceDefaultWriter(oldWriter)
+
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`
 Finding tools\.\.\.
-Fetching tools to generate hash: http://.*/tools/releases/juju-%s\.tgz
-Fetching tools to generate hash: http://.*/tools/releases/juju-%s\.tgz
-Writing %s/tools/streams/v1/index\.json
-Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
-`[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]), metadataDir, metadataDir)
+.*Fetching tools to generate hash: .*/tools/releases/juju-%s\.tgz
+.*Fetching tools to generate hash: .*/tools/releases/juju-%s\.tgz
+.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
+`[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
-	metadata := s.parseMetadata(c, metadataDir)
+	metadata := ttesting.ParseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, 2)
 
 	filename := fmt.Sprintf("juju-%s-precise-amd64.tgz", currentVersion)
+	size, sha256 := ttesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "releases", filename))
 	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String(),
 		Arch:     "amd64",
-		Size:     20,
+		Size:     size,
 		Path:     "releases/" + filename,
 		FileType: "tar.gz",
-		SHA256:   sha256sum(c, filepath.Join(metadataDir, "tools", "releases", filename)),
+		SHA256:   sha256,
 	})
 
 	filename = fmt.Sprintf("juju-%s.1-precise-amd64.tgz", currentVersion)
+	size, sha256 = ttesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "releases", filename))
 	c.Assert(metadata[1], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String() + ".1",
 		Arch:     "amd64",
-		Size:     22,
+		Size:     size,
 		Path:     "releases/" + filename,
 		FileType: "tar.gz",
-		SHA256:   sha256sum(c, filepath.Join(metadataDir, "tools", "releases", filename)),
+		SHA256:   sha256,
 	})
-}
-
-func sha256sum(c *gc.C, path string) string {
-	f, err := os.Open(path)
-	c.Assert(err, gc.IsNil)
-	defer f.Close()
-	hash := sha256.New()
-	_, err = io.Copy(hash, f)
-	c.Assert(err, gc.IsNil)
-	return fmt.Sprintf("%x", hash.Sum(nil))
 }
