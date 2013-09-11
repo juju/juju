@@ -11,6 +11,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 // EnvironConfig returns a default environment configuration suitable for
@@ -69,6 +70,7 @@ type TestFile struct {
 }
 
 type FakeHome struct {
+	oldHomeEnv     string
 	oldEnvironment map[string]string
 	oldJujuHome    string
 	files          []TestFile
@@ -124,12 +126,13 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 }
 
 func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
+	oldHomeEnv := osenv.Home()
 	oldEnvironment := make(map[string]string)
-	for _, name := range []string{"HOME", "JUJU_HOME", "JUJU_ENV", "JUJU_LOGGING_CONFIG"} {
+	for _, name := range []string{"JUJU_HOME", "JUJU_ENV", "JUJU_LOGGING_CONFIG"} {
 		oldEnvironment[name] = os.Getenv(name)
 	}
 	fakeHome := c.MkDir()
-	os.Setenv("HOME", fakeHome)
+	osenv.SetHome(fakeHome)
 	os.Setenv("JUJU_HOME", "")
 	os.Setenv("JUJU_ENV", "")
 	os.Setenv("JUJU_LOGGING_CONFIG", "")
@@ -143,7 +146,7 @@ func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
 }
 
 func HomePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
+	all := append([]string{osenv.Home()}, names...)
 	return filepath.Join(all...)
 }
 
@@ -152,6 +155,7 @@ func (h *FakeHome) Restore() {
 	for name, value := range h.oldEnvironment {
 		os.Setenv(name, value)
 	}
+	osenv.SetHome(h.oldHomeEnv)
 }
 
 func (h *FakeHome) AddFiles(c *C, files []TestFile) {

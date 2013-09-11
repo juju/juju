@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -378,13 +379,10 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 // default paths based on the $JUJU_HOME or $HOME environment variables.
 // This function should be called before calling NewConn or Conn.Deploy.
 func InitJujuHome() error {
-	jujuHome := os.Getenv("JUJU_HOME")
+	jujuHome := osenv.JujuHomeDir()
 	if jujuHome == "" {
-		home := os.Getenv("HOME")
-		if home == "" {
-			return stderrors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
-		}
-		jujuHome = filepath.Join(home, ".juju")
+		return stderrors.New(
+			"cannot determine juju home, required environment variables are not set")
 	}
 	config.SetJujuHome(jujuHome)
 	charm.CacheDir = filepath.Join(jujuHome, "charmcache")

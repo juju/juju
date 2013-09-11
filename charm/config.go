@@ -36,7 +36,7 @@ func (option Option) error(err *error, name string, value interface{}) {
 
 // validate returns an appropriately-typed value for the supplied value, or
 // returns an error if it cannot be converted to the correct type. Nil values
-// are always considered valid, and empty string values are converted to nil.
+// are always considered valid.
 func (option Option) validate(name string, value interface{}) (_ interface{}, err error) {
 	if value == nil {
 		return nil, nil
@@ -45,8 +45,6 @@ func (option Option) validate(name string, value interface{}) (_ interface{}, er
 	if checker := optionTypeCheckers[option.Type]; checker != nil {
 		if value, err = checker.Coerce(value, nil); err != nil {
 			return nil, err
-		} else if value == "" {
-			value = nil
 		}
 		return value, nil
 	}
@@ -61,12 +59,8 @@ var optionTypeCheckers = map[string]schema.Checker{
 }
 
 // parse returns an appropriately-typed value for the supplied string, or
-// returns an error if it cannot be parsed to the correct type. Empty
-// string values are returned as nil.
+// returns an error if it cannot be parsed to the correct type.
 func (option Option) parse(name, str string) (_ interface{}, err error) {
-	if str == "" {
-		return nil, nil
-	}
 	defer option.error(&err, name, str)
 	switch option.Type {
 	case "string":
