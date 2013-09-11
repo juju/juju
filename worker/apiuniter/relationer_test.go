@@ -71,8 +71,11 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RelationerSuite) TearDownTest(c *gc.C) {
-	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
+	if s.st != nil {
+		err := s.st.Close()
+		c.Assert(err, gc.IsNil)
+	}
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {

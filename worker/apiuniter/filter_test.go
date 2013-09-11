@@ -59,8 +59,10 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FilterSuite) TearDownTest(c *gc.C) {
-	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
+	if s.st != nil {
+		err := s.st.Close()
+		c.Assert(err, gc.IsNil)
+	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
