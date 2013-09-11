@@ -341,7 +341,7 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 }
 
 func (s *RelationerSuite) assertNoHook(c *gc.C) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	select {
 	case hi, ok := <-s.hooks:
 		c.Fatalf("got unexpected hook info %#v (%t)", hi, ok)
@@ -350,7 +350,7 @@ func (s *RelationerSuite) assertNoHook(c *gc.C) {
 }
 
 func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	// We must ensure the local state dir exists first.
 	c.Assert(s.dir.Ensure(), gc.IsNil)
 	select {

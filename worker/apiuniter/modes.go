@@ -29,18 +29,26 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	logger.Infof("updating unit addresses")
 	// TODO(dimitern): We might be able to drop all this address stuff
 	// entirely once we have machine addresses.
-	provider, err := environs.Provider(u.st.ProviderType())
+	providerType, err := u.st.ProviderType()
+	if err != nil {
+		return nil, err
+	}
+	provider, err := environs.Provider(providerType)
 	if err != nil {
 		return nil, err
 	}
 	if private, err := provider.PrivateAddress(); err != nil {
+		logger.Errorf("cannot get unit's private address: %v", err)
 		return nil, err
 	} else if err = u.unit.SetPrivateAddress(private); err != nil {
+		logger.Errorf("cannot set unit's private address: %v", err)
 		return nil, err
 	}
 	if public, err := provider.PublicAddress(); err != nil {
+		logger.Errorf("cannot get unit's public address: %v", err)
 		return nil, err
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
+		logger.Errorf("cannot set unit's public address: %v", err)
 		return nil, err
 	}
 	logger.Infof("reconciling relation state")
