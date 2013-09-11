@@ -93,6 +93,8 @@ wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' \|
 echo -n 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' > \$bin/downloaded-url\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+install -m 600 /dev/null '/etc/logrotate\.d/juju'
+printf '%s\\n' '/var/log/juju/\*\.log {\\n        daily\\n        minsize 5M\\n        maxsize 50M\\n        copytruncate\\n        rotate 7\\n        missingok\\n        compress\\n        delaycompress\\n}' > '/etc/logrotate\.d/juju'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
@@ -102,6 +104,7 @@ printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
 install -m 600 /dev/null '/var/lib/juju/server\.pem'
 printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
+chmod 0700 /var/lib/juju/db
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
@@ -156,6 +159,8 @@ wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' \| 
 echo -n 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' > \$bin/downloaded-url\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+install -m 600 /dev/null '/etc/logrotate\.d/juju'
+printf '%s\\n' '/var/log/juju/\*\.log {\\n        daily\\n        minsize 5M\\n        maxsize 50M\\n        copytruncate\\n        rotate 7\\n        missingok\\n        compress\\n        delaycompress\\n}' > '/etc/logrotate\.d/juju'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
@@ -165,6 +170,7 @@ printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
 install -m 600 /dev/null '/var/lib/juju/server\.pem'
 printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
+chmod 0700 /var/lib/juju/db
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
@@ -214,6 +220,8 @@ wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| t
 echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-99-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+install -m 600 /dev/null '/etc/logrotate\.d/juju'
+printf '%s\\n' '/var/log/juju/\*\.log {\\n        daily\\n        minsize 5M\\n        maxsize 50M\\n        copytruncate\\n        rotate 7\\n        missingok\\n        compress\\n        delaycompress\\n}' > '/etc/logrotate\.d/juju'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
@@ -257,6 +265,8 @@ wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| t
 echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-2-lxc-1-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-2-lxc-1.log\\n\$InputFileTag juju-machine-2-lxc-1:\\n\$InputFileStateFile machine-2-lxc-1\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+install -m 600 /dev/null '/etc/logrotate\.d/juju'
+printf '%s\\n' '/var/log/juju/\*\.log {\\n        daily\\n        minsize 5M\\n        maxsize 50M\\n        copytruncate\\n        rotate 7\\n        missingok\\n        compress\\n        delaycompress\\n}' > '/etc/logrotate\.d/juju'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/format'
