@@ -13,7 +13,9 @@ import (
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 )
@@ -24,6 +26,9 @@ type FilterSuite struct {
 	unit       *state.Unit
 	mysqlcharm *state.Charm
 	wpcharm    *state.Charm
+
+	st     *api.State
+	uniter *uniter.State
 }
 
 var _ = gc.Suite(&FilterSuite{})
@@ -44,10 +49,23 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
+
+	err = s.unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), "password")
+	c.Assert(s.st, gc.NotNil)
+	s.uniter = s.st.Uniter()
+	c.Assert(s.uniter, gc.NotNil)
+}
+
+func (s *FilterSuite) TearDownTest(c *gc.C) {
+	err := s.st.Close()
+	c.Assert(err, gc.IsNil)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	asserter := coretesting.NotifyAsserterC{
@@ -81,7 +99,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -107,7 +125,7 @@ func (s *FilterSuite) assertAgentTerminates(c *gc.C, f *filter) {
 }
 
 func (s *FilterSuite) TestServiceDeath(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	dyingAsserter := coretesting.NotifyAsserterC{
@@ -141,7 +159,7 @@ loop:
 }
 
 func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -200,7 +218,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	f, err := newFilter(s.State, unit.Name())
+	f, err := newFilter(s.uniter, unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -266,7 +284,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -321,7 +339,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
-	f, err = newFilter(s.State, s.unit.Name())
+	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	s.State.StartSync()
@@ -335,7 +353,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -355,7 +373,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	s.assertFilterDies(c, f)
 
 	// Filter died after the error, so restart it.
-	f, err = newFilter(s.State, s.unit.Name())
+	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -367,7 +385,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
-	f, err := newFilter(s.State, s.unit.Name())
+	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
@@ -415,7 +433,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	assertNoChange()
 
 	// Start a new filter, check initial event.
-	f, err = newFilter(s.State, s.unit.Name())
+	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	assertChange([]int{0, 2})

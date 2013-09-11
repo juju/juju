@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // Context is the interface that all hook helper commands
@@ -19,10 +20,10 @@ type Context interface {
 	UnitName() string
 
 	// PublicAddress returns the executing unit's public address.
-	PublicAddress() (string, bool)
+	PublicAddress() (string, error)
 
 	// PrivateAddress returns the executing unit's private address.
-	PrivateAddress() (string, bool)
+	PrivateAddress() (string, error)
 
 	// OpenPort marks the supplied port for opening when the executing unit's
 	// service is exposed.
@@ -76,14 +77,13 @@ type ContextRelation interface {
 	UnitNames() []string
 
 	// ReadSettings returns the settings of any remote unit in the relation.
-	ReadSettings(unit string) (map[string]interface{}, error)
+	ReadSettings(unit string) (params.Settings, error)
 }
 
 // Settings is implemented by types that manipulate unit settings.
 type Settings interface {
-	Map() map[string]interface{}
-	Get(string) (interface{}, bool)
-	Set(string, interface{})
+	Map() params.Settings
+	Set(string, string)
 	Delete(string)
 }
 

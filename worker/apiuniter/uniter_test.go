@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/fslock"
@@ -126,6 +127,7 @@ type context struct {
 	dataDir       string
 	s             *UniterSuite
 	st            *state.State
+	uniterState   *uniter.State
 	charms        coretesting.ResponseMap
 	hooks         []string
 	sch           *state.Charm
@@ -1118,7 +1120,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	ctx.uniter = apiuniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
+	ctx.uniter = apiuniter.NewUniter(ctx.uniterState, "u/0", ctx.dataDir)
 }
 
 type waitUniterDead struct {

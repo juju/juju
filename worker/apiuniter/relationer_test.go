@@ -16,6 +16,8 @@ import (
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/apiuniter"
@@ -28,9 +30,12 @@ type RelationerSuite struct {
 	hooks   chan hook.Info
 	svc     *state.Service
 	rel     *state.Relation
-	ru      *state.RelationUnit
 	dir     *relation.StateDir
 	dirPath string
+
+	st         *api.State
+	uniter     *uniter.State
+	apiRelUnit *uniter.RelationUnit
 }
 
 var _ = gc.Suite(&RelationerSuite{})
@@ -44,14 +49,33 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(rels, gc.HasLen, 1)
 	s.rel = rels[0]
-	s.ru = s.AddRelationUnit(c, "u/0")
+	_, unit := s.AddRelationUnit(c, "u/0")
 	s.dirPath = c.MkDir()
 	s.dir, err = relation.ReadStateDir(s.dirPath, s.rel.Id())
 	c.Assert(err, gc.IsNil)
 	s.hooks = make(chan hook.Info)
+
+	err = unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	c.Assert(s.st, gc.NotNil)
+	s.uniter = s.st.Uniter()
+	c.Assert(s.uniter, gc.NotNil)
+
+	apiUnit, err := s.uniter.Unit(unit.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRel, err := s.uniter.Relation(s.rel.Tag())
+	c.Assert(err, gc.IsNil)
+	s.apiRelUnit, err = apiRel.Unit(apiUnit)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) *state.RelationUnit {
+func (s *RelationerSuite) TearDownTest(c *gc.C) {
+	err := s.st.Close()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
 	u, err := s.svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.Name(), gc.Equals, name)
@@ -59,12 +83,12 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) *state.RelationU
 	c.Assert(err, gc.IsNil)
 	ru, err := s.rel.Unit(u)
 	c.Assert(err, gc.IsNil)
-	return ru
+	return ru, u
 }
 
 func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
-	ru1 := s.AddRelationUnit(c, "u/1")
-	r := apiuniter.NewRelationer(s.ru, s.dir, s.hooks)
+	ru1, _ := s.AddRelationUnit(c, "u/1")
+	r := apiuniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 
 	// u/1 does not consider u/0 to be alive.
 	w := ru1.Watch()
@@ -125,9 +149,9 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 }
 
 func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
-	ru1 := s.AddRelationUnit(c, "u/1")
-	ru2 := s.AddRelationUnit(c, "u/2")
-	r := apiuniter.NewRelationer(s.ru, s.dir, s.hooks)
+	ru1, _ := s.AddRelationUnit(c, "u/1")
+	ru2, _ := s.AddRelationUnit(c, "u/2")
+	r := apiuniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	c.Assert(r.IsImplicit(), gc.Equals, false)
 	err := r.Join()
 	c.Assert(err, gc.IsNil)
@@ -203,7 +227,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 }
 
 func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := apiuniter.NewRelationer(s.ru, s.dir, s.hooks)
+	r := apiuniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
 	c.Assert(err, gc.IsNil)
 	ctx := r.Context()
@@ -277,11 +301,11 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 }
 
 func (s *RelationerSuite) TestSetDying(c *gc.C) {
-	ru1 := s.AddRelationUnit(c, "u/1")
+	ru1, _ := s.AddRelationUnit(c, "u/1")
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, gc.IsNil)
-	r := apiuniter.NewRelationer(s.ru, s.dir, s.hooks)
+	r := apiuniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err = r.Join()
 	c.Assert(err, gc.IsNil)
 	r.StartHooks()
@@ -369,13 +393,30 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
-	ru, err := rel.Unit(u)
-	c.Assert(err, gc.IsNil)
 	relsDir := c.MkDir()
 	dir, err := relation.ReadStateDir(relsDir, rel.Id())
 	c.Assert(err, gc.IsNil)
 	hooks := make(chan hook.Info)
-	r := apiuniter.NewRelationer(ru, dir, hooks)
+
+	err = u.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+	st := s.OpenAPIAs(c, u.Tag(), "password")
+	c.Assert(st, gc.NotNil)
+	uniter := st.Uniter()
+	c.Assert(uniter, gc.NotNil)
+	defer func() {
+		err := st.Close()
+		c.Assert(err, gc.IsNil)
+	}()
+
+	apiUnit, err := uniter.Unit(u.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRel, err := uniter.Relation(rel.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRelUnit, err := apiRel.Unit(apiUnit)
+	c.Assert(err, gc.IsNil)
+
+	r := apiuniter.NewRelationer(apiRelUnit, dir, hooks)
 	c.Assert(r, checkers.Satisfies, (*apiuniter.Relationer).IsImplicit)
 
 	// Join the relationer; the dir won't be created until necessary

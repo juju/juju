@@ -16,14 +16,15 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	unitdebug "launchpad.net/juju-core/worker/apiuniter/debug"
 	"launchpad.net/juju-core/worker/apiuniter/jujuc"
 )
 
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
-	unit *state.Unit
+	unit *uniter.Unit
 
 	// configSettings holds the service configuration.
 	configSettings charm.Settings
@@ -52,7 +53,7 @@ type HookContext struct {
 	apiAddrs []string
 }
 
-func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
+func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation,
 	apiAddrs []string) *HookContext {
 	return &HookContext{
@@ -70,11 +71,11 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unit.Name()
 }
 
-func (ctx *HookContext) PublicAddress() (string, bool) {
+func (ctx *HookContext) PublicAddress() (string, error) {
 	return ctx.unit.PublicAddress()
 }
 
-func (ctx *HookContext) PrivateAddress() (string, bool) {
+func (ctx *HookContext) PrivateAddress() (string, error) {
 	return ctx.unit.PrivateAddress()
 }
 
@@ -255,18 +256,18 @@ func (l *hookLogger) stop() {
 }
 
 // SettingsMap is a map from unit name to relation settings.
-type SettingsMap map[string]map[string]interface{}
+type SettingsMap map[string]params.Settings
 
 // ContextRelation is the implementation of jujuc.ContextRelation.
 type ContextRelation struct {
-	ru *state.RelationUnit
+	ru *uniter.RelationUnit
 
 	// members contains settings for known relation members. Nil values
 	// indicate members whose settings have not yet been cached.
 	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
-	settings *state.Settings
+	settings *uniter.Settings
 
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its
@@ -276,7 +277,7 @@ type ContextRelation struct {
 
 // NewContextRelation creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
-func NewContextRelation(ru *state.RelationUnit, members map[string]int64) *ContextRelation {
+func NewContextRelation(ru *uniter.RelationUnit, members map[string]int64) *ContextRelation {
 	ctx := &ContextRelation{ru: ru, members: SettingsMap{}}
 	for unit := range members {
 		ctx.members[unit] = nil
@@ -288,7 +289,7 @@ func NewContextRelation(ru *state.RelationUnit, members map[string]int64) *Conte
 // WriteSettings persists all changes made to the unit's relation settings.
 func (ctx *ContextRelation) WriteSettings() (err error) {
 	if ctx.settings != nil {
-		_, err = ctx.settings.Write()
+		err = ctx.settings.Write()
 	}
 	return
 }
@@ -347,7 +348,7 @@ func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	return ctx.settings, nil
 }
 
-func (ctx *ContextRelation) ReadSettings(unit string) (settings map[string]interface{}, err error) {
+func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings, err error) {
 	settings, member := ctx.members[unit]
 	if settings == nil {
 		if settings = ctx.cache[unit]; settings == nil {
