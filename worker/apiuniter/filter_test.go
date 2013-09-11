@@ -50,19 +50,28 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 
-	err = s.unit.SetPassword("password")
+	s.APILogin(c, s.unit)
+}
+
+func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
+	s.APIClose(c)
+	err := unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), "password")
+	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
 	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *FilterSuite) TearDownTest(c *gc.C) {
+func (s *FilterSuite) APIClose(c *gc.C) {
 	if s.st != nil {
 		err := s.st.Close()
 		c.Assert(err, gc.IsNil)
 	}
+}
+
+func (s *FilterSuite) TearDownTest(c *gc.C) {
+	s.APIClose(c)
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -71,7 +80,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 	asserter := coretesting.NotifyAsserterC{
-		Precond: func() { s.State.StartSync() },
+		Precond: func() { s.BackingState.StartSync() },
 		C:       c,
 		Chan:    f.UnitDying(),
 	}
@@ -114,7 +123,7 @@ func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
 // Ensure we get a signal on f.Dead()
 func (s *FilterSuite) assertFilterDies(c *gc.C, f *filter) {
 	asserter := coretesting.NotifyAsserterC{
-		Precond: func() { s.State.StartSync() },
+		Precond: func() { s.BackingState.StartSync() },
 		C:       c,
 		Chan:    f.Dead(),
 	}
@@ -132,7 +141,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	defer f.Stop()
 	dyingAsserter := coretesting.NotifyAsserterC{
 		C:       c,
-		Precond: func() { s.State.StartSync() },
+		Precond: func() { s.BackingState.StartSync() },
 		Chan:    f.UnitDying(),
 	}
 	dyingAsserter.AssertNoReceive()
@@ -148,7 +157,7 @@ loop:
 		case <-f.UnitDying():
 			break loop
 		case <-time.After(coretesting.ShortWait):
-			s.State.StartSync()
+			s.BackingState.StartSync()
 		case <-timeout:
 			c.Fatalf("dead not detected")
 		}
@@ -167,7 +176,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 
 	resolvedAsserter := coretesting.ContentAsserterC{
 		C:       c,
-		Precond: func() { s.State.StartSync() },
+		Precond: func() { s.BackingState.StartSync() },
 		Chan:    f.ResolvedEvents(),
 	}
 	resolvedAsserter.AssertNoReceive()
@@ -184,15 +193,15 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	// Change the unit's resolved to an interesting value; new event received.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, gc.IsNil)
-	assertChange := func(expect state.ResolvedMode) {
-		rm := resolvedAsserter.AssertOneReceive().(state.ResolvedMode)
+	assertChange := func(expect params.ResolvedMode) {
+		rm := resolvedAsserter.AssertOneReceive().(params.ResolvedMode)
 		c.Assert(rm, gc.Equals, expect)
 	}
-	assertChange(state.ResolvedRetryHooks)
+	assertChange(params.ResolvedRetryHooks)
 
 	// Ask for the event again, and check it's resent.
 	f.WantResolvedEvent()
-	assertChange(state.ResolvedRetryHooks)
+	assertChange(params.ResolvedRetryHooks)
 
 	// Clear the resolved status *via the filter*; check not resent...
 	err = f.ClearResolved()
@@ -210,7 +219,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, gc.IsNil)
-	assertChange(state.ResolvedNoHooks)
+	assertChange(params.ResolvedNoHooks)
 }
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
@@ -220,13 +229,15 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
+	s.APILogin(c, unit)
+
 	f, err := newFilter(s.uniter, unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
 
 	// No initial event is sent.
 	assertNoChange := func() {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case sch := <-f.UpgradeEvents():
 			c.Fatalf("unexpected %#v", sch)
@@ -254,7 +265,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	err = svc.SetCharm(newCharm, false)
 	c.Assert(err, gc.IsNil)
 	assertChange := func(url *charm.URL) {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case upgradeCharm := <-f.UpgradeEvents():
 			c.Assert(upgradeCharm, gc.DeepEquals, url)
@@ -292,7 +303,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 
 	// Test no changes before the charm URL is set.
 	assertNoChange := func() {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
@@ -305,7 +316,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, gc.IsNil)
 	assertChange := func() {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case _, ok := <-f.ConfigEvents():
 			c.Assert(ok, gc.Equals, true)
@@ -334,7 +345,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	time.Sleep(250 * time.Millisecond)
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -344,7 +355,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	f.DiscardConfigEvent()
 	assertNoChange()
 
@@ -360,7 +371,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	defer f.Stop()
 
 	assertNoChange := func() {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
@@ -392,7 +403,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	defer f.Stop()
 
 	assertNoChange := func() {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case ids := <-f.RelationsEvents():
 			c.Fatalf("unexpected relations event %#v", ids)
@@ -405,7 +416,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	rel0 := s.addRelation(c)
 	rel1 := s.addRelation(c)
 	assertChange := func(expect []int) {
-		s.State.StartSync()
+		s.BackingState.StartSync()
 		select {
 		case got := <-f.RelationsEvents():
 			c.Assert(got, gc.DeepEquals, expect)

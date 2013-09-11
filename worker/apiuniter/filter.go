@@ -237,6 +237,12 @@ func (f *filter) DiscardConfigEvent() {
 	}
 }
 
+func (f *filter) maybeStopWatcher(w watcher.Stopper) {
+	if w != nil {
+		watcher.Stop(w, &f.tomb)
+	}
+}
+
 func (f *filter) loop(unitTag string) (err error) {
 	f.unit, err = f.st.Unit(unitTag)
 	if err != nil {
@@ -256,26 +262,28 @@ func (f *filter) loop(unitTag string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer watcher.Stop(unitw, &f.tomb)
+	defer f.maybeStopWatcher(unitw)
 	servicew, err := f.service.Watch()
 	if err != nil {
 		return err
 	}
-	defer watcher.Stop(servicew, &f.tomb)
+	defer f.maybeStopWatcher(servicew)
 	// configw and relationsw can get restarted, so we need to use
 	// their eventual values in the defer calls.
 	var configw apiwatcher.NotifyWatcher
 	var configChanges <-chan struct{}
 	curl, err := f.unit.CharmURL()
-	if err != nil {
+	if err == nil {
+		configw, err = f.unit.WatchConfigSettings()
+		if err != nil {
+			return err
+		}
+		configChanges = configw.Changes()
+		f.upgradeFrom.url = curl
+	} else if err != uniter.ErrNoCharmURLSet {
+		filterLogger.Errorf("unit charm: %v", err)
 		return err
 	}
-	configw, err = f.unit.WatchConfigSettings()
-	if err != nil {
-		return err
-	}
-	configChanges = configw.Changes()
-	f.upgradeFrom.url = curl
 	defer func() {
 		if configw != nil {
 			watcher.Stop(configw, &f.tomb)
@@ -285,7 +293,11 @@ func (f *filter) loop(unitTag string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { watcher.Stop(relationsw, &f.tomb) }()
+	defer func() {
+		if relationsw != nil {
+			watcher.Stop(relationsw, &f.tomb)
+		}
+	}()
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial change, we unblock discard requests by
