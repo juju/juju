@@ -300,6 +300,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	dbDir := filepath.Join(cfg.DataDir, "db")
 	c.AddScripts(
 		"mkdir -p "+dbDir+"/journal",
+		"chmod 0700 "+dbDir,
 		// Otherwise we get three files with 100M+ each, which takes time.
 		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.0",
 		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.1",
