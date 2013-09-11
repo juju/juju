@@ -29,6 +29,7 @@ const (
 	StorageAddr       = "STORAGE_ADDR"
 	SharedStorageDir  = "SHARED_STORAGE_DIR"
 	SharedStorageAddr = "SHARED_STORAGE_ADDR"
+	LoggingConfig     = "LOGGING_CONFIG"
 )
 
 type Config interface {

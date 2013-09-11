@@ -186,7 +186,8 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --constraints "+shquote(cfg.Constraints.String())+
-				" --log-config "+shquote(cfg.Config.LoggingConfig()),
+				" --log-config "+shquote(cfg.Config.LoggingConfig())+
+				" --show-log",
 			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
