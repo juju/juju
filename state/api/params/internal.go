@@ -118,6 +118,11 @@ type RelationUnits struct {
 	RelationUnits []RelationUnit
 }
 
+// RelationIds holds multiple relation ids.
+type RelationIds struct {
+	RelationIds []int
+}
+
 // RelationUnitPair holds a relation tag, a local and remote unit tags.
 type RelationUnitPair struct {
 	Relation   string
@@ -145,10 +150,11 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings
 }
 
-// RelationResult holds the relation id, key and the local endpoint
-// for a single relation or an error.
+// RelationResult returns information about a single relation,
+// or an error.
 type RelationResult struct {
 	Error    *Error
+	Life     Life
 	Id       int
 	Key      string
 	Endpoint Endpoint

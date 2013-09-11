@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -95,9 +96,16 @@ func (st *State) Service(tag string) (*Service, error) {
 //
 // TODO(dimitern): We might be able to drop this, once we have machine
 // addresses implemented fully. See also LP bug 1221798.
-func (st *State) ProviderType() string {
-	// TODO: Call Uniter.ProviderType()
-	panic("not implemented")
+func (st *State) ProviderType() (string, error) {
+	var result params.StringResult
+	err := st.caller.Call("Uniter", "", "ProviderType", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	if err := result.Error; err != nil {
+		return "", err
+	}
+	return result.Result, nil
 }
 
 // Charm returns the charm with the given URL.
@@ -113,11 +121,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 // Relation returns the existing relation with the given tag.
 func (st *State) Relation(tag string) (*Relation, error) {
-	// Get the life, then get the id and other info.
-	life, err := st.life(tag)
-	if err != nil {
-		return nil, err
-	}
 	result, err := st.relation(tag, st.unitTag)
 	if err != nil {
 		return nil, err
@@ -125,7 +128,33 @@ func (st *State) Relation(tag string) (*Relation, error) {
 	return &Relation{
 		id:   result.Id,
 		tag:  tag,
-		life: life,
+		life: result.Life,
+		st:   st,
+	}, nil
+}
+
+// Relation returns the existing relation with the given tag.
+func (st *State) RelationById(id int) (*Relation, error) {
+	var results params.RelationResults
+	args := params.RelationIds{
+		RelationIds: []int{id},
+	}
+	err := st.caller.Call("Uniter", "", "RelationById", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	relationTag := names.RelationTag(result.Key)
+	return &Relation{
+		id:   result.Id,
+		tag:  relationTag,
+		life: result.Life,
 		st:   st,
 	}, nil
 }
@@ -133,4 +162,17 @@ func (st *State) Relation(tag string) (*Relation, error) {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	return &Environment{st}, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Uniter", "", "APIAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return result.Result, nil
 }

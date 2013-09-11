@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"errors"
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
@@ -153,6 +154,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
 	return names.UnitService(u.Name())
+}
+
+// ServiceTag returns the service tag.
+func (u *Unit) ServiceTag() string {
+	return names.ServiceTag(u.ServiceName())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -381,6 +387,8 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 	return result.OneError()
 }
 
+var ErrNoCharmURLSet = errors.New("unit has no charm url set")
+
 // CharmURL returns the charm URL this unit is currently using.
 //
 // NOTE: This differs from state.Unit.CharmURL() by returning
@@ -408,7 +416,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 		}
 		return curl, nil
 	}
-	return nil, fmt.Errorf("%q has no charm url set", u.tag)
+	return nil, ErrNoCharmURLSet
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.

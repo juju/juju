@@ -265,7 +265,7 @@ func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
 
 	// Now check the same through the API.
 	_, err := s.apiUnit.CharmURL()
-	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no charm url set`)
+	c.Assert(err, gc.Equals, uniter.ErrNoCharmURLSet)
 
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, gc.IsNil)
@@ -347,4 +347,9 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
+	c.Assert(s.apiUnit.ServiceName(), gc.Equals, "wordpress")
+	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, "service-wordpress")
 }

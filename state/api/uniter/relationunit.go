@@ -133,7 +133,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(uname string) (map[string]interface{}, error) {
+func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 	tag := names.UnitTag(uname)
 	var results params.SettingsResults
 	args := params.RelationUnitPairs{
@@ -154,12 +154,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (map[string]interface{}, erro
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	// Code expects map[string]interface{}, so we need to convert.
-	settings := make(map[string]interface{})
-	for k, v := range result.Settings {
-		settings[k] = v
-	}
-	return settings, nil
+	return result.Settings, nil
 }
 
 // Watch returns a watcher that notifies of changes to counterpart
