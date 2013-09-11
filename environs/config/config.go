@@ -89,6 +89,13 @@ func New(attrs map[string]interface{}) (*Config, error) {
 		c.m["default-series"] = DefaultSeries
 	}
 
+	// If the logging config hasn't been set, then look in the environment.
+	if c.asString("logging-config") == "" {
+		if environmentValue := os.Getenv("JUJU_LOGGING_CONFIG"); environmentValue != "" {
+			c.m["logging-config"] = environmentValue
+		}
+	}
+
 	// Load authorized-keys-path into authorized-keys if necessary.
 	path := c.asString("authorized-keys-path")
 	keys := c.asString("authorized-keys")
@@ -155,6 +162,13 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.m["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+		}
+	}
+
+	// If the logging config is set, make sure it is valid.
+	if v, ok := cfg.m["logging-config"].(string); ok {
+		if _, err := loggo.ParseConfigurationString(v); err != nil {
+			return err
 		}
 	}
 
@@ -359,6 +373,16 @@ func (c *Config) SSLHostnameVerification() bool {
 	return c.m["ssl-hostname-verification"].(bool)
 }
 
+// LoggingConfig returns the configuration string for the loggers.
+func (c *Config) LoggingConfig() string {
+	value := c.asString("logging-config")
+	if value == "" {
+		// Nothing specified explicitly, so get what loggo has.
+		value = loggo.LoggerInfo()
+	}
+	return value
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -408,6 +432,7 @@ var fields = schema.Fields{
 	"ssl-hostname-verification": schema.Bool(),
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
+	"logging-config":            schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -427,6 +452,7 @@ var defaults = schema.Defaults{
 	"ssl-hostname-verification": true,
 	"state-port":                schema.Omit,
 	"api-port":                  schema.Omit,
+	"logging-config":            schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
