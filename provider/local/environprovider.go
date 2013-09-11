@@ -105,7 +105,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 // BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
 func (environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/get-started/local/
+## https://juju.ubuntu.com/docs/config-local.html
 local:
   type: local
   admin-secret: {{rand}}

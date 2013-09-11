@@ -406,10 +406,10 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 
 // parseSettingsCompatible parses setting strings in a way that is
 // campatible with the behavior before this CL based on the issue
-// http://pad.lv/1194945. Until then setting options to empty strings
-// unsetted the option. Now empty strings are valid for string options
-// while they lead to an error for other types. This function helps
-// the API to keep the old behavior so that API users can rely on it.
+// http://pad.lv/1194945. Until then setting an option to an empty
+// string caused it to reset to the default value. We now allow
+// empty strings as actual values, but we want to preserve the API
+// behavior.
 func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm.Settings, error) {
 	setSettings := map[string]string{}
 	unsetSettings := charm.Settings{}
