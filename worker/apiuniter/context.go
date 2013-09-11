@@ -26,6 +26,14 @@ import (
 type HookContext struct {
 	unit *uniter.Unit
 
+	// privateAddress is the cached value of the unit's private
+	// address.
+	privateAddress string
+
+	// publicAddress is the cached value of the unit's public
+	// address.
+	publicAddress string
+
 	// configSettings holds the service configuration.
 	configSettings charm.Settings
 
@@ -56,7 +64,7 @@ type HookContext struct {
 func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation,
 	apiAddrs []string) *HookContext {
-	return &HookContext{
+	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
 		uuid:           uuid,
@@ -65,18 +73,26 @@ func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 		relations:      relations,
 		apiAddrs:       apiAddrs,
 	}
+	// Get and cache the addresses.
+	// We ignore the errors here, becasue we only
+	// care if the addresses are set or not, and
+	// we don't want them to change while a hook
+	// is executed.
+	ctx.publicAddress, _ = unit.PublicAddress()
+	ctx.privateAddress, _ = unit.PrivateAddress()
+	return ctx
 }
 
 func (ctx *HookContext) UnitName() string {
 	return ctx.unit.Name()
 }
 
-func (ctx *HookContext) PublicAddress() (string, error) {
-	return ctx.unit.PublicAddress()
+func (ctx *HookContext) PublicAddress() (string, bool) {
+	return ctx.publicAddress, ctx.publicAddress != ""
 }
 
-func (ctx *HookContext) PrivateAddress() (string, error) {
-	return ctx.unit.PrivateAddress()
+func (ctx *HookContext) PrivateAddress() (string, bool) {
+	return ctx.privateAddress, ctx.privateAddress != ""
 }
 
 func (ctx *HookContext) OpenPort(protocol string, port int) error {

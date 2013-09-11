@@ -20,10 +20,10 @@ type Context interface {
 	UnitName() string
 
 	// PublicAddress returns the executing unit's public address.
-	PublicAddress() (string, error)
+	PublicAddress() (string, bool)
 
 	// PrivateAddress returns the executing unit's private address.
-	PrivateAddress() (string, error)
+	PrivateAddress() (string, bool)
 
 	// OpenPort marks the supplied port for opening when the executing unit's
 	// service is exposed.

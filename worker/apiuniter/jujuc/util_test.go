@@ -86,12 +86,12 @@ func (c *Context) UnitName() string {
 	return "u/0"
 }
 
-func (c *Context) PublicAddress() (string, error) {
-	return "gimli.minecraft.testing.invalid", nil
+func (c *Context) PublicAddress() (string, bool) {
+	return "gimli.minecraft.testing.invalid", true
 }
 
-func (c *Context) PrivateAddress() (string, error) {
-	return "192.168.0.99", nil
+func (c *Context) PrivateAddress() (string, bool) {
+	return "192.168.0.99", true
 }
 
 func (c *Context) OpenPort(protocol string, port int) error {

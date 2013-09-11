@@ -48,15 +48,14 @@ func (c *UnitGetCommand) Init(args []string) error {
 }
 
 func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
-	var err error
-	value := ""
+	value, ok := "", false
 	if c.Key == "private-address" {
-		value, err = c.ctx.PrivateAddress()
+		value, ok = c.ctx.PrivateAddress()
 	} else {
-		value, err = c.ctx.PublicAddress()
+		value, ok = c.ctx.PublicAddress()
 	}
-	if err != nil {
-		return err
+	if !ok {
+		return fmt.Errorf("%s not set", c.Key)
 	}
 	return c.out.Write(ctx, value)
 }
