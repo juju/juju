@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"launchpad.net/goyaml"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -111,16 +112,6 @@ func StartInstanceWithConstraints(c *gc.C, env environs.Environ, machineId strin
 
 const AdminSecret = "dummy-secret"
 
-var envConfig = `
-environments:
-    dummyenv:
-        type: dummy
-        state-server: true
-        authorized-keys: 'i-am-a-key'
-        admin-secret: ` + AdminSecret + `
-        agent-version: %s
-`
-
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -220,9 +211,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
 
-	yaml := []byte(fmt.Sprintf(envConfig, version.Current.Number))
-	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), yaml, 0600)
-	c.Assert(err, gc.IsNil)
+	// TODO(rog) remove these files and add them only when
+	// the tests specifically need them (in cmd/juju for example)
+	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, gc.IsNil)

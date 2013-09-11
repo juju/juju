@@ -5,11 +5,13 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	gc "launchpad.net/gocheck"
+
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"strings"
 )
 
 type GetEnvironmentSuite struct {
@@ -63,16 +65,11 @@ func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
 	// Make sure that all the environment keys are there. The admin
 	// secret and CA private key are never pushed into the
 	// environment.
-	any := "(.|\n)*" // because . doesn't match new lines.
 	for key := range s.Conn.Environ.Config().AllAttrs() {
-		pattern := fmt.Sprintf("%s%s: %s", any, key, any)
-		if key != "admin-secret" && key != "ca-private-key" {
-			c.Check(output, gc.Matches, pattern)
-		} else {
-			// This could be fail if values contain something
-			// that matches, but at least we'll fail safe.
-			c.Check(output, gc.Not(gc.Matches), pattern)
-		}
+		c.Logf("test for key %q", key)
+		any := `(.|\n)*`
+		pattern := fmt.Sprintf(`(?m)^%s:`, key)
+		c.Check(output, gc.Matches, any+pattern+any)
 	}
 }
 

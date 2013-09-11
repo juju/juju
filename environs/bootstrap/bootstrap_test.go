@@ -13,10 +13,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/environs/localstorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 )
@@ -144,17 +144,11 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 	for i, test := range allTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()
-		attrs := map[string]interface{}{
-			"name":            "test",
-			"type":            "dummy",
-			"state-server":    false,
-			"admin-secret":    "a-secret",
-			"authorized-keys": "i-am-a-key",
-			"ca-cert":         coretesting.CACert,
-			"ca-private-key":  coretesting.CAKey,
+		attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+			"state-server": false,
 			"development":     test.Development,
 			"default-series":  test.DefaultSeries,
-		}
+		})
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
 		}
