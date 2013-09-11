@@ -28,3 +28,12 @@ func (s *stateSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
 }
+
+func (s *stateSuite) TestProviderType(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	providerType, err := s.uniter.ProviderType()
+	c.Assert(err, gc.IsNil)
+	c.Assert(providerType, gc.DeepEquals, cfg.Type())
+}
