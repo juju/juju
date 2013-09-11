@@ -452,12 +452,20 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 
 	machineId := "0" // Always machine 0
 	tag := names.MachineTag(machineId)
-	toolsDir := agenttools.SharedToolsDir(dataDir, agentTools.Version)
+
+	// make sure we create the symlink so we have it for the upstart config to use
+	if _, err := agenttools.ChangeAgentTools(dataDir, tag, agentTools.Version); err != nil {
+		logger.Errorf("could not create tools directory symlink: %v", err)
+		return err
+	}
+
+	toolsDir := agenttools.ToolsDir(dataDir, tag)
+
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
 		"USER":                      env.config.user,
-		"HOME":                      os.Getenv("HOME"),
+		"HOME":                      osenv.Home(),
 		osenv.JujuProviderType:      env.config.Type(),
 		osenv.JujuStorageDir:        env.config.storageDir(),
 		osenv.JujuStorageAddr:       env.config.storageAddr(),

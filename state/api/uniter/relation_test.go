@@ -67,7 +67,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 	err = s.apiRelation.Refresh()
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {
@@ -97,4 +97,20 @@ func (s *relationSuite) TestUnit(c *gc.C) {
 	// We just ensure we get the correct type, more tests
 	// are done in relationunit_test.go.
 	c.Assert(apiRelUnit, gc.FitsTypeOf, (*uniter.RelationUnit)(nil))
+}
+
+func (s *relationSuite) TestRelationById(c *gc.C) {
+	apiRel, err := s.uniter.RelationById(s.stateRelation.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiRel, gc.DeepEquals, s.apiRelation)
+
+	// Add a relation to mysql service, which cannot be retrived.
+	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+
+	// Test some invalid cases.
+	for _, relId := range []int{-1, 42, otherRel.Id()} {
+		apiRel, err = s.uniter.RelationById(relId)
+		c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+		c.Assert(apiRel, gc.IsNil)
+	}
 }
