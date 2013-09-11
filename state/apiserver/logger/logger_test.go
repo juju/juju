@@ -21,7 +21,7 @@ type loggerSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
-	logger     logger.LoggerAPI
+	logger     *logger.LoggerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 }
