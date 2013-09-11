@@ -139,6 +139,7 @@ func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
 	jujuHome := filepath.Join(fakeHome, ".juju")
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
+		oldHomeEnv:     oldHomeEnv,
 		oldEnvironment: oldEnvironment,
 		oldJujuHome:    oldJujuHome,
 		files:          []TestFile{},
