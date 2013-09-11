@@ -34,7 +34,7 @@ import (
 type MachineSuite struct {
 	agentSuite
 	lxc.TestSuite
-	oldCacheDir string
+	restoreCache jc.Restorer
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -42,10 +42,11 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	s.oldCacheDir = charm.CacheDir
+	s.restoreCache = jc.Set(&charm.CacheDir, c.MkDir())
 }
 
 func (s *MachineSuite) TearDownSuite(c *gc.C) {
+	s.restoreCacheDir()
 	charm.CacheDir = s.oldCacheDir
 	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
@@ -54,6 +55,7 @@ func (s *MachineSuite) TearDownSuite(c *gc.C) {
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+	
 	newRunner = newMockRunner
 }
 
