@@ -3,6 +3,4 @@
 
 package client
 
-import ()
-
 var ParseSettingsCompatible = parseSettingsCompatible

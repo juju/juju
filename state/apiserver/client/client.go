@@ -245,7 +245,7 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	if err != nil {
 		return err
 	}
-	// Parse config in a compatile way (see function comment).
+	// Parse config in a compatible way (see function comment).
 	changes, err := parseSettingsCompatible(ch, settings)
 	if err != nil {
 		return err
@@ -405,7 +405,7 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 }
 
 // parseSettingsCompatible parses setting strings in a way that is
-// campatible with the behavior before this CL based on the issue
+// compatible with the behavior before this CL based on the issue
 // http://pad.lv/1194945. Until then setting an option to an empty
 // string caused it to reset to the default value. We now allow
 // empty strings as actual values, but we want to preserve the API
