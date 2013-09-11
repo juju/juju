@@ -147,10 +147,14 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 	// be interrupted.
 	st, newPassword, err := agentConfig.OpenAPI(api.DialOpts{})
 	if err != nil {
+		if params.ErrCode(err) == params.CodeUnauthorized {
+			err = worker.ErrTerminateAgent
+		}
 		return nil, nil, err
 	}
 	entity, err := st.Agent().Entity(a.Tag())
-	if params.ErrCode(err) == params.CodeNotFound || err == nil && entity.Life() == params.Dead {
+	if params.ErrCode(err) == params.CodeUnauthorized ||
+		err == nil && entity.Life() == params.Dead {
 		err = worker.ErrTerminateAgent
 	}
 	if err != nil {
