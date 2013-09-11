@@ -21,7 +21,7 @@ type loggerSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
-	logger     logger.LoggerAPI
+	logger     *logger.LoggerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 }
@@ -80,14 +80,9 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
+	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"logging-config": loggingConfig})
+	c.Assert(err, gc.IsNil)
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	newConfig, err := envConfig.Apply(
-		map[string]interface{}{"logging-config": loggingConfig})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
-	envConfig, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(envConfig.LoggingConfig(), gc.Equals, loggingConfig)
 }
