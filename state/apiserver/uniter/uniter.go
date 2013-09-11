@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -48,16 +49,9 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			return tag == names.ServiceTag(unit.ServiceName())
 		}, nil
 	}
-	accessRelation := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			_, _, err := names.ParseTag(tag, names.RelationTagKind)
-			return err == nil
-		}, nil
-	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	accessUnitServiceOrRelation := common.AuthEither(accessUnitOrService, accessRelation)
 	return &UniterAPI{
-		LifeGetter:         common.NewLifeGetter(st, accessUnitServiceOrRelation),
+		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
@@ -113,7 +107,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 	return result, nil
 }
 
-// SetPrivateAddress sets the public address of each of the given units.
+// SetPublicAddress sets the public address of each of the given units.
 func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -629,24 +623,56 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTa
 	return rel, unit, err
 }
 
+func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	ep, err := rel.Endpoint(unit.ServiceName())
+	if err != nil {
+		// An error here means the unit's service is not part of the
+		// relation.
+		return nothing, err
+	}
+	return params.RelationResult{
+		Id:   rel.Id(),
+		Key:  rel.String(),
+		Life: params.Life(rel.Life().String()),
+		Endpoint: params.Endpoint{
+			ServiceName: ep.ServiceName,
+			Relation:    ep.Relation,
+		},
+	}, nil
+}
+
 func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
 	if err != nil {
 		return nothing, err
 	}
-	ep, err := rel.Endpoint(unit.ServiceName())
-	if err != nil {
+	return u.prepareRelationResult(rel, unit)
+}
+
+func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	rel, err := u.st.Relation(relId)
+	if errors.IsNotFoundError(err) {
+		return nothing, common.ErrPerm
+	} else if err != nil {
 		return nothing, err
 	}
-	return params.RelationResult{
-		Id:  rel.Id(),
-		Key: rel.String(),
-		Endpoint: params.Endpoint{
-			ServiceName: ep.ServiceName,
-			Relation:    ep.Relation,
-		},
-	}, nil
+	// Use the currently authenticated unit to get the endpoint.
+	unit, ok := u.auth.GetAuthEntity().(*state.Unit)
+	if !ok {
+		panic("authenticated entity is not a unit")
+	}
+	result, err := u.prepareRelationResult(rel, unit)
+	if err != nil {
+		// An error from prepareRelationResult means the authenticated
+		// unit's service is not part of the requested
+		// relation. That's why it's appropriate to return ErrPerm
+		// here.
+		return nothing, common.ErrPerm
+	}
+	return result, nil
 }
 
 func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.RelationUnit, error) {
@@ -669,6 +695,23 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	}
 	for i, rel := range args.RelationUnits {
 		relParams, err := u.getOneRelation(canAccess, rel.Relation, rel.Unit)
+		if err == nil {
+			result.Results[i] = relParams
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// RelationById returns information about all given relations,
+// specified by their ids, including their key and the local
+// endpoint.
+func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResults, error) {
+	result := params.RelationResults{
+		Results: make([]params.RelationResult, len(args.RelationIds)),
+	}
+	for i, relId := range args.RelationIds {
+		relParams, err := u.getOneRelationById(relId)
 		if err == nil {
 			result.Results[i] = relParams
 		}
@@ -893,4 +936,30 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
+func (u *UniterAPI) APIAddresses() (params.StringsResult, error) {
+	nothing := params.StringsResult{}
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return nothing, err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nothing, err
+	}
+	_, apiInfo, err := env.StateInfo()
+	if err != nil {
+		return nothing, err
+	}
+	return params.StringsResult{
+		Result: apiInfo.Addrs,
+	}, nil
 }
