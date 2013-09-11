@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
@@ -610,6 +611,7 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ssl-hostname-verification": true,
 		"image-metadata-url":        "",
 		"tools-url":                 "",
+		"logging-config":            loggo.LoggerInfo(),
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, gc.IsNil)
