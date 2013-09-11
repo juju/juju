@@ -140,7 +140,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		nonce:     nonce,
 		stateInfo: stateInfo,
 		apiInfo:   apiInfo,
-		tools:     args.Tools,
+		tools:     tools,
 	})
 	if err != nil {
 		return m, err

@@ -10,9 +10,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/environs"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 type provisionerSuite struct {
@@ -32,9 +35,11 @@ func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	// Prepare a mock ssh response for the detection phase.
+	const series = "precise"
+	const arch = "amd64"
 	detectionoutput := strings.Join([]string{
-		"edgy",
-		"armv4",
+		series,
+		arch,
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
@@ -43,16 +48,19 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	hostname := args.Host
 	args.Host = "ubuntu@" + args.Host
 
+	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
+	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
 	defer sshresponse(c, detectionScript, detectionoutput, 0)()
 	defer sshresponse(c, checkProvisionedScript, "", 0)()
 	m, err := ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "no matching tools available")
+	c.Assert(err, gc.ErrorMatches, "no tools available")
 	c.Assert(m, gc.IsNil)
 
 	cfg := s.Conn.Environ.Config()
-	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, nil, cfg.DefaultSeries(), nil, false)
-	c.Assert(err, gc.IsNil)
-	args.Tools = toolsList[0]
+	number, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	binVersion := version.Binary{number, series, arch}
+	envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
 		defer sshresponse(c, "", "", errorCode)() // executing script
