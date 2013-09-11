@@ -186,6 +186,14 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
+func (t *localServerSuite) TestSanityCheckConstraints(c *gc.C) {
+	var cons constraints.Value
+	c.Check(t.Env.SanityCheckConstraints(cons), gc.IsNil)
+	cons.Container = new(instance.ContainerType)
+	*cons.Container = instance.LXC
+	c.Check(t.Env.SanityCheckConstraints(cons), gc.ErrorMatches, "ec2 provider does not support containers")
+}
+
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.Bootstrap(t.Env, constraints.Value{})

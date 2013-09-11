@@ -4,10 +4,14 @@
 package main
 
 import (
+	"errors"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -129,4 +133,14 @@ func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	s.assertForceMachine(c, svc, 3, 1, machine.Id()+"/lxc/0")
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
+}
+
+func (s *AddUnitSuite) TestAddUnitSanityCheckConstraints(c *gc.C) {
+	s.setupService(c)
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	dummy.SanityCheckConstraintsError = errors.New("computer says no")
+	err = runAddUnit(c, "some-service-name", "--to", "lxc:"+machine.Id())
+	c.Assert(err, gc.ErrorMatches, "computer says no")
 }

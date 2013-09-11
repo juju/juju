@@ -140,6 +140,15 @@ type Environ interface {
 	InstanceBroker
 	config.HasConfig
 
+	// SanityCheckConstraints performs sanity checking on the specified
+	// constraints, checking that they are possibly valid for creating an
+	// instance in this environment.
+	//
+	// If this method returns nil, it is not guaranteed that the constraints
+	// are valid; if a non-nil error is returned, then the constraints are
+	// definitely invalid.
+	SanityCheckConstraints(cons constraints.Value) error
+
 	// Name returns the Environ's name.
 	Name() string
 

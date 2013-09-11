@@ -64,6 +64,12 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	return env, nil
 }
 
+// SanityCheckConstraints is specified in the Environ interface.
+func (e *maasEnviron) SanityCheckConstraints(cons constraints.Value) error {
+	return nil
+}
+
+// Name is specified in the Environ interface.
 func (env *maasEnviron) Name() string {
 	return env.name
 }

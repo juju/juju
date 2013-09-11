@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -130,6 +131,16 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	}
 
 	return key, nil
+}
+
+// SanityCheckConstraints is specified in the Environ interface.
+func (env *azureEnviron) SanityCheckConstraints(cons constraints.Value) error {
+	// This check can either go away or be relaxed when the azure
+	// provider manages container addressibility.
+	if cons.Container != nil {
+		return errors.New("azure provider does not support containers")
+	}
+	return nil
 }
 
 // Name is specified in the Environ interface.

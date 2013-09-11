@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -301,6 +302,16 @@ func (e *environ) s3() *s3.S3 {
 	s3 := e.s3Unlocked
 	e.ecfgMutex.Unlock()
 	return s3
+}
+
+// SanityCheckConstraints is specified in the Environ interface.
+func (e *environ) SanityCheckConstraints(cons constraints.Value) error {
+	// This check can either go away or be relaxed when the ec2
+	// provider manages container addressibility.
+	if cons.Container != nil {
+		return errors.New("ec2 provider does not support containers")
+	}
+	return nil
 }
 
 func (e *environ) Name() string {

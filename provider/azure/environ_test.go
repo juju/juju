@@ -86,6 +86,15 @@ func (*environSuite) TestName(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, env.name)
 }
 
+func (*environSuite) TestSanityCheckConstraints(c *gc.C) {
+	env := azureEnviron{name: "foo"}
+	var cons constraints.Value
+	c.Check(env.SanityCheckConstraints(cons), gc.IsNil)
+	cons.Container = new(instance.ContainerType)
+	*cons.Container = instance.LXC
+	c.Check(env.SanityCheckConstraints(cons), gc.ErrorMatches, "azure provider does not support containers")
+}
+
 func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 	cfg := new(config.Config)
 	ecfg := azureEnvironConfig{Config: cfg}

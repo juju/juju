@@ -95,6 +95,11 @@ func (env *localEnviron) ensureCertOwner() error {
 	return nil
 }
 
+// SanityCheckConstraints is specified in the Environ interface.
+func (env *localEnviron) SanityCheckConstraints(cons constraints.Value) error {
+	return nil
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
 	if !env.config.runningAsRoot {

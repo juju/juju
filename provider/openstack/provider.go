@@ -406,6 +406,16 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
+// SanityCheckConstraints is specified in the Environ interface.
+func (e *environ) SanityCheckConstraints(cons constraints.Value) error {
+	// This check can either go away or be relaxed when the openstack
+	// provider manages container addressibility.
+	if cons.Container != nil {
+		return errors.New("openstack provider does not support containers")
+	}
+	return nil
+}
+
 func (e *environ) Name() string {
 	return e.name
 }

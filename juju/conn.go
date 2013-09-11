@@ -312,6 +312,37 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
+	var machineId string
+	var containerType instance.ContainerType
+	if machineIdSpec != "" {
+		if n != 1 {
+			return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
+		}
+		// machineIdSpec may be an existing machine or container, eg 3/lxc/2
+		// or a new container on a machine, eg lxc:3
+		machineId = machineIdSpec
+		specParts := strings.Split(machineIdSpec, ":")
+		if len(specParts) > 1 {
+			firstPart := specParts[0]
+			var err error
+			if containerType, err = instance.ParseSupportedContainerType(firstPart); err == nil {
+				machineId = strings.Join(specParts[1:], "/")
+			} else {
+				machineId = machineIdSpec
+			}
+		}
+		if !names.IsMachine(machineId) {
+			return nil, fmt.Errorf("invalid force machine id %q", machineId)
+		}
+		if containerType != "" {
+			var cons constraints.Value
+			cons.Container = &containerType
+			if err := conn.Environ.SanityCheckConstraints(cons); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
@@ -321,48 +352,26 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
-		if machineIdSpec != "" {
-			if n != 1 {
-				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
-			}
-			// machineIdSpec may be an existing machine or container, eg 3/lxc/2
-			// or a new container on a machine, eg lxc:3
-			mid := machineIdSpec
-			var containerType instance.ContainerType
-			specParts := strings.Split(machineIdSpec, ":")
-			if len(specParts) > 1 {
-				firstPart := specParts[0]
-				var err error
-				if containerType, err = instance.ParseSupportedContainerType(firstPart); err == nil {
-					mid = strings.Join(specParts[1:], "/")
-				} else {
-					mid = machineIdSpec
-				}
-			}
-			if !names.IsMachine(mid) {
-				return nil, fmt.Errorf("invalid force machine id %q", mid)
-			}
-
+		if machineId != "" {
 			var err error
 			var m *state.Machine
 			// If a container is to be used, create it.
 			if containerType != "" {
 				params := state.AddMachineParams{
 					Series:        unit.Series(),
-					ParentId:      mid,
+					ParentId:      machineId,
 					ContainerType: containerType,
 					Jobs:          []state.MachineJob{state.JobHostUnits},
 				}
 				m, err = conn.State.AddMachineWithConstraints(&params)
 
 			} else {
-				m, err = conn.State.Machine(mid)
+				m, err = conn.State.Machine(machineId)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("cannot assign unit %q to machine: %v", unit.Name(), err)
 			}
 			err = unit.AssignToMachine(m)
-
 			if err != nil {
 				return nil, err
 			}
