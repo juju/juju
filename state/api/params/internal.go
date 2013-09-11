@@ -118,6 +118,11 @@ type RelationUnits struct {
 	RelationUnits []RelationUnit
 }
 
+// RelationIds holds multiple relation ids.
+type RelationIds struct {
+	RelationIds []int
+}
+
 // RelationUnitPair holds a relation tag, a local and remote unit tags.
 type RelationUnitPair struct {
 	Relation   string
@@ -145,10 +150,11 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings
 }
 
-// RelationResult holds the relation id, key and the local endpoint
-// for a single relation or an error.
+// RelationResult returns information about a single relation,
+// or an error.
 type RelationResult struct {
 	Error    *Error
+	Life     Life
 	Id       int
 	Key      string
 	Endpoint Endpoint
@@ -346,4 +352,39 @@ type StringsWatchResult struct {
 // returning a list of StringsWatchers.
 type StringsWatchResults struct {
 	Results []StringsWatchResult
+}
+
+// UnitSettings holds information about a service unit's settings
+// within a relation.
+type UnitSettings struct {
+	Version int64
+}
+
+// RelationUnitsChange holds notifications of units entering and leaving the
+// scope of a RelationUnit, and changes to the settings of those units known
+// to have entered.
+//
+// When remote units first enter scope and then when their settings
+// change, the changes will be noted in the Changed field, which holds
+// the unit settings for every such unit, indexed by the unit id.
+//
+// When remote units leave scope, their ids will be noted in the
+// Departed field, and no further events will be sent for those units.
+type RelationUnitsChange struct {
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
+// RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
+// and an error (if any).
+type RelationUnitsWatchResult struct {
+	RelationUnitsWatcherId string
+	Changes                RelationUnitsChange
+	Error                  *Error
+}
+
+// RelationUnitsWatchResults holds the results for any API call which ends up
+// returning a list of RelationUnitsWatchers.
+type RelationUnitsWatchResults struct {
+	Results []RelationUnitsWatchResult
 }

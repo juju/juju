@@ -5,7 +5,7 @@ package relation
 
 import (
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/tomb"
@@ -25,7 +25,7 @@ type HookQueue interface {
 type RelationUnitsWatcher interface {
 	Err() error
 	Stop() error
-	Changes() <-chan state.RelationUnitsChange
+	Changes() <-chan params.RelationUnitsChange
 }
 
 // AliveHookQueue aggregates values obtained from a relation units watcher
@@ -110,7 +110,7 @@ func (q *AliveHookQueue) loop(initial *State) {
 		panic("AliveHookQueue must be started with a fresh RelationUnitsWatcher")
 	}
 	q.changedPending = initial.ChangedPending
-	ch0 := state.RelationUnitsChange{}
+	ch0 := params.RelationUnitsChange{}
 	for unit, version := range initial.Members {
 		q.info[unit] = &unitInfo{
 			unit:    unit,
@@ -166,7 +166,7 @@ func (q *AliveHookQueue) empty() bool {
 
 // update modifies the queue such that the hook.Info values it sends will
 // reflect the supplied change.
-func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
+func (q *AliveHookQueue) update(ruc params.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
 	for unit := range ruc.Changed {

@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
@@ -108,6 +107,10 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
+		params.BaseURLs, err = imagemetadata.GetMetadataURLs(environ)
+		if err != nil {
+			return err
+		}
 	} else {
 		prov, err := environs.Provider(c.providerType)
 		if err != nil {
@@ -132,18 +135,11 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	if c.endpoint != "" {
 		params.Endpoint = c.endpoint
 	}
-	// If the metadata files are to be loaded from a directory, we need to register
-	// a file http transport.
 	if c.metadataDir != "" {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-
 		params.BaseURLs = []string{"file://" + c.metadataDir}
-		t := &http.Transport{}
-		t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-		c := &http.Client{Transport: t}
-		simplestreams.SetHttpClient(c)
 	}
 
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

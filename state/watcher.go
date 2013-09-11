@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -51,6 +52,14 @@ type NotifyWatcher interface {
 type StringsWatcher interface {
 	Watcher
 	Changes() <-chan []string
+}
+
+// RelationUnitsWatcher generates signals when units enter or leave
+// the scope of a RelationUnit, and changes to the settings of those
+// units known to have entered.
+type RelationUnitsWatcher interface {
+	Watcher
+	Changes() <-chan params.RelationUnitsChange
 }
 
 // commonWatcher is part of all client watchers.
@@ -544,46 +553,31 @@ func (w *RelationScopeWatcher) loop() error {
 	return nil
 }
 
-// RelationUnitsWatcher sends notifications of units entering and leaving the
+// relationUnitsWatcher sends notifications of units entering and leaving the
 // scope of a RelationUnit, and changes to the settings of those units known
 // to have entered.
-type RelationUnitsWatcher struct {
+type relationUnitsWatcher struct {
 	commonWatcher
 	sw       *RelationScopeWatcher
 	watching set.Strings
 	updates  chan watcher.Change
-	out      chan RelationUnitsChange
+	out      chan params.RelationUnitsChange
 }
 
-var _ Watcher = (*RelationUnitsWatcher)(nil)
-
-// RelationUnitsChange holds notifications of units entering and leaving the
-// scope of a RelationUnit, and changes to the settings of those units known
-// to have entered.
-//
-// When remote units first enter scope and then when their settings
-// change, the changes will be noted in the Changed field, which holds
-// the unit settings for every such unit, indexed by the unit id.
-//
-// When remote units leave scope, their ids will be noted in the
-// Departed field, and no further events will be sent for those units.
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
+var _ Watcher = (*relationUnitsWatcher)(nil)
 
 // Watch returns a watcher that notifies of changes to conterpart units in
 // the relation.
-func (ru *RelationUnit) Watch() *RelationUnitsWatcher {
+func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 	return newRelationUnitsWatcher(ru)
 }
 
-func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
-	w := &RelationUnitsWatcher{
+func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
+	w := &relationUnitsWatcher{
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
 		updates:       make(chan watcher.Change),
-		out:           make(chan RelationUnitsChange),
+		out:           make(chan params.RelationUnitsChange),
 	}
 	go func() {
 		defer w.finish()
@@ -596,26 +590,26 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 // counterpart units in a relation. The first event on the
 // channel holds the initial state of the relation in its
 // Changed field.
-func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 	return w.out
 }
 
-func (changes *RelationUnitsChange) empty() bool {
+func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
 // mergeSettings reads the relation settings node for the unit with the
 // supplied id, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key string) (int64, error) {
+func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) (int64, error) {
 	node, err := readSettings(w.st, key)
 	if err != nil {
 		return -1, err
 	}
 	name := (&relationScopeDoc{key}).unitName()
-	settings := UnitSettings{Version: node.txnRevno}
+	settings := params.UnitSettings{Version: node.txnRevno}
 	if changes.Changed == nil {
-		changes.Changed = map[string]UnitSettings{name: settings}
+		changes.Changed = map[string]params.UnitSettings{name: settings}
 	} else {
 		changes.Changed[name] = settings
 	}
@@ -625,7 +619,7 @@ func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key s
 // mergeScope starts and stops settings watches on the units entering and
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
-func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *RelationScopeChange) error {
+func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
 		revno, err := w.mergeSettings(changes, key)
@@ -659,7 +653,7 @@ func remove(strs []string, s string) []string {
 	return strs
 }
 
-func (w *RelationUnitsWatcher) finish() {
+func (w *relationUnitsWatcher) finish() {
 	watcher.Stop(w.sw, &w.tomb)
 	for _, watchedValue := range w.watching.Values() {
 		w.st.watcher.Unwatch(w.st.settings.Name, watchedValue, w.updates)
@@ -669,9 +663,9 @@ func (w *RelationUnitsWatcher) finish() {
 	w.tomb.Done()
 }
 
-func (w *RelationUnitsWatcher) loop() (err error) {
+func (w *relationUnitsWatcher) loop() (err error) {
 	sentInitial := false
-	changes := RelationUnitsChange{}
+	changes := params.RelationUnitsChange{}
 	out := w.out
 	out = nil
 	for {
@@ -687,7 +681,7 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
 			}
-			if !sentInitial || !changes.empty() {
+			if !sentInitial || !emptyRelationUnitsChanges(&changes) {
 				out = w.out
 			} else {
 				out = nil
@@ -699,7 +693,7 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 			out = w.out
 		case out <- changes:
 			sentInitial = true
-			changes = RelationUnitsChange{}
+			changes = params.RelationUnitsChange{}
 			out = nil
 		}
 	}

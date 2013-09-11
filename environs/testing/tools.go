@@ -16,6 +16,22 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// ToolsFixture is used as a fixture to stub out the default tools URL so we
+// don't hit the real internet during tests.
+type ToolsFixture struct {
+	origDefaultURL string
+	DefaultBaseURL string
+}
+
+func (s *ToolsFixture) SetUpTest(c *C) {
+	s.origDefaultURL = envtools.DefaultBaseURL
+	envtools.DefaultBaseURL = s.DefaultBaseURL
+}
+
+func (s *ToolsFixture) TearDownTest(c *C) {
+	envtools.DefaultBaseURL = s.origDefaultURL
+}
+
 func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*coretools.Tools, error) {
 	data := vers.String()
 	name := envtools.StorageName(vers)
