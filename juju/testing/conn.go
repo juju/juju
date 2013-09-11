@@ -304,7 +304,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return sch
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *C, tag string) agent.Config {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:        s.DataDir(),
@@ -315,6 +315,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *C, tag string) agent.Config {
 			APIAddresses:   s.APIInfo(c).Addrs,
 			CACert:         []byte(testing.CACert),
 		})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return config
 }
