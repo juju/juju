@@ -164,10 +164,6 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.wordpress.Life(), gc.Equals, state.Dying)
 
-	// Check relation life as well.
-	c.Assert(rel.Refresh(), gc.IsNil)
-	c.Assert(rel.Life(), gc.Equals, state.Dying)
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -191,10 +187,8 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 			{Life: "dying"},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Life: "dying"},
-			{Error: &params.Error{
-				Code:    "not found",
-				Message: `relation "svc1:rel1 svc2:rel2" not found`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -486,7 +480,7 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 
 func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Add a subordinate to wordpressUnit.
-	_, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 
 	principal, ok := subordinate.PrincipalName()
 	c.Assert(principal, gc.Equals, s.wordpressUnit.Name())
@@ -528,7 +522,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
 	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	c.Assert(err, gc.IsNil)
 	rel := s.addRelation(c, firstSvc, relatedSvc)
@@ -538,7 +532,7 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	c.Assert(err, gc.IsNil)
 	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
 	c.Assert(err, gc.IsNil)
-	return relatedService, relatedUnit
+	return rel, relatedService, relatedUnit
 }
 
 func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
@@ -601,8 +595,8 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 	// Add two subordinates to wordpressUnit.
-	_, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	_, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 
@@ -886,7 +880,6 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 
 func (s *uniterSuite) TestRelation(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
-	c.Assert(rel.Id(), gc.Equals, 0)
 	wpEp, err := rel.Endpoint("wordpress")
 	c.Assert(err, gc.IsNil)
 
@@ -906,8 +899,9 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:  rel.Id(),
-				Key: rel.String(),
+				Id:   rel.Id(),
+				Key:  rel.String(),
+				Life: params.Life(rel.Life().String()),
 				Endpoint: params.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
@@ -916,6 +910,40 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestRelationById(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	c.Assert(rel.Id(), gc.Equals, 0)
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, gc.IsNil)
+
+	// Add another relation to mysql service, so we can see we can't
+	// get it.
+	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+
+	args := params.RelationIds{
+		RelationIds: []int{-1, rel.Id(), otherRel.Id(), 42, 234},
+	}
+	result, err := s.uniter.RelationById(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationResults{
+		Results: []params.RelationResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Id:   rel.Id(),
+				Key:  rel.String(),
+				Life: params.Life(rel.Life().String()),
+				Endpoint: params.Endpoint{
+					ServiceName: wpEp.ServiceName,
+					Relation:    wpEp.Relation,
+				},
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1208,5 +1236,90 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"some": "different",
+	})
+}
+
+func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
+	// Add a relation between wordpress and mysql and enter scope with
+	// mysqlUnit.
+	rel := s.addRelation(c, "wordpress", "mysql")
+	myRelUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, true)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: rel.Tag(), Unit: "unit-wordpress-0"},
+		{Relation: rel.Tag(), Unit: "unit-mysql-0"},
+		{Relation: "relation-42", Unit: "unit-wordpress-0"},
+		{Relation: "relation-foo", Unit: ""},
+		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "foo", Unit: "bar"},
+		{Relation: rel.Tag(), Unit: "unit-mysql-0"},
+		{Relation: rel.Tag(), Unit: "service-wordpress"},
+		{Relation: rel.Tag(), Unit: "service-mysql"},
+		{Relation: rel.Tag(), Unit: "user-admin"},
+	}}
+	result, err := s.uniter.WatchRelationUnits(args)
+	c.Assert(err, gc.IsNil)
+	// UnitSettings versions are volatile, so we don't check them.
+	// We just make sure the keys of the Changed field are as
+	// expected.
+	c.Assert(result.Results, gc.HasLen, len(args.RelationUnits))
+	mysqlChanges := result.Results[1].Changes
+	c.Assert(mysqlChanges, gc.NotNil)
+	changed, ok := mysqlChanges.Changed["mysql/0"]
+	c.Assert(ok, jc.IsTrue)
+	expectChanges := params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{"mysql/0": changed},
+	}
+	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
+		Results: []params.RelationUnitsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				RelationUnitsWatcherId: "1",
+				Changes:                expectChanges,
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewRelationUnitsWatcherC(c, s.State, resource.(state.RelationUnitsWatcher))
+	wc.AssertNoChange()
+
+	// Leave scope with mysqlUnit and check it's detected.
+	err = myRelUnit.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, false)
+
+	wc.AssertChange(nil, []string{"mysql/0"})
+}
+
+func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	result, err := s.uniter.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiInfo.Addrs,
 	})
 }

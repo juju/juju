@@ -19,6 +19,7 @@ func TestMAAS(t *stdtesting.T) {
 
 type providerSuite struct {
 	testing.LoggingSuite
+	envtesting.ToolsFixture
 	environ         *maasEnviron
 	testMAASObject  *gomaasapi.TestMAASObject
 	restoreTimeouts func()
@@ -36,10 +37,12 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.testMAASObject.TestServer.Clear()
+	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 

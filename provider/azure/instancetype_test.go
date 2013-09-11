@@ -308,7 +308,7 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 	defer cleanup()
 
 	env := makeEnviron(c)
-	_, err := findMatchingImages(env, "West US", "lucid", "", []string{"amd64"})
+	_, err := findMatchingImages(env, "West US", "saucy", "", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
 
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")

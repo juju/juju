@@ -127,7 +127,6 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	if err = r.dir.Ensure(); err != nil {
 		return
 	}
-	r.ctx.UpdateMembers(hi.Members)
 	if hi.Kind == hooks.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	} else if hi.RemoteUnit != "" {
