@@ -26,11 +26,16 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 func checkProvisioned(sshHost string) (bool, error) {
 	cmd := exec.Command("ssh", sshHost, "bash")
 	cmd.Stdin = bytes.NewBufferString(checkProvisionedScript)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() != 0 {
+			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
+		}
 		return false, err
 	}
-	return len(strings.TrimSpace(string(out))) > 0, nil
+	return len(strings.TrimSpace(stdout.String())) > 0, nil
 }
 
 // detectSeriesHardwareCharacteristics detects the OS series
