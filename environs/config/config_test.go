@@ -611,7 +611,6 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ssl-hostname-verification": true,
 		"image-metadata-url":        "",
 		"tools-url":                 "",
-		"logging-config":            loggo.LoggerInfo(),
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, gc.IsNil)
@@ -619,6 +618,7 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
+	attrs["logging-config"] = loggo.LoggerInfo()
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
