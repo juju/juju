@@ -17,6 +17,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -305,7 +306,7 @@ func indent(s string, with string) string {
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.savedHome = os.Getenv("HOME")
+	s.savedHome = osenv.Home()
 	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -316,14 +317,14 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
 	c.Assert(err, gc.IsNil)
 
-	os.Setenv("HOME", home)
+	osenv.SetHome(home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 	aws.Regions["configtest"] = configTestRegion
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	os.Setenv("HOME", s.savedHome)
+	osenv.SetHome(s.savedHome)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")
