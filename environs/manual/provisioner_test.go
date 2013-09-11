@@ -10,7 +10,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -51,7 +50,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 
 	cfg := s.Conn.Environ.Config()
-	toolsList, err := tools.FindBootstrapTools(environs.StorageInstances(s.Conn.Environ), nil, cfg.DefaultSeries(), nil, false)
+	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, nil, cfg.DefaultSeries(), nil, false)
 	c.Assert(err, gc.IsNil)
 	args.Tools = toolsList[0]
 

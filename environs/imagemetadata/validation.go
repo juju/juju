@@ -29,7 +29,7 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 	}
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-		Series:    params.Series,
+		Series:    []string{params.Series},
 		Arches:    params.Architectures,
 	})
 	matchingImages, err := Fetch(params.BaseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)

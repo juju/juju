@@ -15,15 +15,11 @@ import (
 // This module implements a subset of the interface provided by
 // state.Service, as needed by the uniter API.
 
-// TODO: Only the required calls are added as placeholders,
-// the actual implementation will come in a follow-up.
-
 // Service represents the state of a service.
 type Service struct {
 	st   *State
 	tag  string
 	life params.Life
-	// TODO: Add fields.
 }
 
 // Name returns the service name.
@@ -41,20 +37,46 @@ func (s *Service) String() string {
 }
 
 // Watch returns a watcher for observing changes to a service.
-func (s *Service) Watch() (*watcher.NotifyWatcher, error) {
-	// TODO: Call Uniter.Watch(), passing the service tag as argument,
-	// then start a client NotifyWatcher, like uniter.Unit.Watch()
-	// does.
-	panic("not implemented")
+func (s *Service) Watch() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag}},
+	}
+	err := s.st.caller.Call("Uniter", "", "Watch", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(s.st.caller, result)
+	return w, nil
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to
 // the lifecycles of relations involving s.
-func (s *Service) WatchRelations() (*watcher.StringsWatcher, error) {
-	// TODO: Call Uniter.WatchServiceRelations(), passing the service
-	// tag as argument, then start a client StringsWatcher, like
-	// deployer.Machine.WatchUnits() does.
-	panic("not implemented")
+func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag}},
+	}
+	err := s.st.caller.Call("Uniter", "", "WatchServiceRelations", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(s.st.caller, result)
+	return w, nil
 }
 
 // Life returns the service's current life state.
@@ -65,16 +87,42 @@ func (s *Service) Life() params.Life {
 // Refresh refreshes the contents of the Service from the underlying
 // state.
 func (s *Service) Refresh() error {
-	// TODO: Call Uniter.Life(), passing the service tag as argument.
-	// Update s.life accordingly after getting the result.
-	panic("not implemented")
+	life, err := s.st.life(s.tag)
+	if err != nil {
+		return err
+	}
+	s.life = life
+	return nil
 }
 
 // CharmURL returns the service's charm URL, and whether units should
 // upgrade to the charm with that URL even if they are in an error
-// state.
-func (s *Service) CharmURL() (curl *charm.URL, force bool) {
-	// TODO: Call Uniter.CharmURL(), passing the service tag as
-	// argument.
-	panic("not implemented")
+// state (force flag).
+//
+// NOTE: This differs from state.Service.CharmURL() by returning
+// an error instead as well, because it needs to make an API call.
+func (s *Service) CharmURL() (*charm.URL, bool, error) {
+	var results params.StringBoolResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag}},
+	}
+	err := s.st.caller.Call("Uniter", "", "CharmURL", args, &results)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(results.Results) != 1 {
+		return nil, false, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, false, result.Error
+	}
+	if result.Result != "" {
+		curl, err := charm.ParseURL(result.Result)
+		if err != nil {
+			return nil, false, err
+		}
+		return curl, result.Ok, nil
+	}
+	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }

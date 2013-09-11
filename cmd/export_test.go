@@ -3,10 +3,7 @@
 
 package cmd
 
-func GetDefaultEnvironment() string {
-	return getDefaultEnvironment()
-}
-
-func GetCurrentEnvironmentFilePath() string {
-	return getCurrentEnvironmentFilePath()
-}
+var (
+	GetDefaultEnvironment         = getDefaultEnvironment
+	GetCurrentEnvironmentFilePath = getCurrentEnvironmentFilePath
+)

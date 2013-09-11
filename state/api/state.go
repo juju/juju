@@ -17,11 +17,15 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
-	return st.Call("Admin", "", "Login", &params.Creds{
+	err := st.Call("Admin", "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
 	}, nil)
+	if err == nil {
+		st.authTag = tag
+	}
+	return err
 }
 
 // Client returns an object that can be used
@@ -39,7 +43,7 @@ func (st *State) Machiner() *machiner.State {
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
-	return uniter.NewState(st)
+	return uniter.NewState(st, st.authTag)
 }
 
 // Agent returns a version of the state that provides
