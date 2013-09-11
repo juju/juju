@@ -93,6 +93,8 @@ func New(attrs map[string]interface{}) (*Config, error) {
 	if c.asString("logging-config") == "" {
 		if environmentValue := os.Getenv("JUJU_LOGGING_CONFIG"); environmentValue != "" {
 			c.m["logging-config"] = environmentValue
+		} else {
+			c.m["logging-config"] = loggo.LoggerInfo()
 		}
 	}
 
@@ -375,12 +377,7 @@ func (c *Config) SSLHostnameVerification() bool {
 
 // LoggingConfig returns the configuration string for the loggers.
 func (c *Config) LoggingConfig() string {
-	value := c.asString("logging-config")
-	if value == "" {
-		// Nothing specified explicitly, so get what loggo has.
-		value = loggo.LoggerInfo()
-	}
-	return value
+	return c.asString("logging-config")
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -452,7 +449,7 @@ var defaults = schema.Defaults{
 	"ssl-hostname-verification": true,
 	"state-port":                schema.Omit,
 	"api-port":                  schema.Omit,
-	"logging-config":            schema.Omit,
+	"logging-config":            "",
 }
 
 var checker = schema.FieldMap(fields, defaults)
