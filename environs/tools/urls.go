@@ -4,22 +4,25 @@
 package tools
 
 import (
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
-// SupportsCustomSources instances can host tools metadata at provider specific sources.
+// SupportsCustomSources represents an environment that
+// can host tools metadata at provider specific sources.
 type SupportsCustomSources interface {
 	GetToolsSources() ([]simplestreams.DataSource, error)
 }
 
-// GetMetadataSources returns the sources to use when looking for simplestreams tools metadata.
-func GetMetadataSources(cloudInst config.HasConfig) ([]simplestreams.DataSource, error) {
+// GetMetadataSources returns the sources to use when looking for
+// simplestreams tools metadata. If env implements SupportsCustomSurces,
+// the sources returned from that method will also be considered.
+func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
-	if userURL, ok := cloudInst.Config().ToolsURL(); ok {
+	if userURL, ok := env.Config().ToolsURL(); ok {
 		sources = append(sources, simplestreams.NewURLDataSource(userURL))
 	}
-	if custom, ok := cloudInst.(SupportsCustomSources); ok {
+	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()
 		if err != nil {
 			return nil, err

@@ -16,17 +16,18 @@ import (
 )
 
 type LogSuite struct {
-	restore func()
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
-	s.restore = testing.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
-}
-
-func (s *LogSuite) TearDownTest(c *gc.C) {
-	s.restore()
+	restore := testing.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
+	s.AddCleanup(func() {
+		restore()
+		loggo.ResetLoggers()
+		loggo.ResetWriters()
+	})
 }
 
 func (s *LogSuite) TestAddFlags(c *gc.C) {
@@ -57,6 +58,8 @@ func (s *LogSuite) TestVerboseSetsLogLevel(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.INFO)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "verbose is deprecated with the current meaning, use show-log\n")
 }
 
 func (s *LogSuite) TestDebugSetsLogLevel(c *gc.C) {
@@ -66,6 +69,19 @@ func (s *LogSuite) TestDebugSetsLogLevel(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.DEBUG)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *LogSuite) TestShowLogSetsLogLevel(c *gc.C) {
+	l := &cmd.Log{ShowLog: true}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.INFO)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestStderr(c *gc.C) {
@@ -74,7 +90,7 @@ func (s *LogSuite) TestStderr(c *gc.C) {
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 }
 
 func (s *LogSuite) TestRelPathLog(c *gc.C) {
@@ -83,10 +99,11 @@ func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestAbsPathLog(c *gc.C) {
@@ -96,8 +113,21 @@ func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
+}
+
+func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
+	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO", ShowLog: true}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+	log.Infof("hello")
+	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

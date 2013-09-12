@@ -36,6 +36,16 @@ import (
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
+type workerRunner interface {
+	worker.Worker
+	StartWorker(id string, startFunc func() (worker.Worker, error)) error
+	StopWorker(id string) error
+}
+
+var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) workerRunner {
+	return worker.NewRunner(isFatal, moreImportant)
+}
+
 const bootstrapMachineId = "0"
 
 var retryDelay = 3 * time.Second
@@ -46,7 +56,7 @@ type MachineAgent struct {
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string
-	runner    *worker.Runner
+	runner    workerRunner
 }
 
 // Info returns usage information for the command.
@@ -70,7 +80,7 @@ func (a *MachineAgent) Init(args []string) error {
 	if err := a.Conf.checkArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(isFatal, moreImportant)
+	a.runner = newRunner(isFatal, moreImportant)
 	return nil
 }
 
@@ -129,10 +139,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func allFatal(error) bool {
-	return true
-}
-
 var stateJobs = map[params.MachineJob]bool{
 	params.JobHostUnits:     true,
 	params.JobManageEnviron: true,
@@ -167,7 +173,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	if needsStateWorker {
 		ensureStateWorker()
 	}
-	runner := worker.NewRunner(allFatal, moreImportant)
+	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
@@ -207,9 +213,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
-	// TODO(rog) use more discriminating test for errors
-	// rather than taking everything down indiscriminately.
-	runner := worker.NewRunner(allFatal, moreImportant)
+
+	runner := newRunner(connectionIsFatal(st), moreImportant)
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
