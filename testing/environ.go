@@ -142,14 +142,18 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
 	oldHomeEnv := osenv.Home()
 	oldEnvironment := make(map[string]string)
-	for _, name := range []string{"JUJU_HOME", "JUJU_ENV", "JUJU_LOGGING_CONFIG"} {
+	for _, name := range []string{
+		osenv.JujuHome,
+		osenv.JujuEnv,
+		osenv.JujuLoggingConfig,
+	} {
 		oldEnvironment[name] = os.Getenv(name)
 	}
 	fakeHome := c.MkDir()
 	osenv.SetHome(fakeHome)
-	os.Setenv("JUJU_HOME", "")
-	os.Setenv("JUJU_ENV", "")
-	os.Setenv("JUJU_LOGGING_CONFIG", "")
+	os.Setenv(osenv.JujuHome, "")
+	os.Setenv(osenv.JujuEnv, "")
+	os.Setenv(osenv.JujuLoggingConfig, "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
