@@ -66,7 +66,7 @@ var isFatalTests = []struct {
 	},
 	isFatal: true,
 }, {
-	err:     &fatalError{},
+	err:     &fatalError{"some fatal error"},
 	isFatal: true,
 }, {
 	err:     stderrors.New("foo"),
@@ -92,7 +92,7 @@ func (f testPinger) Ping() error {
 	return f()
 }
 
-func (s *MachineSuite) TestConnectionIsFatal(c *gc.C) {
+func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 	var (
 		errPinger testPinger = func() error {
 			return stderrors.New("ping error")
@@ -108,7 +108,7 @@ func (s *MachineSuite) TestConnectionIsFatal(c *gc.C) {
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
-				c.Check(fatal, gc.Equals, j == 0)
+				c.Check(fatal, gc.Equals, i == 0)
 			}
 		}
 	}
