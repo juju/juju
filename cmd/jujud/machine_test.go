@@ -24,17 +24,16 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
 type MachineSuite struct {
 	agentSuite
 	lxc.TestSuite
-	restoreCache jc.Restorer
+	restoreCacheDir jc.Restorer
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -42,12 +41,11 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	s.restoreCache = jc.Set(&charm.CacheDir, c.MkDir())
+	s.restoreCacheDir = jc.Set(&charm.CacheDir, c.MkDir())
 }
 
 func (s *MachineSuite) TearDownSuite(c *gc.C) {
 	s.restoreCacheDir()
-	charm.CacheDir = s.oldCacheDir
 	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
 }
@@ -55,8 +53,6 @@ func (s *MachineSuite) TearDownSuite(c *gc.C) {
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
-	
-	newRunner = newMockRunner
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
@@ -235,7 +231,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 		if err == nil && attempt.HasNext() {
 			continue
 		}
-		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -243,7 +239,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = u1.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	ctx.waitDeployed(c)
 }
 
@@ -433,6 +429,7 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 	})
 }
 
+
 func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
@@ -488,12 +485,4 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
-}
-
-type mockRunner struct {
-	*worker.Runner
-}
-
-func newMockRunner(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) workerRunner {
-	return &mockRunner{worker.NewRunner(isFatal, moreImportant)}
 }
