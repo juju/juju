@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	stdtesting "testing"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -46,13 +47,26 @@ func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
 	return cmd
 }
 
+// flockBin is the path to the original "flock" binary.
+var flockBin string
+
 func (s *storageSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	// Create a "sudo" command which just executes its args.
+
+	var err error
+	flockBin, err = exec.LookPath("flock")
+	c.Assert(err, gc.IsNil)
+
 	bin := c.MkDir()
-	c.Assert(os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo")), gc.IsNil)
 	s.restoreEnv = testing.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
+
+	// Create a "sudo" command which just executes its args.
+	c.Assert(os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo")), gc.IsNil)
 	sshCommand = sshCommandTesting
+
+	// Create a new "flock" which calls the original, but in non-blocking mode.
+	data := []byte(fmt.Sprintf("#!/bin/sh\nexec %s --nonblock \"$@\"", flockBin))
+	c.Assert(ioutil.WriteFile(filepath.Join(bin, "flock"), data, 0755), gc.IsNil)
 }
 
 func (s *storageSuite) TearDownSuite(c *gc.C) {
@@ -223,4 +237,64 @@ func (s *storageSuite) TestConsistencyStrategy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer storage.Close()
 	c.Assert(storage.ConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
+}
+
+// flock is a test helper that flocks a file,
+// executes "sleep" with the specified duration,
+// and returns the *Cmd so it can be early terminated.
+func (s *storageSuite) flock(c *gc.C, mode flockmode, lockfile string, duration time.Duration) *os.Process {
+	sleepcmd := fmt.Sprintf("sleep %vs", duration.Seconds())
+	cmd := exec.Command(flockBin, "--nonblock", "--close", string(mode), lockfile, "-c", sleepcmd)
+	c.Assert(cmd.Start(), gc.IsNil)
+	return cmd.Process
+}
+
+const defaultFlockTimeout = 5 * time.Second
+
+func (s *storageSuite) TestSynchronisation(c *gc.C) {
+	storageDir := c.MkDir()
+	proc := s.flock(c, flockShared, storageDir, defaultFlockTimeout)
+	defer proc.Wait()
+	defer proc.Kill()
+
+	// Creating storage requires an exclusive lock initially.
+	//
+	// flock exits with exit code 1 if it can't acquire the
+	// lock immediately in non-blocking mode (which the tests force).
+	_, err := NewSSHStorage("example.com", storageDir)
+	c.Assert(err, gc.ErrorMatches, "exit code 1")
+
+	proc.Kill()
+	proc.Wait()
+	storage, err := NewSSHStorage("example.com", storageDir)
+	c.Assert(err, gc.IsNil)
+
+	// Get and List should be able to proceed with a shared lock.
+	// All other methods should fail.
+	data := []byte("abc\000def")
+	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a"), data, 0644), gc.IsNil)
+
+	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
+	_, err = storage.Get("a")
+	c.Assert(err, gc.IsNil)
+	_, err = storage.List("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(storage.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
+	c.Assert(storage.Remove("a"), gc.NotNil)
+	c.Assert(storage.RemoveAll(), gc.NotNil)
+	proc.Kill()
+	proc.Wait()
+
+	// None of the methods (apart from URL) should be able to do anything
+	// while an exclusive lock is held.
+	proc = s.flock(c, flockExclusive, storageDir, defaultFlockTimeout)
+	_, err = storage.URL("a")
+	c.Assert(err, gc.IsNil)
+	c.Assert(storage.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
+	c.Assert(storage.Remove("a"), gc.NotNil)
+	c.Assert(storage.RemoveAll(), gc.NotNil)
+	_, err = storage.Get("a")
+	c.Assert(err, gc.NotNil)
+	_, err = storage.List("")
+	c.Assert(err, gc.NotNil)
 }

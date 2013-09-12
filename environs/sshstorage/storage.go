@@ -91,6 +91,7 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 	if _, err = storage.runf(flockExclusive, "touch %s", utils.ShQuote(remotepath)); err != nil {
 		stdin.Close()
 		stdout.Close()
+		cmd.Wait()
 		return nil, err
 	}
 	return storage, nil
@@ -110,8 +111,13 @@ func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface
 
 func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
 	const rcPrefix = "JUJU-RC: "
-	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
-	command = fmt.Sprintf("flock %s %s -c %s", flockmode, s.remotepath, utils.ShQuote(command))
+	command = fmt.Sprintf(
+		"(flock %s %s -c %s) 2>&1; echo %s$?",
+		flockmode,
+		s.remotepath,
+		utils.ShQuote(command),
+		rcPrefix,
+	)
 	if _, err := s.stdin.Write([]byte(command + "\r\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
