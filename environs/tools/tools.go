@@ -19,14 +19,14 @@ import (
 var logger = loggo.GetLogger("juju.environs.tools")
 
 // NewFindTools returns a List containing all tools with a given
-// major.minor version number available at the urls, filtered by filter.
+// major.minor version number available at the data sources, filtered by filter.
 // It is called NewFindTools because the legacy functionality is still present
 // but deprecated. Once the legacy find tools is removed, this will be renamed.
 // If minorVersion = -1, then only majorVersion is considered.
 // At each URL, simplestreams metadata is used to search for the tools.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
+func NewFindTools(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
 	var toolsConstraint *ToolsConstraint
@@ -66,7 +66,7 @@ func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
 	}
 	toolsConstraint.Series = seriesToSearch
 
-	toolsMetadata, err := Fetch(urls, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +133,11 @@ func FindTools(cloudInst config.HasConfig, majorVersion, minorVersion int, filte
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-	urls, err := GetMetadataURLs(cloudInst)
+	sources, err := GetMetadataSources(cloudInst)
 	if err != nil {
 		return nil, err
 	}
-	list, err = NewFindTools(urls, cloudSpec, majorVersion, minorVersion, filter)
+	list, err = NewFindTools(sources, cloudSpec, majorVersion, minorVersion, filter)
 	if UseLegacyFallback && err != nil || len(list) == 0 {
 		if env, ok := cloudInst.(environs.Environ); ok {
 			list, err = LegacyFindTools(
