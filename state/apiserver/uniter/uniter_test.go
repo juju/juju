@@ -829,7 +829,7 @@ func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 	s.assertOneStringsWatcher(c, result, err)
 }
 
-func (s *uniterSuite) TestCharmBundleURL(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveURL(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
@@ -837,7 +837,7 @@ func (s *uniterSuite) TestCharmBundleURL(c *gc.C) {
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := s.uniter.CharmBundleURL(args)
+	result, err := s.uniter.CharmArchiveURL(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -848,7 +848,7 @@ func (s *uniterSuite) TestCharmBundleURL(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestCharmBundleSha256(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
@@ -856,7 +856,7 @@ func (s *uniterSuite) TestCharmBundleSha256(c *gc.C) {
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := s.uniter.CharmBundleSha256(args)
+	result, err := s.uniter.CharmArchiveSha256(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
