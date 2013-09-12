@@ -24,11 +24,14 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// dummySampleConfig is the dummy sample config but
+// dummySampleConfig returns the dummy sample config without
+// the state server configured.
 // will not run a state server.
-var dummySampleConfig = dummy.SampleConfig.Merge(testing.Attrs{
-	"state-server": false,
-})
+func dummySampleConfig() testing.Attrs {
+	return dummy.SampleConfig().Merge(testing.Attrs{
+		"state-server": false,
+	})
+}
 
 type CloudInitSuite struct {
 	testing.LoggingSuite
@@ -37,7 +40,7 @@ type CloudInitSuite struct {
 var _ = gc.Suite(&CloudInitSuite{})
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
-	attrs := dummySampleConfig.Merge(testing.Attrs{
+	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -57,7 +60,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
-	attrs := dummySampleConfig.Merge(testing.Attrs{
+	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 		"admin-secret":    "lisboan-pork",
 		"agent-version":   "1.2.3",
@@ -108,7 +111,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
-	envConfig, err := config.New(config.NoDefaults, dummySampleConfig)
+	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
 	cfg := &cloudinit.MachineConfig{

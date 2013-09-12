@@ -53,7 +53,7 @@ func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 }
 
 func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -107,7 +107,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
-	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "side-effect secret",
 		"secret":       "pork",
 	})
@@ -143,7 +143,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
-	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"secret": "pork",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -178,7 +178,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
-	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "nutkin",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -234,7 +234,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	environ, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -274,7 +274,7 @@ func (s *ConnSuite) TearDownSuite(c *gc.C) {
 func (s *ConnSuite) TestNewConnFromState(c *gc.C) {
 	conn, err := juju.NewConnFromState(s.conn.State)
 	c.Assert(err, gc.IsNil)
-	c.Assert(conn.Environ.Name(), gc.Equals, dummy.SampleConfig["name"])
+	c.Assert(conn.Environ.Name(), gc.Equals, dummy.SampleConfig()["name"])
 }
 
 func (s *ConnSuite) TestPutCharmBasic(c *gc.C) {

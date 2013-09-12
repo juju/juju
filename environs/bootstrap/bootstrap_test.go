@@ -144,7 +144,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 	for i, test := range allTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()
-		attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+		attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 			"state-server":   false,
 			"development":    test.Development,
 			"default-series": test.DefaultSeries,
@@ -207,7 +207,7 @@ type bootstrapEnviron struct {
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
-	m := dummy.SampleConfig
+	m := dummy.SampleConfig()
 	if !defaultKeys {
 		m = m.Delete(
 			"ca-cert",

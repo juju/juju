@@ -30,7 +30,7 @@ func (OpenSuite) TearDownTest(c *gc.C) {
 
 func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
-	cfg, err := config.New(config.NoDefaults, dummySampleConfig)
+	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -38,7 +38,7 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {
-	attrs := dummySampleConfig.Merge(testing.Attrs{
+	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"type": "wondercloud",
 	})
 	env, err := environs.NewFromAttrs(attrs)

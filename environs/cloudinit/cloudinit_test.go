@@ -41,7 +41,7 @@ type cloudinitTest struct {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, testing.FakeConfig)
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, gc.IsNil)
 	return cfg
 }

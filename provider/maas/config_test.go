@@ -27,7 +27,7 @@ func copyAttrs(src, dest map[string]interface{}) {
 
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
-	attrs := testing.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"name": "testenv",
 		"type": "maas",
 	}).Merge(values)

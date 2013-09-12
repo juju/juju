@@ -220,7 +220,7 @@ environments:
 }
 
 func (suite) TestConfigRoundTrip(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummySampleConfig)
+	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, gc.IsNil)
@@ -238,7 +238,7 @@ func inMap(attrs testing.Attrs, attr string) bool {
 
 func (suite) TestBootstrapConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "bladaam").Restore()
-	attrs := dummySampleConfig.Merge(testing.Attrs{
+	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"agent-version": "1.2.3",
 	})
 	c.Assert(inMap(attrs, "secret"), jc.IsTrue)

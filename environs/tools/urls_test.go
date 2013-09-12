@@ -27,7 +27,7 @@ func (s *URLsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
-	attrs := dummy.SampleConfig
+	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
 			"tools-url": toolsMetadataURL,

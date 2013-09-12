@@ -33,7 +33,7 @@ var singleValueTests = []struct {
 		output: "dummyenv",
 	}, {
 		key:    "authorized-keys",
-		output: dummy.SampleConfig["authorized-keys"].(string),
+		output: dummy.SampleConfig()["authorized-keys"].(string),
 	}, {
 		key: "unknown",
 		err: `Key "unknown" not found in "dummyenv" environment.`,

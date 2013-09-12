@@ -35,7 +35,7 @@ func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 }
 
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)

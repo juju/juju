@@ -49,7 +49,7 @@ func registerAmazonTests() {
 	// environment variables to make the Amazon testing work:
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
-	attrs := coretesting.FakeConfig.Merge(map[string]interface{}{
+	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"name":           "sample-" + uniqueName,
 		"type":           "ec2",
 		"control-bucket": "juju-test-" + uniqueName,
@@ -228,8 +228,8 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	perms := info[0].IPPerms
 	c.Assert(perms, gc.HasLen, 6)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, coretesting.FakeConfig["state-port"].(int))
-	checkPortAllowed(c, perms, coretesting.FakeConfig["api-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeConfig()["state-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeConfig()["api-port"].(int))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.

@@ -27,7 +27,7 @@ func (s *URLsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *URLsSuite) env(c *gc.C, imageMetadataURL string) environs.Environ {
-	attrs := dummy.SampleConfig
+	attrs := dummy.SampleConfig()
 	if imageMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
 			"image-metadata-url": imageMetadataURL,

@@ -17,7 +17,7 @@ var _ = gc.Suite(&ConfigSuite{})
 type ConfigSuite struct{}
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
-	attrs := dummy.SampleConfig.Delete("secret")
+	attrs := dummy.SampleConfig().Delete("secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
@@ -60,7 +60,7 @@ var firewallModeTests = []struct {
 func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 	for _, test := range firewallModeTests {
 		c.Logf("test firewall mode %q", test.configFirewallMode)
-		attrs := dummy.SampleConfig
+		attrs := dummy.SampleConfig()
 		if test.configFirewallMode != "" {
 			attrs = attrs.Merge(testing.Attrs{
 				"firewall-mode": test.configFirewallMode,

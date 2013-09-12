@@ -22,7 +22,7 @@ var _ = gc.Suite(&configSuite{})
 // makeConfigMap creates a minimal map of standard configuration items,
 // adds the given extra items to that and returns it.
 func makeConfigMap(extra map[string]interface{}) map[string]interface{} {
-	return testing.FakeConfig.Merge(testing.Attrs{
+	return testing.FakeConfig().Merge(testing.Attrs{
 		"name": "testenv",
 		"type": "azure",
 	}).Merge(extra)

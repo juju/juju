@@ -1045,7 +1045,7 @@ func (serveCharm) step(c *gc.C, ctx *context) {
 type createServiceAndUnit struct{}
 
 func (createServiceAndUnit) step(c *gc.C, ctx *context) {
-	attrs := dummy.SampleConfig.Delete("admin-secret").Merge(
+	attrs := dummy.SampleConfig().Delete("admin-secret").Merge(
 		coretesting.Attrs{
 			"agent-version": "1.2.3",
 		})

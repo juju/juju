@@ -37,7 +37,7 @@ func (s *configSuite) TearDownTest(c *gc.C) {
 }
 
 func minimalConfigValues() map[string]interface{} {
-	return testing.FakeConfig.Merge(testing.Attrs{
+	return testing.FakeConfig().Merge(testing.Attrs{
 		"name": "test",
 		"type": provider.Local,
 	})

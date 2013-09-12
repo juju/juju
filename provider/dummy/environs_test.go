@@ -15,12 +15,12 @@ import (
 
 func init() {
 	gc.Suite(&jujutest.LiveTests{
-		TestConfig:     dummy.SampleConfig,
+		TestConfig:     dummy.SampleConfig(),
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
 	gc.Suite(&jujutest.Tests{
-		TestConfig: dummy.SampleConfig,
+		TestConfig: dummy.SampleConfig(),
 	})
 }
 

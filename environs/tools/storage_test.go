@@ -36,7 +36,7 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)

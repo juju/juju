@@ -169,7 +169,7 @@ func (suite *StateSuite) TestComposeAddressesSuffixesAddresses(c *gc.C) {
 
 func (suite *StateSuite) TestGetStateInfo(c *gc.C) {
 	cert := testing.CACert
-	attrs := testing.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"ca-cert":    cert,
 		"state-port": 123,
 		"api-port":   456,

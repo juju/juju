@@ -13,25 +13,29 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-var FakeConfig = Attrs{
-	"type":                      "someprovider",
-	"name":                      "testenv",
-	"authorized-keys":           "my-keys",
-	"firewall-mode":             config.FwInstance,
-	"admin-secret":              "fish",
-	"ca-cert":                   CACert,
-	"ca-private-key":            CAKey,
-	"ssl-hostname-verification": true,
-	"development":               false,
-	"state-port":                19034,
-	"api-port":                  17777,
-	"default-series":            config.DefaultSeries,
+// FakeConfig() returns an environment configuration for a
+// fake provider with all required attributes set.
+func FakeConfig() Attrs {
+	return Attrs{
+		"type":                      "someprovider",
+		"name":                      "testenv",
+		"authorized-keys":           "my-keys",
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "fish",
+		"ca-cert":                   CACert,
+		"ca-private-key":            CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                19034,
+		"api-port":                  17777,
+		"default-series":            config.DefaultSeries,
+	}
 }
 
 // EnvironConfig returns a default environment configuration suitable for
 // setting in the state.
 func EnvironConfig(c *C) *config.Config {
-	attrs := FakeConfig.Merge(Attrs{
+	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "1.2.3",
 	}).Delete("admin-secret", "ca-private-key")
 	cfg, err := config.New(config.NoDefaults, attrs)

@@ -289,7 +289,7 @@ func (m b64yaml) encode() string {
 }
 
 var testConfig = b64yaml(
-	dummy.SampleConfig.Merge(
+	dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"state-server":  false,
 			"agent-version": "3.4.5",

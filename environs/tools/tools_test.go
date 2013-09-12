@@ -186,7 +186,7 @@ func (s *ToolsSuite) TearDownTest(c *gc.C) {
 func (s *ToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig.Merge(attrs))
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
