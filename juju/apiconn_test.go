@@ -35,16 +35,7 @@ func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 }
 
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"secret":          "pork",
-		"admin-secret":    "really",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
-	})
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)

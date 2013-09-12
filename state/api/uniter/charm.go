@@ -30,7 +30,7 @@ func (c *Charm) URL() *charm.URL {
 	return charm.MustParseURL(c.url)
 }
 
-func (c *Charm) getBundleInfo(apiCall string) (string, error) {
+func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
 	var results params.StringResults
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.url}},
@@ -49,31 +49,34 @@ func (c *Charm) getBundleInfo(apiCall string) (string, error) {
 	return result.Result, nil
 }
 
-// BundleURL returns the url to the charm bundle in
-// the provider storage.
+// ArchiveURL returns the url to the charm archive (bundle) in the
+// provider storage.
 //
 // NOTE: This differs from state.Charm.BundleURL() by returning an
-// error as well, because it needs to make an API call
+// error as well, because it needs to make an API call. It's also
+// renamed to avoid confusion with juju deployment bundles.
 //
 // TODO(dimitern): 2013-09-06 bug 1221834
 // Cache the result after getting it once for the same charm URL,
 // because it's immutable.
-func (c *Charm) BundleURL() (*url.URL, error) {
-	charmURL, err := c.getBundleInfo("CharmBundleURL")
+func (c *Charm) ArchiveURL() (*url.URL, error) {
+	charmURL, err := c.getArchiveInfo("CharmArchiveURL")
 	if err != nil {
 		return nil, err
 	}
 	return url.Parse(charmURL)
 }
 
-// BundleSha256 returns the SHA256 digest of the charm bundle bytes.
+// ArchiveSha256 returns the SHA256 digest of the charm archive
+// (bundle) bytes.
 //
 // NOTE: This differs from state.Charm.BundleSha256() by returning an
-// error as well, because it needs to make an API call
+// error as well, because it needs to make an API call. It's also
+// renamed to avoid confusion with juju deployment bundles.
 //
 // TODO(dimitern): 2013-09-06 bug 1221834
 // Cache the result after getting it once for the same charm URL,
 // because it's immutable.
-func (c *Charm) BundleSha256() (string, error) {
-	return c.getBundleInfo("CharmBundleSha256")
+func (c *Charm) ArchiveSha256() (string, error) {
+	return c.getArchiveInfo("CharmArchiveSha256")
 }

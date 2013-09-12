@@ -24,7 +24,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
@@ -33,7 +33,7 @@ import (
 type MachineSuite struct {
 	agentSuite
 	lxc.TestSuite
-	oldCacheDir string
+	restoreCacheDir jc.Restorer
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -41,11 +41,11 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	s.oldCacheDir = charm.CacheDir
+	s.restoreCacheDir = jc.Set(&charm.CacheDir, c.MkDir())
 }
 
 func (s *MachineSuite) TearDownSuite(c *gc.C) {
-	charm.CacheDir = s.oldCacheDir
+	s.restoreCacheDir()
 	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
 }
@@ -231,7 +231,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 		if err == nil && attempt.HasNext() {
 			continue
 		}
-		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -239,7 +239,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = u1.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	ctx.waitDeployed(c)
 }
 

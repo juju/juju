@@ -22,7 +22,7 @@ func (*environProviderSuite) TestOpen(c *gc.C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "my-shiny-new-env"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	env, err := prov.Open(cfg)
@@ -36,7 +36,7 @@ func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	// Make the config invalid.
 	attrs["public-storage-account-name"] = ""
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	env, err := prov.Open(cfg)

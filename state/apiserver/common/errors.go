@@ -25,6 +25,24 @@ func NotSupportedError(entity, operation string) error {
 	return &notSupportedError{entity, operation}
 }
 
+type noAddressSetError struct {
+	unitTag     string
+	addressName string
+}
+
+func (e *noAddressSetError) Error() string {
+	return fmt.Sprintf("%q has no %s address set", e.unitTag, e.addressName)
+}
+
+func NoAddressSetError(unitTag, addressName string) error {
+	return &noAddressSetError{unitTag, addressName}
+}
+
+func IsNoAddressSetError(err error) bool {
+	_, ok := err.(*noAddressSetError)
+	return ok
+}
+
 var (
 	ErrBadId          = stderrors.New("id not found")
 	ErrBadCreds       = stderrors.New("invalid entity name or password")
@@ -80,6 +98,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
+	case IsNoAddressSetError(err):
+		code = params.CodeNoAddressSet
 	default:
 		code = params.ErrCode(err)
 	}

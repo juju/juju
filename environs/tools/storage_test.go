@@ -36,14 +36,7 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "test",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -77,7 +70,10 @@ func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
-func (s *StorageSuite) TestReadList(c *gc.C) {
+func (s *StorageSuite) assertReadList(c *gc.C) {
+	defer func() {
+		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	}()
 	store := s.env.Storage()
 	v001 := version.MustParseBinary("0.0.1-precise-amd64")
 	t001 := envtesting.UploadFakeToolsVersion(c, store, v001)
@@ -114,6 +110,16 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 		}
 	}
+}
+
+func (s *StorageSuite) TestReadListLegacyLocation(c *gc.C) {
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	s.assertReadList(c)
+}
+
+func (s *StorageSuite) TestReadList(c *gc.C) {
+	envtools.SetToolPrefix(envtools.NewToolPrefix)
+	s.assertReadList(c)
 }
 
 func (s *StorageSuite) TestUpload(c *gc.C) {
