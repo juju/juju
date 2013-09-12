@@ -1517,7 +1517,7 @@ var findEntityTests = []struct {
 }, {
 	tag: "user-arble",
 }, {
-	tag: "environment-test-name",
+	tag: "environment-testenv",
 }}
 
 var entityTypes = map[string]interface{}{

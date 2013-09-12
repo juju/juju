@@ -82,7 +82,7 @@ func PrepareFromName(name string) (Environ, error) {
 // NewFromAttrs returns a new environment based on the provided configuration
 // attributes.
 func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return nil, err
 	}

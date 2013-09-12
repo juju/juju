@@ -169,16 +169,12 @@ func (suite *StateSuite) TestComposeAddressesSuffixesAddresses(c *gc.C) {
 
 func (suite *StateSuite) TestGetStateInfo(c *gc.C) {
 	cert := testing.CACert
-	cfg, err := config.New(map[string]interface{}{
-		// Some config items we're going to test for:
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"ca-cert":    cert,
 		"state-port": 123,
 		"api-port":   456,
-		// And some required but irrelevant items:
-		"name":           "aname",
-		"type":           "dummy",
-		"ca-private-key": testing.CAKey,
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	hostnames := []string{"onehost", "otherhost"}
 
