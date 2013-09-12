@@ -192,7 +192,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
-	out := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
+	out := badrun(c, 1, "--log-file", logpath, "bootstrap")
 	c.Assert(out, gc.Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
@@ -205,7 +205,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
-	out := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
+	out := badrun(c, 1, "bootstrap", "--log-file", logpath)
 	c.Assert(out, gc.Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
@@ -313,6 +313,7 @@ var globalFlags = []string{
 	"-h, --help .*",
 	"--log-config .*",
 	"--log-file .*",
+	"--show-log .*",
 	"-v, --verbose .*",
 }
 

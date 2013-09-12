@@ -45,7 +45,7 @@ func generateCertificate(environ Environ, writeCertAndKey func(environName strin
 	m := cfg.AllAttrs()
 	m["ca-cert"] = string(caCert)
 	m["ca-private-key"] = string(caKey)
-	cfg, err = config.New(m)
+	cfg, err = config.New(config.NoDefaults, m)
 	if err != nil {
 		return fmt.Errorf("cannot create environment configuration with new CA: %v", err)
 	}

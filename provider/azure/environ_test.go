@@ -42,7 +42,7 @@ var _ = gc.Suite(&environSuite{})
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
@@ -255,7 +255,7 @@ func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-container-name"] = ""
 	attrs["public-storage-account-name"] = ""
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
@@ -396,7 +396,7 @@ func (*environSuite) TestSetConfigValidates(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	// This config is not valid.  It lacks essential information.
 	delete(attrs, "management-subscription-id")
-	badCfg, err := config.New(attrs)
+	badCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(badCfg)
@@ -417,7 +417,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	// unusual default Ubuntu release series: 7.04 Feisty Fawn.
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "feisty"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -428,7 +428,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 
 func (*environSuite) TestSetConfigLocksEnviron(c *gc.C) {
 	env := makeEnviron(c)
-	cfg, err := config.New(makeAzureConfigMap(c))
+	cfg, err := config.New(config.NoDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
 
 	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
@@ -442,7 +442,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 	originalName := env.Name()
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "new-name"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -460,7 +460,7 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	env.storageAccountKey = "key-for-previous-config"
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "other"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)

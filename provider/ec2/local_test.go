@@ -57,20 +57,16 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
 }
 
-var localConfigAttrs = map[string]interface{}{
+var localConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 	"name":                 "sample",
 	"type":                 "ec2",
 	"region":               "test",
 	"control-bucket":       "test-bucket",
 	"public-bucket":        "public-tools",
 	"public-bucket-region": "test",
-	"admin-secret":         "local-secret",
 	"access-key":           "x",
 	"secret-key":           "x",
-	"authorized-keys":      "foo",
-	"ca-cert":              testing.CACert,
-	"ca-private-key":       testing.CAKey,
-}
+})
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -93,7 +89,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
-	t.TestConfig.Config = localConfigAttrs
+	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
@@ -169,7 +165,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
-	t.TestConfig.Config = localConfigAttrs
+	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.Tests.SetUpSuite(c)
 }
