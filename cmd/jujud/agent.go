@@ -111,6 +111,27 @@ func isFatal(err error) bool {
 	return ok
 }
 
+type pinger interface {
+	Ping() error
+}
+
+// connectionIsFatal returns a function suitable for passing
+// as the isFatal argument to worker.NewRunner,
+// that diagnoses an error as fatal if the connection
+// has failed or if the error is otherwise fatal.
+func connectionIsFatal(conn pinger) func(err error) bool {
+	return func(err error) bool {
+		if isFatal(err) {
+			return true
+		}
+		if err := conn.Ping(); err != nil {
+			log.Infof("error pinging %T: %v", conn, err)
+			return true
+		}
+		return false
+	}
+}
+
 // isleep waits for the given duration or until it receives a value on
 // stop.  It returns whether the full duration was slept without being
 // stopped.
