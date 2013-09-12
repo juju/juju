@@ -21,7 +21,7 @@ type datasourceSuite struct {
 }
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {
-	ds := simplestreams.NewHttpDataSource("test:")
+	ds := simplestreams.NewURLDataSource("test:")
 	rc, url, err := ds.Fetch("streams/v1/tools_metadata.json")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
@@ -33,7 +33,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
-	ds := simplestreams.NewHttpDataSource("foo")
+	ds := simplestreams.NewURLDataSource("foo")
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.Equals, "foo/bar")

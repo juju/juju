@@ -565,7 +565,7 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		e.imageSources = append(e.imageSources, simplestreams.NewHttpDataSource(productStreamsURL))
+		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
 	}
 	return e.imageSources, nil
 }
@@ -589,7 +589,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		e.toolsSources = append(e.toolsSources, simplestreams.NewHttpDataSource(toolsURL))
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
 	}
 	return e.toolsSources, nil
 }

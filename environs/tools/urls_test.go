@@ -52,7 +52,7 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		privateStorageURL, "http://juju.canonical.com/tools/"})
+		privateStorageURL, "https://juju.canonical.com/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
@@ -62,5 +62,5 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-url/", privateStorageURL, "http://juju.canonical.com/tools/"})
+		"config-tools-url/", privateStorageURL, "https://juju.canonical.com/tools/"})
 }
