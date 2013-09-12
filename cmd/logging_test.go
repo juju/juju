@@ -20,6 +20,11 @@ type LogSuite struct {
 
 var _ = gc.Suite(&LogSuite{})
 
+func (s *LogSuite) TearDownTest(c *gc.C) {
+	loggo.ResetLoggers()
+	loggo.ResetWriters()
+}
+
 func (s *LogSuite) TestAddFlags(c *gc.C) {
 	l := &cmd.Log{}
 	f := testing.NewFlagSet()
