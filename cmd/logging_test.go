@@ -11,9 +11,11 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
+
+var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
 	testing.CleanupSuite
@@ -22,7 +24,7 @@ type LogSuite struct {
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
-	restore := testing.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
+	restore := testing.PatchEnvironment(osenv.JujuLoggingConfig, "")
 	s.AddCleanup(func() {
 		restore()
 		loggo.ResetLoggers()
@@ -89,7 +91,7 @@ func (s *LogSuite) TestStderr(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 }
 
@@ -98,7 +100,7 @@ func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -112,7 +114,7 @@ func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
@@ -124,7 +126,7 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
