@@ -44,6 +44,9 @@ var errorTransformTests = []struct {
 	err:  common.ErrBadId,
 	code: params.CodeNotFound,
 }, {
+	err:  common.NoAddressSetError("unit-mysql-0", "public"),
+	code: params.CodeNoAddressSet,
+}, {
 	err:  common.ErrBadCreds,
 	code: params.CodeUnauthorized,
 }, {

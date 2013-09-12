@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -27,16 +28,11 @@ func (s *URLsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
-	attrs := map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"authorized-keys": "foo",
-		"state-server":    true,
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-	}
+	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
-		attrs["tools-url"] = toolsMetadataURL
+		attrs = attrs.Merge(testing.Attrs{
+			"tools-url": toolsMetadataURL,
+		})
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)

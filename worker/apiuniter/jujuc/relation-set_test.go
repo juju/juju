@@ -177,13 +177,13 @@ var relationSetRunTests = []struct {
 }{
 	{
 		map[string]string{"base": ""},
-		map[string]interface{}{},
+		Settings{},
 	}, {
 		map[string]string{"foo": "bar"},
-		map[string]interface{}{"base": "value", "foo": "bar"},
+		Settings{"base": "value", "foo": "bar"},
 	}, {
 		map[string]string{"base": "changed"},
-		map[string]interface{}{"base": "changed"},
+		Settings{"base": "changed"},
 	},
 }
 

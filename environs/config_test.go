@@ -220,14 +220,7 @@ environments:
 }
 
 func (suite) TestConfigRoundTrip(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "bladaam",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, gc.IsNil)
@@ -238,20 +231,24 @@ func (suite) TestConfigRoundTrip(c *gc.C) {
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, env.Config().AllAttrs())
 }
 
+func inMap(attrs testing.Attrs, attr string) bool {
+	_, ok := attrs[attr]
+	return ok
+}
+
 func (suite) TestBootstrapConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "bladaam").Restore()
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "bladaam",
-		"type":            "dummy",
-		"state-server":    false,
-		"admin-secret":    "highly",
-		"secret":          "um",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-		"agent-version":   "1.2.3",
+	attrs := dummySampleConfig().Merge(testing.Attrs{
+		"agent-version": "1.2.3",
 	})
+	c.Assert(inMap(attrs, "secret"), jc.IsTrue)
+	c.Assert(inMap(attrs, "ca-private-key"), jc.IsTrue)
+	c.Assert(inMap(attrs, "admin-secret"), jc.IsTrue)
+
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+
 	cfg1, err := environs.BootstrapConfig(cfg)
 	c.Assert(err, gc.IsNil)
 

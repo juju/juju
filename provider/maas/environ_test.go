@@ -52,26 +52,19 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
-// makeEnviron creates a functional maasEnviron for a test.  Its configuration
-// is a bit arbitrary and none of the test code's business.
+// makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
-	config, err := config.New(map[string]interface{}{
-		"name":            suite.environ.Name(),
-		"type":            "maas",
-		"admin-secret":    "local-secret",
-		"authorized-keys": "foo",
-		"agent-version":   version.CurrentNumber().String(),
-		"maas-oauth":      "a:b:c",
-		"maas-server":     suite.testMAASObject.TestServer.URL,
-		// These are not needed by MAAS, but juju-core breaks without them. Needs
-		// fixing there.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"name":        suite.environ.Name(),
+		"type":        "maas",
+		"maas-oauth":  "a:b:c",
+		"maas-server": suite.testMAASObject.TestServer.URL,
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}
-	env, err := NewEnviron(config)
+	env, err := NewEnviron(cfg)
 	if err != nil {
 		panic(err)
 	}

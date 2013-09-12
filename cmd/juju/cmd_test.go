@@ -35,7 +35,7 @@ environments:
         state-server: false
         admin-secret: arble
         authorized-keys: i-am-a-key
-        default-series: defaultseries
+        default-series: raring
     walthamstow:
         type: dummy
         state-server: false

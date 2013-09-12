@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // RelationGetCommand implements the relation-get command.
@@ -77,7 +78,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	if !found {
 		return fmt.Errorf("unknown relation id")
 	}
-	var settings map[string]interface{}
+	var settings params.Settings
 	if c.UnitName == c.ctx.UnitName() {
 		node, err := r.Settings()
 		if err != nil {
