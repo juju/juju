@@ -6,7 +6,6 @@ package manual
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,9 +23,9 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 // checkProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
 func checkProvisioned(sshHost string) (bool, error) {
-	cmd := exec.Command("ssh", sshHost, "bash")
-	cmd.Stdin = bytes.NewBufferString(checkProvisionedScript)
+	cmd := sshCommand(sshHost, "bash")
 	var stdout, stderr bytes.Buffer
+	cmd.Stdin = bytes.NewBufferString(checkProvisionedScript)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -42,7 +41,7 @@ func checkProvisioned(sshHost string) (bool, error) {
 // and hardware characteristics of the remote machine by
 // connecting to the machine and executing a bash script.
 func detectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
-	cmd := exec.Command("ssh", sshHost, "bash")
+	cmd := sshCommand(sshHost, "bash")
 	cmd.Stdin = bytes.NewBufferString(detectionScript)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
