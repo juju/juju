@@ -24,7 +24,7 @@ const (
 )
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://juju.canonical.com/tools"
+var DefaultBaseURL = "https://juju.canonical.com/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -84,11 +84,12 @@ func (t *ToolsMetadata) productId() (string, error) {
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
 }
 
-func excludeDefaultURL(urls []string) []string {
-	var result []string
-	for _, url := range urls {
-		if url != "http://juju.canonical.com/tools" {
-			result = append(result, url)
+func excludeDefaultSource(sources []simplestreams.DataSource) []simplestreams.DataSource {
+	var result []simplestreams.DataSource
+	for _, source := range sources {
+		url, _ := source.URL("")
+		if !strings.HasPrefix(url, "https://juju.canonical.com/tools") {
+			result = append(result, source)
 		}
 	}
 	return result
@@ -98,20 +99,20 @@ func excludeDefaultURL(urls []string) []string {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
+func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
 
 	// TODO (wallyworld): 2013-09-05 bug 1220965
-	// Until the official tools repository is set up, we don't want to use its URL.
-	baseURLs = excludeDefaultURL(baseURLs)
+	// Until the official tools repository is set up, we don't want to use it.
+	sources = excludeDefaultSource(sources)
 
 	params := simplestreams.ValueParams{
 		DataType:      ContentDownload,
 		FilterFunc:    appendMatchingTools,
 		ValueTemplate: ToolsMetadata{},
 	}
-	items, err := simplestreams.GetMaybeSignedMetadata(baseURLs, indexPath+simplestreams.SignedSuffix, cons, true, params)
+	items, err := simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.SignedSuffix, cons, true, params)
 	if (err != nil || len(items) == 0) && !onlySigned {
-		items, err = simplestreams.GetMaybeSignedMetadata(baseURLs, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
+		items, err = simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
 	}
 	if err != nil {
 		return nil, err
@@ -125,7 +126,9 @@ func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigne
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
-func appendMatchingTools(baseURL string, matchingTools []interface{}, tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+func appendMatchingTools(source simplestreams.DataSource, matchingTools []interface{},
+	tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+
 	toolsMap := make(map[string]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
@@ -155,11 +158,7 @@ func appendMatchingTools(baseURL string, matchingTools []interface{}, tools map[
 			}
 		}
 		if _, ok := toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)]; !ok {
-			tm.FullPath = baseURL
-			if !strings.HasSuffix(baseURL, "/") {
-				tm.FullPath += "/"
-			}
-			tm.FullPath += tm.Path
+			tm.FullPath, _ = source.URL(tm.Path)
 			matchingTools = append(matchingTools, tm)
 		}
 	}

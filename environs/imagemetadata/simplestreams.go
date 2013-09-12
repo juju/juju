@@ -68,15 +68,15 @@ type ImageMetadata struct {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(baseURLs []string, indexPath string, cons *ImageConstraint, onlySigned bool) ([]*ImageMetadata, error) {
+func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint, onlySigned bool) ([]*ImageMetadata, error) {
 	params := simplestreams.ValueParams{
 		DataType:      ImageIds,
 		FilterFunc:    appendMatchingImages,
 		ValueTemplate: ImageMetadata{},
 	}
-	items, err := simplestreams.GetMaybeSignedMetadata(baseURLs, indexPath+simplestreams.SignedSuffix, cons, true, params)
+	items, err := simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.SignedSuffix, cons, true, params)
 	if (err != nil || len(items) == 0) && !onlySigned {
-		items, err = simplestreams.GetMaybeSignedMetadata(baseURLs, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
+		items, err = simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
 	}
 	if err != nil {
 		return nil, err
@@ -96,7 +96,9 @@ type imageKey struct {
 
 // appendMatchingImages updates matchingImages with image metadata records from images which belong to the
 // specified region. If an image already exists in matchingImages, it is not overwritten.
-func appendMatchingImages(baseURL string, matchingImages []interface{}, images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+func appendMatchingImages(source simplestreams.DataSource, matchingImages []interface{},
+	images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {
 		im := val.(*ImageMetadata)
@@ -115,12 +117,12 @@ func appendMatchingImages(baseURL string, matchingImages []interface{}, images m
 }
 
 // GetLatestImageIdMetadata is provided so it can be call by tests outside the imagemetadata package.
-func GetLatestImageIdMetadata(data []byte, baseURL string, cons *ImageConstraint) ([]*ImageMetadata, error) {
+func GetLatestImageIdMetadata(data []byte, source simplestreams.DataSource, cons *ImageConstraint) ([]*ImageMetadata, error) {
 	metadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", "<unknown>", ImageMetadata{})
 	if err != nil {
 		return nil, err
 	}
-	items, err := simplestreams.GetLatestMetadata(metadata, cons, baseURL, appendMatchingImages)
+	items, err := simplestreams.GetLatestMetadata(metadata, cons, source, appendMatchingImages)
 	if err != nil {
 		return nil, err
 	}

@@ -15,8 +15,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -74,6 +76,8 @@ type azureEnviron struct {
 // azureEnviron implements Environ and HasRegion.
 var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -901,9 +905,20 @@ var baseURLs = []string{
 	"http://cloud-images.ubuntu.com/daily",
 }
 
-// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *azureEnviron) GetImageBaseURLs() ([]string, error) {
-	return baseURLs, nil
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
+	sources[0] = environs.NewStorageSimpleStreamsDataSource(env.Storage(), "")
+	for i, url := range baseURLs {
+		sources[i+1] = simplestreams.NewURLDataSource(url)
+	}
+	return sources, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(env.Storage(), environs.BaseToolsPath)}, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which
