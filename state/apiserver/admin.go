@@ -121,9 +121,14 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 		if !machine.CheckProvisioned(c.Nonce) {
 			return nil, common.ErrNotProvisioned
 		}
-		// The machine agent has connected, so start a pinger to announce
-		// it's now alive.
-		pinger, err := machine.SetAgentAlive()
+	}
+	setAgentAliver, ok := entity.(interface {
+		SetAgentAlive() (*presence.Pinger, error)
+	})
+	if ok {
+		// A machine or unit agent has connected, so start a pinger to
+		// announce it's now alive.
+		pinger, err := setAgentAliver.SetAgentAlive()
 		if err != nil {
 			return nil, err
 		}

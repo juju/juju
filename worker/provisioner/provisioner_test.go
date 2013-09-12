@@ -569,7 +569,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 	attrs := cfg.AllAttrs()
 	attrs["secret"] = "beef"
-	cfg, err = config.New(attrs)
+	cfg, err = config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(cfg)
 

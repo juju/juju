@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -32,7 +32,7 @@ func NewBundlesDir(path string) *BundlesDir {
 // Read returns a charm bundle from the directory. If no bundle exists yet,
 // one will be downloaded and validated and copied into the directory before
 // being returned. Downloads will be aborted if a value is received on abort.
-func (d *BundlesDir) Read(sch *state.Charm, abort <-chan struct{}) (*charm.Bundle, error) {
+func (d *BundlesDir) Read(sch *uniter.Charm, abort <-chan struct{}) (*charm.Bundle, error) {
 	path := d.bundlePath(sch)
 	if _, err := os.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
@@ -47,15 +47,19 @@ func (d *BundlesDir) Read(sch *state.Charm, abort <-chan struct{}) (*charm.Bundl
 // download fetches the supplied charm and checks that it has the correct sha256
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
-func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err error) {
-	defer utils.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
+func (d *BundlesDir) download(sch *uniter.Charm, abort <-chan struct{}) (err error) {
+	archiveURL, err := sch.ArchiveURL()
+	if err != nil {
+		return err
+	}
+	defer utils.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), archiveURL)
 	dir := d.downloadsPath()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	burl := sch.BundleURL().String()
-	log.Infof("worker/uniter/charm: downloading %s from %s", sch.URL(), burl)
-	dl := downloader.New(burl, dir)
+	aurl := archiveURL.String()
+	log.Infof("worker/uniter/charm: downloading %s from %s", sch.URL(), aurl)
+	dl := downloader.New(aurl, dir)
 	defer dl.Stop()
 	for {
 		select {
@@ -73,9 +77,13 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 				return err
 			}
 			actualSha256 := hex.EncodeToString(hash.Sum(nil))
-			if actualSha256 != sch.BundleSha256() {
+			archiveSha256, err := sch.ArchiveSha256()
+			if err != nil {
+				return err
+			}
+			if actualSha256 != archiveSha256 {
 				return fmt.Errorf(
-					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
+					"expected sha256 %q, got %q", archiveSha256, actualSha256,
 				)
 			}
 			log.Infof("worker/uniter/charm: download verified")
@@ -89,7 +97,7 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 
 // bundlePath returns the path to the location where the verified charm
 // bundle identified by sch will be, or has been, saved.
-func (d *BundlesDir) bundlePath(sch *state.Charm) string {
+func (d *BundlesDir) bundlePath(sch *uniter.Charm) string {
 	return path.Join(d.path, charm.Quote(sch.URL().String()))
 }
 

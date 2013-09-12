@@ -122,7 +122,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	good := testing.EnvironConfig(c)
 	attrs := good.AllAttrs()
 	delete(attrs, "agent-version")
-	bad, err := config.New(attrs)
+	bad, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts())

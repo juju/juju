@@ -26,25 +26,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// TestConfig contains the configuration for the environment
-// This is a is an indirection to make it harder for tests to accidentally
-// share the underlying map.
-type TestConfig struct {
-	Config map[string]interface{}
-}
-
-// UpdateConfig modifies the configuration safely by creating a new map
-func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
-	newConfig := map[string]interface{}{}
-	for key, val := range testConfig.Config {
-		newConfig[key] = val
-	}
-	for key, val := range update {
-		newConfig[key] = val
-	}
-	testConfig.Config = newConfig
-}
-
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
@@ -52,23 +33,23 @@ func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
+	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
-	TestConfig TestConfig
-	Env        environs.Environ
+	Env environs.Environ
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := environs.NewFromAttrs(t.TestConfig.Config)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
+	e, err := environs.NewFromAttrs(t.TestConfig)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig))
 	c.Assert(e, NotNil)
 	return e
 }
 
 func (t *Tests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	t.ToolsFixture.SetUpTest(c)
-	cfg, err := config.New(t.TestConfig.Config)
 	c.Assert(err, IsNil)
 	t.Env, err = environs.Prepare(cfg)
 	c.Assert(err, IsNil)
