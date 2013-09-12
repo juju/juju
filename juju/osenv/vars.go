@@ -10,16 +10,14 @@ import (
 )
 
 const (
-	JujuEnv               = "JUJU_ENV"
-	JujuHome              = "JUJU_HOME"
-	JujuRepository        = "JUJU_REPOSITORY"
-	JujuLxcBridge         = "JUJU_LXC_BRIDGE"
-	JujuProviderType      = "JUJU_PROVIDER_TYPE"
-	JujuContainerType     = "JUJU_CONTAINER_TYPE"
-	JujuStorageDir        = "JUJU_STORAGE_DIR"
-	JujuStorageAddr       = "JUJU_STORAGE_ADDR"
-	JujuSharedStorageDir  = "JUJU_SHARED_STORAGE_DIR"
-	JujuSharedStorageAddr = "JUJU_SHARED_STORAGE_ADDR"
+	JujuEnv        = "JUJU_ENV"
+	JujuHome       = "JUJU_HOME"
+	JujuRepository = "JUJU_REPOSITORY"
+	// TODO(thumper): 2013-09-02 bug 1219630
+	// As much as I'd like to remove JujuContainerType now, it is still
+	// needed as MAAS still needs it at this stage, and we can't fix
+	// everything at once.
+	JujuContainerType = "JUJU_CONTAINER_TYPE"
 )
 
 // JujuHome returns the directory where juju should store application-specific files
