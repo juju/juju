@@ -5,6 +5,8 @@ package environs
 
 import (
 	"fmt"
+	"io"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // RemoveAll is a default implementation for StorageWriter.RemoveAll.
@@ -25,4 +27,33 @@ func RemoveAll(stor Storage) error {
 		}
 	}
 	return err
+}
+
+// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
+type storageSimpleStreamsDataSource struct {
+	storage StorageReader
+}
+
+// NewStorageSimpleStreamsDataSource returns a new http datasource reading from the specified storage.
+func NewStorageSimpleStreamsDataSource(storage StorageReader) simplestreams.DataSource {
+	return &storageSimpleStreamsDataSource{storage}
+}
+
+// Fetch is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+	dataURL := path
+	fullURL, err := s.storage.URL(path)
+	if err != nil {
+		dataURL = fullURL
+	}
+	rc, err := s.storage.Get(path)
+	if err != nil {
+		return nil, dataURL, err
+	}
+	return rc, dataURL, nil
+}
+
+// URL is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
+	return s.storage.URL(path)
 }

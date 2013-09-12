@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
@@ -74,6 +75,7 @@ type azureEnviron struct {
 // azureEnviron implements Environ and HasRegion.
 var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -901,9 +903,13 @@ var baseURLs = []string{
 	"http://cloud-images.ubuntu.com/daily",
 }
 
-// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *azureEnviron) GetImageBaseURLs() ([]string, error) {
-	return baseURLs, nil
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	sources := make([]simplestreams.DataSource, len(baseURLs))
+	for i, url := range baseURLs {
+		sources[i] = simplestreams.NewURLDataSource(url)
+	}
+	return sources, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

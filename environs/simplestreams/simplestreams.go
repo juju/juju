@@ -211,7 +211,7 @@ type Indices struct {
 // Exported for testing.
 type IndexReference struct {
 	Indices
-	BaseURL     string
+	Source      DataSource
 	valueParams ValueParams
 }
 
@@ -339,17 +339,17 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-var httpClient *http.Client
+var urlClient *http.Client
 
 func init() {
-	httpClient = &http.Client{Transport: http.DefaultTransport}
+	urlClient = &http.Client{Transport: http.DefaultTransport}
 	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 }
 
 // RegisterProtocol registers a new protocol with the simplestreams http client.
 // Exported for testing.
 func RegisterProtocol(scheme string, rt http.RoundTripper) {
-	httpClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
+	urlClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
 }
 
 // noMatchingProductsError is used to indicate that metadata files have been located,
@@ -373,7 +373,7 @@ const (
 	UnsignedSuffix   = ".json"
 )
 
-type appendMatchingFunc func(string, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
+type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
 
 // ValueParams contains the information required to pull out from the metadata structs of a particular type.
 type ValueParams struct {
@@ -385,23 +385,15 @@ type ValueParams struct {
 	ValueTemplate interface{}
 }
 
-// urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
-// This doesn't try to do anything fancy with URL query or parameter bits
-// It also doesn't use path.Join because that normalizes slashes, and you need
-// to keep both slashes in 'http://'.
-func urlJoin(baseURL, relpath string) string {
-	if strings.HasSuffix(baseURL, "/") {
-		return baseURL + relpath
-	}
-	return baseURL + "/" + relpath
-}
-
 // GetMaybeSignedMetadata returns metadata records matching the specified constraint.
-func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupConstraint, requireSigned bool, params ValueParams) ([]interface{}, error) {
+func GetMaybeSignedMetadata(sources []DataSource, indexPath string, cons LookupConstraint, requireSigned bool, params ValueParams) ([]interface{}, error) {
 	var items []interface{}
-	for _, baseURL := range baseURLs {
-		indexURL := urlJoin(baseURL, indexPath)
-		indexRef, err := GetIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned, params)
+	for _, source := range sources {
+		indexURL, err := source.URL(indexPath)
+		if err != nil {
+			return nil, err
+		}
+		indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 				logger.Debugf("cannot load index %q: %v", indexURL, err)
@@ -430,13 +422,13 @@ func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupCons
 }
 
 // GetMaybeSignedMirror returns a mirror info struct matching the specified content and cloud.
-func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned bool, contentId string, cloudSpec CloudSpec) (*MirrorInfo, error) {
+func GetMaybeSignedMirror(sources []DataSource, indexPath string, requireSigned bool, contentId string, cloudSpec CloudSpec) (*MirrorInfo, error) {
 	var mirrorInfo *MirrorInfo
-	for _, baseURL := range baseURLs {
-		mirrorRefs, err := GetMirrorRefsWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
+	for _, source := range sources {
+		mirrorRefs, dataURL, err := GetMirrorRefsWithFormat(source, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q: %v", urlJoin(baseURL, indexPath), err)
+				logger.Debugf("cannot load index %q: %v", dataURL, err)
 				continue
 			}
 			return nil, err
@@ -444,12 +436,12 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 		mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", urlJoin(baseURL, indexPath), err)
+				logger.Debugf("skipping index because of error getting latest metadata %q: %v", dataURL, err)
 				continue
 			}
 			return nil, err
 		}
-		mirrorInfo, err = mirrorRef.getMirrorInfo(baseURL, contentId, cloudSpec, "mirrors:1.0", requireSigned)
+		mirrorInfo, err = mirrorRef.getMirrorInfo(source, contentId, cloudSpec, "mirrors:1.0", requireSigned)
 		if err != nil {
 			return nil, err
 		}
@@ -460,29 +452,18 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 	return mirrorInfo, nil
 }
 
-// fetchData gets all the data from the given path relative to the given base URL.
+// fetchData gets all the data from the given source located at the specified path.
 // It returns the data found and the full URL used.
-func fetchData(baseURL, relpath string, requireSigned bool) (data []byte, dataURL string, err error) {
-	dataURL = urlJoin(baseURL, relpath)
-	resp, err := httpClient.Get(dataURL)
+func fetchData(source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
+	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, dataURL, errors.NotFoundf("cannot find URL %q", dataURL)
-	}
-	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, dataURL, errors.Unauthorizedf("unauthorised access to URL %q", dataURL)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, dataURL, fmt.Errorf("cannot access URL %q, %q", dataURL, resp.Status)
-	}
-
+	defer rc.Close()
 	if requireSigned {
-		data, err = DecodeCheckSignature(resp.Body)
+		data, err = DecodeCheckSignature(rc)
 	} else {
-		data, err = ioutil.ReadAll(resp.Body)
+		data, err = ioutil.ReadAll(rc)
 	}
 	if err != nil {
 		return nil, dataURL, fmt.Errorf("cannot read URL data, %v", err)
@@ -492,8 +473,8 @@ func fetchData(baseURL, relpath string, requireSigned bool) (data []byte, dataUR
 
 // GetIndexWithFormat returns a simplestreams index of the specified format.
 // Exported for testing.
-func GetIndexWithFormat(baseURL, indexPath, format string, requireSigned bool, params ValueParams) (*IndexReference, error) {
-	data, url, err := fetchData(baseURL, indexPath, requireSigned)
+func GetIndexWithFormat(source DataSource, indexPath, format string, requireSigned bool, params ValueParams) (*IndexReference, error) {
+	data, url, err := fetchData(source, indexPath, requireSigned)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 			return nil, err
@@ -509,7 +490,7 @@ func GetIndexWithFormat(baseURL, indexPath, format string, requireSigned bool, p
 		return nil, fmt.Errorf("unexpected index file format %q, expected %q at URL %q", indices.Format, format, url)
 	}
 	return &IndexReference{
-		BaseURL:     baseURL,
+		Source:      source,
 		Indices:     indices,
 		valueParams: params,
 	}, nil
@@ -556,23 +537,23 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 
 // GetMirrorRefsWithFormat returns a simplestreams mirrors struct of the specified format.
 // Exported for testing.
-func GetMirrorRefsWithFormat(baseURL, indexPath, format string, requireSigned bool) (*MirrorRefs, error) {
-	data, url, err := fetchData(baseURL, indexPath, requireSigned)
+func GetMirrorRefsWithFormat(source DataSource, indexPath, format string, requireSigned bool) (*MirrorRefs, string, error) {
+	data, url, err := fetchData(source, indexPath, requireSigned)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-			return nil, err
+			return nil, url, err
 		}
-		return nil, fmt.Errorf("cannot read index data, %v", err)
+		return nil, url, fmt.Errorf("cannot read index data, %v", err)
 	}
 	var mirrorRefs MirrorRefs
 	err = json.Unmarshal(data, &mirrorRefs)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+		return nil, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
 	}
 	if mirrorRefs.Format != format {
-		return nil, fmt.Errorf("unexpected mirror file format %q, expected %q at URL %q", mirrorRefs.Format, format, url)
+		return nil, url, fmt.Errorf("unexpected mirror file format %q, expected %q at URL %q", mirrorRefs.Format, format, url)
 	}
-	return &mirrorRefs, nil
+	return &mirrorRefs, url, nil
 }
 
 // extractMirrorRefs returns just the array of MirrorRef structs for the contentId, in arbitrary order.
@@ -626,8 +607,8 @@ func (mirrorRefs *MirrorRefs) GetMirrorReference(contentId string, cloud CloudSp
 }
 
 // getMirrorInfo returns mirror information from the mirror file at the given path for the specified content and cloud.
-func (mirrorRef *MirrorReference) getMirrorInfo(baseURL, contentId string, cloud CloudSpec, format string, requireSigned bool) (*MirrorInfo, error) {
-	metadata, err := GetMirrorMetadataWithFormat(baseURL, mirrorRef.Path, format, requireSigned)
+func (mirrorRef *MirrorReference) getMirrorInfo(source DataSource, contentId string, cloud CloudSpec, format string, requireSigned bool) (*MirrorInfo, error) {
+	metadata, err := GetMirrorMetadataWithFormat(source, mirrorRef.Path, format, requireSigned)
 	if err != nil {
 		return nil, err
 	}
@@ -640,8 +621,8 @@ func (mirrorRef *MirrorReference) getMirrorInfo(baseURL, contentId string, cloud
 
 // GetMirrorMetadataWithFormat returns simplestreams mirror data of the specified format.
 // Exported for testing.
-func GetMirrorMetadataWithFormat(baseURL, mirrorPath, format string, requireSigned bool) (*MirrorMetadata, error) {
-	data, url, err := fetchData(baseURL, mirrorPath, requireSigned)
+func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string, requireSigned bool) (*MirrorMetadata, error) {
+	data, url, err := fetchData(source, mirrorPath, requireSigned)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 			return nil, err
@@ -879,7 +860,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(ic LookupConstraint, 
 		return nil, err
 	}
 	logger.Debugf("finding products at path %q", productFilesPath)
-	data, url, err := fetchData(indexRef.BaseURL, productFilesPath, requireSigned)
+	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read product data, %v", err)
 	}
@@ -915,7 +896,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
-	matches, err := GetLatestMetadata(metadata, cons, indexRef.BaseURL, indexRef.valueParams.FilterFunc)
+	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -926,7 +907,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 }
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.
-func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, baseURL string, filterFunc appendMatchingFunc) ([]interface{}, error) {
+func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source DataSource, filterFunc appendMatchingFunc) ([]interface{}, error) {
 	prodIds, err := cons.Ids()
 	if err != nil {
 		return nil, err
@@ -952,7 +933,7 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, baseURL s
 		}
 		sort.Sort(bv)
 		for _, itemCollVersion := range bv {
-			matchingItems = filterFunc(baseURL, matchingItems, itemCollVersion.ItemCollection.Items, cons)
+			matchingItems = filterFunc(source, matchingItems, itemCollVersion.ItemCollection.Items, cons)
 		}
 	}
 	return matchingItems, nil
