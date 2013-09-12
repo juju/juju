@@ -48,6 +48,70 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 	}
 }
 
+var isFatalTests = []struct {
+	err error
+	isFatal bool
+}{{
+	err: worker.ErrTerminateAgent,
+	isFatal: true,
+}, {
+	err: &upgrader.UpgradeReadyError{},
+	isFatal: true,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code: params.CodeNotProvisioned,
+	},
+	isFatal: true,
+}, {
+	err: &fatalError{},
+	isFatal: true,
+}, {
+	err: errors.New("foo"),
+	isFatal: false,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code: params.CodeNotFound,
+	},
+	isFatal: false,
+}}
+
+func (*toolSuite) TestIsFatal(c *gc.C) {
+	for i, test := range isFatalTests {
+		c.Logf("test %d: %s", i, test.err)
+		c.Assert(isFatal(test.err), gc.Equals, test.isFatal)
+	}
+}
+
+type testPinger func() error
+
+func (f testPinger) Ping() error {
+	return f()
+}
+
+func (s *MachineSuite) TestConnectionIsFatal(c *gc.C) {
+	var (
+		errPinger testPinger = func() error {
+			return errors.New("ping error")
+		}
+		okPinger testPinger = func() error {
+			return nil
+		}
+	)
+	for i, pinger := range []testPinger{errPinger, okPinger} {
+		for j, test := range isFatalTests {
+			c.Logf("test %d.%d: %s", i, j, test.err)
+			fatal := connectionIsFatal(pinger)(test.err)
+			if test.isFatal {
+				c.Check(fatal, jc.IsTrue)
+			} else {
+				c.Check(fatal, jc.Equals, j == 0)
+			}
+		}
+	}
+}
+
 func mkTools(s string) *coretools.Tools {
 	return &coretools.Tools{
 		Version: version.MustParseBinary(s + "-foo-bar"),
