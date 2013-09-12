@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
-	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -46,6 +47,8 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
+	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
+	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
 		c.metadataDir = config.JujuHome()
 	}
@@ -57,10 +60,10 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 	fmt.Fprintln(context.Stdout, "Finding tools...")
 	const minorVersion = -1
-	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
-	if err == envtools.ErrNoTools && !c.noS3 {
+	toolsList, err := tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
+	if err == tools.ErrNoTools && !c.noS3 {
 		sourceStorage = ec2.NewHTTPStorageReader(sync.DefaultToolsLocation)
-		toolsList, err = envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
+		toolsList, err = tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	}
 	if err != nil {
 		return err
@@ -70,5 +73,5 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return envtools.WriteMetadata(toolsList, c.fetch, targetStorage)
+	return tools.WriteMetadata(toolsList, c.fetch, targetStorage)
 }

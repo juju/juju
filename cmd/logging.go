@@ -4,8 +4,10 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/loggo"
@@ -62,4 +64,29 @@ func (l *Log) Start(ctx *Context) (err error) {
 	}
 	loggo.ConfigureLoggers(l.Config)
 	return nil
+}
+
+// NewCommandLogWriter creates a loggo writer for registration
+// by the callers of a command. This way the logged output can also
+// be displayed otherwise, e.g. on the screen.
+func NewCommandLogWriter(name string, out, err io.Writer) loggo.Writer {
+	return &commandLogWriter{name, out, err}
+}
+
+// commandLogWriter filters the log messages for name.
+type commandLogWriter struct {
+	name string
+	out  io.Writer
+	err  io.Writer
+}
+
+// Write implements loggo's Writer interface.
+func (s *commandLogWriter) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
+	if name == s.name {
+		if level <= loggo.INFO {
+			fmt.Fprintf(s.out, "%s\n", message)
+		} else {
+			fmt.Fprintf(s.err, "%s\n", message)
+		}
+	}
 }

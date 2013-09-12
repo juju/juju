@@ -156,7 +156,8 @@ func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries .
 	if err != nil {
 		return nil, err
 	}
-	//TODO(wallyworld) - add sha256
+	//TODO(wallyworld) - bug 1224266
+	// add sha256
 	return &coretools.Tools{
 		Version: toolsVersion,
 		URL:     url,

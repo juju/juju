@@ -63,14 +63,14 @@ func (c *SyncToolsCommand) Init(args []string) error {
 
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	// Register writer for output on screen.
-	loggo.RegisterWriter("synctools", sync.NewSyncLogWriter(ctx.Stdout, ctx.Stderr), loggo.INFO)
+	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
 	environ, err := environs.PrepareFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 
-	var target environs.Storage = environ.Storage()
+	target := environ.Storage()
 	if c.destination != "" {
 		target, err = filestorage.NewFileStorageWriter(c.destination)
 		if err != nil {

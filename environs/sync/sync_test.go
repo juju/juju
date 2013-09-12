@@ -192,11 +192,11 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 }
 
 func assertEmpty(c *gc.C, storage environs.StorageReader) {
-	list, _ := envtools.ReadList(storage, 2, 0)
+	list, err := envtools.ReadList(storage, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
-	//	c.Assert(err, gc.Equals, envtools.ErrNoTools)
+	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
 func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {

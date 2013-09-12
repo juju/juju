@@ -86,10 +86,6 @@ func (s *ToolsMetadataSuite) assertGenerateDefaultDirectory(c *gc.C, subdir stri
 	metadataDir := config.JujuHome() // default metadata dir
 	ttesting.MakeTools(c, metadataDir, subdir, versionStrings)
 	ctx := coretesting.Context(c)
-	oldWriter, err := loggo.ReplaceDefaultWriter(loggo.NewSimpleWriter(ctx.Stdout, &loggo.DefaultFormatter{}))
-	c.Assert(err, gc.IsNil)
-	defer loggo.ReplaceDefaultWriter(oldWriter)
-
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
@@ -116,10 +112,6 @@ func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	metadataDir := c.MkDir()
 	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
-	oldWriter, err := loggo.ReplaceDefaultWriter(loggo.NewSimpleWriter(ctx.Stdout, &loggo.DefaultFormatter{}))
-	c.Assert(err, gc.IsNil)
-	defer loggo.ReplaceDefaultWriter(oldWriter)
-
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
@@ -154,10 +146,6 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	metadataDir := config.JujuHome() // default metadata dir
 	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
-	oldWriter, err := loggo.ReplaceDefaultWriter(loggo.NewSimpleWriter(ctx.Stdout, &loggo.DefaultFormatter{}))
-	c.Assert(err, gc.IsNil)
-	defer loggo.ReplaceDefaultWriter(oldWriter)
-
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()

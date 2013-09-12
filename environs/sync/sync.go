@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"time"
 
 	"launchpad.net/loggo"
 
@@ -47,8 +46,8 @@ type SyncContext struct {
 
 // SyncTools copies the Juju tools tarball from the official bucket
 // or a specified source directory into the user's environment.
-func SyncTools(ctx *SyncContext) error {
-	sourceStorage, err := selectSourceStorage(ctx)
+func SyncTools(syncContext *SyncContext) error {
+	sourceStorage, err := selectSourceStorage(syncContext)
 	if err != nil {
 		return fmt.Errorf("unable to select source: %v", err)
 	}
@@ -56,14 +55,14 @@ func SyncTools(ctx *SyncContext) error {
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
 	minorVersion := -1
-	if !ctx.AllVersions {
+	if !syncContext.AllVersions {
 		minorVersion = version.Current.Minor
 	}
 	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, minorVersion)
 	if err != nil {
 		return err
 	}
-	if !ctx.Dev {
+	if !syncContext.Dev {
 		// If we are running from a dev version, then it is appropriate to allow
 		// dev version tools to be used.
 		filter := coretools.Filter{Released: !version.Current.IsDev()}
@@ -72,7 +71,7 @@ func SyncTools(ctx *SyncContext) error {
 		}
 	}
 	logger.Infof("found %d tools", len(sourceTools))
-	if !ctx.AllVersions {
+	if !syncContext.AllVersions {
 		var latest version.Number
 		latest, sourceTools = sourceTools.Newest()
 		logger.Infof("found %d recent tools (version %s)", len(sourceTools), latest)
@@ -82,7 +81,7 @@ func SyncTools(ctx *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
-	targetStorage := ctx.Target
+	targetStorage := syncContext.Target
 	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
@@ -95,14 +94,14 @@ func SyncTools(ctx *SyncContext) error {
 
 	missing := sourceTools.Exclude(targetTools)
 	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
-	err = copyTools(missing, ctx, targetStorage, sourceStorage)
+	err = copyTools(missing, syncContext, targetStorage, sourceStorage)
 	if err != nil {
 		return err
 	}
 	logger.Infof("copied %d tools", len(missing))
 
 	logger.Infof("generating tools metadata")
-	if !ctx.DryRun {
+	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
 		err = envtools.WriteMetadata(targetTools, false, targetStorage)
 		if err != nil {
@@ -114,18 +113,21 @@ func SyncTools(ctx *SyncContext) error {
 }
 
 // selectSourceStorage returns a storage reader based on the source setting.
-func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
-	if ctx.Source == "" {
+func selectSourceStorage(syncContext *SyncContext) (environs.StorageReader, error) {
+	if syncContext.Source == "" {
 		return ec2.NewHTTPStorageReader(DefaultToolsLocation), nil
 	}
-	return filestorage.NewFileStorageReader(ctx.Source)
+	return filestorage.NewFileStorageReader(syncContext.Source)
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage, source environs.StorageReader) error {
+func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage, source environs.StorageReader) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
-		if err := copyOneToolsPackage(ctx, tool, dest, source); err != nil {
+		if syncContext.DryRun {
+			continue
+		}
+		if err := copyOneToolsPackage(tool, dest, source); err != nil {
 			return err
 		}
 	}
@@ -133,7 +135,7 @@ func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(ctx *SyncContext, tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
+func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := src.Get(toolsName)
@@ -154,34 +156,5 @@ func copyOneToolsPackage(ctx *SyncContext, tool *coretools.Tools, dest environs.
 	sha256hash.Write(buf.Bytes())
 	tool.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
 	tool.Size = nBytes
-
-	if ctx.DryRun {
-		return nil
-	}
 	return dest.Put(toolsName, buf, nBytes)
-}
-
-// NewSyncLogWriter creates a loggo writer for registration
-// by the callers of Sync. This way the logged output can also
-// be displayed otherwise, e.g. on the screen.
-func NewSyncLogWriter(out, err io.Writer) loggo.Writer {
-	return &syncLogWriter{out, err}
-}
-
-// syncLogWriter filters the log messages for
-// "juju.environs.sync".
-type syncLogWriter struct {
-	out io.Writer
-	err io.Writer
-}
-
-// Write implements loggo's Writer interface.
-func (s *syncLogWriter) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
-	if name == "juju.environs.sync" {
-		if level <= loggo.INFO {
-			fmt.Fprintf(s.out, "%s\n", message)
-		} else {
-			fmt.Fprintf(s.err, "%s\n", message)
-		}
-	}
 }

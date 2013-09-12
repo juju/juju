@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 
@@ -37,7 +36,7 @@ func NewFileStorageReader(path string) (environs.StorageReader, error) {
 }
 
 func (f *fileStorageReader) fullPath(name string) string {
-	return path.Join(f.path, name)
+	return filepath.Join(f.path, name)
 }
 
 // Get implements environs.StorageReader.Get.
@@ -76,7 +75,7 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 
 // URL implements environs.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
-	return "file://" + path.Join(f.path, name), nil
+	return "file://" + filepath.Join(f.path, name), nil
 }
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
