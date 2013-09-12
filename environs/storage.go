@@ -29,12 +29,12 @@ func RemoveAll(stor Storage) error {
 	return err
 }
 
-// A httpDataSource retrieves data from an environs.StorageReader.
+// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
 type storageSimpleStreamsDataSource struct {
 	storage StorageReader
 }
 
-// NewHttpDataSource returns a new http datasource reading from the specified storage.
+// NewStorageSimpleStreamsDataSource returns a new http datasource reading from the specified storage.
 func NewStorageSimpleStreamsDataSource(storage StorageReader) simplestreams.DataSource {
 	return &storageSimpleStreamsDataSource{storage}
 }

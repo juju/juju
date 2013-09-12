@@ -17,7 +17,7 @@ type SupportsCustomSources interface {
 func GetMetadataSources(cloudInst config.HasConfig) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
 	if userURL, ok := cloudInst.Config().ToolsURL(); ok {
-		sources = append(sources, simplestreams.NewHttpDataSource(userURL))
+		sources = append(sources, simplestreams.NewURLDataSource(userURL))
 	}
 	if custom, ok := cloudInst.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()
@@ -28,7 +28,7 @@ func GetMetadataSources(cloudInst config.HasConfig) ([]simplestreams.DataSource,
 	}
 
 	if DefaultBaseURL != "" {
-		sources = append(sources, simplestreams.NewHttpDataSource(DefaultBaseURL))
+		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL))
 	}
 	return sources, nil
 }

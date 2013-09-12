@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewHttpDataSource("test:"),
+			Source:        simplestreams.NewURLDataSource("test:"),
 			RequireSigned: false,
 			DataType:      "image-ids",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{

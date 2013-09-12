@@ -339,17 +339,17 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-var httpClient *http.Client
+var urlClient *http.Client
 
 func init() {
-	httpClient = &http.Client{Transport: http.DefaultTransport}
+	urlClient = &http.Client{Transport: http.DefaultTransport}
 	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 }
 
 // RegisterProtocol registers a new protocol with the simplestreams http client.
 // Exported for testing.
 func RegisterProtocol(scheme string, rt http.RoundTripper) {
-	httpClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
+	urlClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
 }
 
 // noMatchingProductsError is used to indicate that metadata files have been located,

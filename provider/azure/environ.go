@@ -907,7 +907,7 @@ var baseURLs = []string{
 func (e *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, len(baseURLs))
 	for i, url := range baseURLs {
-		sources[i] = simplestreams.NewHttpDataSource(url)
+		sources[i] = simplestreams.NewURLDataSource(url)
 	}
 	return sources, nil
 }

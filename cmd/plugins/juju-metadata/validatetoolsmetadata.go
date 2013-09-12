@@ -190,7 +190,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewHttpDataSource("file://" + c.metadataDir)}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + c.metadataDir)}
 	}
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{

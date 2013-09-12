@@ -62,7 +62,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewHttpDataSource("test:"),
+			Source:        simplestreams.NewURLDataSource("test:"),
 			RequireSigned: false,
 			DataType:      imagemetadata.ImageIds,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
@@ -79,7 +79,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewHttpDataSource(baseURL),
+		Source:          simplestreams.NewURLDataSource(baseURL),
 		RequireSigned:   requireSigned,
 		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,

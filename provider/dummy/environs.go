@@ -452,12 +452,12 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{simplestreams.NewHttpDataSource("dummy-image-metadata-url")}, nil
+	return []simplestreams.DataSource{simplestreams.NewURLDataSource("dummy-image-metadata-url")}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{simplestreams.NewHttpDataSource("dummy-tools-url")}, nil
+	return []simplestreams.DataSource{simplestreams.NewURLDataSource("dummy-tools-url")}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
