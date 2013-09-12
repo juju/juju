@@ -229,7 +229,10 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	s.assertInScope(c, myRelUnit, true)
 	gotSettings, err = apiRelUnit.ReadSettings("mysql/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(gotSettings, gc.DeepEquals, settings)
+	c.Assert(gotSettings, gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
 }
 
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {

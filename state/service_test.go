@@ -344,9 +344,10 @@ var serviceUpdateConfigSettingsTests = []struct {
 	about:  "unset missing string",
 	update: charm.Settings{"outlook": nil},
 }, {
-	about:   `empty strings unset string values`,
+	about:   `empty strings are valid`,
 	initial: charm.Settings{"outlook": "positive"},
 	update:  charm.Settings{"outlook": "", "title": ""},
+	expect:  charm.Settings{"outlook": "", "title": ""},
 }, {
 	about:   "preserve existing value",
 	initial: charm.Settings{"title": "sir"},

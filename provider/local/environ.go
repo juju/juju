@@ -465,7 +465,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
 		"USER":                      env.config.user,
-		"HOME":                      os.Getenv("HOME"),
+		"HOME":                      osenv.Home(),
 		osenv.JujuProviderType:      env.config.Type(),
 		osenv.JujuStorageDir:        env.config.storageDir(),
 		osenv.JujuStorageAddr:       env.config.storageAddr(),

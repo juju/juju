@@ -5,6 +5,9 @@ package environs
 
 import (
 	"fmt"
+	"io"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"path/filepath"
 )
 
 // RemoveAll is a default implementation for StorageWriter.RemoveAll.
@@ -25,4 +28,46 @@ func RemoveAll(stor Storage) error {
 		}
 	}
 	return err
+}
+
+// BaseToolsPath is the container where tools tarballs and metadata are found.
+var BaseToolsPath = "tools"
+
+// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
+type storageSimpleStreamsDataSource struct {
+	basePath string
+	storage  StorageReader
+}
+
+// NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
+func NewStorageSimpleStreamsDataSource(storage StorageReader, basePath string) simplestreams.DataSource {
+	return &storageSimpleStreamsDataSource{basePath, storage}
+}
+
+func (s *storageSimpleStreamsDataSource) relpath(path string) string {
+	relpath := path
+	if s.basePath != "" {
+		relpath = filepath.Join(s.basePath, relpath)
+	}
+	return relpath
+}
+
+// Fetch is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+	relpath := s.relpath(path)
+	dataURL := relpath
+	fullURL, err := s.storage.URL(relpath)
+	if err != nil {
+		dataURL = fullURL
+	}
+	rc, err := s.storage.Get(relpath)
+	if err != nil {
+		return nil, dataURL, err
+	}
+	return rc, dataURL, nil
+}
+
+// URL is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
+	return s.storage.URL(s.relpath(path))
 }

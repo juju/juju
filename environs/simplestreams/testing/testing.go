@@ -363,24 +363,37 @@ var imageData = map[string]string{
 `,
 }
 
-type TestDataSuite struct {
-	testRoundTripper *jujutest.ProxyRoundTripper
+var testRoundTripper *jujutest.ProxyRoundTripper
+
+func init() {
+	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	simplestreams.RegisterProtocol("test", testRoundTripper)
 }
 
+type TestDataSuite struct{}
+
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
-	s.testRoundTripper = &jujutest.ProxyRoundTripper{}
-	s.testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
 		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
-	simplestreams.RegisterProtocol("test", s.testRoundTripper)
 }
 
 func (s *TestDataSuite) TearDownSuite(c *gc.C) {
-	s.testRoundTripper.Sub = nil
+	testRoundTripper.Sub = nil
+}
+
+func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURLs []string) {
+	var obtainedURLs = make([]string, len(baseURLs))
+	for i, source := range obtained {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		obtainedURLs[i] = url
+	}
+	c.Assert(obtainedURLs, gc.DeepEquals, baseURLs)
 }
 
 type LocalLiveSimplestreamsSuite struct {
 	testing.LoggingSuite
-	BaseURL         string
+	Source          simplestreams.DataSource
 	RequireSigned   bool
 	DataType        string
 	ValidConstraint simplestreams.LookupConstraint
@@ -446,7 +459,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Format, gc.Equals, Index_v1)
-	c.Assert(indexRef.BaseURL, gc.Equals, s.BaseURL)
+	c.Assert(indexRef.Source, gc.Equals, s.Source)
 	c.Assert(len(indexRef.Indexes) > 0, gc.Equals, true)
 }
 
@@ -455,7 +468,7 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(s.BaseURL, s.IndexPath(), format, s.RequireSigned, params)
+	return simplestreams.GetIndexWithFormat(s.Source, s.IndexPath(), format, s.RequireSigned, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
