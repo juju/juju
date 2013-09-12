@@ -9,7 +9,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
@@ -103,7 +102,7 @@ var UseLegacyFallback = true
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(cloudInst config.HasConfig, majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
 	var cloudSpec simplestreams.CloudSpec
 	if inst, ok := cloudInst.(simplestreams.HasRegion); ok {
@@ -153,7 +152,7 @@ func FindTools(cloudInst config.HasConfig, majorVersion, minorVersion int, filte
 // FindBootstrapTools returns a ToolsList containing only those tools with
 // which it would be reasonable to launch an environment's first machine, given the supplied constraints.
 // If a specific agent version is not requested, all tools matching the current major.minor version are chosen.
-func FindBootstrapTools(cloudInst config.HasConfig,
+func FindBootstrapTools(cloudInst environs.ConfigGetter,
 	vers *version.Number, series string, arch *string, useDev bool) (list coretools.List, err error) {
 
 	// Construct a tools filter.
@@ -183,7 +182,7 @@ func stringOrEmpty(pstr *string) string {
 
 // FindInstanceTools returns a ToolsList containing only those tools with which
 // it would be reasonable to start a new instance, given the supplied series and arch.
-func FindInstanceTools(cloudInst config.HasConfig,
+func FindInstanceTools(cloudInst environs.ConfigGetter,
 	vers version.Number, series string, arch *string) (list coretools.List, err error) {
 
 	// Construct a tools filter.
@@ -197,7 +196,7 @@ func FindInstanceTools(cloudInst config.HasConfig,
 }
 
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(cloudInst config.HasConfig,
+func FindExactTools(cloudInst environs.ConfigGetter,
 	vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
 
 	logger.Infof("finding exact version %s", vers)
