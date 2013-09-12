@@ -14,6 +14,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 )
@@ -99,7 +100,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	}
 	// If the logging config hasn't been set, then look in the environment.
 	if c.asString("logging-config") == "" {
-		if environmentValue := os.Getenv("JUJU_LOGGING_CONFIG"); environmentValue != "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
 			c.m["logging-config"] = environmentValue
 		} else {
 			c.m["logging-config"] = loggo.LoggerInfo()
