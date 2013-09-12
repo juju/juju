@@ -141,8 +141,10 @@ func (formatter *formatter_1_16) write(config *configInternal) error {
 	if err != nil {
 		return err
 	}
+	// TODO(thumper): 2013-09-13 bug 1224725
+	// We should be writing to a temp dir first then rename.
 	// Writing the format file makes sure that dirName exists.  We should
-	// really be writing the foramt and new config files into a separate
+	// really be writing the format and new config files into a separate
 	// directory, and renaming the directory, and moving the old agend
 	// directory to ".old".
 	if err := writeFormatFile(dirName, format_1_16); err != nil {
