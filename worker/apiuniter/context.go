@@ -63,7 +63,7 @@ type HookContext struct {
 
 func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string) *HookContext {
+	apiAddrs []string) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -74,13 +74,16 @@ func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 		apiAddrs:       apiAddrs,
 	}
 	// Get and cache the addresses.
-	// We ignore the errors here, becasue we only
-	// care if the addresses are set or not, and
-	// we don't want them to change while a hook
-	// is executed.
-	ctx.publicAddress, _ = unit.PublicAddress()
-	ctx.privateAddress, _ = unit.PrivateAddress()
-	return ctx
+	var err error
+	ctx.publicAddress, err = unit.PublicAddress()
+	if err != nil && params.ErrCode(err) != params.CodeNoAddressSet {
+		return nil, err
+	}
+	ctx.privateAddress, err = unit.PrivateAddress()
+	if err != nil && params.ErrCode(err) != params.CodeNoAddressSet {
+		return nil, err
+	}
+	return ctx, nil
 }
 
 func (ctx *HookContext) UnitName() string {

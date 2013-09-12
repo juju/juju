@@ -712,8 +712,10 @@ func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, gc.Equals, true)
 	}
-	return apiuniter.NewHookContext(s.apiUnit, "TestCtx", uuid, relid, remote,
+	context, err := apiuniter.NewHookContext(s.apiUnit, "TestCtx", uuid, relid, remote,
 		s.relctxs, apiAddrs)
+	c.Assert(err, gc.IsNil)
+	return context
 }
 
 func convertSettings(settings params.Settings) map[string]interface{} {
