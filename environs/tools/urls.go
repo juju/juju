@@ -14,7 +14,8 @@ type SupportsCustomSources interface {
 	GetToolsSources() ([]simplestreams.DataSource, error)
 }
 
-// GetMetadataSources returns the sources to use when looking for simplestreams tools metadata. If env implements SupportsCustomSurces,
+// GetMetadataSources returns the sources to use when looking for
+// simplestreams tools metadata. If env implements SupportsCustomSurces,
 // the sources returned from that method will also be considered.
 func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
