@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"net/http"
 
 	"launchpad.net/loggo"
 
@@ -127,7 +128,7 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs
 		if syncContext.DryRun {
 			continue
 		}
-		if err := copyOneToolsPackage(tool, dest, source); err != nil {
+		if err := copyOneToolsPackage(tool, dest); err != nil {
 			return err
 		}
 	}
@@ -135,13 +136,18 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
+func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage) error {
+	defer func() {
+		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	}()
+	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
-	srcFile, err := src.Get(toolsName)
+	resp, err := http.Get(tool.URL)
 	if err != nil {
 		return err
 	}
+	srcFile := resp.Body
 	defer srcFile.Close()
 	// We have to buffer the content, because Put requires the content
 	// length, but Get only returns us a ReadCloser

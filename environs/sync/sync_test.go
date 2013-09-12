@@ -174,7 +174,7 @@ var (
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190all = []version.Binary{v190q64, v190p32}
 	v1noDev = append(v100all, v180all...)
-	v1all   = append(append(v100all, v180all...), v190all...)
+	v1all   = append(v1noDev, v190all...)
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	vAll    = append(v1all, v200p64)
 )
@@ -196,7 +196,7 @@ func assertEmpty(c *gc.C, storage environs.StorageReader) {
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
-	c.Assert(err, gc.Equals, envtools.ErrNoTools)
+	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 }
 
 func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
