@@ -57,7 +57,7 @@ func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
 		ValueTemplate: tools.ToolsMetadata{},
 	}
 
-	source := simplestreams.NewHttpDataSource("file://" + metadataDir + "/tools")
+	source := simplestreams.NewURLDataSource("file://" + metadataDir + "/tools")
 
 	const requireSigned = false
 	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix

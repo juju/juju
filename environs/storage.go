@@ -33,13 +33,13 @@ func RemoveAll(stor Storage) error {
 // BaseToolsPath is the container where tools tarballs and metadata are found.
 var BaseToolsPath = "tools"
 
-// A httpDataSource retrieves data from an environs.StorageReader.
+// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
 type storageSimpleStreamsDataSource struct {
 	basePath string
 	storage  StorageReader
 }
 
-// NewHttpDataSource returns a new http datasource reading from the specified storage.
+// NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
 func NewStorageSimpleStreamsDataSource(storage StorageReader, basePath string) simplestreams.DataSource {
 	return &storageSimpleStreamsDataSource{basePath, storage}
 }

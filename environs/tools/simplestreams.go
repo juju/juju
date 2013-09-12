@@ -32,7 +32,7 @@ const (
 )
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://juju.canonical.com/tools"
+var DefaultBaseURL = "https://juju.canonical.com/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -100,7 +100,7 @@ func excludeDefaultSource(sources []simplestreams.DataSource) []simplestreams.Da
 	var result []simplestreams.DataSource
 	for _, source := range sources {
 		url, _ := source.URL("")
-		if !strings.HasPrefix(url, "http://juju.canonical.com/tools") {
+		if !strings.HasPrefix(url, "https://juju.canonical.com/tools") {
 			result = append(result, source)
 		}
 	}

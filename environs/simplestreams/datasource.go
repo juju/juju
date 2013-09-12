@@ -14,21 +14,23 @@ import (
 
 // A DataSource retrieves simplestreams metadata.
 type DataSource interface {
-	// Fetch loads the data at the specified path.
+	// Fetch loads the data at the specified relative path. It returns a reader from which
+	// the data can be retrieved as well as the full URL of the file. The full URL is typically
+	// used in log messages to help diagnose issues accessing the data.
 	Fetch(path string) (io.ReadCloser, string, error)
 	// URL returns the full URL of the path, as applicable to this datasource.
 	// This method is used primarily for logging purposes.
 	URL(path string) (string, error)
 }
 
-// A httpDataSource retrieves data from an HTTP URL.
-type httpDataSource struct {
+// A urlDataSource retrieves data from an HTTP URL.
+type urlDataSource struct {
 	baseURL string
 }
 
-// NewHttpDataSource returns a new http datasource reading from the specified baseURL.
-func NewHttpDataSource(baseURL string) DataSource {
-	return &httpDataSource{baseURL}
+// NewURLDataSource returns a new datasource reading from the specified baseURL.
+func NewURLDataSource(baseURL string) DataSource {
+	return &urlDataSource{baseURL}
 }
 
 // urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
@@ -43,9 +45,10 @@ func urlJoin(baseURL, relpath string) string {
 }
 
 // Fetch is defined in simplestreams.DataSource.
-func (h *httpDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
-	resp, err := httpClient.Get(dataURL)
+	// dataURL can be http:// or file://
+	resp, err := urlClient.Get(dataURL)
 	if err != nil {
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
@@ -62,6 +65,6 @@ func (h *httpDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 }
 
 // URL is defined in simplestreams.DataSource.
-func (h *httpDataSource) URL(path string) (string, error) {
+func (h *urlDataSource) URL(path string) (string, error) {
 	return urlJoin(h.baseURL, path), nil
 }
