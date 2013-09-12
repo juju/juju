@@ -429,7 +429,6 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 	})
 }
 
-
 func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check

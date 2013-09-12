@@ -20,7 +20,9 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -49,30 +51,30 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 }
 
 var isFatalTests = []struct {
-	err error
+	err     error
 	isFatal bool
 }{{
-	err: worker.ErrTerminateAgent,
+	err:     worker.ErrTerminateAgent,
 	isFatal: true,
 }, {
-	err: &upgrader.UpgradeReadyError{},
+	err:     &upgrader.UpgradeReadyError{},
 	isFatal: true,
 }, {
 	err: &params.Error{
 		Message: "blah",
-		Code: params.CodeNotProvisioned,
+		Code:    params.CodeNotProvisioned,
 	},
 	isFatal: true,
 }, {
-	err: &fatalError{},
+	err:     &fatalError{},
 	isFatal: true,
 }, {
-	err: errors.New("foo"),
+	err:     stderrors.New("foo"),
 	isFatal: false,
 }, {
 	err: &params.Error{
 		Message: "blah",
-		Code: params.CodeNotFound,
+		Code:    params.CodeNotFound,
 	},
 	isFatal: false,
 }}
@@ -93,7 +95,7 @@ func (f testPinger) Ping() error {
 func (s *MachineSuite) TestConnectionIsFatal(c *gc.C) {
 	var (
 		errPinger testPinger = func() error {
-			return errors.New("ping error")
+			return stderrors.New("ping error")
 		}
 		okPinger testPinger = func() error {
 			return nil
@@ -106,7 +108,7 @@ func (s *MachineSuite) TestConnectionIsFatal(c *gc.C) {
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
-				c.Check(fatal, jc.Equals, j == 0)
+				c.Check(fatal, gc.Equals, j == 0)
 			}
 		}
 	}
