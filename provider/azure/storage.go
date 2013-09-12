@@ -93,7 +93,7 @@ func (storage *azureStorage) URL(name string) (string, error) {
 	if context.Key != "" {
 		// 10 years should be good enough.
 		expires := time.Now().AddDate(10, 0, 0)
-		return context.GetAnonymousFileURL(storage.getContainer(), name, expires), nil
+		return context.GetAnonymousFileURL(storage.getContainer(), name, expires)
 	}
 	return context.GetFileURL(storage.getContainer(), name), nil
 }
