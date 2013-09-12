@@ -83,7 +83,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return nil, err
 	}
 	dataDir := a.Conf.dataDir
-	runner := worker.NewRunner(allFatal, moreImportant)
+	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
