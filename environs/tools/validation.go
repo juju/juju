@@ -24,8 +24,8 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) 
 	if len(params.Architectures) == 0 {
 		return nil, fmt.Errorf("required parameter arches not specified")
 	}
-	if len(params.BaseURLs) == 0 {
-		return nil, fmt.Errorf("required parameter baseURLs not specified")
+	if len(params.Sources) == 0 {
+		return nil, fmt.Errorf("required parameter sources not specified")
 	}
 	if params.Version == "" && params.Major == 0 {
 		params.Version = version.CurrentNumber().String()
@@ -44,7 +44,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) 
 			Arches:    params.Architectures,
 		})
 	}
-	matchingTools, err := Fetch(params.BaseURLs, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	matchingTools, err := Fetch(params.Sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		return nil, err
 	}
