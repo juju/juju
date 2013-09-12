@@ -138,7 +138,8 @@ func FindTools(cloudInst config.HasConfig, majorVersion, minorVersion int, filte
 		return nil, err
 	}
 	list, err = NewFindTools(sources, cloudSpec, majorVersion, minorVersion, filter)
-	if UseLegacyFallback && err != nil || len(list) == 0 {
+	if UseLegacyFallback && (err != nil || len(list) == 0) {
+		logger.Warningf("no tools found using simplestreams metadata, using legacy fallback")
 		if env, ok := cloudInst.(environs.Environ); ok {
 			list, err = LegacyFindTools(
 				[]environs.StorageReader{env.Storage(), env.PublicStorage()}, majorVersion, minorVersion, filter)
