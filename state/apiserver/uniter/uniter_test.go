@@ -304,13 +304,16 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	expectErr := `"unit-wordpress-0" has no public address set`
+	expectErr := &params.Error{
+		Code:    params.CodeNoAddressSet,
+		Message: `"unit-wordpress-0" has no public address set`,
+	}
 	result, err := s.uniter.PublicAddress(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: expectErr}},
+			{Error: expectErr},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -369,13 +372,16 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	expectErr := `"unit-wordpress-0" has no private address set`
+	expectErr := &params.Error{
+		Code:    params.CodeNoAddressSet,
+		Message: `"unit-wordpress-0" has no private address set`,
+	}
 	result, err := s.uniter.PrivateAddress(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: expectErr}},
+			{Error: expectErr},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
