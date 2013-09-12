@@ -6,6 +6,7 @@ package filestorage
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -105,14 +106,19 @@ func (f *fileStorage) Put(name string, r io.Reader, length int64) error {
 			return err
 		}
 	}
-	filepath := filepath.Join(f.path, name)
-	file, err := os.Create(filepath)
+	// Write to a temporary file first, and then move (atomically).
+	file, err := ioutil.TempFile("", "juju-filestorage-"+name)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 	_, err = io.CopyN(file, r, length)
-	return err
+	file.Close()
+	if err != nil {
+		os.Remove(file.Name())
+		return err
+	}
+	filepath := filepath.Join(f.path, name)
+	return os.Rename(file.Name(), filepath)
 }
 
 // Remove implements environs.StorageWriter.Remove.
