@@ -219,7 +219,11 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	encoded := base64.StdEncoding.EncodeToString(buf)
 	path = utils.ShQuote(path)
-	_, err = s.runf(flockExclusive, "mkdir -p `dirname %s` && base64 -d > %s << EOF\n%s\nEOF\n", path, path, encoded)
+	// Write to a temporary file ($T), then mv atomically.
+	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $T", path)
+	command = fmt.Sprintf("T=`mktemp` && ((%s && mv $T %s) || rm -f $T)", command, path)
+	command = fmt.Sprintf("(%s) << EOF\n%s\nEOF", command, encoded)
+	_, err = s.runf(flockExclusive, command+"\n")
 	return err
 }
 
