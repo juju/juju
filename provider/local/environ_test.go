@@ -10,7 +10,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
 )
 
@@ -39,6 +41,17 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	c.Assert(environ.Name(), gc.Equals, "test")
 	c.Assert(environ.Storage(), gc.NotNil)
 	c.Assert(environ.PublicStorage(), gc.NotNil)
+}
+
+func (s *environSuite) TestSanityCheckConstraints(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	var cons constraints.Value
+	c.Check(environ.SanityCheckConstraints(cons), gc.IsNil)
+	container := instance.LXC
+	cons.Container = &container
+	c.Check(environ.SanityCheckConstraints(cons), gc.ErrorMatches, "local provider does not support nested containers")
 }
 
 type localJujuTestSuite struct {

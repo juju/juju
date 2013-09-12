@@ -4,6 +4,7 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -97,6 +98,11 @@ func (env *localEnviron) ensureCertOwner() error {
 
 // SanityCheckConstraints is specified in the Environ interface.
 func (env *localEnviron) SanityCheckConstraints(cons constraints.Value) error {
+	// This check can either go away or be relaxed when the local
+	// provider can do nested containers.
+	if cons.Container != nil {
+		return errors.New("local provider does not support nested containers")
+	}
 	return nil
 }
 

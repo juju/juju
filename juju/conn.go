@@ -312,6 +312,9 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
+	// Note: this code is a temporary hack, and is due to be refactored
+	// into "placement directives". If making significant changes to the
+	// logic, consider that first.
 	var machineId string
 	var containerType instance.ContainerType
 	if machineIdSpec != "" {
