@@ -25,12 +25,13 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/fslock"
@@ -55,6 +56,9 @@ type UniterSuite struct {
 	dataDir  string
 	oldLcAll string
 	unitDir  string
+
+	st     *api.State
+	uniter *uniter.State
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -89,6 +93,7 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
+	s.APIClose(c)
 	s.ResetContext(c)
 	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
@@ -104,6 +109,25 @@ func (s *UniterSuite) ResetContext(c *gc.C) {
 	coretesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
+	s.APIClose(c)
+	err := unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	c.Assert(s.st, gc.NotNil)
+	c.Logf("API: login as %q successful", unit.Tag())
+	s.uniter = s.st.Uniter()
+	c.Assert(s.uniter, gc.NotNil)
+}
+
+func (s *UniterSuite) APIClose(c *gc.C) {
+	if s.st != nil {
+		err := s.st.Close()
+		c.Assert(err, gc.IsNil)
+		c.Logf("API: connection closed")
+	}
 }
 
 var _ worker.Worker = (*apiuniter.Uniter)(nil)
@@ -147,7 +171,7 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		}
 	}()
 	for i, s := range steps {
-		c.Logf("step %d", i)
+		c.Logf("step %d:\n", i)
 		step(c, ctx, s)
 	}
 }
@@ -226,11 +250,16 @@ var startupTests = []uniterTest{
 		createCharm{},
 		createServiceAndUnit{},
 		startUniter{},
-		waitUniterDead{`failed to initialize uniter for unit "u/0": .*not a directory`},
+		waitUniterDead{`failed to initialize uniter for "unit-u-0": .*not a directory`},
 	), ut(
 		"unknown unit",
-		startUniter{},
-		waitUniterDead{`failed to initialize uniter for unit "u/0": unit "u/0" not found`},
+		// We still need to create a unit, because that's when we also
+		// connect to the API, but here we use a different service
+		// (and hence unit) name.
+		createCharm{},
+		createServiceAndUnit{serviceName: "w"},
+		startUniter{"unit-u-0"},
+		waitUniterDead{`failed to initialize uniter for "unit-u-0": permission denied`},
 	),
 }
 
@@ -930,6 +959,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	// Create a test context for later use.
 	ctx := &context{
+		s:       s,
 		st:      s.State,
 		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir: s.dataDir,
@@ -962,6 +992,8 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	ctx.unit, err = s.State.Unit("u/0")
 	c.Assert(err, gc.IsNil)
+
+	s.APILogin(c, ctx.unit)
 
 	// Run the actual test.
 	ctx.run(c, []stepper{
@@ -1042,20 +1074,17 @@ func (serveCharm) step(c *gc.C, ctx *context) {
 	coretesting.Server.ResponseMap(1, ctx.charms)
 }
 
-type createServiceAndUnit struct{}
+type createServiceAndUnit struct {
+	serviceName string
+}
 
-func (createServiceAndUnit) step(c *gc.C, ctx *context) {
-	attrs := dummy.SampleConfig().Delete("admin-secret").Merge(
-		coretesting.Attrs{
-			"agent-version": "1.2.3",
-		})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = ctx.st.SetEnvironConfig(cfg)
-	c.Assert(err, gc.IsNil)
+func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
+	if csau.serviceName == "" {
+		csau.serviceName = "u"
+	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, gc.IsNil)
-	svc, err := ctx.st.AddService("u", sch)
+	svc, err := ctx.st.AddService(csau.serviceName, sch)
 	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -1071,6 +1100,8 @@ func (createServiceAndUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
+
+	ctx.s.APILogin(c, unit)
 }
 
 type createUniter struct{}
@@ -1109,13 +1140,21 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
-type startUniter struct{}
+type startUniter struct {
+	unitTag string
+}
 
 func (s startUniter) step(c *gc.C, ctx *context) {
+	if s.unitTag == "" {
+		s.unitTag = "unit-u-0"
+	}
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	ctx.uniter = apiuniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
+	if ctx.s.uniter == nil {
+		panic("API connection not established")
+	}
+	ctx.uniter = apiuniter.NewUniter(ctx.s.uniter, s.unitTag, ctx.dataDir)
 }
 
 type waitUniterDead struct {
@@ -1158,7 +1197,7 @@ func (s waitUniterDead) waitDead(c *gc.C, ctx *context) error {
 		// that causes this -- setting the unit's service to Dying -- but it's
 		// not an intrinsically insane pattern of action (and helps to simplify
 		// the filter code) so this test seems like a small price to pay.
-		ctx.st.StartSync()
+		ctx.s.BackingState.StartSync()
 		select {
 		case <-u.Dead():
 			return u.Wait()
@@ -1269,7 +1308,7 @@ type waitUnit struct {
 func (s waitUnit) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.st.StartSync()
+		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
 			err := ctx.unit.Refresh()
@@ -1312,7 +1351,7 @@ type waitHooks []string
 func (s waitHooks) step(c *gc.C, ctx *context) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
-		ctx.st.StartSync()
+		ctx.s.BackingState.StartSync()
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
@@ -1326,7 +1365,7 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	}
 	timeout := time.After(worstCase)
 	for {
-		ctx.st.StartSync()
+		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, _ = ctx.matchLogHooks(c); match {
@@ -1553,7 +1592,7 @@ type waitSubordinateExists struct {
 func (s waitSubordinateExists) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.st.StartSync()
+		ctx.s.BackingState.StartSync()
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not created")
@@ -1574,7 +1613,7 @@ type waitSubordinateDying struct{}
 func (waitSubordinateDying) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	for {
-		ctx.st.StartSync()
+		ctx.s.BackingState.StartSync()
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not made Dying")
