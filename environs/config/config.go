@@ -461,10 +461,14 @@ var fields = schema.Fields{
 	"api-port":                  schema.ForceInt(),
 }
 
-// alwaysOptional holds configuration defaults
-// for attributes that may be unspecified even
-// after a configuration has been created with
-// all defaults filled out.
+// alwaysOptional holds configuration defaults for attributes that may
+// be unspecified even after a configuration has been created with all
+// defaults filled out.
+//
+// This table is not definitive: it specifies those attributes which are
+// optional when the config goes through its initial schema coercion,
+// but some fields listed as optional here are actually mandatory
+// with NoDefaults and are checked at the later Verify stage.
 var alwaysOptional = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"ca-cert":              schema.Omit,
