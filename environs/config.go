@@ -110,7 +110,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 		// store the name of the this environment in the config itself
 		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := config.New(attrs)
+		cfg, err := config.New(config.UseDefaults, attrs)
 		if err != nil {
 			environs[name] = environ{
 				err: fmt.Errorf("error parsing environment %q: %v", name, err),
@@ -204,8 +204,8 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
-	m["ca-private-key"] = ""
-	if cfg, err = config.New(m); err != nil {
+	delete(m, "ca-private-key")
+	if cfg, err = config.New(config.NoDefaults, m); err != nil {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

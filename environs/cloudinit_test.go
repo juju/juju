@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -23,18 +24,26 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-type CloudInitSuite struct{}
+// dummySampleConfig returns the dummy sample config without
+// the state server configured.
+// will not run a state server.
+func dummySampleConfig() testing.Attrs {
+	return dummy.SampleConfig().Merge(testing.Attrs{
+		"state-server": false,
+	})
+}
+
+type CloudInitSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = gc.Suite(&CloudInitSuite{})
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "barbara",
-		"type":            "dummy",
+	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
 		StateInfo: &state.Info{Tag: "not touched"},
@@ -51,17 +60,13 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "barbara",
-		"type":            "dummy",
-		"admin-secret":    "lisboan-pork",
+	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
+		"admin-secret":    "lisboan-pork",
 		"agent-version":   "1.2.3",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
 		"state-server":    false,
-		"secret":          "british-horse",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	oldAttrs := cfg.AllAttrs()
 	mcfg := &cloudinit.MachineConfig{
@@ -69,7 +74,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	}
 	cons := constraints.MustParse("mem=1T cpu-power=999999999")
 	err = environs.FinishMachineConfig(mcfg, cfg, cons)
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	password := utils.PasswordHash("lisboan-pork")
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
@@ -106,13 +111,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
-	envConfig, err := config.New(map[string]interface{}{
-		"type":            "maas",
-		"name":            "foo",
-		"default-series":  "series",
-		"authorized-keys": "keys",
-		"ca-cert":         testing.CACert,
-	})
+	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
 	cfg := &cloudinit.MachineConfig{

@@ -43,6 +43,7 @@ const (
 	CodeStopped             = "stopped"
 	CodeHasAssignedUnits    = "machine has assigned units"
 	CodeNotProvisioned      = "not provisioned"
+	CodeNoAddressSet        = "no address set"
 )
 
 // ErrCode returns the error code associated with

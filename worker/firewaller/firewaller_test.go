@@ -105,30 +105,20 @@ func (s *FirewallerSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *st
 	return u, m
 }
 
-func (s *FirewallerSuite) setGlobalMode(c *gc.C) func(*gc.C) {
-	oldConfig := s.Conn.Environ.Config()
-	restore := func(rc *gc.C) {
-		attrs := oldConfig.AllAttrs()
-		attrs["admin-secret"] = ""
-		oldConfig, err := oldConfig.Apply(attrs)
-		rc.Assert(err, gc.IsNil)
-		err = s.Conn.Environ.SetConfig(oldConfig)
-		rc.Assert(err, gc.IsNil)
-		err = s.State.SetEnvironConfig(oldConfig)
-		rc.Assert(err, gc.IsNil)
-	}
-
+func (s *FirewallerSuite) setGlobalMode(c *gc.C) {
+	// TODO(rog) This should not be possible - you shouldn't
+	// be able to set the firewalling mode after an environment
+	// has bootstrapped.
 	attrs := s.Conn.Environ.Config().AllAttrs()
+	delete(attrs, "admin-secret")
+	delete(attrs, "ca-private-key")
 	attrs["firewall-mode"] = config.FwGlobal
-	attrs["admin-secret"] = ""
-	newConfig, err := s.Conn.Environ.Config().Apply(attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.Conn.Environ.SetConfig(newConfig)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newConfig)
 	c.Assert(err, gc.IsNil)
-
-	return restore
+	err = s.Conn.Environ.SetConfig(newConfig)
+	c.Assert(err, gc.IsNil)
 }
 
 // startInstance starts a new instance for the given machine.
@@ -561,8 +551,7 @@ func (s *FirewallerSuite) TestRemoveMachine(c *gc.C) {
 
 func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
 	// Change configuration.
-	restore := s.setGlobalMode(c)
-	defer restore(c)
+	s.setGlobalMode(c)
 
 	// Start firewall and open ports.
 	fw := firewaller.NewFirewaller(s.State)
@@ -610,8 +599,7 @@ func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
 
 func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	// Change configuration.
-	restore := s.setGlobalMode(c)
-	defer restore(c)
+	s.setGlobalMode(c)
 
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -640,8 +628,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 
 func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
 	// Change configuration.
-	restore := s.setGlobalMode(c)
-	defer restore(c)
+	s.setGlobalMode(c)
 
 	// Start firewall and open ports.
 	fw := firewaller.NewFirewaller(s.State)
@@ -678,8 +665,7 @@ func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
 
 func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
 	// Change configuration.
-	restore := s.setGlobalMode(c)
-	defer restore(c)
+	s.setGlobalMode(c)
 
 	// Start firewall and open ports.
 	fw := firewaller.NewFirewaller(s.State)
@@ -714,8 +700,7 @@ func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
 
 func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *gc.C) {
 	// Change configuration.
-	restore := s.setGlobalMode(c)
-	defer restore(c)
+	s.setGlobalMode(c)
 
 	// Start firewall and open ports.
 	fw := firewaller.NewFirewaller(s.State)
