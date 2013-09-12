@@ -31,6 +31,7 @@ var _ = gc.Suite(&loggerSuite{})
 func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
+	s.AddCleanup(func() { s.resources.StopAll() })
 
 	// Create a machine to work with
 	var err error
@@ -47,11 +48,6 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	}
 	s.logger, err = logger.NewLoggerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *loggerSuite) TearDownTest(c *gc.C) {
-	s.resources.StopAll()
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
