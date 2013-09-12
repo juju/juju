@@ -32,25 +32,40 @@ func (s *LogSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *LogSuite) TestAddFlags(c *gc.C) {
-	l := &cmd.Log{}
-	f := testing.NewFlagSet()
-	l.AddFlags(f)
-
-	err := f.Parse(false, []string{})
+func newLogWithFlags(c *gc.C, flags []string) *cmd.Log {
+	log := &cmd.Log{}
+	flagSet := testing.NewFlagSet()
+	log.AddFlags(flagSet)
+	err := flagSet.Parse(false, flags)
 	c.Assert(err, gc.IsNil)
-	c.Assert(l.Path, gc.Equals, "")
-	c.Assert(l.Verbose, gc.Equals, false)
-	c.Assert(l.Debug, gc.Equals, false)
-	c.Assert(l.Config, gc.Equals, "")
+	return log
+}
 
-	err = f.Parse(false, []string{"--log-file", "foo", "--verbose", "--debug",
+func (s *LogSuite) TestNoFlags(c *gc.C) {
+	log := newLogWithFlags(c, []string{})
+	c.Assert(log.Path, gc.Equals, "")
+	c.Assert(log.Verbose, gc.Equals, false)
+	c.Assert(log.Debug, gc.Equals, false)
+	c.Assert(log.Config, gc.Equals, "")
+}
+
+func (s *LogSuite) TestFlags(c *gc.C) {
+	log := newLogWithFlags(c, []string{"--log-file", "foo", "--verbose", "--debug",
 		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(l.Path, gc.Equals, "foo")
-	c.Assert(l.Verbose, gc.Equals, true)
-	c.Assert(l.Debug, gc.Equals, true)
-	c.Assert(l.Config, gc.Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
+	c.Assert(log.Path, gc.Equals, "foo")
+	c.Assert(log.Verbose, gc.Equals, true)
+	c.Assert(log.Debug, gc.Equals, true)
+	c.Assert(log.Config, gc.Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
+}
+
+func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
+	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
+	testing.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	log := newLogWithFlags(c, []string{})
+	c.Assert(log.Path, gc.Equals, "")
+	c.Assert(log.Verbose, gc.Equals, false)
+	c.Assert(log.Debug, gc.Equals, false)
+	c.Assert(log.Config, gc.Equals, config)
 }
 
 func (s *LogSuite) TestVerboseSetsLogLevel(c *gc.C) {
