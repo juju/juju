@@ -5,7 +5,6 @@ package manual
 
 import (
 	"os"
-	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -80,19 +79,10 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 }
 
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
-	detectionoutput := strings.Join([]string{
-		s.Conn.Environ.Config().DefaultSeries(),
-		"amd64",
-		"MemTotal: 4096 kB",
-		"processor: 0",
-	}, "\n")
-
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 
-	defer sshresponse(c, "", "", 0)()
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	defer sshresponder{series: s.Conn.Environ.Config().DefaultSeries()}.respond(c)()
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
@@ -107,9 +97,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Do it all again; this should work, despite the fact that
 	// there's a bootstrap state file. Existence for that is
 	// checked in general bootstrap code (environs/bootstrap).
-	defer sshresponse(c, "", "", 0)()
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	defer sshresponder{series: s.Conn.Environ.Config().DefaultSeries()}.respond(c)()
 	err = Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
@@ -120,18 +108,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
-	detectionoutput := strings.Join([]string{
-		s.Conn.Environ.Config().DefaultSeries(),
-		"amd64",
-		"MemTotal: 4096 kB",
-		"processor: 0",
-	}, "\n")
-
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
-	defer sshresponse(c, "", "", 1)()
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	series := s.Conn.Environ.Config().DefaultSeries()
+	defer sshresponder{series: series, provisionAgentExitCode: 1}.respond(c)()
 	err := Bootstrap(args)
 	c.Assert(err, gc.NotNil)
 
@@ -162,45 +142,22 @@ func (s *bootstrapSuite) TestBootstrapInvalidMachineId(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapAlternativeMachineId(c *gc.C) {
-	detectionoutput := strings.Join([]string{
-		s.Conn.Environ.Config().DefaultSeries(),
-		"amd64",
-		"MemTotal: 4096 kB",
-		"processor: 0",
-	}, "\n")
 	args := s.getArgs(c)
 	args.MachineId = "1"
-	defer sshresponse(c, "", "", 0)()
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	defer sshresponder{series: s.Conn.Environ.Config().DefaultSeries()}.respond(c)()
 	c.Assert(Bootstrap(args), gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	// Empty tools list.
-	detectionoutput := strings.Join([]string{
-		s.Conn.Environ.Config().DefaultSeries(),
-		"amd64",
-		"MemTotal: 4096 kB",
-		"processor: 0",
-	}, "\n")
 	args := s.getArgs(c)
 	args.PossibleTools = nil
-	defer sshresponse(c, "", "", 0)()
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	series := s.Conn.Environ.Config().DefaultSeries()
+	defer sshresponder{series: series, skipProvisionAgent: true}.respond(c)()
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 
 	// Non-empty list, but none that match the series/arch.
-	detectionoutput = strings.Join([]string{
-		"edgy", // edgy will never match
-		"amd64",
-		"MemTotal: 4096 kB",
-		"processor: 0",
-	}, "\n")
+	defer sshresponder{series: "edgy", skipProvisionAgent: true}.respond(c)()
 	args = s.getArgs(c)
-	defer sshresponse(c, "", "", 0)()
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 }

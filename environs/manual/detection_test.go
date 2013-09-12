@@ -4,10 +4,6 @@
 package manual
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -20,44 +16,6 @@ type detectionSuite struct {
 }
 
 var _ = gc.Suite(&detectionSuite{})
-
-// sshscript should only print the result on the first execution,
-// to handle the case where it's called multiple times. On
-// subsequent executions, it should find the next 'ssh' in $PATH
-// and exec that.
-var sshscript = `#!/bin/bash
-if [ ! -e "$0.run" ]; then
-    touch "$0.run"
-    diff "$0.expected-input" -
-    exitcode=$?
-    if [ $exitcode -ne 0 ]; then
-        echo "ERROR: did not match expected input" >&2
-        exit $exitcode
-    fi
-%s
-    exit %d
-else
-    export PATH=${PATH#*:}
-    exec ssh $*
-fi`
-
-// sshresponse creates a fake "ssh" command in a new $PATH,
-// updates $PATH, and returns a function to reset $PATH to
-// its original value when called.
-func sshresponse(c *gc.C, input, output string, rc int) func() {
-	fakebin := c.MkDir()
-	ssh := filepath.Join(fakebin, "ssh")
-	sshexpectedinput := ssh + ".expected-input"
-	if output != "" {
-		output = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
-	}
-	script := fmt.Sprintf(sshscript, output, rc)
-	err := ioutil.WriteFile(ssh, []byte(script), 0777)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
-	c.Assert(err, gc.IsNil)
-	return testing.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
-}
 
 func (s *detectionSuite) TestDetectSeries(c *gc.C) {
 	response := strings.Join([]string{

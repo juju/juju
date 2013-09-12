@@ -6,7 +6,6 @@ package manual
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -34,15 +33,8 @@ func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	// Prepare a mock ssh response for the detection phase.
 	const series = "precise"
 	const arch = "amd64"
-	detectionoutput := strings.Join([]string{
-		series,
-		arch,
-		"MemTotal: 4096 kB",
-		"processor: 0",
-	}, "\n")
 
 	args := s.getArgs(c)
 	hostname := args.Host
@@ -50,8 +42,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
 	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
-	defer sshresponse(c, detectionScript, detectionoutput, 0)()
-	defer sshresponse(c, checkProvisionedScript, "", 0)()
+	defer sshresponder{
+		series: series, arch: arch, skipProvisionAgent: true,
+	}.respond(c)()
 	m, err := ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "no tools available")
 	c.Assert(m, gc.IsNil)
@@ -63,9 +56,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
-		defer sshresponse(c, "", "", errorCode)() // executing script
-		defer sshresponse(c, detectionScript, detectionoutput, 0)()
-		defer sshresponse(c, checkProvisionedScript, "", 0)()
+		defer sshresponder{
+			series: series,
+			arch:   arch,
+			provisionAgentExitCode: errorCode,
+		}.respond(c)()
 		m, err = ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
