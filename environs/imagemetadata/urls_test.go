@@ -8,8 +8,8 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/provider/dummy"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
