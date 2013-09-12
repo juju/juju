@@ -228,6 +228,9 @@ func isEmpty(val interface{}) bool {
 	case bool:
 		return false
 	case int:
+		// TODO(rog) fix this to return false when
+		// we can lose backward compatibility.
+		// https://bugs.launchpad.net/juju-core/+bug/1224492
 		return val == 0
 	case string:
 		return val == ""
@@ -294,7 +297,8 @@ func (c *Config) mustString(name string) string {
 }
 
 // mustInt returns the named attribute as an integer, panicking if
-// it is not found or is zero.
+// it is not found or is zero. Zero values should have been
+// diagnosed at Validate time.
 func (c *Config) mustInt(name string) int {
 	value, _ := c.m[name].(int)
 	if value == 0 {
@@ -468,7 +472,7 @@ var fields = schema.Fields{
 // This table is not definitive: it specifies those attributes which are
 // optional when the config goes through its initial schema coercion,
 // but some fields listed as optional here are actually mandatory
-// with NoDefaults and are checked at the later Verify stage.
+// with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
 	"agent-version":        schema.Omit,
 	"ca-cert":              schema.Omit,
