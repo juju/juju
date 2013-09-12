@@ -6,8 +6,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -98,7 +96,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 				if ok {
 					result.Results[i].Result = address
 				} else {
-					err = fmt.Errorf("%q has no public address set", entity.Tag)
+					err = common.NoAddressSetError(entity.Tag, "public")
 				}
 			}
 		}
@@ -149,7 +147,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 				if ok {
 					result.Results[i].Result = address
 				} else {
-					err = fmt.Errorf("%q has no private address set", entity.Tag)
+					err = common.NoAddressSetError(entity.Tag, "private")
 				}
 			}
 		}

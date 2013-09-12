@@ -257,7 +257,7 @@ var startupTests = []uniterTest{
 		// (and hence unit) name.
 		createCharm{},
 		createServiceAndUnit{serviceName: "w"},
-		startUniter{},
+		startUniter{"unit-u-0"},
 		waitUniterDead{`failed to initialize uniter for "unit-u-0": permission denied`},
 	),
 }
@@ -1139,16 +1139,21 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
-type startUniter struct{}
+type startUniter struct {
+	unitTag string
+}
 
 func (s startUniter) step(c *gc.C, ctx *context) {
+	if s.unitTag == "" {
+		s.unitTag = "unit-u-0"
+	}
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
 	if ctx.s.uniter == nil {
 		panic("API connection not established")
 	}
-	ctx.uniter = apiuniter.NewUniter(ctx.s.uniter, "unit-u-0", ctx.dataDir)
+	ctx.uniter = apiuniter.NewUniter(ctx.s.uniter, s.unitTag, ctx.dataDir)
 }
 
 type waitUniterDead struct {

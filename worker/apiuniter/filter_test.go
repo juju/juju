@@ -150,6 +150,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, gc.IsNil)
+
 	timeout := time.After(coretesting.LongWait)
 loop:
 	for {
