@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-var logger = loggo.GetLogger("juju.local.storage")
+var logger = loggo.GetLogger("juju.worker.localstorage")
 
 type storageWorker struct {
 	tomb tomb.Tomb
