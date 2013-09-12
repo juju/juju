@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -737,7 +738,7 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 
 func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
-	defer testing.PatchEnvironment("JUJU_LOGGING_CONFIG", "")()
+	defer testing.PatchEnvironment(osenv.JujuLoggingConfig, "")()
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
@@ -932,7 +933,7 @@ func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
 func (*ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	defer makeFakeHome(c).Restore()
 	logConfig := "<root>=INFO"
-	defer testing.PatchEnvironment("JUJU_LOGGING_CONFIG", logConfig)()
+	defer testing.PatchEnvironment(osenv.JujuLoggingConfig, logConfig)()
 
 	config := newTestConfig(c, nil)
 	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)

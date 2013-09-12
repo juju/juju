@@ -11,6 +11,8 @@ import (
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 // Log supplies the necessary functionality for Commands that wish to set up
@@ -30,7 +32,7 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
 	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
-	defaultLogConfig := os.Getenv("JUJU_LOGGING_CONFIG")
+	defaultLogConfig := os.Getenv(osenv.JujuLoggingConfig)
 	f.StringVar(&l.Config, "log-config", defaultLogConfig, "specify log levels for modules")
 	f.BoolVar(&l.ShowLog, "show-log", false, "if set, write the log file to stderr")
 }
