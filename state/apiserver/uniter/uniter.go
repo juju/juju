@@ -553,9 +553,9 @@ func (u *UniterAPI) WatchServiceRelations(args params.Entities) (params.StringsW
 	return result, nil
 }
 
-// CharmBundleURL returns the URL, corresponding to the charm bundle
-// in the provider storage for each given charm URL.
-func (u *UniterAPI) CharmBundleURL(args params.CharmURLs) (params.StringResults, error) {
+// CharmArchiveURL returns the URL, corresponding to the charm archive
+// (bundle) in the provider storage for each given charm URL.
+func (u *UniterAPI) CharmArchiveURL(args params.CharmURLs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.URLs)),
 	}
@@ -578,9 +578,9 @@ func (u *UniterAPI) CharmBundleURL(args params.CharmURLs) (params.StringResults,
 	return result, nil
 }
 
-// CharmBundleURL returns the SHA256 digest of the charm bundle data
-// for each charm url in the given parameters.
-func (u *UniterAPI) CharmBundleSha256(args params.CharmURLs) (params.StringResults, error) {
+// CharmArchiveSha256 returns the SHA256 digest of the charm archive
+// (bundle) data for each charm url in the given parameters.
+func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.URLs)),
 	}
