@@ -15,6 +15,8 @@ var logger = loggo.GetLogger("juju.tools")
 type Tools struct {
 	Version version.Binary
 	URL     string
+	SHA256  string
+	Size    int64
 }
 
 // HasTools instances can be asked for a tools list.

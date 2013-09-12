@@ -7,12 +7,20 @@
 package tools
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"hash"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
+	"bytes"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
-	"strings"
 )
 
 func init() {
@@ -24,7 +32,7 @@ const (
 )
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://juju.canonical.com/tools"
+var DefaultBaseURL = "https://juju.canonical.com/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -76,6 +84,10 @@ type ToolsMetadata struct {
 	SHA256   string `json:"sha256"`
 }
 
+func (t *ToolsMetadata) String() string {
+	return fmt.Sprintf("%+v", *t)
+}
+
 func (t *ToolsMetadata) productId() (string, error) {
 	seriesVersion, err := simplestreams.SeriesVersion(t.Release)
 	if err != nil {
@@ -84,11 +96,12 @@ func (t *ToolsMetadata) productId() (string, error) {
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
 }
 
-func excludeDefaultURL(urls []string) []string {
-	var result []string
-	for _, url := range urls {
-		if url != "http://juju.canonical.com/tools" {
-			result = append(result, url)
+func excludeDefaultSource(sources []simplestreams.DataSource) []simplestreams.DataSource {
+	var result []simplestreams.DataSource
+	for _, source := range sources {
+		url, _ := source.URL("")
+		if !strings.HasPrefix(url, "https://juju.canonical.com/tools") {
+			result = append(result, source)
 		}
 	}
 	return result
@@ -98,20 +111,20 @@ func excludeDefaultURL(urls []string) []string {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
+func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
 
 	// TODO (wallyworld): 2013-09-05 bug 1220965
-	// Until the official tools repository is set up, we don't want to use its URL.
-	baseURLs = excludeDefaultURL(baseURLs)
+	// Until the official tools repository is set up, we don't want to use it.
+	sources = excludeDefaultSource(sources)
 
 	params := simplestreams.ValueParams{
 		DataType:      ContentDownload,
 		FilterFunc:    appendMatchingTools,
 		ValueTemplate: ToolsMetadata{},
 	}
-	items, err := simplestreams.GetMaybeSignedMetadata(baseURLs, indexPath+simplestreams.SignedSuffix, cons, true, params)
+	items, err := simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.SignedSuffix, cons, true, params)
 	if (err != nil || len(items) == 0) && !onlySigned {
-		items, err = simplestreams.GetMaybeSignedMetadata(baseURLs, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
+		items, err = simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
 	}
 	if err != nil {
 		return nil, err
@@ -125,7 +138,9 @@ func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigne
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
-func appendMatchingTools(baseURL string, matchingTools []interface{}, tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+func appendMatchingTools(source simplestreams.DataSource, matchingTools []interface{},
+	tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+
 	toolsMap := make(map[string]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
@@ -155,13 +170,85 @@ func appendMatchingTools(baseURL string, matchingTools []interface{}, tools map[
 			}
 		}
 		if _, ok := toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)]; !ok {
-			tm.FullPath = baseURL
-			if !strings.HasSuffix(baseURL, "/") {
-				tm.FullPath += "/"
-			}
-			tm.FullPath += tm.Path
+			tm.FullPath, _ = source.URL(tm.Path)
 			matchingTools = append(matchingTools, tm)
 		}
 	}
 	return matchingTools
+}
+
+type MetadataFile struct {
+	Path string
+	Data []byte
+}
+
+func WriteMetadata(toolsList coretools.List, fetch bool, stor environs.StorageWriter) error {
+	metadataInfo, err := generateMetadata(toolsList, fetch)
+	if err != nil {
+		return err
+	}
+	for _, md := range metadataInfo {
+		logger.Infof("Writing %s", "tools/"+md.Path)
+		err = stor.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func generateMetadata(toolsList coretools.List, fetch bool) ([]MetadataFile, error) {
+	metadata := make([]*ToolsMetadata, len(toolsList))
+	for i, t := range toolsList {
+		var size int64
+		var sha256hex string
+		var err error
+		if fetch && t.Size == 0 {
+			logger.Infof("Fetching tools to generate hash: %v", t.URL)
+			var sha256hash hash.Hash
+			size, sha256hash, err = fetchToolsHash(t.URL)
+			if err != nil {
+				return nil, err
+			}
+			sha256hex = fmt.Sprintf("%x", sha256hash.Sum(nil))
+		} else {
+			size = t.Size
+			sha256hex = t.SHA256
+		}
+
+		path := fmt.Sprintf("releases/juju-%s-%s-%s.tgz", t.Version.Number, t.Version.Series, t.Version.Arch)
+		metadata[i] = &ToolsMetadata{
+			Release:  t.Version.Series,
+			Version:  t.Version.Number.String(),
+			Arch:     t.Version.Arch,
+			Path:     path,
+			FileType: "tar.gz",
+			Size:     size,
+			SHA256:   sha256hex,
+		}
+	}
+
+	index, products, err := MarshalToolsMetadataJSON(metadata, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	objects := []MetadataFile{
+		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{ProductMetadataPath, products},
+	}
+	return objects, nil
+}
+
+// fetchToolsHash fetches the file at the specified URL,
+// and calculates its size in bytes and computes a SHA256
+// hash of its contents.
+func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, nil, err
+	}
+	sha256hash = sha256.New()
+	size, err = io.Copy(sha256hash, resp.Body)
+	resp.Body.Close()
+	return size, sha256hash, err
 }

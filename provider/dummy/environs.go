@@ -37,6 +37,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -173,8 +174,8 @@ type environ struct {
 	ecfgUnlocked *environConfig
 }
 
-var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
-var _ tools.SupportsCustomURLs = (*environ)(nil)
+var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
+var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
 // storage holds the storage for an environState.
@@ -470,14 +471,14 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) GetImageBaseURLs() ([]string, error) {
-	return []string{"dummy-image-metadata-url"}, nil
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
 }
 
-// GetToolsBaseURLs returns a list of URLs which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsBaseURLs() ([]string, error) {
-	return []string{"dummy-tools-url"}, nil
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {

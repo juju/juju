@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
@@ -56,7 +57,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "test")
+	expectedRootDir := filepath.Join(osenv.Home(), ".juju", "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
@@ -83,7 +84,7 @@ func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "foo")
+	expectedRootDir := filepath.Join(osenv.Home(), ".juju", "foo")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }

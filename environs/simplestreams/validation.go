@@ -16,5 +16,5 @@ type MetadataLookupParams struct {
 	Series        string
 	Architectures []string
 	Endpoint      string
-	BaseURLs      []string
+	Sources       []DataSource
 }

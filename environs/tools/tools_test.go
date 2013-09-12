@@ -4,6 +4,7 @@
 package tools_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -124,11 +125,12 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 	}
 }
 
-func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
-	if len(verses) == 0 {
-		return uploaded
-	}
+type metadataFile struct {
+	path string
+	data []byte
+}
+
+func (s *SimpleStreamsToolsSuite) generateMetadata(c *gc.C, verses ...version.Binary) []metadataFile {
 	var metadata = make([]*envtools.ToolsMetadata, len(verses))
 	for i, vers := range verses {
 		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
@@ -138,24 +140,52 @@ func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...
 			Arch:    vers.Arch,
 			Path:    basePath,
 		}
-		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
 	}
 	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)
-	objects := []struct {
-		path string
-		data []byte
-	}{
+	objects := []metadataFile{
 		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
 		{envtools.ProductMetadataPath, products},
 	}
+	return objects
+}
+
+func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	if len(verses) == 0 {
+		return uploaded
+	}
+	var err error
+	for _, vers := range verses {
+		uploaded[vers], err = storage.URL(fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String()))
+		c.Assert(err, gc.IsNil)
+	}
+	objects := s.generateMetadata(c, verses...)
+	for _, object := range objects {
+		path := filepath.Join("tools", object.path)
+		err = storage.Put(path, bytes.NewReader(object.data), int64(len(object.data)))
+		c.Assert(err, gc.IsNil)
+	}
+	return uploaded
+}
+
+func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	if len(verses) == 0 {
+		return uploaded
+	}
+	for _, vers := range verses {
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
+	}
+	objects := s.generateMetadata(c, verses...)
 	for _, object := range objects {
 		path := filepath.Join(dir, object.path)
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
 			c.Assert(err, gc.IsNil)
 		}
-		err = ioutil.WriteFile(path, object.data, 0644)
+		err := ioutil.WriteFile(path, object.data, 0644)
 		c.Assert(err, gc.IsNil)
 	}
 	return uploaded
@@ -272,6 +302,19 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 	}
 }
 
+func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
+	s.reset(c, nil)
+	custom := s.uploadToStorage(c, s.env.Storage(), envtesting.V110p...)
+	s.uploadPublic(c, envtesting.VAll...)
+	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{})
+	c.Assert(err, gc.IsNil)
+	expect := map[version.Binary]string{}
+	for _, expected := range envtesting.V110p {
+		expect[expected] = custom[expected]
+	}
+	c.Assert(actual.URLs(), gc.DeepEquals, expect)
+}
+
 func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
@@ -283,11 +326,14 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// properly formed.
 	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: 1.2.3"},
+		{loggo.INFO, "filtering tools by version: .*"},
 		{loggo.INFO, "no architecture specified when finding tools, looking for any"},
 		{loggo.INFO, "no series specified when finding tools, looking for any"},
-		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
-		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
+		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+		{loggo.WARNING, `no tools found using simplestreams metadata, using legacy fallback`},
+		{loggo.DEBUG, "reading v1.* tools"},
+		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 	})

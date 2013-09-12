@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			BaseURL:       "test:",
+			Source:        simplestreams.NewURLDataSource("test:"),
 			RequireSigned: false,
 			DataType:      "image-ids",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
@@ -336,24 +336,26 @@ func (s *simplestreamsSuite) TestDealiasing(c *gc.C) {
 }
 
 func (s *simplestreamsSuite) TestGetMirror(c *gc.C) {
-	mirrorRefs, err := s.getMirrorRefs(sstesting.Index_v1)
+	mirrorRefs, url, err := s.getMirrorRefs(sstesting.Index_v1)
 	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "test:/streams/v1/index.json")
 	c.Assert(mirrorRefs.Format, gc.Equals, sstesting.Index_v1)
 	c.Assert(len(mirrorRefs.Mirrors) > 0, gc.Equals, true)
 }
 
-func (s *simplestreamsSuite) getMirrorRefs(format string) (*simplestreams.MirrorRefs, error) {
-	return simplestreams.GetMirrorRefsWithFormat(s.BaseURL, s.IndexPath(), format, s.RequireSigned)
+func (s *simplestreamsSuite) getMirrorRefs(format string) (*simplestreams.MirrorRefs, string, error) {
+	return simplestreams.GetMirrorRefsWithFormat(s.Source, s.IndexPath(), format, s.RequireSigned)
 }
 
 func (s *simplestreamsSuite) TestGetMirrorRefsWrongFormat(c *gc.C) {
-	_, err := s.getMirrorRefs("bad")
+	_, _, err := s.getMirrorRefs("bad")
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *simplestreamsSuite) TestGetMirrorRef(c *gc.C) {
-	mirrorRefs, err := s.getMirrorRefs(sstesting.Index_v1)
+	mirrorRefs, url, err := s.getMirrorRefs(sstesting.Index_v1)
 	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "test:/streams/v1/index.json")
 	cloud := simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"}
 	mirrorRef, err := mirrorRefs.GetMirrorReference("com.ubuntu.juju:released:tools", cloud)
 	c.Assert(err, gc.IsNil)
@@ -363,8 +365,9 @@ func (s *simplestreamsSuite) TestGetMirrorRef(c *gc.C) {
 }
 
 func (s *simplestreamsSuite) TestGetMirrorRefDefaultCloud(c *gc.C) {
-	mirrorRefs, err := s.getMirrorRefs(sstesting.Index_v1)
+	mirrorRefs, url, err := s.getMirrorRefs(sstesting.Index_v1)
 	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "test:/streams/v1/index.json")
 	cloud := simplestreams.CloudSpec{"some-region", "https://some-endpoint.com"}
 	mirrorRef, err := mirrorRefs.GetMirrorReference("com.ubuntu.juju:released:tools", cloud)
 	c.Assert(err, gc.IsNil)
@@ -432,7 +435,8 @@ func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
 			t.contentId = "com.ubuntu.juju:released:tools"
 		}
 		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
-		mirrorInfo, err := simplestreams.GetMaybeSignedMirror([]string{s.BaseURL}, s.IndexPath(), false, t.contentId, cloud)
+		mirrorInfo, err := simplestreams.GetMaybeSignedMirror(
+			[]simplestreams.DataSource{s.Source}, s.IndexPath(), false, t.contentId, cloud)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

@@ -70,7 +70,10 @@ func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
-func (s *StorageSuite) TestReadList(c *gc.C) {
+func (s *StorageSuite) assertReadList(c *gc.C) {
+	defer func() {
+		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	}()
 	store := s.env.Storage()
 	v001 := version.MustParseBinary("0.0.1-precise-amd64")
 	t001 := envtesting.UploadFakeToolsVersion(c, store, v001)
@@ -107,6 +110,16 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 		}
 	}
+}
+
+func (s *StorageSuite) TestReadListLegacyLocation(c *gc.C) {
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	s.assertReadList(c)
+}
+
+func (s *StorageSuite) TestReadList(c *gc.C) {
+	envtools.SetToolPrefix(envtools.NewToolPrefix)
+	s.assertReadList(c)
 }
 
 func (s *StorageSuite) TestUpload(c *gc.C) {

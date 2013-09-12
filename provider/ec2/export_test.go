@@ -15,6 +15,10 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
+func ControlBucketName(e environs.Environ) string {
+	return e.(*environ).ecfg().controlBucket()
+}
+
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }
