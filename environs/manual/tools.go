@@ -20,10 +20,5 @@ func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools,
 	if err != nil {
 		return nil, err
 	}
-	arches := possibleTools.Arches()
-	possibleTools, err = possibleTools.Match(tools.Filter{Arch: arch})
-	if err != nil {
-		return nil, fmt.Errorf("chosen architecture %v not present in %v", arch, arches)
-	}
 	return possibleTools[0], nil
 }
