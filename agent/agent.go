@@ -37,6 +37,10 @@ const (
 // interface is passed between multiple go routines.  The mutable methods are
 // protected by a mutex, and it is expected that the caller doesn't modify any
 // slice that may be returned.
+//
+// NOTE: should new mutating methods be added to this interface, consideration
+// is needed around the synchronisation as a single instance is used in
+// multiple go routines.
 type Config interface {
 	// DataDir returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
@@ -100,15 +104,16 @@ var _ Config = (*configInternal)(nil)
 // The configMutex should be locked before any writing to disk during the
 // write commands, and unlocked when the writing is complete.  This process
 // wide lock should stop any unintended concurrent writes.  This may happen
-// when mutliple go-routines may be adding things to the agent config, and
+// when multiple go-routines may be adding things to the agent config, and
 // wanting to persist them to disk. To ensure that the correct data is written
 // to disk, the mutex should be locked prior to generating any disk state.
 // This way calls that might get interleaved would always write the most
-// recent state to disk.  Since we different agent configs for each agent, and
-// there is only one process for each agent, a simple mutex is enough for
-// concurrency.  The mutex should also be locked around any access to mutable
-// values, either setting or getting.  The only mutable value is the values
-// map.  Retrieving and setting values here are protected by the mutex.
+// recent state to disk.  Since we have different agent configs for each
+// agent, and there is only one process for each agent, a simple mutex is
+// enough for concurrency.  The mutex should also be locked around any access
+// to mutable values, either setting or getting.  The only mutable value is
+// the values map.  Retrieving and setting values here are protected by the
+// mutex.  New mutating methods should also be synchronized using this mutex.
 var configMutex sync.Mutex
 
 type connectionDetails struct {
