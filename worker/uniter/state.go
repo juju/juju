@@ -6,10 +6,11 @@ package uniter
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/utils"
 	uhook "launchpad.net/juju-core/worker/uniter/hook"
-	"os"
 )
 
 // Op enumerates the operations the uniter can perform.

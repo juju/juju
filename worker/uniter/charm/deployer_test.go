@@ -5,12 +5,14 @@ package charm_test
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
+
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/charm"
-	"os"
-	"path/filepath"
 )
 
 type DeployerSuite struct {

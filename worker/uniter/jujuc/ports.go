@@ -6,10 +6,12 @@ package jujuc
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/cmd"
 	"strconv"
 	"strings"
+
+	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/cmd"
 )
 
 const portFormat = "<port>[/<protocol>]"
