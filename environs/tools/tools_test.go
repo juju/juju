@@ -216,18 +216,7 @@ func (s *ToolsSuite) TearDownTest(c *gc.C) {
 func (s *ToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
-	final := map[string]interface{}{
-		"name":            "test",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	}
-	for k, v := range attrs {
-		final[k] = v
-	}
-	cfg, err := config.New(final)
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -342,6 +331,9 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.INFO, "no series specified when finding tools, looking for any"},
 		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
 		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+		{loggo.WARNING, `no tools found using simplestreams metadata, using legacy fallback`},
+		{loggo.DEBUG, "reading v1.* tools"},
+		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 	})

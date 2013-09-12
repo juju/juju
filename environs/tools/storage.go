@@ -19,6 +19,7 @@ var ErrNoTools = errors.New("no tools available")
 
 const (
 	DefaultToolPrefix = "tools/juju-"
+	NewToolPrefix     = "tools/releases/juju-"
 	toolSuffix        = ".tgz"
 )
 
@@ -39,6 +40,19 @@ func StorageName(vers version.Binary) string {
 // If minorVersion = -1, then only majorVersion is considered.
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(storage environs.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
+	origPrefix := toolPrefix
+	defer func() {
+		SetToolPrefix(origPrefix)
+	}()
+	toolsList, err := internalReadList(storage, majorVersion, minorVersion)
+	if err == ErrNoTools {
+		SetToolPrefix(NewToolPrefix)
+		toolsList, err = internalReadList(storage, majorVersion, minorVersion)
+	}
+	return toolsList, err
+}
+
+func internalReadList(storage environs.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
 		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
 	} else {
@@ -142,5 +156,11 @@ func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries .
 	if err != nil {
 		return nil, err
 	}
-	return &coretools.Tools{toolsVersion, url}, nil
+	//TODO(wallyworld) - bug 1224266
+	// add sha256
+	return &coretools.Tools{
+		Version: toolsVersion,
+		URL:     url,
+		Size:    size,
+	}, nil
 }

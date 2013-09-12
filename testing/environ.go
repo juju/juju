@@ -14,18 +14,32 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 )
 
+// FakeConfig() returns an environment configuration for a
+// fake provider with all required attributes set.
+func FakeConfig() Attrs {
+	return Attrs{
+		"type":                      "someprovider",
+		"name":                      "testenv",
+		"authorized-keys":           "my-keys",
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "fish",
+		"ca-cert":                   CACert,
+		"ca-private-key":            CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                19034,
+		"api-port":                  17777,
+		"default-series":            config.DefaultSeries,
+	}
+}
+
 // EnvironConfig returns a default environment configuration suitable for
-// testing.
+// setting in the state.
 func EnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
-		"type":            "test",
-		"name":            "test-name",
-		"default-series":  "test-series",
-		"authorized-keys": "test-keys",
-		"agent-version":   "9.9.9.9",
-		"ca-cert":         CACert,
-		"ca-private-key":  "",
-	})
+	attrs := FakeConfig().Merge(Attrs{
+		"agent-version": "1.2.3",
+	}).Delete("admin-secret", "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, IsNil)
 	return cfg
 }

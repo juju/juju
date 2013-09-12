@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/worker/apiuniter/hook"
 	"launchpad.net/juju-core/worker/apiuniter/relation"
 )
@@ -15,7 +15,7 @@ import (
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
 	ctx   *ContextRelation
-	ru    *state.RelationUnit
+	ru    *uniter.RelationUnit
 	dir   *relation.StateDir
 	queue relation.HookQueue
 	hooks chan<- hook.Info
@@ -24,7 +24,7 @@ type Relationer struct {
 
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *state.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
+func NewRelationer(ru *uniter.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
 	return &Relationer{
 		ctx:   NewContextRelation(ru, dir.State().Members),
 		ru:    ru,
@@ -51,11 +51,9 @@ func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
-	address, ok := r.ru.PrivateAddress()
-	if !ok {
-		return fmt.Errorf("cannot enter scope: private-address not set")
-	}
-	return r.ru.EnterScope(map[string]interface{}{"private-address": address})
+	// uniter.RelationUnit.EnterScope() sets the unit's private address
+	// internally automatically, so no need to set it here.
+	return r.ru.EnterScope()
 }
 
 // SetDying informs the relationer that the unit is departing the relation,
@@ -88,9 +86,9 @@ func (r *Relationer) die() error {
 // StartHooks starts watching the relation, and sending hook.Info events on the
 // hooks channel. It will panic if called when already responding to relation
 // changes.
-func (r *Relationer) StartHooks() {
+func (r *Relationer) StartHooks() error {
 	if r.IsImplicit() {
-		return
+		return nil
 	}
 	if r.queue != nil {
 		panic("hooks already started!")
@@ -98,8 +96,13 @@ func (r *Relationer) StartHooks() {
 	if r.dying {
 		r.queue = relation.NewDyingHookQueue(r.dir.State(), r.hooks)
 	} else {
-		r.queue = relation.NewAliveHookQueue(r.dir.State(), r.hooks, r.ru.Watch())
+		w, err := r.ru.Watch()
+		if err != nil {
+			return err
+		}
+		r.queue = relation.NewAliveHookQueue(r.dir.State(), r.hooks, w)
 	}
+	return nil
 }
 
 // StopHooks ensures that the relationer is not watching the relation, or sending
