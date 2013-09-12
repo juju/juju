@@ -73,7 +73,7 @@ func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
 	// You must have permissions to create the directory.
 	c.Assert(os.Chmod(storageDir, 0555), gc.IsNil)
 	_, err := NewSSHStorage("example.com", filepath.Join(storageDir, "subdir"))
-	c.Assert(err, gc.ErrorMatches, ".*cannot create directory.*")
+	c.Assert(err, gc.ErrorMatches, ".*cannot change owner and permissions of.*")
 }
 
 func (s *storageSuite) TestPathValidity(c *gc.C) {
