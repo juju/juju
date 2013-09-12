@@ -25,7 +25,7 @@ const BootstrapInstanceId = instance.Id(manualInstancePrefix)
 // manages its own local storage.
 type LocalStorageEnviron interface {
 	environs.Environ
-	bootstrap.BootstrapStorage
+	bootstrap.BootstrapStorager
 	localstorage.LocalStorageConfig
 }
 

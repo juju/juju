@@ -68,7 +68,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 	// If the environment has a special bootstrap Storage, use it wherever
 	// we'd otherwise use environ.Storage.
-	if bs, ok := environ.(bootstrap.BootstrapStorage); ok {
+	if bs, ok := environ.(bootstrap.BootstrapStorager); ok {
 		bootstrapStorage, err := bs.BootstrapStorage()
 		if err != nil {
 			return fmt.Errorf("failed to acquire bootstrap storage: %v", err)
