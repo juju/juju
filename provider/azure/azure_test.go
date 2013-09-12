@@ -18,6 +18,7 @@ func TestAzureProvider(t *stdtesting.T) {
 
 type providerSuite struct {
 	testing.LoggingSuite
+	envtesting.ToolsFixture
 	restoreTimeouts func()
 }
 
@@ -31,4 +32,14 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
+}
+
+func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
+}
+
+func (s *providerSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }

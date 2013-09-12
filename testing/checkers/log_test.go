@@ -16,25 +16,30 @@ var _ = gc.Suite(&LogMatchesSuite{})
 
 func (s *LogMatchesSuite) TestMatchSimpleMessage(c *gc.C) {
 	log := []loggo.TestLogValues{
-		{Level: loggo.INFO, Message: "foo"},
-		{Level: loggo.INFO, Message: "bar"},
+		{Level: loggo.INFO, Message: "foo bar"},
+		{Level: loggo.INFO, Message: "12345"},
 	}
 	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "foo"},
-		{loggo.INFO, "bar"},
+		{loggo.INFO, "foo bar"},
+		{loggo.INFO, "12345"},
+	})
+	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.INFO, "foo .*"},
+		{loggo.INFO, "12345"},
 	})
 	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
-		{loggo.INFO, "foo"},
-		{loggo.DEBUG, "bar"},
+		{loggo.INFO, "foo bar"},
+		{loggo.DEBUG, "12345"},
 	})
 }
 
 func (s *LogMatchesSuite) TestMatchStrings(c *gc.C) {
 	log := []loggo.TestLogValues{
-		{Level: loggo.INFO, Message: "foo"},
-		{Level: loggo.INFO, Message: "bar"},
+		{Level: loggo.INFO, Message: "foo bar"},
+		{Level: loggo.INFO, Message: "12345"},
 	}
-	c.Check(log, jc.LogMatches, []string{"foo", "bar"})
+	c.Check(log, jc.LogMatches, []string{"foo bar", "12345"})
+	c.Check(log, jc.LogMatches, []string{"foo .*", "12345"})
 	c.Check(log, gc.Not(jc.LogMatches), []string{"baz", "bing"})
 }
 
