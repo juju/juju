@@ -89,6 +89,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Filter tools based on detected series/arch.
+	logger.Infof("Filtering possible tools: %v", args.PossibleTools)
 	possibleTools, err := args.PossibleTools.Match(tools.Filter{
 		Arch:   *hc.Arch,
 		Series: series,
@@ -98,6 +99,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Store the state file. If provisioning fails, we'll remove the file.
+	logger.Infof("Saving bootstrap state file to bootstrap storage")
 	err = provider.SaveState(
 		bootstrapStorage,
 		&provider.BootstrapState{
@@ -138,11 +140,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		tools:        &tools,
 		machineenv:   machineenv,
 	})
-	if err != nil {
-		return err
-	}
-
-	// TODO(axw) connect to bootstrapped machine's state server,
-	// get the *state.Machine?
-	return nil
+	return err
 }

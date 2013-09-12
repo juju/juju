@@ -44,6 +44,7 @@ type provisionMachineAgentArgs struct {
 // provisionMachineAgent connects to a machine over SSH,
 // copies across the tools, and installs a machine agent.
 func provisionMachineAgent(args provisionMachineAgentArgs) error {
+	logger.Infof("Provisioning machine agent on %s", args.host)
 	script, err := provisionMachineAgentScript(args)
 	if err != nil {
 		return err
