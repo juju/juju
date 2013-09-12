@@ -5,10 +5,13 @@ package main
 
 import (
 	"fmt"
-	gc "launchpad.net/gocheck"
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/testing"
 	"strings"
+
+	gc "launchpad.net/gocheck"
+
+	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/testing"
 )
 
 type GetEnvironmentSuite struct {
@@ -30,7 +33,7 @@ var singleValueTests = []struct {
 		output: "dummyenv",
 	}, {
 		key:    "authorized-keys",
-		output: "i-am-a-key",
+		output: dummy.SampleConfig()["authorized-keys"].(string),
 	}, {
 		key: "unknown",
 		err: `Key "unknown" not found in "dummyenv" environment.`,
@@ -38,7 +41,6 @@ var singleValueTests = []struct {
 }
 
 func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
-
 	for _, t := range singleValueTests {
 		context, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{t.key})
 		if t.err != "" {
@@ -57,14 +59,17 @@ func (s *GetEnvironmentSuite) TestTooManyArgs(c *gc.C) {
 }
 
 func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
-
 	context, _ := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{})
 	output := strings.TrimSpace(testing.Stdout(context))
 
-	// Make sure that all the environment keys are there.
-	any := "(.|\n)*" // because . doesn't match new lines.
+	// Make sure that all the environment keys are there. The admin
+	// secret and CA private key are never pushed into the
+	// environment.
 	for key := range s.Conn.Environ.Config().AllAttrs() {
-		c.Assert(output, gc.Matches, fmt.Sprintf("%s%s: %s", any, key, any))
+		c.Logf("test for key %q", key)
+		any := `(.|\n)*`
+		pattern := fmt.Sprintf(`(?m)^%s:`, key)
+		c.Check(output, gc.Matches, any+pattern+any)
 	}
 }
 
@@ -106,7 +111,6 @@ var setEnvInitTests = []struct {
 }
 
 func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
-
 	for _, t := range setEnvInitTests {
 		command := &SetEnvironmentCommand{}
 		testing.TestInit(c, command, t.args, t.err)
