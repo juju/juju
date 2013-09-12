@@ -32,6 +32,12 @@ const (
 	LoggingConfig     = "LOGGING_CONFIG"
 )
 
+// The Config interface is the sole way that the agent gets access to the
+// configuration information for the machine and unit agents.  There should
+// only be one instance of a config object for any given agent, and this
+// interface is passed between multiple go routines.  The mutable methods are
+// protected by a mutex, and it is expected that the caller doesn't modify any
+// slice that may be returned.
 type Config interface {
 	// DataDir returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
@@ -81,26 +87,30 @@ type Config interface {
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
-	// Get the value associated with the key.
+	// Value returns the value associated with the key, or an empty string if
+	// the key is not found.
 	Value(key string) string
-	// Set the value for the specified key.
+
+	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
 }
 
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-// The configWriterMutex should be locked before any writing to disk during
-// the write commands, and unlocked when the writing is complete.  This
-// process wide lock should stop any unintended concurrent writes.  This may
-// happen when mutliple go-routines may be adding things to the agent config,
-// and wanting to persist them to disk. To ensure that the correct data is
-// written to disk, the mutex should be locked prior to generating any disk
-// state.  This way calls that might get interleaved would always write the
-// most recent state to disk.  Since we different agent configs for each
-// agent, and there is only one process for each agent, a simple mutex is
-// enough for concurrency.
-var configWriterMutex sync.Mutex
+// The configMutex should be locked before any writing to disk during the
+// write commands, and unlocked when the writing is complete.  This process
+// wide lock should stop any unintended concurrent writes.  This may happen
+// when mutliple go-routines may be adding things to the agent config, and
+// wanting to persist them to disk. To ensure that the correct data is written
+// to disk, the mutex should be locked prior to generating any disk state.
+// This way calls that might get interleaved would always write the most
+// recent state to disk.  Since we different agent configs for each agent, and
+// there is only one process for each agent, a simple mutex is enough for
+// concurrency.  The mutex should also be locked around any access to mutable
+// values, either setting or getting.  The only mutable value is the values
+// map.  Retrieving and setting values here are protected by the mutex.
+var configMutex sync.Mutex
 
 type connectionDetails struct {
 	addresses []string
@@ -217,8 +227,8 @@ func ReadConf(dataDir, tag string) (Config, error) {
 	// Even though the ReadConf is done at the start of the agent loading, and
 	// that this should not be called more than once by an agent, I feel that
 	// not locking the mutex that is used to protect writes is wrong.
-	configWriterMutex.Lock()
-	defer configWriterMutex.Unlock()
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	dir := Dir(dataDir, tag)
 	format, err := readFormat(dir)
 	if err != nil {
@@ -276,10 +286,14 @@ func (c *configInternal) CACert() []byte {
 }
 
 func (c *configInternal) Value(key string) string {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	return c.values[key]
 }
 
 func (c *configInternal) SetValue(key, value string) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	if value == "" {
 		delete(c.values, key)
 	} else {
@@ -374,8 +388,8 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 // Write writes the agent configuration.
 func (c *configInternal) Write() error {
 	// Lock is taken prior to generating any content to write.
-	configWriterMutex.Lock()
-	defer configWriterMutex.Unlock()
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	return currentFormatter.write(c)
 }
 
