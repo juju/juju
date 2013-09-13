@@ -12,6 +12,8 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -65,6 +67,15 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 	})
 }
 
+func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
+	info, err := store.EnvironInfo("someenv")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(info, gc.IsNil)
+}
+
 func (*diskStoreSuite) TestWrite(c *gc.C) {
 	dir := filepath.Join(c.MkDir(), "environments")
 	store, err := configstore.NewDisk(dir)
@@ -85,4 +96,25 @@ func (*diskStoreSuite) TestWrite(c *gc.C) {
 	data, err := ioutil.ReadFile(filepath.Join(dir, "someenv.yaml"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, sampleInfo)
+}
+
+func (*diskStoreSuite) TestCertRoundTrip(c *gc.C) {
+	store, err := configstore.NewDisk(c.MkDir())
+	c.Assert(err, gc.IsNil)
+	info := &environs.EnvironInfo{
+		Creds: environs.APICredentials{
+			User:     "rog",
+			Password: "guessit",
+		},
+		Endpoint: environs.APIEndpoint{
+			APIAddresses: []string{"example.com", "kremvax.ru"},
+			CACert:       string(testing.CACert),
+		},
+	}
+	err = store.WriteEnvironInfo("someenv", info)
+	c.Assert(err, gc.IsNil)
+
+	gotInfo, err := store.EnvironInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotInfo, gc.DeepEquals, info)
 }

@@ -35,6 +35,7 @@ func (d *diskStore) envPath(envName string) string {
 	return filepath.Join(d.dir, envName+".yaml")
 }
 
+// EnvironInfo implements environs.ConfigStorage.EnvironInfo.
 func (d *diskStore) EnvironInfo(envName string) (*environs.EnvironInfo, error) {
 	path := d.envPath(envName)
 	data, err := ioutil.ReadFile(path)
@@ -51,6 +52,7 @@ func (d *diskStore) EnvironInfo(envName string) (*environs.EnvironInfo, error) {
 	return &info, nil
 }
 
+// WriteEnvironInfo implements environs.ConfigStorage.WriteEnvironInfo.
 func (d *diskStore) WriteEnvironInfo(envName string, info *environs.EnvironInfo) error {
 	if err := os.MkdirAll(d.dir, 0700); err != nil {
 		return err
