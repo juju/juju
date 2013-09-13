@@ -98,7 +98,8 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
-	// If the logging config hasn't been set, then look in the environment.
+	// If the logging config hasn't been set, then look for the os environment
+	// variable, and failing that, get the config from loggo itself.
 	if c.asString("logging-config") == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
 			c.m["logging-config"] = environmentValue
