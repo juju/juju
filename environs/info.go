@@ -2,6 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package environs
+
 import (
 	"launchpad.net/juju-core/environs/config"
 )
@@ -21,7 +22,7 @@ type APIEndpoint struct {
 // APICredentials hold credentials for connecting to an API endpoint.
 type APICredentials struct {
 	// User holds the name of the user to connect as.
-	User string
+	User     string
 	Password string
 }
 
