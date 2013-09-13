@@ -2,16 +2,17 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package configstore
+
 import (
-	"io/ioutil"
 	"fmt"
-	"path/filepath"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 )
 
 type diskStore struct {
@@ -31,7 +32,7 @@ func NewDisk(dir string) (environs.ConfigStorage, error) {
 }
 
 func (d *diskStore) envPath(envName string) string {
-	return filepath.Join(d.dir, envName + ".yaml")
+	return filepath.Join(d.dir, envName+".yaml")
 }
 
 func (d *diskStore) EnvironInfo(envName string) (*environs.EnvironInfo, error) {

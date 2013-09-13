@@ -12,7 +12,7 @@ type APIEndpoint struct {
 
 	// CACert holds the CA certificate that
 	// signed the API server's key.
-	CACert []byte
+	CACert string
 }
 
 // APICredentials hold credentials for connecting to an API endpoint.
