@@ -327,8 +327,8 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
 		{loggo.INFO, "filtering tools by version: .*"},
-		{loggo.INFO, "no architecture specified when finding tools, looking for any"},
-		{loggo.INFO, "no series specified when finding tools, looking for any"},
+		{loggo.DEBUG, "no architecture specified when finding tools, looking for any"},
+		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
 		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
 		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
 		{loggo.WARNING, `no tools found using simplestreams metadata, using legacy fallback`},
