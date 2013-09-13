@@ -103,7 +103,7 @@ func (e *fatalError) Error() string {
 
 func isFatal(err error) bool {
 	isTerminate := err == worker.ErrTerminateAgent
-	notProvisioned := params.ErrCode(err) == params.CodeNotProvisioned
+	notProvisioned := params.IsCodeNotProvisioned(err)
 	if isTerminate || notProvisioned || isUpgraded(err) {
 		return true
 	}
@@ -168,13 +168,13 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 	// be interrupted.
 	st, newPassword, err := agentConfig.OpenAPI(api.DialOpts{})
 	if err != nil {
-		if params.ErrCode(err) == params.CodeUnauthorized {
+		if params.IsCodeUnauthorized(err) {
 			err = worker.ErrTerminateAgent
 		}
 		return nil, nil, err
 	}
 	entity, err := st.Agent().Entity(a.Tag())
-	unauthorized := err != nil && params.ErrCode(err) == params.CodeUnauthorized
+	unauthorized := params.IsCodeUnauthorized(err)
 	dead := err == nil && entity.Life() == params.Dead
 	if unauthorized || dead {
 		err = worker.ErrTerminateAgent

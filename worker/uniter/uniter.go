@@ -393,13 +393,13 @@ func (u *Uniter) restoreRelations() error {
 	for id, dir := range dirs {
 		remove := false
 		rel, err := u.st.RelationById(id)
-		if params.ErrCode(err) == params.CodeNotFound {
+		if params.IsCodeNotFound(err) {
 			remove = true
 		} else if err != nil {
 			return err
 		}
 		err = u.addRelation(rel, dir)
-		if params.ErrCode(err) == params.CodeCannotEnterScope {
+		if params.IsCodeCannotEnterScope(err) {
 			remove = true
 		} else if err != nil {
 			return err
@@ -440,7 +440,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		// were not previously known anyway.
 		rel, err := u.st.RelationById(id)
 		if err != nil {
-			if params.ErrCode(err) == params.CodeNotFound {
+			if params.IsCodeNotFound(err) {
 				continue
 			}
 			return nil, err
@@ -469,7 +469,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			continue
 		}
 		e := dir.Remove()
-		if params.ErrCode(err) != params.CodeCannotEnterScope {
+		if !params.IsCodeCannotEnterScope(err) {
 			return nil, err
 		}
 		if e != nil {
@@ -522,7 +522,7 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 				return watcher.MustErr(w)
 			}
 			err := r.Join()
-			if params.ErrCode(err) == params.CodeCannotEnterScopeYet {
+			if params.IsCodeCannotEnterScopeYet(err) {
 				logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {

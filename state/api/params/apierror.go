@@ -72,3 +72,47 @@ func ClientError(err error) error {
 		Code:    rerr.Code,
 	}
 }
+
+func IsCodeNotFound(err error) bool {
+	return ErrCode(err) == CodeNotFound
+}
+
+func IsCodeUnauthorized(err error) bool {
+	return ErrCode(err) == CodeUnauthorized
+}
+
+func IsCodeCannotEnterScope(err error) bool {
+	return ErrCode(err) == CodeCannotEnterScope
+}
+
+func IsCodeCannotEnterScopeYet(err error) bool {
+	return ErrCode(err) == CodeCannotEnterScopeYet
+}
+
+func IsCodeExcessiveContention(err error) bool {
+	return ErrCode(err) == CodeExcessiveContention
+}
+
+func IsCodeUnitHasSubordinates(err error) bool {
+	return ErrCode(err) == CodeUnitHasSubordinates
+}
+
+func IsCodeNotAssigned(err error) bool {
+	return ErrCode(err) == CodeNotAssigned
+}
+
+func IsCodeStopped(err error) bool {
+	return ErrCode(err) == CodeStopped
+}
+
+func IsCodeHasAssignedUnits(err error) bool {
+	return ErrCode(err) == CodeHasAssignedUnits
+}
+
+func IsCodeNotProvisioned(err error) bool {
+	return ErrCode(err) == CodeNotProvisioned
+}
+
+func IsCodeNoAddressSet(err error) bool {
+	return ErrCode(err) == CodeNoAddressSet
+}
