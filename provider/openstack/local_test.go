@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -24,11 +25,13 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -99,14 +102,14 @@ func registerLocalTests() {
 		LiveTests: LiveTests{
 			cred: cred,
 			LiveTests: jujutest.LiveTests{
-				TestConfig: jujutest.TestConfig{config},
+				TestConfig: config,
 			},
 		},
 	})
 	gc.Suite(&localServerSuite{
 		cred: cred,
 		Tests: jujutest.Tests{
-			TestConfig: jujutest.TestConfig{config},
+			TestConfig: config,
 		},
 	})
 	gc.Suite(&publicBucketSuite{
@@ -202,7 +205,7 @@ func (s *localServerSuite) TearDownSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
-	s.TestConfig.UpdateConfig(map[string]interface{}{
+	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"auth-url": s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
@@ -474,15 +477,41 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *localServerSuite) TestGetMetadataURLs(c *gc.C) {
-	urls, err := imagemetadata.GetMetadataURLs(s.env)
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
+	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(urls), gc.Equals, 3)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
 	// The public bucket URL ends with "/juju-dist/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), gc.Equals, true)
+	c.Check(strings.HasSuffix(urls[1], "/juju-dist/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), gc.Equals, true)
-	c.Assert(urls[2], gc.Equals, imagemetadata.DefaultBaseURL)
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+	sources, err := tools.GetMetadataSources(s.env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
+	c.Assert(err, gc.IsNil)
+	// Check that the URL from keytone parses.
+	_, err = url.Parse(urls[1])
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
@@ -500,6 +529,8 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params, err := s.Env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
+	c.Assert(err, gc.IsNil)
+	params.Sources, err = imagemetadata.GetMetadataSources(s.Env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

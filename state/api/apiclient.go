@@ -24,6 +24,9 @@ type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
 
+	// authTag holds the authenticated entity's tag after login.
+	authTag string
+
 	// broken is a channel that gets closed when the connection is
 	// broken.
 	broken chan struct{}
@@ -133,16 +136,17 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 }
 
 func (s *State) heartbeatMonitor() {
-	ping := func() error {
-		return s.Call("Pinger", "", "Ping", nil, nil)
-	}
 	for {
-		if err := ping(); err != nil {
+		if err := s.Ping(); err != nil {
 			close(s.broken)
 			return
 		}
 		time.Sleep(PingPeriod)
 	}
+}
+
+func (s *State) Ping() error {
+	return s.Call("Pinger", "", "Ping", nil, nil)
 }
 
 // Call invokes a low-level RPC method of the given objType, id, and

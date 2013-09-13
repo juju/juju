@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"regexp"
 	"sort"
+	"strings"
 
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
@@ -23,10 +24,12 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -54,20 +57,16 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
 }
 
-var localConfigAttrs = map[string]interface{}{
+var localConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 	"name":                 "sample",
 	"type":                 "ec2",
 	"region":               "test",
 	"control-bucket":       "test-bucket",
 	"public-bucket":        "public-tools",
 	"public-bucket-region": "test",
-	"admin-secret":         "local-secret",
 	"access-key":           "x",
 	"secret-key":           "x",
-	"authorized-keys":      "foo",
-	"ca-cert":              testing.CACert,
-	"ca-private-key":       testing.CAKey,
-}
+})
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -90,7 +89,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
-	t.TestConfig.Config = localConfigAttrs
+	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
@@ -166,7 +165,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
-	t.TestConfig.Config = localConfigAttrs
+	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.Tests.SetUpSuite(c)
 }
@@ -338,10 +337,36 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
+	params.Sources, err = imagemetadata.GetMetadataSources(t.Env)
+	c.Assert(err, gc.IsNil)
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
+}
+
+func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
+	sources, err := imagemetadata.GetMetadataSources(t.Env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(t.Env)), jc.IsTrue)
+	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+	sources, err := tools.GetMetadataSources(t.Env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	url, err := sources[0].URL("")
+	// The control bucket URL contains the bucket name.
+	c.Assert(strings.Contains(url, ec2.ControlBucketName(t.Env)+"/tools"), jc.IsTrue)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

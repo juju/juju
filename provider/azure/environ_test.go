@@ -4,9 +4,11 @@
 package azure
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -22,6 +24,8 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -38,7 +42,7 @@ var _ = gc.Suite(&environSuite{})
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
@@ -251,7 +255,7 @@ func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-container-name"] = ""
 	attrs["public-storage-account-name"] = ""
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
@@ -392,7 +396,7 @@ func (*environSuite) TestSetConfigValidates(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	// This config is not valid.  It lacks essential information.
 	delete(attrs, "management-subscription-id")
-	badCfg, err := config.New(attrs)
+	badCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(badCfg)
@@ -413,7 +417,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	// unusual default Ubuntu release series: 7.04 Feisty Fawn.
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "feisty"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -424,7 +428,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 
 func (*environSuite) TestSetConfigLocksEnviron(c *gc.C) {
 	env := makeEnviron(c)
-	cfg, err := config.New(makeAzureConfigMap(c))
+	cfg, err := config.New(config.NoDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
 
 	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
@@ -438,7 +442,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 	originalName := env.Name()
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "new-name"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -456,7 +460,7 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	env.storageAccountKey = "key-for-previous-config"
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "other"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -505,21 +509,6 @@ func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.Creat
 	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, gc.IsNil)
 	return &body
-}
-
-// makeServiceNameAlreadyTakenError simulates the AzureError you get when
-// trying to create a hosted service with a name that's already taken.
-func makeServiceNameAlreadyTakenError(c *gc.C) []byte {
-	// At the time of writing, this is the exact kind of error that Azure
-	// returns in this situation.
-	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("POST request failed"),
-		HTTPStatus: http.StatusConflict,
-		Code:       "ConflictError",
-		Message:    "The specified DNS name is already taken.",
-	})
-	c.Assert(err, gc.IsNil)
-	return errorBody
 }
 
 // makeNonAvailabilityResponse simulates a reply to the
@@ -1300,4 +1289,47 @@ func (*environSuite) TestExtractStorageKeyFallsBackToSecondaryKey(c *gc.C) {
 
 func (*environSuite) TestExtractStorageKeyReturnsBlankIfNoneSet(c *gc.C) {
 	c.Check(extractStorageKey(&gwacl.StorageAccountKeys{}), gc.Equals, "")
+}
+
+func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
+	rc, _, err := source.Fetch(filename)
+	c.Assert(err, gc.IsNil)
+	defer rc.Close()
+	retrieved, err := ioutil.ReadAll(rc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(retrieved, gc.DeepEquals, content)
+}
+
+func (*environSuite) TestGetImageMetadataSources(c *gc.C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+
+	data := []byte{1, 2, 3, 4}
+	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
+
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 3)
+	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "http://cloud-images.ubuntu.com/daily/")
+	url, err = sources[2].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (*environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+
+	data := []byte{1, 2, 3, 4}
+	env.Storage().Put("tools/filename", bytes.NewReader(data), int64(len(data)))
+
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	assertSourceContents(c, sources[0], "filename", data)
 }

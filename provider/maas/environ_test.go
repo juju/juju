@@ -6,6 +6,7 @@ package maas
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 
 	gc "launchpad.net/gocheck"
@@ -16,7 +17,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -48,26 +52,19 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
-// makeEnviron creates a functional maasEnviron for a test.  Its configuration
-// is a bit arbitrary and none of the test code's business.
+// makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
-	config, err := config.New(map[string]interface{}{
-		"name":            suite.environ.Name(),
-		"type":            "maas",
-		"admin-secret":    "local-secret",
-		"authorized-keys": "foo",
-		"agent-version":   version.CurrentNumber().String(),
-		"maas-oauth":      "a:b:c",
-		"maas-server":     suite.testMAASObject.TestServer.URL,
-		// These are not needed by MAAS, but juju-core breaks without them. Needs
-		// fixing there.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"name":        suite.environ.Name(),
+		"type":        "maas",
+		"maas-oauth":  "a:b:c",
+		"maas-server": suite.testMAASObject.TestServer.URL,
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}
-	env, err := NewEnviron(config)
+	env, err := NewEnviron(cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -453,8 +450,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Check(err, gc.ErrorMatches, "no tools available")
-	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
@@ -474,4 +470,40 @@ func (suite *environSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
 	// bootstrap.Bootstrap calls Environ.Bootstrap.  This works.
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
+}
+
+func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
+	rc, _, err := source.Fetch(filename)
+	c.Assert(err, gc.IsNil)
+	defer rc.Close()
+	retrieved, err := ioutil.ReadAll(rc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(retrieved, gc.DeepEquals, content)
+}
+
+func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	env := suite.makeEnviron()
+	// Add a dummy file to storage so we can use that to check the
+	// obtained source later.
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("filename", data)
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	env := suite.makeEnviron()
+	// Add a dummy file to storage so we can use that to check the
+	// obtained source later.
+	data := makeRandomBytes(10)
+	suite.testMAASObject.TestServer.NewFile("tools/filename", data)
+	sources, err := envtools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	assertSourceContents(c, sources[0], "filename", data)
 }

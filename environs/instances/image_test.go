@@ -199,10 +199,11 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		t.init()
 		cons := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
-			Series:    "precise",
+			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
-		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), cons)
+		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
+			[]byte(jsonImagesContent), simplestreams.NewURLDataSource("some-url"), cons)
 		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {

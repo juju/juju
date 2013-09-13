@@ -11,20 +11,35 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
+// FakeConfig() returns an environment configuration for a
+// fake provider with all required attributes set.
+func FakeConfig() Attrs {
+	return Attrs{
+		"type":                      "someprovider",
+		"name":                      "testenv",
+		"authorized-keys":           "my-keys",
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "fish",
+		"ca-cert":                   CACert,
+		"ca-private-key":            CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                19034,
+		"api-port":                  17777,
+		"default-series":            config.DefaultSeries,
+	}
+}
+
 // EnvironConfig returns a default environment configuration suitable for
-// testing.
+// setting in the state.
 func EnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
-		"type":            "test",
-		"name":            "test-name",
-		"default-series":  "test-series",
-		"authorized-keys": "test-keys",
-		"agent-version":   "9.9.9.9",
-		"ca-cert":         CACert,
-		"ca-private-key":  "",
-	})
+	attrs := FakeConfig().Merge(Attrs{
+		"agent-version": "1.2.3",
+	}).Delete("admin-secret", "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, IsNil)
 	return cfg
 }
@@ -70,8 +85,7 @@ type TestFile struct {
 
 type FakeHome struct {
 	oldHomeEnv     string
-	oldJujuEnv     string
-	oldJujuHomeEnv string
+	oldEnvironment map[string]string
 	oldJujuHome    string
 	files          []TestFile
 }
@@ -126,34 +140,41 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 }
 
 func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
-	oldHomeEnv := os.Getenv("HOME")
-	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
-	oldJujuEnv := os.Getenv("JUJU_ENV")
+	oldHomeEnv := osenv.Home()
+	oldEnvironment := make(map[string]string)
+	for _, name := range []string{
+		osenv.JujuHome,
+		osenv.JujuEnv,
+		osenv.JujuLoggingConfig,
+	} {
+		oldEnvironment[name] = os.Getenv(name)
+	}
 	fakeHome := c.MkDir()
-	os.Setenv("HOME", fakeHome)
-	os.Setenv("JUJU_HOME", "")
-	os.Setenv("JUJU_ENV", "")
+	osenv.SetHome(fakeHome)
+	os.Setenv(osenv.JujuHome, "")
+	os.Setenv(osenv.JujuEnv, "")
+	os.Setenv(osenv.JujuLoggingConfig, "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
-		oldJujuEnv:     oldJujuEnv,
-		oldJujuHomeEnv: oldJujuHomeEnv,
+		oldEnvironment: oldEnvironment,
 		oldJujuHome:    oldJujuHome,
 		files:          []TestFile{},
 	}
 }
 
 func HomePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
+	all := append([]string{osenv.Home()}, names...)
 	return filepath.Join(all...)
 }
 
 func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("JUJU_ENV", h.oldJujuEnv)
-	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
-	os.Setenv("HOME", h.oldHomeEnv)
+	for name, value := range h.oldEnvironment {
+		os.Setenv(name, value)
+	}
+	osenv.SetHome(h.oldHomeEnv)
 }
 
 func (h *FakeHome) AddFiles(c *C, files []TestFile) {

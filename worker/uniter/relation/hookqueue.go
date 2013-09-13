@@ -4,12 +4,14 @@
 package relation
 
 import (
+	"sort"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/tomb"
-	"sort"
 )
 
 // HookQueue is the minimal interface implemented by both AliveHookQueue and
@@ -25,7 +27,7 @@ type HookQueue interface {
 type RelationUnitsWatcher interface {
 	Err() error
 	Stop() error
-	Changes() <-chan state.RelationUnitsChange
+	Changes() <-chan params.RelationUnitsChange
 }
 
 // AliveHookQueue aggregates values obtained from a relation units watcher
@@ -61,8 +63,7 @@ type unitInfo struct {
 
 	// version and settings hold the most recent settings known
 	// to the AliveHookQueue.
-	version  int64
-	settings map[string]interface{}
+	version int64
 
 	// joined is set to true when a "relation-joined" is popped for this unit.
 	joined bool
@@ -111,7 +112,7 @@ func (q *AliveHookQueue) loop(initial *State) {
 		panic("AliveHookQueue must be started with a fresh RelationUnitsWatcher")
 	}
 	q.changedPending = initial.ChangedPending
-	ch0 := state.RelationUnitsChange{}
+	ch0 := params.RelationUnitsChange{}
 	for unit, version := range initial.Members {
 		q.info[unit] = &unitInfo{
 			unit:    unit,
@@ -167,7 +168,7 @@ func (q *AliveHookQueue) empty() bool {
 
 // update modifies the queue such that the hook.Info values it sends will
 // reflect the supplied change.
-func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
+func (q *AliveHookQueue) update(ruc params.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
 	for unit := range ruc.Changed {
@@ -190,7 +191,6 @@ func (q *AliveHookQueue) update(ruc state.RelationUnitsChange) {
 			}
 		}
 		info.version = settings.Version
-		info.settings = settings.Settings
 	}
 
 	for _, unit := range ruc.Departed {
@@ -240,23 +240,11 @@ func (q *AliveHookQueue) next() hook.Info {
 		kind = q.head.hookKind
 	}
 	version := q.info[unit].version
-	members := make(map[string]map[string]interface{})
-	for unit, info := range q.info {
-		if info.joined {
-			members[unit] = info.settings
-		}
-	}
-	if kind == hooks.RelationJoined {
-		members[unit] = q.info[unit].settings
-	} else if kind == hooks.RelationDeparted {
-		delete(members, unit)
-	}
 	return hook.Info{
 		Kind:          kind,
 		RelationId:    q.relationId,
 		RemoteUnit:    unit,
 		ChangeVersion: version,
-		Members:       members,
 	}
 }
 

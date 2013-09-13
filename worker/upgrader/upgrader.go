@@ -11,6 +11,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
@@ -60,18 +61,17 @@ type Upgrader struct {
 	tag     string
 }
 
-// New returns a new upgrader worker. It watches changes to the
-// current version of the current agent (with the given tag)
-// and tries to download the tools for any new version
-// into the given data directory.
-// If an upgrade is needed, the worker will exit with an
-// UpgradeReadyError holding details of the requested upgrade. The tools
-// will have been downloaded and unpacked.
-func New(st *upgrader.State, tag, dataDir string) *Upgrader {
+// NewUpgrader returns a new upgrader worker. It watches changes to the
+// current version of the current agent (with the given tag) and tries to
+// download the tools for any new version into the given data directory.  If
+// an upgrade is needed, the worker will exit with an UpgradeReadyError
+// holding details of the requested upgrade. The tools will have been
+// downloaded and unpacked.
+func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
 		st:      st,
-		dataDir: dataDir,
-		tag:     tag,
+		dataDir: agentConfig.DataDir(),
+		tag:     agentConfig.Tag(),
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -125,24 +125,30 @@ func (u *Upgrader) loop() error {
 	// all around us.
 	var dying <-chan struct{}
 	var wantTools *coretools.Tools
+	var wantVersion version.Number
 	for {
 		select {
 		case _, ok := <-changes:
 			if !ok {
 				return watcher.MustErr(versionWatcher)
 			}
-			wantTools, err = u.st.Tools(u.tag)
+			wantVersion, err = u.st.DesiredVersion(u.tag)
 			if err != nil {
 				return err
 			}
-			logger.Infof("required tools: %v", wantTools.Version)
+			logger.Infof("desired tool version: %v", wantVersion)
 			dying = u.tomb.Dying()
 		case <-retry:
 		case <-dying:
 			return nil
 		}
-		if wantTools.Version.Number != currentTools.Version.Number {
-			logger.Infof("upgrade required from %v to %v", currentTools.Version, wantTools.Version)
+		if wantVersion != currentTools.Version.Number {
+			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+			wantTools, err = u.st.Tools(u.tag)
+			if err != nil {
+				// Not being able to lookup Tools is considered fatal
+				return err
+			}
 			// The worker cannot be stopped while we're downloading
 			// the tools - this means that even if the API is going down
 			// repeatedly (causing the agent to be stopped), as long

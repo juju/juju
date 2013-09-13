@@ -14,6 +14,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -45,17 +46,7 @@ var _ = gc.Suite(&UpgraderSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine to work with
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-
-	s.state = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.state, s.machine = s.OpenAPIAsNewMachine(c)
 	s.oldRetryAfter = *upgrader.RetryAfter
 }
 
@@ -99,6 +90,29 @@ func (s *UpgraderSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Too
 	return &coretools.Tools{URL: url, Version: vers}
 }
 
+type mockConfig struct {
+	agent.Config
+	tag     string
+	datadir string
+}
+
+func (mock *mockConfig) Tag() string {
+	return mock.tag
+}
+
+func (mock *mockConfig) DataDir() string {
+	return mock.datadir
+}
+
+func agentConfig(tag, datadir string) agent.Config {
+	return &mockConfig{tag: tag, datadir: datadir}
+}
+
+func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
+	config := agentConfig(s.machine.Tag(), s.DataDir())
+	return upgrader.NewUpgrader(s.state.Upgrader(), config)
+}
+
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-foo-bar")
 	err := statetesting.SetAgentVersion(s.State, vers.Number)
@@ -108,7 +122,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	u := upgrader.New(s.state.Upgrader(), s.machine.Tag(), s.DataDir())
+	u := s.makeUpgrader()
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -127,7 +141,7 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
 
-	u := upgrader.New(s.state.Upgrader(), s.machine.Tag(), s.DataDir())
+	u := s.makeUpgrader()
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -147,7 +161,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	// it's been stopped.
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := upgrader.New(s.state.Upgrader(), s.machine.Tag(), s.DataDir())
+	u := s.makeUpgrader()
 	err = u.Stop()
 	c.Assert(err, gc.DeepEquals, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag(),
@@ -173,7 +187,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		return retryc
 	}
 	dummy.Poison(s.Conn.Environ.Storage(), envtools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
-	u := upgrader.New(s.state.Upgrader(), s.machine.Tag(), s.DataDir())
+	u := s.makeUpgrader()
 	defer u.Stop()
 
 	for i := 0; i < 3; i++ {

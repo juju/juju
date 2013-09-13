@@ -6,17 +6,17 @@ package uniter
 import (
 	stderrors "errors"
 	"fmt"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	ucharm "launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/tomb"
 )
 
 // Mode defines the signature of the functions that implement the possible
@@ -27,26 +27,28 @@ type Mode func(u *Uniter) (Mode, error)
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
 	logger.Infof("updating unit addresses")
-	// TODO(dimitern): Once the uniter is using the API, change the
-	// following block to use st.ProviderType() instead of calling
-	// st.EnvironConfig. Also, We might be able to drop all this
-	// address stuff entirely once we have machine addresses.
-	cfg, err := u.st.EnvironConfig()
+	// TODO(dimitern): We might be able to drop all this address stuff
+	// entirely once we have machine addresses.
+	providerType, err := u.st.ProviderType()
 	if err != nil {
 		return nil, err
 	}
-	provider, err := environs.Provider(cfg.Type())
+	provider, err := environs.Provider(providerType)
 	if err != nil {
 		return nil, err
 	}
 	if private, err := provider.PrivateAddress(); err != nil {
+		logger.Errorf("cannot get unit's private address: %v", err)
 		return nil, err
 	} else if err = u.unit.SetPrivateAddress(private); err != nil {
+		logger.Errorf("cannot set unit's private address: %v", err)
 		return nil, err
 	}
 	if public, err := provider.PublicAddress(); err != nil {
+		logger.Errorf("cannot get unit's public address: %v", err)
 		return nil, err
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
+		logger.Errorf("cannot set unit's public address: %v", err)
 		return nil, err
 	}
 	logger.Infof("reconciling relation state")
@@ -66,7 +68,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
 			logger.Infof("charm is not deployed")
-			curl, _ := u.service.CharmURL()
+			curl, _, err := u.service.CharmURL()
+			if err != nil {
+				return nil, err
+			}
 			return ModeInstalling(curl), nil
 		} else if err != nil {
 			return nil, err
@@ -193,7 +198,10 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(params.StatusStopped, ""); err != nil {
 		return nil, err
 	}
-	w := u.unit.Watch()
+	w, err := u.unit.Watch()
+	if err != nil {
+		return nil, err
+	}
 	defer watcher.Stop(w, &u.tomb)
 	for {
 		select {
@@ -206,7 +214,9 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err
 			}
-			if len(u.unit.SubordinateNames()) > 0 {
+			if hasSubs, err := u.unit.HasSubordinates(); err != nil {
+				return nil, err
+			} else if hasSubs {
 				continue
 			}
 			// The unit is known to be Dying; so if it didn't have subordinates
@@ -290,14 +300,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.unit.Refresh(); err != nil {
 		return nil, err
 	}
-	for _, name := range u.unit.SubordinateNames() {
-		if sub, err := u.st.Unit(name); errors.IsNotFoundError(err) {
-			continue
-		} else if err != nil {
-			return nil, err
-		} else if err = sub.Destroy(); err != nil {
-			return nil, err
-		}
+	if err = u.unit.DestroyAllSubordinates(); err != nil {
+		return nil, err
 	}
 	for id, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
@@ -346,9 +350,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
-			case state.ResolvedRetryHooks:
+			case params.ResolvedRetryHooks:
 				err = u.runHook(*u.s.Hook)
-			case state.ResolvedNoHooks:
+			case params.ResolvedNoHooks:
 				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)

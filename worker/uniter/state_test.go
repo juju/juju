@@ -4,13 +4,15 @@
 package uniter_test
 
 import (
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"path/filepath"
 )
 
 type StateFileSuite struct{}
@@ -21,9 +23,6 @@ var stcurl = charm.MustParseURL("cs:series/service-name-123")
 var relhook = &hook.Info{
 	Kind:       hooks.RelationJoined,
 	RemoteUnit: "some-thing/123",
-	Members: map[string]map[string]interface{}{
-		"blah/0": {"cheese": "gouda"},
-	},
 }
 
 var stateTests = []struct {
@@ -166,10 +165,6 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		write()
 		st, err := file.Read()
 		c.Assert(err, gc.IsNil)
-		if st.Hook != nil {
-			c.Assert(st.Hook.Members, gc.HasLen, 0)
-			st.Hook.Members = t.st.Hook.Members
-		}
 		c.Assert(*st, gc.DeepEquals, t.st)
 	}
 }

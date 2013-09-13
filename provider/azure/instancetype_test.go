@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 type instanceTypeSuite struct{}
@@ -308,7 +309,7 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 	defer cleanup()
 
 	env := makeEnviron(c)
-	_, err := findMatchingImages(env, "West US", "lucid", "", []string{"amd64"})
+	_, err := findMatchingImages(env, "West US", "saucy", "", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
 
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
@@ -479,7 +480,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 // It returns a cleanup function, which you must call when done.
 func patchFetchImageMetadata(cannedResponse []*imagemetadata.ImageMetadata, cannedError error) func() {
 	original := fetchImageMetadata
-	fetchImageMetadata = func([]string, string, *imagemetadata.ImageConstraint, bool) ([]*imagemetadata.ImageMetadata, error) {
+	fetchImageMetadata = func([]simplestreams.DataSource, string, *imagemetadata.ImageConstraint, bool) ([]*imagemetadata.ImageMetadata, error) {
 		return cannedResponse, cannedError
 	}
 	return func() { fetchImageMetadata = original }

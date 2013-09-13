@@ -102,6 +102,12 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	return st.runner.Run(ops, "", nil)
 }
 
+// Ping probes the state's database connection to ensure
+// that it is still alive.
+func (st *State) Ping() error {
+	return st.db.Session.Ping()
+}
+
 func (st *State) Watch() *multiwatcher.Watcher {
 	st.mu.Lock()
 	if st.allManager == nil {
@@ -117,7 +123,7 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 		return nil, err
 	}
 	attrs := settings.Map()
-	return config.New(attrs)
+	return config.New(config.NoDefaults, attrs)
 }
 
 // checkEnvironConfig returns an error if the config is definitely invalid.
@@ -474,8 +480,6 @@ func (st *State) Machine(id string) (*Machine, error) {
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
 	kind, id, err := names.ParseTag(tag, "")
-	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, add
-	// support for relation entities here.
 	switch kind {
 	case names.MachineTagKind:
 		return st.Machine(id)
@@ -497,11 +501,7 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		}
 		return st.Environment()
 	case names.RelationTagKind:
-		relId, err := strconv.Atoi(id)
-		if err != nil {
-			return nil, errors.NotFoundf("relation %s", id)
-		}
-		return st.Relation(relId)
+		return st.KeyRelation(id)
 	}
 	return nil, err
 }

@@ -51,7 +51,7 @@ func Test(t *testing.T) {
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: testData.validCloudSpec,
-			Series:    "quantal",
+			Series:    []string{"quantal"},
 			Arches:    []string{"amd64"},
 		}), testData.requireSigned)
 	}
@@ -62,7 +62,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			BaseURL:       "test:",
+			Source:        simplestreams.NewURLDataSource("test:"),
 			RequireSigned: false,
 			DataType:      imagemetadata.ImageIds,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
@@ -70,7 +70,7 @@ func registerSimpleStreamsTests() {
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
 				},
-				Series: "precise",
+				Series: []string{"precise"},
 				Arches: []string{"amd64", "arm"},
 			}),
 		},
@@ -79,7 +79,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		BaseURL:         baseURL,
+		Source:          simplestreams.NewURLDataSource(baseURL),
 		RequireSigned:   requireSigned,
 		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,
@@ -206,10 +206,10 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		c.Logf("test %d", i)
 		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"},
-			Series:    "precise",
+			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
-		images, err := imagemetadata.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
+		images, err := imagemetadata.Fetch([]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -223,7 +223,7 @@ var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
 	ids, err := imageConstraint.Ids()
@@ -233,7 +233,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 
 func (s *productSpecSuite) TestId(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 		Stream: "daily",
 	})
@@ -244,7 +244,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "precise",
+		Series: []string{"precise"},
 		Arches: []string{"amd64", "i386"},
 		Stream: "daily",
 	})
@@ -253,18 +253,4 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
-}
-
-func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: "lucid",
-		Arches: []string{"amd64"},
-		Stream: "daily",
-	})
-	ids, err := imageConstraint.Ids()
-	if err != nil && err.Error() == `invalid series "lucid"` {
-		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
-	}
-	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
 }

@@ -14,12 +14,14 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -37,9 +39,10 @@ import (
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	coretesting.LoggingSuite
+	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
-	TestConfig TestConfig
+	TestConfig coretesting.Attrs
 
 	// Env holds the currently opened environment.
 	Env environs.Environ
@@ -65,13 +68,18 @@ func (t *LiveTests) SetUpSuite(c *C) {
 }
 
 func (t *LiveTests) prepare(c *C) {
-	cfg, err := config.New(t.TestConfig.Config)
-	c.Assert(err, IsNil)
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	c.Assert(err, IsNil, Commentf("config %#v", t.TestConfig))
 	e, err := environs.Prepare(cfg)
-	c.Assert(err, IsNil, Commentf("config %#v", t.TestConfig.Config))
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig))
 	c.Assert(e, NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))
+}
+
+func (t *LiveTests) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.ToolsFixture.SetUpTest(c)
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
@@ -94,6 +102,11 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		t.Env = nil
 	}
 	t.LoggingSuite.TearDownSuite(c)
+}
+
+func (t *LiveTests) TearDownTest(c *C) {
+	t.ToolsFixture.TearDownTest(c)
+	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *LiveTests) BootstrapOnce(c *C) {
@@ -838,14 +851,11 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, IsNil)
 
-	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
-		"type":           "dummy",
-		"name":           "dummy storage",
-		"secret":         "pizza",
-		"state-server":   false,
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	})
+	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+		"state-server": false,
+		"name":         "dummy storage",
+	}))
+	dummyenv, err := environs.Prepare(dummyCfg)
 	c.Assert(err, IsNil)
 	defer dummyenv.Destroy(nil)
 

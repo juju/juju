@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
@@ -121,6 +122,16 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
 }
 
+// Logger returns an object that provides access to the Logger API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) Logger(id string) (*logger.LoggerAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return logger.NewLoggerAPI(r.srv.state, r.resources, r)
+}
+
 // Upgrader returns an object that provides access to the Upgrader API facade.
 // The id argument is reserved for future use and must be empty.
 func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
@@ -162,6 +173,24 @@ func (r *srvRoot) StringsWatcher(id string) (*srvStringsWatcher, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvStringsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
+}
+
+// RelationUnitsWatcher returns an object that provides API access to
+// methods on a state.RelationUnitsWatcher. Each client has its own
+// current set of watchers, stored in r.resources.
+func (r *srvRoot) RelationUnitsWatcher(id string) (*srvRelationUnitsWatcher, error) {
+	if err := r.requireAgent(); err != nil {
+		return nil, err
+	}
+	watcher, ok := r.resources.Get(id).(state.RelationUnitsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRelationUnitsWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,

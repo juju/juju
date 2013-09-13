@@ -6,6 +6,7 @@ package hook
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/charm/hooks"
 )
 
@@ -25,12 +26,6 @@ type Info struct {
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
-
-	// Members may contain settings for units that are members of the relation,
-	// keyed on unit name. If a unit is present in members, it is always a
-	// member of the relation; if a unit is not present, no inferences about
-	// its state can be drawn.
-	Members map[string]map[string]interface{} `yaml:"members,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.

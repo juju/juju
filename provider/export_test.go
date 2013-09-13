@@ -3,21 +3,8 @@
 
 package provider
 
-import (
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+var (
+	GetDNSNames      = getDNSNames
+	GetStateInfo     = getStateInfo
+	ComposeAddresses = composeAddresses
 )
-
-func GetDNSNames(instances []instance.Instance) []string {
-	return getDNSNames(instances)
-}
-
-func GetStateInfo(cfg *config.Config, hostnames []string) (*state.Info, *api.Info) {
-	return getStateInfo(cfg, hostnames)
-}
-
-func ComposeAddresses(hostnames []string, port int) []string {
-	return composeAddresses(hostnames, port)
-}

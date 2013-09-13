@@ -6,10 +6,12 @@ package jujuc
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
-	"strings"
 )
 
 // JujuLogCommand implements the juju-log command.

@@ -6,11 +6,17 @@ package charm
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
+)
+
+const (
+	updatePrefix  = "update-"
+	installPrefix = "install-"
 )
 
 // Deployer maintains a git repository tracking a series of charm versions,
@@ -52,7 +58,7 @@ func (d *Deployer) Stage(bun *charm.Bundle, url *charm.URL) error {
 
 	// Prepare a fresh repository for the update, using current's history
 	// if it exists.
-	updatePath, err := d.newDir("update")
+	updatePath, err := d.newDir(updatePrefix)
 	if err != nil {
 		return err
 	}
@@ -120,7 +126,7 @@ func (d *Deployer) install(target *GitDir) error {
 	if err != nil {
 		return err
 	}
-	installPath, err := d.newDir("install")
+	installPath, err := d.newDir(installPrefix)
 	if err != nil {
 		return err
 	}
@@ -175,19 +181,30 @@ func (d *Deployer) collectOrphans() {
 	if err != nil {
 		return
 	}
-	filepath.Walk(d.path, func(repoPath string, fi os.FileInfo, err error) error {
-		if err != nil && repoPath != d.path && repoPath != current {
+	if !filepath.IsAbs(current) {
+		current = filepath.Join(d.path, current)
+	}
+	orphans, err := filepath.Glob(filepath.Join(d.path, fmt.Sprintf("%s*", updatePrefix)))
+	if err != nil {
+		return
+	}
+	installOrphans, err := filepath.Glob(filepath.Join(d.path, fmt.Sprintf("%s*", installPrefix)))
+	if err != nil {
+		return
+	}
+	orphans = append(orphans, installOrphans...)
+	for _, repoPath := range orphans {
+		if repoPath != d.path && repoPath != current {
 			if err = os.RemoveAll(repoPath); err != nil {
 				log.Warningf("worker/uniter/charm: failed to remove orphan repo at %s: %s", repoPath, err)
 			}
 		}
-		return err
-	})
+	}
 }
 
 // newDir creates a new timestamped directory with the given prefix. It
 // assumes that the deployer will not need to create more than 10
 // directories in any given second.
 func (d *Deployer) newDir(prefix string) (string, error) {
-	return ioutil.TempDir(d.path, prefix+time.Now().Format("-20060102-150405"))
+	return ioutil.TempDir(d.path, prefix+time.Now().Format("20060102-150405"))
 }

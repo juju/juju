@@ -23,7 +23,8 @@ var tagKindTests = []struct {
 	{tag: "service-foo", kind: names.ServiceTagKind},
 	{tag: "environment-42", kind: names.EnvironTagKind},
 	{tag: "user-admin", kind: names.UserTagKind},
-	{tag: "relation-42", kind: names.RelationTagKind},
+	{tag: "relation-service1.rel1#other-svc.other-rel2", kind: names.RelationTagKind},
+	{tag: "relation-service.peerRelation", kind: names.RelationTagKind},
 	{tag: "foo", err: `"foo" is not a valid tag`},
 	{tag: "unit", err: `"unit" is not a valid tag`},
 }
@@ -96,9 +97,13 @@ var parseTagTests = []struct {
 	expectKind: names.EnvironTagKind,
 	resultId:   "foo",
 }, {
-	tag:        "relation-42",
+	tag:        "relation-my-svc1.myrel1#other-svc.other-rel2",
 	expectKind: names.RelationTagKind,
-	resultId:   "42",
+	resultId:   "my-svc1:myrel1 other-svc:other-rel2",
+}, {
+	tag:        "relation-riak.ring",
+	expectKind: names.RelationTagKind,
+	resultId:   "riak:ring",
 }, {
 	tag:        "environment-/",
 	expectKind: names.EnvironTagKind,

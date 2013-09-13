@@ -125,6 +125,14 @@ type EnvironStorage interface {
 	PublicStorage() StorageReader
 }
 
+// ConfigGetter implements access to an environments configuration.
+type ConfigGetter interface {
+	// Config returns the configuration data with which the Environ was created.
+	// Note that this is not necessarily current; the canonical location
+	// for the configuration data is stored in the state.
+	Config() *config.Config
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -140,8 +148,6 @@ type EnvironStorage interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	InstanceBroker
-
 	// Name returns the Environ's name.
 	Name() string
 
@@ -161,8 +167,12 @@ type Environ interface {
 	// by Bootstrap.
 	StateInfo() (*state.Info, *api.Info, error)
 
-	// Config returns the current configuration of this Environ.
-	Config() *config.Config
+	// InstanceBroker defines methods for starting and stopping
+	// instances.
+	InstanceBroker
+
+	// ConfigGetter allows the retrieval of the configuration data.
+	ConfigGetter
 
 	// SetConfig updates the Environ's configuration.
 	//

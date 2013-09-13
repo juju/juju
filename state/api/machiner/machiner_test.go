@@ -35,17 +35,7 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine so we can log in as its agent.
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("password")
-	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
-
+	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
@@ -60,7 +50,7 @@ func (s *machinerSuite) TearDownTest(c *gc.C) {
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	machine, err := s.machiner.Machine("machine-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
 	machine, err = s.machiner.Machine("machine-0")
@@ -112,7 +102,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 
 	err = machine.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *machinerSuite) TestRefresh(c *gc.C) {

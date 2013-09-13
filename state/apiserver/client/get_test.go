@@ -1,46 +1,65 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statecmd_test
+package client_test
 
 import (
 	"fmt"
+
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
-	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
 )
 
-type ConfigSuite struct {
-	testing.JujuConnSuite
+type getSuite struct {
+	baseSuite
 }
 
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+var _ = gc.Suite(&getSuite{})
+
+func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
+	s.setUpScenario(c)
+	results, err := s.APIState.Client().ServiceGet("wordpress")
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, &params.ServiceGetResults{
+		Service: "wordpress",
+		Charm:   "wordpress",
+		Config: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"type":        "string",
+				"value":       "My Title",
+				"description": "A descriptive title used for the blog.",
+				"default":     true,
+			},
+		},
+	})
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
+	apiclient := s.APIState.Client()
+	_, err := apiclient.ServiceGet("unknown")
+	c.Assert(err, gc.ErrorMatches, `service "unknown" not found`)
+}
 
 var getTests = []struct {
 	about       string
 	charm       string
 	constraints string
-	config      map[string]string
+	config      charm.Settings
 	expect      params.ServiceGetResults
 }{{
 	about:       "deployed service",
 	charm:       "dummy",
 	constraints: "mem=2G cpu-power=400",
-	config: map[string]string{
+	config: charm.Settings{
 		// Different from default.
 		"title": "Look To Windward",
 		// Same as default.
 		"username": "admin001",
 		// Use default (but there's no charm default)
-		"skill-level": "",
+		"skill-level": nil,
 		// Outlook is left unset.
 	},
 	expect: params.ServiceGetResults{
@@ -54,7 +73,6 @@ var getTests = []struct {
 				"description": "No default outlook.",
 				"type":        "string",
 				"default":     true,
-				"value":       nil,
 			},
 			"username": map[string]interface{}{
 				"description": "The name of the initial account (given admin permissions).",
@@ -65,21 +83,20 @@ var getTests = []struct {
 				"description": "A number indicating skill.",
 				"type":        "int",
 				"default":     true,
-				"value":       nil,
 			},
 		},
 	},
 }, {
 	about: "deployed service  #2",
 	charm: "dummy",
-	config: map[string]string{
-		// Empty string gives default
-		"title": "",
-		// Value when there's a default
+	config: charm.Settings{
+		// Set title to default.
+		"title": nil,
+		// Value when there's a default.
 		"username": "foobie",
-		// Numeric value
-		"skill-level": "0",
-		// String value
+		// Numeric value.
+		"skill-level": 0,
+		// String value.
 		"outlook": "phlegmatic",
 	},
 	expect: params.ServiceGetResults{
@@ -103,7 +120,12 @@ var getTests = []struct {
 			"skill-level": map[string]interface{}{
 				"description": "A number indicating skill.",
 				"type":        "int",
-				"value":       int64(0),
+				// TODO(jam): 2013-08-28 bug #1217742
+				// we have to use float64() here, because the
+				// API does not preserve int types. This used
+				// to be int64() but we end up with a type
+				// mismatch when comparing the content
+				"value": float64(0),
 			},
 		},
 	},
@@ -115,12 +137,7 @@ var getTests = []struct {
 	},
 }}
 
-func (s *ConfigSuite) TestServiceGetUnknownService(c *gc.C) {
-	_, err := statecmd.ServiceGet(s.State, params.ServiceGet{ServiceName: "unknown"})
-	c.Assert(err, gc.ErrorMatches, `service "unknown" not found`)
-}
-
-func (s *ConfigSuite) TestServiceGet(c *gc.C) {
+func (s *getSuite) TestServiceGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
@@ -134,17 +151,42 @@ func (s *ConfigSuite) TestServiceGet(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
-			settings, err := ch.Config().ParseSettingsStrings(t.config)
-			c.Assert(err, gc.IsNil)
-			err = svc.UpdateConfigSettings(settings)
+			err = svc.UpdateConfigSettings(t.config)
 			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect
 		expect.Constraints = constraintsv
 		expect.Service = svc.Name()
 		expect.Charm = ch.Meta().Name
-		got, err := statecmd.ServiceGet(s.State, params.ServiceGet{svc.Name()})
+		apiclient := s.APIState.Client()
+		got, err := apiclient.ServiceGet(svc.Name())
 		c.Assert(err, gc.IsNil)
-		c.Assert(got, gc.DeepEquals, expect)
+		c.Assert(*got, gc.DeepEquals, expect)
 	}
+}
+
+func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
+	// See the bug http://pad.lv/1217742
+	// ServiceGet ends up pushing a map[string]interface{} which containts
+	// an int64 through a JSON Marshal & Unmarshal which ends up changing
+	// the int64 into a float64. We will fix it if we find it is actually a
+	// problem.
+	const nonFloatInt = (int64(1) << 54) + 1
+	const asFloat = float64(nonFloatInt)
+	c.Assert(int64(asFloat), gc.Not(gc.Equals), nonFloatInt)
+	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
+
+	ch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("test-service", ch)
+	c.Assert(err, gc.IsNil)
+
+	err = svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
+	c.Assert(err, gc.IsNil)
+	got, err := s.APIState.Client().ServiceGet(svc.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(got.Config["skill-level"], gc.DeepEquals, map[string]interface{}{
+		"description": "A number indicating skill.",
+		"type":        "int",
+		"value":       asFloat,
+	})
 }

@@ -12,12 +12,15 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
-type OpenSuite struct{}
+type OpenSuite struct {
+	envtesting.ToolsFixture
+}
 
 var _ = gc.Suite(&OpenSuite{})
 
@@ -27,15 +30,7 @@ func (OpenSuite) TearDownTest(c *gc.C) {
 
 func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "foo",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"admin-secret":    "foo",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-	})
+	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -43,13 +38,10 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {
-	env, err := environs.NewFromAttrs(map[string]interface{}{
-		"name":            "foo",
-		"type":            "wondercloud",
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+	attrs := dummySampleConfig().Merge(testing.Attrs{
+		"type": "wondercloud",
 	})
+	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
 	c.Assert(env, gc.IsNil)
 }

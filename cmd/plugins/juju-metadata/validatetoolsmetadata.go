@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
@@ -26,16 +25,24 @@ type ValidateToolsMetadataCommand struct {
 	series       string
 	region       string
 	endpoint     string
-	version      string
+	exactVersion string
+	partVersion  string
+	major        int
+	minor        int
 }
 
 var validateToolsMetadataDoc = `
 validate-tools loads simplestreams metadata and validates the contents by looking for tools
-belonging to the specified series, version, and architecture, for the specified cloud.
+belonging to the specified series, architecture, for the specified cloud. If version is
+specified, tools matching the exact specified version are found. It is also possible to just
+specify the major (and optionally minor) version numbers to search for.
 
 The cloud specificaton comes from the current Juju environment, as specified in the usual way
 from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV. Series, Region, and Endpoint
 are the key attributes.
+
+It is possible to specify a local directory containing tools metadata, in which case cloud
+attributes like provider type, region etc are optional.
 
 The key environment attributes may be overridden using command arguments, so that the validation
 may be peformed on arbitary metadata.
@@ -48,10 +55,16 @@ Examples:
 - validate using the current environment settings but with Juju version 1.11.4
  juju metadata validate-tools -j 1.11.4
 
+- validate using the current environment settings but with Juju major version 2
+ juju metadata validate-tools -m 2
+
+- validate using the current environment settings but with Juju major.minor version 2.1
+ juju metadata validate-tools -m 2.1
+
 - validate using the current environment settings and list all tools found for any series
  juju metadata validate-tools --series=
 
-- validate using the current environment settings but with series raring and using metadata from local directory
+- validate with series raring and using metadata from local directory
  juju metadata validate-images -s raring -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to production.
@@ -84,8 +97,10 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "series", "", "")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
-	f.StringVar(&c.version, "j", "current", "the Juju version (use 'current' for current version)")
-	f.StringVar(&c.version, "juju-version", "", "")
+	f.StringVar(&c.exactVersion, "j", "current", "the Juju version (use 'current' for current version)")
+	f.StringVar(&c.exactVersion, "juju-version", "", "")
+	f.StringVar(&c.partVersion, "m", "", "the Juju major[.minor] version")
+	f.StringVar(&c.partVersion, "majorminor-version", "", "")
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
@@ -97,8 +112,14 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	if c.version == "current" {
-		c.version = version.CurrentNumber().String()
+	if c.exactVersion == "current" {
+		c.exactVersion = version.CurrentNumber().String()
+	}
+	if c.partVersion != "" {
+		var err error
+		if c.major, c.minor, err = version.ParseMajorMinor(c.partVersion); err != nil {
+			return err
+		}
 	}
 	return c.EnvCommandBase.Init(args)
 }
@@ -108,16 +129,26 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 
 	if c.providerType == "" {
 		environ, err := environs.NewFromName(c.EnvName)
-		if err != nil {
-			return err
-		}
-		mdLookup, ok := environ.(simplestreams.MetadataValidator)
-		if !ok {
-			return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
-		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
-		if err != nil {
-			return err
+		if err == nil {
+			mdLookup, ok := environ.(simplestreams.MetadataValidator)
+			if !ok {
+				return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
+			}
+			params, err = mdLookup.MetadataLookupParams(c.region)
+			if err != nil {
+				return err
+			}
+			params.Sources, err = tools.GetMetadataSources(environ)
+			if err != nil {
+				return err
+			}
+		} else {
+			if c.metadataDir == "" {
+				return err
+			}
+			params = &simplestreams.MetadataLookupParams{
+				Architectures: []string{"amd64", "arm", "i386"},
+			}
 		}
 	} else {
 		prov, err := environs.Provider(c.providerType)
@@ -143,23 +174,18 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 	if c.endpoint != "" {
 		params.Endpoint = c.endpoint
 	}
-	// If the metadata files are to be loaded from a directory, we need to register
-	// a file http transport.
 	if c.metadataDir != "" {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-
-		params.BaseURLs = []string{"file://" + c.metadataDir}
-		t := &http.Transport{}
-		t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-		c := &http.Client{Transport: t}
-		simplestreams.SetHttpClient(c)
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + c.metadataDir)}
 	}
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
-		Version:              c.version,
+		Version:              c.exactVersion,
+		Major:                c.major,
+		Minor:                c.minor,
 	})
 	if err != nil {
 		return err
@@ -168,7 +194,14 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 	if len(versions) > 0 {
 		fmt.Fprintf(context.Stdout, "matching tools versions:\n%s\n", strings.Join(versions, "\n"))
 	} else {
-		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(params.BaseURLs, "\n"))
+		var urls []string
+		for _, s := range params.Sources {
+			url, err := s.URL("")
+			if err != nil {
+				urls = append(urls, url)
+			}
+		}
+		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(urls, "\n"))
 	}
 	return nil
 }

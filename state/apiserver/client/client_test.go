@@ -30,32 +30,83 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	c.Assert(status, gc.DeepEquals, scenarioStatus)
 }
 
+func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
+	// Test the exported settings parsing in a compatible way.
+	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+	service, err := s.State.Service("dummy")
+	c.Assert(err, gc.IsNil)
+	ch, _, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ch.URL().String(), gc.Equals, "local:series/dummy-1")
+
+	// Empty string will be returned as nil.
+	options := map[string]string{
+		"title":    "foobar",
+		"username": "",
+	}
+	settings, err := client.ParseSettingsCompatible(ch, options)
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": nil,
+	})
+
+	// Illegal settings lead to an error.
+	options = map[string]string{
+		"yummy": "didgeridoo",
+	}
+	settings, err = client.ParseSettingsCompatible(ch, options)
+	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
+}
+
 func (s *clientSuite) TestClientServerSet(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
+
 	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
-		"title":    "xxx",
-		"username": "yyy",
+		"title":    "foobar",
+		"username": "user name",
 	})
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"title":    "xxx",
-		"username": "yyy",
+		"title":    "foobar",
+		"username": "user name",
+	})
+
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "barfoo",
+		"username": "",
+	})
+	c.Assert(err, gc.IsNil)
+	settings, err = dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title": "barfoo",
 	})
 }
 
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: aaa\n  username: bbb")
+
+	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"title":    "aaa",
-		"username": "bbb",
+		"title":    "foobar",
+		"username": "user name",
+	})
+
+	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: barfoo\n  username: \n")
+	c.Assert(err, gc.IsNil)
+	settings, err = dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title": "barfoo",
 	})
 }
 
@@ -260,24 +311,6 @@ func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
 		_, err = s.APIState.Client().GetAnnotations(id)
 		c.Assert(err, gc.ErrorMatches, expected)
 	}
-}
-
-func (s *clientSuite) TestClientServiceGet(c *gc.C) {
-	s.setUpScenario(c)
-	results, err := s.APIState.Client().ServiceGet("wordpress")
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, &params.ServiceGetResults{
-		Service: "wordpress",
-		Charm:   "wordpress",
-		Config: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"type":        "string",
-				"value":       "My Title",
-				"description": "A descriptive title used for the blog.",
-				"default":     true,
-			},
-		},
-	})
 }
 
 func (s *clientSuite) TestClientServiceExpose(c *gc.C) {

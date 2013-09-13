@@ -26,25 +26,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// TestConfig contains the configuration for the environment
-// This is a is an indirection to make it harder for tests to accidentally
-// share the underlying map.
-type TestConfig struct {
-	Config map[string]interface{}
-}
-
-// UpdateConfig modifies the configuration safely by creating a new map
-func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
-	newConfig := map[string]interface{}{}
-	for key, val := range testConfig.Config {
-		newConfig[key] = val
-	}
-	for key, val := range update {
-		newConfig[key] = val
-	}
-	testConfig.Config = newConfig
-}
-
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ
@@ -52,7 +33,8 @@ func (testConfig *TestConfig) UpdateConfig(update map[string]interface{}) {
 // may be executed.
 type Tests struct {
 	coretesting.LoggingSuite
-	TestConfig TestConfig
+	TestConfig coretesting.Attrs
+	envtesting.ToolsFixture
 	Env        environs.Environ
 
 	preparedConfig *config.Config
@@ -68,7 +50,8 @@ func (t *Tests) Open(c *C) environs.Environ {
 
 func (t *Tests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	cfg, err := config.New(t.TestConfig.Config)
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	t.ToolsFixture.SetUpTest(c)
 	c.Assert(err, IsNil)
 	t.Env, err = environs.Prepare(cfg)
 	c.Assert(err, IsNil)
@@ -82,6 +65,7 @@ func (t *Tests) TearDownTest(c *C) {
 		t.Env = nil
 		t.preparedConfig = nil
 	}
+	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 

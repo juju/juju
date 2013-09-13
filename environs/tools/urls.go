@@ -3,29 +3,35 @@
 
 package tools
 
-import "launchpad.net/juju-core/environs"
+import (
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/simplestreams"
+)
 
-// SupportsCustomURLs instances can host tools metadata at provider specific URLs.
-type SupportsCustomURLs interface {
-	GetToolsBaseURLs() ([]string, error)
+// SupportsCustomSources represents an environment that
+// can host tools metadata at provider specific sources.
+type SupportsCustomSources interface {
+	GetToolsSources() ([]simplestreams.DataSource, error)
 }
 
-// GetMetadataURLs returns the URLs to use when looking for simplestreams tools metadata.
-func GetMetadataURLs(e environs.Environ) ([]string, error) {
-	var urls []string
-	if userURL, ok := e.Config().ToolsURL(); ok {
-		urls = append(urls, userURL)
+// GetMetadataSources returns the sources to use when looking for
+// simplestreams tools metadata. If env implements SupportsCustomSurces,
+// the sources returned from that method will also be considered.
+func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
+	var sources []simplestreams.DataSource
+	if userURL, ok := env.Config().ToolsURL(); ok {
+		sources = append(sources, simplestreams.NewURLDataSource(userURL))
 	}
-	if custom, ok := e.(SupportsCustomURLs); ok {
-		customURLs, err := custom.GetToolsBaseURLs()
+	if custom, ok := env.(SupportsCustomSources); ok {
+		customSources, err := custom.GetToolsSources()
 		if err != nil {
 			return nil, err
 		}
-		urls = append(urls, customURLs...)
+		sources = append(sources, customSources...)
 	}
 
 	if DefaultBaseURL != "" {
-		urls = append(urls, DefaultBaseURL)
+		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL))
 	}
-	return urls, nil
+	return sources, nil
 }

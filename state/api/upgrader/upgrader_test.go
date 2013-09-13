@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -44,18 +44,7 @@ var _ = gc.Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine to work with
-	var err error
-	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
-
-	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAsMachine(c, s.rawMachine.Tag(), "test-password", "fake_nonce")
+	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the upgrader facade.
@@ -83,13 +72,13 @@ func (s *upgraderSuite) TestSetToolsWrongMachine(c *gc.C) {
 		Version: version.Current,
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawMachine.AgentTools()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(agentTools, gc.IsNil)
 	err = s.st.SetTools(s.rawMachine.Tag(), &tools.Tools{Version: cur})
 	c.Assert(err, gc.IsNil)
@@ -102,7 +91,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 func (s *upgraderSuite) TestToolsWrongMachine(c *gc.C) {
 	tools, err := s.st.Tools("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
 }
 
@@ -141,4 +130,16 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *upgraderSuite) TestDesiredVersion(c *gc.C) {
+	cur := version.Current
+	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools.Version.Minor++
+	s.rawMachine.SetAgentTools(curTools)
+	// Upgrader.DesiredVersion returns the *desired* set of tools, not the
+	// currently running set. We want to be upgraded to cur.Version
+	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateVersion, gc.Equals, cur.Number)
 }

@@ -39,6 +39,15 @@ var validateInitToolsErrorTests = []struct {
 	}, {
 		args: []string{"-p", "ec2", "-s", "series", "-r", "region"},
 		err:  `metadata directory required if provider type is specified`,
+	}, {
+		args: []string{"-s", "series", "-r", "region", "-m", "x"},
+		err:  `invalid major version number x: .*`,
+	}, {
+		args: []string{"-s", "series", "-r", "region", "-m", "2.x"},
+		err:  `invalid minor version number x: .*`,
+	}, {
+		args: []string{"-s", "series", "-r", "region", "-m", "2.2.1"},
+		err:  `invalid major.minor version number 2.2.1`,
 	},
 }
 
@@ -70,7 +79,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region,
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := tools.MakeBoilerplate("", series, &tm, &cloudSpec, false)
+	_, err := tools.MakeBoilerplate(&tm, &cloudSpec, false)
 	if err != nil {
 		return err
 	}
@@ -88,7 +97,7 @@ func (s *ValidateToolsMetadataSuite) TearDownTest(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
 	ec2Region, ok := aws.Regions[region]
 	if !ok {
-		c.Fatalf("unknown ec2 region %q")
+		c.Fatalf("unknown ec2 region %q", region)
 	}
 	endpoint := ec2Region.EC2Endpoint
 	s.makeLocalMetadata(c, "1.11.4", region, "precise", endpoint)
@@ -181,6 +190,49 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
 			"-u", "some-auth-url", "-d", metadataDir},
+	)
+	c.Assert(code, gc.Equals, 0)
+	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+}
+
+func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
+	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
+	ctx := coretesting.Context(c)
+	metadataDir := config.JujuHomePath("")
+	code := cmd.Main(
+		&ValidateToolsMetadataCommand{}, ctx, []string{
+			"-p", "openstack", "-s", "raring", "-r", "region-2",
+			"-u", "some-auth-url", "-d", metadataDir, "-m", "1"},
+	)
+	c.Assert(code, gc.Equals, 0)
+	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+}
+
+func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
+	s.makeLocalMetadata(c, "1.12.1", "region-2", "raring", "some-auth-url")
+	ctx := coretesting.Context(c)
+	metadataDir := config.JujuHomePath("")
+	code := cmd.Main(
+		&ValidateToolsMetadataCommand{}, ctx, []string{
+			"-p", "openstack", "-s", "raring", "-r", "region-2",
+			"-u", "some-auth-url", "-d", metadataDir, "-m", "1.12"},
+	)
+	c.Assert(code, gc.Equals, 0)
+	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+}
+
+func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
+	s.makeLocalMetadata(c, version.CurrentNumber().String(), "region-2", "raring", "some-auth-url")
+	ctx := coretesting.Context(c)
+	metadataDir := config.JujuHomePath("")
+	code := cmd.Main(
+		&ValidateToolsMetadataCommand{}, ctx, []string{"-s", "raring", "-d", metadataDir},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()

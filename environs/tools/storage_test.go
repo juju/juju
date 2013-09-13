@@ -36,14 +36,7 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "test",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -73,11 +66,14 @@ func (s *StorageSuite) TestSetToolPrefix(c *gc.C) {
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	store := s.env.Storage()
-	_, err := envtools.ReadList(store, 2)
+	_, err := envtools.ReadList(store, 2, 0)
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
-func (s *StorageSuite) TestReadList(c *gc.C) {
+func (s *StorageSuite) assertReadList(c *gc.C) {
+	defer func() {
+		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	}()
 	store := s.env.Storage()
 	v001 := version.MustParseBinary("0.0.1-precise-amd64")
 	t001 := envtesting.UploadFakeToolsVersion(c, store, v001)
@@ -85,19 +81,28 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	t100 := envtesting.UploadFakeToolsVersion(c, store, v100)
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	t101 := envtesting.UploadFakeToolsVersion(c, store, v101)
+	v111 := version.MustParseBinary("1.1.1-precise-amd64")
+	t111 := envtesting.UploadFakeToolsVersion(c, store, v111)
 
 	for i, t := range []struct {
-		majorVersion int
-		list         coretools.List
+		majorVersion,
+		minorVersion int
+		list coretools.List
 	}{{
-		0, coretools.List{t001},
+		0, 0, coretools.List{t001},
 	}, {
-		1, coretools.List{t100, t101},
+		1, 0, coretools.List{t100, t101},
 	}, {
-		2, nil,
+		1, 1, coretools.List{t111},
+	}, {
+		1, -1, coretools.List{t100, t101, t111},
+	}, {
+		1, 2, nil,
+	}, {
+		2, 0, nil,
 	}} {
 		c.Logf("test %d", i)
-		list, err := envtools.ReadList(store, t.majorVersion)
+		list, err := envtools.ReadList(store, t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
 			c.Assert(list, gc.DeepEquals, t.list)
@@ -105,6 +110,16 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 		}
 	}
+}
+
+func (s *StorageSuite) TestReadListLegacyLocation(c *gc.C) {
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	s.assertReadList(c)
+}
+
+func (s *StorageSuite) TestReadList(c *gc.C) {
+	envtools.SetToolPrefix(envtools.NewToolPrefix)
+	s.assertReadList(c)
 }
 
 func (s *StorageSuite) TestUpload(c *gc.C) {
@@ -124,7 +139,7 @@ func (s *StorageSuite) TestUploadFakeSeries(c *gc.C) {
 	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
 
-	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major)
+	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, gc.HasLen, 3)
 	expectSeries := []string{"fake", "sham", version.CurrentSeries()}

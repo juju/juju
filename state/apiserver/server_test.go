@@ -5,7 +5,11 @@ package apiserver_test
 
 import (
 	"io"
+	stdtesting "testing"
+	"time"
+
 	gc "launchpad.net/gocheck"
+
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -13,8 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
-	"time"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -121,29 +123,22 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// Create a new machine to verify "agent alive" behavior.
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", nil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = stm.SetPassword("password")
+	err = machine.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 
 	// Not alive yet.
-	s.State.StartSync()
-	alive, err := stm.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(alive, gc.Equals, false)
+	s.assertAlive(c, machine, false)
 
 	// Login as the machine agent of the created machine.
-	st := s.OpenAPIAsMachine(c, stm.Tag(), "password", "fake_nonce")
+	st := s.OpenAPIAsMachine(c, machine.Tag(), "password", "fake_nonce")
 	defer st.Close()
 
 	// Make sure the pinger has started.
-	s.State.StartSync()
-	stm.WaitAgentAlive(coretesting.LongWait)
-	alive, err = stm.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(alive, gc.Equals, true)
+	s.assertAlive(c, machine, true)
 
 	// Now make sure it stops when connection is closed.
 	c.Assert(st.Close(), gc.IsNil)
@@ -153,8 +148,46 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	<-time.After(coretesting.ShortWait)
 	s.State.StartSync()
 
+	s.assertAlive(c, machine, false)
+}
+
+func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
+	// Create a new service and unit to verify "agent alive" behavior.
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
-	alive, err = stm.AgentAlive()
+	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	c.Assert(alive, gc.Equals, false)
+	err = unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+
+	// Not alive yet.
+	s.assertAlive(c, unit, false)
+
+	// Login as the unit agent of the created unit.
+	st := s.OpenAPIAs(c, unit.Tag(), "password")
+	defer st.Close()
+
+	// Make sure the pinger has started.
+	s.assertAlive(c, unit, true)
+
+	// Now make sure it stops when connection is closed.
+	c.Assert(st.Close(), gc.IsNil)
+
+	// Sync, then wait for a bit to make sure the state is updated.
+	s.State.StartSync()
+	<-time.After(coretesting.ShortWait)
+	s.State.StartSync()
+
+	s.assertAlive(c, unit, false)
+}
+
+type agentAliver interface {
+	AgentAlive() (bool, error)
+}
+
+func (s *serverSuite) assertAlive(c *gc.C, entity agentAliver, isAlive bool) {
+	s.State.StartSync()
+	alive, err := entity.AgentAlive()
+	c.Assert(err, gc.IsNil)
+	c.Assert(alive, gc.Equals, isAlive)
 }

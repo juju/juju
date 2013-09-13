@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
@@ -108,6 +107,10 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
+		params.Sources, err = imagemetadata.GetMetadataSources(environ)
+		if err != nil {
+			return err
+		}
 	} else {
 		prov, err := environs.Provider(c.providerType)
 		if err != nil {
@@ -132,18 +135,11 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	if c.endpoint != "" {
 		params.Endpoint = c.endpoint
 	}
-	// If the metadata files are to be loaded from a directory, we need to register
-	// a file http transport.
 	if c.metadataDir != "" {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-
-		params.BaseURLs = []string{"file://" + c.metadataDir}
-		t := &http.Transport{}
-		t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-		c := &http.Client{Transport: t}
-		simplestreams.SetHttpClient(c)
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + c.metadataDir)}
 	}
 
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
@@ -154,7 +150,14 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	if len(image_ids) > 0 {
 		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
 	} else {
-		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(params.BaseURLs, "\n"))
+		var urls []string
+		for _, s := range params.Sources {
+			url, err := s.URL("")
+			if err != nil {
+				urls = append(urls, url)
+			}
+		}
+		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(urls, "\n"))
 	}
 	return nil
 }

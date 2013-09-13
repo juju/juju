@@ -5,9 +5,11 @@ package jujuc
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/cmd"
 	"strings"
+
+	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/cmd"
 )
 
 // RelationSetCommand implements the relation-set command.

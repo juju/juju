@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -60,6 +61,9 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
+var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
+var _ envtools.SupportsCustomSources = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -165,7 +169,7 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/get-started/amazon/
+## https://juju.ubuntu.com/docs/config-aws.html
 amazon:
   type: ec2
   admin-secret: {{rand}}
@@ -330,13 +334,8 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return provider.StateInfo(e)
 }
 
-// MetadataLookupParams returns parameters which are used to query image metadata to
-// find matching image information.
+// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
-	if err != nil {
-		return nil, err
-	}
 	if region == "" {
 		region = e.ecfg().region()
 	}
@@ -348,8 +347,20 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		BaseURLs:      baseURLs,
 		Architectures: []string{"amd64", "i386", "arm"},
+	}, nil
+}
+
+// Region is specified in the HasRegion interface.
+func (e *environ) Region() (simplestreams.CloudSpec, error) {
+	region := e.ecfg().region()
+	ec2Region, ok := allRegions[region]
+	if !ok {
+		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)
+	}
+	return simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: ec2Region.EC2Endpoint,
 	}, nil
 }
 
@@ -361,12 +372,12 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 
 	arches := possibleTools.Arches()
 	storage := ebsStorage
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, nil, err
 	}
 	series := possibleTools.OneSeries()
-	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
@@ -980,4 +991,16 @@ func fetchMetadata(name string) (value string, err error) {
 		return strings.TrimSpace(string(data)), nil
 	}
 	return
+}
+
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
 }

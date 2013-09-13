@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -61,7 +62,7 @@ func init() {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/get-started/openstack/
+## https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
   type: openstack
   # Specifies whether the use of a floating IP address is required to give the nodes
@@ -86,7 +87,7 @@ openstack:
   # Usually set via the env variable OS_REGION_NAME, but can be specified here
   # region: <your region>
 
-## https://juju.ubuntu.com/get-started/hp-cloud/
+## https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
   type: openstack
   # Specifies whether the use of a floating IP address is required to give the nodes
@@ -223,18 +224,24 @@ type environ struct {
 	ecfgMutex             sync.Mutex
 	publicStorageMutex    sync.Mutex
 	imageBaseMutex        sync.Mutex
+	toolsBaseMutex        sync.Mutex
 	ecfgUnlocked          *environConfig
 	client                client.AuthenticatingClient
 	novaUnlocked          *nova.Client
 	storageUnlocked       environs.Storage
 	publicStorageUnlocked environs.StorageReader // optional.
-	// An ordered list of paths in which to find the simplestreams index files used to
+	// An ordered list of sources in which to find the simplestreams index files used to
 	// look up image ids.
-	imageBaseURLs []string
+	imageSources []simplestreams.DataSource
+	// An ordered list of paths in which to find the simplestreams index files used to
+	// look up tools ids.
+	toolsSources []simplestreams.DataSource
 }
 
 var _ environs.Environ = (*environ)(nil)
-var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
+var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
+var _ envtools.SupportsCustomSources = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
 	*nova.ServerDetail
@@ -537,13 +544,13 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) GetImageBaseURLs() ([]string, error) {
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	e.imageBaseMutex.Lock()
 	defer e.imageBaseMutex.Unlock()
 
-	if e.imageBaseURLs != nil {
-		return e.imageBaseURLs, nil
+	if e.imageSources != nil {
+		return e.imageSources, nil
 	}
 	if !e.client.IsAuthenticated() {
 		err := e.client.Authenticate()
@@ -551,17 +558,40 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 			return nil, err
 		}
 	}
-	// Add the simplestreams base URL off the public bucket.
-	jujuToolsURL, err := e.PublicStorage().URL("")
-	if err == nil {
-		e.imageBaseURLs = append(e.imageBaseURLs, jujuToolsURL)
-	}
+	// Add the simplestreams source off the control bucket.
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
+	// Add the simplestreams source off the public bucket.
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
+		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
 	}
-	return e.imageBaseURLs, nil
+	return e.imageSources, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
+	e.toolsBaseMutex.Lock()
+	defer e.toolsBaseMutex.Unlock()
+
+	if e.toolsSources != nil {
+		return e.toolsSources, nil
+	}
+	if !e.client.IsAuthenticated() {
+		err := e.client.Authenticate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Add the simplestreams source off the control bucket.
+	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath))
+	// Add the simplestreams base URL from keystone if it is defined.
+	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
+	if err == nil {
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
+	}
+	return e.toolsSources, nil
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -1074,13 +1104,8 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	return firstErr
 }
 
-// MetadataLookupParams returns parameters which are used to query image metadata to
-// find matching image information.
+// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
-	if err != nil {
-		return nil, err
-	}
 	if region == "" {
 		region = e.ecfg().region()
 	}
@@ -1088,7 +1113,14 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-		BaseURLs:      baseURLs,
 		Architectures: []string{"amd64", "arm"},
+	}, nil
+}
+
+// Region is specified in the HasRegion interface.
+func (e *environ) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   e.ecfg().region(),
+		Endpoint: e.ecfg().authURL(),
 	}, nil
 }

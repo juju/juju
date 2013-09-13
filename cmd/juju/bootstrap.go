@@ -106,22 +106,29 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 // found, it will automatically synchronize them.
 func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context) error {
 	// Capture possible logging while syncing and write it on the screen.
-	loggo.RegisterWriter("bootstrap", sync.NewSyncLogWriter(ctx.Stdout, ctx.Stderr), loggo.INFO)
+	loggo.RegisterWriter("bootstrap", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("bootstrap")
 
 	// Try to find bootstrap tools.
-	_, err := tools.FindBootstrapTools(env, c.Constraints)
+	cfg := env.Config()
+	var vers *version.Number
+	if agentVersion, ok := cfg.AgentVersion(); ok {
+		vers = &agentVersion
+	}
+	_, err := tools.FindBootstrapTools(
+		env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
-			Target: env,
+			Target: env.Storage(),
 			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
 			return err
 		}
 		// Synchronization done, try again.
-		_, err = tools.FindBootstrapTools(env, c.Constraints)
+		_, err = tools.FindBootstrapTools(
+			env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
 	} else if err != nil {
 		return err
 	}

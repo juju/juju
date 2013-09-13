@@ -132,16 +132,16 @@ func findMatchingImages(e *azureEnviron, location, series, stream string, arches
 	endpoint := getEndpoint(location)
 	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{location, endpoint},
-		Series:    series,
+		Series:    []string{series},
 		Arches:    arches,
 		Stream:    stream,
 	})
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}
 	indexPath := simplestreams.DefaultIndexPath
-	images, err := fetchImageMetadata(baseURLs, indexPath, constraint, signedImageDataOnly)
+	images, err := fetchImageMetadata(sources, indexPath, constraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}

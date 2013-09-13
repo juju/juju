@@ -24,15 +24,15 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 	if len(params.Architectures) == 0 {
 		return nil, fmt.Errorf("required parameter arches not specified")
 	}
-	if len(params.BaseURLs) == 0 {
-		return nil, fmt.Errorf("required parameter baseURLs not specified")
+	if len(params.Sources) == 0 {
+		return nil, fmt.Errorf("required parameter sources not specified")
 	}
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-		Series:    params.Series,
+		Series:    []string{params.Series},
 		Arches:    params.Architectures,
 	})
-	matchingImages, err := Fetch(params.BaseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)
+	matchingImages, err := Fetch(params.Sources, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

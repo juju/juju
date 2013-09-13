@@ -6,6 +6,7 @@ package api
 import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
@@ -17,11 +18,15 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
-	return st.Call("Admin", "", "Login", &params.Creds{
+	err := st.Call("Admin", "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
 	}, nil)
+	if err == nil {
+		st.authTag = tag
+	}
+	return err
 }
 
 // Client returns an object that can be used
@@ -39,7 +44,7 @@ func (st *State) Machiner() *machiner.State {
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
-	return uniter.NewState(st)
+	return uniter.NewState(st, st.authTag)
 }
 
 // Agent returns a version of the state that provides
@@ -56,4 +61,9 @@ func (st *State) Upgrader() *upgrader.State {
 // Deployer returns access to the Deployer API
 func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
+}
+
+// Logger returns access to the Logger API
+func (st *State) Logger() *logger.State {
+	return logger.NewState(st)
 }

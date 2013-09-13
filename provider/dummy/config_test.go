@@ -8,7 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -19,14 +19,8 @@ type ConfigSuite struct{
 }
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "only", // must match the name in environs_test.go
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	attrs := dummy.SampleConfig().Delete("secret")
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -41,7 +35,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 
 var firewallModeTests = []struct {
 	configFirewallMode string
-	firewallMode       config.FirewallMode
+	firewallMode       string
 	errorMsg           string
 }{
 	{
@@ -67,20 +61,15 @@ var firewallModeTests = []struct {
 }
 
 func (*ConfigSuite) TestFirewallMode(c *gc.C) {
-	for i, test := range firewallModeTests {
+	for _, test := range firewallModeTests {
 		c.Logf("test %d: %s", i, test.configFirewallMode)
-		cfgMap := map[string]interface{}{
-			"name":            "only",
-			"type":            "dummy",
-			"state-server":    false,
-			"authorized-keys": "none",
-			"ca-cert":         testing.CACert,
-			"ca-private-key":  "",
-		}
+		attrs := dummy.SampleConfig()
 		if test.configFirewallMode != "" {
-			cfgMap["firewall-mode"] = test.configFirewallMode
+			attrs = attrs.Merge(testing.Attrs{
+				"firewall-mode": test.configFirewallMode,
+			})
 		}
-		cfg, err := config.New(cfgMap)
+		cfg, err := config.New(config.NoDefaults, attrs)
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue

@@ -63,6 +63,12 @@ func (s *StateSuite) TestStateInfo(c *gc.C) {
 	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
 }
 
+func (s *StateSuite) TestPing(c *gc.C) {
+	c.Assert(s.State.Ping(), gc.IsNil)
+	testing.MgoRestart()
+	c.Assert(s.State.Ping(), gc.NotNil)
+}
+
 func (s *StateSuite) TestAPIAddresses(c *gc.C) {
 	config, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -366,7 +372,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	c.Assert(*characteristics, gc.DeepEquals, params.HardwareCharacteristics)
 
 	// Make sure the bootstrap nonce value is set.
-	c.Assert(m.CheckProvisioned(state.BootstrapNonce), gc.Equals, true)
+	c.Assert(m.CheckProvisioned(params.Nonce), gc.Equals, true)
 }
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
@@ -816,6 +822,20 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
+	// This test is testing logic in watcher.lifecycleWatcher,
+	// which is also used by:
+	//     Service.WatchUnits
+	//     Service.WatchRelations
+	//     State.WatchEnviron
+	//     Machine.WatchContainers
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchServices()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	// Alive machine...
 	alive, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -1129,6 +1149,14 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 	assertChange(nil)
 	assertChange(attrs{"default-series": "another-series"})
 	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
+}
+
+func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchEnvironConfig()
+		<-w.Changes()
+		return w
+	})
 }
 
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
@@ -1461,8 +1489,8 @@ var findEntityTests = []struct {
 	tag: "relation-blah",
 	err: `"relation-blah" is not a valid relation tag`,
 }, {
-	tag: "relation-42",
-	err: "relation 42 not found",
+	tag: "relation-svc1.rel1#svc2.rel2",
+	err: `relation "svc1:rel1 svc2:rel2" not found`,
 }, {
 	tag: "unit-foo",
 	err: `"unit-foo" is not a valid unit tag`,
@@ -1489,13 +1517,13 @@ var findEntityTests = []struct {
 }, {
 	tag: "service-ser-vice2",
 }, {
-	tag: "relation-0",
+	tag: "relation-wordpress.db#ser-vice2.server",
 }, {
 	tag: "unit-ser-vice2-0",
 }, {
 	tag: "user-arble",
 }, {
-	tag: "environment-test-name",
+	tag: "environment-testenv",
 }}
 
 var entityTypes = map[string]interface{}{
@@ -1522,7 +1550,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
-	c.Assert(rel.Id(), gc.Equals, 0)
+	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)
@@ -1670,6 +1698,14 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchCleanups()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
@@ -1789,6 +1825,14 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchMinUnits()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *StateSuite) TestNestingLevel(c *gc.C) {
 	c.Assert(state.NestingLevel("0"), gc.Equals, 0)
 	c.Assert(state.NestingLevel("0/lxc/1"), gc.Equals, 1)
@@ -1811,4 +1855,32 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
 	c.Assert(state.ContainerTypeFromId("0/lxc/1"), gc.Equals, instance.LXC)
 	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
+}
+
+type waiter interface {
+	Wait() error
+}
+
+// testWatcherDiesWhenStateCloses calls the given function to start a watcher,
+// closes the state and checks that the watcher dies with the expected error.
+// The watcher should already have consumed the first
+// event, otherwise the watcher's initialisation logic may
+// interact with the closed state, causing it to return an
+// unexpected error (often "Closed explictly").
+func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	watcher := startWatcher(c, st)
+	err = st.Close()
+	c.Assert(err, gc.IsNil)
+	done := make(chan error)
+	go func() {
+		done <- watcher.Wait()
+	}()
+	select {
+	case err := <-done:
+		c.Assert(err, gc.Equals, state.ErrStateClosed)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher %T did not exit when state closed", watcher)
+	}
 }

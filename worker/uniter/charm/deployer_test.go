@@ -5,12 +5,14 @@ package charm_test
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
+
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/charm"
-	"os"
-	"path/filepath"
 )
 
 type DeployerSuite struct {
@@ -28,15 +30,18 @@ func (s *DeployerSuite) TestUnsetCharm(c *gc.C) {
 func (s *DeployerSuite) TestInstall(c *gc.C) {
 	// Install.
 	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	bun := s.bundle(c, func(path string) {
+	bun := bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
 	err := d.Stage(bun, corecharm.MustParseURL("cs:s/c-1"))
 	c.Assert(err, gc.IsNil)
+	checkCleanup(c, d)
+
 	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
+	checkCleanup(c, d)
 
 	// Check content.
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
@@ -55,7 +60,7 @@ func (s *DeployerSuite) TestInstall(c *gc.C) {
 func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	// Install.
 	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	bun1 := s.bundle(c, func(path string) {
+	bun1 := bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 		err = os.Symlink("./some-file", filepath.Join(path, "a-symlink"))
@@ -68,7 +73,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Upgrade.
-	bun2 := s.bundle(c, func(path string) {
+	bun2 := bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(filepath.Join(path, "a-symlink"), []byte("not any more!"), 0644)
@@ -76,8 +81,11 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	})
 	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
 	c.Assert(err, gc.IsNil)
+	checkCleanup(c, d)
+
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
+	checkCleanup(c, d)
 
 	// Check content.
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
@@ -98,7 +106,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 func (s *DeployerSuite) TestConflict(c *gc.C) {
 	// Install.
 	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	bun1 := s.bundle(c, func(path string) {
+	bun1 := bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
@@ -113,7 +121,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Upgrade.
-	bun2 := s.bundle(c, func(path string) {
+	bun2 := bundle(c, func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
@@ -121,6 +129,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = d.Deploy(target)
 	c.Assert(err, gc.Equals, charm.ErrConflict)
+	checkCleanup(c, d)
 
 	// Check state.
 	conflicted, err := target.Conflicted()
@@ -143,6 +152,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
+	checkCleanup(c, d)
 
 	// And again.
 	err = d.Deploy(target)
@@ -150,6 +160,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
+	checkCleanup(c, d)
 
 	// Manually resolve, and commit.
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "some-file"), []byte("nu!"), 0644)
@@ -164,6 +175,8 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	// except the upgrade log line.
 	err = d.Deploy(target)
 	c.Assert(err, gc.IsNil)
+	checkCleanup(c, d)
+
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "nu!")
@@ -175,7 +188,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
-func (s *DeployerSuite) bundle(c *gc.C, customize func(path string)) *corecharm.Bundle {
+func bundle(c *gc.C, customize func(path string)) *corecharm.Bundle {
 	base := c.MkDir()
 	dirpath := testing.Charms.ClonedDirPath(base, "dummy")
 	customize(dirpath)
@@ -190,4 +203,22 @@ func (s *DeployerSuite) bundle(c *gc.C, customize func(path string)) *corecharm.
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, gc.IsNil)
 	return bun
+}
+
+func checkCleanup(c *gc.C, d *charm.Deployer) {
+	// Only one update dir should exist and be pointed to by the 'current'
+	// symlink since extra ones should have been cleaned up by
+	// cleanupOrphans.
+	updateDirs, err := filepath.Glob(filepath.Join(d.Path(), "update-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs, gc.HasLen, 1)
+	current, err := os.Readlink(d.Current().Path())
+	c.Assert(err, gc.IsNil)
+	c.Assert(updateDirs[0], gc.Equals, current)
+
+	// No install dirs should be left behind since the one created is
+	// renamed to the target path.
+	installDirs, err := filepath.Glob(filepath.Join(d.Path(), "install-*"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(installDirs, gc.HasLen, 0)
 }

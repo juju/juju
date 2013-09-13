@@ -25,6 +25,24 @@ func NotSupportedError(entity, operation string) error {
 	return &notSupportedError{entity, operation}
 }
 
+type noAddressSetError struct {
+	unitTag     string
+	addressName string
+}
+
+func (e *noAddressSetError) Error() string {
+	return fmt.Sprintf("%q has no %s address set", e.unitTag, e.addressName)
+}
+
+func NoAddressSetError(unitTag, addressName string) error {
+	return &noAddressSetError{unitTag, addressName}
+}
+
+func IsNoAddressSetError(err error) bool {
+	_, ok := err.(*noAddressSetError)
+	return ok
+}
+
 var (
 	ErrBadId          = stderrors.New("id not found")
 	ErrBadCreds       = stderrors.New("invalid entity name or password")
@@ -51,6 +69,17 @@ var singletonErrorCodes = map[error]string{
 	ErrNotProvisioned:            params.CodeNotProvisioned,
 }
 
+func singletonCode(err error) (string, bool) {
+	// All error types may not be hashable; deal with
+	// that by catching the panic if we try to look up
+	// a non-hashable type.
+	defer func() {
+		recover()
+	}()
+	code, ok := singletonErrorCodes[err]
+	return code, ok
+}
+
 // ServerError returns an error suitable for returning to an API
 // client, with an error code suitable for various kinds of errors
 // generated in packages outside the API.
@@ -58,9 +87,9 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
-	code := singletonErrorCodes[err]
+	code, ok := singletonCode(err)
 	switch {
-	case code != "":
+	case ok:
 	case errors.IsUnauthorizedError(err):
 		code = params.CodeUnauthorized
 	case errors.IsNotFoundError(err):
@@ -69,6 +98,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
+	case IsNoAddressSetError(err):
+		code = params.CodeNoAddressSet
 	default:
 		code = params.ErrCode(err)
 	}

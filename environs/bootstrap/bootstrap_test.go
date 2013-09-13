@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -13,10 +14,16 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
-	"launchpad.net/juju-core/testing"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/dummy"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
+
+func Test(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 const (
 	useDefaultKeys = true
@@ -24,19 +31,23 @@ const (
 )
 
 type bootstrapSuite struct {
-	home *testing.FakeHome
-	testing.LoggingSuite
+	home *coretesting.FakeHome
+	coretesting.LoggingSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.home = testing.MakeFakeHomeNoEnvironments(c, "foo")
+	s.ToolsFixture.SetUpTest(c)
+	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "foo")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	s.ToolsFixture.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
@@ -58,19 +69,27 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
-	fixEnv("ca-cert", testing.CACert)
+	fixEnv("ca-cert", coretesting.CACert)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
-	fixEnv("ca-private-key", testing.CAKey)
+	fixEnv("ca-private-key", coretesting.CAKey)
+	uploadTools(c, env)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
+}
+
+func uploadTools(c *gc.C, env environs.Environ) {
+	usefulVersion := version.Current
+	usefulVersion.Series = env.Config().DefaultSeries()
+	envtesting.UploadFakeToolsVersion(c, env.Storage(), usefulVersion)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
+	uploadTools(c, env)
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -81,11 +100,99 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
+	uploadTools(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(env, cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.constraints, gc.DeepEquals, cons)
+}
+
+var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
+	{
+		Info:          "released cli with dev setting picks newest matching 1",
+		Available:     envtesting.V100Xall,
+		CliVersion:    envtesting.V100q32,
+		DefaultSeries: "precise",
+		Development:   true,
+		Expect:        []version.Binary{envtesting.V1001p64},
+	}, {
+		Info:          "released cli with dev setting picks newest matching 2",
+		Available:     envtesting.V1all,
+		CliVersion:    envtesting.V120q64,
+		DefaultSeries: "precise",
+		Development:   true,
+		Arch:          "i386",
+		Expect:        []version.Binary{envtesting.V120p32},
+	}, {
+		Info:          "dev cli picks newest matching 1",
+		Available:     envtesting.V110Xall,
+		CliVersion:    envtesting.V110q32,
+		DefaultSeries: "precise",
+		Expect:        []version.Binary{envtesting.V1101p64},
+	}, {
+		Info:          "dev cli picks newest matching 2",
+		Available:     envtesting.V1all,
+		CliVersion:    envtesting.V120q64,
+		DefaultSeries: "precise",
+		Arch:          "i386",
+		Expect:        []version.Binary{envtesting.V120p32},
+	}}
+
+func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
+	allTests := append(envtesting.BootstrapToolsTests, bootstrapSetAgentVersionTests...)
+	for i, test := range allTests {
+		c.Logf("\ntest %d: %s", i, test.Info)
+		dummy.Reset()
+		attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+			"state-server":   false,
+			"development":    test.Development,
+			"default-series": test.DefaultSeries,
+		})
+		if test.AgentVersion != version.Zero {
+			attrs["agent-version"] = test.AgentVersion.String()
+		}
+		env, err := environs.NewFromAttrs(attrs)
+		c.Assert(err, gc.IsNil)
+		env, err = environs.Prepare(env.Config())
+		c.Assert(err, gc.IsNil)
+		envtesting.RemoveAllTools(c, env)
+
+		version.Current = test.CliVersion
+		for _, vers := range test.Available {
+			envtesting.UploadFakeToolsVersion(c, env.Storage(), vers)
+		}
+
+		cons := constraints.Value{}
+		if test.Arch != "" {
+			cons = constraints.MustParse("arch=" + test.Arch)
+		}
+		err = bootstrap.Bootstrap(env, cons)
+		if test.Err != nil {
+			c.Check(err, gc.ErrorMatches, ".*"+test.Err.Error())
+			continue
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+		unique := map[version.Number]bool{}
+		for _, expected := range test.Expect {
+			unique[expected.Number] = true
+		}
+		for expectAgentVersion := range unique {
+			agentVersion, ok := env.Config().AgentVersion()
+			c.Check(ok, gc.Equals, true)
+			c.Check(agentVersion, gc.Equals, expectAgentVersion)
+		}
+	}
+}
+
+func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	envtesting.RemoveFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(env, constraints.Value{})
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
 }
 
 type bootstrapEnviron struct {
@@ -100,20 +207,15 @@ type bootstrapEnviron struct {
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
-	m := map[string]interface{}{
-		"name":            name,
-		"type":            "test",
-		"ca-cert":         "",
-		"ca-private-key":  "",
-		"authorized-keys": "",
+	m := dummy.SampleConfig()
+	if !defaultKeys {
+		m = m.Delete(
+			"ca-cert",
+			"ca-private-key",
+			"admin-secret",
+		)
 	}
-	if defaultKeys {
-		m["ca-cert"] = testing.CACert
-		m["ca-private-key"] = testing.CAKey
-		m["admin-secret"] = version.Current.Number.String()
-		m["authorized-keys"] = "foo"
-	}
-	cfg, err := config.New(m)
+	cfg, err := config.New(config.NoDefaults, m)
 	if err != nil {
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}
@@ -124,13 +226,14 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 }
 
 // setDummyStorage injects the local provider's fake storage implementation
-// into the given enviornment, so that tests can manipulate storage as if it
+// into the given environment, so that tests can manipulate storage as if it
 // were real.
 // Returns a cleanup function that must be called when done with the storage.
 func setDummyStorage(c *gc.C, env *bootstrapEnviron) func() {
 	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
 	c.Assert(err, gc.IsNil)
 	env.storage = localstorage.Client(listener.Addr().String())
+	envtesting.UploadFakeTools(c, env.storage)
 	return func() { listener.Close() }
 }
 
@@ -155,4 +258,8 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 
 func (e *bootstrapEnviron) Storage() environs.Storage {
 	return e.storage
+}
+
+func (e *bootstrapEnviron) PublicStorage() environs.StorageReader {
+	return environs.EmptyStorage
 }

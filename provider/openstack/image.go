@@ -33,15 +33,15 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, e.ecfg().authURL()},
-		Series:    ic.Series,
+		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 	})
-	baseURLs, err := imagemetadata.GetMetadataURLs(e)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}
 	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
-	matchingImages, err := imagemetadata.Fetch(baseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)
+	matchingImages, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

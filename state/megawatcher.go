@@ -189,6 +189,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 	}
 	info := &params.RelationInfo{
 		Key:       r.Key,
+		Id:        r.Id,
 		Endpoints: eps,
 	}
 	store.Update(info)
