@@ -23,6 +23,16 @@ type Logger interface {
 	LoggingConfig(args params.Entities) params.StringResults
 }
 
+// LoggerAPI implements the Logger interface and is the concrete
+// implementation of the api end point.
+type LoggerAPI struct {
+	state      *state.State
+	resources  *common.Resources
+	authorizer common.Authorizer
+}
+
+var _ Logger = (*LoggerAPI)(nil)
+
 // NewLoggerAPI creates a new server-side logger API end point.
 func NewLoggerAPI(
 	st *state.State,
@@ -35,18 +45,10 @@ func NewLoggerAPI(
 	return &LoggerAPI{state: st, resources: resources, authorizer: authorizer}, nil
 }
 
-type LoggerAPI struct {
-	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
-}
-
-var _ Logger = (*LoggerAPI)(nil)
-
-// WatchLoggingConfig starts a watcher to track changes to the logging config.
-// Unfortunately the current infrastruture makes watching parts of the config
-// non-trivial, so currently any change to the config will cause the watcher
-// to notify the client.
+// WatchLoggingConfig starts a watcher to track changes to the logging config
+// for the agents specified..  Unfortunately the current infrastruture makes
+// watching parts of the config non-trivial, so currently any change to the
+// config will cause the watcher to notify the client.
 func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
 	result := make([]params.NotifyWatchResult, len(arg.Entities))
 	for i, entity := range arg.Entities {
@@ -70,10 +72,10 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 
 // LoggingConfig reports the logging configuration for the agents specified.
 func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
+	if len(arg.Entities) == 0 {
+		return params.StringResults{}
+	}
 	results := make([]params.StringResult, len(arg.Entities))
-	// If someone is stupid enough to call this function with zero entities,
-	// let's punish them by making them wait for us to get the environ config
-	// from state.
 	config, configErr := api.state.EnvironConfig()
 	for i, entity := range arg.Entities {
 		err := common.ErrPerm
