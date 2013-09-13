@@ -9,9 +9,11 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -419,6 +421,15 @@ var configTests = []configTest{
 		},
 		err: `api-port: expected number, got "illegal"`,
 	}, {
+		about:       "Invalid logging configuration",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"logging-config": "foo=bar",
+		},
+		err: `unknown severity level "bar"`,
+	}, {
 		about:       "Sample configuration",
 		useDefaults: config.UseDefaults,
 		attrs:       sampleConfig,
@@ -726,6 +737,8 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 }
 
 func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
+	// Normally this is handled by testing.FakeHome
+	defer testing.PatchEnvironment(osenv.JujuLoggingConfig, "")()
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
@@ -746,6 +759,7 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
+	attrs["logging-config"] = loggo.LoggerInfo()
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
 	attrs["tools-url"] = ""
@@ -847,12 +861,16 @@ func (*ConfigSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
-func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
-	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+func makeFakeHome(c *gc.C) *testing.FakeHome {
+	return testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
-	}).Restore()
+	})
+}
+
+func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
+	defer makeFakeHome(c).Restore()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":    "myenv",
 		"type":    "other",
@@ -902,6 +920,23 @@ func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 	result, err := config.New(config.UseDefaults, final)
 	c.Assert(err, gc.IsNil)
 	return result
+}
+
+func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	logConfig := "<root>=WARNING;juju=DEBUG"
+	config := newTestConfig(c, testing.Attrs{"logging-config": logConfig})
+	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
+}
+
+func (*ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+	logConfig := "<root>=INFO"
+	defer testing.PatchEnvironment(osenv.JujuLoggingConfig, logConfig)()
+
+	config := newTestConfig(c, nil)
+	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
 }
 
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
