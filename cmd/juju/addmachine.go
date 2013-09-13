@@ -99,14 +99,6 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	checkConstraints := c.Constraints
-	if c.ContainerType != "" {
-		checkConstraints.Container = &c.ContainerType
-	}
-	if err = conn.Environ.SanityCheckConstraints(checkConstraints); err != nil {
-		return err
-	}
-
 	series := c.Series
 	if series == "" {
 		conf, err := conn.State.EnvironConfig()

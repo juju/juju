@@ -4,16 +4,12 @@
 package main
 
 import (
-	stderrors "errors"
-
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -241,13 +237,4 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")
 	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
-}
-
-func (s *DeploySuite) TestDeploySanityCheckConstraints(c *gc.C) {
-	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	dummy.SanityCheckConstraintsError = stderrors.New("computer says no")
-	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
-	c.Assert(err, gc.ErrorMatches, "computer says no")
 }

@@ -4,15 +4,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"strconv"
@@ -106,10 +102,4 @@ func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `malformed container argument "foo"`)
 	err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
 	c.Assert(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
-}
-
-func (s *AddMachineSuite) TestAddMachineSanityCheckConstraints(c *gc.C) {
-	dummy.SanityCheckConstraintsError = errors.New("computer says no")
-	err := runAddMachine(c, "lxc:0")
-	c.Assert(err, gc.ErrorMatches, "computer says no")
 }
