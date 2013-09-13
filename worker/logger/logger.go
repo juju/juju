@@ -14,7 +14,8 @@ import (
 
 var log = loggo.GetLogger("juju.worker.logger")
 
-// Cleaner is responsible for cleaning up the state.
+// Logger is responsible for updating the loggo configuration when the
+// environment watcher tells the agent that the value has changed.
 type Logger struct {
 	api         *logger.State
 	agentConfig agent.Config
@@ -23,8 +24,8 @@ type Logger struct {
 
 var _ worker.NotifyWatchHandler = (*Logger)(nil)
 
-// NewLogger returns a worker.Worker that runs state.Cleanup()
-// if the CleanupWatcher signals documents marked for deletion.
+// NewLogger returns a worker.Worker that uses the notify watcher returned
+// from the setup.
 func NewLogger(api *logger.State, agentConfig agent.Config) worker.Worker {
 	logger := &Logger{
 		api:         api,
