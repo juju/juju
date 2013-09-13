@@ -183,10 +183,10 @@ type MetadataFile struct {
 	Data []byte
 }
 
-func WriteMetadata(toolsList coretools.List, fetch bool, stor environs.Storage) error {
+func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore environs.Storage) error {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	// The metadata from toolsList is already present, the existing data is overwritten.
-	dataSource := environs.NewStorageSimpleStreamsDataSource(stor, "tools")
+	dataSource := environs.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
 	if err != nil {
 		return err
@@ -218,7 +218,7 @@ func WriteMetadata(toolsList coretools.List, fetch bool, stor environs.Storage) 
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
-		err = stor.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		err = metadataStore.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}
