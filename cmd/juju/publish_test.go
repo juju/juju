@@ -5,12 +5,14 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/bzr"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"os"
 )
 
 // Sadly, this is a very slow test suite, heavily dominated by calls to bzr.

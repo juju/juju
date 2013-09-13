@@ -14,9 +14,10 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/tomb"
+
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/fslock"
-	"launchpad.net/tomb"
 )
 
 func Test(t *testing.T) {

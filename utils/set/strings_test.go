@@ -4,10 +4,12 @@
 package set_test
 
 import (
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/utils/set"
 	"sort"
 	"testing"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/utils/set"
 )
 
 func Test(t *testing.T) {

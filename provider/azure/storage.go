@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"

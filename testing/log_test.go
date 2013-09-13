@@ -2,6 +2,7 @@ package testing_test
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 )

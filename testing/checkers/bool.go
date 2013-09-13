@@ -7,22 +7,22 @@ import (
 	"fmt"
 	"reflect"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 type isTrueChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
 // IsTrue checks whether a value has an underlying
 // boolean type and is true.
-var IsTrue Checker = &isTrueChecker{
-	&CheckerInfo{Name: "IsTrue", Params: []string{"obtained"}},
+var IsTrue gc.Checker = &isTrueChecker{
+	&gc.CheckerInfo{Name: "IsTrue", Params: []string{"obtained"}},
 }
 
 // IsTrue checks whether a value has an underlying
 // boolean type and is false.
-var IsFalse Checker = Not(IsTrue)
+var IsFalse gc.Checker = gc.Not(IsTrue)
 
 func (checker *isTrueChecker) Check(params []interface{}, names []string) (result bool, error string) {
 
@@ -37,15 +37,15 @@ func (checker *isTrueChecker) Check(params []interface{}, names []string) (resul
 }
 
 type satisfiesChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
 // Satisfies checks whether a value causes the argument
 // function to return true. The function must be of
 // type func(T) bool where the value being checked
 // is assignable to T.
-var Satisfies Checker = &satisfiesChecker{
-	&CheckerInfo{
+var Satisfies gc.Checker = &satisfiesChecker{
+	&gc.CheckerInfo{
 		Name:   "Satisfies",
 		Params: []string{"obtained", "func(T) bool"},
 	},
