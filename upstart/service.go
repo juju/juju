@@ -53,7 +53,6 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId,
 		},
 		Cmd: filepath.Join(toolsDir, "jujud") +
 			" machine" +
-			" --log-file " + utils.ShQuote(logFile) +
 			" --data-dir " + utils.ShQuote(dataDir) +
 			" --machine-id " + machineId +
 			" " + logConfig,
