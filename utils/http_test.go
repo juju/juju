@@ -53,11 +53,22 @@ func (s *insecureClientSuite) TestInsecureClientSucceeds(c *gc.C) {
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(body), gc.Equals, "Greetings!\n")
+	c.Check(string(body), gc.Equals, "Greetings!\n")
 }
 
 func (s *insecureClientSuite) TestInsecureClientCached(c *gc.C) {
 	client1 := utils.GetNonValidatingHTTPClient()
 	client2 := utils.GetNonValidatingHTTPClient()
 	c.Check(client1, gc.Equals, client2)
+}
+
+func (s *insecureClientSuite) TestAccessViaNonValidating(c *gc.C) {
+	_, err := http.Get(s.Server.URL)
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+	nonvalidatingURL := "nonvalidating-" + s.Server.URL
+	response, err := http.Get(nonvalidatingURL)
+	c.Assert(err, gc.IsNil)
+	body, err := ioutil.ReadAll(response.Body)
+	c.Assert(err, gc.IsNil)
+	c.Check(string(body), gc.Equals, "Greetings!\n")
 }

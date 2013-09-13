@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/utils"
 )
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
@@ -40,10 +39,6 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
-	}
-	if !e.Config().SSLHostnameVerification() {
-		oldHTTPClient := simplestreams.SetHttpClient(utils.GetNonValidatingHTTPClient())
-		defer simplestreams.SetHttpClient(oldHTTPClient)
 	}
 	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
 	matchingImages, err := imagemetadata.Fetch(baseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)

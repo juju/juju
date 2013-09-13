@@ -432,6 +432,9 @@ func (e *environ) publicBucketURL() string {
 			return ""
 		}
 	}
+	if !ecfg.SSLHostnameVerification() && publicBucketURL[:8] == "https://" {
+		publicBucketURL = "nonvalidating-" + publicBucketURL
+	}
 	return publicBucketURL
 }
 
@@ -460,15 +463,10 @@ func (e *environ) PublicStorage() environs.StorageReader {
 			containerACL: swift.PublicRead,
 			swift:        swift.New(e.client)}
 	} else {
-		newPublicClient := client.NewPublicClient
-		if !ecfg.SSLHostnameVerification() {
-			newPublicClient = client.NewNonValidatingPublicClient
-		}
-		pc := newPublicClient(publicBucketURL, nil)
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
 			containerACL:  swift.PublicRead,
-			swift:         swift.New(pc)}
+			swift:         swift.New(e.client)}
 	}
 	publicStorage = e.publicStorageUnlocked
 	return publicStorage
@@ -513,11 +511,11 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
-	if ecfg.SSLHostnameVerification() {
-		return client.NewClient(cred, authMode, nil)
-	} else {
-		return client.NewNonValidatingClient(cred, authMode, nil)
+	if !ecfg.SSLHostnameVerification() && cred.URL[:8] == "https://" {
+		cred.URL = "nonvalidating-" + cred.URL
+		logger.Infof("Setting client URL to: %v", cred.URL)
 	}
+	return client.NewClient(cred, authMode, nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -572,6 +570,9 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
+		// if !e.Config().SSLHostnameVerification() {
+		// 	productStreamsURL = "nonvalidating-" + productStreamsURL
+		// }
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
 	return e.imageBaseURLs, nil
