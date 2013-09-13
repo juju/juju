@@ -9,12 +9,12 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -52,10 +52,13 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcfg, gc.DeepEquals, &cloudinit.MachineConfig{
-		AuthorizedKeys:     "we-are-the-keys",
-		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
-		StateInfo:          &state.Info{Tag: "not touched"},
-		APIInfo:            &api.Info{Tag: "not touched"},
+		AuthorizedKeys: "we-are-the-keys",
+		AgentEnvironment: map[string]string{
+			agent.ProviderType:  "dummy",
+			agent.ContainerType: "",
+		},
+		StateInfo: &state.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: "not touched"},
 	})
 }
 
@@ -128,12 +131,12 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 			Password: "pw2",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		DataDir:            environs.DataDir,
-		Config:             envConfig,
-		StatePort:          envConfig.StatePort(),
-		APIPort:            envConfig.APIPort(),
-		StateServer:        true,
-		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
+		DataDir:          environs.DataDir,
+		Config:           envConfig,
+		StatePort:        envConfig.StatePort(),
+		APIPort:          envConfig.APIPort(),
+		StateServer:      true,
+		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 	}
 	script1 := "script1"
 	script2 := "script2"

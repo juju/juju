@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
@@ -157,7 +158,7 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 				if toolsConstraint.Released && tmNumber.IsDev() {
 					continue
 				}
-				if toolsConstraint.MajorVersion != tmNumber.Major {
+				if toolsConstraint.MajorVersion >= 0 && toolsConstraint.MajorVersion != tmNumber.Major {
 					continue
 				}
 				if toolsConstraint.MinorVersion >= 0 && toolsConstraint.MinorVersion != tmNumber.Minor {
@@ -182,14 +183,42 @@ type MetadataFile struct {
 	Data []byte
 }
 
-func WriteMetadata(toolsList coretools.List, fetch bool, stor environs.StorageWriter) error {
+func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore environs.Storage) error {
+	// Read any existing metadata so we can merge the new tools metadata with what's there.
+	// The metadata from toolsList is already present, the existing data is overwritten.
+	dataSource := environs.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
+	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
+	if err != nil {
+		return err
+	}
+	existingMetadata, err := Fetch([]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return err
+	}
+	newToolsVersions := make(map[string]bool)
+	for _, tool := range toolsList {
+		newToolsVersions[tool.Version.String()] = true
+	}
+	// Merge in existing records.
+	for _, toolsMetadata := range existingMetadata {
+		vers := version.Binary{version.MustParse(toolsMetadata.Version), toolsMetadata.Release, toolsMetadata.Arch}
+		if _, ok := newToolsVersions[vers.String()]; ok {
+			continue
+		}
+		tool := &coretools.Tools{
+			Version: vers,
+			SHA256:  toolsMetadata.SHA256,
+			Size:    toolsMetadata.Size,
+		}
+		toolsList = append(toolsList, tool)
+	}
 	metadataInfo, err := generateMetadata(toolsList, fetch)
 	if err != nil {
 		return err
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
-		err = stor.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		err = metadataStore.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}

@@ -304,6 +304,10 @@ func (mock *mockConfig) CACert() []byte {
 	return []byte(testing.CACert)
 }
 
+func (mock *mockConfig) Value(_ string) string {
+	return ""
+}
+
 func agentConfig(tag, datadir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir}
 }

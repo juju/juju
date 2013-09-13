@@ -14,6 +14,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
 )
@@ -97,6 +98,16 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
+	// If the logging config hasn't been set, then look for the os environment
+	// variable, and failing that, get the config from loggo itself.
+	if c.asString("logging-config") == "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
+			c.m["logging-config"] = environmentValue
+		} else {
+			c.m["logging-config"] = loggo.LoggerInfo()
+		}
+	}
+
 	// no old config to compare against
 	if err = Validate(c, nil); err != nil {
 		return nil, err
@@ -189,6 +200,13 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.m["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+		}
+	}
+
+	// If the logging config is set, make sure it is valid.
+	if v, ok := cfg.m["logging-config"].(string); ok {
+		if _, err := loggo.ParseConfigurationString(v); err != nil {
+			return err
 		}
 	}
 
@@ -414,6 +432,11 @@ func (c *Config) SSLHostnameVerification() bool {
 	return c.m["ssl-hostname-verification"].(bool)
 }
 
+// LoggingConfig returns the configuration string for the loggers.
+func (c *Config) LoggingConfig() string {
+	return c.asString("logging-config")
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -463,6 +486,7 @@ var fields = schema.Fields{
 	"ssl-hostname-verification": schema.Bool(),
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
+	"logging-config":            schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -480,6 +504,7 @@ var alwaysOptional = schema.Defaults{
 	"authorized-keys-path": schema.Omit,
 	"ca-cert-path":         schema.Omit,
 	"ca-private-key-path":  schema.Omit,
+	"logging-config":       schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being

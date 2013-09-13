@@ -5,6 +5,12 @@ package agent
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // The format file in the agent config directory is used to identify the
@@ -25,10 +31,14 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = format_1_12
+	currentFormat  = format_1_16
+	previousFormat = format_1_12
 )
 
-var currentFormatter = &formatter_1_12{}
+var (
+	currentFormatter  = &formatter_1_16{}
+	previousFormatter = &formatter_1_12{}
+)
 
 // The formatter defines the two methods needed by the formatters for
 // translating to and from the internal, format agnostic, structure.
@@ -36,16 +46,55 @@ type formatter interface {
 	read(dirName string) (*configInternal, error)
 	write(config *configInternal) error
 	writeCommands(config *configInternal) ([]string, error)
+	// Migrate is called when upgrading from the previous format to the current format.
+	migrate(config *configInternal)
+}
+
+func formatFile(dirName string) string {
+	return path.Join(dirName, formatFilename)
 }
 
 func readFormat(dirName string) (string, error) {
-	return currentFormat, nil
+	contents, err := ioutil.ReadFile(formatFile(dirName))
+	// Once the previousFormat is defined to have a format file (1.16 or
+	// above), not finding a format file should be a real error.
+	if err != nil {
+		return previousFormat, nil
+	}
+	return strings.TrimSpace(string(contents)), nil
 }
 
 func newFormatter(format string) (formatter, error) {
 	switch format {
 	case currentFormat:
 		return currentFormatter, nil
+	case previousFormat:
+		return previousFormatter, nil
 	}
 	return nil, fmt.Errorf("unknown agent config format")
+}
+
+func writeFormatFile(dirName string, format string) error {
+	if err := os.MkdirAll(dirName, 0755); err != nil {
+		return err
+	}
+	newFile := path.Join(dirName, formatFilename+"-new")
+	if err := ioutil.WriteFile(newFile, []byte(format+"\n"), 0644); err != nil {
+		return err
+	}
+	return os.Rename(newFile, formatFile(dirName))
+}
+
+func writeFileCommands(filename, contents string, permission int) []string {
+	quotedFilename := utils.ShQuote(filename)
+	return []string{
+		fmt.Sprintf("install -m %o /dev/null %s", permission, quotedFilename),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, utils.ShQuote(contents), quotedFilename),
+	}
+}
+
+func writeCommandsForFormat(dirName, format string) []string {
+	commands := []string{"mkdir -p " + utils.ShQuote(dirName)}
+	commands = append(commands, writeFileCommands(formatFile(dirName), format, 0644)...)
+	return commands
 }

@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/gomaasapi"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -20,7 +21,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -257,7 +257,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	// TODO(thumper): 2013-08-28 bug 1217614
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
-	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
+	machineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 	userdata, err := environs.ComposeUserData(
 		machineConfig,
 		runCmd,

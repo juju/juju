@@ -102,8 +102,8 @@ func (formatter *formatter_1_12) read(dirName string) (*configInternal, error) {
 		oldPassword:     conf.OldPassword,
 		stateServerCert: conf.StateServerCert,
 		stateServerKey:  conf.StateServerKey,
-		statePort:       conf.StatePort,
 		apiPort:         conf.APIPort,
+		values:          map[string]string{},
 	}, nil
 }
 
@@ -111,7 +111,6 @@ func (formatter *formatter_1_12) makeAgentConf(config *configInternal) *format_1
 	format := &format_1_12Serialization{
 		StateServerCert: config.stateServerCert,
 		StateServerKey:  config.stateServerKey,
-		StatePort:       config.statePort,
 		APIPort:         config.apiPort,
 		OldPassword:     config.oldPassword,
 		MachineNonce:    config.nonce,
@@ -172,4 +171,7 @@ func (formatter *formatter_1_12) writeCommands(config *configInternal) ([]string
 	addCommand("install -m %o /dev/null %s", 0600, filename)
 	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), filename)
 	return commands, nil
+}
+
+func (*formatter_1_12) migrate(config *configInternal) {
 }
