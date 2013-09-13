@@ -16,9 +16,9 @@ var log = loggo.GetLogger("juju.worker.logger")
 
 // Cleaner is responsible for cleaning up the state.
 type Logger struct {
-	api        *logger.State
-	tag        string
-	lastConfig string
+	api         *logger.State
+	agentConfig agent.Config
+	lastConfig  string
 }
 
 var _ worker.NotifyWatchHandler = (*Logger)(nil)
@@ -27,16 +27,16 @@ var _ worker.NotifyWatchHandler = (*Logger)(nil)
 // if the CleanupWatcher signals documents marked for deletion.
 func NewLogger(api *logger.State, agentConfig agent.Config) worker.Worker {
 	logger := &Logger{
-		api:        api,
-		tag:        agentConfig.Tag(),
-		lastConfig: loggo.LoggerInfo(),
+		api:         api,
+		agentConfig: agentConfig,
+		lastConfig:  loggo.LoggerInfo(),
 	}
 	log.Debugf("initial log config: %q", logger.lastConfig)
 	return worker.NewNotifyWorker(logger)
 }
 
 func (logger *Logger) setLogging() {
-	loggingConfig, err := logger.api.LoggingConfig(logger.tag)
+	loggingConfig, err := logger.api.LoggingConfig(logger.agentConfig.Tag())
 	if err != nil {
 		log.Errorf("%v", err)
 	} else {
@@ -51,6 +51,12 @@ func (logger *Logger) setLogging() {
 				loggo.ConfigureLoggers(logger.lastConfig)
 			}
 			logger.lastConfig = loggingConfig
+			// Set the value in the agent config and write it out.
+			logger.agentConfig.SetValue(agent.LoggingConfig, loggingConfig)
+			if err := logger.agentConfig.Write(); err != nil {
+				// Just log the error, this isn't fatal.
+				log.Errorf("failed to write out agent config: %v", err)
+			}
 		}
 	}
 }
@@ -60,7 +66,7 @@ func (logger *Logger) SetUp() (watcher.NotifyWatcher, error) {
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	logger.setLogging()
-	return logger.api.WatchLoggingConfig(logger.tag)
+	return logger.api.WatchLoggingConfig(logger.agentConfig.Tag())
 }
 
 func (logger *Logger) Handle() error {
