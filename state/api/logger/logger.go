@@ -22,7 +22,9 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-func (st *State) LoggingConfig(tag string) (string, error) {
+// LoggingConfig returns the loggo configuration string for the agent
+// specified by agentTag.
+func (st *State) LoggingConfig(agentTag string) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -43,6 +45,8 @@ func (st *State) LoggingConfig(tag string) (string, error) {
 	return result.Result, nil
 }
 
+// WatchLoggingConfig returns a notify watcher that looks for changes in the
+// logging-config for the agent specifed by agentTag.
 func (st *State) WatchLoggingConfig(agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
