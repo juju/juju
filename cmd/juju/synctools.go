@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/version"
 )
 
 var syncTools = sync.SyncTools
@@ -19,11 +20,14 @@ var syncTools = sync.SyncTools
 // bucket.
 type SyncToolsCommand struct {
 	cmd.EnvCommandBase
-	allVersions bool
-	dryRun      bool
-	dev         bool
-	source      string
-	destination string
+	allVersions  bool
+	versionStr   string
+	majorVersion int
+	minorVersion int
+	dryRun       bool
+	dev          bool
+	source       string
+	destination  string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -48,6 +52,7 @@ the local cloud.
 func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
+	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
 	f.StringVar(&c.source, "source", "", "chose a location on the file system as source")
@@ -58,6 +63,12 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
+	if c.versionStr != "" {
+		var err error
+		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
+			return err
+		}
+	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -80,11 +91,13 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 
 	// Prepare syncing.
 	sctx := &sync.SyncContext{
-		Target:      target,
-		AllVersions: c.allVersions,
-		DryRun:      c.dryRun,
-		Dev:         c.dev,
-		Source:      c.source,
+		Target:       target,
+		AllVersions:  c.allVersions,
+		MajorVersion: c.majorVersion,
+		MinorVersion: c.minorVersion,
+		DryRun:       c.dryRun,
+		Dev:          c.dev,
+		Source:       c.source,
 	}
 	return syncTools(sctx)
 }

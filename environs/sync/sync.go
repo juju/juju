@@ -33,6 +33,12 @@ type SyncContext struct {
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
 
+	// Copy tools with major version, if MajorVersion > 0.
+	MajorVersion int
+
+	// Copy tools with minor version, if MinorVersion > 0.
+	MinorVersion int
+
 	// DryRun controls that nothing is copied. Instead it's logged
 	// what would be coppied.
 	DryRun bool
@@ -54,12 +60,17 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing available tools")
-	majorVersion := version.Current.Major
-	minorVersion := -1
-	if !syncContext.AllVersions {
-		minorVersion = version.Current.Minor
+	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
+		syncContext.MajorVersion = version.Current.Major
+		syncContext.MinorVersion = -1
+		if !syncContext.AllVersions {
+			syncContext.MinorVersion = version.Current.Minor
+		}
+	} else {
+		// If a major.minor version is specified, we allow dev versions.
+		syncContext.Dev = syncContext.MinorVersion != -1
 	}
-	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, minorVersion)
+	sourceTools, err := envtools.ReadList(sourceStorage, syncContext.MajorVersion, syncContext.MinorVersion)
 	if err != nil {
 		return err
 	}
@@ -83,7 +94,7 @@ func SyncTools(syncContext *SyncContext) error {
 
 	logger.Infof("listing target bucket")
 	targetStorage := syncContext.Target
-	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
+	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
