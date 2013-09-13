@@ -37,6 +37,8 @@ func (envs *Environs) Open(name string) (Environ, error) {
 // environment with the given name from the default
 // environments file. If the name is blank, the default
 // environment will be used.
+// If the configuration is not found, an errors.NotFoundError
+// is returned.
 func ConfigForName(name string) (*config.Config, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
@@ -50,7 +52,7 @@ func ConfigForName(name string) (*config.Config, error) {
 	}
 	e, ok := envs.environs[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown environment %q", name)
+		return nil, errors.NotFoundf("environment %q", name)
 	}
 	if e.err != nil {
 		return nil, e.err
