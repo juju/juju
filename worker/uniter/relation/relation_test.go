@@ -6,14 +6,16 @@ package relation_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strconv"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
-	"os"
-	"path/filepath"
-	"strconv"
 )
 
 type StateDirSuite struct{}

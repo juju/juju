@@ -70,37 +70,25 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentLogger.Infof("unit agent %v start", a.Tag())
-	a.runner.StartWorker("state", a.StateWorkers)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
 	return err
 }
 
-// StateWorkers returns a worker that runs the unit agent workers.
-func (a *UnitAgent) StateWorkers() (worker.Worker, error) {
-	st, entity, err := openState(a.Conf.config, a)
-	if err != nil {
-		return nil, err
-	}
-	unit := entity.(*state.Unit)
-	dataDir := a.Conf.dataDir
-	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
-	runner.StartWorker("uniter", func() (worker.Worker, error) {
-		return uniter.NewUniter(st, unit.Name(), dataDir), nil
-	})
-	return newCloseWorker(runner, st), nil
-}
-
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	agentConfig := a.Conf.config
-	st, _, err := openAPIState(agentConfig, a)
+	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
+	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+	})
+	runner.StartWorker("uniter", func() (worker.Worker, error) {
+		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
 	})
 	return newCloseWorker(runner, st), nil
 }
