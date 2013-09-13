@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -101,6 +102,9 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+	})
+	runner.StartWorker("logger", func() (worker.Worker, error) {
+		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	return newCloseWorker(runner, st), nil
 }
