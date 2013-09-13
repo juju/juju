@@ -29,6 +29,7 @@ const (
 	StorageAddr       = "STORAGE_ADDR"
 	SharedStorageDir  = "SHARED_STORAGE_DIR"
 	SharedStorageAddr = "SHARED_STORAGE_ADDR"
+	LoggingConfig     = "LOGGING_CONFIG"
 )
 
 // The Config interface is the sole way that the agent gets access to the
