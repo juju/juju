@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type relationSuite struct {
@@ -67,7 +68,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 	err = s.apiRelation.Refresh()
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {
@@ -110,7 +111,7 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	// Test some invalid cases.
 	for _, relId := range []int{-1, 42, otherRel.Id()} {
 		apiRel, err = s.uniter.RelationById(relId)
-		c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+		c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
 		c.Assert(apiRel, gc.IsNil)
 	}
 }

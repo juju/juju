@@ -76,11 +76,11 @@ func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	// Get and cache the addresses.
 	var err error
 	ctx.publicAddress, err = unit.PublicAddress()
-	if err != nil && params.ErrCode(err) != params.CodeNoAddressSet {
+	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
 	ctx.privateAddress, err = unit.PrivateAddress()
-	if err != nil && params.ErrCode(err) != params.CodeNoAddressSet {
+	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
 	return ctx, nil

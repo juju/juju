@@ -74,7 +74,7 @@ func (w *commonWatcher) commonLoop() {
 			result := w.newResult()
 			err := w.call("Next", &result)
 			if err != nil {
-				if code := params.ErrCode(err); code == params.CodeStopped || code == params.CodeNotFound {
+				if params.IsCodeStopped(err) || params.IsCodeNotFound(err) {
 					if w.tomb.Err() != tomb.ErrStillAlive {
 						// The watcher has been stopped at the client end, so we're
 						// expecting one of the above two kinds of error.

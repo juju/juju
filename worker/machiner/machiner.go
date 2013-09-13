@@ -8,7 +8,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -33,7 +32,7 @@ func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
 }
 
 func isNotFoundOrUnauthorized(err error) bool {
-	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
+	return params.IsCodeNotFound(err) || params.IsCodeUnauthorized(err)
 }
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {

@@ -343,7 +343,7 @@ func (f *filter) loop(unitTag string) (err error) {
 			for _, key := range keys {
 				relationTag := names.RelationTag(key)
 				rel, err := f.st.Relation(relationTag)
-				if params.ErrCode(err) == params.CodeNotFound {
+				if params.IsCodeNotFound(err) {
 					// If it's actually gone, this unit cannot have entered
 					// scope, and therefore never needs to know about it.
 				} else if err != nil {
@@ -443,7 +443,7 @@ func (f *filter) loop(unitTag string) (err error) {
 // unitChanged responds to changes in the unit.
 func (f *filter) unitChanged() error {
 	if err := f.unit.Refresh(); err != nil {
-		if params.ErrCode(err) == params.CodeNotFound {
+		if params.IsCodeNotFound(err) {
 			return worker.ErrTerminateAgent
 		}
 		return err
@@ -475,7 +475,7 @@ func (f *filter) unitChanged() error {
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
 	if err := f.service.Refresh(); err != nil {
-		if params.ErrCode(err) == params.CodeNotFound {
+		if params.IsCodeNotFound(err) {
 			return fmt.Errorf("service unexpectedly removed")
 		}
 		return err
