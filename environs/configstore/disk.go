@@ -24,12 +24,8 @@ type diskStore struct {
 // the directory itself is created on demand.
 func NewDisk(dir string) (environs.ConfigStorage, error) {
 	parent, _ := filepath.Split(dir)
-	info, err := os.Stat(parent)
-	if err != nil {
+	if _, err := os.Stat(parent); err != nil {
 		return nil, err
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("%q is not a directory", dir)
 	}
 	return &diskStore{dir}, nil
 }
