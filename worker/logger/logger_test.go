@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apilogger "launchpad.net/juju-core/state/api/logger"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/logger"
 )
@@ -37,16 +38,10 @@ var _ = gc.Suite(&LoggerSuite{})
 func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
-
+	s.AddCleanup(func() { s.apiRoot.Close() })
 	// Create the machiner API facade.
 	s.loggerApi = s.apiRoot.Logger()
 	c.Assert(s.loggerApi, gc.NotNil)
-}
-
-func (s *LoggerSuite) TearDownTest(c *gc.C) {
-	err := s.apiRoot.Close()
-	c.Assert(err, gc.IsNil)
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
@@ -68,23 +63,41 @@ func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
 
 type mockConfig struct {
 	agent.Config
-	tag string
+	c           *gc.C
+	tag         string
+	setKey      string
+	setValue    string
+	writeCalled bool
 }
 
 func (mock *mockConfig) Tag() string {
 	return mock.tag
 }
 
-func agentConfig(tag string) agent.Config {
-	return &mockConfig{tag: tag}
+func (mock *mockConfig) SetValue(key, value string) {
+	// This should only be called once, make sure the values aren't set yet.
+	mock.c.Check(mock.setValue, gc.Equals, "")
+	mock.c.Check(mock.setKey, gc.Equals, "")
+	mock.setKey = key
+	mock.setValue = value
 }
 
-func (s *LoggerSuite) makeLogger() worker.Worker {
-	return logger.NewLogger(s.loggerApi, agentConfig(s.machine.Tag()))
+func (mock *mockConfig) Write() error {
+	mock.writeCalled = true
+	return nil
+}
+
+func agentConfig(c *gc.C, tag string) *mockConfig {
+	return &mockConfig{c: c, tag: tag}
+}
+
+func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
+	config := agentConfig(c, s.machine.Tag())
+	return logger.NewLogger(s.loggerApi, config), config
 }
 
 func (s *LoggerSuite) TestRunStop(c *gc.C) {
-	loggingWorker := s.makeLogger()
+	loggingWorker, _ := s.makeLogger(c)
 	c.Assert(worker.Stop(loggingWorker), gc.IsNil)
 }
 
@@ -100,8 +113,11 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	err = loggo.ConfigureLoggers(initial)
 	c.Assert(err, gc.IsNil)
 
-	loggingWorker := s.makeLogger()
+	loggingWorker, agentConfig := s.makeLogger(c)
 	defer worker.Stop(loggingWorker)
 
 	s.waitLoggingInfo(c, expected)
+	c.Assert(agentConfig.setKey, gc.Equals, agent.LoggingConfig)
+	c.Assert(agentConfig.setValue, gc.Equals, expected)
+	c.Assert(agentConfig.writeCalled, jc.IsTrue)
 }

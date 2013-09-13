@@ -33,6 +33,12 @@ type SyncContext struct {
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
 
+	// Copy tools with major version, if MajorVersion > 0.
+	MajorVersion int
+
+	// Copy tools with minor version, if MinorVersion > 0.
+	MinorVersion int
+
 	// DryRun controls that nothing is copied. Instead it's logged
 	// what would be coppied.
 	DryRun bool
@@ -54,12 +60,17 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing available tools")
-	majorVersion := version.Current.Major
-	minorVersion := -1
-	if !syncContext.AllVersions {
-		minorVersion = version.Current.Minor
+	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
+		syncContext.MajorVersion = version.Current.Major
+		syncContext.MinorVersion = -1
+		if !syncContext.AllVersions {
+			syncContext.MinorVersion = version.Current.Minor
+		}
+	} else {
+		// If a major.minor version is specified, we allow dev versions.
+		syncContext.Dev = syncContext.MinorVersion != -1
 	}
-	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, minorVersion)
+	sourceTools, err := envtools.ReadList(sourceStorage, syncContext.MajorVersion, syncContext.MinorVersion)
 	if err != nil {
 		return err
 	}
@@ -83,7 +94,7 @@ func SyncTools(syncContext *SyncContext) error {
 
 	logger.Infof("listing target bucket")
 	targetStorage := syncContext.Target
-	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
+	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
@@ -95,7 +106,7 @@ func SyncTools(syncContext *SyncContext) error {
 
 	missing := sourceTools.Exclude(targetTools)
 	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
-	err = copyTools(missing, syncContext, targetStorage, sourceStorage)
+	err = copyTools(missing, syncContext, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -104,7 +115,7 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.WriteMetadata(targetTools, false, targetStorage)
+		err = envtools.WriteMetadata(targetTools, true, targetStorage)
 		if err != nil {
 			return err
 		}
@@ -122,7 +133,7 @@ func selectSourceStorage(syncContext *SyncContext) (environs.StorageReader, erro
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage, source environs.StorageReader) error {
+func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if syncContext.DryRun {

@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -116,21 +115,10 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 	if c.exactVersion == "current" {
 		c.exactVersion = version.CurrentNumber().String()
 	}
-	c.minor = -1
 	if c.partVersion != "" {
-		parts := strings.Split(c.partVersion, ".")
 		var err error
-		c.major, err = strconv.Atoi(parts[0])
-		if err != nil {
-			return fmt.Errorf("invalid major version number %s: %v", parts[0], err)
-		}
-		if len(parts) == 2 {
-			c.minor, err = strconv.Atoi(parts[1])
-			if err != nil {
-				return fmt.Errorf("invalid minor version number %s: %v", parts[1], err)
-			}
-		} else if len(parts) > 2 {
-			return fmt.Errorf("invalid major.minor version number %s", c.partVersion)
+		if c.major, c.minor, err = version.ParseMajorMinor(c.partVersion); err != nil {
+			return err
 		}
 	}
 	return c.EnvCommandBase.Init(args)
