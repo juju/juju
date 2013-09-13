@@ -377,6 +377,7 @@ type Endpoint struct {
 
 type RelationInfo struct {
 	Key       string `bson:"_id"`
+	Id        int
 	Endpoints []Endpoint
 }
 
