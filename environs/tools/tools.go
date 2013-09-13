@@ -28,43 +28,10 @@ var logger = loggo.GetLogger("juju.environs.tools")
 func NewFindTools(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
-	var toolsConstraint *ToolsConstraint
-	if filter.Number != version.Zero {
-		// A specific tools version is required, however, a general match based on major/minor
-		// version may also have been requested. This is used to ensure any agent version currently
-		// recorded in the environment matches the Juju cli version.
-		// We can short circuit any lookup here by checking the major/minor numbers against
-		// the filter version and exiting early if there is a mismatch.
-		majorMismatch := majorVersion > 0 && majorVersion != filter.Number.Major
-		minorMismacth := minorVersion != -1 && minorVersion != filter.Number.Minor
-		if majorMismatch || minorMismacth {
-			return nil, coretools.ErrNoMatches
-		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
-			simplestreams.LookupParams{CloudSpec: cloudSpec})
-	} else {
-		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
-			simplestreams.LookupParams{CloudSpec: cloudSpec})
+	toolsConstraint, err := makeToolsConstraint(cloudSpec, majorVersion, minorVersion, filter)
+	if err != nil {
+		return nil, err
 	}
-	if filter.Arch != "" {
-		toolsConstraint.Arches = []string{filter.Arch}
-	} else {
-		logger.Infof("no architecture specified when finding tools, looking for any")
-		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
-	}
-	// The old tools search allowed finding tools without needing to specify a series.
-	// The simplestreams metadata is keyed off series, so series must be specified in
-	// the search constraint. If no series is specified, we gather all the series from
-	// lucid onwards and add those to the constraint.
-	var seriesToSearch []string
-	if filter.Series != "" {
-		seriesToSearch = []string{filter.Series}
-	} else {
-		logger.Infof("no series specified when finding tools, looking for any")
-		seriesToSearch = simplestreams.SupportedSeries()
-	}
-	toolsConstraint.Series = seriesToSearch
-
 	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		return nil, err
@@ -90,6 +57,48 @@ func NewFindTools(sources []simplestreams.DataSource, cloudSpec simplestreams.Cl
 		}
 	}
 	return list, err
+}
+
+func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorVersion int,
+	filter coretools.Filter) (*ToolsConstraint, error) {
+
+	var toolsConstraint *ToolsConstraint
+	if filter.Number != version.Zero {
+		// A specific tools version is required, however, a general match based on major/minor
+		// version may also have been requested. This is used to ensure any agent version currently
+		// recorded in the environment matches the Juju cli version.
+		// We can short circuit any lookup here by checking the major/minor numbers against
+		// the filter version and exiting early if there is a mismatch.
+		majorMismatch := majorVersion > 0 && majorVersion != filter.Number.Major
+		minorMismacth := minorVersion != -1 && minorVersion != filter.Number.Minor
+		if majorMismatch || minorMismacth {
+			return nil, coretools.ErrNoMatches
+		}
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
+			simplestreams.LookupParams{CloudSpec: cloudSpec})
+	} else {
+		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
+			simplestreams.LookupParams{CloudSpec: cloudSpec})
+	}
+	if filter.Arch != "" {
+		toolsConstraint.Arches = []string{filter.Arch}
+	} else {
+		logger.Debugf("no architecture specified when finding tools, looking for any")
+		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
+	}
+	// The old tools search allowed finding tools without needing to specify a series.
+	// The simplestreams metadata is keyed off series, so series must be specified in
+	// the search constraint. If no series is specified, we gather all the series from
+	// lucid onwards and add those to the constraint.
+	var seriesToSearch []string
+	if filter.Series != "" {
+		seriesToSearch = []string{filter.Series}
+	} else {
+		logger.Debugf("no series specified when finding tools, looking for any")
+		seriesToSearch = simplestreams.SupportedSeries()
+	}
+	toolsConstraint.Series = seriesToSearch
+	return toolsConstraint, nil
 }
 
 // UseLegacyFallback is true is we try loading the tools from the env storage if the

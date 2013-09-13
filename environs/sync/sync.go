@@ -95,7 +95,7 @@ func SyncTools(syncContext *SyncContext) error {
 
 	missing := sourceTools.Exclude(targetTools)
 	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
-	err = copyTools(missing, syncContext, targetStorage, sourceStorage)
+	err = copyTools(missing, syncContext, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.WriteMetadata(targetTools, false, targetStorage)
+		err = envtools.WriteMetadata(targetTools, true, targetStorage)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func selectSourceStorage(syncContext *SyncContext) (environs.StorageReader, erro
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage, source environs.StorageReader) error {
+func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if syncContext.DryRun {
