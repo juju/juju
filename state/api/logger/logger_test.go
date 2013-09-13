@@ -33,17 +33,12 @@ var _ = gc.Suite(&loggerSuite{})
 func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
+	s.AddCleanup(func() { s.stateAPI.Close() })
 	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the logger facade.
 	s.logger = s.stateAPI.Logger()
 	c.Assert(s.logger, gc.NotNil)
-}
-
-func (s *loggerSuite) TearDownTest(c *gc.C) {
-	err := s.stateAPI.Close()
-	c.Check(err, gc.IsNil)
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *loggerSuite) TestLoggingConfigWrongMachine(c *gc.C) {
