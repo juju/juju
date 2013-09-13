@@ -21,6 +21,18 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+const (
+	// tmpdir is the name of the subdirectory
+	// inside the remote storage directory where
+	// temporary files are created.
+	tmpdir = "tmp"
+
+	// contentdir is the name of the subdirectory
+	// inside the remote storage directory where
+	// files are stored.
+	contentdir = "content"
+)
+
 // SSHStorage implements environs.Storage.
 //
 // The storage is created under sudo, and ownership given over to the
@@ -56,7 +68,9 @@ const (
 // NewSSHStorage creates a new SSHStorage, connected to the
 // specified host, managing state under the specified remote path.
 func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
-	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", remotepath)
+	contentdir := path.Join(remotepath, contentdir)
+	tmpdir := path.Join(remotepath, tmpdir)
+	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s %s", contentdir, tmpdir)
 	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c '%s'", script))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -87,8 +101,14 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 	}
 	cmd.Start()
 
-	// Verify We have write permissions.
-	if _, err = storage.runf(flockExclusive, "touch %s", utils.ShQuote(remotepath)); err != nil {
+	// Verify we have write permissions, and set the temporary directory.
+	_, err = storage.runf(
+		flockExclusive,
+		"touch %s && export TMPDIR=%s",
+		utils.ShQuote(remotepath),
+		utils.ShQuote(tmpdir),
+	)
+	if err != nil {
 		stdin.Close()
 		stdout.Close()
 		cmd.Wait()
@@ -144,8 +164,9 @@ func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
 
 // path returns a remote absolute path for a storage object name.
 func (s *SSHStorage) path(name string) (string, error) {
-	remotepath := path.Clean(path.Join(s.remotepath, name))
-	if !strings.HasPrefix(remotepath, s.remotepath) {
+	contentdir := path.Join(s.remotepath, contentdir)
+	remotepath := path.Clean(path.Join(contentdir, name))
+	if !strings.HasPrefix(remotepath, contentdir) {
 		return "", fmt.Errorf("%q escapes storage directory", name)
 	}
 	return remotepath, nil
@@ -188,9 +209,10 @@ func (s *SSHStorage) List(prefix string) ([]string, error) {
 		return nil, nil
 	}
 	var names []string
+	contentdir := path.Join(s.remotepath, contentdir)
 	for _, name := range strings.Split(out, "\n") {
 		if strings.HasPrefix(name[len(dir):], prefix) {
-			names = append(names, name[len(s.remotepath)+1:])
+			names = append(names, name[len(contentdir)+1:])
 		}
 	}
 	sort.Strings(names)
@@ -199,7 +221,11 @@ func (s *SSHStorage) List(prefix string) ([]string, error) {
 
 // URL implements environs.StorageReader.URL.
 func (s *SSHStorage) URL(name string) (string, error) {
-	return fmt.Sprintf("sftp://%s/%s/%s", s.host, s.remotepath, name), nil
+	path, err := s.path(name)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("sftp://%s/%s", s.host, path), nil
 }
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
@@ -219,9 +245,9 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	encoded := base64.StdEncoding.EncodeToString(buf)
 	path = utils.ShQuote(path)
-	// Write to a temporary file ($T), then mv atomically.
-	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $T", path)
-	command = fmt.Sprintf("T=`mktemp` && ((%s && mv $T %s) || rm -f $T)", command, path)
+	// Write to a temporary file ($TMPFILE), then mv atomically.
+	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $TMPFILE", path)
+	command = fmt.Sprintf("TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)", command, path)
 	command = fmt.Sprintf("(%s) << EOF\n%s\nEOF", command, encoded)
 	_, err = s.runf(flockExclusive, command+"\n")
 	return err
@@ -240,6 +266,7 @@ func (s *SSHStorage) Remove(name string) error {
 
 // RemoveAll implements environs.StorageWriter.RemoveAll
 func (s *SSHStorage) RemoveAll() error {
-	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(s.remotepath))
+	contentdir := path.Join(s.remotepath, contentdir)
+	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(contentdir))
 	return err
 }

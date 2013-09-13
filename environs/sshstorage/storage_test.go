@@ -83,11 +83,13 @@ func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
 		c.Assert(storage, gc.NotNil)
 		c.Assert(storage.Close(), gc.IsNil)
 	}
+	c.Assert(os.RemoveAll(storageDir), gc.IsNil)
 
 	// You must have permissions to create the directory.
+	storageDir = c.MkDir()
 	c.Assert(os.Chmod(storageDir, 0555), gc.IsNil)
-	_, err := NewSSHStorage("example.com", filepath.Join(storageDir, "subdir"))
-	c.Assert(err, gc.ErrorMatches, ".*cannot change owner and permissions of.*")
+	_, err := NewSSHStorage("example.com", filepath.Join(storageDir))
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot change owner and permissions of(.|\n)*")
 }
 
 func (s *storageSuite) TestPathValidity(c *gc.C) {
@@ -96,8 +98,8 @@ func (s *storageSuite) TestPathValidity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer storage.Close()
 
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
-	f, err := os.Create(filepath.Join(storageDir, "a", "b"))
+	c.Assert(os.Mkdir(filepath.Join(storageDir, contentdir, "a"), 0755), gc.IsNil)
+	f, err := os.Create(filepath.Join(storageDir, contentdir, "a", "b"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(f.Close(), gc.IsNil)
 
@@ -124,9 +126,9 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer storage.Close()
 	data := []byte("abc\000def")
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
+	c.Assert(os.Mkdir(filepath.Join(storageDir, contentdir, "a"), 0755), gc.IsNil)
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
-		err = ioutil.WriteFile(filepath.Join(storageDir, name), data, 0644)
+		err = ioutil.WriteFile(filepath.Join(storageDir, contentdir, name), data, 0644)
 		c.Assert(err, gc.IsNil)
 		r, err := storage.Get(name)
 		c.Assert(err, gc.IsNil)
@@ -148,7 +150,7 @@ func (s *storageSuite) TestPut(c *gc.C) {
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
 		err = storage.Put(name, bytes.NewBuffer(data), int64(len(data)))
 		c.Assert(err, gc.IsNil)
-		out, err := ioutil.ReadFile(filepath.Join(storageDir, name))
+		out, err := ioutil.ReadFile(filepath.Join(storageDir, contentdir, name))
 		c.Assert(err, gc.IsNil)
 		c.Assert(out, gc.DeepEquals, data)
 	}
@@ -169,12 +171,13 @@ func (s *storageSuite) TestList(c *gc.C) {
 	s.assertList(c, storage, "", nil)
 
 	// Directories don't show up in List.
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
+	contentDir := filepath.Join(storageDir, contentdir)
+	c.Assert(os.Mkdir(filepath.Join(contentDir, "a"), 0755), gc.IsNil)
 	s.assertList(c, storage, "", nil)
 	s.assertList(c, storage, "a", nil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b1"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b2"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "b"), nil, 0), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b1"), nil, 0), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b2"), nil, 0), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "b"), nil, 0), gc.IsNil)
 	s.assertList(c, storage, "", []string{"a/b1", "a/b2", "b"})
 	s.assertList(c, storage, "a", []string{"a/b1", "a/b2"})
 	s.assertList(c, storage, "a/b", []string{"a/b1", "a/b2"})
@@ -190,9 +193,10 @@ func (s *storageSuite) TestRemove(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer storage.Close()
 
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b1"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b2"), nil, 0), gc.IsNil)
+	contentDir := filepath.Join(storageDir, contentdir)
+	c.Assert(os.Mkdir(filepath.Join(contentDir, "a"), 0755), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b1"), nil, 0), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b2"), nil, 0), gc.IsNil)
 	c.Assert(storage.Remove("a"), gc.ErrorMatches, "rm: cannot remove.*Is a directory")
 	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
 	c.Assert(storage.Remove("a/b"), gc.IsNil) // doesn't exist; not an error
@@ -209,15 +213,16 @@ func (s *storageSuite) TestRemoveAll(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer storage.Close()
 
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b1"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b2"), nil, 0), gc.IsNil)
+	contentDir := filepath.Join(storageDir, contentdir)
+	c.Assert(os.Mkdir(filepath.Join(contentDir, "a"), 0755), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b1"), nil, 0), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b2"), nil, 0), gc.IsNil)
 	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
 	c.Assert(storage.RemoveAll(), gc.IsNil)
 	s.assertList(c, storage, "", nil)
 
 	// RemoveAll does not remove the base storage directory.
-	_, err = os.Stat(storageDir)
+	_, err = os.Stat(contentDir)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -228,7 +233,7 @@ func (s *storageSuite) TestURL(c *gc.C) {
 	defer storage.Close()
 	url, err := storage.URL("a/b")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "sftp://example.com/"+path.Join(storageDir, "a/b"))
+	c.Assert(url, gc.Equals, "sftp://example.com/"+path.Join(storageDir, contentdir, "a/b"))
 }
 
 func (s *storageSuite) TestConsistencyStrategy(c *gc.C) {
@@ -272,7 +277,7 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	// Get and List should be able to proceed with a shared lock.
 	// All other methods should fail.
 	data := []byte("abc\000def")
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a"), data, 0644), gc.IsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, contentdir, "a"), data, 0644), gc.IsNil)
 
 	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
 	_, err = storage.Get("a")
