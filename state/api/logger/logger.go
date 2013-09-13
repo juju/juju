@@ -27,7 +27,7 @@ func NewState(caller common.Caller) *State {
 func (st *State) LoggingConfig(agentTag string) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
+		Entities: []params.Entity{{Tag: agentTag}},
 	}
 	err := st.caller.Call("Logger", "", "LoggingConfig", args, &results)
 	if err != nil {
