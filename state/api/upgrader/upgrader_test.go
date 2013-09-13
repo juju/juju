@@ -72,7 +72,7 @@ func (s *upgraderSuite) TestSetToolsWrongMachine(c *gc.C) {
 		Version: version.Current,
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
@@ -91,7 +91,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 func (s *upgraderSuite) TestToolsWrongMachine(c *gc.C) {
 	tools, err := s.st.Tools("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
 }
 

@@ -156,7 +156,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 				c.Check(err, gc.IsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, "permission denied")
-				c.Check(params.IsCodeUnauthorized(err), jc.IsTrue)
+				c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)
 			}
 			reset()
 			st.Close()

@@ -136,7 +136,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	s.assertInScope(c, wpRelUnit, false)
 	err = apiRelUnit.EnterScope()
 	c.Assert(err, gc.NotNil)
-	c.Check(params.IsCodeCannotEnterScope(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, params.IsCodeCannotEnterScope)
 	c.Check(err, gc.ErrorMatches, "cannot enter scope: unit or relation is not alive")
 }
 
@@ -167,7 +167,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = apiRelUnit.EnterScope()
 	c.Assert(err, gc.NotNil)
-	c.Check(params.IsCodeCannotEnterScopeYet(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, params.IsCodeCannotEnterScopeYet)
 	c.Check(err, gc.ErrorMatches, "cannot enter scope yet: non-alive subordinate unit has not been removed")
 }
 

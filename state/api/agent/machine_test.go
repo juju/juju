@@ -45,7 +45,7 @@ func (s *machineSuite) TearDownTest(c *gc.C) {
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
@@ -61,7 +61,7 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
-	c.Assert(params.IsCodeNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
 

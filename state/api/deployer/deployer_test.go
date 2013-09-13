@@ -90,7 +90,7 @@ func (s *deployerSuite) TestNew(c *gc.C) {
 
 func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {

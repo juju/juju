@@ -116,7 +116,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			c.Assert(err1.Message, gc.Equals, t.err.Error())
 			c.Assert(err1.Code, gc.Equals, t.code)
 			if t.helperFunc != nil {
-				c.Assert(t.helperFunc(err1), jc.IsTrue)
+				c.Assert(err1, jc.Satisfies, t.helperFunc)
 			}
 		}
 	}

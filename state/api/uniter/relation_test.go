@@ -68,7 +68,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 	err = s.apiRelation.Refresh()
-	c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	// Test some invalid cases.
 	for _, relId := range []int{-1, 42, otherRel.Id()} {
 		apiRel, err = s.uniter.RelationById(relId)
-		c.Assert(params.IsCodeUnauthorized(err), jc.IsTrue)
+		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 		c.Assert(apiRel, gc.IsNil)
 	}
 }
