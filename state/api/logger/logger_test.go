@@ -16,8 +16,6 @@ import (
 type loggerSuite struct {
 	jujutesting.JujuConnSuite
 
-	stateAPI *api.State
-
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
@@ -32,12 +30,13 @@ var _ = gc.Suite(&loggerSuite{})
 
 func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	s.AddCleanup(func() { s.stateAPI.Close() })
-	c.Assert(s.stateAPI, gc.NotNil)
+	var stateAPI *api.State
+	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
+	c.Assert(stateAPI, gc.NotNil)
+	s.AddCleanup(func() { stateAPI.Close() })
 
 	// Create the logger facade.
-	s.logger = s.stateAPI.Logger()
+	s.logger = stateAPI.Logger()
 	c.Assert(s.logger, gc.NotNil)
 }
 
