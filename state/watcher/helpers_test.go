@@ -5,9 +5,11 @@ package watcher_test
 
 import (
 	"errors"
+
 	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/state/watcher"
 )
 
 type dummyWatcher struct {

@@ -6,7 +6,7 @@ package testing
 import (
 	"strings"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -23,12 +23,12 @@ type ToolsFixture struct {
 	DefaultBaseURL string
 }
 
-func (s *ToolsFixture) SetUpTest(c *C) {
+func (s *ToolsFixture) SetUpTest(c *gc.C) {
 	s.origDefaultURL = envtools.DefaultBaseURL
 	envtools.DefaultBaseURL = s.DefaultBaseURL
 }
 
-func (s *ToolsFixture) TearDownTest(c *C) {
+func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
@@ -48,9 +48,9 @@ func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*cor
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *coretools.Tools {
+func UploadFakeToolsVersion(c *gc.C, storage environs.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return t
 }
 
@@ -81,8 +81,8 @@ func uploadFakeTools(storage environs.Storage) error {
 // to config.DefaultSeries, matching fake tools will be uploaded for that series.
 // This is useful for tests that are kinda casual about specifying their
 // environment.
-func UploadFakeTools(c *C, storage environs.Storage) {
-	c.Assert(uploadFakeTools(storage), IsNil)
+func UploadFakeTools(c *gc.C, storage environs.Storage) {
+	c.Assert(uploadFakeTools(storage), gc.IsNil)
 }
 
 // MustUploadFakeTools acts as UploadFakeTools, but panics on failure.
@@ -93,32 +93,32 @@ func MustUploadFakeTools(storage environs.Storage) {
 }
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
-func RemoveFakeTools(c *C, storage environs.Storage) {
+func RemoveFakeTools(c *gc.C, storage environs.Storage) {
 	toolsVersion := version.Current
 	name := envtools.StorageName(toolsVersion)
 	err := storage.Remove(name)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 	if version.Current.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
 		name := envtools.StorageName(toolsVersion)
 		err := storage.Remove(name)
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 }
 
 // RemoveTools deletes all tools from the supplied storage.
-func RemoveTools(c *C, storage environs.Storage) {
+func RemoveTools(c *gc.C, storage environs.Storage) {
 	names, err := storage.List("tools/juju-")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
 		err = storage.Remove(name)
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 }
 
 // RemoveAllTools deletes all tools from the supplied environment.
-func RemoveAllTools(c *C, env environs.Environ) {
+func RemoveAllTools(c *gc.C, env environs.Environ) {
 	c.Logf("clearing private storage")
 	RemoveTools(c, env.Storage())
 	c.Logf("clearing public storage")

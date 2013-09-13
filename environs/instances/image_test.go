@@ -4,9 +4,9 @@
 package instances
 
 import (
-	gc "launchpad.net/gocheck"
-
 	"testing"
+
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"

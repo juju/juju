@@ -4,11 +4,13 @@
 package watcher
 
 import (
+	"sync"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/tomb"
-	"sync"
 )
 
 // commonWatcher implements common watcher logic in one place to

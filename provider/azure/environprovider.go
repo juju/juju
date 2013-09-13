@@ -7,9 +7,11 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/loggo"
 )
 
 // Register the Azure provider with Juju.

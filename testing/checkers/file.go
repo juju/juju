@@ -8,17 +8,17 @@ import (
 	"os"
 	"reflect"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 // IsNonEmptyFile checker
 
 type isNonEmptyFileChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var IsNonEmptyFile Checker = &isNonEmptyFileChecker{
-	&CheckerInfo{Name: "IsNonEmptyFile", Params: []string{"obtained"}},
+var IsNonEmptyFile gc.Checker = &isNonEmptyFileChecker{
+	&gc.CheckerInfo{Name: "IsNonEmptyFile", Params: []string{"obtained"}},
 }
 
 func (checker *isNonEmptyFileChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -44,11 +44,11 @@ func (checker *isNonEmptyFileChecker) Check(params []interface{}, names []string
 // IsDirectory checker
 
 type isDirectoryChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var IsDirectory Checker = &isDirectoryChecker{
-	&CheckerInfo{Name: "IsDirectory", Params: []string{"obtained"}},
+var IsDirectory gc.Checker = &isDirectoryChecker{
+	&gc.CheckerInfo{Name: "IsDirectory", Params: []string{"obtained"}},
 }
 
 func (checker *isDirectoryChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -74,11 +74,11 @@ func (checker *isDirectoryChecker) Check(params []interface{}, names []string) (
 // DoesNotExist checker makes sure the path specified doesn't exist.
 
 type doesNotExistChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var DoesNotExist Checker = &doesNotExistChecker{
-	&CheckerInfo{Name: "DoesNotExist", Params: []string{"obtained"}},
+var DoesNotExist gc.Checker = &doesNotExistChecker{
+	&gc.CheckerInfo{Name: "DoesNotExist", Params: []string{"obtained"}},
 }
 
 func (checker *doesNotExistChecker) Check(params []interface{}, names []string) (result bool, error string) {
