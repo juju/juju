@@ -61,7 +61,7 @@ var firewallModeTests = []struct {
 }
 
 func (*ConfigSuite) TestFirewallMode(c *gc.C) {
-	for _, test := range firewallModeTests {
+	for i, test := range firewallModeTests {
 		c.Logf("test %d: %s", i, test.configFirewallMode)
 		attrs := dummy.SampleConfig()
 		if test.configFirewallMode != "" {
