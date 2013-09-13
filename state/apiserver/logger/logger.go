@@ -14,7 +14,10 @@ import (
 
 var logger = loggo.GetLogger("juju.api.logger")
 
-// LoggerAPI defines the methods on the logger API end point.
+// Logger defines the methods on the logger API end point.  Unfortunately, the
+// api infrastructure doesn't allow interfaces to be used as an actual
+// endpoint because our rpc mechanism panics.  However, I still feel that this
+// provides a useful documentation purpose.
 type Logger interface {
 	WatchLoggingConfig(args params.Entities) params.NotifyWatchResults
 	LoggingConfig(args params.Entities) params.StringResults
@@ -65,11 +68,11 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 	return params.NotifyWatchResults{result}
 }
 
-// DesiredVersion reports the Agent Version that we want that agent to be running
+// LoggingConfig reports the logging configuration for the agents specified.
 func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 	results := make([]params.StringResult, len(arg.Entities))
 	// If someone is stupid enough to call this function with zero entities,
-	// lets punish them by making them wait for us to get the environ config
+	// let's punish them by making them wait for us to get the environ config
 	// from state.
 	config, configErr := api.state.EnvironConfig()
 	for i, entity := range arg.Entities {
