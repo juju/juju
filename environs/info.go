@@ -3,10 +3,6 @@
 
 package environs
 
-import (
-	"launchpad.net/juju-core/environs/config"
-)
-
 // APIEndpoint holds information about an API endpoint.
 type APIEndpoint struct {
 	// APIAddress holds a list of API addresses. It may not be
@@ -35,35 +31,14 @@ type EnvironInfo struct {
 	// Endpoint holds the latest information on the API endpoint. It
 	// will be updated when new information becomes available.
 	Endpoint APIEndpoint
-
-	// ExtraConfig holds any environ.Config attributes that have
-	// been added by Prepare. When an environment is fully
-	// bootstrapped, and its secrets pushed, this field is optional,
-	// although it is still potentially useful if all the API
-	// endpoint addresses have changed - it can be used to create an
-	// Environ to retrieve a current StateInfo.
-	ExtraConfig map[string]interface{}
-
-	// NeedSecrets stores whether the environment's
-	// secrets have yet been pushed up with the first
-	// state connection.
-	NeedSecrets bool
 }
 
 // ConfigStorage stores environment configuration data.
 type ConfigStorage interface {
-	// DefaultName returns the name of the default environment to use.
-	DefaultName() (string, error)
-
-	// EnvironConfig returns base environment configuration for the
-	// environment with the given name. The configuration does not
-	// include attributes added by the environment when it is
-	// prepared. Conventionally EnvironConfig will return data read
-	// from $HOME/.juju/environments.yaml.
-	EnvironConfig(envName string) (*config.Config, error)
-
 	// EnvironInfo returns information on the environment with the
 	// given name, previously stored with WriteEnvironInfo.
+	// If there is no environment info available, an errors.NotFoundError
+	// is returned.
 	// Conventionally EnvironInfo will return data read from
 	// $HOME/.juju/.environments/$envName.yaml.
 	EnvironInfo(envName string) (*EnvironInfo, error)
