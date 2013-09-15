@@ -52,12 +52,6 @@ func (logger *Logger) setLogging() {
 				loggo.ConfigureLoggers(logger.lastConfig)
 			}
 			logger.lastConfig = loggingConfig
-			// Set the value in the agent config and write it out.
-			logger.agentConfig.SetValue(agent.LoggingConfig, loggingConfig)
-			if err := logger.agentConfig.Write(); err != nil {
-				// Just log the error, this isn't fatal.
-				log.Errorf("failed to write out agent config: %v", err)
-			}
 		}
 	}
 }

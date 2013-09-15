@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apilogger "launchpad.net/juju-core/state/api/logger"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/logger"
 )
@@ -63,28 +62,12 @@ func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
 
 type mockConfig struct {
 	agent.Config
-	c           *gc.C
-	tag         string
-	setKey      string
-	setValue    string
-	writeCalled bool
+	c   *gc.C
+	tag string
 }
 
 func (mock *mockConfig) Tag() string {
 	return mock.tag
-}
-
-func (mock *mockConfig) SetValue(key, value string) {
-	// This should only be called once, make sure the values aren't set yet.
-	mock.c.Check(mock.setValue, gc.Equals, "")
-	mock.c.Check(mock.setKey, gc.Equals, "")
-	mock.setKey = key
-	mock.setValue = value
-}
-
-func (mock *mockConfig) Write() error {
-	mock.writeCalled = true
-	return nil
 }
 
 func agentConfig(c *gc.C, tag string) *mockConfig {
@@ -113,11 +96,8 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	err = loggo.ConfigureLoggers(initial)
 	c.Assert(err, gc.IsNil)
 
-	loggingWorker, agentConfig := s.makeLogger(c)
+	loggingWorker, _ := s.makeLogger(c)
 	defer worker.Stop(loggingWorker)
 
 	s.waitLoggingInfo(c, expected)
-	c.Assert(agentConfig.setKey, gc.Equals, agent.LoggingConfig)
-	c.Assert(agentConfig.setValue, gc.Equals, expected)
-	c.Assert(agentConfig.writeCalled, jc.IsTrue)
 }
