@@ -358,12 +358,6 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
 	}
 }
 
-func (s *ConstraintsSuite) TestInit(c *gc.C) {
-	var cons constraints.Value
-	v := instance.LXC
-	cons.Container = &v
-}
-
 var withFallbacksTests = []struct {
 	desc      string
 	initial   string
