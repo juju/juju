@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -46,19 +47,19 @@ var getTests = []struct {
 	about       string
 	charm       string
 	constraints string
-	config      map[string]string
+	config      charm.Settings
 	expect      params.ServiceGetResults
 }{{
 	about:       "deployed service",
 	charm:       "dummy",
 	constraints: "mem=2G cpu-power=400",
-	config: map[string]string{
+	config: charm.Settings{
 		// Different from default.
 		"title": "Look To Windward",
 		// Same as default.
 		"username": "admin001",
 		// Use default (but there's no charm default)
-		"skill-level": "",
+		"skill-level": nil,
 		// Outlook is left unset.
 	},
 	expect: params.ServiceGetResults{
@@ -72,7 +73,6 @@ var getTests = []struct {
 				"description": "No default outlook.",
 				"type":        "string",
 				"default":     true,
-				"value":       nil,
 			},
 			"username": map[string]interface{}{
 				"description": "The name of the initial account (given admin permissions).",
@@ -83,21 +83,20 @@ var getTests = []struct {
 				"description": "A number indicating skill.",
 				"type":        "int",
 				"default":     true,
-				"value":       nil,
 			},
 		},
 	},
 }, {
 	about: "deployed service  #2",
 	charm: "dummy",
-	config: map[string]string{
-		// Empty string gives default
-		"title": "",
-		// Value when there's a default
+	config: charm.Settings{
+		// Set title to default.
+		"title": nil,
+		// Value when there's a default.
 		"username": "foobie",
-		// Numeric value
-		"skill-level": "0",
-		// String value
+		// Numeric value.
+		"skill-level": 0,
+		// String value.
 		"outlook": "phlegmatic",
 	},
 	expect: params.ServiceGetResults{
@@ -152,9 +151,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
-			settings, err := ch.Config().ParseSettingsStrings(t.config)
-			c.Assert(err, gc.IsNil)
-			err = svc.UpdateConfigSettings(settings)
+			err = svc.UpdateConfigSettings(t.config)
 			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect

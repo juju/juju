@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -229,16 +230,17 @@ type environ struct {
 	novaUnlocked          *nova.Client
 	storageUnlocked       environs.Storage
 	publicStorageUnlocked environs.StorageReader // optional.
-	// An ordered list of paths in which to find the simplestreams index files used to
+	// An ordered list of sources in which to find the simplestreams index files used to
 	// look up image ids.
-	imageBaseURLs []string
+	imageSources []simplestreams.DataSource
 	// An ordered list of paths in which to find the simplestreams index files used to
 	// look up tools ids.
-	toolsBaseURLs []string
+	toolsSources []simplestreams.DataSource
 }
 
 var _ environs.Environ = (*environ)(nil)
-var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
+var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
+var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
@@ -548,13 +550,13 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) GetImageBaseURLs() ([]string, error) {
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	e.imageBaseMutex.Lock()
 	defer e.imageBaseMutex.Unlock()
 
-	if e.imageBaseURLs != nil {
-		return e.imageBaseURLs, nil
+	if e.imageSources != nil {
+		return e.imageSources, nil
 	}
 	if !e.client.IsAuthenticated() {
 		err := e.client.Authenticate()
@@ -562,29 +564,28 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 			return nil, err
 		}
 	}
-	// Add the simplestreams base URL off the public bucket.
-	jujuImageURL, err := e.PublicStorage().URL("")
-	if err == nil {
-		e.imageBaseURLs = append(e.imageBaseURLs, jujuImageURL)
-	}
+	// Add the simplestreams source off the control bucket.
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
+	// Add the simplestreams source off the public bucket.
+	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
 		// if !e.Config().SSLHostnameVerification() {
 		// 	productStreamsURL = "nonvalidating-" + productStreamsURL
 		// }
-		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
+		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
 	}
-	return e.imageBaseURLs, nil
+	return e.imageSources, nil
 }
 
-// GetToolsBaseURLs returns a list of URLs which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsBaseURLs() ([]string, error) {
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	e.toolsBaseMutex.Lock()
 	defer e.toolsBaseMutex.Unlock()
 
-	if e.toolsBaseURLs != nil {
-		return e.toolsBaseURLs, nil
+	if e.toolsSources != nil {
+		return e.toolsSources, nil
 	}
 	if !e.client.IsAuthenticated() {
 		err := e.client.Authenticate()
@@ -592,12 +593,14 @@ func (e *environ) GetToolsBaseURLs() ([]string, error) {
 			return nil, err
 		}
 	}
+	// Add the simplestreams source off the control bucket.
+	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		e.toolsBaseURLs = append(e.toolsBaseURLs, toolsURL)
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
 	}
-	return e.toolsBaseURLs, nil
+	return e.toolsSources, nil
 }
 
 // allocatePublicIP tries to find an available floating IP address, or

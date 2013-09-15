@@ -91,17 +91,18 @@ var tests = []struct {
 		},
 	},
 	{
-		description: "synchronize to public bucket",
-		args:        []string{"-e", "test-target", "--public"},
-		sctx: &sync.SyncContext{
-			PublicBucket: true,
-		},
-	},
-	{
 		description: "just make a dry run",
 		args:        []string{"-e", "test-target", "--dry-run"},
 		sctx: &sync.SyncContext{
 			DryRun: true,
+		},
+	},
+	{
+		description: "specify version",
+		args:        []string{"-e", "test-target", "--version", "1.2"},
+		sctx: &sync.SyncContext{
+			MajorVersion: 1,
+			MinorVersion: 2,
 		},
 	},
 }
@@ -116,14 +117,13 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		called := false
 		syncTools = func(sctx *sync.SyncContext) error {
-			env := sctx.Target.(environs.Environ)
-			c.Assert(env.Name(), gc.Equals, s.targetEnv.Name())
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
+			c.Assert(sctx.MajorVersion, gc.Equals, test.sctx.MajorVersion)
+			c.Assert(sctx.MinorVersion, gc.Equals, test.sctx.MinorVersion)
 			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
-			c.Assert(sctx.PublicBucket, gc.Equals, test.sctx.PublicBucket)
 			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
-			s.targetEnv.Storage() // This will panic if the environment is not prepared.
+			c.Assert(sctx.Target, gc.Equals, s.targetEnv.Storage())
 			called = true
 			return nil
 		}
@@ -133,4 +133,25 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 		c.Assert(called, jc.IsTrue)
 		s.Reset(c)
 	}
+}
+
+func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
+	called := false
+	dir := c.MkDir()
+	syncTools = func(sctx *sync.SyncContext) error {
+		c.Assert(sctx.AllVersions, gc.Equals, false)
+		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Source, gc.Equals, "")
+		url, err := sctx.Target.URL("")
+		c.Assert(err, gc.IsNil)
+		c.Assert(url, gc.Equals, "file://"+dir)
+		called = true
+		return nil
+	}
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(called, jc.IsTrue)
+	s.Reset(c)
 }

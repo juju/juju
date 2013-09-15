@@ -464,13 +464,8 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
-		"USER":                      env.config.user,
-		"HOME":                      os.Getenv("HOME"),
-		osenv.JujuProviderType:      env.config.Type(),
-		osenv.JujuStorageDir:        env.config.storageDir(),
-		osenv.JujuStorageAddr:       env.config.storageAddr(),
-		osenv.JujuSharedStorageDir:  env.config.sharedStorageDir(),
-		osenv.JujuSharedStorageAddr: env.config.sharedStorageAddr(),
+		"USER": env.config.user,
+		"HOME": osenv.Home(),
 	}
 	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
@@ -496,6 +491,13 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 	// wouldn't get this far.
 	cfg := env.config.Config
 	caCert, _ := cfg.CACert()
+	agentValues := map[string]string{
+		agent.ProviderType:      env.config.Type(),
+		agent.StorageDir:        env.config.storageDir(),
+		agent.StorageAddr:       env.config.storageAddr(),
+		agent.SharedStorageDir:  env.config.sharedStorageDir(),
+		agent.SharedStorageAddr: env.config.sharedStorageAddr(),
+	}
 	// NOTE: the state address HAS to be localhost, otherwise the mongo
 	// initialization fails.  There is some magic code somewhere in the mongo
 	// connection code that treats connections from localhost as special, and
@@ -513,6 +515,7 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 				StateAddresses: []string{stateAddress},
 				APIAddresses:   []string{apiAddress},
 				CACert:         caCert,
+				Values:         agentValues,
 			},
 			StateServerCert: cert,
 			StateServerKey:  key,

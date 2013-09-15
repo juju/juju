@@ -8,11 +8,13 @@ package watcher
 
 import (
 	"fmt"
+	"time"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
-	"time"
+
+	"launchpad.net/juju-core/log"
 )
 
 // Debug specifies whether the package will log debug

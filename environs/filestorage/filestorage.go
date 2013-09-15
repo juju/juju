@@ -6,8 +6,8 @@ package filestorage
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 
@@ -35,12 +35,13 @@ func NewFileStorageReader(path string) (environs.StorageReader, error) {
 	return &fileStorageReader{p}, nil
 }
 
+func (f *fileStorageReader) fullPath(name string) string {
+	return filepath.Join(f.path, name)
+}
+
 // Get implements environs.StorageReader.Get.
 func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
-	filename, err := f.URL(name)
-	if err != nil {
-		return nil, err
-	}
+	filename := f.fullPath(name)
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -74,10 +75,44 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 
 // URL implements environs.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
-	return path.Join(f.path, name), nil
+	return "file://" + filepath.Join(f.path, name), nil
 }
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
 func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
+}
+
+type fileStorageWriter struct {
+	fileStorageReader
+}
+
+func NewFileStorageWriter(path string) (environs.Storage, error) {
+	reader, err := NewFileStorageReader(path)
+	if err != nil {
+		return nil, err
+	}
+	return &fileStorageWriter{*reader.(*fileStorageReader)}, nil
+}
+
+func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
+	fullpath := f.fullPath(name)
+	dir := filepath.Dir(fullpath)
+	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+		return err
+	}
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(fullpath, data, 0644)
+}
+
+func (f *fileStorageWriter) Remove(name string) error {
+	fullpath := f.fullPath(name)
+	return os.Remove(fullpath)
+}
+
+func (f *fileStorageWriter) RemoveAll() error {
+	return environs.RemoveAll(f)
 }

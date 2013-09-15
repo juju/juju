@@ -7,13 +7,14 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	gc "launchpad.net/gocheck"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/testing"

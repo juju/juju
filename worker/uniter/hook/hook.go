@@ -6,6 +6,7 @@ package hook
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/charm/hooks"
 )
 

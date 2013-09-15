@@ -43,14 +43,14 @@ func (s *charmSuite) TestURL(c *gc.C) {
 	c.Assert(s.apiCharm.URL(), gc.DeepEquals, s.wordpressCharm.URL())
 }
 
-func (s *charmSuite) TestBundleURL(c *gc.C) {
-	bundleURL, err := s.apiCharm.BundleURL()
+func (s *charmSuite) TestArchiveURL(c *gc.C) {
+	archiveURL, err := s.apiCharm.ArchiveURL()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bundleURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
+	c.Assert(archiveURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
 }
 
-func (s *charmSuite) TestBundleSha256(c *gc.C) {
-	bundleSha256, err := s.apiCharm.BundleSha256()
+func (s *charmSuite) TestArchiveSha256(c *gc.C) {
+	archiveSha256, err := s.apiCharm.ArchiveSha256()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bundleSha256, gc.Equals, s.wordpressCharm.BundleSha256())
+	c.Assert(archiveSha256, gc.Equals, s.wordpressCharm.BundleSha256())
 }

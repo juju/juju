@@ -304,13 +304,16 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	expectErr := `"unit-wordpress-0" has no public address set`
+	expectErr := &params.Error{
+		Code:    params.CodeNoAddressSet,
+		Message: `"unit-wordpress-0" has no public address set`,
+	}
 	result, err := s.uniter.PublicAddress(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: expectErr}},
+			{Error: expectErr},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -369,13 +372,16 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	expectErr := `"unit-wordpress-0" has no private address set`
+	expectErr := &params.Error{
+		Code:    params.CodeNoAddressSet,
+		Message: `"unit-wordpress-0" has no private address set`,
+	}
 	result, err := s.uniter.PrivateAddress(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: expectErr}},
+			{Error: expectErr},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -823,7 +829,7 @@ func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 	s.assertOneStringsWatcher(c, result, err)
 }
 
-func (s *uniterSuite) TestCharmBundleURL(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveURL(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
@@ -831,7 +837,7 @@ func (s *uniterSuite) TestCharmBundleURL(c *gc.C) {
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := s.uniter.CharmBundleURL(args)
+	result, err := s.uniter.CharmArchiveURL(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -842,7 +848,7 @@ func (s *uniterSuite) TestCharmBundleURL(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestCharmBundleSha256(c *gc.C) {
+func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
@@ -850,7 +856,7 @@ func (s *uniterSuite) TestCharmBundleSha256(c *gc.C) {
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := s.uniter.CharmBundleSha256(args)
+	result, err := s.uniter.CharmArchiveSha256(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -1312,4 +1318,14 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	s.assertInScope(c, myRelUnit, false)
 
 	wc.AssertChange(nil, []string{"mysql/0"})
+}
+
+func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	result, err := s.uniter.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiInfo.Addrs,
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
@@ -377,6 +378,7 @@ type Endpoint struct {
 
 type RelationInfo struct {
 	Key       string `bson:"_id"`
+	Id        int
 	Endpoints []Endpoint
 }
 

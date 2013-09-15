@@ -36,10 +36,6 @@ type bootstrapSuite struct {
 	envtesting.ToolsFixture
 }
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
@@ -148,17 +144,11 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 	for i, test := range allTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()
-		attrs := map[string]interface{}{
-			"name":            "test",
-			"type":            "dummy",
-			"state-server":    false,
-			"admin-secret":    "a-secret",
-			"authorized-keys": "i-am-a-key",
-			"ca-cert":         coretesting.CACert,
-			"ca-private-key":  coretesting.CAKey,
-			"development":     test.Development,
-			"default-series":  test.DefaultSeries,
-		}
+		attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+			"state-server":   false,
+			"development":    test.Development,
+			"default-series": test.DefaultSeries,
+		})
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
 		}
@@ -217,20 +207,15 @@ type bootstrapEnviron struct {
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
-	m := map[string]interface{}{
-		"name":            name,
-		"type":            "test",
-		"ca-cert":         "",
-		"ca-private-key":  "",
-		"authorized-keys": "",
+	m := dummy.SampleConfig()
+	if !defaultKeys {
+		m = m.Delete(
+			"ca-cert",
+			"ca-private-key",
+			"admin-secret",
+		)
 	}
-	if defaultKeys {
-		m["ca-cert"] = coretesting.CACert
-		m["ca-private-key"] = coretesting.CAKey
-		m["admin-secret"] = version.Current.Number.String()
-		m["authorized-keys"] = "foo"
-	}
-	cfg, err := config.New(m)
+	cfg, err := config.New(config.NoDefaults, m)
 	if err != nil {
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}

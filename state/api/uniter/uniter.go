@@ -96,9 +96,16 @@ func (st *State) Service(tag string) (*Service, error) {
 //
 // TODO(dimitern): We might be able to drop this, once we have machine
 // addresses implemented fully. See also LP bug 1221798.
-func (st *State) ProviderType() string {
-	// TODO: Call Uniter.ProviderType()
-	panic("not implemented")
+func (st *State) ProviderType() (string, error) {
+	var result params.StringResult
+	err := st.caller.Call("Uniter", "", "ProviderType", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	if err := result.Error; err != nil {
+		return "", err
+	}
+	return result.Result, nil
 }
 
 // Charm returns the charm with the given URL.
@@ -155,4 +162,17 @@ func (st *State) RelationById(id int) (*Relation, error) {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	return &Environment{st}, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Uniter", "", "APIAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return result.Result, nil
 }

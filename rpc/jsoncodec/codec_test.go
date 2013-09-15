@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/testing"
 	"reflect"
 	"regexp"
 	stdtesting "testing"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
+	"launchpad.net/juju-core/testing"
 )
 
 type suite struct {

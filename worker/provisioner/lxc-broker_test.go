@@ -12,6 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
@@ -19,8 +20,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -38,7 +39,8 @@ type lxcSuite struct {
 
 type lxcBrokerSuite struct {
 	lxcSuite
-	broker environs.InstanceBroker
+	broker      environs.InstanceBroker
+	agentConfig agent.Config
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -77,7 +79,19 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	s.broker = provisioner.NewLxcBroker(coretesting.EnvironConfig(c), tools)
+	config := coretesting.EnvironConfig(c)
+	var err error
+	s.agentConfig, err = agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:      "/not/used/here",
+			Tag:          "tag",
+			Password:     "dummy-secret",
+			Nonce:        "nonce",
+			APIAddresses: []string{"10.0.0.1:1234"},
+			CACert:       []byte(coretesting.CACert),
+		})
+	c.Assert(err, gc.IsNil)
+	s.broker = provisioner.NewLxcBroker(config, tools, s.agentConfig)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -106,7 +120,7 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
-	defer coretesting.PatchEnvironment(osenv.JujuLxcBridge, "br0")()
+	s.agentConfig.SetValue(agent.LxcBridge, "br0")
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId)
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
@@ -231,17 +245,19 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *lxcProvisionerSuite) newLxcProvisioner() *provisioner.Provisioner {
-	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, s.DataDir())
+func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
+	machineTag := names.MachineTag(s.machineId)
+	agentConfig := s.AgentConfigForTag(c, machineTag)
+	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, agentConfig)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
-	p := s.newLxcProvisioner()
+	p := s.newLxcProvisioner(c)
 	c.Assert(p.Stop(), gc.IsNil)
 }
 
 func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
-	p := s.newLxcProvisioner()
+	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
@@ -264,7 +280,7 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
-	p := s.newLxcProvisioner()
+	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 
 	container := s.addContainer(c)

@@ -49,25 +49,25 @@ var _ = gc.Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary                 string
-	config                  attrs
-	change                  attrs
-	expect                  attrs
-	envVars                 map[string]string
-	region                  string
-	controlBucket           string
-	publicBucket            string
-	pbucketURL              string
-	useFloatingIP           bool
-	username                string
-	password                string
-	tenantName              string
-	authMode                string
-	authURL                 string
-	accessKey               string
-	secretKey               string
-	firewallMode            config.FirewallMode
-	err                     string
+	summary       string
+	config        attrs
+	change        attrs
+	expect        attrs
+	envVars       map[string]string
+	region        string
+	controlBucket string
+	publicBucket  string
+	pbucketURL    string
+	useFloatingIP bool
+	username      string
+	password      string
+	tenantName    string
+	authMode      string
+	authURL       string
+	accessKey     string
+	secretKey     string
+	firewallMode  string
+	err           string
 	sslHostnameVerification bool
 	sslHostnameSet          bool
 }
@@ -511,13 +511,12 @@ func (t *testWriter) Write(level loggo.Level, module, filename string, line int,
 
 func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
 	s.setupEnvCredentials()
-	attrs := map[string]interface{}{
-		"name":            "testenv",
-		"type":            "openstack",
-		"control-bucket":  "x",
-		"authorized-keys": "fakekey",
-		deprecatedKey:     value,
-	}
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"name":           "testenv",
+		"type":           "openstack",
+		"control-bucket": "x",
+		deprecatedKey:    value,
+	})
 	_, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
 }

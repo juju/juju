@@ -4,16 +4,17 @@
 package utils
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 // NormalizePath replaces a leading ~ with $HOME, and removes any .. or . path
 // elements.
 func NormalizePath(dir string) string {
 	if strings.HasPrefix(dir, "~/") {
-		dir = filepath.Join(os.Getenv("HOME"), dir[2:])
+		dir = filepath.Join(osenv.Home(), dir[2:])
 	}
 	return filepath.Clean(dir)
 }

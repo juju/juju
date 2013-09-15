@@ -5,6 +5,7 @@ package jujuc_test
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/set"

@@ -69,7 +69,7 @@ func methods(rootType reflect.Type) (*serverMethods, error) {
 		actions := make(map[string]*action)
 		for i := 0; i < obtain.ret.NumMethod(); i++ {
 			obtainMethod := obtain.ret.Method(i)
-			if act := methodToAction(obtainMethod); act != nil {
+			if act := methodToAction(obtainMethod, obtain.ret.Kind()); act != nil {
 				actions[obtainMethod.Name] = act
 			} else {
 				log.Infof("rpc: discarding action method %#v", obtainMethod)
@@ -142,23 +142,28 @@ type action struct {
 	call func(rcvr, arg reflect.Value) (reflect.Value, error)
 }
 
-func methodToAction(m reflect.Method) *action {
+func methodToAction(m reflect.Method, receiverKind reflect.Kind) *action {
 	if m.PkgPath != "" {
 		return nil
 	}
 	var p action
 	var assemble func(arg reflect.Value) []reflect.Value
-	// N.B. The method type has the receiver as its first argument.
+	// N.B. The method type has the receiver as its first argument
+	// unless the receiver is an interface.
+	receiverArgCount := 1
+	if receiverKind == reflect.Interface {
+		receiverArgCount = 0
+	}
 	t := m.Type
 	switch {
-	case t.NumIn() == 1:
+	case t.NumIn() == 0+receiverArgCount:
 		// Method() ...
 		assemble = func(arg reflect.Value) []reflect.Value {
 			return nil
 		}
-	case t.NumIn() == 2:
+	case t.NumIn() == 1+receiverArgCount:
 		// Method(T) ...
-		p.arg = t.In(1)
+		p.arg = t.In(receiverArgCount)
 		assemble = func(arg reflect.Value) []reflect.Value {
 			return []reflect.Value{arg}
 		}

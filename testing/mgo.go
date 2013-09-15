@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
@@ -57,7 +57,6 @@ type MgoSuite struct {
 }
 
 // startMgoServer starts a MongoDB server in a temporary directory.
-// It panics if it encounters an error.
 func startMgoServer() error {
 	dbdir, err := ioutil.TempDir("", "test-mgo")
 	if err != nil {
@@ -69,12 +68,30 @@ func startMgoServer() error {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
 	MgoPort = FindTCPPort()
+	MgoAddr = fmt.Sprintf("localhost:%d", MgoPort)
+	mgoDir = dbdir
+	if err := runMgoServer(); err != nil {
+		MgoAddr = ""
+		MgoPort = 0
+		os.RemoveAll(mgoDir)
+		mgoDir = ""
+		return err
+	}
+	return nil
+}
+
+// runMgoServer runs the MongoDB server at the
+// address and directory already configured.
+func runMgoServer() error {
+	if mgoServer != nil {
+		panic("mongo server is already running")
+	}
 	mgoport := strconv.Itoa(MgoPort)
 	mgoargs := []string{
 		"--auth",
-		"--dbpath", dbdir,
+		"--dbpath", mgoDir,
 		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", pemPath,
+		"--sslPEMKeyFile", filepath.Join(mgoDir, "server.pem"),
 		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "localhost",
 		"--port", mgoport,
@@ -106,21 +123,33 @@ func startMgoServer() error {
 	}()
 	mgoExited = exited
 	if err := server.Start(); err != nil {
-		os.RemoveAll(dbdir)
 		return err
 	}
-	MgoAddr = "localhost:" + mgoport
 	mgoServer = server
-	mgoDir = dbdir
 	return nil
+}
+
+func mgoKill() {
+	mgoServer.Process.Kill()
+	<-mgoExited
+	mgoServer = nil
+	mgoExited = nil
 }
 
 func destroyMgoServer() {
 	if mgoServer != nil {
-		mgoServer.Process.Kill()
-		<-mgoExited
+		mgoKill()
 		os.RemoveAll(mgoDir)
-		MgoAddr, mgoServer, mgoExited, mgoDir = "", nil, nil, ""
+		MgoAddr, mgoDir = "", ""
+	}
+}
+
+// MgoRestart restarts the mongo server, useful for
+// testing what happens when a state server goes down.
+func MgoRestart() {
+	mgoKill()
+	if err := startMgoServer(); err != nil {
+		panic(err)
 	}
 }
 
@@ -131,10 +160,10 @@ func MgoTestPackage(t *stdtesting.T) {
 		t.Fatal(err)
 	}
 	defer destroyMgoServer()
-	TestingT(t)
+	gc.TestingT(t)
 }
 
-func (s *MgoSuite) SetUpSuite(c *C) {
+func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoAddr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
@@ -171,7 +200,7 @@ func readLines(r io.Reader, n int) []string {
 	return final
 }
 
-func (s *MgoSuite) TearDownSuite(c *C) {
+func (s *MgoSuite) TearDownSuite(c *gc.C) {
 	utils.FastInsecureHash = false
 }
 
@@ -200,7 +229,7 @@ func MgoDial() *mgo.Session {
 	return session
 }
 
-func (s *MgoSuite) SetUpTest(c *C) {
+func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
 	s.Session = MgoDial()
 }
@@ -245,7 +274,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func (s *MgoSuite) TearDownTest(c *C) {
+func (s *MgoSuite) TearDownTest(c *gc.C) {
 	MgoReset()
 	s.Session.Close()
 	for i := 0; ; i++ {

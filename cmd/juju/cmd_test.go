@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type CmdSuite struct {
@@ -35,7 +35,7 @@ environments:
         state-server: false
         admin-secret: arble
         authorized-keys: i-am-a-key
-        default-series: defaultseries
+        default-series: raring
     walthamstow:
         type: dummy
         state-server: false
@@ -75,7 +75,7 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 // Conn field in the value.
 func assertConnName(c *gc.C, com cmd.Command, name string) {
 	v := reflect.ValueOf(com).Elem().FieldByName("EnvName")
-	c.Assert(v, checkers.Satisfies, reflect.Value.IsValid)
+	c.Assert(v, jc.Satisfies, reflect.Value.IsValid)
 	c.Assert(v.Interface(), gc.Equals, name)
 }
 

@@ -6,7 +6,7 @@ package testing
 import (
 	"os"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 type GitSuite struct {
@@ -23,7 +23,7 @@ var gitEnvVars = []string{
 	"GIT_COMMITTER_EMAIL",
 }
 
-func (t *GitSuite) SetUpTest(c *C) {
+func (t *GitSuite) SetUpTest(c *gc.C) {
 	t.oldValues = make(map[string]string)
 	for _, v := range gitEnvVars {
 		t.oldValues[v] = os.Getenv(v)
@@ -38,7 +38,7 @@ func (t *GitSuite) SetUpTest(c *C) {
 	os.Setenv("GIT_COMMITTER_EMAIL", "$GIT_AUTHOR_EMAIL")
 }
 
-func (t *GitSuite) TearDownTest(c *C) {
+func (t *GitSuite) TearDownTest(c *gc.C) {
 	for k, v := range t.oldValues {
 		os.Setenv(k, v)
 	}

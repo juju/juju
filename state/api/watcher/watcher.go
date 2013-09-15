@@ -4,11 +4,13 @@
 package watcher
 
 import (
+	"sync"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/tomb"
-	"sync"
 )
 
 // commonWatcher implements common watcher logic in one place to
@@ -74,7 +76,7 @@ func (w *commonWatcher) commonLoop() {
 			result := w.newResult()
 			err := w.call("Next", &result)
 			if err != nil {
-				if code := params.ErrCode(err); code == params.CodeStopped || code == params.CodeNotFound {
+				if params.IsCodeStopped(err) || params.IsCodeNotFound(err) {
 					if w.tomb.Err() != tomb.ErrStillAlive {
 						// The watcher has been stopped at the client end, so we're
 						// expecting one of the above two kinds of error.

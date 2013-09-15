@@ -5,15 +5,20 @@ package tools_test
 
 import (
 	"flag"
+	"fmt"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -63,7 +68,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			BaseURL:       "test:",
+			Source:        simplestreams.NewURLDataSource("test:"),
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
 			ValidConstraint: tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
@@ -80,7 +85,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		BaseURL:         baseURL,
+		Source:          simplestreams.NewURLDataSource(baseURL),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		ValidConstraint: validToolsConstraint,
@@ -232,15 +237,118 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				Arches:    t.arches,
 			})
 		}
-		tools, err := tools.Fetch([]string{s.BaseURL}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
+		tools, err := tools.Fetch(
+			[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
 		for _, tm := range t.tools {
-			tm.FullPath = s.BaseURL + "/" + tm.Path
+			tm.FullPath, err = s.Source.URL(tm.Path)
+			c.Assert(err, gc.IsNil)
 		}
 		c.Check(tools, gc.DeepEquals, t.tools)
 	}
+}
+
+func assertMetadataMatches(c *gc.C, toolList coretools.List, metadata []*tools.ToolsMetadata) {
+	var expectedMetadata []*tools.ToolsMetadata = make([]*tools.ToolsMetadata, len(toolList))
+	for i, tool := range toolList {
+		if tool.URL != "" {
+			size, sha256 := ttesting.SHA256sum(c, tool.URL)
+			tool.SHA256 = sha256
+			tool.Size = size
+		}
+		expectedMetadata[i] = &tools.ToolsMetadata{
+			Release:  tool.Version.Series,
+			Version:  tool.Version.Number.String(),
+			Arch:     tool.Version.Arch,
+			Size:     tool.Size,
+			Path:     fmt.Sprintf("releases/juju-%s.tgz", tool.Version.String()),
+			FileType: "tar.gz",
+			SHA256:   tool.SHA256,
+		}
+	}
+	c.Assert(metadata, gc.DeepEquals, expectedMetadata)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
+	toolsList := coretools.List{
+		{
+			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Size:    123,
+			SHA256:  "abcd",
+		}, {
+			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			Size:    456,
+			SHA256:  "xyz",
+		},
+	}
+	dir := c.MkDir()
+	writer, err := filestorage.NewFileStorageWriter(dir)
+	c.Assert(err, gc.IsNil)
+	err = tools.WriteMetadata(toolsList, false, writer)
+	c.Assert(err, gc.IsNil)
+	metadata := ttesting.ParseMetadata(c, dir)
+	assertMetadataMatches(c, toolsList, metadata)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
+	var versionStrings = []string{
+		"1.2.3-precise-amd64",
+		"2.0.1-raring-amd64",
+	}
+	dir := c.MkDir()
+	ttesting.MakeTools(c, dir, "releases", versionStrings)
+
+	toolsList := coretools.List{
+		{
+			// If sha256/size is already known, do not recalculate
+			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Size:    123,
+			SHA256:  "abcd",
+		}, {
+			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			URL:     "file://" + filepath.Join(dir, "tools/releases/juju-2.0.1-raring-amd64.tgz"),
+		},
+	}
+	writer, err := filestorage.NewFileStorageWriter(dir)
+	c.Assert(err, gc.IsNil)
+	err = tools.WriteMetadata(toolsList, true, writer)
+	c.Assert(err, gc.IsNil)
+	metadata := ttesting.ParseMetadata(c, dir)
+	assertMetadataMatches(c, toolsList, metadata)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
+	dir := c.MkDir()
+	existingToolsList := coretools.List{
+		{
+			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Size:    123,
+			SHA256:  "abc",
+		}, {
+			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			Size:    456,
+			SHA256:  "xyz",
+		},
+	}
+	writer, err := filestorage.NewFileStorageWriter(dir)
+	c.Assert(err, gc.IsNil)
+	err = tools.WriteMetadata(existingToolsList, true, writer)
+	c.Assert(err, gc.IsNil)
+	newToolsList := coretools.List{
+		existingToolsList[0],
+		{
+			Version: version.MustParseBinary("2.1.0-raring-amd64"),
+			Size:    789,
+			SHA256:  "def",
+		},
+	}
+	err = tools.WriteMetadata(newToolsList, true, writer)
+	c.Assert(err, gc.IsNil)
+	requiredToolsList := append(existingToolsList, newToolsList[1])
+	metadata := ttesting.ParseMetadata(c, dir)
+	assertMetadataMatches(c, requiredToolsList, metadata)
 }
 
 type productSpecSuite struct{}

@@ -39,7 +39,7 @@ func (s *unitSuite) TearDownTest(c *gc.C) {
 func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	apiUnitFoo, err := s.uniter.Unit("unit-foo-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(apiUnitFoo, gc.IsNil)
 
 	c.Assert(s.apiUnit.Tag(), gc.Equals, "unit-wordpress-0")
@@ -83,7 +83,7 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 
 	err = s.apiUnit.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *unitSuite) TestDestroy(c *gc.C) {
@@ -265,7 +265,7 @@ func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
 
 	// Now check the same through the API.
 	_, err := s.apiUnit.CharmURL()
-	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no charm url set`)
+	c.Assert(err, gc.Equals, uniter.ErrNoCharmURLSet)
 
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, gc.IsNil)

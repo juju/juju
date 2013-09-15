@@ -53,7 +53,7 @@ func (s *suite) TestInvalidConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m := cfg.AllAttrs()
 	m["type"] = "unknown"
-	invalidCfg, err := config.New(m)
+	invalidCfg, err := config.New(config.NoDefaults, m)
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetEnvironConfig(invalidCfg)
@@ -73,7 +73,7 @@ func (s *suite) TestInvalidConfig(c *gc.C) {
 	// Then load a valid configuration back in.
 	m = cfg.AllAttrs()
 	m["secret"] = "environ_test"
-	validCfg, err := config.New(m)
+	validCfg, err := config.New(config.NoDefaults, m)
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetEnvironConfig(validCfg)

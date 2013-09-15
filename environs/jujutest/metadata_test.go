@@ -5,9 +5,10 @@ package jujutest
 
 import (
 	"io/ioutil"
-	gc "launchpad.net/gocheck"
 	"net/http"
 	"net/url"
+
+	gc "launchpad.net/gocheck"
 )
 
 type metadataSuite struct{}
