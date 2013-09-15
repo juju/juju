@@ -5,6 +5,7 @@ package main
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"

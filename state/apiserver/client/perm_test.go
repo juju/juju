@@ -4,12 +4,15 @@
 package client_test
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"strings"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type permSuite struct {
@@ -153,7 +156,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 				c.Check(err, gc.IsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, "permission denied")
-				c.Check(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+				c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)
 			}
 			reset()
 			st.Close()
@@ -175,7 +178,7 @@ func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error)
 
 func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -183,7 +186,7 @@ func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), erro
 
 func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -260,7 +263,7 @@ func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
 	// permission error was correctly generated.
-	if err != nil && params.ErrCode(err) == params.CodeUnauthorized {
+	if err != nil && params.IsCodeUnauthorized(err) {
 		return func() {}, err
 	}
 	// Otherwise, the user was authorized, but we expect an error anyway
@@ -310,7 +313,7 @@ func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), er
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}
 	err := st.Client().ServiceUpdate(args)
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -318,7 +321,7 @@ func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), er
 
 func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -326,7 +329,7 @@ func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), 
 
 func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddServiceUnits("nosuch", 1, "")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -342,7 +345,7 @@ func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func
 
 func opClientServiceDestroy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDestroy("non-existent")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err

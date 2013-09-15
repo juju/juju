@@ -5,11 +5,13 @@ package openstack
 
 import (
 	"fmt"
+	"net/url"
+
 	"launchpad.net/goose/identity"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
-	"net/url"
 )
 
 var configFields = schema.Fields{

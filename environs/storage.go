@@ -6,8 +6,9 @@ package environs
 import (
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/environs/simplestreams"
 	"path/filepath"
+
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // RemoveAll is a default implementation for StorageWriter.RemoveAll.

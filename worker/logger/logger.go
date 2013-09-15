@@ -42,7 +42,7 @@ func (logger *Logger) setLogging() {
 		log.Errorf("%v", err)
 	} else {
 		if loggingConfig != logger.lastConfig {
-			log.Debugf("reconfigurint logging from %q to %q", logger.lastConfig, loggingConfig)
+			log.Debugf("reconfiguring logging from %q to %q", logger.lastConfig, loggingConfig)
 			loggo.ResetLoggers()
 			if err := loggo.ConfigureLoggers(loggingConfig); err != nil {
 				// This shouldn't occur as the loggingConfig should be

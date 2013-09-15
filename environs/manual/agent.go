@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"launchpad.net/juju-core/agent"
@@ -45,12 +44,11 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 	}
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	sshArgs := []string{
+	cmd := sshCommand(
 		args.host,
-		"-t", // allocate a pseudo-tty
-		"--", fmt.Sprintf("sudo bash -c '%s'", script),
-	}
-	cmd := exec.Command("ssh", sshArgs...)
+		fmt.Sprintf("sudo bash -c '%s'", script),
+		allocateTTY,
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

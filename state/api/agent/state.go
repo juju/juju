@@ -3,8 +3,6 @@
 
 package agent
 
-// TODO(fwereade): there's nothing machine-specific in here...
-
 import (
 	"fmt"
 
