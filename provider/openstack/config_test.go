@@ -49,25 +49,25 @@ var _ = gc.Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary       string
-	config        attrs
-	change        attrs
-	expect        attrs
-	envVars       map[string]string
-	region        string
-	controlBucket string
-	publicBucket  string
-	pbucketURL    string
-	useFloatingIP bool
-	username      string
-	password      string
-	tenantName    string
-	authMode      string
-	authURL       string
-	accessKey     string
-	secretKey     string
-	firewallMode  string
-	err           string
+	summary                 string
+	config                  attrs
+	change                  attrs
+	expect                  attrs
+	envVars                 map[string]string
+	region                  string
+	controlBucket           string
+	publicBucket            string
+	pbucketURL              string
+	useFloatingIP           bool
+	username                string
+	password                string
+	tenantName              string
+	authMode                string
+	authURL                 string
+	accessKey               string
+	secretKey               string
+	firewallMode            string
+	err                     string
 	sslHostnameVerification bool
 	sslHostnameSet          bool
 }

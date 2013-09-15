@@ -513,11 +513,11 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
+	newClient := client.NewClient
 	if !ecfg.SSLHostnameVerification() && cred.URL[:8] == "https://" {
-		cred.URL = "nonvalidating-" + cred.URL
-		logger.Infof("Setting client URL to: %v", cred.URL)
+		newClient = client.NewNonValidatingClient
 	}
-	return client.NewClient(cred, authMode, nil)
+	return newClient(cred, authMode, nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -571,9 +571,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		// if !e.Config().SSLHostnameVerification() {
-		// 	productStreamsURL = "nonvalidating-" + productStreamsURL
-		// }
 		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
 	}
 	return e.imageSources, nil

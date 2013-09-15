@@ -675,6 +675,7 @@ func (s *publicBucketSuite) TestPublicBucketFromKeystone(c *gc.C) {
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
 	coretesting.LoggingSuite
+	envtesting.ToolsFixture
 	attrs                  map[string]interface{}
 	cred                   *identity.Credentials
 	srv                    localServer
@@ -695,6 +696,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs() map[string]interface{} {
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -707,7 +709,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.cred = cred
 	attrs := s.createConfigAttrs()
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -721,6 +723,7 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 		s.env = nil
 	}
 	s.srv.stop()
+	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -764,4 +767,53 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	// ssl-hostname-verify flag
 	err := bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *localHTTPSServerSuite) TestCanListPublicBucket(c *gc.C) {
+	storage := s.env.PublicStorage()
+	content, err := storage.List("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(content, gc.DeepEquals, []string(nil))
+}
+
+func (s *localHTTPSServerSuite) TestGetImageMetadataSources(c *gc.C) {
+	sources, err := imagemetadata.GetMetadataSources(s.env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
+        // Control bucket goes through a StorageReader so we don't need nonvalidating-
+        c.Check(urls[0][:8], gc.Equals, "https://")
+	// The public bucket URL ends with "/juju-dist/".
+	c.Check(strings.HasSuffix(urls[1], "/juju-dist/"), jc.IsTrue)
+	// The product-streams URL ends with "/imagemetadata".
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
+}
+
+func (s *localHTTPSServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+	sources, err := tools.GetMetadataSources(s.env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+        // The control bucket URL contains the bucket name. It goes through the
+        // StorageReader so it doesn't need nonvalidating-.
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
+        c.Check(urls[0][:8], gc.Equals, "https://")
+	c.Assert(err, gc.IsNil)
+	// Check that the URL from keytone parses.
+	asURL, err = url.Parse(urls[1])
+	c.Assert(err, gc.IsNil)
+        c.Check(asURL.Scheme, gc.Equals, "nonvalidating-https://")
 }
