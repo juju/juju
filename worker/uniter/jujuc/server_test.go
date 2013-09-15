@@ -18,7 +18,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -92,7 +92,7 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 	c.Assert(<-s.err, gc.IsNil)
 	_, err := os.Open(s.sockPath)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	s.LoggingSuite.TearDownTest(c)
 }
 

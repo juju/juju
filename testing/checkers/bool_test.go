@@ -5,9 +5,11 @@ package checkers_test
 
 import (
 	"errors"
-	gc "launchpad.net/gocheck"
-	. "launchpad.net/juju-core/testing/checkers"
 	"os"
+
+	gc "launchpad.net/gocheck"
+
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type BoolSuite struct{}
@@ -15,25 +17,25 @@ type BoolSuite struct{}
 var _ = gc.Suite(&BoolSuite{})
 
 func (s *BoolSuite) TestIsTrue(c *gc.C) {
-	c.Assert(true, IsTrue)
-	c.Assert(false, gc.Not(IsTrue))
+	c.Assert(true, jc.IsTrue)
+	c.Assert(false, gc.Not(jc.IsTrue))
 
-	result, msg := IsTrue.Check([]interface{}{false}, nil)
+	result, msg := jc.IsTrue.Check([]interface{}{false}, nil)
 	c.Assert(result, gc.Equals, false)
 	c.Assert(msg, gc.Equals, "")
 
-	result, msg = IsTrue.Check([]interface{}{"foo"}, nil)
+	result, msg = jc.IsTrue.Check([]interface{}{"foo"}, nil)
 	c.Assert(result, gc.Equals, false)
 	c.Check(msg, gc.Equals, `expected type bool, received type string`)
 
-	result, msg = IsTrue.Check([]interface{}{42}, nil)
+	result, msg = jc.IsTrue.Check([]interface{}{42}, nil)
 	c.Assert(result, gc.Equals, false)
 	c.Assert(msg, gc.Equals, `expected type bool, received type int`)
 }
 
 func (s *BoolSuite) TestIsFalse(c *gc.C) {
-	c.Assert(false, IsFalse)
-	c.Assert(true, gc.Not(IsFalse))
+	c.Assert(false, jc.IsFalse)
+	c.Assert(true, gc.Not(jc.IsFalse))
 }
 
 func is42(i int) bool {
@@ -99,7 +101,7 @@ var satisfiesTests = []struct {
 func (s *BoolSuite) TestSatisfies(c *gc.C) {
 	for i, test := range satisfiesTests {
 		c.Logf("test %d. %T %T", i, test.f, test.arg)
-		result, msg := Satisfies.Check([]interface{}{test.arg, test.f}, nil)
+		result, msg := jc.Satisfies.Check([]interface{}{test.arg, test.f}, nil)
 		c.Check(result, gc.Equals, test.result)
 		c.Check(msg, gc.Equals, test.msg)
 	}

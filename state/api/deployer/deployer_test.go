@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -89,7 +90,7 @@ func (s *deployerSuite) TestNew(c *gc.C) {
 
 func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {

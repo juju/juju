@@ -8,17 +8,19 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/gnuflag"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+
+	"launchpad.net/gnuflag"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 var caCertFile string

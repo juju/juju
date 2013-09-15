@@ -5,10 +5,12 @@ package syslog_test
 
 import (
 	"io/ioutil"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log/syslog"
 	"path/filepath"
 	"testing"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/log/syslog"
 )
 
 func Test(t *testing.T) {

@@ -5,6 +5,7 @@ package main
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -12,7 +13,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type DeploySuite struct {
@@ -136,7 +137,7 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 	err := runDeploy(c, "local:dummy", "other-service", "--config", path)
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-service"`)
 	_, err = s.State.Service("other-service")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {

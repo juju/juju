@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
 )
 

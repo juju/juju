@@ -9,7 +9,8 @@ import (
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
-	. "launchpad.net/juju-core/testing/checkers"
+
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type FileSuite struct{}
@@ -22,7 +23,7 @@ func (s *FileSuite) TestIsNonEmptyFile(c *gc.C) {
 	fmt.Fprintf(file, "something")
 	file.Close()
 
-	c.Assert(file.Name(), IsNonEmptyFile)
+	c.Assert(file.Name(), jc.IsNonEmptyFile)
 }
 
 func (s *FileSuite) TestIsNonEmptyFileWithEmptyFile(c *gc.C) {
@@ -30,35 +31,35 @@ func (s *FileSuite) TestIsNonEmptyFileWithEmptyFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	file.Close()
 
-	result, message := IsNonEmptyFile.Check([]interface{}{file.Name()}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.IsNonEmptyFile.Check([]interface{}{file.Name()}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, file.Name()+" is empty")
 }
 
 func (s *FileSuite) TestIsNonEmptyFileWithMissingFile(c *gc.C) {
 	name := filepath.Join(c.MkDir(), "missing")
 
-	result, message := IsNonEmptyFile.Check([]interface{}{name}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.IsNonEmptyFile.Check([]interface{}{name}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, name+" does not exist")
 }
 
 func (s *FileSuite) TestIsNonEmptyFileWithNumber(c *gc.C) {
-	result, message := IsNonEmptyFile.Check([]interface{}{42}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.IsNonEmptyFile.Check([]interface{}{42}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, "obtained value is not a string and has no .String(), int:42")
 }
 
 func (s *FileSuite) TestIsDirectory(c *gc.C) {
 	dir := c.MkDir()
-	c.Assert(dir, IsDirectory)
+	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *FileSuite) TestIsDirectoryMissing(c *gc.C) {
 	absentDir := filepath.Join(c.MkDir(), "foo")
 
-	result, message := IsDirectory.Check([]interface{}{absentDir}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.IsDirectory.Check([]interface{}{absentDir}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, absentDir+" does not exist")
 }
 
@@ -67,31 +68,31 @@ func (s *FileSuite) TestIsDirectoryWithFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	file.Close()
 
-	result, message := IsDirectory.Check([]interface{}{file.Name()}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.IsDirectory.Check([]interface{}{file.Name()}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, file.Name()+" is not a directory")
 }
 
 func (s *FileSuite) TestIsDirectoryWithNumber(c *gc.C) {
-	result, message := IsDirectory.Check([]interface{}{42}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.IsDirectory.Check([]interface{}{42}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, "obtained value is not a string and has no .String(), int:42")
 }
 
 func (s *FileSuite) TestDoesNotExist(c *gc.C) {
 	absentDir := filepath.Join(c.MkDir(), "foo")
-	c.Assert(absentDir, DoesNotExist)
+	c.Assert(absentDir, jc.DoesNotExist)
 }
 
 func (s *FileSuite) TestDoesNotExistWithPath(c *gc.C) {
 	dir := c.MkDir()
-	result, message := DoesNotExist.Check([]interface{}{dir}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.DoesNotExist.Check([]interface{}{dir}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, dir+" exists")
 }
 
 func (s *FileSuite) TestDoesNotExistWithNumber(c *gc.C) {
-	result, message := DoesNotExist.Check([]interface{}{42}, nil)
-	c.Assert(result, IsFalse)
+	result, message := jc.DoesNotExist.Check([]interface{}{42}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, "obtained value is not a string and has no .String(), int:42")
 }

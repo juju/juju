@@ -152,7 +152,6 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
-	c.Skip("unit agent API connection not implemented yet")
 	unit, _, _ := s.primeAgent(c)
 	s.testOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
 }
