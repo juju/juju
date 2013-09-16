@@ -36,7 +36,7 @@ func (s *filestorageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.reader, err = filestorage.NewFileStorageReader(s.dir)
 	c.Assert(err, gc.IsNil)
-	s.writer, err = filestorage.NewFileStorageWriter(s.dir)
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, "")
 	c.Assert(err, gc.IsNil)
 }
 

@@ -21,7 +21,7 @@ type fileStorageReader struct {
 	path string
 }
 
-// newFileStorageReader returns a new storage reader for
+// NewFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
 func NewFileStorageReader(path string) (environs.StorageReader, error) {
 	p := filepath.Clean(path)
@@ -85,14 +85,22 @@ func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
 
 type fileStorageWriter struct {
 	fileStorageReader
+	tmpdir string
 }
 
-func NewFileStorageWriter(path string) (environs.Storage, error) {
+// NewFileStorageWriter returns a new read/write storag for
+// a directory inside the local file system.
+//
+// A temporary directory may be specified, in which files will be written
+// to before moving to the final destination. If specified, the temporary
+// directory should be on the same filesystem as the storage directory
+// to ensure atomicity. If left unspecified (blank), $TMPDIR will be used.
+func NewFileStorageWriter(path, tmpdir string) (environs.Storage, error) {
 	reader, err := NewFileStorageReader(path)
 	if err != nil {
 		return nil, err
 	}
-	return &fileStorageWriter{*reader.(*fileStorageReader)}, nil
+	return &fileStorageWriter{*reader.(*fileStorageReader), tmpdir}, nil
 }
 
 func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
@@ -101,11 +109,18 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
 		return err
 	}
-	data, err := ioutil.ReadAll(r)
+	// Write to a temporary file first, and then move (atomically).
+	file, err := ioutil.TempFile(f.tmpdir, "juju-filestorage-"+name)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fullpath, data, 0644)
+	_, err = io.CopyN(file, r, length)
+	file.Close()
+	if err != nil {
+		os.Remove(file.Name())
+		return err
+	}
+	return os.Rename(file.Name(), fullpath)
 }
 
 func (f *fileStorageWriter) Remove(name string) error {
