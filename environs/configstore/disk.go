@@ -20,7 +20,7 @@ type diskStore struct {
 }
 
 type environInfo struct {
-	Creds environs.APICredentials
+	Creds    environs.APICredentials
 	Endpoint environs.APIEndpoint
 }
 
