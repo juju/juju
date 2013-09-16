@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type ServiceSuite struct {
@@ -344,9 +344,10 @@ var serviceUpdateConfigSettingsTests = []struct {
 	about:  "unset missing string",
 	update: charm.Settings{"outlook": nil},
 }, {
-	about:   `empty strings unset string values`,
+	about:   `empty strings are valid`,
 	initial: charm.Settings{"outlook": "positive"},
 	update:  charm.Settings{"outlook": "", "title": ""},
+	expect:  charm.Settings{"outlook": "", "title": ""},
 }, {
 	about:   "preserve existing value",
 	initial: charm.Settings{"title": "sir"},
@@ -519,7 +520,7 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
 		err = rel.Refresh()
-		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	}
 }
 
@@ -718,7 +719,7 @@ func (s *ServiceSuite) TestServiceRefresh(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *gc.C) {
@@ -914,7 +915,7 @@ func (s *ServiceSuite) TestDestroySimple(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyStillHasUnits(c *gc.C) {
@@ -933,7 +934,7 @@ func (s *ServiceSuite) TestDestroyStillHasUnits(c *gc.C) {
 	err = unit.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyOnceHadUnits(c *gc.C) {
@@ -948,7 +949,7 @@ func (s *ServiceSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
@@ -965,7 +966,7 @@ func (s *ServiceSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
@@ -989,7 +990,7 @@ func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	err = unit.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *gc.C) {
@@ -1005,9 +1006,9 @@ func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	err = wordpress.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = rel.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyWithReferencedRelation(c *gc.C) {
@@ -1056,16 +1057,16 @@ func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool
 
 	// ...while the second is removed directly.
 	err = rel1.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// Drop the last reference to the first relation; check the relation and
 	// the service are are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, gc.IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = rel0.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
@@ -1120,7 +1121,7 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *gc.C) {
 	err := s.mysql.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, gc.ErrorMatches, `unit "mysql/0" not found`)
 }
@@ -1156,7 +1157,7 @@ func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// ...but we can check that old constraints do not affect new services
 	// with matching names.

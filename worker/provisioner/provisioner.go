@@ -10,6 +10,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -34,13 +35,13 @@ var (
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	pt        ProvisionerType
-	st        *state.State
-	machineId string // Which machine runs the provisioner.
-	dataDir   string
-	machine   *state.Machine
-	environ   environs.Environ
-	tomb      tomb.Tomb
+	pt          ProvisionerType
+	st          *state.State
+	machineId   string // Which machine runs the provisioner.
+	machine     *state.Machine
+	environ     environs.Environ
+	agentConfig agent.Config
+	tomb        tomb.Tomb
 
 	configObserver
 }
@@ -62,12 +63,12 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(pt ProvisionerType, st *state.State, machineId, dataDir string) *Provisioner {
+func NewProvisioner(pt ProvisionerType, st *state.State, machineId string, agentConfig agent.Config) *Provisioner {
 	p := &Provisioner{
-		pt:        pt,
-		st:        st,
-		machineId: machineId,
-		dataDir:   dataDir,
+		pt:          pt,
+		st:          st,
+		machineId:   machineId,
+		agentConfig: agentConfig,
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -166,15 +167,16 @@ func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 			logger.Errorf("cannot get tools from machine for lxc broker")
 			return nil, err
 		}
-		return NewLxcBroker(config, tools), nil
+		return NewLxcBroker(config, tools, p.agentConfig), nil
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
 func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
-	tools, err := agenttools.ReadTools(p.dataDir, version.Current)
+	dataDir := p.agentConfig.DataDir()
+	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
-		logger.Errorf("cannot read agent tools from %q", p.dataDir)
+		logger.Errorf("cannot read agent tools from %q", dataDir)
 		return nil, err
 	}
 	return tools, nil

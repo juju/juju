@@ -62,7 +62,8 @@ bzr-checkout lp:goyaml -1 launchpad.net/goyaml
 bzr-checkout lp:gwacl -1 launchpad.net/gwacl
 bzr-checkout lp:loggo -1 launchpad.net/loggo
 bzr-checkout lp:lpad -1 launchpad.net/lpad
-bzr-checkout lp:mgo/v2 -1 labix.org/v2/mgo
+# https://launchpad.net/bugs/1221705
+bzr-checkout lp:mgo/v2 revno:240 labix.org/v2/mgo
 bzr-checkout lp:tomb -1 launchpad.net/tomb
 
 # smoke test

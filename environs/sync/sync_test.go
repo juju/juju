@@ -42,10 +42,13 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
-	// It's important that this be v1 to match the test data.
-	version.Current.Number = version.MustParse("1.2.3")
+	// It's important that this be v1.8.x to match the test data.
+	version.Current.Number = version.MustParse("1.8.3")
 
-	// Create a target environments.yaml and make sure its environment is emptyPublic.
+	// We only want to use simplestreams to find any synced tools.
+	envtools.UseLegacyFallback = false
+
+	// Create a target environments.yaml.
 	s.home = coretesting.MakeFakeHome(c, `
 environments:
     test-target:
@@ -65,6 +68,7 @@ environments:
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
+	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	// Populate both with the public tools.
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
@@ -78,6 +82,8 @@ environments:
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
 	c.Assert(s.storage.Stop(), gc.IsNil)
+	envtools.UseLegacyFallback = true
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
 	s.home.Restore()
@@ -91,36 +97,47 @@ var tests = []struct {
 	ctx         *sync.SyncContext
 	source      bool
 	tools       []version.Binary
-	emptyPublic bool
+	version     version.Number
+	major       int
+	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
 		ctx:         &sync.SyncContext{},
 		source:      true,
-		tools:       v100all,
-		emptyPublic: true,
+		tools:       v180all,
 	},
 	{
 		description: "copy newest from the dummy environment",
 		ctx:         &sync.SyncContext{},
-		tools:       v100all,
-		emptyPublic: true,
+		tools:       v180all,
 	},
 	{
-		description: "copy newest dev from the dummy environment",
-		ctx: &sync.SyncContext{
-			Dev: true,
-		},
+		description: "copy matching dev from the dummy environment",
+		ctx:         &sync.SyncContext{},
+		version:     version.MustParse("1.9.3"),
 		tools:       v190all,
-		emptyPublic: true,
+	},
+	{
+		description: "copy matching major, minor from the dummy environment",
+		ctx:         &sync.SyncContext{},
+		major:       3,
+		minor:       2,
+		tools:       []version.Binary{v320p64},
+	},
+	{
+		description: "copy matching major, minor dev from the dummy environment",
+		ctx:         &sync.SyncContext{},
+		major:       3,
+		minor:       1,
+		tools:       []version.Binary{v310p64},
 	},
 	{
 		description: "copy all from the dummy environment",
 		ctx: &sync.SyncContext{
 			AllVersions: true,
 		},
-		tools:       v100all,
-		emptyPublic: true,
+		tools: v1noDev,
 	},
 	{
 		description: "copy all and dev from the dummy environment",
@@ -128,16 +145,7 @@ var tests = []struct {
 			AllVersions: true,
 			Dev:         true,
 		},
-		tools:       v1all,
-		emptyPublic: true,
-	},
-	{
-		description: "copy to the dummy environment public storage",
-		ctx: &sync.SyncContext{
-			PublicBucket: true,
-		},
-		tools:       v100all,
-		emptyPublic: false,
+		tools: v1all,
 	},
 }
 
@@ -153,36 +161,25 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			if test.source {
 				test.ctx.Source = s.localStorage
 			}
-			test.ctx.Target = s.targetEnv
+			if test.version != version.Zero {
+				version.Current.Number = test.version
+			}
+			if test.major > 0 {
+				test.ctx.MajorVersion = test.major
+				test.ctx.MinorVersion = test.minor
+			}
+			test.ctx.Target = s.targetEnv.Storage()
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(s.targetEnv, 1, -1, coretools.Filter{})
+			targetTools, err := envtools.FindTools(s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{})
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
-			if test.emptyPublic {
-				assertEmpty(c, s.targetEnv.PublicStorage())
-			} else {
-				assertEmpty(c, s.targetEnv.Storage())
-			}
+			assertEmpty(c, s.targetEnv.Storage())
 		}()
 	}
-}
-
-func (s *syncSuite) TestCopyToDummyPublicBlockedByPrivate(c *gc.C) {
-	s.setUpTest(c)
-	defer s.tearDownTest(c)
-
-	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
-	ctx := &sync.SyncContext{
-		Target:       s.targetEnv,
-		PublicBucket: true,
-	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.ErrorMatches, "private tools present: public tools would be ignored")
-	assertEmpty(c, s.targetEnv.PublicStorage())
 }
 
 var (
@@ -190,12 +187,18 @@ var (
 	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
 	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
 	v100all = []version.Binary{v100p64, v100q64, v100q32}
+	v180q64 = version.MustParseBinary("1.8.0-quantal-amd64")
+	v180p32 = version.MustParseBinary("1.8.0-precise-i386")
+	v180all = []version.Binary{v180q64, v180p32}
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190all = []version.Binary{v190q64, v190p32}
-	v1all   = append(v100all, v190all...)
+	v1noDev = append(v100all, v180all...)
+	v1all   = append(v1noDev, v190all...)
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
-	vAll    = append(v1all, v200p64)
+	v310p64 = version.MustParseBinary("3.1.0-precise-amd64")
+	v320p64 = version.MustParseBinary("3.2.0-precise-amd64")
+	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
 )
 
 // putBinary stores a faked binary in the test directory.
@@ -215,7 +218,7 @@ func assertEmpty(c *gc.C, storage environs.StorageReader) {
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
-	c.Assert(err, gc.Equals, envtools.ErrNoTools)
+	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 }
 
 func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {

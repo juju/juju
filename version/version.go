@@ -295,3 +295,22 @@ func ubuntuArch(arch string) string {
 	}
 	return arch
 }
+
+// ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.
+func ParseMajorMinor(vers string) (int, int, error) {
+	parts := strings.Split(vers, ".")
+	major, err := strconv.Atoi(parts[0])
+	minor := -1
+	if err != nil {
+		return -1, -1, fmt.Errorf("invalid major version number %s: %v", parts[0], err)
+	}
+	if len(parts) == 2 {
+		minor, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return -1, -1, fmt.Errorf("invalid minor version number %s: %v", parts[1], err)
+		}
+	} else if len(parts) > 2 {
+		return -1, -1, fmt.Errorf("invalid major.minor version number %s", vers)
+	}
+	return major, minor, nil
+}

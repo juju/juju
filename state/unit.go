@@ -12,7 +12,6 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"

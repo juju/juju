@@ -4,30 +4,35 @@
 package imagemetadata
 
 import (
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
-// SupportsCustomURLs instances can host image metadata at provider specific URLs.
-type SupportsCustomURLs interface {
-	GetImageBaseURLs() ([]string, error)
+// SupportsCustomSources represents an environment that
+// can host image metadata at provider specific sources.
+type SupportsCustomSources interface {
+	GetImageSources() ([]simplestreams.DataSource, error)
 }
 
-// GetMetadataURLs returns the URLs to use when looking for simplestreams image id metadata.
-func GetMetadataURLs(cloudInst config.HasConfig) ([]string, error) {
-	var urls []string
-	if userURL, ok := cloudInst.Config().ImageMetadataURL(); ok {
-		urls = append(urls, userURL)
+// GetMetadataSources returns the sources to use when looking for
+// simplestreams image id metadata. If env implements
+// SupportsCustomSurces, the sources returned from that method will also
+// be considered.
+func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
+	var sources []simplestreams.DataSource
+	if userURL, ok := env.Config().ImageMetadataURL(); ok {
+		sources = append(sources, simplestreams.NewURLDataSource(userURL))
 	}
-	if custom, ok := cloudInst.(SupportsCustomURLs); ok {
-		customURLs, err := custom.GetImageBaseURLs()
+	if custom, ok := env.(SupportsCustomSources); ok {
+		customSources, err := custom.GetImageSources()
 		if err != nil {
 			return nil, err
 		}
-		urls = append(urls, customURLs...)
+		sources = append(sources, customSources...)
 	}
 
 	if DefaultBaseURL != "" {
-		urls = append(urls, DefaultBaseURL)
+		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL))
 	}
-	return urls, nil
+	return sources, nil
 }

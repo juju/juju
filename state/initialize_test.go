@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type InitializeSuite struct {
@@ -48,11 +48,11 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	_, err := s.State.EnvironConfig()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.FindEntity("environment-foo")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.EnvironConstraints()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
@@ -122,7 +122,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	good := testing.EnvironConfig(c)
 	attrs := good.AllAttrs()
 	delete(attrs, "agent-version")
-	bad, err := config.New(attrs)
+	bad, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts())

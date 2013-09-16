@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/agent"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -111,11 +111,11 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
 
 	// Add the local storage configuration.
-	machineEnv := map[string]string{
-		osenv.JujuStorageAddr:       args.Environ.StorageAddr(),
-		osenv.JujuStorageDir:        storageDir,
-		osenv.JujuSharedStorageAddr: args.Environ.SharedStorageAddr(),
-		osenv.JujuSharedStorageDir:  args.Environ.SharedStorageDir(),
+	agentEnv := map[string]string{
+		agent.StorageAddr:       args.Environ.StorageAddr(),
+		agent.StorageDir:        storageDir,
+		agent.SharedStorageAddr: args.Environ.SharedStorageAddr(),
+		agent.SharedStorageDir:  args.Environ.SharedStorageDir(),
 	}
 
 	// Finally, provision the machine agent.
@@ -129,7 +129,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		bootstrap:    true,
 		nonce:        state.BootstrapNonce,
 		tools:        &tools,
-		machineEnv:   machineEnv,
+		agentEnv:     agentEnv,
 	})
 	return err
 }

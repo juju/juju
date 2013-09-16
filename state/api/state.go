@@ -6,6 +6,7 @@ package api
 import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
@@ -60,4 +61,9 @@ func (st *State) Upgrader() *upgrader.State {
 // Deployer returns access to the Deployer API
 func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
+}
+
+// Logger returns access to the Logger API
+func (st *State) Logger() *logger.State {
+	return logger.NewState(st)
 }

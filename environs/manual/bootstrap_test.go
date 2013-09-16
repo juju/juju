@@ -59,7 +59,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		Environ:    s.Conn.Environ,
 		storageDir: c.MkDir(),
 	}
-	storage, err := filestorage.NewFileStorage(s.env.storageDir)
+	storage, err := filestorage.NewFileStorageWriter(s.env.storageDir)
 	c.Assert(err, gc.IsNil)
 	s.env.storage = storage
 }

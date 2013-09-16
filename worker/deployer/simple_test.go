@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
@@ -272,7 +272,7 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 		if err == nil {
 			c.Log("Warning: %q not removed as expected", path)
 		} else {
-			c.Assert(err, checkers.Satisfies, os.IsNotExist)
+			c.Assert(err, jc.Satisfies, os.IsNotExist)
 		}
 	}
 }
@@ -302,6 +302,10 @@ func (mock *mockConfig) DataDir() string {
 
 func (mock *mockConfig) CACert() []byte {
 	return []byte(testing.CACert)
+}
+
+func (mock *mockConfig) Value(_ string) string {
+	return ""
 }
 
 func agentConfig(tag, datadir string) agent.Config {

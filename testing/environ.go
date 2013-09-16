@@ -8,24 +8,39 @@ import (
 	"os"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
+// FakeConfig() returns an environment configuration for a
+// fake provider with all required attributes set.
+func FakeConfig() Attrs {
+	return Attrs{
+		"type":                      "someprovider",
+		"name":                      "testenv",
+		"authorized-keys":           "my-keys",
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "fish",
+		"ca-cert":                   CACert,
+		"ca-private-key":            CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                19034,
+		"api-port":                  17777,
+		"default-series":            config.DefaultSeries,
+	}
+}
+
 // EnvironConfig returns a default environment configuration suitable for
-// testing.
-func EnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
-		"type":            "test",
-		"name":            "test-name",
-		"default-series":  "test-series",
-		"authorized-keys": "test-keys",
-		"agent-version":   "9.9.9.9",
-		"ca-cert":         CACert,
-		"ca-private-key":  "",
-	})
-	c.Assert(err, IsNil)
+// setting in the state.
+func EnvironConfig(c *gc.C) *config.Config {
+	attrs := FakeConfig().Merge(Attrs{
+		"agent-version": "1.2.3",
+	}).Delete("admin-secret", "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
 	return cfg
 }
 
@@ -70,8 +85,7 @@ type TestFile struct {
 
 type FakeHome struct {
 	oldHomeEnv     string
-	oldJujuEnv     string
-	oldJujuHomeEnv string
+	oldEnvironment map[string]string
 	oldJujuHome    string
 	files          []TestFile
 }
@@ -83,20 +97,20 @@ type FakeHome struct {
 // No ~/.juju/environments.yaml exists, but CAKeys are written for each of the
 // 'certNames' specified, and the id_rsa.pub file is written to to the .ssh
 // dir.
-func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
+func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
 
 	for _, name := range certNames {
 		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(config.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	err := os.Mkdir(HomePath(".ssh"), 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	return fake
 }
@@ -108,61 +122,68 @@ func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 // A new ~/.juju/environments.yaml file is created with the content of the
 // `envConfig` parameter, and CAKeys are written for each of the 'certNames'
 // specified.
-func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
+func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
 	fake := MakeFakeHomeNoEnvironments(c, certNames...)
 
 	envs := config.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	return fake
 }
 
-func MakeEmptyFakeHome(c *C) *FakeHome {
+func MakeEmptyFakeHome(c *gc.C) *FakeHome {
 	fake := MakeEmptyFakeHomeWithoutJuju(c)
 	err := os.Mkdir(config.JujuHome(), 0700)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return fake
 }
 
-func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
-	oldHomeEnv := os.Getenv("HOME")
-	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
-	oldJujuEnv := os.Getenv("JUJU_ENV")
+func MakeEmptyFakeHomeWithoutJuju(c *gc.C) *FakeHome {
+	oldHomeEnv := osenv.Home()
+	oldEnvironment := make(map[string]string)
+	for _, name := range []string{
+		osenv.JujuHome,
+		osenv.JujuEnv,
+		osenv.JujuLoggingConfig,
+	} {
+		oldEnvironment[name] = os.Getenv(name)
+	}
 	fakeHome := c.MkDir()
-	os.Setenv("HOME", fakeHome)
-	os.Setenv("JUJU_HOME", "")
-	os.Setenv("JUJU_ENV", "")
+	osenv.SetHome(fakeHome)
+	os.Setenv(osenv.JujuHome, "")
+	os.Setenv(osenv.JujuEnv, "")
+	os.Setenv(osenv.JujuLoggingConfig, "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
-		oldJujuEnv:     oldJujuEnv,
-		oldJujuHomeEnv: oldJujuHomeEnv,
+		oldEnvironment: oldEnvironment,
 		oldJujuHome:    oldJujuHome,
 		files:          []TestFile{},
 	}
 }
 
 func HomePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
+	all := append([]string{osenv.Home()}, names...)
 	return filepath.Join(all...)
 }
 
 func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("JUJU_ENV", h.oldJujuEnv)
-	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
-	os.Setenv("HOME", h.oldHomeEnv)
+	for name, value := range h.oldEnvironment {
+		os.Setenv(name, value)
+	}
+	osenv.SetHome(h.oldHomeEnv)
 }
 
-func (h *FakeHome) AddFiles(c *C, files []TestFile) {
+func (h *FakeHome) AddFiles(c *gc.C, files []TestFile) {
 	for _, f := range files {
 		path := HomePath(f.Name)
 		err := os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(path, []byte(f.Data), 0666)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		h.files = append(h.files, f)
 	}
 }
@@ -170,7 +191,7 @@ func (h *FakeHome) AddFiles(c *C, files []TestFile) {
 // FileContents returns the test file contents for the
 // given specified path (which may be relative, so
 // we compare with the base filename only).
-func (h *FakeHome) FileContents(c *C, path string) string {
+func (h *FakeHome) FileContents(c *gc.C, path string) string {
 	for _, f := range h.files {
 		if filepath.Base(f.Name) == filepath.Base(path) {
 			return f.Data
@@ -191,17 +212,17 @@ func (h *FakeHome) FileExists(path string) bool {
 	return false
 }
 
-func MakeFakeHomeWithFiles(c *C, files []TestFile) *FakeHome {
+func MakeFakeHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
 	fake.AddFiles(c, files)
 	return fake
 }
 
-func MakeSampleHome(c *C) *FakeHome {
+func MakeSampleHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
 }
 
-func MakeMultipleEnvHome(c *C) *FakeHome {
+func MakeMultipleEnvHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
 }
 

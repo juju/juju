@@ -28,7 +28,10 @@ if [ ! -e "$0.run" ]; then
         echo "ERROR: did not match expected input" >&2
         exit $exitcode
     fi
-%s
+    # stdout
+    %s
+    # stderr
+    %s
     exit %d
 else
     export PATH=${PATH#*:}
@@ -38,14 +41,25 @@ fi`
 // sshresponse creates a fake "ssh" command in a new $PATH,
 // updates $PATH, and returns a function to reset $PATH to
 // its original value when called.
-func sshresponse(c *gc.C, input, output string, rc int) func() {
+//
+// output may be:
+//    - nil (no output)
+//    - a string (stdout)
+//    - a slice of strings, of length two (stdout, stderr)
+func sshresponse(c *gc.C, input string, output interface{}, rc int) func() {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	sshexpectedinput := ssh + ".expected-input"
-	if output != "" {
-		output = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
+	var stdout, stderr string
+	switch output := output.(type) {
+	case nil:
+	case string:
+		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
+	case []string:
+		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output[0])
+		stderr = fmt.Sprintf("cat>&2<<EOF\n%s\nEOF", output[1])
 	}
-	script := fmt.Sprintf(sshscript, output, rc)
+	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := ioutil.WriteFile(ssh, []byte(script), 0777)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)

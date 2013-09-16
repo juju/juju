@@ -4,10 +4,9 @@
 package utils_test
 
 import (
-	"os"
-
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -18,13 +17,13 @@ type fileSuite struct {
 var _ = gc.Suite(&fileSuite{})
 
 func (s *fileSuite) SetUpTest(c *gc.C) {
-	s.oldHome = os.Getenv("HOME")
-	err := os.Setenv("HOME", "/home/test-user")
+	s.oldHome = osenv.Home()
+	err := osenv.SetHome("/home/test-user")
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *fileSuite) TearDownTest(c *gc.C) {
-	err := os.Setenv("HOME", s.oldHome)
+	err := osenv.SetHome(s.oldHome)
 	c.Assert(err, gc.IsNil)
 }
 

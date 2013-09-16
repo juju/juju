@@ -7,9 +7,12 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -37,21 +40,17 @@ func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 	//  access-key: $OS_USERNAME
 	//  secret-key: $OS_PASSWORD
 	//
-	attrs := map[string]interface{}{
-		"name":            "sample-" + randomName(),
-		"type":            "openstack",
-		"auth-mode":       "userpass",
-		"control-bucket":  "juju-test-" + randomName(),
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
-		"authorized-keys": "fakekey",
-		"admin-secret":    "secret",
-		"username":        cred.User,
-		"password":        cred.Secrets,
-		"region":          cred.Region,
-		"auth-url":        cred.URL,
-		"tenant-name":     cred.TenantName,
-	}
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"name":           "sample-" + randomName(),
+		"type":           "openstack",
+		"auth-mode":      "userpass",
+		"control-bucket": "juju-test-" + randomName(),
+		"username":       cred.User,
+		"password":       cred.Secrets,
+		"region":         cred.Region,
+		"auth-url":       cred.URL,
+		"tenant-name":    cred.TenantName,
+	})
 	return attrs
 }
 
@@ -61,7 +60,7 @@ func registerLiveTests(cred *identity.Credentials) {
 	gc.Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{
-			TestConfig:     jujutest.TestConfig{config},
+			TestConfig:     config,
 			Attempt:        *openstack.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
@@ -89,7 +88,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
-	t.TestConfig.UpdateConfig(map[string]interface{}{
+	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
 		"public-bucket-url": publicBucketURL,
 		"auth-url":          t.cred.URL,
 	})

@@ -4,24 +4,23 @@
 package localstorage
 
 import (
-	"os"
-
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/localstorage"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.localstorage")
 
 type storageWorker struct {
-	tomb tomb.Tomb
+	config agent.Config
+	tomb   tomb.Tomb
 }
 
-func NewWorker() worker.Worker {
-	w := &storageWorker{}
+func NewWorker(config agent.Config) worker.Worker {
+	w := &storageWorker{config: config}
 	go func() {
 		defer w.tomb.Done()
 		w.tomb.Kill(w.waitForDeath())
@@ -40,8 +39,8 @@ func (s *storageWorker) Wait() error {
 }
 
 func (s *storageWorker) waitForDeath() error {
-	storageDir := os.Getenv(osenv.JujuStorageDir)
-	storageAddr := os.Getenv(osenv.JujuStorageAddr)
+	storageDir := s.config.Value(agent.StorageDir)
+	storageAddr := s.config.Value(agent.StorageAddr)
 	logger.Infof("serving %s on %s", storageDir, storageAddr)
 
 	storageListener, err := localstorage.Serve(storageAddr, storageDir)
@@ -51,10 +50,10 @@ func (s *storageWorker) waitForDeath() error {
 	}
 	defer storageListener.Close()
 
-	sharedStorageDir := os.Getenv(osenv.JujuSharedStorageDir)
-	sharedStorageAddr := os.Getenv(osenv.JujuSharedStorageAddr)
+	sharedStorageDir := s.config.Value(agent.SharedStorageDir)
+	sharedStorageAddr := s.config.Value(agent.SharedStorageAddr)
 	if sharedStorageAddr != "" && sharedStorageDir != "" {
-		logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
+	    logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
 
 		sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)
 		if err != nil {

@@ -94,6 +94,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		return err
 	}
 	logger.Debugf("API addresses: %q", apiAddrs)
+	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:        dataDir,
@@ -103,6 +104,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			StateAddresses: stateAddrs,
 			APIAddresses:   apiAddrs,
 			CACert:         ctx.agentConfig.CACert(),
+			Values: map[string]string{
+				agent.ContainerType: containerType,
+			},
 		})
 	if err != nil {
 		return err
@@ -132,15 +136,17 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		"--unit-name", unitName,
 		"--debug", // TODO: propagate debug state sensibly
 	}, " ")
+	// TODO(thumper): 2013-09-02 bug 1219630
+	// As much as I'd like to remove JujuContainerType now, it is still
+	// needed as MAAS still needs it at this stage, and we can't fix
+	// everything at once.
 	uconf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
 		Out:     logPath,
-		// Propagate the provider type and container type enviroment variables.
 		Env: map[string]string{
-			osenv.JujuProviderType:  os.Getenv(osenv.JujuProviderType),
-			osenv.JujuContainerType: os.Getenv(osenv.JujuContainerType),
+			osenv.JujuContainerType: containerType,
 		},
 	}
 	return uconf.Install()

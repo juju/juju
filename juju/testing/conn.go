@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -19,6 +21,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/dummy"
@@ -111,16 +114,6 @@ func StartInstanceWithConstraints(c *gc.C, env environs.Environ, machineId strin
 
 const AdminSecret = "dummy-secret"
 
-var envConfig = `
-environments:
-    dummyenv:
-        type: dummy
-        state-server: true
-        authorized-keys: 'i-am-a-key'
-        admin-secret: ` + AdminSecret + `
-        agent-version: %s
-`
-
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -210,19 +203,19 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
-	s.oldHome = os.Getenv("HOME")
+	s.oldHome = osenv.Home()
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, gc.IsNil)
-	os.Setenv("HOME", home)
+	osenv.SetHome(home)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
 
-	yaml := []byte(fmt.Sprintf(envConfig, version.Current.Number))
-	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), yaml, 0600)
-	c.Assert(err, gc.IsNil)
+	// TODO(rog) remove these files and add them only when
+	// the tests specifically need them (in cmd/juju for example)
+	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, gc.IsNil)
@@ -250,6 +243,21 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.environ = environ
 }
 
+func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
+	attrs := dummy.SampleConfig().Merge(testing.Attrs{
+		"admin-secret":  AdminSecret,
+		"agent-version": version.Current.Number.String(),
+	}).Delete("name")
+	whole := map[string]interface{}{
+		"environments": map[string]interface{}{
+			"dummyenv": attrs,
+		},
+	}
+	data, err := goyaml.Marshal(whole)
+	c.Assert(err, gc.IsNil)
+	s.WriteConfig(string(data))
+}
+
 type GetStater interface {
 	GetStateInAPIServer() *state.State
 }
@@ -268,7 +276,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil
-	os.Setenv("HOME", s.oldHome)
+	osenv.SetHome(s.oldHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }
@@ -301,4 +309,19 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)
 	return sch
+}
+
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
+	config, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:        s.DataDir(),
+			Tag:            tag,
+			Password:       "dummy-secret",
+			Nonce:          "nonce",
+			StateAddresses: s.StateInfo(c).Addrs,
+			APIAddresses:   s.APIInfo(c).Addrs,
+			CACert:         []byte(testing.CACert),
+		})
+	c.Assert(err, gc.IsNil)
+	return config
 }

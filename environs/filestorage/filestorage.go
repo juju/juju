@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 
@@ -22,13 +21,7 @@ type fileStorageReader struct {
 	path string
 }
 
-// fileStorage implements StorageReader and StorageWriter
-// backed by the local filesystem.
-type fileStorage struct {
-	*fileStorageReader
-}
-
-// NewFileStorageReader returns a new storage reader for
+// newFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
 func NewFileStorageReader(path string) (environs.StorageReader, error) {
 	p := filepath.Clean(path)
@@ -42,22 +35,13 @@ func NewFileStorageReader(path string) (environs.StorageReader, error) {
 	return &fileStorageReader{p}, nil
 }
 
-// NewFileStorage returns a new read/write storage for
-// a directory inside the local file system.
-func NewFileStorage(path string) (environs.Storage, error) {
-	r, err := NewFileStorageReader(path)
-	if err != nil {
-		return nil, err
-	}
-	return &fileStorage{r.(*fileStorageReader)}, nil
+func (f *fileStorageReader) fullPath(name string) string {
+	return filepath.Join(f.path, name)
 }
 
 // Get implements environs.StorageReader.Get.
 func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
-	filename, err := f.URL(name)
-	if err != nil {
-		return nil, err
-	}
+	filename := f.fullPath(name)
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -91,7 +75,7 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 
 // URL implements environs.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
-	return path.Join(f.path, name), nil
+	return "file://" + filepath.Join(f.path, name), nil
 }
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
@@ -99,36 +83,36 @@ func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-// Put implements environs.StorageWriter.Put.
-func (f *fileStorage) Put(name string, r io.Reader, length int64) error {
-	dir, _ := path.Split(name)
-	if dir != "" {
-		dir := filepath.Join(f.path, dir)
-		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
-			return err
-		}
+type fileStorageWriter struct {
+	fileStorageReader
+}
+
+func NewFileStorageWriter(path string) (environs.Storage, error) {
+	reader, err := NewFileStorageReader(path)
+	if err != nil {
+		return nil, err
 	}
-	// Write to a temporary file first, and then move (atomically).
-	file, err := ioutil.TempFile("", "juju-filestorage-"+name)
+	return &fileStorageWriter{*reader.(*fileStorageReader)}, nil
+}
+
+func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
+	fullpath := f.fullPath(name)
+	dir := filepath.Dir(fullpath)
+	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+		return err
+	}
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
-	_, err = io.CopyN(file, r, length)
-	file.Close()
-	if err != nil {
-		os.Remove(file.Name())
-		return err
-	}
-	filepath := filepath.Join(f.path, name)
-	return os.Rename(file.Name(), filepath)
+	return ioutil.WriteFile(fullpath, data, 0644)
 }
 
-// Remove implements environs.StorageWriter.Remove.
-func (f *fileStorage) Remove(name string) error {
-	return os.RemoveAll(filepath.Join(f.path, name))
+func (f *fileStorageWriter) Remove(name string) error {
+	fullpath := f.fullPath(name)
+	return os.Remove(fullpath)
 }
 
-// RemoveAll implements environs.StorageWriter.RemoveAll.
-func (f *fileStorage) RemoveAll() error {
-	return os.RemoveAll(f.path)
+func (f *fileStorageWriter) RemoveAll() error {
+	return environs.RemoveAll(f)
 }

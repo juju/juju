@@ -5,13 +5,15 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"strconv"
 )
 
 type AddMachineSuite struct {

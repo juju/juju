@@ -4,18 +4,20 @@
 package apiserver
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
+	"net"
+	"net/http"
+	"sync"
+
+	"code.google.com/p/go.net/websocket"
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/loggo"
-	"launchpad.net/tomb"
-	"net"
-	"net/http"
-	"sync"
 )
 
 // Server holds the server side of the API.

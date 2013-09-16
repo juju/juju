@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
@@ -37,19 +38,15 @@ func (s *configSuite) TearDownTest(c *gc.C) {
 }
 
 func minimalConfigValues() map[string]interface{} {
-	return map[string]interface{}{
+	return testing.FakeConfig().Merge(testing.Attrs{
 		"name": "test",
 		"type": provider.Local,
-		// While the ca-cert bits aren't entirely minimal, they avoid the need
-		// to set up a fake home.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
-	}
+	})
 }
 
 func minimalConfig(c *gc.C) *config.Config {
 	minimal := minimalConfigValues()
-	testConfig, err := config.New(minimal)
+	testConfig, err := config.New(config.NoDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	return testConfig
 }
@@ -60,7 +57,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "test")
+	expectedRootDir := filepath.Join(osenv.Home(), ".juju", "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
@@ -69,7 +66,7 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 	values := minimalConfigValues()
 	root := c.MkDir()
 	values["root-dir"] = root
-	testConfig, err := config.New(values)
+	testConfig, err := config.New(config.NoDefaults, values)
 	c.Assert(err, gc.IsNil)
 
 	valid, err := local.Provider.Validate(testConfig, nil)
@@ -81,13 +78,13 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	values := minimalConfigValues()
 	values["root-dir"] = "~/.juju/foo"
-	testConfig, err := config.New(values)
+	testConfig, err := config.New(config.NoDefaults, values)
 	c.Assert(err, gc.IsNil)
 
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "foo")
+	expectedRootDir := filepath.Join(osenv.Home(), ".juju", "foo")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }

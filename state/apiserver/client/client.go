@@ -147,7 +147,8 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
 	} else if len(args.Config) > 0 {
-		settings, err = ch.Config().ParseSettingsStrings(args.Config)
+		// Parse config in a compatile way (see function comment).
+		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
 		return err
@@ -244,7 +245,8 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	if err != nil {
 		return err
 	}
-	changes, err := ch.Config().ParseSettingsStrings(settings)
+	// Parse config in a compatible way (see function comment).
+	changes, err := parseSettingsCompatible(ch, settings)
 	if err != nil {
 		return err
 	}
@@ -400,4 +402,37 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 		return err
 	}
 	return entity.SetAnnotations(args.Pairs)
+}
+
+// parseSettingsCompatible parses setting strings in a way that is
+// compatible with the behavior before this CL based on the issue
+// http://pad.lv/1194945. Until then setting an option to an empty
+// string caused it to reset to the default value. We now allow
+// empty strings as actual values, but we want to preserve the API
+// behavior.
+func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm.Settings, error) {
+	setSettings := map[string]string{}
+	unsetSettings := charm.Settings{}
+	// Split settings into those which set and those which unset a value.
+	for name, value := range settings {
+		if value == "" {
+			unsetSettings[name] = nil
+			continue
+		}
+		setSettings[name] = value
+	}
+	// Validate the settings.
+	changes, err := ch.Config().ParseSettingsStrings(setSettings)
+	if err != nil {
+		return nil, err
+	}
+	// Validate the unsettings and merge them into the changes.
+	unsetSettings, err = ch.Config().ValidateSettings(unsetSettings)
+	if err != nil {
+		return nil, err
+	}
+	for name := range unsetSettings {
+		changes[name] = nil
+	}
+	return changes, nil
 }

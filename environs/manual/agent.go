@@ -7,15 +7,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
+	"launchpad.net/juju-core/agent"
 	corecloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -35,10 +34,10 @@ type provisionMachineAgentArgs struct {
 	apiInfo      *api.Info
 	tools        *tools.Tools
 
-	// machineEnv is an optional map of
+	// agentEnv is an optional map of
 	// arbitrary key/value pairs to pass
 	// into the machine agent.
-	machineEnv map[string]string
+	agentEnv map[string]string
 }
 
 // provisionMachineAgent connects to a machine over SSH,
@@ -51,12 +50,11 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 	}
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	sshArgs := []string{
+	cmd := sshCommand(
 		args.host,
-		"-t", // allocate a pseudo-tty
-		"--", fmt.Sprintf("sudo bash -c '%s'", script),
-	}
-	cmd := exec.Command("ssh", sshArgs...)
+		fmt.Sprintf("sudo bash -c '%s'", script),
+		allocateTTY,
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -83,9 +81,9 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	if err != nil {
 		return "", err
 	}
-	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Null
-	for k, v := range args.machineEnv {
-		mcfg.MachineEnvironment[k] = v
+	mcfg.AgentEnvironment[agent.ProviderType] = provider.Null
+	for k, v := range args.agentEnv {
+		mcfg.AgentEnvironment[k] = v
 	}
 	cloudcfg := corecloudinit.New()
 	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
