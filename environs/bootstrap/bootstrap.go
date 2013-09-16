@@ -21,17 +21,6 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.boostrap")
 
-// BootstrapStorager is an interface that returns a environs.Storage that may
-// be used before the bootstrap machine agent has been provisioned.
-//
-// This is useful for environments where the storage is managed by the machine
-// agent once bootstrapped.
-type BootstrapStorager interface {
-	// BootstrapStorager returns an environs.Storage that may be used while
-	// bootstrapping a machine.
-	BootstrapStorage() (environs.Storage, error)
-}
-
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.

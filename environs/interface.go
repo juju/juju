@@ -122,6 +122,17 @@ type EnvironStorage interface {
 	PublicStorage() StorageReader
 }
 
+// BootstrapStorager is an interface that returns a environs.Storage that may
+// be used before the bootstrap machine agent has been provisioned.
+//
+// This is useful for environments where the storage is managed by the machine
+// agent once bootstrapped.
+type BootstrapStorager interface {
+	// BootstrapStorager returns an environs.Storage that may be used while
+	// bootstrapping a machine.
+	BootstrapStorage() (Storage, error)
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //

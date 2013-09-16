@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
@@ -25,7 +24,7 @@ const BootstrapInstanceId = instance.Id(manualInstancePrefix)
 // manages its own local storage.
 type LocalStorageEnviron interface {
 	environs.Environ
-	bootstrap.BootstrapStorager
+	environs.BootstrapStorager
 	localstorage.LocalStorageConfig
 }
 
