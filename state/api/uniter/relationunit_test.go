@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite
@@ -135,7 +136,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	s.assertInScope(c, wpRelUnit, false)
 	err = apiRelUnit.EnterScope()
 	c.Assert(err, gc.NotNil)
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeCannotEnterScope)
+	c.Check(err, jc.Satisfies, params.IsCodeCannotEnterScope)
 	c.Check(err, gc.ErrorMatches, "cannot enter scope: unit or relation is not alive")
 }
 
@@ -166,7 +167,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = apiRelUnit.EnterScope()
 	c.Assert(err, gc.NotNil)
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeCannotEnterScopeYet)
+	c.Check(err, jc.Satisfies, params.IsCodeCannotEnterScopeYet)
 	c.Check(err, gc.ErrorMatches, "cannot enter scope yet: non-alive subordinate unit has not been removed")
 }
 

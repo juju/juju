@@ -6,11 +6,13 @@ package jujuc_test
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-	"path/filepath"
 )
 
 type RelationGetSuite struct {
@@ -22,8 +24,8 @@ var _ = gc.Suite(&RelationGetSuite{})
 func (s *RelationGetSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 	s.rels[0].units["u/0"]["private-address"] = "foo: bar\n"
-	s.rels[1].units["m/0"] = map[string]interface{}{"pew": "pew\npew\n"}
-	s.rels[1].units["u/1"] = map[string]interface{}{"value": "12345"}
+	s.rels[1].units["m/0"] = Settings{"pew": "pew\npew\n"}
+	s.rels[1].units["u/1"] = Settings{"value": "12345"}
 }
 
 var relationGetTests = []struct {

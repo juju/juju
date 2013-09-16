@@ -50,7 +50,7 @@ func (s *machinerSuite) TearDownTest(c *gc.C) {
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	machine, err := s.machiner.Machine("machine-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
 	machine, err = s.machiner.Machine("machine-0")
@@ -102,7 +102,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 
 	err = machine.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *machinerSuite) TestRefresh(c *gc.C) {

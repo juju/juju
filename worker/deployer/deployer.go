@@ -9,7 +9,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
@@ -63,7 +62,7 @@ func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 }
 
 func isNotFoundOrUnauthorized(err error) bool {
-	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
+	return params.IsCodeNotFound(err) || params.IsCodeUnauthorized(err)
 }
 
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {

@@ -4,8 +4,9 @@
 package config_test
 
 import (
-	gc "launchpad.net/gocheck"
 	"path/filepath"
+
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
 )

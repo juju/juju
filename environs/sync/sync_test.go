@@ -98,6 +98,8 @@ var tests = []struct {
 	source      bool
 	tools       []version.Binary
 	version     version.Number
+	major       int
+	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
@@ -115,6 +117,20 @@ var tests = []struct {
 		ctx:         &sync.SyncContext{},
 		version:     version.MustParse("1.9.3"),
 		tools:       v190all,
+	},
+	{
+		description: "copy matching major, minor from the dummy environment",
+		ctx:         &sync.SyncContext{},
+		major:       3,
+		minor:       2,
+		tools:       []version.Binary{v320p64},
+	},
+	{
+		description: "copy matching major, minor dev from the dummy environment",
+		ctx:         &sync.SyncContext{},
+		major:       3,
+		minor:       1,
+		tools:       []version.Binary{v310p64},
 	},
 	{
 		description: "copy all from the dummy environment",
@@ -148,12 +164,16 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			if test.version != version.Zero {
 				version.Current.Number = test.version
 			}
+			if test.major > 0 {
+				test.ctx.MajorVersion = test.major
+				test.ctx.MinorVersion = test.minor
+			}
 			test.ctx.Target = s.targetEnv.Storage()
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(s.targetEnv, 1, -1, coretools.Filter{})
+			targetTools, err := envtools.FindTools(s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{})
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
@@ -176,7 +196,9 @@ var (
 	v1noDev = append(v100all, v180all...)
 	v1all   = append(v1noDev, v190all...)
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
-	vAll    = append(v1all, v200p64)
+	v310p64 = version.MustParseBinary("3.1.0-precise-amd64")
+	v320p64 = version.MustParseBinary("3.2.0-precise-amd64")
+	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
 )
 
 // putBinary stores a faked binary in the test directory.

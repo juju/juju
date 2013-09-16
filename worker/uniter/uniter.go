@@ -19,8 +19,8 @@ import (
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
@@ -38,10 +38,10 @@ var logger = loggo.GetLogger("juju.worker.uniter")
 // the uniter's responses to them.
 type Uniter struct {
 	tomb          tomb.Tomb
-	st            *state.State
+	st            *uniter.State
 	f             *filter
-	unit          *state.Unit
-	service       *state.Service
+	unit          *uniter.Unit
+	service       *uniter.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
 	uuid          string
@@ -61,29 +61,29 @@ type Uniter struct {
 	ranConfigChanged bool
 }
 
-// NewUniter creates a new Uniter which will install, run, and upgrade a
-// charm on behalf of the named unit, by executing hooks and operations
-// provoked by changes in st.
-func NewUniter(st *state.State, name string, dataDir string) *Uniter {
+// NewUniter creates a new Uniter which will install, run, and upgrade
+// a charm on behalf of the unit with the given unitTag, by executing
+// hooks and operations provoked by changes in st.
+func NewUniter(st *uniter.State, unitTag string, dataDir string) *Uniter {
 	u := &Uniter{
 		st:      st,
 		dataDir: dataDir,
 	}
 	go func() {
 		defer u.tomb.Done()
-		u.tomb.Kill(u.loop(name))
+		u.tomb.Kill(u.loop(unitTag))
 	}()
 	return u
 }
 
-func (u *Uniter) loop(name string) (err error) {
-	if err = u.init(name); err != nil {
+func (u *Uniter) loop(unitTag string) (err error) {
+	if err = u.init(unitTag); err != nil {
 		return err
 	}
 	logger.Infof("unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
-	u.f, err = newFilter(u.st, name)
+	u.f, err = newFilter(u.st, unitTag)
 	if err != nil {
 		return err
 	}
@@ -91,13 +91,6 @@ func (u *Uniter) loop(name string) (err error) {
 	go func() {
 		u.tomb.Kill(u.f.Wait())
 	}()
-
-	// Announce our presence to the world.
-	pinger, err := u.unit.SetAgentAlive()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(pinger, &u.tomb)
 
 	// Run modes until we encounter an error.
 	mode := ModeInit
@@ -133,35 +126,37 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-func (u *Uniter) init(name string) (err error) {
-	defer utils.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
-	u.unit, err = u.st.Unit(name)
+func (u *Uniter) init(unitTag string) (err error) {
+	defer utils.ErrorContextf(&err, "failed to initialize uniter for %q", unitTag)
+	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
 	}
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	ename := u.unit.Tag()
-	u.toolsDir = tools.ToolsDir(u.dataDir, ename)
+	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
-	u.baseDir = filepath.Join(u.dataDir, "agents", ename)
+	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag)
 	u.relationsDir = filepath.Join(u.baseDir, "state", "relations")
 	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
-	u.service, err = u.st.Service(u.unit.ServiceName())
+	u.service, err = u.st.Service(u.unit.ServiceTag())
 	if err != nil {
 		return err
 	}
-	var env *state.Environment
+	var env *uniter.Environment
 	env, err = u.st.Environment()
 	if err != nil {
 		return err
 	}
-	u.uuid = env.UUID()
+	u.uuid, err = env.UUID()
+	if err != nil {
+		return err
+	}
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
@@ -183,10 +178,6 @@ func (u *Uniter) Wait() error {
 func (u *Uniter) Stop() error {
 	u.tomb.Kill(nil)
 	return u.Wait()
-}
-
-func (u *Uniter) String() string {
-	return "uniter for " + u.unit.Name()
 }
 
 func (u *Uniter) Dead() <-chan struct{} {
@@ -325,8 +316,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err != nil {
 		return err
 	}
-	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
+	hctx, err := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
 		ctxRelations, apiAddrs)
+	if err != nil {
+		return err
+	}
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
@@ -398,13 +392,14 @@ func (u *Uniter) restoreRelations() error {
 	}
 	for id, dir := range dirs {
 		remove := false
-		rel, err := u.st.Relation(id)
-		if errors.IsNotFoundError(err) {
+		rel, err := u.st.RelationById(id)
+		if params.IsCodeNotFound(err) {
 			remove = true
 		} else if err != nil {
 			return err
 		}
-		if err = u.addRelation(rel, dir); err == state.ErrCannotEnterScope {
+		err = u.addRelation(rel, dir)
+		if params.IsCodeCannotEnterScope(err) {
 			remove = true
 		} else if err != nil {
 			return err
@@ -432,7 +427,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			if rel.Life() == state.Dying {
+			if rel.Life() == params.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
 				} else if r.IsImplicit() {
@@ -443,14 +438,14 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
-		rel, err := u.st.Relation(id)
+		rel, err := u.st.RelationById(id)
 		if err != nil {
-			if errors.IsNotFoundError(err) {
+			if params.IsCodeNotFound(err) {
 				continue
 			}
 			return nil, err
 		}
-		if rel.Life() != state.Alive {
+		if rel.Life() != params.Alive {
 			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm
@@ -458,7 +453,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if err != nil {
 			return nil, err
 		}
-		if ep, err := rel.Endpoint(u.unit.ServiceName()); err != nil {
+		if ep, err := rel.Endpoint(); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
 			logger.Warningf("skipping relation with unknown endpoint %q", ep)
@@ -474,14 +469,16 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			continue
 		}
 		e := dir.Remove()
-		if err != state.ErrCannotEnterScope {
+		if !params.IsCodeCannotEnterScope(err) {
 			return nil, err
 		}
 		if e != nil {
 			return nil, e
 		}
 	}
-	if u.unit.IsPrincipal() {
+	if ok, err := u.unit.IsPrincipal(); err != nil {
+		return nil, err
+	} else if ok {
 		return added, nil
 	}
 	// If no Alive relations remain between a subordinate unit's service
@@ -504,14 +501,17 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 
 // addRelation causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
-func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error {
+func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error {
 	logger.Infof("joining relation %q", rel)
 	ru, err := rel.Unit(u.unit)
 	if err != nil {
 		return err
 	}
 	r := NewRelationer(ru, dir, u.relationHooks)
-	w := u.unit.Watch()
+	w, err := u.unit.Watch()
+	if err != nil {
+		return err
+	}
 	defer watcher.Stop(w, &u.tomb)
 	for {
 		select {
@@ -521,7 +521,8 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 			if !ok {
 				return watcher.MustErr(w)
 			}
-			if err := r.Join(); err == state.ErrCannotEnterScopeYet {
+			err := r.Join()
+			if params.IsCodeCannotEnterScopeYet(err) {
 				logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {

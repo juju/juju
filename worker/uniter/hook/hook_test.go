@@ -4,10 +4,12 @@
 package hook_test
 
 import (
+	"testing"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"testing"
 )
 
 func Test(t *testing.T) {

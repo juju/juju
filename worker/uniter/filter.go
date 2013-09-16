@@ -8,13 +8,15 @@ import (
 	"sort"
 
 	"launchpad.net/loggo"
+	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 )
 
 var filterLogger = loggo.GetLogger("juju.worker.uniter.filter")
@@ -23,7 +25,7 @@ var filterLogger = loggo.GetLogger("juju.worker.uniter.filter")
 // state watchers, and presents it as events on channels designed specifically
 // for the convenience of the uniter.
 type filter struct {
-	st   *state.State
+	st   *uniter.State
 	tomb tomb.Tomb
 
 	// outUnitDying is closed when the unit's life becomes Dying.
@@ -37,8 +39,8 @@ type filter struct {
 	outConfigOn    chan struct{}
 	outUpgrade     chan *charm.URL
 	outUpgradeOn   chan *charm.URL
-	outResolved    chan state.ResolvedMode
-	outResolvedOn  chan state.ResolvedMode
+	outResolved    chan params.ResolvedMode
+	outResolvedOn  chan params.ResolvedMode
 	outRelations   chan []int
 	outRelationsOn chan []int
 
@@ -77,10 +79,10 @@ type filter struct {
 
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
-	unit             *state.Unit
-	life             state.Life
-	resolved         state.ResolvedMode
-	service          *state.Service
+	unit             *uniter.Unit
+	life             params.Life
+	resolved         params.ResolvedMode
+	service          *uniter.Service
 	upgradeFrom      serviceCharm
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
@@ -89,7 +91,7 @@ type filter struct {
 
 // newFilter returns a filter that handles state changes pertaining to the
 // supplied unit.
-func newFilter(st *state.State, unitName string) (*filter, error) {
+func newFilter(st *uniter.State, unitTag string) (*filter, error) {
 	f := &filter{
 		st:                st,
 		outUnitDying:      make(chan struct{}),
@@ -97,8 +99,8 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		outConfigOn:       make(chan struct{}),
 		outUpgrade:        make(chan *charm.URL),
 		outUpgradeOn:      make(chan *charm.URL),
-		outResolved:       make(chan state.ResolvedMode),
-		outResolvedOn:     make(chan state.ResolvedMode),
+		outResolved:       make(chan params.ResolvedMode),
+		outResolvedOn:     make(chan params.ResolvedMode),
 		outRelations:      make(chan []int),
 		outRelationsOn:    make(chan []int),
 		wantForcedUpgrade: make(chan bool),
@@ -111,7 +113,7 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 	}
 	go func() {
 		defer f.tomb.Done()
-		err := f.loop(unitName)
+		err := f.loop(unitTag)
 		filterLogger.Errorf("%v", err)
 		f.tomb.Kill(err)
 	}()
@@ -147,7 +149,7 @@ func (f *filter) UpgradeEvents() <-chan *charm.URL {
 // unit's Resolved value changes, or when an event is explicitly requested.
 // A ResolvedNone state will never generate events, but ResolvedRetryHooks and
 // ResolvedNoHooks will always be delivered as described.
-func (f *filter) ResolvedEvents() <-chan state.ResolvedMode {
+func (f *filter) ResolvedEvents() <-chan params.ResolvedMode {
 	return f.outResolvedOn
 }
 
@@ -235,8 +237,14 @@ func (f *filter) DiscardConfigEvent() {
 	}
 }
 
-func (f *filter) loop(unitName string) (err error) {
-	f.unit, err = f.st.Unit(unitName)
+func (f *filter) maybeStopWatcher(w watcher.Stopper) {
+	if w != nil {
+		watcher.Stop(w, &f.tomb)
+	}
+}
+
+func (f *filter) loop(unitTag string) (err error) {
+	f.unit, err = f.st.Unit(unitTag)
 	if err != nil {
 		return err
 	}
@@ -250,29 +258,46 @@ func (f *filter) loop(unitName string) (err error) {
 	if err = f.serviceChanged(); err != nil {
 		return err
 	}
-	unitw := f.unit.Watch()
-	defer watcher.Stop(unitw, &f.tomb)
-	servicew := f.service.Watch()
-	defer watcher.Stop(servicew, &f.tomb)
+	unitw, err := f.unit.Watch()
+	if err != nil {
+		return err
+	}
+	defer f.maybeStopWatcher(unitw)
+	servicew, err := f.service.Watch()
+	if err != nil {
+		return err
+	}
+	defer f.maybeStopWatcher(servicew)
 	// configw and relationsw can get restarted, so we need to use
 	// their eventual values in the defer calls.
-	var configw state.NotifyWatcher
+	var configw apiwatcher.NotifyWatcher
 	var configChanges <-chan struct{}
-	if curl, ok := f.unit.CharmURL(); ok {
+	curl, err := f.unit.CharmURL()
+	if err == nil {
 		configw, err = f.unit.WatchConfigSettings()
 		if err != nil {
 			return err
 		}
 		configChanges = configw.Changes()
 		f.upgradeFrom.url = curl
+	} else if err != uniter.ErrNoCharmURLSet {
+		filterLogger.Errorf("unit charm: %v", err)
+		return err
 	}
 	defer func() {
 		if configw != nil {
 			watcher.Stop(configw, &f.tomb)
 		}
 	}()
-	relationsw := f.service.WatchRelations()
-	defer func() { watcher.Stop(relationsw, &f.tomb) }()
+	relationsw, err := f.service.WatchRelations()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if relationsw != nil {
+			watcher.Stop(relationsw, &f.tomb)
+		}
+	}()
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial change, we unblock discard requests by
@@ -316,7 +341,9 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 			var ids []int
 			for _, key := range keys {
-				if rel, err := f.st.KeyRelation(key); errors.IsNotFoundError(err) {
+				relationTag := names.RelationTag(key)
+				rel, err := f.st.Relation(relationTag)
+				if params.IsCodeNotFound(err) {
 					// If it's actually gone, this unit cannot have entered
 					// scope, and therefore never needs to know about it.
 				} else if err != nil {
@@ -372,7 +399,10 @@ func (f *filter) loop(unitName string) (err error) {
 			if err := relationsw.Stop(); err != nil {
 				return err
 			}
-			relationsw = f.service.WatchRelations()
+			relationsw, err = f.service.WatchRelations()
+			if err != nil {
+				return err
+			}
 
 			f.upgradeFrom.url = curl
 			if err = f.upgradeChanged(); err != nil {
@@ -386,7 +416,7 @@ func (f *filter) loop(unitName string) (err error) {
 			}
 		case <-f.wantResolved:
 			filterLogger.Debugf("want resolved event")
-			if f.resolved != state.ResolvedNone {
+			if f.resolved != params.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
 		case <-f.clearResolved:
@@ -413,25 +443,29 @@ func (f *filter) loop(unitName string) (err error) {
 // unitChanged responds to changes in the unit.
 func (f *filter) unitChanged() error {
 	if err := f.unit.Refresh(); err != nil {
-		if errors.IsNotFoundError(err) {
+		if params.IsCodeNotFound(err) {
 			return worker.ErrTerminateAgent
 		}
 		return err
 	}
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
-		case state.Dying:
+		case params.Dying:
 			filterLogger.Infof("unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
-		case state.Dead:
+		case params.Dead:
 			filterLogger.Infof("unit is dead")
 			return worker.ErrTerminateAgent
 		}
 	}
-	if resolved := f.unit.Resolved(); resolved != f.resolved {
+	resolved, err := f.unit.Resolved()
+	if err != nil {
+		return err
+	}
+	if resolved != f.resolved {
 		f.resolved = resolved
-		if f.resolved != state.ResolvedNone {
+		if f.resolved != params.ResolvedNone {
 			f.outResolved = f.outResolvedOn
 		}
 	}
@@ -441,19 +475,22 @@ func (f *filter) unitChanged() error {
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
 	if err := f.service.Refresh(); err != nil {
-		if errors.IsNotFoundError(err) {
+		if params.IsCodeNotFound(err) {
 			return fmt.Errorf("service unexpectedly removed")
 		}
 		return err
 	}
-	url, force := f.service.CharmURL()
+	url, force, err := f.service.CharmURL()
+	if err != nil {
+		return err
+	}
 	f.upgradeAvailable = serviceCharm{url, force}
 	switch f.service.Life() {
-	case state.Dying:
+	case params.Dying:
 		if err := f.unit.Destroy(); err != nil {
 			return err
 		}
-	case state.Dead:
+	case params.Dead:
 		return fmt.Errorf("service unexpectedly dead")
 	}
 	return f.upgradeChanged()
@@ -463,7 +500,7 @@ func (f *filter) serviceChanged() error {
 // upgrade requests that defines which charm changes should be
 // delivered as upgrades.
 func (f *filter) upgradeChanged() (err error) {
-	if f.life != state.Alive {
+	if f.life != params.Alive {
 		filterLogger.Debugf("charm check skipped, unit is dying")
 		f.outUpgrade = nil
 		return nil

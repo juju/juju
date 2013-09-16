@@ -6,13 +6,15 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
+	"path"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"os"
-	"path"
 )
 
 type UpgradeCharmErrorsSuite struct {

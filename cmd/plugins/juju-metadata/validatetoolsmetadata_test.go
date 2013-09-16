@@ -97,7 +97,7 @@ func (s *ValidateToolsMetadataSuite) TearDownTest(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
 	ec2Region, ok := aws.Regions[region]
 	if !ok {
-		c.Fatalf("unknown ec2 region %q")
+		c.Fatalf("unknown ec2 region %q", region)
 	}
 	endpoint := ec2Region.EC2Endpoint
 	s.makeLocalMetadata(c, "1.11.4", region, "precise", endpoint)

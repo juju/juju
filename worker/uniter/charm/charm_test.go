@@ -19,8 +19,10 @@ import (
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -31,6 +33,9 @@ func TestPackage(t *stdtesting.T) {
 type BundlesDirSuite struct {
 	coretesting.HTTPSuite
 	testing.JujuConnSuite
+
+	st     *api.State
+	uniter *uniter.State
 }
 
 var _ = gc.Suite(&BundlesDirSuite{})
@@ -48,14 +53,30 @@ func (s *BundlesDirSuite) TearDownSuite(c *gc.C) {
 func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	s.HTTPSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+
+	// Add a charm, service and unit to login to the API with.
+	charm := s.AddTestingCharm(c, "wordpress")
+	service, err := s.State.AddService("wordpress", charm)
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+
+	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	c.Assert(s.st, gc.NotNil)
+	s.uniter = s.st.Uniter()
+	c.Assert(s.uniter, gc.NotNil)
 }
 
 func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
+	err := s.st.Close()
+	c.Assert(err, gc.IsNil)
 	s.JujuConnSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 }
 
-func (s *BundlesDirSuite) AddCharm(c *gc.C) (*state.Charm, []byte) {
+func (s *BundlesDirSuite) AddCharm(c *gc.C) (*uniter.Charm, *state.Charm, []byte) {
 	curl := corecharm.MustParseURL("cs:series/dummy-1")
 	surl, err := url.Parse(s.URL("/some/charm.bundle"))
 	c.Assert(err, gc.IsNil)
@@ -65,7 +86,9 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (*state.Charm, []byte) {
 	bundata, hash := readHash(c, bunpath)
 	sch, err := s.State.AddCharm(bun, curl, surl, hash)
 	c.Assert(err, gc.IsNil)
-	return sch, bundata
+	apiCharm, err := s.uniter.Charm(sch.URL())
+	c.Assert(err, gc.IsNil)
+	return apiCharm, sch, bundata
 }
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
@@ -75,30 +98,30 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Check it doesn't get created until it's needed.
 	_, err := os.Stat(bunsdir)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Add a charm to state that we can try to get.
-	sch, bundata := s.AddCharm(c)
+	apiCharm, sch, bundata := s.AddCharm(c)
 
 	// Try to get the charm when the content doesn't match.
 	coretesting.Server.Response(200, nil, []byte("roflcopter"))
-	_, err = d.Read(sch, nil)
+	_, err = d.Read(apiCharm, nil)
 	prefix := fmt.Sprintf(`failed to download charm "cs:series/dummy-1" from %q: `, sch.BundleURL())
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.
 	coretesting.Server.Response(404, nil, nil)
-	_, err = d.Read(sch, nil)
+	_, err = d.Read(apiCharm, nil)
 	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
 
 	// Get a charm whose bundle exists and whose content matches.
 	coretesting.Server.Response(200, nil, bundata)
-	ch, err := d.Read(sch, nil)
+	ch, err := d.Read(apiCharm, nil)
 	c.Assert(err, gc.IsNil)
 	assertCharm(c, ch, sch)
 
 	// Get the same charm again, without preparing a response from the server.
-	ch, err = d.Read(sch, nil)
+	ch, err = d.Read(apiCharm, nil)
 	c.Assert(err, gc.IsNil)
 	assertCharm(c, ch, sch)
 
@@ -108,7 +131,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	abort := make(chan struct{})
 	done := make(chan bool)
 	go func() {
-		ch, err := d.Read(sch, abort)
+		ch, err := d.Read(apiCharm, abort)
 		c.Assert(ch, gc.IsNil)
 		c.Assert(err, gc.ErrorMatches, prefix+"aborted")
 		close(done)

@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"launchpad.net/goamz/aws"
+
 	"launchpad.net/juju-core/environs/instances"
 )
 

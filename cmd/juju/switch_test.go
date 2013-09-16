@@ -7,6 +7,7 @@ import (
 	"os"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	_ "launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/testing"

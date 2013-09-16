@@ -422,7 +422,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 		if err == nil {
 			return st, "", nil
 		}
-		if params.ErrCode(err) != params.CodeUnauthorized {
+		if !params.IsCodeUnauthorized(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password

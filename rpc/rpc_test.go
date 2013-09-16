@@ -92,6 +92,19 @@ func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 	return &CallbackMethods{r}, nil
 }
 
+func (r *Root) InterfaceMethods(id string) (InterfaceMethods, error) {
+	log.Infof("interface methods called")
+	m, err := r.SimpleMethods(id)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+type InterfaceMethods interface {
+	Call1r1e(s stringVal) (stringVal, error)
+}
+
 type ChangeAPIMethods struct {
 	r *Root
 }
@@ -238,16 +251,16 @@ func (*suite) TestRPC(c *gc.C) {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
 				retErr := nerr != 0
-				root.testCall(c, client, narg, nret, retErr, false)
+				root.testCall(c, client, "SimpleMethods", narg, nret, retErr, false)
 				if retErr {
-					root.testCall(c, client, narg, nret, retErr, true)
+					root.testCall(c, client, "SimpleMethods", narg, nret, retErr, true)
 				}
 			}
 		}
 	}
 }
 
-func (root *Root) testCall(c *gc.C, conn *rpc.Conn, narg, nret int, retErr, testErr bool) {
+func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
 	root.calls = nil
 	root.returnErr = testErr
 	e := ""
@@ -257,7 +270,7 @@ func (root *Root) testCall(c *gc.C, conn *rpc.Conn, narg, nret int, retErr, test
 	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
 	c.Logf("test call %s", method)
 	var r stringVal
-	err := conn.Call("SimpleMethods", "a99", method, stringVal{"arg"}, &r)
+	err := conn.Call(entry, "a99", method, stringVal{"arg"}, &r)
 	root.mu.Lock()
 	defer root.mu.Unlock()
 	expectCall := callInfo{
@@ -278,6 +291,17 @@ func (root *Root) testCall(c *gc.C, conn *rpc.Conn, narg, nret int, retErr, test
 	case nret > 0:
 		c.Assert(r, gc.Equals, stringVal{method + " ret"})
 	}
+}
+
+func (*suite) TestInterfaceMethods(c *gc.C) {
+	root := &Root{
+		simple: make(map[string]*SimpleMethods),
+	}
+	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
+	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	root.testCall(c, client, "InterfaceMethods", 1, 1, true, false)
+	root.testCall(c, client, "InterfaceMethods", 1, 1, true, true)
 }
 
 func (*suite) TestConcurrentCalls(c *gc.C) {

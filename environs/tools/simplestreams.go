@@ -7,6 +7,7 @@
 package tools
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"hash"
@@ -15,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"bytes"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"

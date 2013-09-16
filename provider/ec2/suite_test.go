@@ -5,8 +5,9 @@ package ec2_test
 
 import (
 	"flag"
-	gc "launchpad.net/gocheck"
 	"testing"
+
+	gc "launchpad.net/gocheck"
 )
 
 var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon servers")

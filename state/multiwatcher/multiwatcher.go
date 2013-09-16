@@ -6,10 +6,12 @@ package multiwatcher
 import (
 	"container/list"
 	"errors"
+	"reflect"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/tomb"
-	"reflect"
 )
 
 // Watcher watches any changes to the state.

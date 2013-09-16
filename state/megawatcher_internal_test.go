@@ -121,6 +121,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	c.Assert(err, gc.IsNil)
 	add(&params.RelationInfo{
 		Key: "logging:logging-directory wordpress:logging-dir",
+		Id:  rel.Id(),
 		Endpoints: []params.Endpoint{
 			{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 			{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},

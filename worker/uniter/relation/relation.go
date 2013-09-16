@@ -8,13 +8,14 @@ package relation
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker/uniter/hook"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/charm/hooks"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/worker/uniter/hook"
 )
 
 // State describes the state of a relation.
