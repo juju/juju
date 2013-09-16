@@ -300,6 +300,7 @@ func (st *State) addMachineContainerOps(params *AddMachineParams, cons constrain
 			RootDisk:   params.HardwareCharacteristics.RootDisk,
 			CpuCores:   params.HardwareCharacteristics.CpuCores,
 			CpuPower:   params.HardwareCharacteristics.CpuPower,
+			Tags:       params.HardwareCharacteristics.Tags,
 		}
 	}
 	var ops []txn.Op

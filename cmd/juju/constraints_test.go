@@ -5,11 +5,14 @@ package main
 
 import (
 	"bytes"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type ConstraintsCommandsSuite struct {
@@ -52,7 +55,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	assertSet(c)
 	cons, err = s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
@@ -72,7 +75,7 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
 	assertSet(c, "-s", "svc")
 	cons, err = svc.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func assertSetError(c *gc.C, code int, stderr string, args ...string) {

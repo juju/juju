@@ -93,6 +93,7 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 		hc.RootDisk = &inst.instType.RootDisk
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		// Tags currently not supported by EC2
 	}
 	return hc
 }

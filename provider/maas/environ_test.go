@@ -354,7 +354,8 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 		{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
 		// RootDisk is ignored.
 		{constraints.Value{RootDisk: uint64p(8192)}, url.Values{}},
-		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192)}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}}},
+		{constraints.Value{Tags: []string{"foo", "bar"}}, url.Values{"tags": {"foo,bar"}}},
+		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192), Tags: []string{"foo", "bar"}}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}, "tags": {"foo,bar"}}},
 	}
 	for _, test := range testValues {
 		c.Check(convertConstraints(test.constraints), gc.DeepEquals, test.expectedResult)

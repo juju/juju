@@ -250,13 +250,22 @@ var parseConstraintsTests = []struct {
 		err:     `bad "root-disk" constraint: already set`,
 	},
 
+	// tags
+	{
+		summary: "single tag",
+		args:    []string{"tags=foo"},
+	}, {
+		summary: "multiple tags",
+		args:    []string{"tags=foo,bar"},
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
+		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc tags=foo,bar"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
+		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc", "tags=foo,bar"},
 	},
 }
 
@@ -274,6 +283,11 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(cons1, gc.DeepEquals, cons0)
 	}
+}
+
+func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
+	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	c.Check(con.Tags, gc.IsNil)
 }
 
 func uint64p(i uint64) *uint64 {

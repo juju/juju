@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -151,6 +152,9 @@ func convertConstraints(cons constraints.Value) url.Values {
 	}
 	if cons.Mem != nil {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
+	}
+	if len(cons.Tags) > 0 {
+		params.Add("tags", strings.Join(cons.Tags, ","))
 	}
 	// TODO(bug 1212689): ignore root-disk constraint for now.
 	if cons.RootDisk != nil {

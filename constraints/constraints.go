@@ -44,6 +44,20 @@ type Value struct {
 	// time, an instance with the specified amount of disk space in the OS
 	// disk might be requested.
 	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"root-disk,omitempty"`
+
+	// Tags, if not empty, indicates tags that the machine must have applied to it
+	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+}
+
+// IsEmpty returns if the given constraints value has no constraints set
+func IsEmpty(v *Value) bool {
+	return v == nil ||
+		v.Arch == nil &&
+			v.Container == nil &&
+			v.CpuCores == nil &&
+			v.Mem == nil &&
+			v.RootDisk == nil &&
+			len(v.Tags) == 0
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -75,6 +89,10 @@ func (v Value) String() string {
 		}
 		strs = append(strs, "root-disk="+s)
 	}
+	if len(v.Tags) > 0 {
+		s := strings.Join(v.Tags, ",")
+		strs = append(strs, "tags="+s)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -98,6 +116,9 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	}
 	if v.RootDisk != nil {
 		v1.RootDisk = v.RootDisk
+	}
+	if len(v.Tags) > 0 {
+		v1.Tags = v.Tags
 	}
 	return v1
 }
@@ -177,6 +198,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setMem(str)
 	case "root-disk":
 		err = v.setRootDisk(str)
+	case "tags":
+		err = v.setTags(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -210,6 +233,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			v.Mem, err = parseUint64(vstr)
 		case "root-disk":
 			v.RootDisk, err = parseUint64(vstr)
+		case "tags":
+			v.Tags = parseTags(vstr)
 		default:
 			return false
 		}
@@ -288,6 +313,14 @@ func (v *Value) setRootDisk(str string) (err error) {
 	return
 }
 
+func (v *Value) setTags(str string) error {
+	if len(v.Tags) > 0 {
+		return fmt.Errorf("already set")
+	}
+	v.Tags = parseTags(str)
+	return nil
+}
+
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
@@ -316,6 +349,15 @@ func parseSize(str string) (*uint64, error) {
 		value = uint64(math.Ceil(val))
 	}
 	return &value, nil
+}
+
+// parseTags returns the tags in the value s
+func parseTags(s string) []string {
+	tags := strings.Split(s, ",")
+	if len(tags) == 0 {
+		return nil
+	}
+	return tags
 }
 
 var mbSuffixes = map[string]float64{

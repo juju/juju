@@ -217,12 +217,11 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	if err != nil {
 		return nil, err
 	}
-	emptyCons := constraints.Value{}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 || args.ToMachineSpec != "" {
 			return nil, fmt.Errorf("subordinate service must be deployed without units")
 		}
-		if args.Constraints != emptyCons {
+		if !constraints.IsEmpty(&args.Constraints) {
 			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
 		}
 	}
@@ -240,7 +239,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	if args.Charm.Meta().Subordinate {
 		return service, nil
 	}
-	if args.Constraints != emptyCons {
+	if !constraints.IsEmpty(&args.Constraints) {
 		if err := service.SetConstraints(args.Constraints); err != nil {
 			return nil, err
 		}

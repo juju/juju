@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -128,7 +129,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {

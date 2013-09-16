@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -189,11 +189,11 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.HardwareCharacteristics()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 }
@@ -333,13 +333,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 	c.Assert(iid, gc.Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -355,7 +355,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -448,7 +448,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	err = m0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = m0.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
@@ -924,7 +924,7 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()
 		c.Assert(err1, gc.IsNil)
-		c.Assert(mcons, gc.DeepEquals, constraints.Value{})
+		c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 		return err
 	})
 
