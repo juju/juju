@@ -19,6 +19,7 @@ var _ = gc.Suite(&datasourceSuite{})
 type datasourceSuite struct {
 	home    *testing.FakeHome
 	storage environs.Storage
+	baseURL string
 }
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
@@ -26,6 +27,8 @@ func (s *datasourceSuite) SetUpTest(c *gc.C) {
 	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
 	s.storage = environ.Storage()
+	s.baseURL, err = s.storage.URL("")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *datasourceSuite) TearDownTest(c *gc.C) {
@@ -40,7 +43,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
-	c.Assert(url, gc.Equals, "foo/bar/data.txt")
+	c.Assert(url, gc.Equals, s.baseURL+"foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
 }
@@ -52,7 +55,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
-	c.Assert(url, gc.Equals, "base/foo/bar/data.txt")
+	c.Assert(url, gc.Equals, s.baseURL+"base/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
 }
