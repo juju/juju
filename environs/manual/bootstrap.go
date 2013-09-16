@@ -121,15 +121,15 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	// Finally, provision the machine agent.
 	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, provider.StateFile)
 	err = provisionMachineAgent(provisionMachineAgentArgs{
-		host:         args.Host,
-		dataDir:      dataDir,
-		envcfg:       args.Environ.Config(),
-		stateFileURL: stateFileURL,
-		machineId:    args.MachineId,
-		bootstrap:    true,
-		nonce:        state.BootstrapNonce,
-		tools:        &tools,
-		agentEnv:     agentEnv,
+		host:          args.Host,
+		dataDir:       dataDir,
+		environConfig: args.Environ.Config(),
+		stateFileURL:  stateFileURL,
+		machineId:     args.MachineId,
+		bootstrap:     true,
+		nonce:         state.BootstrapNonce,
+		tools:         &tools,
+		agentEnv:      agentEnv,
 	})
 	return err
 }

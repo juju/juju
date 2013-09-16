@@ -23,16 +23,16 @@ import (
 )
 
 type provisionMachineAgentArgs struct {
-	host         string
-	dataDir      string
-	bootstrap    bool
-	envcfg       *config.Config
-	machineId    string
-	nonce        string
-	stateFileURL string
-	stateInfo    *state.Info
-	apiInfo      *api.Info
-	tools        *tools.Tools
+	host          string
+	dataDir       string
+	bootstrap     bool
+	environConfig *config.Config
+	machineId     string
+	nonce         string
+	stateFileURL  string
+	stateInfo     *state.Info
+	apiInfo       *api.Info
+	tools         *tools.Tools
 
 	// agentEnv is an optional map of
 	// arbitrary key/value pairs to pass
@@ -77,7 +77,7 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 		mcfg.DataDir = args.dataDir
 	}
 	mcfg.Tools = args.tools
-	err := environs.FinishMachineConfig(mcfg, args.envcfg, constraints.Value{})
+	err := environs.FinishMachineConfig(mcfg, args.environConfig, constraints.Value{})
 	if err != nil {
 		return "", err
 	}

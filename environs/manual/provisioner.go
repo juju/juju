@@ -132,15 +132,15 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 
 	// Finally, provision the machine agent.
 	err = provisionMachineAgent(provisionMachineAgentArgs{
-		host:      args.Host,
-		dataDir:   args.DataDir,
-		envcfg:    env.Config(),
-		machineId: m.Id(),
-		bootstrap: false,
-		nonce:     nonce,
-		stateInfo: stateInfo,
-		apiInfo:   apiInfo,
-		tools:     tools,
+		host:          args.Host,
+		dataDir:       args.DataDir,
+		environConfig: env.Config(),
+		machineId:     m.Id(),
+		bootstrap:     false,
+		nonce:         nonce,
+		stateInfo:     stateInfo,
+		apiInfo:       apiInfo,
+		tools:         tools,
 	})
 	if err != nil {
 		return m, err
