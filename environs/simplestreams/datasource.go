@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"launchpad.net/juju-core/errors"
-	"strings"
 )
 
 // A DataSource retrieves simplestreams metadata.

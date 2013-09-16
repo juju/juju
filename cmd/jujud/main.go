@@ -11,10 +11,8 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-)
 
-// Import the providers.
-import (
+	// Import the providers.
 	_ "launchpad.net/juju-core/provider/all"
 )
 

@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type CharmSuite struct {
@@ -54,7 +54,7 @@ func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
 	c.Assert(err, gc.ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 type CharmTestHelperSuite struct {

@@ -9,13 +9,15 @@ package presence
 
 import (
 	"fmt"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/tomb"
 	"strconv"
 	"sync"
 	"time"
+
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/log"
 )
 
 // Debug specifies whether the package will log debug

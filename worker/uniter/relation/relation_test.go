@@ -13,7 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
 )
@@ -34,13 +34,13 @@ func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {
 	c.Assert(state.ChangedPending, gc.Equals, "")
 
 	_, err = os.Stat(reldir)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = dir.Ensure()
 	c.Assert(err, gc.IsNil)
 	fi, err := os.Stat(reldir)
 	c.Assert(err, gc.IsNil)
-	c.Assert(fi, checkers.Satisfies, os.FileInfo.IsDir)
+	c.Assert(fi, jc.Satisfies, os.FileInfo.IsDir)
 }
 
 func (s *StateDirSuite) TestReadStateDirValid(c *gc.C) {
@@ -276,7 +276,7 @@ func (s *ReadAllStateDirsSuite) TestNoDir(c *gc.C) {
 	c.Assert(dirs, gc.HasLen, 0)
 
 	_, err = os.Stat(relsdir)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *ReadAllStateDirsSuite) TestBadStateDir(c *gc.C) {
@@ -342,7 +342,7 @@ func assertState(c *gc.C, dir *relation.StateDir, relsdir string, relationId int
 	c.Assert(dir.State(), gc.DeepEquals, expect)
 	if deleted {
 		_, err := os.Stat(filepath.Join(relsdir, strconv.Itoa(relationId)))
-		c.Assert(err, checkers.Satisfies, os.IsNotExist)
+		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	} else {
 		fresh, err := relation.ReadStateDir(relsdir, relationId)
 		c.Assert(err, gc.IsNil)

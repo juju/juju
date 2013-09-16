@@ -7,9 +7,12 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"

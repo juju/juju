@@ -7,14 +7,16 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"labix.org/v2/mgo"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/testing"
 	"sync"
 	stdtesting "testing"
 	"time"
+
+	"labix.org/v2/mgo"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/testing"
 )
 
 func Test(t *stdtesting.T) {
