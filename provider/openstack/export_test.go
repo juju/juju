@@ -267,3 +267,11 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
 }
+
+func ImageMetadataStorage(e environs.Environ) environs.Storage {
+    env := e.(*environ)
+    return &storage{
+        containerName: "imagemetadata",
+        swift: swift.New(env.client),
+    }
+}
