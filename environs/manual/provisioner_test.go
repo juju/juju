@@ -56,6 +56,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
+        c.Logf("test %d: code %d", i, errorCode)
 		defer sshresponder{
 			series: series,
 			arch:   arch,
@@ -79,10 +80,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	// Attempting to provision a machine twice should fail. We effect
 	// this by checking for existing juju upstart configurations.
-	defer sshresponse(c, checkProvisionedScript, "/etc/init/jujud-machine-0.conf", 0)()
+	defer sshresponse(c, "", "/etc/init/jujud-machine-0.conf", 0)()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
-	defer sshresponse(c, checkProvisionedScript, "/etc/init/jujud-machine-0.conf", 255)()
+	defer sshresponse(c, "", "/etc/init/jujud-machine-0.conf", 255)()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
 }

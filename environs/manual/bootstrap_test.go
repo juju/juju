@@ -102,7 +102,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// We *do* check that the machine has no juju* upstart jobs, though.
-	defer sshresponse(c, checkProvisionedScript, "/etc/init/jujud-machine-0.conf", 0)()
+	defer sshresponse(c, "", "/etc/init/jujud-machine-0.conf", 0)()
 	err = Bootstrap(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
 }
@@ -124,13 +124,13 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapEmptyHost(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = ""
-	c.Assert(Bootstrap(args), gc.ErrorMatches, "Host argument is empty")
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "host argument is empty")
 }
 
 func (s *bootstrapSuite) TestBootstrapNilEnviron(c *gc.C) {
 	args := s.getArgs(c)
 	args.Environ = nil
-	c.Assert(Bootstrap(args), gc.ErrorMatches, "Environ argument is nil")
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "environ argument is nil")
 }
 
 func (s *bootstrapSuite) TestBootstrapInvalidMachineId(c *gc.C) {

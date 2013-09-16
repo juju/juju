@@ -38,22 +38,19 @@ type BootstrapArgs struct {
 // TODO(axw) make this configurable?
 const dataDir = "/var/lib/juju"
 
-var errHostEmpty = errors.New("Host argument is empty")
-var errEnvironNil = errors.New("Environ argument is nil")
-
 func errMachineIdInvalid(machineId string) error {
 	return fmt.Errorf("%q is not a valid machine ID", machineId)
 }
 
 // NewManualBootstrapEnviron wraps a LocalStorageEnviron with another which
 // overrides the Bootstrap method; when Bootstrap is invoked, the specified
-// host will manually bootstrapped.
+// host will be manually bootstrapped.
 func Bootstrap(args BootstrapArgs) (err error) {
 	if args.Host == "" {
-		return errHostEmpty
+		return errors.New("host argument is empty")
 	}
 	if args.Environ == nil {
-		return errEnvironNil
+		return errors.New("environ argument is nil")
 	}
 	if !names.IsMachine(args.MachineId) {
 		return errMachineIdInvalid(args.MachineId)
@@ -61,8 +58,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 
 	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
-		err = fmt.Errorf("error checking if provisioned: %v", err)
-		return err
+		return fmt.Errorf("failed to check provisioned status: %v", err)
 	}
 	if provisioned {
 		return ErrProvisioned
@@ -73,18 +69,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return err
 	}
 
-	var savedState bool
-	defer func() {
-		if savedState && err != nil {
-			logger.Errorf("bootstrapping failed, removing state file: %v", err)
-			bootstrapStorage.Remove(provider.StateFile)
-		}
-	}()
-
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
 	if err != nil {
-		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
-		return err
+		return fmt.Errorf("error detecting hardware characteristics: %v", err)
 	}
 
 	// Filter tools based on detected series/arch.
@@ -109,7 +96,12 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	if err != nil {
 		return err
 	}
-	savedState = true
+	defer func() {
+		if err != nil {
+			logger.Errorf("bootstrapping failed, removing state file: %v", err)
+			bootstrapStorage.Remove(provider.StateFile)
+		}
+	}()
 
 	// Get a file:// scheme tools URL for the tools, which will have been
 	// copied to the remote machine's storage directory.
@@ -119,7 +111,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
 
 	// Add the local storage configuration.
-	machineenv := map[string]string{
+	machineEnv := map[string]string{
 		osenv.JujuStorageAddr:       args.Environ.StorageAddr(),
 		osenv.JujuStorageDir:        storageDir,
 		osenv.JujuSharedStorageAddr: args.Environ.SharedStorageAddr(),
@@ -137,7 +129,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		bootstrap:    true,
 		nonce:        state.BootstrapNonce,
 		tools:        &tools,
-		machineenv:   machineenv,
+		machineEnv:   machineEnv,
 	})
 	return err
 }

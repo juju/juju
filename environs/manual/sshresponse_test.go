@@ -99,5 +99,5 @@ func (r sshresponder) respond(c *gc.C) func() {
 		f = add(f, "", "", r.provisionAgentExitCode)
 	}
 	f = add(f, detectionScript, detectionoutput, 0)
-	return add(f, checkProvisionedScript, "", 0)
+	return add(f, "", "", 0)
 }

@@ -35,10 +35,10 @@ type provisionMachineAgentArgs struct {
 	apiInfo      *api.Info
 	tools        *tools.Tools
 
-	// machineenv is an optional map of
+	// machineEnv is an optional map of
 	// arbitrary key/value pairs to pass
 	// into the machine agent.
-	machineenv map[string]string
+	machineEnv map[string]string
 }
 
 // provisionMachineAgent connects to a machine over SSH,
@@ -84,7 +84,7 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 		return "", err
 	}
 	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Null
-	for k, v := range args.machineenv {
+	for k, v := range args.machineEnv {
 		mcfg.MachineEnvironment[k] = v
 	}
 	cloudcfg := corecloudinit.New()

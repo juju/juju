@@ -25,8 +25,7 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 // exist on the host machine.
 func checkProvisioned(sshHost string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", sshHost)
-	cmd := exec.Command("ssh", sshHost, "bash")
-	cmd.Stdin = bytes.NewBufferString(checkProvisionedScript)
+	cmd := exec.Command("ssh", sshHost, "bash", "-c", checkProvisionedScript)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, err
@@ -122,6 +121,7 @@ var archREs = []struct {
 }
 
 const detectionScript = `#!/bin/bash
+set -e
 lsb_release -cs
 uname -m
 grep MemTotal /proc/meminfo
