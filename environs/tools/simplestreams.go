@@ -166,6 +166,9 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 				}
 			} else {
 				if toolsConstraint.Version != tmNumber {
+					fmt.Println("555555555555")
+					fmt.Println(toolsConstraint.Version)
+					fmt.Println(tmNumber)
 					continue
 				}
 			}

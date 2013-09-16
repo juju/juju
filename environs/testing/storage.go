@@ -55,19 +55,19 @@ type contents struct {
 	StorageClass string
 }
 
-// EC2HTTPTestStorage acts like an EC2 storage which can be
+// HTTPTestStorage acts like an EC2 storage which can be
 // accessed by HTTP.
-type EC2HTTPTestStorage struct {
+type HTTPTestStorage struct {
 	location string
 	files    map[string][]byte
 	listener net.Listener
 }
 
-// NewEC2HTTPTestStorage creates a storage server for tests
+// NewHTTPTestStorage creates a storage server for tests
 // with the HTTPStorageReader.
-func NewEC2HTTPTestStorage(ip string) (*EC2HTTPTestStorage, error) {
+func NewHTTPTestStorage(ip string) (*HTTPTestStorage, error) {
 	var err error
-	s := &EC2HTTPTestStorage{
+	s := &HTTPTestStorage{
 		files: make(map[string][]byte),
 	}
 	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", ip, 0))
@@ -95,17 +95,17 @@ func NewEC2HTTPTestStorage(ip string) (*EC2HTTPTestStorage, error) {
 }
 
 // Stop stops the HTTP test storage.
-func (s *EC2HTTPTestStorage) Stop() error {
+func (s *HTTPTestStorage) Stop() error {
 	return s.listener.Close()
 }
 
 // Location returns the location that has to be used in the tests.
-func (s *EC2HTTPTestStorage) Location() string {
+func (s *HTTPTestStorage) Location() string {
 	return s.location
 }
 
 // PutBinary stores a faked binary in the HTTP test storage.
-func (s *EC2HTTPTestStorage) PutBinary(v version.Binary) {
+func (s *HTTPTestStorage) PutBinary(v version.Binary) {
 	data := v.String()
 	name := tools.StorageName(v)
 	parts := strings.Split(name, "/")
@@ -122,7 +122,7 @@ func (s *EC2HTTPTestStorage) PutBinary(v version.Binary) {
 }
 
 // handleIndex returns the index XML file to the client.
-func (s *EC2HTTPTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
+func (s *HTTPTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
 	lbr := &listBucketResult{
 		Name:        "juju-dist",
 		Prefix:      "",
@@ -157,7 +157,7 @@ func (s *EC2HTTPTestStorage) handleIndex(w http.ResponseWriter, req *http.Reques
 }
 
 // handleGet returns a storage file to the client.
-func (s *EC2HTTPTestStorage) handleGet(w http.ResponseWriter, req *http.Request) {
+func (s *HTTPTestStorage) handleGet(w http.ResponseWriter, req *http.Request) {
 	data, ok := s.files[req.URL.Path[1:]]
 	if !ok {
 		http.Error(w, "404 file not found", http.StatusNotFound)

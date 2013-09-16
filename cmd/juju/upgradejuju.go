@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
@@ -30,7 +31,7 @@ type UpgradeJujuCommand struct {
 	Series      []string
 }
 
-var uploadTools = envtools.Upload
+var uploadTools = sync.Upload
 
 var upgradeJujuDoc = `
 The upgrade-juju command upgrades a running environment by setting a version

@@ -12,9 +12,9 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -62,7 +62,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	const minorVersion = -1
 	toolsList, err := tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	if err == tools.ErrNoTools && !c.noS3 {
-		sourceStorage = ec2.NewHTTPStorageReader(sync.DefaultToolsLocation)
+		sourceStorage = httpstorage.NewHTTPStorageReader(sync.DefaultToolsLocation)
 		toolsList, err = tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	}
 	if err != nil {
