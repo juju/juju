@@ -36,7 +36,7 @@ func checkProvisioned(sshHost string) (bool, error) {
 	if provisioned {
 		logger.Infof("%s is already provisioned [%q]", sshHost, output)
 	} else {
-		logger.Infof("%s is not provisioned")
+		logger.Infof("%s is not provisioned", sshHost)
 	}
 	return provisioned, nil
 }

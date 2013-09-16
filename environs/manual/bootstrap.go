@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/tools"
-	localstorage "launchpad.net/juju-core/worker/localstorage"
+	"launchpad.net/juju-core/worker/localstorage"
 )
 
 const BootstrapInstanceId = instance.Id(manualInstancePrefix)

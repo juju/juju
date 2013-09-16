@@ -27,7 +27,7 @@ import (
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
-	localstorage "launchpad.net/juju-core/worker/localstorage"
+	"launchpad.net/juju-core/worker/localstorage"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
