@@ -5,6 +5,7 @@ package instance_test
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/instance"
 )
 

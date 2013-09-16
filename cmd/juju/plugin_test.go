@@ -12,8 +12,9 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type PluginSuite struct {
@@ -115,21 +116,21 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {
 
 func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *gc.C) {
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, HasPrefix, PluginTopicText)
-	c.Assert(output, HasSuffix, "\n\nNo plugins found.\n")
+	c.Assert(output, jc.HasPrefix, PluginTopicText)
+	c.Assert(output, jc.HasSuffix, "\n\nNo plugins found.\n")
 }
 
 func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	suite.makeFullPlugin(PluginParams{Name: "bar"})
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, HasPrefix, PluginTopicText)
+	c.Assert(output, jc.HasPrefix, PluginTopicText)
 	expectedPlugins := `
 
 bar  bar description
 foo  foo description
 `
-	c.Assert(output, HasSuffix, expectedPlugins)
+	c.Assert(output, jc.HasSuffix, expectedPlugins)
 }
 
 func (suite *PluginSuite) TestHelpPluginName(c *gc.C) {

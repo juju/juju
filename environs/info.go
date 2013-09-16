@@ -22,29 +22,20 @@ type APICredentials struct {
 	Password string
 }
 
-// EnvironInfo holds information on a given environment, to be stored
-// outside that environment.
-type EnvironInfo struct {
-	// Creds holds information on the user to connect as.
-	Creds APICredentials
-
-	// Endpoint holds the latest information on the API endpoint. It
-	// will be updated when new information becomes available.
-	Endpoint APIEndpoint
-}
-
 // ConfigStorage stores environment configuration data.
 type ConfigStorage interface {
-	// EnvironInfo returns information on the environment with the
-	// given name, previously stored with WriteEnvironInfo.
-	// If there is no environment info available, an errors.NotFoundError
-	// is returned.
-	// Conventionally EnvironInfo will return data read from
-	// $HOME/.juju/.environments/$envName.yaml.
-	EnvironInfo(envName string) (*EnvironInfo, error)
+	// ReadInfo reads information associated with
+	// the environment with the given name.
+	// If there is no such information, it will
+	// return an errors.NotFound error.
+	ReadInfo(envName string) (EnvironInfo, error)
+}
 
-	// WriteEnvironInfo writes information on the environment with
-	// the given name. Conventionally EnvironInfo will write to
-	// $HOME/.juju/.environments/$envName.yaml.
-	WriteEnvironInfo(envName string, info *EnvironInfo) error
+// EnvironInfo holds information associated with an environment.
+type EnvironInfo interface {
+	// APIEndpoint returns the current API endpoint information.
+	APIEndpoint() APIEndpoint
+
+	// APICredentials returns the current API credentials.
+	APICredentials() APICredentials
 }

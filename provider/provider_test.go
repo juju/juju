@@ -1,8 +1,9 @@
 package provider_test
 
 import (
-	gc "launchpad.net/gocheck"
 	"testing"
+
+	gc "launchpad.net/gocheck"
 )
 
 func TestPackage(t *testing.T) {

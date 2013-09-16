@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	gc "launchpad.net/gocheck"
+
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 

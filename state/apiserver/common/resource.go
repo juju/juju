@@ -4,9 +4,10 @@
 package common
 
 import (
-	"launchpad.net/juju-core/log"
 	"strconv"
 	"sync"
+
+	"launchpad.net/juju-core/log"
 )
 
 // Resource represents any resource that should be cleaned up when an

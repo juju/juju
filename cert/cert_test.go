@@ -127,7 +127,7 @@ func (certSuite) TestVerify(c *gc.C) {
 
 	// TODO(rog) why does this succeed?
 	// err = cert.Verify(srvCert, caCert, now.Add(-1 * time.Minute))
-	//c.Check(err, ErrorMatches, "x509: certificate has expired or is not yet valid")
+	//c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
 
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
 	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")

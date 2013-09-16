@@ -5,7 +5,8 @@ package checkers_test
 
 import (
 	gc "launchpad.net/gocheck"
-	. "launchpad.net/juju-core/testing/checkers"
+
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type RelopSuite struct{}
@@ -13,23 +14,23 @@ type RelopSuite struct{}
 var _ = gc.Suite(&RelopSuite{})
 
 func (s *RelopSuite) TestGreaterThan(c *gc.C) {
-	c.Assert(45, GreaterThan, 42)
-	c.Assert(2.25, GreaterThan, 1.0)
-	c.Assert(42, gc.Not(GreaterThan), 42)
-	c.Assert(10, gc.Not(GreaterThan), 42)
+	c.Assert(45, jc.GreaterThan, 42)
+	c.Assert(2.25, jc.GreaterThan, 1.0)
+	c.Assert(42, gc.Not(jc.GreaterThan), 42)
+	c.Assert(10, gc.Not(jc.GreaterThan), 42)
 
-	result, msg := GreaterThan.Check([]interface{}{"Hello", "World"}, nil)
-	c.Assert(result, IsFalse)
+	result, msg := jc.GreaterThan.Check([]interface{}{"Hello", "World"}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(msg, gc.Equals, `obtained value string:"Hello" not supported`)
 }
 
 func (s *RelopSuite) TestLessThan(c *gc.C) {
-	c.Assert(42, LessThan, 45)
-	c.Assert(1.0, LessThan, 2.25)
-	c.Assert(42, gc.Not(LessThan), 42)
-	c.Assert(42, gc.Not(LessThan), 10)
+	c.Assert(42, jc.LessThan, 45)
+	c.Assert(1.0, jc.LessThan, 2.25)
+	c.Assert(42, gc.Not(jc.LessThan), 42)
+	c.Assert(42, gc.Not(jc.LessThan), 10)
 
-	result, msg := LessThan.Check([]interface{}{"Hello", "World"}, nil)
-	c.Assert(result, IsFalse)
+	result, msg := jc.LessThan.Check([]interface{}{"Hello", "World"}, nil)
+	c.Assert(result, jc.IsFalse)
 	c.Assert(msg, gc.Equals, `obtained value string:"Hello" not supported`)
 }

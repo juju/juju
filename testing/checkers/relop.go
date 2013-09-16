@@ -7,17 +7,17 @@ import (
 	"fmt"
 	"reflect"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 // GreaterThan checker
 
 type greaterThanChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var GreaterThan Checker = &greaterThanChecker{
-	&CheckerInfo{Name: "GreaterThan", Params: []string{"obtained", "expected"}},
+var GreaterThan gc.Checker = &greaterThanChecker{
+	&gc.CheckerInfo{Name: "GreaterThan", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *greaterThanChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -54,11 +54,11 @@ func (checker *greaterThanChecker) Check(params []interface{}, names []string) (
 // LessThan checker
 
 type lessThanChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var LessThan Checker = &lessThanChecker{
-	&CheckerInfo{Name: "LessThan", Params: []string{"obtained", "expected"}},
+var LessThan gc.Checker = &lessThanChecker{
+	&gc.CheckerInfo{Name: "LessThan", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *lessThanChecker) Check(params []interface{}, names []string) (result bool, error string) {

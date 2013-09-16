@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type UnitSuite struct {
@@ -41,7 +41,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 	_, err := s.State.Unit("subway/0")
 	c.Assert(err, gc.ErrorMatches, `unit "subway/0" not found`)
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestService(c *gc.C) {
@@ -258,7 +258,7 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	err = unit1.Remove()
 	c.Assert(err, gc.IsNil)
 	err = unit1.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
@@ -557,7 +557,7 @@ func assertUnitLife(c *gc.C, unit *state.Unit, life state.Life) {
 
 func assertUnitRemoved(c *gc.C, unit *state.Unit) {
 	err := unit.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = unit.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = unit.EnsureDead()
@@ -626,7 +626,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
 
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
@@ -969,7 +969,7 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	units, err := s.service.AllUnits()
 	c.Assert(err, gc.IsNil)
 	c.Assert(units, gc.HasLen, 0)
@@ -1020,9 +1020,9 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	err = mysql0ru.LeaveScope()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = rel.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {

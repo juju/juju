@@ -4,14 +4,16 @@
 package watcher_test
 
 import (
+	stdtesting "testing"
+	"time"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/tomb"
-	stdtesting "testing"
-	"time"
 )
 
 // Test tuning parameters.

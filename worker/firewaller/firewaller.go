@@ -5,6 +5,9 @@ package firewaller
 
 import (
 	"fmt"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
@@ -13,7 +16,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 )
 
 // Firewaller watches the state for ports opened or closed

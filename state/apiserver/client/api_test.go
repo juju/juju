@@ -5,7 +5,11 @@ package client_test
 
 import (
 	"fmt"
+	stdtesting "testing"
+	"time"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
@@ -15,9 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
-	stdtesting "testing"
-	"time"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -74,7 +76,7 @@ func removeServiceAndUnits(c *gc.C, service *state.Service) {
 	c.Assert(err, gc.IsNil)
 
 	err = service.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 // apiAuthenticator represents a simple authenticator object with only the
