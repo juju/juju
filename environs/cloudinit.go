@@ -75,7 +75,6 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
-	mcfg.AgentEnvironment[agent.LoggingConfig] = cfg.LoggingConfig()
 	if !mcfg.StateServer {
 		return nil
 	}

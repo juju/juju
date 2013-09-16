@@ -182,12 +182,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		}
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
+			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --constraints "+shquote(cfg.Constraints.String())+
-				" --log-config "+shquote(cfg.Config.LoggingConfig())+
-				" --show-log",
+				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
@@ -295,7 +295,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, cfg.Config.LoggingConfig(), nil)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
