@@ -26,11 +26,22 @@ type DataSource interface {
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
 	baseURL string
+        skipHostnameVerification bool
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
 func NewURLDataSource(baseURL string) DataSource {
-	return &urlDataSource{baseURL}
+    return &urlDataSource{
+        baseURL: baseURL,
+        skipHostnameVerification: false,
+    }
+}
+
+func NewNonValidatingURLDataSource(baseURL string) DataSource {
+    return &urlDataSource{
+        baseURL: baseURL,
+        skipHostnameVerification: true,
+    }
 }
 
 // urlJoin returns baseURL + relpath making sure to have a '/' inbetween them

@@ -275,3 +275,15 @@ func ImageMetadataStorage(e environs.Environ) environs.Storage {
         swift: swift.New(env.client),
     }
 }
+
+func CreateCustomStorage(e environs.Environ, containerName string) environs.Storage {
+    env := e.(*environ)
+    swiftClient := swift.New(env.client)
+    if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
+        panic(err)
+    }
+    return &storage{
+        containerName: containerName,
+        swift: swiftClient,
+    }
+}
