@@ -21,7 +21,7 @@ type fileStorageReader struct {
 	path string
 }
 
-// newFileStorageReader returns a new storage reader for
+// NewFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
 func NewFileStorageReader(path string) (environs.StorageReader, error) {
 	p := filepath.Clean(path)
@@ -87,6 +87,8 @@ type fileStorageWriter struct {
 	fileStorageReader
 }
 
+// NewFileStorageWriter returns a new read/write storage for
+// a directory inside the local file system.
 func NewFileStorageWriter(path string) (environs.Storage, error) {
 	reader, err := NewFileStorageReader(path)
 	if err != nil {
