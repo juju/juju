@@ -19,6 +19,11 @@ type diskStore struct {
 	dir string
 }
 
+type environInfo struct {
+	Creds environs.APICredentials
+	Endpoint environs.APIEndpoint
+}
+
 // NewDisk returns a ConfigStorage implementation that
 // stores configuration in the given directory.
 // The parent of the directory must already exist;
@@ -36,7 +41,7 @@ func (d *diskStore) envPath(envName string) string {
 }
 
 // EnvironInfo implements environs.ConfigStorage.EnvironInfo.
-func (d *diskStore) EnvironInfo(envName string) (*environs.EnvironInfo, error) {
+func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 	path := d.envPath(envName)
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -45,24 +50,17 @@ func (d *diskStore) EnvironInfo(envName string) (*environs.EnvironInfo, error) {
 		}
 		return nil, err
 	}
-	var info environs.EnvironInfo
+	var info environInfo
 	if err := goyaml.Unmarshal(data, &info); err != nil {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
 	}
 	return &info, nil
 }
 
-// WriteEnvironInfo implements environs.ConfigStorage.WriteEnvironInfo.
-func (d *diskStore) WriteEnvironInfo(envName string, info *environs.EnvironInfo) error {
-	if err := os.MkdirAll(d.dir, 0700); err != nil {
-		return err
-	}
-	data, err := goyaml.Marshal(info)
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(d.envPath(envName), data, 0600); err != nil {
-		return err
-	}
-	return nil
+func (info *environInfo) APICredentials() environs.APICredentials {
+	return info.Creds
+}
+
+func (info *environInfo) APIEndpoint() environs.APIEndpoint {
+	return info.Endpoint
 }
