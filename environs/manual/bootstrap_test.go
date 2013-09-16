@@ -82,7 +82,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 
-	defer sshresponder{series: s.Conn.Environ.Config().DefaultSeries()}.respond(c)()
+	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
@@ -97,12 +97,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Do it all again; this should work, despite the fact that
 	// there's a bootstrap state file. Existence for that is
 	// checked in general bootstrap code (environs/bootstrap).
-	defer sshresponder{series: s.Conn.Environ.Config().DefaultSeries()}.respond(c)()
+	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
 	// We *do* check that the machine has no juju* upstart jobs, though.
-	defer sshresponse(c, "", "/etc/init/jujud-machine-0.conf", 0)()
+	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
 }
@@ -111,7 +111,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 	series := s.Conn.Environ.Config().DefaultSeries()
-	defer sshresponder{series: series, provisionAgentExitCode: 1}.respond(c)()
+	defer fakeSSH{series: series, provisionAgentExitCode: 1}.install(c).Restore()
 	err := Bootstrap(args)
 	c.Assert(err, gc.NotNil)
 
@@ -144,7 +144,7 @@ func (s *bootstrapSuite) TestBootstrapInvalidMachineId(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapAlternativeMachineId(c *gc.C) {
 	args := s.getArgs(c)
 	args.MachineId = "1"
-	defer sshresponder{series: s.Conn.Environ.Config().DefaultSeries()}.respond(c)()
+	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
 	c.Assert(Bootstrap(args), gc.IsNil)
 }
 
@@ -153,11 +153,11 @@ func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	args := s.getArgs(c)
 	args.PossibleTools = nil
 	series := s.Conn.Environ.Config().DefaultSeries()
-	defer sshresponder{series: series, skipProvisionAgent: true}.respond(c)()
+	defer fakeSSH{series: series, skipProvisionAgent: true}.install(c).Restore()
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 
 	// Non-empty list, but none that match the series/arch.
-	defer sshresponder{series: "edgy", skipProvisionAgent: true}.respond(c)()
+	defer fakeSSH{series: "edgy", skipProvisionAgent: true}.install(c).Restore()
 	args = s.getArgs(c)
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 }

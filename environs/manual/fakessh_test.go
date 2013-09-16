@@ -13,6 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 // sshscript should only print the result on the first execution,
@@ -38,7 +39,7 @@ else
     exec ssh $*
 fi`
 
-// sshresponse creates a fake "ssh" command in a new $PATH,
+// installFakeSSH creates a fake "ssh" command in a new $PATH,
 // updates $PATH, and returns a function to reset $PATH to
 // its original value when called.
 //
@@ -46,7 +47,7 @@ fi`
 //    - nil (no output)
 //    - a string (stdout)
 //    - a slice of strings, of length two (stdout, stderr)
-func sshresponse(c *gc.C, input string, output interface{}, rc int) func() {
+func installFakeSSH(c *gc.C, input string, output interface{}, rc int) jc.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	sshexpectedinput := ssh + ".expected-input"
@@ -67,8 +68,8 @@ func sshresponse(c *gc.C, input string, output interface{}, rc int) func() {
 	return testing.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
 }
 
-// sshsesponder wraps the invocation of sshresponse based on the parameters.
-type sshresponder struct {
+// fakeSSH wraps the invocation of installFakeSSH based on the parameters.
+type fakeSSH struct {
 	series string
 	arch   string
 
@@ -81,7 +82,10 @@ type sshresponder struct {
 	skipProvisionAgent bool
 }
 
-func (r sshresponder) respond(c *gc.C) func() {
+// install installs fake SSH commands, which will respond to
+// manual provisioning/bootstrapping commands with the specified
+// output and exit codes.
+func (r fakeSSH) install(c *gc.C) jc.Restorer {
 	series := r.series
 	if series == "" {
 		series = "precise"
@@ -96,22 +100,14 @@ func (r sshresponder) respond(c *gc.C) func() {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
-	// Responses are elicited conditionally, hence this mess of dynamicity.
-	add := func(oldf func(), input, output string, rc int) func() {
-		f := sshresponse(c, input, output, rc)
-		if oldf != nil {
-			newf := f
-			f = func() {
-				newf()
-				oldf()
-			}
-		}
-		return f
+	var restore jc.Restorer
+	add := func(input string, output interface{}, rc int) {
+		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}
-	var f func()
 	if !r.skipProvisionAgent {
-		f = add(f, "", "", r.provisionAgentExitCode)
+		add("", nil, r.provisionAgentExitCode)
 	}
-	f = add(f, detectionScript, detectionoutput, 0)
-	return add(f, "", "", 0)
+	add(detectionScript, detectionoutput, 0)
+	add("", nil, 0) // checkProvisioned
+	return restore
 }

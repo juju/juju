@@ -53,3 +53,12 @@ func (*SetSuite) TestSetPanicsWhenNotAssignable(c *gc.C) {
 	type otherInt int
 	c.Assert(func() { jc.Set(&i, otherInt(88)) }, gc.PanicMatches, `reflect\.Set: value of type checkers_test\.otherInt is not assignable to type int`)
 }
+
+func (*SetSuite) TestRestorerAdd(c *gc.C) {
+	var order []string
+	first := jc.Restorer(func() { order = append(order, "first") })
+	second := jc.Restorer(func() { order = append(order, "second") })
+	restore := first.Add(second)
+	restore()
+	c.Assert(order, gc.DeepEquals, []string{"second", "first"})
+}

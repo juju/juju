@@ -8,6 +8,18 @@ import (
 // to restore some previous state.
 type Restorer func()
 
+// Add returns a Restorer that restores first f1
+// and then f. It is valid to call this on a nil
+// Restorer.
+func (f Restorer) Add(f1 Restorer) Restorer {
+	return func() {
+		f1.Restore()
+		if f != nil {
+			f.Restore()
+		}
+	}
+}
+
 // Restore restores some previous state.
 func (r Restorer) Restore() {
 	r()
