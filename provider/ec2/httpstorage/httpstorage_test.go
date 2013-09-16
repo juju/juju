@@ -10,8 +10,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/httpstorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/ec2/httpstorage"
 	"launchpad.net/juju-core/version"
 )
 

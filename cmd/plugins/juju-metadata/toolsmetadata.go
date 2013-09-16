@@ -12,9 +12,9 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/provider/ec2/httpstorage"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
