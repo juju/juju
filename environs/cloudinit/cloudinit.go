@@ -203,18 +203,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	return c, nil
 }
 
-var logrotateConf = `
-/var/log/juju/*.log {
-        daily
-        minsize 5M
-        maxsize 50M
-        copytruncate
-        rotate 7
-        missingok
-        compress
-        delaycompress
-}`[1:]
-
 func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	var configRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
@@ -229,7 +217,6 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 		return err
 	}
 	c.AddFile("/etc/rsyslog.d/25-juju.conf", string(content), 0600)
-	c.AddFile("/etc/logrotate.d/juju", logrotateConf, 0600)
 	c.AddRunCmd("restart rsyslog")
 	return nil
 }
