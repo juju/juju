@@ -8,7 +8,7 @@ type APIEndpoint struct {
 	// APIAddress holds a list of API addresses. It may not be
 	// current, and it will be empty if the environment has not been
 	// bootstrapped.
-	APIAddresses []string
+	Addresses []string
 
 	// CACert holds the CA certificate that
 	// signed the API server's key.
