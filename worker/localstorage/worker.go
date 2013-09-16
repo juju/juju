@@ -53,7 +53,7 @@ func (s *storageWorker) waitForDeath() error {
 	sharedStorageDir := s.config.Value(agent.SharedStorageDir)
 	sharedStorageAddr := s.config.Value(agent.SharedStorageAddr)
 	if sharedStorageAddr != "" && sharedStorageDir != "" {
-	    logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
+		logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
 
 		sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)
 		if err != nil {
