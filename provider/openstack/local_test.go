@@ -787,12 +787,13 @@ func (s *localHTTPSServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
-        // Control bucket goes through a StorageReader so we don't need nonvalidating-
         c.Check(urls[0][:8], gc.Equals, "https://")
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
 	// The public bucket URL ends with "/juju-dist/".
+        c.Check(urls[1][:8], gc.Equals, "https://")
 	c.Check(strings.HasSuffix(urls[1], "/juju-dist/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
+        c.Check(urls[2][:8], gc.Equals, "https://")
 	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
@@ -813,7 +814,7 @@ func (s *localHTTPSServerSuite) TestGetToolsMetadataSources(c *gc.C) {
         c.Check(urls[0][:8], gc.Equals, "https://")
 	c.Assert(err, gc.IsNil)
 	// Check that the URL from keytone parses.
-	asURL, err = url.Parse(urls[1])
+        asURL, err := url.Parse(urls[1])
 	c.Assert(err, gc.IsNil)
-        c.Check(asURL.Scheme, gc.Equals, "nonvalidating-https://")
+        c.Check(asURL.Scheme, gc.Equals, "https")
 }

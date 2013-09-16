@@ -434,9 +434,6 @@ func (e *environ) publicBucketURL() string {
 			return ""
 		}
 	}
-	if !ecfg.SSLHostnameVerification() && publicBucketURL[:8] == "https://" {
-		publicBucketURL = "nonvalidating-" + publicBucketURL
-	}
 	return publicBucketURL
 }
 
@@ -465,10 +462,15 @@ func (e *environ) PublicStorage() environs.StorageReader {
 			containerACL: swift.PublicRead,
 			swift:        swift.New(e.client)}
 	} else {
+                newPublicClient := client.NewPublicClient
+                if !ecfg.SSLHostnameVerification() {
+                    newPublicClient = client.NewNonValidatingPublicClient
+                }
+                pc := newPublicClient(publicBucketURL, nil)
 		e.publicStorageUnlocked = &storage{
 			containerName: ecfg.publicBucket(),
 			containerACL:  swift.PublicRead,
-			swift:         swift.New(e.client)}
+			swift:         swift.New(pc)}
 	}
 	publicStorage = e.publicStorageUnlocked
 	return publicStorage
