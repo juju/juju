@@ -22,13 +22,20 @@ type fakeStatusSetter struct {
 	state.Entity
 	status params.Status
 	info   string
+	data   params.StatusData
 	err    error
 	fetchError
 }
 
-func (s *fakeStatusSetter) SetStatus(status params.Status, info string) error {
+func (s *fakeStatusSetter) SetStatus(status params.Status, info string, values ...params.StatusValue) error {
 	s.status = status
 	s.info = info
+	if len(values) > 0 {
+		s.data = make(params.StatusData)
+		for _, value := range values {
+			s.data[value.Key] = value.Value
+		}
+	}
 	return s.err
 }
 
@@ -54,12 +61,12 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	s := common.NewStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.SetEntityStatus{
-			{"x0", params.StatusStarted, "bar"},
-			{"x1", params.StatusStopped, ""},
-			{"x2", params.StatusPending, "not really"},
-			{"x3", params.StatusStopped, ""},
-			{"x4", params.StatusError, "blarg"},
-			{"x5", params.StatusStarted, "42"},
+			{"x0", params.StatusStarted, "bar", nil},
+			{"x1", params.StatusStopped, "", nil},
+			{"x2", params.StatusPending, "not really", nil},
+			{"x3", params.StatusStopped, "", nil},
+			{"x4", params.StatusError, "blarg", nil},
+			{"x5", params.StatusStarted, "42", nil},
 		},
 	}
 	result, err := s.SetStatus(args)
@@ -107,7 +114,7 @@ func (*statusSetterSuite) TestSetStatusError(c *gc.C) {
 	}
 	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{{"x0", "", ""}},
+		Entities: []params.SetEntityStatus{{"x0", "", "", nil}},
 	}
 	_, err := s.SetStatus(args)
 	c.Assert(err, gc.ErrorMatches, "pow")

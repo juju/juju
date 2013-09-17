@@ -500,10 +500,16 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string) error {
+func (u *Unit) SetStatus(status params.Status, info string, values ...params.StatusValue) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+	}
+	if len(values) > 0 {
+		doc.StatusData = make(params.StatusData)
+		for _, value := range values {
+			doc.StatusData[value.Key] = value.Value
+		}
 	}
 	if err := doc.validateSet(); err != nil {
 		return err

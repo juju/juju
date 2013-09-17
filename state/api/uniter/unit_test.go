@@ -51,7 +51,7 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.apiUnit.SetStatus(params.StatusStarted, "blah")
+	err = s.apiUnit.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, err = s.wordpressUnit.Status()
@@ -146,7 +146,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = s.apiUnit.SetStatus(params.StatusStarted, "not really")
+	err = s.apiUnit.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

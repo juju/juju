@@ -644,8 +644,42 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.UnitInfo{
-				Name:   "wordpress/0",
-				Status: params.StatusStarted,
+				Name:       "wordpress/0",
+				Status:     params.StatusStarted,
+				StatusData: params.StatusData{},
+			},
+		},
+	}, {
+		about: "status is changed with additional status data",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:   "wordpress/0",
+			Status: params.StatusStarted,
+		}},
+		setUp: func(c *gc.C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, gc.IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = u.SetStatus(params.StatusError, "hook error",
+				params.StatusValue{"hook-kind", "relation-joined"},
+				params.StatusValue{"relation-id", 4711},
+				params.StatusValue{"remote-unit", "unit-mysql-0"})
+			c.Assert(err, gc.IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Status:     params.StatusError,
+				StatusInfo: "hook error",
+				StatusData: params.StatusData{
+					"hook-kind":   "relation-joined",
+					"relation-id": 4711,
+					"remote-unit": "unit-mysql-0",
+				},
 			},
 		},
 	},
@@ -693,8 +727,9 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.MachineInfo{
-				Id:     "0",
-				Status: params.StatusStarted,
+				Id:         "0",
+				Status:     params.StatusStarted,
+				StatusData: params.StatusData{},
 			},
 		},
 	},

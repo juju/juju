@@ -31,7 +31,7 @@ var (
 )
 
 type StatusSetter interface {
-	SetStatus(status params.Status, info string) error
+	SetStatus(status params.Status, info string, values ...params.StatusValue) error
 }
 
 var (
