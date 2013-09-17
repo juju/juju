@@ -18,6 +18,17 @@ type Entities struct {
 	Entities []Entity
 }
 
+// ContainerType identifies a single container type within a machine.
+type ContainerType struct {
+	MachineTag    string
+	ContainerType string
+}
+
+// ContainerTypes identifies multiple container types.
+type ContainerTypes struct {
+	ContainerTypes []ContainerType
+}
+
 // CharmURL identifies a single charm URL.
 type CharmURL struct {
 	URL string

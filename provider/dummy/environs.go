@@ -32,6 +32,8 @@ import (
 	"sync"
 	"time"
 
+	"code.google.com/p/rog-go/exp/runtime/debug"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -212,6 +214,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
+	log.Errorf("Reset() callers: %v", string(debug.Callers(0, 20)))
 	log.Infof("environs/dummy: reset environment")
 	p := &providerInstance
 	p.mu.Lock()
