@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -97,6 +98,11 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	// Due to changes in the logging, and needing to care about old
+	// environments that have been upgraded, we need to explicitly remove the
+	// file writer if one has been added, otherwise we will get duplicate
+	// lines of all logging in the log file.
+	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
 	log.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
