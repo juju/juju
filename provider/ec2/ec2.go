@@ -304,8 +304,8 @@ func (e *environ) s3() *s3.S3 {
 	return s3
 }
 
-// SanityCheckConstraints is specified in the Environ interface.
-func (e *environ) SanityCheckConstraints(cons constraints.Value) error {
+// Preflight is specified in the environs.Preflighter interface.
+func (e *environ) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
 	if cons.Container != nil {

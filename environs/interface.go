@@ -122,6 +122,22 @@ type EnvironStorage interface {
 	PublicStorage() StorageReader
 }
 
+// Preflighter is an optional interface that an Environ may implement,
+// in order to support preflight checking of instance/container creation.
+type Preflighter interface {
+	// Preflight performs a preflight check on the specified instance,
+	// series and constraints, checking that they are possibly valid for
+	// creating an instance or a container in this environment.
+	//
+	// The instance parameter will be non-nil only if we are checking the
+	// validity of creating a container.
+	//
+	// If this method returns nil, it is not guaranteed that the constraints
+	// are valid; if a non-nil error is returned, then the constraints are
+	// definitely invalid.
+	Preflight(inst instance.Instance, series string, cons constraints.Value) error
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -139,15 +155,6 @@ type EnvironStorage interface {
 type Environ interface {
 	InstanceBroker
 	config.HasConfig
-
-	// SanityCheckConstraints performs sanity checking on the specified
-	// constraints, checking that they are possibly valid for creating an
-	// instance in this environment.
-	//
-	// If this method returns nil, it is not guaranteed that the constraints
-	// are valid; if a non-nil error is returned, then the constraints are
-	// definitely invalid.
-	SanityCheckConstraints(cons constraints.Value) error
 
 	// Name returns the Environ's name.
 	Name() string

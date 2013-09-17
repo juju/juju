@@ -128,16 +128,23 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	t.bootstrapped = false
 }
 
-func (t *LiveTests) TestSanityCheckConstraints(c *gc.C) {
-	// All providers (apart from the null provider) should
-	// return nil for empty constraints.
+func (t *LiveTests) TestPreflighter(c *gc.C) {
+	// Providers may implement Preflighter. If they do, then they should
+	// return nil for empty constraints (excluding the null provider).
+	preflighter, ok := t.Env.(environs.Preflighter)
+	if !ok {
+		return
+	}
+
+	const series = "precise"
+
 	var cons constraints.Value
-	c.Check(t.Env.SanityCheckConstraints(cons), gc.IsNil)
+	c.Check(preflighter.Preflight(nil, series, cons), gc.IsNil)
 
 	container := instance.LXC
 	cons.Container = &container
-	err := t.Env.SanityCheckConstraints(cons)
-	// If err is nil, that is fine, some providers support containers
+	err := preflighter.Preflight(nil, series, cons)
+	// If err is nil, that is fine, some providers support containers.
 	if err != nil {
 		// But for ones that don't, they should have a standard error format.
 		c.Check(err, gc.ErrorMatches, ".*provider does not support containers")

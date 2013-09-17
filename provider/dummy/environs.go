@@ -202,7 +202,6 @@ func Reset() {
 	if testing.MgoAddr != "" {
 		testing.MgoReset()
 	}
-	SanityCheckConstraintsError = nil
 }
 
 func (state *environState) destroy() {
@@ -444,13 +443,6 @@ func (e *environ) checkBroken(method string) error {
 		}
 	}
 	return nil
-}
-
-var SanityCheckConstraintsError error
-
-// SanityCheckConstraints is specified in the Environ interface.
-func (e *environ) SanityCheckConstraints(cons constraints.Value) error {
-	return SanityCheckConstraintsError
 }
 
 func (e *environ) Name() string {

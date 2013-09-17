@@ -96,8 +96,8 @@ func (env *localEnviron) ensureCertOwner() error {
 	return nil
 }
 
-// SanityCheckConstraints is specified in the Environ interface.
-func (env *localEnviron) SanityCheckConstraints(cons constraints.Value) error {
+// Preflight is specified in the environs.Preflighter interface.
+func (env *localEnviron) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.
 	if cons.Container != nil {

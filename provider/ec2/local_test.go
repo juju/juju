@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -186,12 +187,14 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
-func (t *localServerSuite) TestSanityCheckConstraints(c *gc.C) {
+func (t *localServerSuite) TestPreflight(c *gc.C) {
+	preflighter, ok := t.Env.(environs.Preflighter)
+	c.Assert(ok, jc.IsTrue)
 	var cons constraints.Value
-	c.Check(t.Env.SanityCheckConstraints(cons), gc.IsNil)
+	c.Check(preflighter.Preflight(nil, "precise", cons), gc.IsNil)
 	container := instance.LXC
 	cons.Container = &container
-	c.Check(t.Env.SanityCheckConstraints(cons), gc.ErrorMatches, "ec2 provider does not support containers")
+	c.Check(preflighter.Preflight(nil, "precise", cons), gc.ErrorMatches, "ec2 provider does not support containers")
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {

@@ -133,8 +133,8 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	return key, nil
 }
 
-// SanityCheckConstraints is specified in the Environ interface.
-func (env *azureEnviron) SanityCheckConstraints(cons constraints.Value) error {
+// Preflight is specified in the environs.Preflighter interface.
+func (env *azureEnviron) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.
 	if cons.Container != nil {

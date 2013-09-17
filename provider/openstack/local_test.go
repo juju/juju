@@ -31,6 +31,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -226,12 +227,14 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (t *localServerSuite) TestSanityCheckConstraints(c *gc.C) {
+func (t *localServerSuite) TestPreflight(c *gc.C) {
 	var cons constraints.Value
-	c.Check(t.Env.SanityCheckConstraints(cons), gc.IsNil)
+	preflighter, ok := t.Env.(environs.Preflighter)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(preflighter.Preflight(nil, "precise", cons), gc.IsNil)
 	container := instance.LXC
 	cons.Container = &container
-	c.Check(t.Env.SanityCheckConstraints(cons), gc.ErrorMatches, "openstack provider does not support containers")
+	c.Check(preflighter.Preflight(nil, "precise", cons), gc.ErrorMatches, "openstack provider does not support containers")
 }
 
 // If the bootstrap node is configured to require a public IP address,
