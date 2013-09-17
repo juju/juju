@@ -43,18 +43,12 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.SimpleToolsFixture.SetUp(c, s.DataDir())
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
-	c.Assert(s.stateAPI, gc.NotNil)
-
 	// Create the deployer facade.
 	s.deployerState = s.stateAPI.Deployer()
 	c.Assert(s.deployerState, gc.NotNil)
 }
 
 func (s *deployerSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
 	s.SimpleToolsFixture.TearDown(c)
 	s.JujuConnSuite.TearDownTest(c)
 }

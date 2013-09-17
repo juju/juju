@@ -45,19 +45,9 @@ var _ = gc.Suite(&upgraderSuite{})
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	c.Assert(s.stateAPI, gc.NotNil)
-
 	// Create the upgrader facade.
 	s.st = s.stateAPI.Upgrader()
 	c.Assert(s.st, gc.NotNil)
-}
-
-func (s *upgraderSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that should

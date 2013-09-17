@@ -1,22 +1,27 @@
 // Copyright 2011, 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package ec2_test
+package httpstorage_test
 
 import (
 	"bytes"
 	"io"
+	"testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/provider/ec2"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/ec2/httpstorage"
 	"launchpad.net/juju-core/version"
 )
 
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
+}
+
 type storageSuite struct {
-	storage *testing.EC2HTTPTestStorage
+	storage *envtesting.EC2HTTPTestStorage
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -24,7 +29,7 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) SetUpTest(c *gc.C) {
 	var err error
 
-	s.storage, err = testing.NewEC2HTTPTestStorage("127.0.0.1")
+	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, gc.IsNil)
 
 	for _, v := range versions {
@@ -37,7 +42,7 @@ func (s *storageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *storageSuite) TestHTTPStorage(c *gc.C) {
-	sr := ec2.NewHTTPStorageReader(s.storage.Location())
+	sr := httpstorage.NewHTTPStorageReader(s.storage.Location())
 	list, err := environs.DefaultList(sr, "tools/juju-")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(list), gc.Equals, 6)
