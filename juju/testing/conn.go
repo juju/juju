@@ -168,10 +168,14 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.Sta
 	info.Tag = tag
 	info.Password = password
 	info.Nonce = nonce
-	st, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
-	c.Assert(st, gc.NotNil)
-	return st
+	c.Assert(apiState, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := apiState.Close()
+		c.Check(err, gc.IsNil)
+	})
+	return apiState
 }
 
 // OpenAPIAs opens the API using the given identity tag

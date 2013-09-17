@@ -29,7 +29,6 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 	}()
 
 	st, _ := s.OpenAPIAsNewMachine(c)
-	defer st.Close()
 
 	// Connection still alive
 	select {
@@ -52,7 +51,6 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 
 func (s *stateSuite) TestPing(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
-	defer st.Close()
 	err := st.Ping()
 	c.Assert(err, gc.IsNil)
 	err = st.Close()

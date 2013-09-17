@@ -58,7 +58,6 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
-	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -68,14 +67,6 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *RelationerSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		err := s.st.Close()
-		c.Assert(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
@@ -404,13 +395,8 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = u.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	st := s.OpenAPIAs(c, u.Tag(), "password")
-	c.Assert(st, gc.NotNil)
 	uniterState := st.Uniter()
 	c.Assert(uniterState, gc.NotNil)
-	defer func() {
-		err := st.Close()
-		c.Assert(err, gc.IsNil)
-	}()
 
 	apiUnit, err := uniterState.Unit(u.Tag())
 	c.Assert(err, gc.IsNil)
