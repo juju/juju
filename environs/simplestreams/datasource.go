@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // A DataSource retrieves simplestreams metadata.
@@ -25,23 +26,23 @@ type DataSource interface {
 
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
-	baseURL string
-        skipHostnameVerification bool
+	baseURL                  string
+	skipHostnameVerification bool
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
 func NewURLDataSource(baseURL string) DataSource {
-    return &urlDataSource{
-        baseURL: baseURL,
-        skipHostnameVerification: false,
-    }
+	return &urlDataSource{
+		baseURL:                  baseURL,
+		skipHostnameVerification: false,
+	}
 }
 
 func NewNonValidatingURLDataSource(baseURL string) DataSource {
-    return &urlDataSource{
-        baseURL: baseURL,
-        skipHostnameVerification: true,
-    }
+	return &urlDataSource{
+		baseURL:                  baseURL,
+		skipHostnameVerification: true,
+	}
 }
 
 // urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
@@ -59,9 +60,13 @@ func urlJoin(baseURL, relpath string) string {
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
-	resp, err := urlClient.Get(dataURL)
+	client := urlClient
+	if h.skipHostnameVerification {
+		client = utils.GetNonValidatingHTTPClient()
+	}
+	resp, err := client.Get(dataURL)
 	if err != nil {
-                logger.Debugf("Got error requesting %q: %v", dataURL, err)
+		logger.Debugf("Got error requesting %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	if resp.StatusCode == http.StatusNotFound {

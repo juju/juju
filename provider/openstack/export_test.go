@@ -269,21 +269,21 @@ func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id
 }
 
 func ImageMetadataStorage(e environs.Environ) environs.Storage {
-    env := e.(*environ)
-    return &storage{
-        containerName: "imagemetadata",
-        swift: swift.New(env.client),
-    }
+	env := e.(*environ)
+	return &storage{
+		containerName: "imagemetadata",
+		swift:         swift.New(env.client),
+	}
 }
 
 func CreateCustomStorage(e environs.Environ, containerName string) environs.Storage {
-    env := e.(*environ)
-    swiftClient := swift.New(env.client)
-    if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
-        panic(err)
-    }
-    return &storage{
-        containerName: containerName,
-        swift: swiftClient,
-    }
+	env := e.(*environ)
+	swiftClient := swift.New(env.client)
+	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
+		panic(err)
+	}
+	return &storage{
+		containerName: containerName,
+		swift:         swiftClient,
+	}
 }

@@ -778,85 +778,85 @@ func (s *localHTTPSServerSuite) TestCanListPublicBucket(c *gc.C) {
 
 func (s *localHTTPSServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	// Setup a custom URL for image metadata
-        customStorage := openstack.CreateCustomStorage(s.env, "custom-metadata")
-        customURL, err := customStorage.URL("")
-        c.Assert(err, gc.IsNil)
-        c.Check(customURL[:8], gc.Equals, "https://")
+	customStorage := openstack.CreateCustomStorage(s.env, "custom-metadata")
+	customURL, err := customStorage.URL("")
+	c.Assert(err, gc.IsNil)
+	c.Check(customURL[:8], gc.Equals, "https://")
 
-        config, err := s.env.Config().Apply(
-            map[string]interface{}{"image-metadata-url": customURL},
-        )
-        c.Assert(err, gc.IsNil)
-        err = s.env.SetConfig(config)
-        c.Assert(err, gc.IsNil)
+	config, err := s.env.Config().Apply(
+		map[string]interface{}{"image-metadata-url": customURL},
+	)
+	c.Assert(err, gc.IsNil)
+	err = s.env.SetConfig(config)
+	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 5)
 
-        // Make sure there is something to download from each location
-        private := "private-content"
-        err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
-        c.Assert(err, gc.IsNil)
+	// Make sure there is something to download from each location
+	private := "private-content"
+	err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
+	c.Assert(err, gc.IsNil)
 
-        public := "public-content"
-        err = openstack.WritablePublicStorage(s.env).Put(public, bytes.NewBufferString(public), int64(len(public)))
-        c.Assert(err, gc.IsNil)
+	public := "public-content"
+	err = openstack.WritablePublicStorage(s.env).Put(public, bytes.NewBufferString(public), int64(len(public)))
+	c.Assert(err, gc.IsNil)
 
-        metadata := "metadata-content"
-        metadataStorage := openstack.ImageMetadataStorage(s.env)
-        err = metadataStorage.Put(metadata, bytes.NewBufferString(metadata), int64(len(metadata)))
-        c.Assert(err, gc.IsNil)
+	metadata := "metadata-content"
+	metadataStorage := openstack.ImageMetadataStorage(s.env)
+	err = metadataStorage.Put(metadata, bytes.NewBufferString(metadata), int64(len(metadata)))
+	c.Assert(err, gc.IsNil)
 
 	custom := "custom-content"
-        err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
-        c.Assert(err, gc.IsNil)
+	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
+	c.Assert(err, gc.IsNil)
 
-        // Read from the Config entry's image-metadata-url
+	// Read from the Config entry's image-metadata-url
 	contentReader, url, err := sources[0].Fetch(custom)
-        c.Assert(err, gc.IsNil)
-        defer contentReader.Close()
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
-        c.Assert(err, gc.IsNil)
-        c.Assert(string(content), gc.Equals, custom)
-        c.Check(url[:8], gc.Equals, "https://")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, custom)
+	c.Check(url[:8], gc.Equals, "https://")
 
-        // Read from the private bucket
-        contentReader, url, err = sources[1].Fetch(private)
-        c.Assert(err, gc.IsNil)
-        defer contentReader.Close()
-        content, err = ioutil.ReadAll(contentReader)
-        c.Assert(err, gc.IsNil)
-        c.Check(string(content), gc.Equals, private)
+	// Read from the private bucket
+	contentReader, url, err = sources[1].Fetch(private)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Check(string(content), gc.Equals, private)
 
-        // TODO: Currently Fetch always returns a relpath, restore this when that is fixed
-        //c.Check(url[:8], gc.Equals, "https://")
+	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
+	//c.Check(url[:8], gc.Equals, "https://")
 
-        // Read from the public bucket
-        contentReader, url, err = sources[2].Fetch(public)
-        c.Assert(err, gc.IsNil)
-        defer contentReader.Close()
-        content, err = ioutil.ReadAll(contentReader)
-        c.Assert(err, gc.IsNil)
-        c.Assert(string(content), gc.Equals, public)
-        // TODO: Currently Fetch always returns a relpath, restore this when that is fixed
-        //c.Check(url[:8], gc.Equals, "https://")
+	// Read from the public bucket
+	contentReader, url, err = sources[2].Fetch(public)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, public)
+	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
+	//c.Check(url[:8], gc.Equals, "https://")
 
-        // Check the keystone entry
-        url, err = sources[3].URL("")
-        c.Assert(err, gc.IsNil)
-        metaURL, err := metadataStorage.URL("")
-        c.Assert(err, gc.IsNil)
-        c.Assert(url, gc.Equals, metaURL)
-        contentReader, url, err = sources[3].Fetch(metadata)
-        c.Assert(err, gc.IsNil)
-        defer contentReader.Close()
-        content, err = ioutil.ReadAll(contentReader)
-        c.Assert(err, gc.IsNil)
-        c.Assert(string(content), gc.Equals, public)
-        c.Check(url[:8], gc.Equals, "https://")
-        metaURL, err = metadataStorage.URL(metadata)
-        c.Assert(err, gc.IsNil)
-        c.Check(url, gc.Equals, metaURL)
+	// Check the keystone entry
+	url, err = sources[3].URL("")
+	c.Assert(err, gc.IsNil)
+	metaURL, err := metadataStorage.URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, metaURL)
+	contentReader, url, err = sources[3].Fetch(metadata)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, public)
+	c.Check(url[:8], gc.Equals, "https://")
+	metaURL, err = metadataStorage.URL(metadata)
+	c.Assert(err, gc.IsNil)
+	c.Check(url, gc.Equals, metaURL)
 }
 
 func (s *localHTTPSServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -869,13 +869,13 @@ func (s *localHTTPSServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-        // The control bucket URL contains the bucket name. It goes through the
-        // StorageReader so it doesn't need nonvalidating-.
+	// The control bucket URL contains the bucket name. It goes through the
+	// StorageReader so it doesn't need nonvalidating-.
 	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
-        c.Check(urls[0][:8], gc.Equals, "https://")
+	c.Check(urls[0][:8], gc.Equals, "https://")
 	c.Assert(err, gc.IsNil)
 	// Check that the URL from keytone parses.
-        asURL, err := url.Parse(urls[1])
+	asURL, err := url.Parse(urls[1])
 	c.Assert(err, gc.IsNil)
-        c.Check(asURL.Scheme, gc.Equals, "https")
+	c.Check(asURL.Scheme, gc.Equals, "https")
 }
