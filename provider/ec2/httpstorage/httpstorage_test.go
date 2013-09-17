@@ -20,7 +20,7 @@ func TestPackage(t *testing.T) {
 }
 
 type storageSuite struct {
-	storage *envtesting.HTTPTestStorage
+	storage *envtesting.EC2HTTPTestStorage
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -28,7 +28,7 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) SetUpTest(c *gc.C) {
 	var err error
 
-	s.storage, err = envtesting.NewHTTPTestStorage("127.0.0.1")
+	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, gc.IsNil)
 
 	for _, v := range versions {

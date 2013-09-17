@@ -205,7 +205,7 @@ func buildJujud(dir string) error {
 // format to the given writer.
 // If forceVersion is not nil, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
-func BundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
+func BundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binary, sha256Hash string, err error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, "", err
@@ -231,11 +231,11 @@ func BundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, str
 		return version.Binary{}, "", fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
 	}
 	tvs := strings.TrimSpace(string(out))
-	tvers, err := version.ParseBinary(tvs)
+	tvers, err = version.ParseBinary(tvs)
 	if err != nil {
 		return version.Binary{}, "", fmt.Errorf("invalid version %q printed by jujud", tvs)
 	}
-	sha256Hash, err := archive(w, dir)
+	sha256Hash, err = archive(w, dir)
 	if err != nil {
 		return version.Binary{}, "", err
 	}

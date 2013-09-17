@@ -398,10 +398,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer func() {
-		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	}()
+	reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
+	defer reset()
 	tools, err := envtools.FindInstanceTools(s.Conn.Environ, vers.Number, vers.Series, &vers.Arch)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(tools), gc.Equals, 1)

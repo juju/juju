@@ -151,9 +151,8 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs
 
 // copyOneToolsPackage copies one tool from the source to the target.
 func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage) error {
-	defer func() {
-		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	}()
+	reset := envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	defer reset()
 	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
@@ -231,10 +230,8 @@ func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries .
 	}
 	defer os.RemoveAll(baseToolsDir)
 	putTools := func(vers version.Binary) (string, error) {
-		envtools.SetToolPrefix(envtools.NewToolPrefix)
-		defer func() {
-			envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-		}()
+		reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
+		defer reset()
 		name := envtools.StorageName(vers)
 		err = copyFile(filepath.Join(baseToolsDir, name), f.Name())
 		if err != nil {

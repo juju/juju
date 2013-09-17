@@ -274,7 +274,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 
 // createToolsStore creates the fake tools store.
 func createToolsStore(c *gc.C) func() {
-	storage, err := envtesting.NewHTTPTestStorage("127.0.0.1")
+	storage, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, gc.IsNil)
 	origLocation := sync.DefaultToolsLocation
 	sync.DefaultToolsLocation = storage.Location()

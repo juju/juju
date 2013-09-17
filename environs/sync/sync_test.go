@@ -39,7 +39,7 @@ type syncSuite struct {
 	targetEnv    environs.Environ
 	origVersion  version.Binary
 	origLocation string
-	storage      *envtesting.HTTPTestStorage
+	storage      *envtesting.EC2HTTPTestStorage
 	localStorage string
 }
 
@@ -70,7 +70,7 @@ environments:
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source storage.
-	s.storage, err = envtesting.NewHTTPTestStorage("127.0.0.1")
+	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, gc.IsNil)
 
 	// Create a local tools directory.

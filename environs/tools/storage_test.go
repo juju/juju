@@ -46,10 +46,10 @@ func (s *StorageSuite) TestStorageName(c *gc.C) {
 
 func (s *StorageSuite) TestSetToolPrefix(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	envtools.SetToolPrefix("test_prefix/juju-")
+	reset := envtools.SetToolPrefix("test_prefix/juju-")
 	path := envtools.StorageName(vers)
 	c.Assert(path, gc.Equals, "test_prefix/juju-1.2.3-precise-amd64.tgz")
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	reset()
 	path = envtools.StorageName(vers)
 	c.Assert(path, gc.Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }

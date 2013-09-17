@@ -23,8 +23,12 @@ const (
 var toolPrefix string = DefaultToolPrefix
 
 // SetToolPrefix changes the prefix used to compose the tools tarball file name.
-func SetToolPrefix(prefix string) {
+func SetToolPrefix(prefix string) func() {
+	originalPrefix := toolPrefix
 	toolPrefix = prefix
+	return func() {
+		toolPrefix = originalPrefix
+	}
 }
 
 // StorageName returns the name that is used to store and retrieve the
