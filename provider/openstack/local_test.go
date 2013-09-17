@@ -488,7 +488,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 4)
+	c.Assert(sources, gc.HasLen, 4)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -507,7 +507,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
+	c.Assert(sources, gc.HasLen, 2)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -675,7 +675,6 @@ func (s *publicBucketSuite) TestPublicBucketFromKeystone(c *gc.C) {
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
 	coretesting.LoggingSuite
-	envtesting.ToolsFixture
 	attrs                  map[string]interface{}
 	cred                   *identity.Credentials
 	srv                    localServer
@@ -696,7 +695,6 @@ func (s *localHTTPSServerSuite) createConfigAttrs() map[string]interface{} {
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.ToolsFixture.SetUpTest(c)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -723,7 +721,6 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 		s.env = nil
 	}
 	s.srv.stop()
-	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -776,7 +773,7 @@ func (s *localHTTPSServerSuite) TestCanListPublicBucket(c *gc.C) {
 	c.Assert(content, gc.DeepEquals, []string(nil))
 }
 
-func (s *localHTTPSServerSuite) TestGetImageMetadataSources(c *gc.C) {
+func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	// Setup a custom URL for image metadata
 	customStorage := openstack.CreateCustomStorage(s.env, "custom-metadata")
 	customURL, err := customStorage.URL("")
@@ -791,7 +788,7 @@ func (s *localHTTPSServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 5)
+	c.Assert(sources, gc.HasLen, 5)
 
 	// Make sure there is something to download from each location
 	private := "private-content"
@@ -841,41 +838,84 @@ func (s *localHTTPSServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
 	//c.Check(url[:8], gc.Equals, "https://")
 
-	// Check the keystone entry
-	url, err = sources[3].URL("")
-	c.Assert(err, gc.IsNil)
-	metaURL, err := metadataStorage.URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, metaURL)
+	// Check the entry we got from keystone
+	// Now fetch the data, and verify the contents
 	contentReader, url, err = sources[3].Fetch(metadata)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, public)
+	c.Assert(string(content), gc.Equals, metadata)
 	c.Check(url[:8], gc.Equals, "https://")
-	metaURL, err = metadataStorage.URL(metadata)
+	// Verify that we are pointing at exactly where metadataStorage thinks we are
+	metaURL, err := metadataStorage.URL(metadata)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, metaURL)
 }
 
-func (s *localHTTPSServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
+	// Setup a custom URL for image metadata
+	customStorage := openstack.CreateCustomStorage(s.env, "custom-tools-metadata")
+	customURL, err := customStorage.URL("")
+	c.Assert(err, gc.IsNil)
+	c.Check(customURL[:8], gc.Equals, "https://")
+
+	config, err := s.env.Config().Apply(
+		map[string]interface{}{"tools-url": customURL},
+	)
+	c.Assert(err, gc.IsNil)
+	err = s.env.SetConfig(config)
+	c.Assert(err, gc.IsNil)
 	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	var urls = make([]string, len(sources))
-	for i, source := range sources {
-		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
-		urls[i] = url
-	}
-	// The control bucket URL contains the bucket name. It goes through the
-	// StorageReader so it doesn't need nonvalidating-.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
-	c.Check(urls[0][:8], gc.Equals, "https://")
+	c.Assert(sources, gc.HasLen, 4)
+
+	// Make sure there is something to download from each location
+	private := "private-tools-content"
+	err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
 	c.Assert(err, gc.IsNil)
-	// Check that the URL from keytone parses.
-	asURL, err := url.Parse(urls[1])
+
+	keystone := "keystone-tools-content"
+	keystoneStorage := openstack.ToolsMetadataStorage(s.env)
+	err = keystoneStorage.Put(keystone, bytes.NewBufferString(keystone), int64(len(keystone)))
 	c.Assert(err, gc.IsNil)
-	c.Check(asURL.Scheme, gc.Equals, "https")
+
+	custom := "custom-tools-content"
+	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
+	c.Assert(err, gc.IsNil)
+
+	// Read from the Config entry's tools-url
+	contentReader, url, err := sources[0].Fetch(custom)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err := ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, custom)
+	c.Check(url[:8], gc.Equals, "https://")
+
+	// Read from the private bucket
+	contentReader, url, err = sources[1].Fetch(private)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Check(string(content), gc.Equals, private)
+
+	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
+	//c.Check(url[:8], gc.Equals, "https://")
+
+	// Check the entry we got from keystone
+	// Now fetch the data, and verify the contents. See the comment on
+	// ToolsMetadataStorage, but we have to add an extra "tools/" prefix to
+	// the URLs we fetch
+	contentReader, url, err = sources[3].Fetch("tools/" + keystone)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, keystone)
+	c.Check(url[:8], gc.Equals, "https://")
+	keystoneURL, err := keystoneStorage.URL(keystone)
+	c.Assert(err, gc.IsNil)
+	c.Check(url, gc.Equals, keystoneURL)
 }

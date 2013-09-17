@@ -19,8 +19,13 @@ type SupportsCustomSources interface {
 // the sources returned from that method will also be considered.
 func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
-	if userURL, ok := env.Config().ToolsURL(); ok {
-		sources = append(sources, simplestreams.NewURLDataSource(userURL, simplestreams.VerifySSLHostnames))
+	config := env.Config()
+	if userURL, ok := config.ToolsURL(); ok {
+		verify := simplestreams.VerifySSLHostnames
+		if !config.SSLHostnameVerification() {
+			verify = simplestreams.NoVerifySSLHostnames
+		}
+		sources = append(sources, simplestreams.NewURLDataSource(userURL, verify))
 	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()

@@ -45,6 +45,10 @@ func NewURLDataSource(baseURL string, verify SSLHostnameVerification) DataSource
 	}
 }
 
+func (u *urlDataSource) GoString() string {
+	return fmt.Sprintf("urlDataSource(%q)", u.baseURL)
+}
+
 // urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
 // This doesn't try to do anything fancy with URL query or parameter bits
 // It also doesn't use path.Join because that normalizes slashes, and you need

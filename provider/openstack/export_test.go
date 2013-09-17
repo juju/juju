@@ -268,12 +268,23 @@ func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id
 	return e.(*environ).collectInstances(ids, out)
 }
 
+// ImageMetadataStorage returns a Storage object pointing where the goose
+// infrastructure sets up its keystone entry for image metadata
 func ImageMetadataStorage(e environs.Environ) environs.Storage {
 	env := e.(*environ)
 	return &storage{
 		containerName: "imagemetadata",
 		swift:         swift.New(env.client),
 	}
+}
+
+// ToolsMetadataStorage returns a Storage object pointing where you would
+// expect to find tools being stored. Note that the keystone entry does *not*
+// point directly at the container. Instead it points at the base level, and
+// the *tools* infrastructure tacks on "tools/". So URLs that are returned from
+// the Keystone tools Storage will not have an extra '/tools' in the URL
+func ToolsMetadataStorage(e environs.Environ) environs.Storage {
+	return CreateCustomStorage(e, "tools")
 }
 
 func CreateCustomStorage(e environs.Environ, containerName string) environs.Storage {
