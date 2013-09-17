@@ -4,13 +4,8 @@
 package ec2
 
 import (
-	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -181,88 +176,4 @@ func maybeNotFound(err error) error {
 		return errors.NewNotFoundError(err, "")
 	}
 	return err
-}
-
-// listBucketResult is the top level XML element of the storage index.
-// We only need the contents.
-type listBucketResult struct {
-	Contents []*contents
-}
-
-// contents describes one entry of the storage index.
-type contents struct {
-	Key string
-}
-
-// httpStorageReader implements the environs.StorageReader interface
-// to access an EC2 storage via HTTP.
-type httpStorageReader struct {
-	url string
-}
-
-// NewHTTPStorageReader creates a storage reader for the HTTP
-// access to an EC2 storage like the juju-dist storage.
-func NewHTTPStorageReader(url string) environs.StorageReader {
-	return &httpStorageReader{url}
-}
-
-// Get implements environs.StorageReader.Get.
-func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
-	nameURL, err := h.URL(name)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.Get(nameURL)
-	if err != nil || resp.StatusCode == http.StatusNotFound {
-		return nil, errors.NewNotFoundError(err, "")
-	}
-	return resp.Body, nil
-}
-
-// List implements environs.StorageReader.List.
-func (h *httpStorageReader) List(prefix string) ([]string, error) {
-	lbr, err := h.getListBucketResult()
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, c := range lbr.Contents {
-		if strings.HasPrefix(c.Key, prefix) {
-			names = append(names, c.Key)
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-// URL implements environs.StorageReader.URL.
-func (h *httpStorageReader) URL(name string) (string, error) {
-	if strings.HasSuffix(h.url, "/") {
-		return h.url + name, nil
-	}
-	return h.url + "/" + name, nil
-}
-
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (s *httpStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
-	return storageAttempt
-}
-
-// getListBucketResult retrieves the index of the storage,
-func (h *httpStorageReader) getListBucketResult() (*listBucketResult, error) {
-	resp, err := http.Get(h.url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var lbr listBucketResult
-	err = xml.Unmarshal(buf, &lbr)
-	if err != nil {
-		return nil, err
-	}
-	return &lbr, nil
 }

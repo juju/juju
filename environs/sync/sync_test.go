@@ -4,14 +4,21 @@
 package sync_test
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -37,6 +44,7 @@ type syncSuite struct {
 }
 
 var _ = gc.Suite(&syncSuite{})
+var _ = gc.Suite(&uploadSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
@@ -227,4 +235,122 @@ func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 	for _, vers := range expected {
 		c.Assert(urls[vers], gc.Not(gc.Equals), "")
 	}
+}
+
+type uploadSuite struct {
+	env environs.Environ
+	coretesting.LoggingSuite
+	envtesting.ToolsFixture
+}
+
+func (s *uploadSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
+	// We only want to use simplestreams to find any synced tools.
+	envtools.UseLegacyFallback = false
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, gc.IsNil)
+	s.env, err = environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *uploadSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	envtools.UseLegacyFallback = true
+	s.ToolsFixture.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *uploadSuite) TestUpload(c *gc.C) {
+	t, err := sync.Upload(s.env.Storage(), nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, version.Current)
+	c.Assert(t.URL, gc.Not(gc.Equals), "")
+	dir := downloadTools(c, t)
+	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
+}
+
+func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
+	seriesToUpload := "precise"
+	if seriesToUpload == version.CurrentSeries() {
+		seriesToUpload = "raring"
+	}
+	t, err := sync.Upload(s.env.Storage(), nil, "quantal", seriesToUpload)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, version.Current)
+	expectRaw := downloadToolsRaw(c, t)
+
+	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
+	c.Assert(err, gc.IsNil)
+	c.Assert(list, gc.HasLen, 3)
+	expectSeries := []string{"quantal", seriesToUpload, version.CurrentSeries()}
+	sort.Strings(expectSeries)
+	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
+	for _, t := range list {
+		c.Logf("checking %s", t.URL)
+		c.Assert(t.Version.Number, gc.Equals, version.CurrentNumber())
+		actualRaw := downloadToolsRaw(c, t)
+		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
+	}
+}
+
+func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
+	// This test actually tests three things:
+	//   the writing of the FORCE-VERSION file;
+	//   the reading of the FORCE-VERSION file by the version package;
+	//   and the reading of the version from jujud.
+	vers := version.Current
+	vers.Patch++
+	t, err := sync.Upload(s.env.Storage(), &vers.Number)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, vers)
+}
+
+// Test that the upload procedure fails correctly
+// when the build process fails (because of a bad Go source
+// file in this case).
+func (s *uploadSuite) TestUploadBadBuild(c *gc.C) {
+	gopath := c.MkDir()
+	join := append([]string{gopath, "src"}, strings.Split("launchpad.net/juju-core/cmd/broken", "/")...)
+	pkgdir := filepath.Join(join...)
+	err := os.MkdirAll(pkgdir, 0777)
+	c.Assert(err, gc.IsNil)
+
+	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
+	c.Assert(err, gc.IsNil)
+
+	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
+	os.Setenv("GOPATH", gopath)
+
+	t, err := sync.Upload(s.env.Storage(), nil)
+	c.Assert(t, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
+}
+
+// downloadTools downloads the supplied tools and extracts them into a
+// new directory.
+func downloadTools(c *gc.C, t *coretools.Tools) string {
+	resp, err := http.Get(t.URL)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+	cmd := exec.Command("tar", "xz")
+	cmd.Dir = c.MkDir()
+	cmd.Stdin = resp.Body
+	out, err := cmd.CombinedOutput()
+	c.Assert(err, gc.IsNil, gc.Commentf(string(out)))
+	return cmd.Dir
+}
+
+// downloadToolsRaw downloads the supplied tools and returns the raw bytes.
+func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
+	resp, err := http.Get(t.URL)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, resp.Body)
+	c.Assert(err, gc.IsNil)
+	return buf.Bytes()
 }
