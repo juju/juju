@@ -4,12 +4,18 @@
 package juju_test
 
 import (
+	"fmt"
+
 	gc "launchpad.net/gocheck"
 
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/provider/dummy"
@@ -42,7 +48,7 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	conn, err := juju.NewConn(env)
+	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conn.Environ, gc.Equals, env)
@@ -88,6 +94,111 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	c.Assert(envInfo.Name, gc.Equals, envName)
 }
 
+func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	creds := environs.APICredentials{
+		User: "foo",
+		Password: "foopass",
+	}
+	endpoint := environs.APIEndpoint{
+		Addresses: []string{"foo.com"},
+		CACert: "certificated",
+	}
+	defer setDefaultConfigStore("noconfig", &environInfo{
+		creds: creds,
+		endpoint: endpoint,
+	}).Restore()
+
+	called := 0
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
+		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
+		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
+		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
+		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		called++
+		return new(api.State), nil
+	}
+	defer jc.Set(juju.APIOpen, apiOpen).Restore()
+	client, err := juju.NewAPIClientFromName("noconfig")
+	c.Assert(err, gc.IsNil)
+	c.Assert(client, gc.NotNil)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (*NewAPIClientSuite) TestWithInfoError(c *gc.C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	expectErr := fmt.Errorf("an error")
+	defer setDefaultConfigStore("noconfig", &environInfo{
+		err: expectErr,
+	}).Restore()
+	defer jc.Set(juju.APIOpen, nil).Restore()
+	client, err := juju.NewAPIClientFromName("noconfig")
+	c.Assert(err, gc.Equals, expectErr)
+	c.Assert(client, gc.IsNil)
+}
+
+func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	endpoint := environs.APIEndpoint{
+		Addresses: []string{},
+		CACert: "certificated",
+	}
+	defer setDefaultConfigStore("noconfig", &environInfo{
+		endpoint: endpoint,
+	}).Restore()
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
+		panic("api.Open called unexpectedly")
+	}
+	defer jc.Set(juju.APIOpen, apiOpen).Restore()
+
+	client, err := juju.NewAPIClientFromName("noconfig")
+	c.Assert(err, gc.ErrorMatches, `environment "noconfig" not found`)
+	c.Assert(client, gc.IsNil)
+}
+
+func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	endpoint := environs.APIEndpoint{
+		Addresses: []string{"foo.com"},
+	}
+	defer setDefaultConfigStore("noconfig", &environInfo{
+		endpoint: endpoint,
+	}).Restore()
+
+	expectErr := fmt.Errorf("an error")
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
+		return nil, expectErr
+	}
+	defer jc.Set(juju.APIOpen, apiOpen).Restore()
+	client, err := juju.NewAPIClientFromName("noconfig")
+	c.Assert(err, gc.Equals, expectErr)
+	c.Assert(client, gc.IsNil)
+}
+
+
+//func (*NewAPIClientSuite) TestBothSlowInfo(c *gc.C) {
+//}
+//	set delay=small
+//	should connect to info, then connect to config
+//
+//func (*NewAPIClientSuite) TestBothFastInfo(c *gc.C) {
+//}
+//	set delay=large
+//	should connect to info and not connect to config.
+//
+//func (*NewAPIClientSuite) TestBothSlow(c *gc.C) {
+//}
+//	set delay=small
+//	both should try to connect
+//	let info connect
+//	get result
+//	let config connect
+//
+//func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
+//}
+//	should get error from config connect
+
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
 func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
@@ -96,4 +207,43 @@ func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
+}
+
+func setDefaultConfigStore(envName string, info *environInfo) jc.Restorer {
+	return jc.Set(juju.DefaultConfigStore, func() (environs.ConfigStorage, error) {
+		return &configStorage{
+			envs: map[string]*environInfo{
+				envName: info,
+			},
+		}, nil
+	})
+}
+
+type environInfo struct {
+	creds environs.APICredentials
+	endpoint environs.APIEndpoint
+	err error
+}
+
+type configStorage struct {
+	envs map[string] *environInfo
+}
+
+func (store *configStorage) ReadInfo(envName string) (environs.EnvironInfo, error) {
+	info := store.envs[envName]
+	if info == nil {
+		return nil, errors.NotFoundf("info on environment %q", envName)
+	}
+	if info.err != nil {
+		return nil, info.err
+	}
+	return info, nil
+}
+
+func (info *environInfo) APICredentials() environs.APICredentials {
+	return info.creds
+}
+
+func (info *environInfo) APIEndpoint() environs.APIEndpoint {
+	return info.endpoint
 }

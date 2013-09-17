@@ -16,7 +16,14 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-var logger = loggo.GetLogger("juju")
+var (
+	logger = loggo.GetLogger("juju")
+	apiOpen = api.Open
+	defaultConfigStore = func() (environs.ConfigStorage, error) {
+		return configstore.NewDisk(config.JujuHomePath("environments"))
+	}
+)
+
 
 // APIConn holds a connection to a juju environment and its
 // associated state through its API interface.
@@ -40,7 +47,7 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 	}
 	info.Password = password
 
-	st, err := api.Open(info, dialOpts)
+	st, err := apiOpen(info, dialOpts)
 	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {
 		return nil, err
@@ -60,11 +67,12 @@ func (c *APIConn) Close() error {
 
 var providerConnectDelay = 2 * time.Second
 
-// OpenAPI returns an api.Client connected to the API Server for
+// NewAPIClientFromName returns an api.Client connected to the API Server for
 // the named environment. If envName is "", the default environment
 // will be used.
-func OpenAPI(envName string) (*api.State, error) {
-	store, err := configstore.NewDisk(config.JujuHomePath("environments"))
+func NewAPIClientFromName(envName string) (*api.Client, error) {
+	logger.Infof("newAPIClientFromName %q", envName)
+	store, err := defaultConfigStore()
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +146,7 @@ func OpenAPI(envName string) (*api.State, error) {
 		// API connection, which will use resources until it
 		// finally succeeds or fails. Unless we are making hundreds
 		// of API connections, this is unlikely to be a problem.
-		return st, nil
+		return st.Client(), nil
 	}
 	if cfgErr != nil {
 		// Return the error from the configuration lookup if we
@@ -156,18 +164,22 @@ type apiOpenResult struct {
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
 func apiInfoConnect(store environs.ConfigStorage, envName string) <-chan apiOpenResult {
+	resultc := make(chan apiOpenResult, 1)
 	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFoundError(err) {
-		logger.Warningf("cannot load environment information for %q: %v", err)
-		return nil
+	if err != nil {
+		logger.Infof("ReadInfo failed: %v", err)
+		if errors.IsNotFoundError(err) {
+			return nil
+		}
+		resultc <- apiOpenResult{nil, err}
+		return resultc
 	}
 	endpoint := info.APIEndpoint()
-	if info == nil || len(endpoint.Addresses) > 0 {
+	if info == nil || len(endpoint.Addresses) == 0 {
 		return nil
 	}
-	resultc := make(chan apiOpenResult, 1)
 	go func() {
-		st, err := api.Open(&api.Info{
+		st, err := apiOpen(&api.Info{
 			Addrs:    endpoint.Addresses,
 			CACert:   []byte(endpoint.CACert),
 			Tag:      "user-" + info.APICredentials().User,
