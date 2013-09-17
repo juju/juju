@@ -22,8 +22,9 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -56,9 +57,11 @@ func makeEnviron(c *gc.C) *azureEnviron {
 // were real.
 // Returns a cleanup function that must be called when done with the storage.
 func setDummyStorage(c *gc.C, env *azureEnviron) func() {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	storage, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	env.storage = localstorage.Client(listener.Addr().String())
+	listener, err := httpstorage.Serve("127.0.0.1:0", storage)
+	c.Assert(err, gc.IsNil)
+	env.storage = httpstorage.Client(listener.Addr().String())
 	return func() { listener.Close() }
 }
 

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/utils"
@@ -51,26 +52,23 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 
 // List implements environs.StorageReader.List.
 func (f *fileStorageReader) List(prefix string) ([]string, error) {
-	// Add one for the missing path separator.
-	pathlen := len(f.path) + 1
-	pattern := filepath.Join(f.path, prefix+"*")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
+	prefix = filepath.Join(f.path, prefix)
+	dir := filepath.Dir(prefix)
+	var names []string
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasPrefix(path, prefix) {
+			names = append(names, path[len(f.path)+1:])
+		}
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	list := []string{}
-	for _, match := range matches {
-		fi, err := os.Stat(match)
-		if err != nil {
-			return nil, err
-		}
-		if !fi.Mode().IsDir() {
-			filename := match[pathlen:]
-			list = append(list, filename)
-		}
-	}
-	sort.Strings(list)
-	return list, nil
+	sort.Strings(names)
+	return names, nil
 }
 
 // URL implements environs.StorageReader.URL.
@@ -110,7 +108,11 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 
 func (f *fileStorageWriter) Remove(name string) error {
 	fullpath := f.fullPath(name)
-	return os.Remove(fullpath)
+	err := os.Remove(fullpath)
+	if os.IsNotExist(err) {
+		err = nil
+	}
+	return err
 }
 
 func (f *fileStorageWriter) RemoveAll() error {

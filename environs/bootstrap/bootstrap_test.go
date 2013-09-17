@@ -13,7 +13,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -230,9 +231,11 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 // were real.
 // Returns a cleanup function that must be called when done with the storage.
 func setDummyStorage(c *gc.C, env *bootstrapEnviron) func() {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	storage, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	env.storage = localstorage.Client(listener.Addr().String())
+	listener, err := httpstorage.Serve("127.0.0.1:0", storage)
+	c.Assert(err, gc.IsNil)
+	env.storage = httpstorage.Client(listener.Addr().String())
 	envtesting.UploadFakeTools(c, env.storage)
 	return func() { listener.Close() }
 }

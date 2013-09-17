@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package localstorage_test
+package httpstorage_test
 
 import (
 	"bytes"
@@ -16,7 +16,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -35,7 +36,9 @@ var _ = gc.Suite(&backendSuite{})
 // a base URL for the server and the directory path.
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
-	listener, err := localstorage.Serve("localhost:0", dataDir)
+	embedded, err := filestorage.NewFileStorageWriter(dataDir)
+	c.Assert(err, gc.IsNil)
+	listener, err = httpstorage.Serve("localhost:0", embedded)
 	c.Assert(err, gc.IsNil)
 	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }
@@ -103,10 +106,10 @@ var getTests = []testCase{
 		content: "this is file 'foo'",
 	},
 	{
-		// Get on a directory returns a 404 as it is
+		// Get on a directory returns a 500 as it is
 		// not a file.
 		name:   "inner",
-		status: 404,
+		status: 500,
 	},
 }
 

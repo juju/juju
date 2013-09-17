@@ -12,7 +12,8 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -27,9 +28,11 @@ var _ = gc.Suite(&StateSuite{})
 // makeDummyStorage creates a local storage.
 // Returns a cleanup function that must be called when done with the storage.
 func makeDummyStorage(c *gc.C) (environs.Storage, func()) {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	filestorage, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	storage := localstorage.Client(listener.Addr().String())
+	listener, err := httpstorage.Serve("127.0.0.1:0", filestorage)
+	c.Assert(err, gc.IsNil)
+	storage := httpstorage.Client(listener.Addr().String())
 	cleanup := func() { listener.Close() }
 	return storage, cleanup
 }
