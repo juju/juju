@@ -92,7 +92,6 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
-	s.APIClose(c)
 	s.ResetContext(c)
 	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
@@ -111,7 +110,6 @@ func (s *UniterSuite) ResetContext(c *gc.C) {
 }
 
 func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
-	s.APIClose(c)
 	err := unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
@@ -119,14 +117,6 @@ func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Logf("API: login as %q successful", unit.Tag())
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
-}
-
-func (s *UniterSuite) APIClose(c *gc.C) {
-	if s.st != nil {
-		err := s.st.Close()
-		c.Assert(err, gc.IsNil)
-		c.Logf("API: connection closed")
-	}
 }
 
 var _ worker.Worker = (*uniter.Uniter)(nil)

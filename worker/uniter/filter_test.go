@@ -49,30 +49,15 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-
 	s.APILogin(c, s.unit)
 }
 
 func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
-	s.APIClose(c)
 	err := unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
-	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
-}
-
-func (s *FilterSuite) APIClose(c *gc.C) {
-	if s.st != nil {
-		err := s.st.Close()
-		c.Assert(err, gc.IsNil)
-	}
-}
-
-func (s *FilterSuite) TearDownTest(c *gc.C) {
-	s.APIClose(c)
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {

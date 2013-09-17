@@ -26,10 +26,10 @@ func (s *cleanupSuite) TestTearDownTestEmpty(c *gc.C) {
 
 func (s *cleanupSuite) TestAddSuiteCleanup(c *gc.C) {
 	order := []string{}
-	s.AddSuiteCleanup(func() {
+	s.AddSuiteCleanup(func(*gc.C) {
 		order = append(order, "first")
 	})
-	s.AddSuiteCleanup(func() {
+	s.AddSuiteCleanup(func(*gc.C) {
 		order = append(order, "second")
 	})
 
@@ -42,10 +42,10 @@ func (s *cleanupSuite) TestAddSuiteCleanup(c *gc.C) {
 
 func (s *cleanupSuite) TestAddCleanup(c *gc.C) {
 	order := []string{}
-	s.AddCleanup(func() {
+	s.AddCleanup(func(*gc.C) {
 		order = append(order, "first")
 	})
-	s.AddCleanup(func() {
+	s.AddCleanup(func(*gc.C) {
 		order = append(order, "second")
 	})
 

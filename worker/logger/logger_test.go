@@ -37,7 +37,6 @@ var _ = gc.Suite(&LoggerSuite{})
 func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
-	s.AddCleanup(func() { s.apiRoot.Close() })
 	// Create the machiner API facade.
 	s.loggerApi = s.apiRoot.Logger()
 	c.Assert(s.loggerApi, gc.NotNil)
