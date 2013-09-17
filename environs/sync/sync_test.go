@@ -273,7 +273,11 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 }
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
-	t, err := sync.Upload(s.env.Storage(), nil, "precise", "quantal")
+	seriesToUpload := "precise"
+	if seriesToUpload == version.CurrentSeries() {
+		seriesToUpload = "raring"
+	}
+	t, err := sync.Upload(s.env.Storage(), nil, "quantal", seriesToUpload)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
@@ -281,7 +285,7 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, gc.HasLen, 3)
-	expectSeries := []string{"precise", "quantal", version.CurrentSeries()}
+	expectSeries := []string{"quantal", seriesToUpload, version.CurrentSeries()}
 	sort.Strings(expectSeries)
 	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
 	for _, t := range list {
