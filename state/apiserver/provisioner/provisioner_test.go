@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -17,6 +18,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -38,6 +40,9 @@ type provisionerSuite struct {
 var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	// Reset previous machines (if any).
+	s.machines = nil
+
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
@@ -93,6 +98,7 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: s.machines[0].Tag(), Password: "xxx0"},
 			{Tag: s.machines[1].Tag(), Password: "xxx1"},
 			{Tag: s.machines[2].Tag(), Password: "xxx2"},
+			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
 			{Tag: "service-bar", Password: "abc"},
 		},
@@ -104,6 +110,7 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 			{nil},
 			{nil},
 			{nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -132,6 +139,7 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 		{Tag: s.machines[0].Tag()},
 		{Tag: s.machines[1].Tag()},
 		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
 		{Tag: "service-bar"},
 	}}
@@ -142,6 +150,7 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 			{Life: "alive"},
 			{Life: "dead"},
 			{Life: "alive"},
+			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -166,58 +175,156 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 	})
 }
 
-// func (s *deployerSuite) TestRemove(c *gc.C) {
-// 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)
-// 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Alive)
+func (s *provisionerSuite) TestRemove(c *gc.C) {
+	err := s.machines[1].EnsureDead()
+	c.Assert(err, gc.IsNil)
+	s.assertLife(c, 0, state.Alive)
+	s.assertLife(c, 1, state.Dead)
+	s.assertLife(c, 2, state.Alive)
 
-// 	// Try removing alive units - should fail.
-// 	args := params.Entities{Entities: []params.Entity{
-// 		{Tag: "unit-mysql-0"},
-// 		{Tag: "unit-mysql-1"},
-// 		{Tag: "unit-logging-0"},
-// 		{Tag: "unit-fake-42"},
-// 	}}
-// 	result, err := s.deployer.Remove(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-// 		Results: []params.ErrorResult{
-// 			{&params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
-// 			{apiservertesting.ErrUnauthorized},
-// 			{&params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
-// 			{apiservertesting.ErrUnauthorized},
-// 		},
-// 	})
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[1].Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.Remove(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{Message: `cannot remove entity "machine-0": still alive`}},
+			{nil},
+			{&params.Error{Message: `cannot remove entity "machine-2": still alive`}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
 
-// 	err = s.principal0.Refresh()
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)
-// 	err = s.subordinate0.Refresh()
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Alive)
+	// Verify the changes.
+	s.assertLife(c, 0, state.Alive)
+	err = s.machines[1].Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	s.assertLife(c, 2, state.Alive)
+}
 
-// 	// Now make the subordinate dead and try again.
-// 	err = s.subordinate0.EnsureDead()
-// 	c.Assert(err, gc.IsNil)
-// 	err = s.subordinate0.Refresh()
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Dead)
+func (s *provisionerSuite) TestSetStatus(c *gc.C) {
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah")
+	c.Assert(err, gc.IsNil)
+	err = s.machines[1].SetStatus(params.StatusStopped, "foo")
+	c.Assert(err, gc.IsNil)
+	err = s.machines[2].SetStatus(params.StatusError, "not really")
+	c.Assert(err, gc.IsNil)
 
-// 	args = params.Entities{
-// 		Entities: []params.Entity{{Tag: "unit-logging-0"}},
-// 	}
-// 	result, err = s.deployer.Remove(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-// 		Results: []params.ErrorResult{{nil}},
-// 	})
+	args := params.SetStatus{
+		Entities: []params.SetEntityStatus{
+			{Tag: s.machines[0].Tag(), Status: params.StatusError, Info: "not really"},
+			{Tag: s.machines[1].Tag(), Status: params.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[2].Tag(), Status: params.StatusStarted, Info: "again"},
+			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "unit-foo-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "service-bar", Status: params.StatusStopped, Info: "foobar"},
+		}}
+	result, err := s.provisioner.SetStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{nil},
+			{nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
 
-// 	err = s.subordinate0.Refresh()
-// 	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	// Verify the changes.
+	assertStatus := func(index int, expectStatus params.Status, expectInfo string) {
+		status, info, err := s.machines[index].Status()
+		c.Assert(err, gc.IsNil)
+		c.Assert(status, gc.Equals, expectStatus)
+		c.Assert(info, gc.Equals, expectInfo)
+	}
+	assertStatus(0, params.StatusError, "not really")
+	assertStatus(1, params.StatusStopped, "foobar")
+	assertStatus(2, params.StatusStarted, "again")
+}
 
-// 	// Make sure the subordinate is detected as removed.
-// 	result, err = s.deployer.Remove(args)
-// 	c.Assert(err, gc.IsNil)
-// 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-// 		Results: []params.ErrorResult{{apiservertesting.ErrUnauthorized}},
-// 	})
-// }
+func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
+	err := s.machines[1].EnsureDead()
+	c.Assert(err, gc.IsNil)
+	s.assertLife(c, 0, state.Alive)
+	s.assertLife(c, 1, state.Dead)
+	s.assertLife(c, 2, state.Alive)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[1].Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.EnsureDead(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{nil},
+			{nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the changes.
+	s.assertLife(c, 0, state.Dead)
+	s.assertLife(c, 1, state.Dead)
+	s.assertLife(c, 2, state.Dead)
+}
+
+func (s *provisionerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
+	err := s.machines[index].Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
+}
+
+func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.ContainerTypes{ContainerTypes: []params.ContainerType{
+		{MachineTag: s.machines[0].Tag(), ContainerType: string(instance.LXC)},
+		{MachineTag: s.machines[1].Tag(), ContainerType: string(instance.KVM)},
+		{MachineTag: "machine-42", ContainerType: ""},
+		{MachineTag: "unit-foo-0", ContainerType: ""},
+		{MachineTag: "service-bar", ContainerType: ""},
+	}}
+	result, err := s.provisioner.WatchContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "2", Changes: []string{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	m0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, m0Watcher)
+	m1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, m1Watcher)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0.AssertNoChange()
+	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1.AssertNoChange()
+}
