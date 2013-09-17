@@ -20,7 +20,7 @@ type SupportsCustomSources interface {
 func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
 	if userURL, ok := env.Config().ToolsURL(); ok {
-		sources = append(sources, simplestreams.NewURLDataSource(userURL))
+		sources = append(sources, simplestreams.NewURLDataSource(userURL, simplestreams.VerifySSLHostnames))
 	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()
@@ -31,7 +31,7 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 	}
 
 	if DefaultBaseURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL))
+		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL, simplestreams.VerifySSLHostnames))
 	}
 	return sources, nil
 }

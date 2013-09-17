@@ -24,24 +24,24 @@ type DataSource interface {
 	URL(path string) (string, error)
 }
 
+type SSLHostnameVerification bool
+
+const (
+	VerifySSLHostnames   = SSLHostnameVerification(true)
+	NoVerifySSLHostnames = SSLHostnameVerification(false)
+)
+
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
-	baseURL                  string
-	skipHostnameVerification bool
+	baseURL              string
+	hostnameVerification SSLHostnameVerification
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(baseURL string) DataSource {
+func NewURLDataSource(baseURL string, verify SSLHostnameVerification) DataSource {
 	return &urlDataSource{
-		baseURL:                  baseURL,
-		skipHostnameVerification: false,
-	}
-}
-
-func NewNonValidatingURLDataSource(baseURL string) DataSource {
-	return &urlDataSource{
-		baseURL:                  baseURL,
-		skipHostnameVerification: true,
+		baseURL:              baseURL,
+		hostnameVerification: verify,
 	}
 }
 
@@ -61,7 +61,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
 	client := urlClient
-	if h.skipHostnameVerification {
+	if !h.hostnameVerification {
 		client = utils.GetNonValidatingHTTPClient()
 	}
 	resp, err := client.Get(dataURL)
