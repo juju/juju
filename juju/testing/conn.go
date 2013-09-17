@@ -162,6 +162,8 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	return apiInfo
 }
 
+// openAPIAs opens the API and ensures that the *api.State returned will be
+// closed during the test teardown by using a cleanup function.
 func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
@@ -178,20 +180,23 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.Sta
 	return apiState
 }
 
-// OpenAPIAs opens the API using the given identity tag
-// and password for authentication.
+// OpenAPIAs opens the API using the given identity tag and password for
+// authentication.  The returned *api.State should not be closed by the caller
+// as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag, password string) *api.State {
 	return s.openAPIAs(c, tag, password, "")
 }
 
-// OpenAPIAsMachine opens the API using the given machine tag,
-// password and nonce for authentication.
+// OpenAPIAsMachine opens the API using the given machine tag, password and
+// nonce for authentication. The returned *api.State should not be closed by
+// the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *api.State {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
-// OpenAPIAsNewMachine creates a new machine entry that lives in system state, and
-// then uses that to open the API.
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state,
+// and then uses that to open the API. The returned *api.State should not be
+// closed by the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
