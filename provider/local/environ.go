@@ -462,14 +462,13 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	toolsDir := agenttools.ToolsDir(dataDir, tag)
 
 	logDir := env.config.logDir()
-	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
 		"USER": env.config.user,
 		"HOME": osenv.Home(),
 	}
 	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
+		toolsDir, dataDir, logDir, tag, machineId, machineEnvironment)
 
 	agentService.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agentService.InitDir)
