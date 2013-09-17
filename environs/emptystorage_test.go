@@ -19,7 +19,7 @@ type EmptyStorageSuite struct{}
 var _ = gc.Suite(&EmptyStorageSuite{})
 
 func (s *EmptyStorageSuite) TestGet(c *gc.C) {
-	f, err := environs.EmptyStorage.Get("anything")
+	f, err := environs.DefaultGet(environs.EmptyStorage, "anything")
 	c.Assert(f, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `file "anything" not found`)
 }
@@ -31,7 +31,7 @@ func (s *EmptyStorageSuite) TestURL(c *gc.C) {
 }
 
 func (s *EmptyStorageSuite) TestList(c *gc.C) {
-	names, err := environs.EmptyStorage.List("anything")
+	names, err := environs.DefaultList(environs.EmptyStorage, "anything")
 	c.Assert(names, gc.IsNil)
 	c.Assert(err, gc.IsNil)
 }
@@ -60,7 +60,7 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 	storage := environ.Storage()
 	err = environs.VerifyStorage(storage)
 	c.Assert(err, gc.IsNil)
-	reader, err := storage.Get("bootstrap-verify")
+	reader, err := environs.DefaultGet(storage, "bootstrap-verify")
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)

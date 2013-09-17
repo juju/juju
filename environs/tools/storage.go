@@ -58,7 +58,7 @@ func internalReadList(storage environs.StorageReader, majorVersion, minorVersion
 	} else {
 		logger.Debugf("reading v%d.* tools", majorVersion)
 	}
-	names, err := storage.List(toolPrefix)
+	names, err := environs.DefaultList(storage, toolPrefix)
 	if err != nil {
 		return nil, err
 	}

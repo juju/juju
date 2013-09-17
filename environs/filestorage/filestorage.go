@@ -79,8 +79,13 @@ func (f *fileStorageReader) URL(name string) (string, error) {
 }
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
-func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
+func (f *fileStorageReader) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (f *fileStorageReader) ShouldRetry(err error) bool {
+	return false
 }
 
 type fileStorageWriter struct {

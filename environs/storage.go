@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // RemoveAll is a default implementation for StorageWriter.RemoveAll.
@@ -16,7 +17,7 @@ import (
 // or safeguards against races with other users of the same storage medium.
 // But a simple way to implement RemoveAll would be to delegate to here.
 func RemoveAll(stor Storage) error {
-	files, err := stor.List("")
+	files, err := DefaultList(stor, "")
 	if err != nil {
 		return fmt.Errorf("unable to list files for deletion: %v", err)
 	}
@@ -29,6 +30,38 @@ func RemoveAll(stor Storage) error {
 		}
 	}
 	return err
+}
+
+// DefaultGet gets the named file from stor using the stor's default consistency strategy.
+func DefaultGet(stor StorageReader, name string) (io.ReadCloser, error) {
+	return Get(stor, name, stor.DefaultConsistencyStrategy())
+}
+
+// Get gets the named file from stor using the specified attempt strategy.
+func Get(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.ReadCloser, err error) {
+	for a := attempt.Start(); a.Next(); {
+		r, err = stor.Get(name)
+		if err == nil || !stor.ShouldRetry(err) {
+			break
+		}
+	}
+	return r, err
+}
+
+// DefaultList lists the files matching prefix from stor using the stor's default consistency strategy.
+func DefaultList(stor StorageReader, prefix string) ([]string, error) {
+	return List(stor, prefix, stor.DefaultConsistencyStrategy())
+}
+
+// List lists the files matching prefix from stor using the specified attempt strategy.
+func List(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (list []string, err error) {
+	for a := attempt.Start(); a.Next(); {
+		list, err = stor.List(prefix)
+		if err == nil || !stor.ShouldRetry(err) {
+			break
+		}
+	}
+	return list, err
 }
 
 // BaseToolsPath is the container where tools tarballs and metadata are found.
@@ -61,7 +94,7 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	if err == nil {
 		dataURL = fullURL
 	}
-	rc, err := s.storage.Get(relpath)
+	rc, err := Get(s.storage, relpath, utils.AttemptStrategy{})
 	if err != nil {
 		return nil, dataURL, err
 	}

@@ -5,6 +5,8 @@ package environs_test
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"io/ioutil"
 
 	gc "launchpad.net/gocheck"
@@ -12,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 var _ = gc.Suite(&datasourceSuite{})
@@ -74,4 +77,83 @@ func (s *datasourceSuite) TestURLWithBasePath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	expectedURL, _ := s.storage.URL("base/bar")
 	c.Assert(url, gc.Equals, expectedURL)
+}
+
+var _ = gc.Suite(&storageSuite{})
+
+type storageSuite struct{}
+
+type fakeStorage struct {
+	getName     string
+	listPrefix  string
+	invokeCount int
+	shouldRetry bool
+}
+
+func (s *fakeStorage) Get(name string) (io.ReadCloser, error) {
+	s.getName = name
+	s.invokeCount++
+	return nil, fmt.Errorf("an error")
+}
+
+func (s *fakeStorage) List(prefix string) ([]string, error) {
+	s.listPrefix = prefix
+	s.invokeCount++
+	return nil, fmt.Errorf("an error")
+}
+
+func (s *fakeStorage) URL(name string) (string, error) {
+	return "", nil
+}
+
+func (s *fakeStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{Min: 10}
+}
+
+func (s *fakeStorage) ShouldRetry(error) bool {
+	return s.shouldRetry
+}
+
+func (s *storageSuite) TestGet(c *gc.C) {
+	stor := &fakeStorage{shouldRetry: true}
+	attempt := utils.AttemptStrategy{Min: 5}
+	environs.Get(stor, "foo", attempt)
+	c.Assert(stor.getName, gc.Equals, "foo")
+	c.Assert(stor.invokeCount, gc.Equals, 5)
+}
+
+func (s *storageSuite) TestDefaultGet(c *gc.C) {
+	stor := &fakeStorage{shouldRetry: true}
+	environs.DefaultGet(stor, "foo")
+	c.Assert(stor.getName, gc.Equals, "foo")
+	c.Assert(stor.invokeCount, gc.Equals, 10)
+}
+
+func (s *storageSuite) TestGetRetry(c *gc.C) {
+	stor := &fakeStorage{}
+	environs.DefaultGet(stor, "foo")
+	c.Assert(stor.getName, gc.Equals, "foo")
+	c.Assert(stor.invokeCount, gc.Equals, 1)
+}
+
+func (s *storageSuite) TestList(c *gc.C) {
+	stor := &fakeStorage{shouldRetry: true}
+	attempt := utils.AttemptStrategy{Min: 5}
+	environs.List(stor, "foo", attempt)
+	c.Assert(stor.listPrefix, gc.Equals, "foo")
+	c.Assert(stor.invokeCount, gc.Equals, 5)
+}
+
+func (s *storageSuite) TestDefaultList(c *gc.C) {
+	stor := &fakeStorage{shouldRetry: true}
+	environs.DefaultList(stor, "foo")
+	c.Assert(stor.listPrefix, gc.Equals, "foo")
+	c.Assert(stor.invokeCount, gc.Equals, 10)
+}
+
+func (s *storageSuite) TestListRetry(c *gc.C) {
+	stor := &fakeStorage{}
+	environs.DefaultList(stor, "foo")
+	c.Assert(stor.listPrefix, gc.Equals, "foo")
+	c.Assert(stor.invokeCount, gc.Equals, 1)
 }

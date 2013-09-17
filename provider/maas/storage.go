@@ -161,10 +161,15 @@ func (stor *maasStorage) URL(name string) (string, error) {
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (stor *maasStorage) ConsistencyStrategy() utils.AttemptStrategy {
+func (stor *maasStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.
 	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (stor *maasStorage) ShouldRetry(err error) bool {
+	return false
 }
 
 // Put is specified in the StorageWriter interface.
@@ -191,7 +196,7 @@ func (stor *maasStorage) Remove(name string) error {
 
 // RemoveAll is specified in the StorageWriter interface.
 func (stor *maasStorage) RemoveAll() error {
-	names, err := stor.List("")
+	names, err := environs.DefaultList(stor, "")
 	if err != nil {
 		return err
 	}

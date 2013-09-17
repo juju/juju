@@ -96,15 +96,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 	var err error
 
 	storage := env.Storage()
-
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
-		if _, err = provider.LoadState(storage); err != nil {
-			break
-		}
-	}
+	_, err = provider.LoadState(storage)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}

@@ -360,7 +360,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := s.Conn.Environ.Storage().Get(envtools.StorageName(vers))
+			r, err := environs.DefaultGet(s.Conn.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}
@@ -398,7 +398,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	vers := version.Current
 	vers.Build = 1
 	name := envtools.StorageName(vers)
-	r, err := s.Conn.Environ.Storage().Get(name)
+	r, err := environs.DefaultGet(s.Conn.Environ.Storage(), name)
 	c.Assert(err, gc.IsNil)
 	r.Close()
 }

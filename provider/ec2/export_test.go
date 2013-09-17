@@ -48,6 +48,11 @@ func BucketStorage(b *s3.Bucket) environs.Storage {
 	}
 }
 
+// DeleteBucket deletes the s3 bucket used by the storage instance.
+func DeleteBucket(s environs.Storage) error {
+	return deleteBucket(s.(*storage))
+}
+
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {

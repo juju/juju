@@ -835,7 +835,7 @@ func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	err = env.Destroy([]instance.Instance{})
 	c.Check(err, gc.NotNil)
 
-	files, err := env.Storage().List("")
+	files, err := environs.DefaultList(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 1)
 }
@@ -859,7 +859,7 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	err = env.Destroy(instances)
 	c.Check(err, gc.IsNil)
 
-	files, err := env.Storage().List("")
+	files, err := environs.DefaultList(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 }

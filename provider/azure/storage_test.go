@@ -14,6 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -83,14 +84,14 @@ func (context *testStorageContext) getStorageContext() (*gwacl.StorageContext, e
 // fake HTTP server set up to always return preconfigured http.Response objects.
 // The MockingTransport object can be used to check that the expected query has
 // been issued to the test server.
-func makeFakeStorage(container, account, key string) (azureStorage, *MockingTransport) {
+func makeFakeStorage(container, account, key string) (*azureStorage, *MockingTransport) {
 	transport := &MockingTransport{}
 	client := &http.Client{Transport: transport}
 	storageContext := gwacl.NewTestStorageContext(client)
 	storageContext.Account = account
 	storageContext.Key = key
 	context := &testStorageContext{container: container, storageContext: storageContext}
-	azStorage := azureStorage{storageContext: context}
+	azStorage := &azureStorage{storageContext: context}
 	return azStorage, transport
 }
 
@@ -129,7 +130,7 @@ func (*storageSuite) TestList(c *gc.C) {
 	transport.AddExchange(response, nil)
 
 	prefix := "prefix"
-	names, err := azStorage.List(prefix)
+	names, err := environs.DefaultList(azStorage, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	// The prefix has been passed down as a query parameter.
@@ -147,7 +148,7 @@ func (*storageSuite) TestListWithNonexistentContainerReturnsNoFiles(c *gc.C) {
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
 
-	names, err := azStorage.List("prefix")
+	names, err := environs.DefaultList(azStorage, "prefix")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.IsNil)
 }
@@ -160,7 +161,7 @@ func (*storageSuite) TestGet(c *gc.C) {
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
 
-	reader, err := azStorage.Get(filename)
+	reader, err := environs.DefaultGet(azStorage, filename)
 	c.Assert(err, gc.IsNil)
 	c.Assert(reader, gc.NotNil)
 	defer reader.Close()
@@ -180,7 +181,7 @@ func (*storageSuite) TestGetReturnsNotFoundIf404(c *gc.C) {
 	response := makeResponse("not found", http.StatusNotFound)
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
-	_, err := azStorage.Get(filename)
+	_, err := environs.DefaultGet(azStorage, filename)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
@@ -267,7 +268,7 @@ func (*storageSuite) TestURL(c *gc.C) {
 	azStorage, _ := makeFakeStorage(container, account, key)
 	// Use a realistic service endpoint for this test, so that we can see
 	// that we're really getting the expected kind of URL.
-	setStorageEndpoint(&azStorage, gwacl.GetEndpoint("West US"))
+	setStorageEndpoint(azStorage, gwacl.GetEndpoint("West US"))
 	URL, err := azStorage.URL(filename)
 	c.Assert(err, gc.IsNil)
 	parsedURL, err := url.Parse(URL)

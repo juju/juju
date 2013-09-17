@@ -428,7 +428,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
 	c.Check(operations, gc.DeepEquals, expectedOperations)
 	// Files have been cleaned up.
-	listing, err := storage.List("")
+	listing, err := environs.DefaultList(storage, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }

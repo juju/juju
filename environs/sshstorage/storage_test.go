@@ -105,17 +105,17 @@ func (s *storageSuite) TestPathValidity(c *gc.C) {
 
 	for _, prefix := range []string{"..", "a/../.."} {
 		c.Logf("prefix: %q", prefix)
-		_, err := storage.List(prefix)
+		_, err := environs.DefaultList(storage, prefix)
 		c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(fmt.Sprintf("%q escapes storage directory", prefix)))
 	}
 
 	// Paths are always relative, so a leading "/" may as well not be there.
-	names, err := storage.List("/")
+	names, err := environs.DefaultList(storage, "/")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 
 	// Paths will be canonicalised.
-	names, err = storage.List("a/..")
+	names, err = environs.DefaultList(storage, "a/..")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 }
@@ -130,14 +130,14 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
 		err = ioutil.WriteFile(filepath.Join(storageDir, contentdir, name), data, 0644)
 		c.Assert(err, gc.IsNil)
-		r, err := storage.Get(name)
+		r, err := environs.DefaultGet(storage, name)
 		c.Assert(err, gc.IsNil)
 		out, err := ioutil.ReadAll(r)
 		c.Assert(err, gc.IsNil)
 		c.Assert(out, gc.DeepEquals, data)
 	}
 
-	_, err = storage.Get("notthere")
+	_, err = environs.DefaultGet(storage, "notthere")
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
@@ -158,7 +158,7 @@ func (s *storageSuite) TestPut(c *gc.C) {
 
 func (s *storageSuite) assertList(c *gc.C, storage environs.StorageReader, prefix string, expected []string) {
 	c.Logf("List: %v", prefix)
-	names, err := storage.List(prefix)
+	names, err := environs.DefaultList(storage, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, expected)
 }
@@ -241,7 +241,7 @@ func (s *storageSuite) TestConsistencyStrategy(c *gc.C) {
 	storage, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
 	defer storage.Close()
-	c.Assert(storage.ConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
+	c.Assert(storage.DefaultConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
 }
 
 // flock is a test helper that flocks a file,
@@ -280,9 +280,9 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, contentdir, "a"), data, 0644), gc.IsNil)
 
 	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
-	_, err = storage.Get("a")
+	_, err = environs.DefaultGet(storage, "a")
 	c.Assert(err, gc.IsNil)
-	_, err = storage.List("")
+	_, err = environs.DefaultList(storage, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(storage.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(storage.Remove("a"), gc.NotNil)
@@ -298,8 +298,8 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(storage.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(storage.Remove("a"), gc.NotNil)
 	c.Assert(storage.RemoveAll(), gc.NotNil)
-	_, err = storage.Get("a")
+	_, err = environs.DefaultGet(storage, "a")
 	c.Assert(err, gc.NotNil)
-	_, err = storage.List("")
+	_, err = environs.DefaultList(storage, "")
 	c.Assert(err, gc.NotNil)
 }

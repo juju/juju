@@ -26,7 +26,7 @@ func (s *storageSuite) TestList(c *gc.C) {
 	listener, _, _ := startServer(c)
 	defer listener.Close()
 	storage := localstorage.Client(listener.Addr().String())
-	names, err := storage.List("a/b/c")
+	names, err := environs.DefaultList(storage, "a/b/c")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.HasLen, 0)
 }
@@ -83,7 +83,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 }
 
 func checkList(c *gc.C, storage environs.StorageReader, prefix string, names []string) {
-	lnames, err := storage.List(prefix)
+	lnames, err := environs.DefaultList(storage, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(lnames, gc.DeepEquals, names)
 }
@@ -110,13 +110,13 @@ func checkPutFile(c *gc.C, storage environs.StorageWriter, name string, contents
 }
 
 func checkFileDoesNotExist(c *gc.C, storage environs.StorageReader, name string) {
-	r, err := storage.Get(name)
+	r, err := environs.DefaultGet(storage, name)
 	c.Assert(r, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func checkFileHasContents(c *gc.C, storage environs.StorageReader, name string, contents []byte) {
-	r, err := storage.Get(name)
+	r, err := environs.DefaultGet(storage, name)
 	c.Assert(err, gc.IsNil)
 	c.Check(r, gc.NotNil)
 	defer r.Close()
@@ -148,11 +148,11 @@ func checkRemoveAll(c *gc.C, storage environs.Storage) {
 	err = storage.RemoveAll()
 	c.Assert(err, gc.IsNil)
 
-	files, err := storage.List("")
+	files, err := environs.DefaultList(storage, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 
-	_, err = storage.Get(aFile)
+	_, err = environs.DefaultGet(storage, aFile)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("file %q not found", aFile))
 }

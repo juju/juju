@@ -229,8 +229,13 @@ func (s *SSHStorage) URL(name string) (string, error) {
 }
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
-func (s *SSHStorage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *SSHStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (s *SSHStorage) ShouldRetry(err error) bool {
+	return false
 }
 
 // Put implements environs.StorageWriter.Put

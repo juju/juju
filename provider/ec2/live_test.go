@@ -267,13 +267,13 @@ func (t *LiveTests) TestDestroy(c *gc.C) {
 
 	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
-	names, err := s.List("")
+	names, err := environs.DefaultList(s, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(names) >= 2, gc.Equals, true)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		names, err = s.List("")
+		names, err = environs.DefaultList(s, "")
 		if len(names) == 0 {
 			break
 		}
@@ -363,7 +363,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
 	c.Assert(err, gc.IsNil)
 
-	r, err := s.Get("test-object")
+	r, err := environs.DefaultGet(s, "test-object")
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
 
@@ -372,7 +372,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	c.Assert(string(data), gc.Equals, contents)
 
 	// Check that the public storage isn't aliased to the private storage.
-	r, err = t.Env.Storage().Get("test-object")
+	r, err = environs.DefaultGet(t.Env.Storage(), "test-object")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
@@ -393,7 +393,7 @@ func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	err = s.Remove("test-object")
 	c.Assert(err, gc.IsNil)
 
-	err = b.DelBucket()
+	err = ec2.DeleteBucket(s)
 	c.Assert(err, gc.IsNil)
 
 	err = s.Put("test-object", strings.NewReader("test"), 4)

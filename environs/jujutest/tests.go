@@ -5,7 +5,6 @@ package jujutest
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -197,7 +196,7 @@ func (t *Tests) TestPersistence(c *gc.C) {
 }
 
 func checkList(c *gc.C, storage environs.StorageReader, prefix string, names []string) {
-	lnames, err := storage.List(prefix)
+	lnames, err := environs.DefaultList(storage, prefix)
 	c.Assert(err, gc.IsNil)
 	// TODO(dfc) gocheck should grow an SliceEquals checker.
 	expected := copyslice(lnames)
@@ -220,20 +219,13 @@ func checkPutFile(c *gc.C, storage environs.StorageWriter, name string, contents
 }
 
 func checkFileDoesNotExist(c *gc.C, storage environs.StorageReader, name string, attempt utils.AttemptStrategy) {
-	var r io.ReadCloser
-	var err error
-	for a := attempt.Start(); a.Next(); {
-		r, err = storage.Get(name)
-		if err != nil {
-			break
-		}
-	}
+	r, err := environs.Get(storage, name, attempt)
 	c.Assert(r, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func checkFileHasContents(c *gc.C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
-	r, err := storage.Get(name)
+	r, err := environs.Get(storage, name, attempt)
 	c.Assert(err, gc.IsNil)
 	c.Check(r, gc.NotNil)
 	defer r.Close()

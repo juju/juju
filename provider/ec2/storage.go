@@ -19,7 +19,15 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
+	"net"
 )
+
+func init() {
+	// We will decide when to retry and under what circumstances, not s3.
+	// Sometimes it is expected a file may not exist and we don't want s3
+	// to hold things up by unilaterally deciding to retry for no good reason.
+	s3.RetryAttempts(false)
+}
 
 func NewStorage(bucket *s3.Bucket) environs.Storage {
 	return &storage{bucket: bucket}
@@ -66,12 +74,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 }
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	for a := s.ConsistencyStrategy().Start(); a.Next(); {
-		r, err = s.bucket.GetReader(file)
-		if s3ErrorStatusCode(err) != 404 {
-			break
-		}
-	}
+	r, err = s.bucket.GetReader(file)
 	return r, maybeNotFound(err)
 }
 
@@ -86,8 +89,37 @@ var storageAttempt = utils.AttemptStrategy{
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (s *storage) ShouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch err {
+	case io.ErrUnexpectedEOF, io.EOF:
+		return true
+	}
+	if s3ErrorStatusCode(err) == 404 {
+		return true
+	}
+	switch e := err.(type) {
+	case *net.DNSError:
+		return true
+	case *net.OpError:
+		switch e.Op {
+		case "read", "write":
+			return true
+		}
+	case *s3.Error:
+		switch e.Code {
+		case "InternalError":
+			return true
+		}
+	}
+	return false
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
@@ -137,7 +169,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 }
 
 func (s *storage) RemoveAll() error {
-	names, err := s.List("")
+	names, err := environs.DefaultList(s, "")
 	if err != nil {
 		return err
 	}
@@ -169,9 +201,20 @@ func (s *storage) RemoveAll() error {
 	// Even DelBucket fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
 	s.madeBucket = false
+	err = deleteBucket(s)
 	err = s.bucket.DelBucket()
 	if s3ErrorStatusCode(err) == 404 {
 		return nil
+	}
+	return err
+}
+
+func deleteBucket(s *storage) (err error) {
+	for a := s.DefaultConsistencyStrategy().Start(); a.Next(); {
+		err = s.bucket.DelBucket()
+		if err == nil || !s.ShouldRetry(err) {
+			break
+		}
 	}
 	return err
 }
@@ -244,8 +287,13 @@ func (h *httpStorageReader) URL(name string) (string, error) {
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *httpStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *httpStorageReader) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (h *httpStorageReader) ShouldRetry(err error) bool {
+	return false
 }
 
 // getListBucketResult retrieves the index of the storage,

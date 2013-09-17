@@ -83,7 +83,13 @@ type StorageReader interface {
 	// If the storage implementation has immediate consistency, the
 	// strategy won't need to wait at all.  But for eventually-consistent
 	// storage backends a few seconds of polling may be needed.
-	ConsistencyStrategy() utils.AttemptStrategy
+	DefaultConsistencyStrategy() utils.AttemptStrategy
+
+	// ShouldRetry returns true is the specified error is such that an
+	// operation can be performed again with a chance of success. This is
+	// typically the case where the storage implementation does not have
+	// immediate consistency and needs to be given a chance to "catch up".
+	ShouldRetry(error) bool
 }
 
 // A StorageWriter adds and removes files in a storage provider.

@@ -100,10 +100,15 @@ func (storage *azureStorage) URL(name string) (string, error) {
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
+func (storage *azureStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.
 	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (storage *azureStorage) ShouldRetry(err error) bool {
+	return false
 }
 
 // Put is specified in the StorageWriter interface.

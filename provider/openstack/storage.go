@@ -12,6 +12,7 @@ import (
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
+	"launchpad.net/juju-core/environs"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
@@ -55,12 +56,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 }
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	for a := s.ConsistencyStrategy().Start(); a.Next(); {
-		r, err = s.swift.GetReader(s.containerName, file)
-		if !gooseerrors.IsNotFound(err) {
-			break
-		}
-	}
+	r, err = s.swift.GetReader(s.containerName, file)
 	err, _ = maybeNotFound(err)
 	if err != nil {
 		return nil, err
@@ -81,8 +77,14 @@ var storageAttempt = utils.AttemptStrategy{
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (s *storage) ShouldRetry(err error) bool {
+	_, retry := maybeNotFound(err)
+	return retry
 }
 
 func (s *storage) Remove(file string) error {
@@ -119,7 +121,7 @@ const maxConcurrentDeletes = 8
 
 // RemoveAll is specified in the StorageWriter interface.
 func (s *storage) RemoveAll() error {
-	names, err := s.List("")
+	names, err := environs.DefaultList(s, "")
 	if err != nil {
 		return err
 	}

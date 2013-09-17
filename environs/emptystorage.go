@@ -37,13 +37,18 @@ func (s emptyStorage) URL(name string) (string, error) {
 	return "", fmt.Errorf("file %q not found", name)
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (s emptyStorage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s emptyStorage) List(prefix string) ([]string, error) {
+	return nil, nil
+}
+
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
+func (s emptyStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-func (s emptyStorage) List(prefix string) ([]string, error) {
-	return nil, nil
+// ShouldRetry is specified in the StorageReader interface.
+func (s emptyStorage) ShouldRetry(err error) bool {
+	return false
 }
 
 func VerifyStorage(storage Storage) error {
