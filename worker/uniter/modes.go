@@ -339,7 +339,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
-	// TODO(mue) Check data and naming.s
+	// TODO(mue) Check data and naming.
 	data := params.StatusData{
 		"hook-kind":   u.s.Hook.Kind,
 		"relation-id": u.s.Hook.RelationId,

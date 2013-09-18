@@ -958,12 +958,18 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed")
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed",
+		params.StatusValue{"reason", "unknown"},
+		params.StatusValue{"retries", 5})
 	c.Assert(err, gc.IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
+	data, err := s.machine.StatusData()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data["reason"], gc.Equals, "unknown")
+	c.Assert(data["retries"], gc.Equals, 5)
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {

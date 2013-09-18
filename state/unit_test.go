@@ -283,12 +283,20 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed")
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed",
+		params.StatusValue{"hook-kind", "relation-joined"},
+		params.StatusValue{"relation-id", 4711},
+		params.StatusValue{"remote-unit", "unit-mysql-0"})
 	c.Assert(err, gc.IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
+	data, err := s.unit.StatusData()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data["hook-kind"], gc.Equals, "relation-joined")
+	c.Assert(data["relation-id"], gc.Equals, 4711)
+	c.Assert(data["remote-unit"], gc.Equals, "unit-mysql-0")
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
