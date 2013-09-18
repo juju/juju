@@ -77,7 +77,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		// a DNS entry, so just log a warning if this fails.
 		names, err := net.LookupAddr(ip.String())
 		if err != nil {
-			logger.Warningf("failed to resolve %v: %v", ip, err)
+			logger.Infof("failed to resolve %v: %v", ip, err)
 		} else {
 			logger.Infof("resolved %v to %v", ip, names)
 			sshHostWithoutUser = names[0]
