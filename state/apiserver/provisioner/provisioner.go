@@ -55,12 +55,9 @@ func NewProvisionerAPI(
 				// environment manager.
 				return isEnvironManager
 			}
-			if names.MachineTag(parentId) == authEntityTag {
-				// All containers with the authenticated machine as a
-				// parent are accessible by it.
-				return isMachineAgent
-			}
-			return false
+			// All containers with the authenticated machine as a
+			// parent are accessible by it.
+			return isMachineAgent && names.MachineTag(parentId) == authEntityTag
 		}, nil
 	}
 	return &ProvisionerAPI{
