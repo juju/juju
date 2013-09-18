@@ -15,8 +15,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/storage"
 )
 
 func TestPackage(t *testing.T) {
@@ -25,8 +25,8 @@ func TestPackage(t *testing.T) {
 
 type filestorageSuite struct {
 	dir    string
-	reader environs.StorageReader
-	writer environs.StorageWriter
+	reader storage.StorageReader
+	writer storage.StorageWriter
 }
 
 var _ = gc.Suite(&filestorageSuite{})
@@ -50,7 +50,7 @@ func (s *filestorageSuite) createFile(c *gc.C) (fullpath string, data []byte) {
 
 func (s *filestorageSuite) TestList(c *gc.C) {
 	expectedpath, _ := s.createFile(c)
-	files, err := environs.DefaultList(s.reader, "test-")
+	files, err := storage.DefaultList(s.reader, "test-")
 	c.Assert(err, gc.IsNil)
 	_, file := filepath.Split(expectedpath)
 	c.Assert(files, gc.DeepEquals, []string{file})
@@ -67,7 +67,7 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 func (s *filestorageSuite) TestGet(c *gc.C) {
 	expectedpath, data := s.createFile(c)
 	_, file := filepath.Split(expectedpath)
-	rc, err := environs.DefaultGet(s.reader, file)
+	rc, err := storage.DefaultGet(s.reader, file)
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
 	c.Assert(err, gc.IsNil)

@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -418,7 +419,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	testInstance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
-	storage := env.Storage()
+	stor := env.Storage()
 
 	err := env.Destroy([]instance.Instance{testInstance})
 
@@ -428,7 +429,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
 	c.Check(operations, gc.DeepEquals, expectedOperations)
 	// Files have been cleaned up.
-	listing, err := environs.DefaultList(storage, "")
+	listing, err := storage.DefaultList(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }

@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -285,7 +285,7 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(storage environs.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+func mockUploadTools(storage storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
@@ -340,7 +340,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 		for _, v := range test.public {
 			vers := version.MustParseBinary(v)
-			storage := s.Conn.Environ.PublicStorage().(environs.Storage)
+			storage := s.Conn.Environ.PublicStorage().(storage.Storage)
 			envtesting.MustUploadFakeToolsVersion(storage, vers)
 		}
 		err = com.Run(coretesting.Context(c))
@@ -361,7 +361,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := environs.DefaultGet(s.Conn.Environ.Storage(), envtools.StorageName(vers))
+			r, err := storage.DefaultGet(s.Conn.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}
@@ -380,7 +380,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
+	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.Storage))
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{

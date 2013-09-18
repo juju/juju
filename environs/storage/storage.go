@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package storage
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ func List(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (lis
 // BaseToolsPath is the container where tools tarballs and metadata are found.
 var BaseToolsPath = "tools"
 
-// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
+// A storageSimpleStreamsDataSource retrieves data from a StorageReader.
 type storageSimpleStreamsDataSource struct {
 	basePath string
 	storage  StorageReader

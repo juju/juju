@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -835,7 +836,7 @@ func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	err = env.Destroy([]instance.Instance{})
 	c.Check(err, gc.NotNil)
 
-	files, err := environs.DefaultList(env.Storage(), "")
+	files, err := storage.DefaultList(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 1)
 }
@@ -859,7 +860,7 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	err = env.Destroy(instances)
 	c.Check(err, gc.IsNil)
 
-	files, err := environs.DefaultList(env.Storage(), "")
+	files, err := storage.DefaultList(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 }

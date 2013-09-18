@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs_test
+package storage_test
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -21,16 +22,24 @@ var _ = gc.Suite(&datasourceSuite{})
 
 type datasourceSuite struct {
 	home    *testing.FakeHome
-	storage environs.Storage
+	stor    storage.Storage
 	baseURL string
 }
+
+const existingEnv = `
+environments:
+    test:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
 	s.home = testing.MakeFakeHome(c, existingEnv, "existing")
 	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
-	s.storage = environ.Storage()
-	s.baseURL, err = s.storage.URL("")
+	s.stor = environ.Storage()
+	s.baseURL, err = s.stor.URL("")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -41,8 +50,8 @@ func (s *datasourceSuite) TearDownTest(c *gc.C) {
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {
 	sampleData := "hello world"
-	s.storage.Put("foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
-	ds := environs.NewStorageSimpleStreamsDataSource(s.storage, "")
+	s.stor.Put("foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
+	ds := storage.NewStorageSimpleStreamsDataSource(s.stor, "")
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
@@ -53,8 +62,8 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 
 func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	sampleData := "hello world"
-	s.storage.Put("base/foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
-	ds := environs.NewStorageSimpleStreamsDataSource(s.storage, "base")
+	s.stor.Put("base/foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
+	ds := storage.NewStorageSimpleStreamsDataSource(s.stor, "base")
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
@@ -64,18 +73,18 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
-	ds := environs.NewStorageSimpleStreamsDataSource(s.storage, "")
+	ds := storage.NewStorageSimpleStreamsDataSource(s.stor, "")
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
-	expectedURL, _ := s.storage.URL("bar")
+	expectedURL, _ := s.stor.URL("bar")
 	c.Assert(url, gc.Equals, expectedURL)
 }
 
 func (s *datasourceSuite) TestURLWithBasePath(c *gc.C) {
-	ds := environs.NewStorageSimpleStreamsDataSource(s.storage, "base")
+	ds := storage.NewStorageSimpleStreamsDataSource(s.stor, "base")
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
-	expectedURL, _ := s.storage.URL("base/bar")
+	expectedURL, _ := s.stor.URL("base/bar")
 	c.Assert(url, gc.Equals, expectedURL)
 }
 
@@ -117,21 +126,21 @@ func (s *fakeStorage) ShouldRetry(error) bool {
 func (s *storageSuite) TestGet(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
 	attempt := utils.AttemptStrategy{Min: 5}
-	environs.Get(stor, "foo", attempt)
+	storage.Get(stor, "foo", attempt)
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 5)
 }
 
 func (s *storageSuite) TestDefaultGet(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	environs.DefaultGet(stor, "foo")
+	storage.DefaultGet(stor, "foo")
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
 }
 
 func (s *storageSuite) TestGetRetry(c *gc.C) {
 	stor := &fakeStorage{}
-	environs.DefaultGet(stor, "foo")
+	storage.DefaultGet(stor, "foo")
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 1)
 }
@@ -139,21 +148,21 @@ func (s *storageSuite) TestGetRetry(c *gc.C) {
 func (s *storageSuite) TestList(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
 	attempt := utils.AttemptStrategy{Min: 5}
-	environs.List(stor, "foo", attempt)
+	storage.List(stor, "foo", attempt)
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 5)
 }
 
 func (s *storageSuite) TestDefaultList(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	environs.DefaultList(stor, "foo")
+	storage.DefaultList(stor, "foo")
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
 }
 
 func (s *storageSuite) TestListRetry(c *gc.C) {
 	stor := &fakeStorage{}
-	environs.DefaultList(stor, "foo")
+	storage.DefaultList(stor, "foo")
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 1)
 }

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -195,8 +196,8 @@ func (t *Tests) TestPersistence(c *gc.C) {
 	checkList(c, storage2, "", nil)
 }
 
-func checkList(c *gc.C, storage environs.StorageReader, prefix string, names []string) {
-	lnames, err := environs.DefaultList(storage, prefix)
+func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
+	lnames, err := storage.DefaultList(stor, prefix)
 	c.Assert(err, gc.IsNil)
 	// TODO(dfc) gocheck should grow an SliceEquals checker.
 	expected := copyslice(lnames)
@@ -213,19 +214,19 @@ func copyslice(s []string) []string {
 	return r
 }
 
-func checkPutFile(c *gc.C, storage environs.StorageWriter, name string, contents []byte) {
-	err := storage.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
+func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
+	err := stor.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
 	c.Assert(err, gc.IsNil)
 }
 
-func checkFileDoesNotExist(c *gc.C, storage environs.StorageReader, name string, attempt utils.AttemptStrategy) {
-	r, err := environs.Get(storage, name, attempt)
+func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string, attempt utils.AttemptStrategy) {
+	r, err := storage.Get(stor, name, attempt)
 	c.Assert(r, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func checkFileHasContents(c *gc.C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
-	r, err := environs.Get(storage, name, attempt)
+func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
+	r, err := storage.Get(stor, name, attempt)
 	c.Assert(err, gc.IsNil)
 	c.Check(r, gc.NotNil)
 	defer r.Close()
@@ -234,7 +235,7 @@ func checkFileHasContents(c *gc.C, storage environs.StorageReader, name string, 
 	c.Check(err, gc.IsNil)
 	c.Check(data, gc.DeepEquals, contents)
 
-	url, err := storage.URL(name)
+	url, err := stor.URL(name)
 	c.Assert(err, gc.IsNil)
 
 	var resp *http.Response

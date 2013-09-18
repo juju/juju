@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -19,7 +20,7 @@ type EmptyStorageSuite struct{}
 var _ = gc.Suite(&EmptyStorageSuite{})
 
 func (s *EmptyStorageSuite) TestGet(c *gc.C) {
-	f, err := environs.DefaultGet(environs.EmptyStorage, "anything")
+	f, err := storage.DefaultGet(environs.EmptyStorage, "anything")
 	c.Assert(f, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `file "anything" not found`)
 }
@@ -31,7 +32,7 @@ func (s *EmptyStorageSuite) TestURL(c *gc.C) {
 }
 
 func (s *EmptyStorageSuite) TestList(c *gc.C) {
-	names, err := environs.DefaultList(environs.EmptyStorage, "anything")
+	names, err := storage.DefaultList(environs.EmptyStorage, "anything")
 	c.Assert(names, gc.IsNil)
 	c.Assert(err, gc.IsNil)
 }
@@ -57,10 +58,10 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 
 	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
-	storage := environ.Storage()
-	err = environs.VerifyStorage(storage)
+	stor := environ.Storage()
+	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.IsNil)
-	reader, err := environs.DefaultGet(storage, "bootstrap-verify")
+	reader, err := storage.DefaultGet(stor, "bootstrap-verify")
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)

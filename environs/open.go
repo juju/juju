@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 )
 
@@ -84,8 +85,8 @@ func Prepare(config *config.Config) (Environ, error) {
 //
 // Returns InvalidEnvironmentError on failure, nil otherwise.
 func CheckEnvironment(environ Environ) error {
-	storage := environ.Storage()
-	reader, err := DefaultGet(storage, verificationFilename)
+	stor := environ.Storage()
+	reader, err := storage.DefaultGet(stor, verificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.

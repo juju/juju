@@ -17,7 +17,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -94,9 +94,9 @@ func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
 
 func (s *storageSuite) TestPathValidity(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	defer stor.Close()
 
 	c.Assert(os.Mkdir(filepath.Join(storageDir, contentdir, "a"), 0755), gc.IsNil)
 	f, err := os.Create(filepath.Join(storageDir, contentdir, "a", "b"))
@@ -105,50 +105,50 @@ func (s *storageSuite) TestPathValidity(c *gc.C) {
 
 	for _, prefix := range []string{"..", "a/../.."} {
 		c.Logf("prefix: %q", prefix)
-		_, err := environs.DefaultList(storage, prefix)
+		_, err := storage.DefaultList(stor, prefix)
 		c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(fmt.Sprintf("%q escapes storage directory", prefix)))
 	}
 
 	// Paths are always relative, so a leading "/" may as well not be there.
-	names, err := environs.DefaultList(storage, "/")
+	names, err := storage.DefaultList(stor, "/")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 
 	// Paths will be canonicalised.
-	names, err = environs.DefaultList(storage, "a/..")
+	names, err = storage.DefaultList(stor, "a/..")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 }
 
 func (s *storageSuite) TestGet(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	defer stor.Close()
 	data := []byte("abc\000def")
 	c.Assert(os.Mkdir(filepath.Join(storageDir, contentdir, "a"), 0755), gc.IsNil)
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
 		err = ioutil.WriteFile(filepath.Join(storageDir, contentdir, name), data, 0644)
 		c.Assert(err, gc.IsNil)
-		r, err := environs.DefaultGet(storage, name)
+		r, err := storage.DefaultGet(stor, name)
 		c.Assert(err, gc.IsNil)
 		out, err := ioutil.ReadAll(r)
 		c.Assert(err, gc.IsNil)
 		c.Assert(out, gc.DeepEquals, data)
 	}
 
-	_, err = environs.DefaultGet(storage, "notthere")
+	_, err = storage.DefaultGet(stor, "notthere")
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	defer stor.Close()
 	data := []byte("abc\000def")
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
-		err = storage.Put(name, bytes.NewBuffer(data), int64(len(data)))
+		err = stor.Put(name, bytes.NewBuffer(data), int64(len(data)))
 		c.Assert(err, gc.IsNil)
 		out, err := ioutil.ReadFile(filepath.Join(storageDir, contentdir, name))
 		c.Assert(err, gc.IsNil)
@@ -156,9 +156,9 @@ func (s *storageSuite) TestPut(c *gc.C) {
 	}
 }
 
-func (s *storageSuite) assertList(c *gc.C, storage environs.StorageReader, prefix string, expected []string) {
+func (s *storageSuite) assertList(c *gc.C, stor storage.StorageReader, prefix string, expected []string) {
 	c.Logf("List: %v", prefix)
-	names, err := environs.DefaultList(storage, prefix)
+	names, err := storage.DefaultList(stor, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, expected)
 }
@@ -271,7 +271,7 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 
 	proc.Kill()
 	proc.Wait()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
 
 	// Get and List should be able to proceed with a shared lock.
@@ -280,26 +280,26 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, contentdir, "a"), data, 0644), gc.IsNil)
 
 	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
-	_, err = environs.DefaultGet(storage, "a")
+	_, err = storage.DefaultGet(stor, "a")
 	c.Assert(err, gc.IsNil)
-	_, err = environs.DefaultList(storage, "")
+	_, err = storage.DefaultList(stor, "")
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
-	c.Assert(storage.Remove("a"), gc.NotNil)
-	c.Assert(storage.RemoveAll(), gc.NotNil)
+	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
+	c.Assert(stor.Remove("a"), gc.NotNil)
+	c.Assert(stor.RemoveAll(), gc.NotNil)
 	proc.Kill()
 	proc.Wait()
 
 	// None of the methods (apart from URL) should be able to do anything
 	// while an exclusive lock is held.
 	proc = s.flock(c, flockExclusive, storageDir, defaultFlockTimeout)
-	_, err = storage.URL("a")
+	_, err = stor.URL("a")
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
-	c.Assert(storage.Remove("a"), gc.NotNil)
-	c.Assert(storage.RemoveAll(), gc.NotNil)
-	_, err = environs.DefaultGet(storage, "a")
+	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
+	c.Assert(stor.Remove("a"), gc.NotNil)
+	c.Assert(stor.RemoveAll(), gc.NotNil)
+	_, err = storage.DefaultGet(stor, "a")
 	c.Assert(err, gc.NotNil)
-	_, err = environs.DefaultList(storage, "")
+	_, err = storage.DefaultList(stor, "")
 	c.Assert(err, gc.NotNil)
 }

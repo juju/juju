@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -484,8 +485,8 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 	// Bootstrap automatically verifies that storage is writable.
 	t.BootstrapOnce(c)
 	environ := t.Env
-	storage := environ.Storage()
-	reader, err := environs.DefaultGet(storage, "bootstrap-verify")
+	stor := environ.Storage()
+	reader, err := storage.DefaultGet(stor, "bootstrap-verify")
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)
@@ -494,7 +495,7 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func restoreBootstrapVerificationFile(c *gc.C, storage environs.Storage) {
+func restoreBootstrapVerificationFile(c *gc.C, storage storage.Storage) {
 	content := "juju-core storage writing verified: ok\n"
 	contentReader := strings.NewReader(content)
 	err := storage.Put("bootstrap-verify", contentReader,
@@ -892,8 +893,8 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	waitAgentTools(c, mw0, other)
 }
 
-func storageCopy(source environs.Storage, sourcePath string, target environs.Storage, targetPath string) error {
-	rc, err := environs.DefaultGet(source, sourcePath)
+func storageCopy(source storage.Storage, sourcePath string, target storage.Storage, targetPath string) error {
+	rc, err := storage.DefaultGet(source, sourcePath)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,7 @@
 package tools
 
 import (
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	coretools "launchpad.net/juju-core/tools"
 )
 
@@ -15,11 +15,11 @@ import (
 // *only* tools in that storage are available for use.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func LegacyFindTools(storages []environs.StorageReader,
+func LegacyFindTools(storages []storage.StorageReader,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
-	for _, storage := range storages {
-		list, err = ReadList(storage, majorVersion, minorVersion)
+	for _, stor := range storages {
+		list, err = ReadList(stor, majorVersion, minorVersion)
 		if err != ErrNoTools {
 			break
 		}
