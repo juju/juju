@@ -13,8 +13,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/httpstorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -53,8 +51,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	fixEnv := func(key string, value interface{}) {
 		cfg, err := env.Config().Apply(map[string]interface{}{
 			key: value,
@@ -88,8 +85,7 @@ func uploadTools(c *gc.C, env environs.Environ) {
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	uploadTools(c, env)
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -99,8 +95,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	uploadTools(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(env, cons)
@@ -189,8 +184,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
@@ -229,15 +223,11 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 // setDummyStorage injects the local provider's fake storage implementation
 // into the given environment, so that tests can manipulate storage as if it
 // were real.
-// Returns a cleanup function that must be called when done with the storage.
-func setDummyStorage(c *gc.C, env *bootstrapEnviron) func() {
-	storage, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, gc.IsNil)
-	listener, err := httpstorage.Serve("127.0.0.1:0", storage)
-	c.Assert(err, gc.IsNil)
-	env.storage = httpstorage.Client(listener.Addr().String())
+func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
+	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
+	env.storage = storage
 	envtesting.UploadFakeTools(c, env.storage)
-	return func() { listener.Close() }
+	s.AddCleanup(func() { closer.Close() })
 }
 
 func (e *bootstrapEnviron) Name() string {
