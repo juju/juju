@@ -210,6 +210,9 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	}
 	defer jc.Set(juju.APIOpen, apiOpen).Restore()
 
+	stateClosed, restoreAPIClose := setAPIClosed()
+	defer restoreAPIClose.Restore()
+
 	startTime := time.Now()
 	st, err := juju.NewAPIFromName(testing.SampleEnvName)
 	c.Assert(err, gc.IsNil)
@@ -223,7 +226,16 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Errorf("api never opened via info")
 	}
+
+	// Check that the ignored state was closed.
+	select {
+	case st := <-stateClosed:
+		c.Assert(st, gc.Equals, infoOpenedState)
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for state to be closed")
+	}
 }
+
 func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	bootstrapEnv(c, testing.SampleEnvName)
@@ -251,6 +263,9 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		return cfgOpenedState, nil
 	}
 	defer jc.Set(juju.APIOpen, apiOpen).Restore()
+
+	stateClosed, restoreAPIClose := setAPIClosed()
+	defer restoreAPIClose.Restore()
 
 	done := make(chan struct{})
 	go func() {
@@ -280,9 +295,15 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		c.Errorf("timed out opening API")
 	}
 
-	// Let the config endpoint open go ahead
-	// (its result will be ignored)
+	// Let the config endpoint open go ahead and
+	// check that its state is closed.
 	cfgEndpointOpened <- struct{}{}
+	select {
+	case st := <-stateClosed:
+		c.Assert(st, gc.Equals, cfgOpenedState)
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for state to be closed")
+	}
 }
 
 func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
@@ -322,6 +343,15 @@ func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
 	envInfo, err := client.EnvironmentInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(envInfo.Name, gc.Equals, expectName)
+}
+
+func setAPIClosed() (<-chan *api.State, jc.Restorer) {
+	stateClosed := make(chan *api.State)
+	apiClose := func(st *api.State) error {
+		stateClosed <- st
+		return nil
+	}
+	return stateClosed, jc.Set(juju.APIClose, apiClose)
 }
 
 func setDefaultConfigStore(envName string, info *environInfo) jc.Restorer {

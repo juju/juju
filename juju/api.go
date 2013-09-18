@@ -16,9 +16,13 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
+var logger = loggo.GetLogger("juju")
+
+// The following are variables so that they can be
+// changed by tests.
 var (
-	logger             = loggo.GetLogger("juju")
 	apiOpen            = api.Open
+	apiClose           = (*api.State).Close
 	defaultConfigStore = func() (environs.ConfigStorage, error) {
 		return configstore.NewDisk(config.JujuHomePath("environments"))
 	}
@@ -104,12 +108,13 @@ func newAPIFromName(envName string) (*api.State, error) {
 	// usual case, we will make the connection to the API
 	// and never hit the provider.
 
-	infoResult := apiInfoConnect(store, envName)
+	stop := make(chan struct{})
+	defer close(stop)
+
+	infoResult := apiInfoConnect(store, envName, stop)
 
 	var cfgResult <-chan apiOpenResult
 	if envs != nil {
-		stop := make(chan struct{})
-		defer close(stop)
 		delay := providerConnectDelay
 		if infoResult == nil {
 			delay = 0
@@ -147,9 +152,24 @@ func newAPIFromName(envName string) (*api.State, error) {
 	if cfgErr != nil {
 		// Return the error from the configuration lookup if we
 		// have one, because that information should be most current.
+		logger.Warningf("discarding API open error: %v", infoErr)
 		return nil, cfgErr
 	}
 	return nil, infoErr
+}
+
+func cleanUpAPIOpenResult(resultc <-chan apiOpenResult) {
+	if resultc == nil {
+		return
+	}
+	go func() {
+		r := <-resultc
+		if r.err != nil {
+			logger.Warningf("disarding stale API open error: %v", r.err)
+		} else {
+			r.st.Close()
+		}
+	}()
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for
@@ -170,14 +190,14 @@ type apiOpenResult struct {
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(store environs.ConfigStorage, envName string) <-chan apiOpenResult {
-	resultc := make(chan apiOpenResult, 1)
+func apiInfoConnect(store environs.ConfigStorage, envName string, stop <-chan struct{}) <-chan apiOpenResult {
+	resultc := make(chan apiOpenResult)
 	info, err := store.ReadInfo(envName)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			return nil
 		}
-		resultc <- apiOpenResult{nil, err}
+		go sendAPIOpenResult(resultc, stop, nil, err)
 		return resultc
 	}
 	endpoint := info.APIEndpoint()
@@ -191,21 +211,33 @@ func apiInfoConnect(store environs.ConfigStorage, envName string) <-chan apiOpen
 			Tag:      "user-" + info.APICredentials().User,
 			Password: info.APICredentials().Password,
 		}, api.DefaultDialOpts())
-		resultc <- apiOpenResult{st, err}
+		sendAPIOpenResult(resultc, stop, st, err)
 	}()
 	return resultc
+}
+
+func sendAPIOpenResult(resultc chan apiOpenResult, stop <-chan struct{}, st *api.State, err error) {
+	select {
+	case <-stop:
+		if err != nil {
+			logger.Warningf("disarding stale API open error: %v", err)
+		} else {
+			apiClose(st)
+		}
+	case resultc <- apiOpenResult{st, err}:
+	}
 }
 
 // apiConfigConnect looks for configuration info on the given environment,
 // and tries to use an Environ constructed from that to connect to
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
-func apiConfigConnect(envs *environs.Environs, envName string, stop chan struct{}, delay time.Duration) <-chan apiOpenResult {
+func apiConfigConnect(envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) <-chan apiOpenResult {
 	cfg, err := envs.Config(envName)
 	if errors.IsNotFoundError(err) {
 		return nil
 	}
-	resultc := make(chan apiOpenResult, 1)
+	resultc := make(chan apiOpenResult)
 	connect := func() (*api.State, error) {
 		if err != nil {
 			return nil, err
@@ -227,7 +259,7 @@ func apiConfigConnect(envs *environs.Environs, envName string, stop chan struct{
 	}
 	go func() {
 		st, err := connect()
-		resultc <- apiOpenResult{st, err}
+		sendAPIOpenResult(resultc, stop, st, err)
 	}()
 	return resultc
 }
