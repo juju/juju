@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package localstorage_test
+package httpstorage_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -25,7 +25,7 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) TestList(c *gc.C) {
 	listener, _, _ := startServer(c)
 	defer listener.Close()
-	storage := localstorage.Client(listener.Addr().String())
+	storage := httpstorage.Client(listener.Addr().String())
 	names, err := storage.List("a/b/c")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.HasLen, 0)
@@ -37,7 +37,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 	listener, _, _ := startServer(c)
 	defer listener.Close()
 
-	storage := localstorage.Client(listener.Addr().String())
+	storage := httpstorage.Client(listener.Addr().String())
 	names := []string{
 		"aa",
 		"zzz/aa",
@@ -51,7 +51,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 	checkList(c, storage, "a", []string{"aa"})
 	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	storage2 := localstorage.Client(listener.Addr().String())
+	storage2 := httpstorage.Client(listener.Addr().String())
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name))
 	}
