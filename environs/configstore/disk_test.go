@@ -34,14 +34,12 @@ func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 }
 
 var sampleInfo = `
-creds:
   user: rog
   password: guessit
-endpoint:
-  addresses:
+  state-servers:
   - example.com
   - kremvax.ru
-  cacert: 'first line
+  ca-cert: 'first line
 
     second line'
 `[1:]
