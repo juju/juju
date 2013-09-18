@@ -20,8 +20,8 @@ type Entities struct {
 
 // ContainerType identifies a single container type within a machine.
 type ContainerType struct {
-	MachineTag    string
-	ContainerType string
+	Tag  string
+	Type string
 }
 
 // ContainerTypes identifies multiple container types.

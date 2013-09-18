@@ -11,10 +11,3 @@ var ErrUnauthorized = &params.Error{
 	Message: "permission denied",
 	Code:    params.CodeUnauthorized,
 }
-
-func NotFoundError(prefixMessage string) *params.Error {
-	return &params.Error{
-		Message: prefixMessage + " not found",
-		Code:    params.CodeNotFound,
-	}
-}

@@ -36,10 +36,35 @@ func NewProvisionerAPI(
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		// We allow access to any machine in the environment.
+		isEnvironManager := authorizer.AuthEnvironManager()
+		isMachineAgent := authorizer.AuthMachineAgent()
+		authEntityTag := authorizer.GetAuthTag()
+
 		return func(tag string) bool {
-			_, _, err := names.ParseTag(tag, names.MachineTagKind)
-			return err == nil
+			_, id, err := names.ParseTag(tag, names.MachineTagKind)
+			if err != nil {
+				return false
+			}
+			machine, err := st.Machine(id)
+			if err != nil {
+				return false
+			}
+			parentId, ok := machine.ParentId()
+			if !ok {
+				if !isEnvironManager {
+					// Machine agent can access its own machine.
+					return isMachineAgent && tag == authEntityTag
+				}
+				// All top-level machines are accessible by the
+				// environment manager.
+				return true
+			}
+			if names.MachineTag(parentId) == authEntityTag {
+				// All containers with the authenticated machine as a
+				// parent are accessible by it.
+				return isMachineAgent
+			}
+			return false
 		}, nil
 	}
 	return &ProvisionerAPI{
@@ -61,10 +86,10 @@ func (p *ProvisionerAPI) watchOneMachineContainers(entity params.ContainerType) 
 	if err != nil {
 		return nothing, err
 	}
-	if !canAccess(entity.MachineTag) {
+	if !canAccess(entity.Tag) {
 		return nothing, common.ErrPerm
 	}
-	_, id, err := names.ParseTag(entity.MachineTag, names.MachineTagKind)
+	_, id, err := names.ParseTag(entity.Tag, names.MachineTagKind)
 	if err != nil {
 		return nothing, err
 	}
@@ -72,7 +97,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(entity params.ContainerType) 
 	if err != nil {
 		return nothing, err
 	}
-	watch := machine.WatchContainers(instance.ContainerType(entity.ContainerType))
+	watch := machine.WatchContainers(instance.ContainerType(entity.Type))
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{

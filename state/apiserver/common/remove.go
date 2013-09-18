@@ -17,10 +17,10 @@ type Remover struct {
 	getCanModify   GetAuthFunc
 }
 
-// NewRemover returns a new Remover. If before calling Remove() on the
-// entity EnsureDead() should also be called, callEnsureDead should be
-// true. The GetAuthFunc will be used on each invocation of Remove to
-// determine current permissions.
+// NewRemover returns a new Remover. The callEnsureDead flag specifies
+// whether EnsureDead should be called on an entity before
+// removing. The GetAuthFunc will be used on each invocation of Remove
+// to determine current permissions.
 func NewRemover(st state.EntityFinder, callEnsureDead bool, getCanModify GetAuthFunc) *Remover {
 	return &Remover{
 		st:             st,
@@ -47,7 +47,7 @@ func (r *Remover) removeEntity(tag string) error {
 		return fmt.Errorf("cannot remove entity %q: still alive", tag)
 	}
 	if r.callEnsureDead {
-		if err = remover.EnsureDead(); err != nil {
+		if err := remover.EnsureDead(); err != nil {
 			return err
 		}
 	}
