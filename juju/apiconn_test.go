@@ -287,23 +287,28 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	cfgEndpointOpened <- struct{}{}
 }
 
-//	set delay=small
-//	should connect to info, then connect to config
-//
-//	set delay=large
-//	should connect to info and not connect to config.
-//
-//func (*NewAPIClientSuite) TestBothSlow(c *gc.C) {
-//}
-//	set delay=small
-//	both should try to connect
-//	let info connect
-//	get result
-//	let config connect
-//
-//func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
-//}
-//	should get error from config connect
+func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	bootstrapEnv(c, testing.SampleEnvName)
+	endpoint := environs.APIEndpoint{
+		Addresses: []string{"infoapi.com"},
+	}
+	defer setDefaultConfigStore(testing.SampleEnvName, &environInfo{
+		endpoint: endpoint,
+	}).Restore()
+
+	defer jc.Set(juju.ProviderConnectDelay, 0*time.Second).Restore()
+	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+		if info.Addrs[0] == "infoapi.com" {
+			return nil, fmt.Errorf("info connect failed")
+		}
+		return nil, fmt.Errorf("config connect failed")
+	}
+	defer jc.Set(juju.APIOpen, apiOpen).Restore()
+	st, err := juju.NewAPIFromName(testing.SampleEnvName)
+	c.Check(err, gc.ErrorMatches, "config connect failed")
+	c.Check(st, gc.IsNil)
+}
 
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
 func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
