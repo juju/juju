@@ -18,15 +18,16 @@ type Entities struct {
 	Entities []Entity
 }
 
-// ContainerType identifies a single container type within a machine.
-type ContainerType struct {
-	Tag  string
-	Type string
+// WatchContainer identifies a single container type within a machine.
+type WatchContainer struct {
+	MachineTag    string
+	ContainerType string
 }
 
-// ContainerTypes identifies multiple container types.
-type ContainerTypes struct {
-	ContainerTypes []ContainerType
+// WatchContainers holds the arguments for making a WatchContainers
+// API call.
+type WatchContainers struct {
+	Params []WatchContainer
 }
 
 // CharmURL identifies a single charm URL.

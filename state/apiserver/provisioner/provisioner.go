@@ -80,16 +80,16 @@ func NewProvisionerAPI(
 	}, nil
 }
 
-func (p *ProvisionerAPI) watchOneMachineContainers(entity params.ContainerType) (params.StringsWatchResult, error) {
+func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
 		return nothing, err
 	}
-	if !canAccess(entity.Tag) {
+	if !canAccess(arg.MachineTag) {
 		return nothing, common.ErrPerm
 	}
-	_, id, err := names.ParseTag(entity.Tag, names.MachineTagKind)
+	_, id, err := names.ParseTag(arg.MachineTag, names.MachineTagKind)
 	if err != nil {
 		return nothing, err
 	}
@@ -97,7 +97,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(entity params.ContainerType) 
 	if err != nil {
 		return nothing, err
 	}
-	watch := machine.WatchContainers(instance.ContainerType(entity.Type))
+	watch := machine.WatchContainers(instance.ContainerType(arg.ContainerType))
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{
@@ -110,13 +110,13 @@ func (p *ProvisionerAPI) watchOneMachineContainers(entity params.ContainerType) 
 
 // WatchContainers starts a StringsWatcher to watch all containers deployed to
 // any machine passed in args.
-func (p *ProvisionerAPI) WatchContainers(args params.ContainerTypes) (params.StringsWatchResults, error) {
+func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.ContainerTypes)),
+		Results: make([]params.StringsWatchResult, len(args.Params)),
 	}
-	for i, entity := range args.ContainerTypes {
-		entityResult, err := p.watchOneMachineContainers(entity)
-		result.Results[i] = entityResult
+	for i, arg := range args.Params {
+		watcherResult, err := p.watchOneMachineContainers(arg)
+		result.Results[i] = watcherResult
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

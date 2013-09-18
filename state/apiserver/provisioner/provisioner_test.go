@@ -358,12 +358,12 @@ func (s *provisionerSuite) assertLife(c *gc.C, index int, expectLife state.Life)
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	args := params.ContainerTypes{ContainerTypes: []params.ContainerType{
-		{Tag: s.machines[0].Tag(), Type: string(instance.LXC)},
-		{Tag: s.machines[1].Tag(), Type: string(instance.KVM)},
-		{Tag: "machine-42", Type: ""},
-		{Tag: "unit-foo-0", Type: ""},
-		{Tag: "service-bar", Type: ""},
+	args := params.WatchContainers{Params: []params.WatchContainer{
+		{MachineTag: s.machines[0].Tag(), ContainerType: string(instance.LXC)},
+		{MachineTag: s.machines[1].Tag(), ContainerType: string(instance.KVM)},
+		{MachineTag: "machine-42", ContainerType: ""},
+		{MachineTag: "unit-foo-0", ContainerType: ""},
+		{MachineTag: "service-bar", ContainerType: ""},
 	}}
 	result, err := s.provisioner.WatchContainers(args)
 	c.Assert(err, gc.IsNil)
