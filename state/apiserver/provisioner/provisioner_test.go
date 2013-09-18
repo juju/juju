@@ -107,7 +107,7 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 			{nil},
 			{nil},
 			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.NotFoundError("machine 42")},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -213,7 +213,7 @@ func (s *provisionerSuite) TestLifeAsEnvironManager(c *gc.C) {
 			{Life: "alive"},
 			{Life: "dead"},
 			{Life: "alive"},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -233,7 +233,7 @@ func (s *provisionerSuite) TestLifeAsEnvironManager(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("machine 1")},
 		},
 	})
 }
@@ -260,7 +260,7 @@ func (s *provisionerSuite) TestRemove(c *gc.C) {
 			{&params.Error{Message: `cannot remove entity "machine-0": still alive`}},
 			{nil},
 			{&params.Error{Message: `cannot remove entity "machine-2": still alive`}},
-			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.NotFoundError("machine 42")},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -297,7 +297,7 @@ func (s *provisionerSuite) TestSetStatus(c *gc.C) {
 			{nil},
 			{nil},
 			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.NotFoundError("machine 42")},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -337,7 +337,7 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 			{nil},
 			{nil},
 			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.NotFoundError("machine 42")},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -371,7 +371,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{}},
 			{StringsWatcherId: "2", Changes: []string{}},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

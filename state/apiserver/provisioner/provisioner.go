@@ -41,23 +41,19 @@ func NewProvisionerAPI(
 		authEntityTag := authorizer.GetAuthTag()
 
 		return func(tag string) bool {
+			if isMachineAgent && tag == authEntityTag {
+				// A machine agent can always access its own machine.
+				return true
+			}
 			_, id, err := names.ParseTag(tag, names.MachineTagKind)
 			if err != nil {
 				return false
 			}
-			machine, err := st.Machine(id)
-			if err != nil {
-				return false
-			}
-			parentId, ok := machine.ParentId()
-			if !ok {
-				if !isEnvironManager {
-					// Machine agent can access its own machine.
-					return isMachineAgent && tag == authEntityTag
-				}
+			parentId := state.ParentId(id)
+			if parentId == "" {
 				// All top-level machines are accessible by the
 				// environment manager.
-				return true
+				return isEnvironManager
 			}
 			if names.MachineTag(parentId) == authEntityTag {
 				// All containers with the authenticated machine as a
