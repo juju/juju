@@ -61,12 +61,17 @@ func NewAddress(value string) Address {
 
 // HostAddresses looks up the IP addresses of the specified
 // host, and translates them into instance.Address values.
-func HostAddresses(host string) ([]Address, error) {
+func HostAddresses(host string) (addrs []Address, err error) {
+	hostAddr := NewAddress(host)
+	if hostAddr.Type != HostName {
+		// IPs shouldn't be fed into LookupIP.
+		return []Address{hostAddr}, nil
+	}
 	ipaddrs, err := net.LookupIP(host)
 	if err != nil {
 		return nil, err
 	}
-	addrs := make([]Address, len(ipaddrs))
+	addrs = make([]Address, len(ipaddrs)+1)
 	for i, ipaddr := range ipaddrs {
 		switch len(ipaddr) {
 		case 4:
@@ -77,6 +82,7 @@ func HostAddresses(host string) ([]Address, error) {
 			addrs[i].Value = ipaddr.String()
 		}
 	}
+	addrs[len(addrs)-1] = hostAddr
 	return addrs, err
 }
 

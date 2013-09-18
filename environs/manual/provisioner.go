@@ -6,6 +6,7 @@ package manual
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"launchpad.net/loggo"
@@ -71,10 +72,22 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	if at := strings.Index(sshHostWithoutUser, "@"); at != -1 {
 		sshHostWithoutUser = sshHostWithoutUser[at+1:]
 	}
+	if ip := net.ParseIP(sshHostWithoutUser); ip != nil {
+		// Do a reverse-lookup on the IP. The IP may not have
+		// a DNS entry, so just log a warning if this fails.
+		names, err := net.LookupAddr(ip.String())
+		if err != nil {
+			logger.Warningf("failed to resolve %v: %v", ip, err)
+		} else {
+			logger.Infof("resolved %v to %v", ip, names)
+			sshHostWithoutUser = names[0]
+		}
+	}
 	addrs, err := instance.HostAddresses(sshHostWithoutUser)
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("addresses for %v: %v", sshHostWithoutUser, addrs)
 
 	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
