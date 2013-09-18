@@ -202,7 +202,6 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	// logic doesn't delay at all, the test will fail reasonably consistently.
 	defer jc.Set(juju.ProviderConnectDelay, 50*time.Millisecond).Restore()
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
-		c.Logf("opening API with info %#v", info)
 		if info.Addrs[0] == "infoapi.com" {
 			infoEndpointOpened <- struct{}{}
 			return infoOpenedState, nil
@@ -216,7 +215,6 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
-	c.Logf("elapsed %v", time.Since(startTime))
 	c.Assert(time.Since(startTime), jc.GreaterThan, *juju.ProviderConnectDelay)
 	c.Assert(st, gc.Equals, cfgOpenedState)
 

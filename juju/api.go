@@ -68,7 +68,6 @@ func (c *APIConn) Close() error {
 // newAPIFromName implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
 func newAPIFromName(envName string) (*api.State, error) {
-	logger.Infof("newAPIClientFromName %q", envName)
 	store, err := defaultConfigStore()
 	if err != nil {
 		return nil, err
@@ -90,7 +89,6 @@ func newAPIFromName(envName string) (*api.State, error) {
 	} else if !environs.IsNoEnv(err) {
 		return nil, err
 	}
-	logger.Infof("read environs")
 
 	// Try to connect to the API concurrently using two
 	// different possible sources of truth for the API endpoint.
@@ -176,7 +174,6 @@ func apiInfoConnect(store environs.ConfigStorage, envName string) <-chan apiOpen
 	resultc := make(chan apiOpenResult, 1)
 	info, err := store.ReadInfo(envName)
 	if err != nil {
-		logger.Infof("ReadInfo failed: %v", err)
 		if errors.IsNotFoundError(err) {
 			return nil
 		}
