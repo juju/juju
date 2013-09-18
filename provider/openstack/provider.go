@@ -1074,6 +1074,10 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	group, err := novaClient.SecurityGroupByName(name)
 	if err == nil {
 		// Group exists, so assume it is correctly set up and return it.
+		// TODO(jam): 2013-09-18 http://pad.lv/121795
+		// We really should verify the group is set up correctly,
+		// because deleting and re-creating environments can get us bad
+		// groups (especially if they were set up under Python)
 		return *group, nil
 	}
 	// Doesn't exist, so try and create it.
