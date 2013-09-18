@@ -139,7 +139,7 @@ func (c envCmdWrapper) Run(ctx *cmd.Context) error {
 		fmt.Fprintln(ctx.Stderr, "No juju environment configuration file exists.")
 		fmt.Fprintln(ctx.Stderr, err)
 		fmt.Fprintln(ctx.Stderr, "Please create a configuration by running:")
-		fmt.Fprintln(ctx.Stderr, "    juju init -w")
+		fmt.Fprintln(ctx.Stderr, "    juju init")
 		fmt.Fprintln(ctx.Stderr, "then edit the file to configure your juju environment.")
 		fmt.Fprintln(ctx.Stderr, "You can then re-run the command.")
 		return cmd.ErrSilent
