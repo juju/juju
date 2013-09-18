@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
-	httpstorage "launchpad.net/juju-core/provider/local/storage"
+	localstorage "launchpad.net/juju-core/provider/local/storage"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
@@ -232,7 +232,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	if providerType == provider.Local && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
-			return httpstorage.NewWorker(agentConfig), nil
+			return localstorage.NewWorker(agentConfig), nil
 		})
 	}
 	for _, job := range m.Jobs() {
