@@ -58,7 +58,7 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	relpath := s.relpath(path)
 	dataURL := relpath
 	fullURL, err := s.storage.URL(relpath)
-	if err != nil {
+	if err == nil {
 		dataURL = fullURL
 	}
 	rc, err := s.storage.Get(relpath)

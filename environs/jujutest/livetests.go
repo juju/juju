@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -115,7 +116,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := envtools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := sync.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
 	err := bootstrap.Bootstrap(t.Env, cons)
@@ -663,9 +664,9 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := envtools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
+	upgradeTools, err := sync.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, gc.IsNil)
-	// envtools.Upload always returns tools for the series on which the tests are running.
+	// sync.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
 	upgradeTools.Version.Series = newVersion.Series
@@ -864,7 +865,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	defer envStorage.Remove(otherName)
 
-	_, err = envtools.Upload(dummyStorage, &current.Number)
+	_, err = sync.Upload(dummyStorage, &current.Number)
 	c.Assert(err, gc.IsNil)
 
 	// This will only work while cross-compiling across releases is safe,

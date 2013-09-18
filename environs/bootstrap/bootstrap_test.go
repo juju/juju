@@ -227,7 +227,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = storage
 	envtesting.UploadFakeTools(c, env.storage)
-	s.AddCleanup(func() { closer.Close() })
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
 func (e *bootstrapEnviron) Name() string {

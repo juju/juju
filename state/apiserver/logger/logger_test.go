@@ -31,7 +31,7 @@ var _ = gc.Suite(&loggerSuite{})
 func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func() { s.resources.StopAll() })
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a machine to work with
 	var err error

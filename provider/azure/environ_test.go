@@ -57,7 +57,7 @@ func makeEnviron(c *gc.C) *azureEnviron {
 func (s *environSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = storage
-	s.AddCleanup(func() { closer.Close() })
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
@@ -702,9 +702,8 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 }
 
 func (s *environSuite) setServiceDeletionConcurrency(nbGoroutines int) {
-	oldMaxConcurrentDeletes := maxConcurrentDeletes
-	maxConcurrentDeletes = nbGoroutines
-	s.AddCleanup(func() { maxConcurrentDeletes = oldMaxConcurrentDeletes })
+	restore := jc.Set(&maxConcurrentDeletes, nbGoroutines)
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {

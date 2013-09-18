@@ -41,12 +41,6 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.machiner, gc.NotNil)
 }
 
-func (s *machinerSuite) TearDownTest(c *gc.C) {
-	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	machine, err := s.machiner.Machine("machine-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")

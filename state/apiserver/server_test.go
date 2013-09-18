@@ -135,7 +135,6 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 
 	// Login as the machine agent of the created machine.
 	st := s.OpenAPIAsMachine(c, machine.Tag(), "password", "fake_nonce")
-	defer st.Close()
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
@@ -165,7 +164,6 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 
 	// Login as the unit agent of the created unit.
 	st := s.OpenAPIAs(c, unit.Tag(), "password")
-	defer st.Close()
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)

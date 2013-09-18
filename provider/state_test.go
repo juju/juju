@@ -29,7 +29,7 @@ var _ = gc.Suite(&StateSuite{})
 // makeDummyStorage creates a local storage.
 func (suite *StateSuite) makeDummyStorage(c *gc.C) environs.Storage {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
-	suite.AddCleanup(func() { closer.Close() })
+	suite.AddCleanup(func(*gc.C) { closer.Close() })
 	return storage
 }
 
