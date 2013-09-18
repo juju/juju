@@ -46,12 +46,12 @@ func (s *storageBackend) handleGet(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprint(err), http.StatusNotFound)
 		return
 	}
+	defer readcloser.Close()
 	data, err := ioutil.ReadAll(readcloser)
 	if err != nil {
 		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
 		return
 	}
-	defer readcloser.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(data)
 }
@@ -72,7 +72,7 @@ func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 
 // handlePut stores data from the client in the storage.
 func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
-	if req.ContentLength <= -1 {
+	if req.ContentLength < 0 {
 		http.Error(w, "missing or invalid Content-Length header", http.StatusInternalServerError)
 		return
 	}

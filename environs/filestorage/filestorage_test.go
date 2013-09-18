@@ -18,6 +18,8 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
+	coreerrors "launchpad.net/juju-core/errors"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestPackage(t *testing.T) {
@@ -97,6 +99,15 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 	b, err := ioutil.ReadAll(rc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.DeepEquals, data)
+
+	// Get on a non-existant path returns NotFoundError
+	_, err = s.reader.Get("nowhere")
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+
+	// Get on a directory returns NotFoundError
+	s.createFile(c, "dir/file")
+	_, err = s.reader.Get("dir")
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
 func (s *filestorageSuite) TestPut(c *gc.C) {

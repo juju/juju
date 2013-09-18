@@ -106,10 +106,10 @@ var getTests = []testCase{
 		content: "this is file 'foo'",
 	},
 	{
-		// Get on a directory returns a 500 as it is
+		// Get on a directory returns a 404 as it is
 		// not a file.
 		name:   "inner",
-		status: 500,
+		status: 404,
 	},
 }
 

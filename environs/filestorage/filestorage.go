@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/environs"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -43,6 +44,15 @@ func (f *fileStorageReader) fullPath(name string) string {
 // Get implements environs.StorageReader.Get.
 func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	filename := f.fullPath(name)
+	fi, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = coreerrors.NewNotFoundError(err, "")
+		}
+		return nil, err
+	} else if fi.IsDir() {
+		return nil, coreerrors.NotFoundf("no such file with name %q", name)
+	}
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
