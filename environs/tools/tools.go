@@ -111,7 +111,8 @@ var UseLegacyFallback = true
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
+	filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
 
 	var cloudSpec simplestreams.CloudSpec
 	if inst, ok := cloudInst.(simplestreams.HasRegion); ok {
@@ -141,7 +142,7 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, 
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-	sources, err := GetMetadataSources(cloudInst)
+	sources, err := GetMetadataSourcesWithRetries(cloudInst, allowRetry)
 	if err != nil {
 		return nil, err
 	}
@@ -158,11 +159,14 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, 
 	return list, err
 }
 
+// The following allows FindTools, as called by FindBootstrapTools, to be patched for testing.
+var BootstrapFindTools = FindTools
+
 // FindBootstrapTools returns a ToolsList containing only those tools with
 // which it would be reasonable to launch an environment's first machine, given the supplied constraints.
 // If a specific agent version is not requested, all tools matching the current major.minor version are chosen.
 func FindBootstrapTools(cloudInst environs.ConfigGetter,
-	vers *version.Number, series string, arch *string, useDev bool) (list coretools.List, err error) {
+	vers *version.Number, series string, arch *string, useDev bool, allowRetry bool) (list coretools.List, err error) {
 
 	// Construct a tools filter.
 	cliVersion := version.Current.Number
@@ -173,13 +177,13 @@ func FindBootstrapTools(cloudInst environs.ConfigGetter,
 	if vers != nil {
 		// If we already have an explicit agent version set, we're done.
 		filter.Number = *vers
-		return FindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter)
+		return BootstrapFindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter, allowRetry)
 	}
 	if dev := cliVersion.IsDev() || useDev; !dev {
 		logger.Infof("filtering tools by released version")
 		filter.Released = true
 	}
-	return FindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter)
+	return BootstrapFindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter, allowRetry)
 }
 
 func stringOrEmpty(pstr *string) string {
@@ -201,7 +205,7 @@ func FindInstanceTools(cloudInst environs.ConfigGetter,
 		Series: series,
 		Arch:   stringOrEmpty(arch),
 	}
-	return FindTools(cloudInst, vers.Major, vers.Minor, filter)
+	return FindTools(cloudInst, vers.Major, vers.Minor, filter, false)
 }
 
 // FindExactTools returns only the tools that match the supplied version.
@@ -216,7 +220,7 @@ func FindExactTools(cloudInst environs.ConfigGetter,
 		Series: series,
 		Arch:   arch,
 	}
-	availaleTools, err := FindTools(cloudInst, vers.Major, vers.Minor, filter)
+	availaleTools, err := FindTools(cloudInst, vers.Major, vers.Minor, filter, false)
 	if err != nil {
 		return nil, err
 	}

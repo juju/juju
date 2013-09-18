@@ -181,7 +181,8 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{})
+			targetTools, err := envtools.FindTools(
+				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, false)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 

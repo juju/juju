@@ -59,7 +59,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if agentVersion, ok := cfg.AgentVersion(); ok {
 		vers = &agentVersion
 	}
-	newestTools, err := tools.FindBootstrapTools(environ, vers, cfg.DefaultSeries(), cons.Arch, cfg.Development())
+	newestTools, err := tools.FindBootstrapTools(environ, vers, cfg.DefaultSeries(), cons.Arch, cfg.Development(), false)
 	if err != nil {
 		return fmt.Errorf("cannot find bootstrap tools: %v", err)
 	}

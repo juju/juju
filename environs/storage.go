@@ -69,13 +69,23 @@ var BaseToolsPath = "tools"
 
 // A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
 type storageSimpleStreamsDataSource struct {
-	basePath string
-	storage  StorageReader
+	basePath   string
+	storage    StorageReader
+	allowRetry bool
+}
+
+// TestingGetAllowRetry is used in tests which need to see if allowRetry has been
+// set on a storageSimpleStreamsDataSource.
+func TestingGetAllowRetry(s simplestreams.DataSource) (bool, ok bool) {
+	if storageDataSource, ok := s.(*storageSimpleStreamsDataSource); ok {
+		return storageDataSource.allowRetry, ok
+	}
+	return false, false
 }
 
 // NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
 func NewStorageSimpleStreamsDataSource(storage StorageReader, basePath string) simplestreams.DataSource {
-	return &storageSimpleStreamsDataSource{basePath, storage}
+	return &storageSimpleStreamsDataSource{basePath, storage, false}
 }
 
 func (s *storageSimpleStreamsDataSource) relpath(path string) string {
@@ -94,7 +104,11 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	if err == nil {
 		dataURL = fullURL
 	}
-	rc, err := Get(s.storage, relpath, utils.AttemptStrategy{})
+	var attempt utils.AttemptStrategy
+	if s.allowRetry {
+		attempt = s.storage.DefaultConsistencyStrategy()
+	}
+	rc, err := Get(s.storage, relpath, attempt)
 	if err != nil {
 		return nil, dataURL, err
 	}
@@ -104,4 +118,9 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 // URL is defined in simplestreams.DataSource.
 func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
 	return s.storage.URL(s.relpath(path))
+}
+
+// SetAllowRetry is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) SetAllowRetry(allow bool) {
+	s.allowRetry = allow
 }
