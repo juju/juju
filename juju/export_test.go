@@ -1,8 +1,8 @@
 package juju
 
 var (
-	APIOpen = &apiOpen
-	DefaultConfigStore = &defaultConfigStore
+	APIOpen              = &apiOpen
+	DefaultConfigStore   = &defaultConfigStore
 	ProviderConnectDelay = &providerConnectDelay
-	NewAPIFromName = newAPIFromName
+	NewAPIFromName       = newAPIFromName
 )

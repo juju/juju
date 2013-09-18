@@ -17,14 +17,13 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju")
-	apiOpen = api.Open
+	logger             = loggo.GetLogger("juju")
+	apiOpen            = api.Open
 	defaultConfigStore = func() (environs.ConfigStorage, error) {
 		return configstore.NewDisk(config.JujuHomePath("environments"))
 	}
 	providerConnectDelay = 2 * time.Second
 )
-
 
 // APIConn holds a connection to a juju environment and its
 // associated state through its API interface.
