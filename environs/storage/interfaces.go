@@ -23,7 +23,7 @@ type StorageReader interface {
 	// URL returns a URL that can be used to access the given storage file.
 	URL(name string) (string, error)
 
-	// ConsistencyStrategy returns the appropriate polling for waiting
+	// DefaultConsistencyStrategy returns the appropriate polling for waiting
 	// for this storage to become consistent.
 	// If the storage implementation has immediate consistency, the
 	// strategy won't need to wait at all.  But for eventually-consistent

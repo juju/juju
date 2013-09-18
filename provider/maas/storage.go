@@ -196,7 +196,7 @@ func (stor *maasStorage) Remove(name string) error {
 
 // RemoveAll is specified in the StorageWriter interface.
 func (stor *maasStorage) RemoveAll() error {
-	names, err := storage.DefaultList(stor, "")
+	names, err := storage.ListWithDefaultRetry(stor, "")
 	if err != nil {
 		return err
 	}

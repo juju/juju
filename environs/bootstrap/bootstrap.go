@@ -93,10 +93,8 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 // confirm that the environment isn't already running, and that the storage
 // works.
 func verifyBootstrapInit(env environs.Environ) error {
-	var err error
-
 	storage := env.Storage()
-	_, err = provider.LoadState(storage)
+	_, err := provider.LoadState(storage)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}

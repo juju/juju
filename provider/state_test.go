@@ -41,7 +41,7 @@ func (*StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 	url, err := provider.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.DefaultGet(stor, provider.StateFile)
+	reader, err := storage.GetWithDefaultRetry(stor, provider.StateFile)
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
@@ -65,7 +65,7 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	err = provider.SaveState(stor, &state)
 	c.Assert(err, gc.IsNil)
 
-	loadedState, err := storage.DefaultGet(stor, provider.StateFile)
+	loadedState, err := storage.GetWithDefaultRetry(stor, provider.StateFile)
 	c.Assert(err, gc.IsNil)
 	content, err := ioutil.ReadAll(loadedState)
 	c.Assert(err, gc.IsNil)

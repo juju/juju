@@ -50,7 +50,7 @@ func (s *filestorageSuite) createFile(c *gc.C) (fullpath string, data []byte) {
 
 func (s *filestorageSuite) TestList(c *gc.C) {
 	expectedpath, _ := s.createFile(c)
-	files, err := storage.DefaultList(s.reader, "test-")
+	files, err := storage.ListWithDefaultRetry(s.reader, "test-")
 	c.Assert(err, gc.IsNil)
 	_, file := filepath.Split(expectedpath)
 	c.Assert(files, gc.DeepEquals, []string{file})
@@ -67,7 +67,7 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 func (s *filestorageSuite) TestGet(c *gc.C) {
 	expectedpath, data := s.createFile(c)
 	_, file := filepath.Split(expectedpath)
-	rc, err := storage.DefaultGet(s.reader, file)
+	rc, err := storage.GetWithDefaultRetry(s.reader, file)
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
 	c.Assert(err, gc.IsNil)

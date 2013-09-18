@@ -133,14 +133,14 @@ func (s *storageSuite) TestGet(c *gc.C) {
 
 func (s *storageSuite) TestDefaultGet(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	storage.DefaultGet(stor, "foo")
+	storage.GetWithDefaultRetry(stor, "foo")
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
 }
 
 func (s *storageSuite) TestGetRetry(c *gc.C) {
 	stor := &fakeStorage{}
-	storage.DefaultGet(stor, "foo")
+	storage.GetWithDefaultRetry(stor, "foo")
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 1)
 }
@@ -155,14 +155,14 @@ func (s *storageSuite) TestList(c *gc.C) {
 
 func (s *storageSuite) TestDefaultList(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	storage.DefaultList(stor, "foo")
+	storage.ListWithDefaultRetry(stor, "foo")
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
 }
 
 func (s *storageSuite) TestListRetry(c *gc.C) {
 	stor := &fakeStorage{}
-	storage.DefaultList(stor, "foo")
+	storage.ListWithDefaultRetry(stor, "foo")
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 1)
 }

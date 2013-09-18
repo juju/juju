@@ -361,7 +361,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := storage.DefaultGet(s.Conn.Environ.Storage(), envtools.StorageName(vers))
+			r, err := storage.GetWithDefaultRetry(s.Conn.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}

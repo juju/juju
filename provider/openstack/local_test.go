@@ -548,14 +548,14 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 			int64(len(content)))
 		c.Assert(err, gc.IsNil)
 	}
-	reader, err := storage.DefaultGet(stor, "a")
+	reader, err := storage.GetWithDefaultRetry(stor, "a")
 	c.Assert(err, gc.IsNil)
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(allContent), gc.Equals, "a")
 	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	_, err = storage.DefaultGet(stor, "a")
+	_, err = storage.GetWithDefaultRetry(stor, "a")
 	c.Assert(err, gc.NotNil)
 }
 
@@ -571,14 +571,14 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 	}
-	reader, err := storage.DefaultGet(stor, "ab")
+	reader, err := storage.GetWithDefaultRetry(stor, "ab")
 	c.Assert(err, gc.IsNil)
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(allContent), gc.Equals, "ab")
 	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	_, err = storage.DefaultGet(stor, "ab")
+	_, err = storage.GetWithDefaultRetry(stor, "ab")
 	c.Assert(err, gc.NotNil)
 }
 

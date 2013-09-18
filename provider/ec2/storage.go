@@ -6,6 +6,7 @@ package ec2
 import (
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
-	"net"
 )
 
 func init() {
@@ -164,7 +164,7 @@ func (s *ec2storage) List(prefix string) ([]string, error) {
 }
 
 func (s *ec2storage) RemoveAll() error {
-	names, err := storage.DefaultList(s, "")
+	names, err := storage.ListWithDefaultRetry(s, "")
 	if err != nil {
 		return err
 	}

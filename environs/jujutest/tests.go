@@ -197,7 +197,7 @@ func (t *Tests) TestPersistence(c *gc.C) {
 }
 
 func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
-	lnames, err := storage.DefaultList(stor, prefix)
+	lnames, err := storage.ListWithDefaultRetry(stor, prefix)
 	c.Assert(err, gc.IsNil)
 	// TODO(dfc) gocheck should grow an SliceEquals checker.
 	expected := copyslice(lnames)

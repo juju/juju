@@ -486,7 +486,7 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 	t.BootstrapOnce(c)
 	environ := t.Env
 	stor := environ.Storage()
-	reader, err := storage.DefaultGet(stor, "bootstrap-verify")
+	reader, err := storage.GetWithDefaultRetry(stor, "bootstrap-verify")
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)
@@ -894,7 +894,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 }
 
 func storageCopy(source storage.Storage, sourcePath string, target storage.Storage, targetPath string) error {
-	rc, err := storage.DefaultGet(source, sourcePath)
+	rc, err := storage.GetWithDefaultRetry(source, sourcePath)
 	if err != nil {
 		return err
 	}

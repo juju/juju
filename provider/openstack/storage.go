@@ -121,7 +121,7 @@ const maxConcurrentDeletes = 8
 
 // RemoveAll is specified in the StorageWriter interface.
 func (s *openstackstorage) RemoveAll() error {
-	names, err := storage.DefaultList(s, "")
+	names, err := storage.ListWithDefaultRetry(s, "")
 	if err != nil {
 		return err
 	}

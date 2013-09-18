@@ -105,17 +105,17 @@ func (s *storageSuite) TestPathValidity(c *gc.C) {
 
 	for _, prefix := range []string{"..", "a/../.."} {
 		c.Logf("prefix: %q", prefix)
-		_, err := storage.DefaultList(stor, prefix)
+		_, err := storage.ListWithDefaultRetry(stor, prefix)
 		c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(fmt.Sprintf("%q escapes storage directory", prefix)))
 	}
 
 	// Paths are always relative, so a leading "/" may as well not be there.
-	names, err := storage.DefaultList(stor, "/")
+	names, err := storage.ListWithDefaultRetry(stor, "/")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 
 	// Paths will be canonicalised.
-	names, err = storage.DefaultList(stor, "a/..")
+	names, err = storage.ListWithDefaultRetry(stor, "a/..")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 }
@@ -130,14 +130,14 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
 		err = ioutil.WriteFile(filepath.Join(storageDir, contentdir, name), data, 0644)
 		c.Assert(err, gc.IsNil)
-		r, err := storage.DefaultGet(stor, name)
+		r, err := storage.GetWithDefaultRetry(stor, name)
 		c.Assert(err, gc.IsNil)
 		out, err := ioutil.ReadAll(r)
 		c.Assert(err, gc.IsNil)
 		c.Assert(out, gc.DeepEquals, data)
 	}
 
-	_, err = storage.DefaultGet(stor, "notthere")
+	_, err = storage.GetWithDefaultRetry(stor, "notthere")
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
@@ -158,7 +158,7 @@ func (s *storageSuite) TestPut(c *gc.C) {
 
 func (s *storageSuite) assertList(c *gc.C, stor storage.StorageReader, prefix string, expected []string) {
 	c.Logf("List: %v", prefix)
-	names, err := storage.DefaultList(stor, prefix)
+	names, err := storage.ListWithDefaultRetry(stor, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, expected)
 }
@@ -280,9 +280,9 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, contentdir, "a"), data, 0644), gc.IsNil)
 
 	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
-	_, err = storage.DefaultGet(stor, "a")
+	_, err = storage.GetWithDefaultRetry(stor, "a")
 	c.Assert(err, gc.IsNil)
-	_, err = storage.DefaultList(stor, "")
+	_, err = storage.ListWithDefaultRetry(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(stor.Remove("a"), gc.NotNil)
@@ -298,8 +298,8 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(stor.Remove("a"), gc.NotNil)
 	c.Assert(stor.RemoveAll(), gc.NotNil)
-	_, err = storage.DefaultGet(stor, "a")
+	_, err = storage.GetWithDefaultRetry(stor, "a")
 	c.Assert(err, gc.NotNil)
-	_, err = storage.DefaultList(stor, "")
+	_, err = storage.ListWithDefaultRetry(stor, "")
 	c.Assert(err, gc.NotNil)
 }

@@ -109,7 +109,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage) {
 
 // RemoveTools deletes all tools from the supplied storage.
 func RemoveTools(c *gc.C, stor storage.Storage) {
-	names, err := storage.DefaultList(stor, "tools/juju-")
+	names, err := storage.ListWithDefaultRetry(stor, "tools/juju-")
 	c.Assert(err, gc.IsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
