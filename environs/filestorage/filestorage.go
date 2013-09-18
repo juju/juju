@@ -88,23 +88,26 @@ type fileStorageWriter struct {
 	tmpdir string
 }
 
+// UseDefaultTmpDir may be passed into NewFileStorageWriter
+// for the tmpdir argument, to signify that the default
+// value should be used. See NewFileStorageWriter for more.
+const UseDefaultTmpDir = ""
+
 // NewFileStorageWriter returns a new read/write storag for
 // a directory inside the local file system.
 //
 // A temporary directory may be specified, in which files will be written
 // to before moving to the final destination. If specified, the temporary
 // directory should be on the same filesystem as the storage directory
-// to ensure atomicity. If left unspecified (blank), path+".tmp" will be
-// used.
+// to ensure atomicity. If tmpdir == UseDefaultTmpDir (""), then path+".tmp"
+// will be used.
+//
+// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
+// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
+// already exist, and will never be removed.
 func NewFileStorageWriter(path, tmpdir string) (environs.Storage, error) {
 	reader, err := NewFileStorageReader(path)
 	if err != nil {
-		return nil, err
-	}
-	if tmpdir == "" {
-		tmpdir = path + ".tmp"
-	}
-	if err := os.MkdirAll(tmpdir, 0755); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 	return &fileStorageWriter{*reader.(*fileStorageReader), tmpdir}, nil
@@ -113,11 +116,19 @@ func NewFileStorageWriter(path, tmpdir string) (environs.Storage, error) {
 func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 	fullpath := f.fullPath(name)
 	dir := filepath.Dir(fullpath)
+	tmpdir := f.tmpdir
+	if tmpdir == UseDefaultTmpDir {
+		tmpdir = f.path + ".tmp"
+		if err := os.MkdirAll(tmpdir, 0755); err != nil && !os.IsExist(err) {
+			return err
+		}
+		defer os.Remove(tmpdir)
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
 		return err
 	}
 	// Write to a temporary file first, and then move (atomically).
-	file, err := ioutil.TempFile(f.tmpdir, "juju-filestorage-"+name)
+	file, err := ioutil.TempFile(tmpdir, "juju-filestorage-"+name)
 	if err != nil {
 		return err
 	}
