@@ -30,6 +30,7 @@ import (
 type SSHStorage struct {
 	host       string
 	remotepath string
+	tmpdir     string
 
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
@@ -53,6 +54,11 @@ const (
 	flockExclusive flockmode = "-x"
 )
 
+// UseDefaultTmpDir may be passed into NewSSHStorage
+// for the tmpdir argument, to signify that the default
+// value should be used. See NewSSHStorage for more.
+const UseDefaultTmpDir = ""
+
 // NewSSHStorage creates a new SSHStorage, connected to the
 // specified host, managing state under the specified remote path.
 //
@@ -60,11 +66,12 @@ const (
 // be a directory on the same filesystem as the storage directory
 // to ensure atomic writes. If left unspecified, tmpdir will be
 // assigned a value of storagedir+".tmp".
+//
+// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
+// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
+// already exist, and will never be removed.
 func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
-	if tmpdir == "" {
-		tmpdir = storagedir + ".tmp"
-	}
-	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s %s", storagedir, tmpdir)
+	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", utils.ShQuote(storagedir))
 	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c '%s'", script))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -88,6 +95,7 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	storage := &SSHStorage{
 		host:       host,
 		remotepath: storagedir,
+		tmpdir:     tmpdir,
 		cmd:        cmd,
 		stdin:      stdin,
 		stdout:     stdout,
@@ -95,13 +103,8 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	}
 	cmd.Start()
 
-	// Verify we have write permissions, and set the temporary directory.
-	_, err = storage.runf(
-		flockExclusive,
-		"touch %s && export TMPDIR=%s",
-		utils.ShQuote(storagedir),
-		utils.ShQuote(tmpdir),
-	)
+	// Verify we have write permissions.
+	_, err = storage.runf(flockExclusive, "touch %s", utils.ShQuote(storagedir))
 	if err != nil {
 		stdin.Close()
 		stdout.Close()
@@ -237,9 +240,30 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	encoded := base64.StdEncoding.EncodeToString(buf)
 	path = utils.ShQuote(path)
+
+	tmpdir := s.tmpdir
+	if tmpdir == UseDefaultTmpDir {
+		tmpdir = s.remotepath + ".tmp"
+	}
+	tmpdir = utils.ShQuote(tmpdir)
+
 	// Write to a temporary file ($TMPFILE), then mv atomically.
 	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $TMPFILE", path)
-	command = fmt.Sprintf("TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)", command, path)
+	command = fmt.Sprintf(
+		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
+		tmpdir, command, path,
+	)
+
+	// If UseDefaultTmpDir is passed, then create the
+	// temporary directory, and remove it afterwards.
+	// Otherwise, the temporary directory is expected
+	// to already exist, and is never removed.
+	if s.tmpdir == UseDefaultTmpDir {
+		installTmpdir := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", tmpdir)
+		removeTmpdir := fmt.Sprintf("rm -fr %s", tmpdir)
+		command = fmt.Sprintf("%s && (%s); rc=$?; %s; exit $rc", installTmpdir, command, removeTmpdir)
+	}
+
 	command = fmt.Sprintf("(%s) << EOF\n%s\nEOF", command, encoded)
 	_, err = s.runf(flockExclusive, command+"\n")
 	return err

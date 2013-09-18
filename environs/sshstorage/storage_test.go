@@ -35,8 +35,6 @@ func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-var sshCommandOrig = sshCommand
-
 func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
 	cmd := exec.Command("bash", "-c", command)
 	uid := fmt.Sprint(os.Getuid())
@@ -58,50 +56,70 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	bin := c.MkDir()
-	s.restoreEnv = testing.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
+	restoreEnv := testing.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
+	s.AddSuiteCleanup(restoreEnv)
 
 	// Create a "sudo" command which just executes its args.
-	c.Assert(os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo")), gc.IsNil)
-	sshCommand = sshCommandTesting
+	err = os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo"))
+	c.Assert(err, gc.IsNil)
+	restoreSshCommand := jc.Set(&sshCommand, sshCommandTesting)
+	s.AddSuiteCleanup(func() { restoreSshCommand() })
 
 	// Create a new "flock" which calls the original, but in non-blocking mode.
 	data := []byte(fmt.Sprintf("#!/bin/sh\nexec %s --nonblock \"$@\"", flockBin))
-	c.Assert(ioutil.WriteFile(filepath.Join(bin, "flock"), data, 0755), gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(bin, "flock"), data, 0755)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *storageSuite) TearDownSuite(c *gc.C) {
-	sshCommand = sshCommandOrig
-	s.restoreEnv()
-	s.LoggingSuite.TearDownSuite(c)
+func (s *storageSuite) makeStorage(c *gc.C) (storage *SSHStorage, storageDir string) {
+	storageDir = c.MkDir()
+	storage, err := NewSSHStorage("example.com", storageDir, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(storage, gc.NotNil)
+	s.AddCleanup(func() { storage.Close() })
+	return storage, storageDir
+}
+
+// createFiles creates empty files in the storage directory
+// with the given storage names.
+func createFiles(c *gc.C, storageDir string, names ...string) {
+	for _, name := range names {
+		path := filepath.Join(storageDir, filepath.FromSlash(name))
+		dir := filepath.Dir(path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			c.Assert(err, jc.Satisfies, os.IsExist)
+		}
+		err := ioutil.WriteFile(path, nil, 0)
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
 	storageDir := c.MkDir()
+	// Run this block twice to ensure NewSSHStorage can reuse
+	// an existing storage location.
 	for i := 0; i < 2; i++ {
-		storage, err := NewSSHStorage("example.com", storageDir, "")
+		storage, err := NewSSHStorage("example.com", storageDir, UseDefaultTmpDir)
 		c.Assert(err, gc.IsNil)
 		c.Assert(storage, gc.NotNil)
 		c.Assert(storage.Close(), gc.IsNil)
 	}
-	c.Assert(os.RemoveAll(storageDir), gc.IsNil)
+	err := os.RemoveAll(storageDir)
+	c.Assert(err, gc.IsNil)
 
 	// You must have permissions to create the directory.
 	storageDir = c.MkDir()
-	c.Assert(os.Chmod(storageDir, 0555), gc.IsNil)
-	_, err := NewSSHStorage("example.com", filepath.Join(storageDir, "subdir"), "")
+	err = os.Chmod(storageDir, 0555)
+	c.Assert(err, gc.IsNil)
+	_, err = NewSSHStorage("example.com", filepath.Join(storageDir, "subdir"), UseDefaultTmpDir)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot change owner and permissions of(.|\n)*")
 }
 
 func (s *storageSuite) TestPathValidity(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
+	storage, storageDir := s.makeStorage(c)
+	err := os.Mkdir(filepath.Join(storageDir, "a"), 0755)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
-	f, err := os.Create(filepath.Join(storageDir, "a", "b"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(f.Close(), gc.IsNil)
+	createFiles(c, storageDir, "a/b")
 
 	for _, prefix := range []string{"..", "a/../.."} {
 		c.Logf("prefix: %q", prefix)
@@ -121,12 +139,10 @@ func (s *storageSuite) TestPathValidity(c *gc.C) {
 }
 
 func (s *storageSuite) TestGet(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage, storageDir := s.makeStorage(c)
 	data := []byte("abc\000def")
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
+	err := os.Mkdir(filepath.Join(storageDir, "a"), 0755)
+	c.Assert(err, gc.IsNil)
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
 		err = ioutil.WriteFile(filepath.Join(storageDir, name), data, 0644)
 		c.Assert(err, gc.IsNil)
@@ -142,13 +158,10 @@ func (s *storageSuite) TestGet(c *gc.C) {
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage, storageDir := s.makeStorage(c)
 	data := []byte("abc\000def")
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
-		err = storage.Put(name, bytes.NewBuffer(data), int64(len(data)))
+		err := storage.Put(name, bytes.NewBuffer(data), int64(len(data)))
 		c.Assert(err, gc.IsNil)
 		out, err := ioutil.ReadFile(filepath.Join(storageDir, name))
 		c.Assert(err, gc.IsNil)
@@ -164,19 +177,15 @@ func (s *storageSuite) assertList(c *gc.C, storage environs.StorageReader, prefi
 }
 
 func (s *storageSuite) TestList(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage, storageDir := s.makeStorage(c)
 	s.assertList(c, storage, "", nil)
 
 	// Directories don't show up in List.
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
+	err := os.Mkdir(filepath.Join(storageDir, "a"), 0755)
+	c.Assert(err, gc.IsNil)
 	s.assertList(c, storage, "", nil)
 	s.assertList(c, storage, "a", nil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b1"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b2"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "b"), nil, 0), gc.IsNil)
+	createFiles(c, storageDir, "a/b1", "a/b2", "b")
 	s.assertList(c, storage, "", []string{"a/b1", "a/b2", "b"})
 	s.assertList(c, storage, "a", []string{"a/b1", "a/b2"})
 	s.assertList(c, storage, "a/b", []string{"a/b1", "a/b2"})
@@ -187,14 +196,10 @@ func (s *storageSuite) TestList(c *gc.C) {
 }
 
 func (s *storageSuite) TestRemove(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
+	storage, storageDir := s.makeStorage(c)
+	err := os.Mkdir(filepath.Join(storageDir, "a"), 0755)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b1"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b2"), nil, 0), gc.IsNil)
+	createFiles(c, storageDir, "a/b1", "a/b2")
 	c.Assert(storage.Remove("a"), gc.ErrorMatches, "rm: cannot remove.*Is a directory")
 	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
 	c.Assert(storage.Remove("a/b"), gc.IsNil) // doesn't exist; not an error
@@ -206,14 +211,10 @@ func (s *storageSuite) TestRemove(c *gc.C) {
 }
 
 func (s *storageSuite) TestRemoveAll(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
+	storage, storageDir := s.makeStorage(c)
+	err := os.Mkdir(filepath.Join(storageDir, "a"), 0755)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-
-	c.Assert(os.Mkdir(filepath.Join(storageDir, "a"), 0755), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b1"), nil, 0), gc.IsNil)
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a", "b2"), nil, 0), gc.IsNil)
+	createFiles(c, storageDir, "a/b1", "a/b2")
 	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
 	c.Assert(storage.RemoveAll(), gc.IsNil)
 	s.assertList(c, storage, "", nil)
@@ -224,20 +225,14 @@ func (s *storageSuite) TestRemoveAll(c *gc.C) {
 }
 
 func (s *storageSuite) TestURL(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage, storageDir := s.makeStorage(c)
 	url, err := storage.URL("a/b")
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.Equals, "sftp://example.com/"+path.Join(storageDir, "a/b"))
 }
 
 func (s *storageSuite) TestConsistencyStrategy(c *gc.C) {
-	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage, _ := s.makeStorage(c)
 	c.Assert(storage.ConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
 }
 
@@ -263,18 +258,19 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	//
 	// flock exits with exit code 1 if it can't acquire the
 	// lock immediately in non-blocking mode (which the tests force).
-	_, err := NewSSHStorage("example.com", storageDir, "")
+	_, err := NewSSHStorage("example.com", storageDir, UseDefaultTmpDir)
 	c.Assert(err, gc.ErrorMatches, "exit code 1")
 
 	proc.Kill()
 	proc.Wait()
-	storage, err := NewSSHStorage("example.com", storageDir, "")
+	storage, err := NewSSHStorage("example.com", storageDir, UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 
 	// Get and List should be able to proceed with a shared lock.
 	// All other methods should fail.
 	data := []byte("abc\000def")
-	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, "a"), data, 0644), gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(storageDir, "a"), data, 0644)
+	c.Assert(err, gc.IsNil)
 
 	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
 	_, err = storage.Get("a")
@@ -299,4 +295,40 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	_, err = storage.List("")
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *storageSuite) TestPutTmpDir(c *gc.C) {
+	storage, storageDir := s.makeStorage(c)
+
+	// Put should create and clean up the temporary directory if
+	// tmpdir==UseDefaultTmpDir.
+	err := storage.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(storageDir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// To deal with recovering from hard failure, UseDefaultTmpDir
+	// doesn't care if the temporary directory already exists. It
+	// still removes it, though.
+	err = os.Mkdir(storageDir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = storage.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(storageDir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// If we explicitly set the temporary directory, it must already exist.
+	storage.Close()
+	storage, err = NewSSHStorage("example.com", storageDir, storageDir+".tmp")
+	defer storage.Close()
+	c.Assert(err, gc.IsNil)
+	err = storage.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.ErrorMatches, "mktemp: failed to create file.*No such file or directory")
+	err = os.Mkdir(storageDir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = storage.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	// Temporary directory should not have been moved.
+	_, err = os.Stat(storageDir + ".tmp")
+	c.Assert(err, gc.IsNil)
 }
