@@ -22,6 +22,7 @@ var (
 	defaultConfigStore = func() (environs.ConfigStorage, error) {
 		return configstore.NewDisk(config.JujuHomePath("environments"))
 	}
+	providerConnectDelay = 2 * time.Second
 )
 
 
@@ -65,12 +66,9 @@ func (c *APIConn) Close() error {
 	return c.State.Close()
 }
 
-var providerConnectDelay = 2 * time.Second
-
-// NewAPIClientFromName returns an api.Client connected to the API Server for
-// the named environment. If envName is "", the default environment
-// will be used.
-func NewAPIClientFromName(envName string) (*api.Client, error) {
+// newAPIFromName implements the bulk of NewAPIClientFromName
+// but is separate for testing purposes.
+func newAPIFromName(envName string) (*api.State, error) {
 	logger.Infof("newAPIClientFromName %q", envName)
 	store, err := defaultConfigStore()
 	if err != nil {
@@ -93,6 +91,7 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 	} else if !environs.IsNoEnv(err) {
 		return nil, err
 	}
+	logger.Infof("read environs")
 
 	// Try to connect to the API concurrently using two
 	// different possible sources of truth for the API endpoint.
@@ -146,7 +145,7 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 		// API connection, which will use resources until it
 		// finally succeeds or fails. Unless we are making hundreds
 		// of API connections, this is unlikely to be a problem.
-		return st.Client(), nil
+		return st, nil
 	}
 	if cfgErr != nil {
 		// Return the error from the configuration lookup if we
@@ -154,6 +153,17 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 		return nil, cfgErr
 	}
 	return nil, infoErr
+}
+
+// NewAPIClientFromName returns an api.Client connected to the API Server for
+// the named environment. If envName is "", the default environment
+// will be used.
+func NewAPIClientFromName(envName string) (*api.Client, error) {
+	st, err := newAPIFromName(envName)
+	if err != nil {
+		return nil, err
+	}
+	return st.Client(), nil
 }
 
 type apiOpenResult struct {
