@@ -1,5 +1,15 @@
 #!/usr/bin/env bash -e
 
+# build-release-tarball.bash consumes a url representing a .deb which contains
+# the juju tools -- /usr/bin/jujud.
+#
+# An attempt to deduce tools version and target series from the url is made, but
+# if unsucessful SERIES and VERSION can be supplied as environment variables.
+# 
+# SERIES=precise VERSION=1.15.0 bash build-release-tarball.bash $URL
+#
+# Please use with care
+
 # if someone invokes this with bash 
 set -e
 
@@ -41,7 +51,8 @@ mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.co
 bzr-checkout lp:juju-core $TAG launchpad.net/juju-core
 
 # fetch the version
-VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' $WORK/src/launchpad.net/juju-core/version/version.go)
+version=$(sed -n 's/^const version = "\(.*\)"/\1/p' $WORK/src/launchpad.net/juju-core/version/version.go)
+VERSION=${VERSION:-${version}}
 
 # fixup paths for tarball
 mkdir $WORK/juju-core_${VERSION}
