@@ -158,20 +158,6 @@ func newAPIFromName(envName string) (*api.State, error) {
 	return nil, infoErr
 }
 
-func cleanUpAPIOpenResult(resultc <-chan apiOpenResult) {
-	if resultc == nil {
-		return
-	}
-	go func() {
-		r := <-resultc
-		if r.err != nil {
-			logger.Warningf("disarding stale API open error: %v", r.err)
-		} else {
-			r.st.Close()
-		}
-	}()
-}
-
 // NewAPIClientFromName returns an api.Client connected to the API Server for
 // the named environment. If envName is "", the default environment
 // will be used.
