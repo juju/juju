@@ -300,7 +300,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		if _, err := m1.InstanceId(); err == nil {
 			break
 		} else {
-			c.Check(err, gc.FitsTypeOf, (*state.NotProvisionedError)(nil))
+			c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
 		}
 	}
 	err = units[0].OpenPort("tcp", 999)

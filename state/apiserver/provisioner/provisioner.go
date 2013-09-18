@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -222,7 +224,65 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// TODO(dimitern): Add methods to implement the followin at the client-side API:
-// machine.SetProvisioned(inst.Id(), nonce, metadata)
-// machine.InstanceId()
-// p.st.WatchEnvironMachines()
+// SetProvisioned sets the provider specific machine id, nonce and
+// also metadata for each given machine. Once set, the instance id
+// cannot be changed.
+func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Machines)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Machines {
+		machine, err := p.getMachine(canAccess, arg.Tag)
+		if err == nil {
+			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// InstanceId returns the provider specific instance id for each given
+// machine or an CodeNotProvisioned error, if not set.
+func (p *ProvisionerAPI) InstanceId(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			var instanceId instance.Id
+			instanceId, err = machine.InstanceId()
+			if err == nil {
+				result.Results[i].Result = string(instanceId)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchEnvironMachines returns a StringsWatcher that notifies of
+// changes to the lifecycles of the machines (but not containers) in
+// the current environment.
+func (p *ProvisionerAPI) WatchEnvironMachines() (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	watch := p.st.WatchEnvironMachines()
+	var err error
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		result.StringsWatcherId = p.resources.Register(watch)
+		result.Changes = changes
+	} else {
+		err = fmt.Errorf("cannot obtain initial environment machines")
+	}
+	result.Error = common.ServerError(err)
+	return result, nil
+}

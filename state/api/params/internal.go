@@ -5,6 +5,7 @@ package params
 
 import (
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -241,6 +242,21 @@ type SetEntityAddress struct {
 // call, where the address can be a public or a private one.
 type SetEntityAddresses struct {
 	Entities []SetEntityAddress
+}
+
+// MachineSetProvisioned holds a machine tag, provider-specific instance id,
+// a nonce, or an error.
+type MachineSetProvisioned struct {
+	Tag             string
+	InstanceId      instance.Id
+	Nonce           string
+	Characteristics *instance.HardwareCharacteristics
+}
+
+// SetProvisioned holds the parameters for making a SetProvisioned
+// call for a machine.
+type SetProvisioned struct {
+	Machines []MachineSetProvisioned
 }
 
 // MachineSetStatus holds a machine tag, status and extra info.
