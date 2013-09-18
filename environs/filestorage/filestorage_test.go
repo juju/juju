@@ -10,6 +10,7 @@ package filestorage_test
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -40,8 +41,10 @@ func (s *filestorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *filestorageSuite) createFile(c *gc.C) (fullpath string, data []byte) {
-	fullpath = filepath.Join(s.dir, "test-file")
+func (s *filestorageSuite) createFile(c *gc.C, name string) (fullpath string, data []byte) {
+	fullpath = filepath.Join(s.dir, name)
+	dir := filepath.Dir(fullpath)
+	c.Assert(os.MkdirAll(dir, 0755), gc.IsNil)
 	data = []byte{1, 2, 3, 4, 5}
 	err := ioutil.WriteFile(fullpath, data, 0644)
 	c.Assert(err, gc.IsNil)
@@ -49,15 +52,35 @@ func (s *filestorageSuite) createFile(c *gc.C) (fullpath string, data []byte) {
 }
 
 func (s *filestorageSuite) TestList(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
-	files, err := s.reader.List("test-")
-	c.Assert(err, gc.IsNil)
-	_, file := filepath.Split(expectedpath)
-	c.Assert(files, gc.DeepEquals, []string{file})
+	names := []string{
+		"a/b/c",
+		"a/bb",
+		"a/c",
+		"aa",
+		"b/c/d",
+	}
+	for _, name := range names {
+		s.createFile(c, name)
+	}
+	type test struct {
+		prefix   string
+		expected []string
+	}
+	for i, test := range []test{
+		{"a", []string{"a/b/c", "a/bb", "a/c", "aa"}},
+		{"a/b", []string{"a/b/c", "a/bb"}},
+		{"a/b/c", []string{"a/b/c"}},
+		{"", names},
+	} {
+		c.Logf("test %d: prefix=%q", i, test.prefix)
+		files, err := s.reader.List(test.prefix)
+		c.Assert(err, gc.IsNil)
+		c.Assert(files, gc.DeepEquals, test.expected)
+	}
 }
 
 func (s *filestorageSuite) TestURL(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
+	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	url, err := s.reader.URL(file)
 	c.Assert(err, gc.IsNil)
@@ -65,7 +88,7 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestGet(c *gc.C) {
-	expectedpath, data := s.createFile(c)
+	expectedpath, data := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	rc, err := s.reader.Get(file)
 	c.Assert(err, gc.IsNil)
@@ -86,7 +109,7 @@ func (s *filestorageSuite) TestPut(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestRemove(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
+	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	err := s.writer.Remove(file)
 	c.Assert(err, gc.IsNil)
@@ -95,7 +118,7 @@ func (s *filestorageSuite) TestRemove(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestRemoveAll(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
+	expectedpath, _ := s.createFile(c, "test-file")
 	err := s.writer.RemoveAll()
 	c.Assert(err, gc.IsNil)
 	_, err = ioutil.ReadFile(expectedpath)
