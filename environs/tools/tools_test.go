@@ -80,8 +80,8 @@ func (s *LegacyToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[v
 }
 
 func (s *LegacyToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	storage := s.env.PublicStorage().(storage.Storage)
-	return s.uploadVersions(c, storage, verses...)
+	stor := s.env.PublicStorage().(storage.Storage)
+	return s.uploadVersions(c, stor, verses...)
 }
 
 func (s *LegacyToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {

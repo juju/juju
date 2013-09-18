@@ -91,7 +91,7 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 		stdin.Close()
 		return nil, err
 	}
-	storage := &SSHStorage{
+	stor := &SSHStorage{
 		host:       host,
 		remotepath: remotepath,
 		cmd:        cmd,
@@ -102,7 +102,7 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 	cmd.Start()
 
 	// Verify we have write permissions, and set the temporary directory.
-	_, err = storage.runf(
+	_, err = stor.runf(
 		flockExclusive,
 		"touch %s && export TMPDIR=%s",
 		utils.ShQuote(remotepath),
@@ -114,7 +114,7 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 		cmd.Wait()
 		return nil, err
 	}
-	return storage, nil
+	return stor, nil
 }
 
 // Close cleanly terminates the underlying SSH connection.

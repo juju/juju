@@ -164,7 +164,7 @@ func (s *ec2storage) List(prefix string) ([]string, error) {
 }
 
 func (s *ec2storage) RemoveAll() error {
-	names, err := storage.ListWithDefaultRetry(s, "")
+	names, err := storage.List(s, "")
 	if err != nil {
 		return err
 	}

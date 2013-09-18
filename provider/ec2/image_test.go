@@ -126,14 +126,14 @@ var findInstanceSpecTests = []struct {
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
-		storage := ebsStorage
+		stor := ebsStorage
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{simplestreams.NewURLDataSource("test:")}, &instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
 				Arches:      t.arches,
 				Constraints: constraints.MustParse(t.cons),
-				Storage:     &storage,
+				Storage:     &stor,
 			})
 		c.Assert(err, gc.IsNil)
 		c.Check(spec.InstanceType.Name, gc.Equals, t.itype)

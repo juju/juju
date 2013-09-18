@@ -77,7 +77,7 @@ func LoadStateFromURL(url string) (*BootstrapState, error) {
 
 // LoadState reads state from the given storage.
 func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
-	r, err := storage.GetWithDefaultRetry(stor, StateFile)
+	r, err := storage.Get(stor, StateFile)
 	if err != nil {
 		if coreerrors.IsNotFoundError(err) {
 			return nil, coreerrors.NewNotBootstrappedError(err, "environment is not bootstrapped")

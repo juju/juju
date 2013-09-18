@@ -34,10 +34,10 @@ type maasStorage struct {
 var _ storage.Storage = (*maasStorage)(nil)
 
 func NewStorage(env *maasEnviron) storage.Storage {
-	storage := new(maasStorage)
-	storage.environUnlocked = env
-	storage.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
-	return storage
+	stor := new(maasStorage)
+	stor.environUnlocked = env
+	stor.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
+	return stor
 }
 
 // getSnapshot returns a consistent copy of a maasStorage.  Use this if you
@@ -196,7 +196,7 @@ func (stor *maasStorage) Remove(name string) error {
 
 // RemoveAll is specified in the StorageWriter interface.
 func (stor *maasStorage) RemoveAll() error {
-	names, err := storage.ListWithDefaultRetry(stor, "")
+	names, err := storage.List(stor, "")
 	if err != nil {
 		return err
 	}

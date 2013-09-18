@@ -123,46 +123,46 @@ func (s *fakeStorage) ShouldRetry(error) bool {
 	return s.shouldRetry
 }
 
-func (s *storageSuite) TestGet(c *gc.C) {
+func (s *storageSuite) TestGetWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
 	attempt := utils.AttemptStrategy{Min: 5}
-	storage.Get(stor, "foo", attempt)
+	storage.GetWithRetry(stor, "foo", attempt)
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 5)
 }
 
-func (s *storageSuite) TestDefaultGet(c *gc.C) {
+func (s *storageSuite) TestGet(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	storage.GetWithDefaultRetry(stor, "foo")
+	storage.Get(stor, "foo")
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
 }
 
-func (s *storageSuite) TestGetRetry(c *gc.C) {
+func (s *storageSuite) TestGetNoRetryAllowed(c *gc.C) {
 	stor := &fakeStorage{}
-	storage.GetWithDefaultRetry(stor, "foo")
+	storage.Get(stor, "foo")
 	c.Assert(stor.getName, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 1)
 }
 
-func (s *storageSuite) TestList(c *gc.C) {
+func (s *storageSuite) TestListWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
 	attempt := utils.AttemptStrategy{Min: 5}
-	storage.List(stor, "foo", attempt)
+	storage.ListWithRetry(stor, "foo", attempt)
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 5)
 }
 
-func (s *storageSuite) TestDefaultList(c *gc.C) {
+func (s *storageSuite) TestList(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	storage.ListWithDefaultRetry(stor, "foo")
+	storage.List(stor, "foo")
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
 }
 
-func (s *storageSuite) TestListRetry(c *gc.C) {
+func (s *storageSuite) TestListNoRetryAllowed(c *gc.C) {
 	stor := &fakeStorage{}
-	storage.ListWithDefaultRetry(stor, "foo")
+	storage.List(stor, "foo")
 	c.Assert(stor.listPrefix, gc.Equals, "foo")
 	c.Assert(stor.invokeCount, gc.Equals, 1)
 }

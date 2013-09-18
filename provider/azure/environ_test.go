@@ -282,21 +282,21 @@ func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 
 func (*environSuite) TestGetStorageContextCreatesStorageContext(c *gc.C) {
 	env := makeEnviron(c)
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage.Account, gc.Equals, env.ecfg.storageAccountName())
-	c.Check(storage.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
+	c.Assert(stor, gc.NotNil)
+	c.Check(stor.Account, gc.Equals, env.ecfg.storageAccountName())
+	c.Check(stor.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
 }
 
 func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *gc.C) {
 	env := makeEnviron(c)
 	env.storageAccountKey = "my-key"
 
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(storage.Key, gc.Equals, "my-key")
+	c.Check(stor.Key, gc.Equals, "my-key")
 }
 
 func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc.C) {
@@ -309,10 +309,10 @@ func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
 
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(storage.Key, gc.Equals, keysInAzure.Primary)
+	c.Check(stor.Key, gc.Equals, keysInAzure.Primary)
 	c.Check(env.storageAccountKey, gc.Equals, keysInAzure.Primary)
 }
 
@@ -384,11 +384,11 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 
 func (*environSuite) TestGetPublicStorageContext(c *gc.C) {
 	env := makeEnviron(c)
-	storage, err := env.getPublicStorageContext()
+	stor, err := env.getPublicStorageContext()
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(storage.Key, gc.Equals, "")
+	c.Assert(stor, gc.NotNil)
+	c.Check(stor.Account, gc.Equals, env.ecfg.publicStorageAccountName())
+	c.Check(stor.Key, gc.Equals, "")
 }
 
 func (*environSuite) TestSetConfigValidates(c *gc.C) {
@@ -836,7 +836,7 @@ func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	err = env.Destroy([]instance.Instance{})
 	c.Check(err, gc.NotNil)
 
-	files, err := storage.ListWithDefaultRetry(env.Storage(), "")
+	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 1)
 }
@@ -860,7 +860,7 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	err = env.Destroy(instances)
 	c.Check(err, gc.IsNil)
 
-	files, err := storage.ListWithDefaultRetry(env.Storage(), "")
+	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 }

@@ -93,8 +93,8 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 // confirm that the environment isn't already running, and that the storage
 // works.
 func verifyBootstrapInit(env environs.Environ) error {
-	storage := env.Storage()
-	_, err := provider.LoadState(storage)
+	stor := env.Storage()
+	_, err := provider.LoadState(stor)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -102,7 +102,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	return environs.VerifyStorage(storage)
+	return environs.VerifyStorage(stor)
 }
 
 // ConfigureBootstrapMachine adds the initial machine into state.  As a part

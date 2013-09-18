@@ -340,8 +340,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 		for _, v := range test.public {
 			vers := version.MustParseBinary(v)
-			storage := s.Conn.Environ.PublicStorage().(storage.Storage)
-			envtesting.MustUploadFakeToolsVersion(storage, vers)
+			stor := s.Conn.Environ.PublicStorage().(storage.Storage)
+			envtesting.MustUploadFakeToolsVersion(stor, vers)
 		}
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
@@ -361,7 +361,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := storage.GetWithDefaultRetry(s.Conn.Environ.Storage(), envtools.StorageName(vers))
+			r, err := storage.Get(s.Conn.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}

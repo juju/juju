@@ -59,7 +59,7 @@ func internalReadList(stor storage.StorageReader, majorVersion, minorVersion int
 	} else {
 		logger.Debugf("reading v%d.* tools", majorVersion)
 	}
-	names, err := storage.ListWithDefaultRetry(stor, toolPrefix)
+	names, err := storage.List(stor, toolPrefix)
 	if err != nil {
 		return nil, err
 	}

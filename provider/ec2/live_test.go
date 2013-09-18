@@ -268,13 +268,13 @@ func (t *LiveTests) TestDestroy(c *gc.C) {
 
 	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
-	names, err := storage.ListWithDefaultRetry(s, "")
+	names, err := storage.List(s, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(names) >= 2, gc.Equals, true)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		names, err = storage.ListWithDefaultRetry(s, "")
+		names, err = storage.List(s, "")
 		if len(names) == 0 {
 			break
 		}
@@ -364,7 +364,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
 	c.Assert(err, gc.IsNil)
 
-	r, err := storage.GetWithDefaultRetry(s, "test-object")
+	r, err := storage.Get(s, "test-object")
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
 
@@ -373,7 +373,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	c.Assert(string(data), gc.Equals, contents)
 
 	// Check that the public storage isn't aliased to the private storage.
-	r, err = storage.GetWithDefaultRetry(t.Env.Storage(), "test-object")
+	r, err = storage.Get(t.Env.Storage(), "test-object")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
