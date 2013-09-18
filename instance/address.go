@@ -59,6 +59,9 @@ func NewAddress(value string) Address {
 	return Address{value, addresstype, "", NetworkUnknown}
 }
 
+// netLookupIP is a var for testing.
+var netLookupIP = net.LookupIP
+
 // HostAddresses looks up the IP addresses of the specified
 // host, and translates them into instance.Address values.
 func HostAddresses(host string) (addrs []Address, err error) {
@@ -67,18 +70,23 @@ func HostAddresses(host string) (addrs []Address, err error) {
 		// IPs shouldn't be fed into LookupIP.
 		return []Address{hostAddr}, nil
 	}
-	ipaddrs, err := net.LookupIP(host)
+	ipaddrs, err := netLookupIP(host)
 	if err != nil {
 		return nil, err
 	}
 	addrs = make([]Address, len(ipaddrs)+1)
 	for i, ipaddr := range ipaddrs {
 		switch len(ipaddr) {
-		case 4:
+		case net.IPv4len:
 			addrs[i].Type = Ipv4Address
 			addrs[i].Value = ipaddr.String()
-		case 16:
-			addrs[i].Type = Ipv6Address
+		case net.IPv6len:
+			if ipaddr.To4() != nil {
+				// ipaddr is an IPv4 address represented in 16 bytes.
+				addrs[i].Type = Ipv4Address
+			} else {
+				addrs[i].Type = Ipv6Address
+			}
 			addrs[i].Value = ipaddr.String()
 		}
 	}
