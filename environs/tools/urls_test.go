@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -63,7 +64,7 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	haveExpectedSources := false
 	for _, source := range sources {
 		haveExpectedSources = true
-		if allowRetry, ok := environs.TestingGetAllowRetry(source); ok {
+		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
 			c.Assert(allowRetry, jc.IsFalse)
 		}
 	}
@@ -77,7 +78,7 @@ func (s *URLsSuite) TestToolsSourcesWithRetry(c *gc.C) {
 	haveExpectedSources := false
 	for _, source := range sources {
 		haveExpectedSources = true
-		if allowRetry, ok := environs.TestingGetAllowRetry(source); ok {
+		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
 			c.Assert(allowRetry, jc.IsTrue)
 		}
 	}
