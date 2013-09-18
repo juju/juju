@@ -60,7 +60,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 	})
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{
 		Addresses: []string{"example.com", "kremvax.ru"},
-		CACert:       "first line\nsecond line",
+		CACert:    "first line\nsecond line",
 	})
 }
 
