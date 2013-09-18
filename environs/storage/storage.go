@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package storage
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ import (
 // or safeguards against races with other users of the same storage medium.
 // But a simple way to implement RemoveAll would be to delegate to here.
 func RemoveAll(stor Storage) error {
-	files, err := DefaultList(stor, "")
+	files, err := ListWithDefaultRetry(stor, "")
 	if err != nil {
 		return fmt.Errorf("unable to list files for deletion: %v", err)
 	}
@@ -32,8 +32,8 @@ func RemoveAll(stor Storage) error {
 	return err
 }
 
-// DefaultGet gets the named file from stor using the stor's default consistency strategy.
-func DefaultGet(stor StorageReader, name string) (io.ReadCloser, error) {
+// GetWithDefaultRetry gets the named file from stor using the stor's default consistency strategy.
+func GetWithDefaultRetry(stor StorageReader, name string) (io.ReadCloser, error) {
 	return Get(stor, name, stor.DefaultConsistencyStrategy())
 }
 
@@ -48,8 +48,8 @@ func Get(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.R
 	return r, err
 }
 
-// DefaultList lists the files matching prefix from stor using the stor's default consistency strategy.
-func DefaultList(stor StorageReader, prefix string) ([]string, error) {
+// ListWithDefaultRetry lists the files matching prefix from stor using the stor's default consistency strategy.
+func ListWithDefaultRetry(stor StorageReader, prefix string) ([]string, error) {
 	return List(stor, prefix, stor.DefaultConsistencyStrategy())
 }
 
@@ -67,7 +67,7 @@ func List(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (lis
 // BaseToolsPath is the container where tools tarballs and metadata are found.
 var BaseToolsPath = "tools"
 
-// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
+// A storageSimpleStreamsDataSource retrieves data from a StorageReader.
 type storageSimpleStreamsDataSource struct {
 	basePath   string
 	storage    StorageReader

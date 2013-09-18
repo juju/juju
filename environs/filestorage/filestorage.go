@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -23,7 +23,7 @@ type fileStorageReader struct {
 
 // newFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
-func NewFileStorageReader(path string) (environs.StorageReader, error) {
+func NewFileStorageReader(path string) (storage.StorageReader, error) {
 	p := filepath.Clean(path)
 	fi, err := os.Stat(p)
 	if err != nil {
@@ -39,7 +39,7 @@ func (f *fileStorageReader) fullPath(name string) string {
 	return filepath.Join(f.path, name)
 }
 
-// Get implements environs.StorageReader.Get.
+// Get implements storage.StorageReader.Get.
 func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	filename := f.fullPath(name)
 	file, err := os.Open(filename)
@@ -49,7 +49,7 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	return file, nil
 }
 
-// List implements environs.StorageReader.List.
+// List implements storage.StorageReader.List.
 func (f *fileStorageReader) List(prefix string) ([]string, error) {
 	// Add one for the missing path separator.
 	pathlen := len(f.path) + 1
@@ -73,12 +73,12 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 	return list, nil
 }
 
-// URL implements environs.StorageReader.URL.
+// URL implements storage.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
 	return "file://" + filepath.Join(f.path, name), nil
 }
 
-// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
+// ConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
 func (f *fileStorageReader) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
@@ -92,7 +92,7 @@ type fileStorageWriter struct {
 	fileStorageReader
 }
 
-func NewFileStorageWriter(path string) (environs.Storage, error) {
+func NewFileStorageWriter(path string) (storage.Storage, error) {
 	reader, err := NewFileStorageReader(path)
 	if err != nil {
 		return nil, err
@@ -119,5 +119,5 @@ func (f *fileStorageWriter) Remove(name string) error {
 }
 
 func (f *fileStorageWriter) RemoveAll() error {
-	return environs.RemoveAll(f)
+	return storage.RemoveAll(f)
 }

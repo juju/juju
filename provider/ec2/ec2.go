@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -56,8 +57,8 @@ type environ struct {
 	ecfgUnlocked          *environConfig
 	ec2Unlocked           *ec2.EC2
 	s3Unlocked            *s3.S3
-	storageUnlocked       environs.Storage
-	publicStorageUnlocked environs.StorageReader // optional.
+	storageUnlocked       storage.Storage
+	publicStorageUnlocked storage.StorageReader // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -272,11 +273,11 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	e.storageUnlocked = &storage{
+	e.storageUnlocked = &ec2storage{
 		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
 	}
 	if ecfg.publicBucket() != "" {
-		e.publicStorageUnlocked = &storage{
+		e.publicStorageUnlocked = &ec2storage{
 			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
 		}
 	} else {
@@ -310,14 +311,14 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() environs.Storage {
+func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
-	storage := e.storageUnlocked
+	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
-	return storage
+	return stor
 }
 
-func (e *environ) PublicStorage() environs.StorageReader {
+func (e *environ) PublicStorage() storage.StorageReader {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	if e.publicStorageUnlocked == nil {
@@ -371,7 +372,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	arches := possibleTools.Arches()
-	storage := ebsStorage
+	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, nil, err
@@ -382,7 +383,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 		Series:      series,
 		Arches:      arches,
 		Constraints: cons,
-		Storage:     &storage,
+		Storage:     &stor,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -996,11 +997,11 @@ func fetchMetadata(name string) (value string, err error) {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }

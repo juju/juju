@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -151,7 +152,7 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
 		logger.Warningf("no tools found using simplestreams metadata, using legacy fallback")
 		if env, ok := cloudInst.(environs.Environ); ok {
 			list, err = LegacyFindTools(
-				[]environs.StorageReader{env.Storage(), env.PublicStorage()}, majorVersion, minorVersion, filter)
+				[]storage.StorageReader{env.Storage(), env.PublicStorage()}, majorVersion, minorVersion, filter)
 		} else {
 			return nil, fmt.Errorf("cannot find legacy tools without an environment")
 		}

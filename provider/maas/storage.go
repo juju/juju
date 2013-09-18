@@ -15,7 +15,7 @@ import (
 
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
@@ -31,9 +31,9 @@ type maasStorage struct {
 	maasClientUnlocked gomaasapi.MAASObject
 }
 
-var _ environs.Storage = (*maasStorage)(nil)
+var _ storage.Storage = (*maasStorage)(nil)
 
-func NewStorage(env *maasEnviron) environs.Storage {
+func NewStorage(env *maasEnviron) storage.Storage {
 	storage := new(maasStorage)
 	storage.environUnlocked = env
 	storage.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
@@ -196,7 +196,7 @@ func (stor *maasStorage) Remove(name string) error {
 
 // RemoveAll is specified in the StorageWriter interface.
 func (stor *maasStorage) RemoveAll() error {
-	names, err := environs.DefaultList(stor, "")
+	names, err := storage.ListWithDefaultRetry(stor, "")
 	if err != nil {
 		return err
 	}

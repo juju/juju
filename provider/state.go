@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
@@ -42,13 +43,13 @@ type BootstrapState struct {
 
 // putState writes the given data to the state file on the given storage.
 // The file's name is as defined in StateFile.
-func putState(storage environs.StorageWriter, data []byte) error {
+func putState(storage storage.StorageWriter, data []byte) error {
 	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
 // CreateStateFile creates an empty state file on the given storage, and
 // returns its URL.
-func CreateStateFile(storage environs.Storage) (string, error) {
+func CreateStateFile(storage storage.Storage) (string, error) {
 	err := putState(storage, []byte{})
 	if err != nil {
 		return "", fmt.Errorf("cannot create initial state file: %v", err)
@@ -57,7 +58,7 @@ func CreateStateFile(storage environs.Storage) (string, error) {
 }
 
 // SaveState writes the given state to the given storage.
-func SaveState(storage environs.StorageWriter, state *BootstrapState) error {
+func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 	data, err := goyaml.Marshal(state)
 	if err != nil {
 		return err
@@ -75,8 +76,8 @@ func LoadStateFromURL(url string) (*BootstrapState, error) {
 }
 
 // LoadState reads state from the given storage.
-func LoadState(storage environs.StorageReader) (*BootstrapState, error) {
-	r, err := environs.DefaultGet(storage, StateFile)
+func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
+	r, err := storage.GetWithDefaultRetry(stor, StateFile)
 	if err != nil {
 		if coreerrors.IsNotFoundError(err) {
 			return nil, coreerrors.NewNotBootstrappedError(err, "environment is not bootstrapped")

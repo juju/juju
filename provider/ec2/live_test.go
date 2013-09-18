@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -73,7 +74,7 @@ func registerAmazonTests() {
 type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
-	writablePublicStorage environs.Storage
+	writablePublicStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
@@ -267,13 +268,13 @@ func (t *LiveTests) TestDestroy(c *gc.C) {
 
 	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
-	names, err := environs.DefaultList(s, "")
+	names, err := storage.ListWithDefaultRetry(s, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(names) >= 2, gc.Equals, true)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		names, err = environs.DefaultList(s, "")
+		names, err = storage.ListWithDefaultRetry(s, "")
 		if len(names) == 0 {
 			break
 		}
@@ -363,7 +364,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
 	c.Assert(err, gc.IsNil)
 
-	r, err := environs.DefaultGet(s, "test-object")
+	r, err := storage.GetWithDefaultRetry(s, "test-object")
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
 
@@ -372,7 +373,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	c.Assert(string(data), gc.Equals, contents)
 
 	// Check that the public storage isn't aliased to the private storage.
-	r, err = environs.DefaultGet(t.Env.Storage(), "test-object")
+	r, err = storage.GetWithDefaultRetry(t.Env.Storage(), "test-object")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 

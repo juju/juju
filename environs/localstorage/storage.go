@@ -11,20 +11,20 @@ import (
 	"sort"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
-// storage implements the environs.Storage interface.
-type storage struct {
+// storage implements the storage.Storage interface.
+type localStorage struct {
 	baseURL string
 }
 
 // Client returns a storage object that will talk to the storage server
 // at the given network address (see Serve)
-func Client(addr string) environs.Storage {
-	return &storage{
+func Client(addr string) storage.Storage {
+	return &localStorage{
 		baseURL: fmt.Sprintf("http://%s/", addr),
 	}
 }
@@ -33,7 +33,7 @@ func Client(addr string) environs.Storage {
 // that can be used to read its contents. It is the caller's
 // responsibility to close it after use. If the name does not
 // exist, it should return a *NotFoundError.
-func (s *storage) Get(name string) (io.ReadCloser, error) {
+func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 	url, err := s.URL(name)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 // to be in a flat namespace, so the prefix may include slashes
 // and the names returned are the full names for the matching
 // entries.
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *localStorage) List(prefix string) ([]string, error) {
 	url, err := s.URL(prefix)
 	if err != nil {
 		return nil, err
@@ -85,23 +85,23 @@ func (s *storage) List(prefix string) ([]string, error) {
 }
 
 // URL returns an URL that can be used to access the given storage file.
-func (s *storage) URL(name string) (string, error) {
+func (s *localStorage) URL(name string) (string, error) {
 	return s.baseURL + name, nil
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+func (s *localStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
 // ShouldRetry is specified in the StorageReader interface.
-func (s *storage) ShouldRetry(err error) bool {
+func (s *localStorage) ShouldRetry(err error) bool {
 	return false
 }
 
 // Put reads from r and writes to the given storage file.
 // The length must be set to the total length of the file.
-func (s *storage) Put(name string, r io.Reader, length int64) error {
+func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 	url, err := s.URL(name)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 // Remove removes the given file from the environment's
 // storage. It should not return an error if the file does
 // not exist.
-func (s *storage) Remove(name string) error {
+func (s *localStorage) Remove(name string) error {
 	url, err := s.URL(name)
 	if err != nil {
 		return err
@@ -149,6 +149,6 @@ func (s *storage) Remove(name string) error {
 	return nil
 }
 
-func (s *storage) RemoveAll() error {
-	return environs.RemoveAll(s)
+func (s *localStorage) RemoveAll() error {
+	return storage.RemoveAll(s)
 }

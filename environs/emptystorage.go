@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
@@ -15,7 +16,7 @@ import (
 
 // EmptyStorage holds a StorageReader object that contains no files and
 // offers no URLs.
-var EmptyStorage StorageReader = emptyStorage{}
+var EmptyStorage storage.StorageReader = emptyStorage{}
 
 type emptyStorage struct{}
 
@@ -51,9 +52,9 @@ func (s emptyStorage) ShouldRetry(err error) bool {
 	return false
 }
 
-func VerifyStorage(storage Storage) error {
+func VerifyStorage(stor storage.Storage) error {
 	reader := strings.NewReader(verificationContent)
-	err := storage.Put(verificationFilename, reader,
+	err := stor.Put(verificationFilename, reader,
 		int64(len(verificationContent)))
 	if err != nil {
 		log.Debugf(

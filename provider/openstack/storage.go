@@ -12,13 +12,13 @@ import (
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
-// storage implements environs.Storage on an OpenStack container.
-type storage struct {
+// openstackstorage implements storage.Storage on an OpenStack container.
+type openstackstorage struct {
 	sync.Mutex
 	madeContainer bool
 	containerName string
@@ -30,7 +30,7 @@ type storage struct {
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *storage) makeContainer(containerName string, containerACL swift.ACL) error {
+func (s *openstackstorage) makeContainer(containerName string, containerACL swift.ACL) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeContainer {
@@ -44,7 +44,7 @@ func (s *storage) makeContainer(containerName string, containerACL swift.ACL) er
 	return err
 }
 
-func (s *storage) Put(file string, r io.Reader, length int64) error {
+func (s *openstackstorage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeContainer(s.containerName, s.containerACL); err != nil {
 		return fmt.Errorf("cannot make Swift control container: %v", err)
 	}
@@ -55,7 +55,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storage) Get(file string) (r io.ReadCloser, err error) {
+func (s *openstackstorage) Get(file string) (r io.ReadCloser, err error) {
 	r, err = s.swift.GetReader(s.containerName, file)
 	err, _ = maybeNotFound(err)
 	if err != nil {
@@ -64,7 +64,7 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	return r, nil
 }
 
-func (s *storage) URL(name string) (string, error) {
+func (s *openstackstorage) URL(name string) (string, error) {
 	// 10 years should be good enough.
 	expires := time.Now().AddDate(10, 0, 0)
 	return s.swift.SignedURL(s.containerName, name, expires)
@@ -77,17 +77,17 @@ var storageAttempt = utils.AttemptStrategy{
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+func (s *openstackstorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }
 
 // ShouldRetry is specified in the StorageReader interface.
-func (s *storage) ShouldRetry(err error) bool {
+func (s *openstackstorage) ShouldRetry(err error) bool {
 	_, retry := maybeNotFound(err)
 	return retry
 }
 
-func (s *storage) Remove(file string) error {
+func (s *openstackstorage) Remove(file string) error {
 	err := s.swift.DeleteObject(s.containerName, file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
@@ -97,7 +97,7 @@ func (s *storage) Remove(file string) error {
 	return nil
 }
 
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *openstackstorage) List(prefix string) ([]string, error) {
 	contents, err := s.swift.List(s.containerName, prefix, "", "", 0)
 	if err != nil {
 		// If the container is not found, it's not an error
@@ -120,8 +120,8 @@ func (s *storage) List(prefix string) ([]string, error) {
 const maxConcurrentDeletes = 8
 
 // RemoveAll is specified in the StorageWriter interface.
-func (s *storage) RemoveAll() error {
-	names, err := environs.DefaultList(s, "")
+func (s *openstackstorage) RemoveAll() error {
+	names, err := storage.ListWithDefaultRetry(s, "")
 	if err != nil {
 		return err
 	}

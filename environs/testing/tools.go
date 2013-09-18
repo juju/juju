@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	coretools "launchpad.net/juju-core/tools"
@@ -32,14 +33,14 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*coretools.Tools, error) {
+func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretools.Tools, error) {
 	data := vers.String()
 	name := envtools.StorageName(vers)
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
-	if err := storage.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
+	if err := stor.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
 		return nil, err
 	}
-	url, err := storage.URL(name)
+	url, err := stor.URL(name)
 	if err != nil {
 		return nil, err
 	}
@@ -48,14 +49,14 @@ func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*cor
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *gc.C, storage environs.Storage, vers version.Binary) *coretools.Tools {
+func UploadFakeToolsVersion(c *gc.C, storage storage.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	c.Assert(err, gc.IsNil)
 	return t
 }
 
 // MustUploadFakeToolsVersion acts as UploadFakeToolsVersion, but panics on failure.
-func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *coretools.Tools {
+func MustUploadFakeToolsVersion(storage storage.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	if err != nil {
 		panic(err)
@@ -63,7 +64,7 @@ func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *
 	return t
 }
 
-func uploadFakeTools(storage environs.Storage) error {
+func uploadFakeTools(storage storage.Storage) error {
 	toolsVersion := version.Current
 	if _, err := uploadFakeToolsVersion(storage, toolsVersion); err != nil {
 		return err
@@ -81,38 +82,38 @@ func uploadFakeTools(storage environs.Storage) error {
 // to config.DefaultSeries, matching fake tools will be uploaded for that series.
 // This is useful for tests that are kinda casual about specifying their
 // environment.
-func UploadFakeTools(c *gc.C, storage environs.Storage) {
+func UploadFakeTools(c *gc.C, storage storage.Storage) {
 	c.Assert(uploadFakeTools(storage), gc.IsNil)
 }
 
 // MustUploadFakeTools acts as UploadFakeTools, but panics on failure.
-func MustUploadFakeTools(storage environs.Storage) {
+func MustUploadFakeTools(storage storage.Storage) {
 	if err := uploadFakeTools(storage); err != nil {
 		panic(err)
 	}
 }
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
-func RemoveFakeTools(c *gc.C, storage environs.Storage) {
+func RemoveFakeTools(c *gc.C, stor storage.Storage) {
 	toolsVersion := version.Current
 	name := envtools.StorageName(toolsVersion)
-	err := storage.Remove(name)
+	err := stor.Remove(name)
 	c.Check(err, gc.IsNil)
 	if version.Current.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
 		name := envtools.StorageName(toolsVersion)
-		err := storage.Remove(name)
+		err := stor.Remove(name)
 		c.Check(err, gc.IsNil)
 	}
 }
 
 // RemoveTools deletes all tools from the supplied storage.
-func RemoveTools(c *gc.C, storage environs.Storage) {
-	names, err := environs.DefaultList(storage, "tools/juju-")
+func RemoveTools(c *gc.C, stor storage.Storage) {
+	names, err := storage.ListWithDefaultRetry(stor, "tools/juju-")
 	c.Assert(err, gc.IsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
-		err = storage.Remove(name)
+		err = stor.Remove(name)
 		c.Check(err, gc.IsNil)
 	}
 }
@@ -122,7 +123,7 @@ func RemoveAllTools(c *gc.C, env environs.Environ) {
 	c.Logf("clearing private storage")
 	RemoveTools(c, env.Storage())
 	c.Logf("clearing public storage")
-	RemoveTools(c, env.PublicStorage().(environs.Storage))
+	RemoveTools(c, env.PublicStorage().(storage.Storage))
 }
 
 var (

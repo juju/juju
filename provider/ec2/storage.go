@@ -6,15 +6,15 @@ package ec2
 import (
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
 	"launchpad.net/goamz/s3"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
-	"net"
 )
 
 func init() {
@@ -24,13 +24,13 @@ func init() {
 	s3.RetryAttempts(false)
 }
 
-func NewStorage(bucket *s3.Bucket) environs.Storage {
-	return &storage{bucket: bucket}
+func NewStorage(bucket *s3.Bucket) storage.Storage {
+	return &ec2storage{bucket: bucket}
 }
 
-// storage implements environs.Storage on
+// ec2storage implements storage.Storage on
 // an ec2.bucket.
-type storage struct {
+type ec2storage struct {
 	sync.Mutex
 	madeBucket bool
 	bucket     *s3.Bucket
@@ -40,7 +40,7 @@ type storage struct {
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *storage) makeBucket() error {
+func (s *ec2storage) makeBucket() error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeBucket {
@@ -57,7 +57,7 @@ func (s *storage) makeBucket() error {
 	return nil
 }
 
-func (s *storage) Put(file string, r io.Reader, length int64) error {
+func (s *ec2storage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeBucket(); err != nil {
 		return fmt.Errorf("cannot make S3 control bucket: %v", err)
 	}
@@ -68,12 +68,12 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storage) Get(file string) (r io.ReadCloser, err error) {
+func (s *ec2storage) Get(file string) (r io.ReadCloser, err error) {
 	r, err = s.bucket.GetReader(file)
 	return r, maybeNotFound(err)
 }
 
-func (s *storage) URL(name string) (string, error) {
+func (s *ec2storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
 	return s.bucket.SignedURL(name, time.Now().AddDate(10, 0, 0)), nil
 }
@@ -84,12 +84,12 @@ var storageAttempt = utils.AttemptStrategy{
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+func (s *ec2storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }
 
 // ShouldRetry is specified in the StorageReader interface.
-func (s *storage) ShouldRetry(err error) bool {
+func (s *ec2storage) ShouldRetry(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -134,7 +134,7 @@ func s3ErrCode(err error) string {
 	return ""
 }
 
-func (s *storage) Remove(file string) error {
+func (s *ec2storage) Remove(file string) error {
 	err := s.bucket.Del(file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
@@ -144,7 +144,7 @@ func (s *storage) Remove(file string) error {
 	return err
 }
 
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *ec2storage) List(prefix string) ([]string, error) {
 	// TODO cope with more than 1000 objects in the bucket.
 	resp, err := s.bucket.List(prefix, "", "", 0)
 	if err != nil {
@@ -163,8 +163,8 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-func (s *storage) RemoveAll() error {
-	names, err := environs.DefaultList(s, "")
+func (s *ec2storage) RemoveAll() error {
+	names, err := storage.ListWithDefaultRetry(s, "")
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (s *storage) RemoveAll() error {
 	return err
 }
 
-func deleteBucket(s *storage) (err error) {
+func deleteBucket(s *ec2storage) (err error) {
 	for a := s.DefaultConsistencyStrategy().Start(); a.Next(); {
 		err = s.bucket.DelBucket()
 		if err == nil || !s.ShouldRetry(err) {

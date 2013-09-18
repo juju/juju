@@ -14,7 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -130,7 +130,7 @@ func (*storageSuite) TestList(c *gc.C) {
 	transport.AddExchange(response, nil)
 
 	prefix := "prefix"
-	names, err := environs.DefaultList(azStorage, prefix)
+	names, err := storage.ListWithDefaultRetry(azStorage, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	// The prefix has been passed down as a query parameter.
@@ -148,7 +148,7 @@ func (*storageSuite) TestListWithNonexistentContainerReturnsNoFiles(c *gc.C) {
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
 
-	names, err := environs.DefaultList(azStorage, "prefix")
+	names, err := storage.ListWithDefaultRetry(azStorage, "prefix")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.IsNil)
 }
@@ -161,7 +161,7 @@ func (*storageSuite) TestGet(c *gc.C) {
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
 
-	reader, err := environs.DefaultGet(azStorage, filename)
+	reader, err := storage.GetWithDefaultRetry(azStorage, filename)
 	c.Assert(err, gc.IsNil)
 	c.Assert(reader, gc.NotNil)
 	defer reader.Close()
@@ -181,7 +181,7 @@ func (*storageSuite) TestGetReturnsNotFoundIf404(c *gc.C) {
 	response := makeResponse("not found", http.StatusNotFound)
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
-	_, err := environs.DefaultGet(azStorage, filename)
+	_, err := storage.GetWithDefaultRetry(azStorage, filename)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
