@@ -57,13 +57,13 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 
 	bin := c.MkDir()
 	restoreEnv := testing.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
-	s.AddSuiteCleanup(restoreEnv)
+	s.AddSuiteCleanup(func(*gc.C) { restoreEnv() })
 
 	// Create a "sudo" command which just executes its args.
 	err = os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo"))
 	c.Assert(err, gc.IsNil)
 	restoreSshCommand := jc.Set(&sshCommand, sshCommandTesting)
-	s.AddSuiteCleanup(func() { restoreSshCommand() })
+	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })
 
 	// Create a new "flock" which calls the original, but in non-blocking mode.
 	data := []byte(fmt.Sprintf("#!/bin/sh\nexec %s --nonblock \"$@\"", flockBin))
@@ -76,7 +76,7 @@ func (s *storageSuite) makeStorage(c *gc.C) (storage *SSHStorage, storageDir str
 	storage, err := NewSSHStorage("example.com", storageDir, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(storage, gc.NotNil)
-	s.AddCleanup(func() { storage.Close() })
+	s.AddCleanup(func(*gc.C) { storage.Close() })
 	return storage, storageDir
 }
 

@@ -362,7 +362,6 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
-	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -372,14 +371,6 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *ContextRelationSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		err := s.st.Close()
-		c.Assert(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
@@ -652,7 +643,6 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	err = s.unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), "password")
-	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -666,14 +656,6 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.relctxs = map[int]*uniter.ContextRelation{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
-}
-
-func (s *HookContextSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		err := s.st.Close()
-		c.Assert(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {

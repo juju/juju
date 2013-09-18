@@ -147,13 +147,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
-	// TODO (thumper): work out how to pass the logging config to the children
-	debugFlag := ""
-	// TODO: disable debug mode by default when the system is stable.
-	if true {
-		debugFlag = " --debug"
-	}
-
 	if err := cfg.addLogging(c); err != nil {
 		return nil, err
 	}
@@ -189,16 +182,17 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		}
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
+			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --constraints "+shquote(cfg.Constraints.String())+
-				debugFlag,
+				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
-	if err := cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId, debugFlag); err != nil {
+	if err := cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId); err != nil {
 		return nil, err
 	}
 
@@ -279,7 +273,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 	return acfg, nil
 }
 
-func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machineId, logConfig string) error {
+func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machineId string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -288,7 +282,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, nil)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)

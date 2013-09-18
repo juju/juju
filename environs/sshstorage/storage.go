@@ -129,7 +129,7 @@ func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface
 func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
 	const rcPrefix = "JUJU-RC: "
 	command = fmt.Sprintf(
-		"(flock %s %s -c %s) 2>&1; echo %s$?",
+		"(SHELL=/bin/bash flock %s %s -c %s) 2>&1; echo %s$?",
 		flockmode,
 		s.remotepath,
 		utils.ShQuote(command),

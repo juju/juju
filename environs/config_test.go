@@ -67,11 +67,6 @@ environments:
         foo: bar
         type: crazy
 `, "only", `environment "only" has an unknown provider type "crazy"`,
-	}, {`
-environments:
-    only:
-        type: dummy
-`, "only", `.*state-server: expected bool, got nothing`,
 	},
 }
 
@@ -81,9 +76,9 @@ func (suite) TestInvalidEnv(c *gc.C) {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
 		c.Check(err, gc.IsNil)
-		e, err := es.Open(t.name)
+		cfg, err := es.Config(t.name)
 		c.Check(err, gc.ErrorMatches, t.err)
-		c.Check(e, gc.IsNil)
+		c.Check(cfg, gc.IsNil)
 	}
 }
 
@@ -96,17 +91,17 @@ func (suite) TestNoEnv(c *gc.C) {
 
 var configTests = []struct {
 	env   string
-	check func(c *gc.C, es *environs.Environs)
+	check func(c *gc.C, envs *environs.Environs)
 }{
 	{`
 environments:
     only:
         type: dummy
         state-server: false
-`, func(c *gc.C, es *environs.Environs) {
-		e, err := es.Open("")
+`, func(c *gc.C, envs *environs.Environs) {
+		cfg, err := envs.Config("")
 		c.Assert(err, gc.IsNil)
-		c.Assert(e.Name(), gc.Equals, "only")
+		c.Assert(cfg.Name(), gc.Equals, "only")
 	}}, {`
 default:
     invalid
@@ -116,13 +111,13 @@ environments:
         state-server: false
     invalid:
         type: crazy
-`, func(c *gc.C, es *environs.Environs) {
-		e, err := es.Open("")
+`, func(c *gc.C, envs *environs.Environs) {
+		cfg, err := envs.Config("")
 		c.Assert(err, gc.ErrorMatches, `environment "invalid" has an unknown provider type "crazy"`)
-		c.Assert(e, gc.IsNil)
-		e, err = es.Open("valid")
+		c.Assert(cfg, gc.IsNil)
+		cfg, err = envs.Config("valid")
 		c.Assert(err, gc.IsNil)
-		c.Assert(e.Name(), gc.Equals, "valid")
+		c.Assert(cfg.Name(), gc.Equals, "valid")
 	}}, {`
 environments:
     one:
@@ -131,10 +126,10 @@ environments:
     two:
         type: dummy
         state-server: false
-`, func(c *gc.C, es *environs.Environs) {
-		e, err := es.Open("")
+`, func(c *gc.C, envs *environs.Environs) {
+		cfg, err := envs.Config("")
 		c.Assert(err, gc.ErrorMatches, `no default environment found`)
-		c.Assert(e, gc.IsNil)
+		c.Assert(cfg, gc.IsNil)
 	}},
 }
 
@@ -142,9 +137,9 @@ func (suite) TestConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only", "valid", "one", "two").Restore()
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
-		es, err := environs.ReadEnvironsBytes([]byte(t.env))
+		envs, err := environs.ReadEnvironsBytes([]byte(t.env))
 		c.Assert(err, gc.IsNil)
-		t.check(c, es)
+		t.check(c, envs)
 	}
 }
 
@@ -163,11 +158,11 @@ environments:
 	path := testing.HomePath(".juju", "environments.yaml")
 	c.Assert(path, gc.Equals, outfile)
 
-	es, err := environs.ReadEnvirons("")
+	envs, err := environs.ReadEnvirons("")
 	c.Assert(err, gc.IsNil)
-	e, err := es.Open("")
+	cfg, err := envs.Config("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.Name(), gc.Equals, "only")
+	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
 func (suite) TestConfigPerm(c *gc.C) {
@@ -212,11 +207,11 @@ environments:
 	c.Assert(err, gc.IsNil)
 	c.Assert(path, gc.Equals, outfile)
 
-	es, err := environs.ReadEnvirons(path)
+	envs, err := environs.ReadEnvirons(path)
 	c.Assert(err, gc.IsNil)
-	e, err := es.Open("")
+	cfg, err := envs.Config("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.Name(), gc.Equals, "only")
+	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
 func (suite) TestConfigRoundTrip(c *gc.C) {

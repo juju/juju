@@ -51,12 +51,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *uniterSuite) TearDownTest(c *gc.C) {
-	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
