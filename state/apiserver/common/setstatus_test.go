@@ -27,15 +27,10 @@ type fakeStatusSetter struct {
 	fetchError
 }
 
-func (s *fakeStatusSetter) SetStatus(status params.Status, info string, values ...params.StatusValue) error {
+func (s *fakeStatusSetter) SetStatus(status params.Status, info string, data params.StatusData) error {
 	s.status = status
 	s.info = info
-	if len(values) > 0 {
-		s.data = make(params.StatusData)
-		for _, value := range values {
-			s.data[value.Key] = value.Value
-		}
-	}
+	s.data = data
 	return s.err
 }
 

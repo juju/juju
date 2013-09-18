@@ -34,10 +34,7 @@ func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info st
 	if !ok {
 		return NotSupportedError(tag, "setting status")
 	}
-	if data != nil {
-		return entity.SetStatus(status, info, data.Values()...)
-	}
-	return entity.SetStatus(status, info)
+	return entity.SetStatus(status, info, data)
 }
 
 // SetStatus sets the status of each given entity.

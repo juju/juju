@@ -154,7 +154,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetStatus(params.StatusError, m.Tag())
+		err = m.SetStatus(params.StatusError, m.Tag(), nil)
 		c.Assert(err, gc.IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
@@ -261,7 +261,7 @@ var allWatcherChangedTests = []struct {
 		setUp: func(c *gc.C, st *State) {
 			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, gc.IsNil)
-			err = m.SetStatus(params.StatusError, "failure")
+			err = m.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -338,7 +338,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusError, "failure")
+			err = u.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -635,7 +635,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusStarted, "")
+			err = u.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -660,10 +660,11 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusError, "hook error",
-				params.StatusValue{"hook-kind", "relation-joined"},
-				params.StatusValue{"relation-id", 4711},
-				params.StatusValue{"remote-unit", "unit-mysql-0"})
+			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
+				"hook-kind":   "relation-joined",
+				"relation-id": 4711,
+				"remote-unit": "unit-mysql-0",
+			})
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -718,7 +719,7 @@ var allWatcherChangedTests = []struct {
 		setUp: func(c *gc.C, st *State) {
 			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, gc.IsNil)
-			err = m.SetStatus(params.StatusStarted, "")
+			err = m.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{

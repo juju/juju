@@ -708,18 +708,12 @@ func (m *Machine) StatusData() (params.StatusData, error) {
 	return doc.StatusData, nil
 }
 
-// SetStatus sets the status of the machine. The optional values
-// allow to pass additional helpful status data.
-func (m *Machine) SetStatus(status params.Status, info string, values ...params.StatusValue) error {
+// SetStatus sets the status of the machine.
+func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
-	}
-	if len(values) > 0 {
-		doc.StatusData = make(params.StatusData)
-		for _, value := range values {
-			doc.StatusData[value.Key] = value.Value
-		}
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err

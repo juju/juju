@@ -41,24 +41,6 @@ type ErrorResult struct {
 // StatusData contains additional information for a status.
 type StatusData map[string]interface{}
 
-// Values converts the data into a slice of values to be passed
-// to the SetStatus() methods.
-func (d StatusData) Values() []StatusValue {
-	values := make([]StatusValue, len(d))
-	index := 0
-	for key, value := range d {
-		values[index] = StatusValue{key, value}
-		index++
-	}
-	return values
-}
-
-// StatusValue is a key/value pair for StatusData.
-type StatusValue struct {
-	Key   string
-	Value interface{}
-}
-
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {

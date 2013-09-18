@@ -659,7 +659,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.StatusStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -689,7 +689,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.StatusStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -765,7 +765,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.StatusStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -796,7 +796,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.StatusStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -937,13 +937,13 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusError, "")
+	err := s.machine.SetStatus(params.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.machine.SetStatus(params.StatusPending, "")
+	err = s.machine.SetStatus(params.StatusPending, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-	err = s.machine.SetStatus(params.StatusDown, "")
+	err = s.machine.SetStatus(params.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.machine.SetStatus(params.Status("vliegkat"), "orville")
+	err = s.machine.SetStatus(params.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, err := s.machine.Status()
@@ -951,16 +951,17 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.machine.SetStatus(params.StatusStarted, "")
+	err = s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed",
-		params.StatusValue{"reason", "unknown"},
-		params.StatusValue{"retries", 5})
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+		"reason":  "unknown",
+		"retries": 5,
+	})
 	c.Assert(err, gc.IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
@@ -976,7 +977,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	// When Dying set/get should work.
 	err := s.machine.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStopped, "")
+	err = s.machine.SetStatus(params.StatusStopped, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
@@ -986,7 +987,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	status, info, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
@@ -995,7 +996,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	_, _, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")

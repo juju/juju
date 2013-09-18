@@ -97,11 +97,11 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status params.Status, info string, values ...params.StatusValue) error
+	SetStatus(status params.Status, info string, data params.StatusData) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(params.StatusStarted, "")
+	err := entity.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 }
 

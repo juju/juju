@@ -1437,7 +1437,7 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, gc.IsNil)
-	err = u.SetStatus(sus.status, sus.statusInfo)
+	err = u.SetStatus(sus.status, sus.statusInfo, nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1501,7 +1501,7 @@ type setMachineStatus struct {
 func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
 	c.Assert(err, gc.IsNil)
-	err = m.SetStatus(sms.status, sms.statusInfo)
+	err = m.SetStatus(sms.status, sms.statusInfo, nil)
 	c.Assert(err, gc.IsNil)
 }
 
