@@ -38,7 +38,7 @@ creds:
   user: rog
   password: guessit
 endpoint:
-  apiaddresses:
+  addresses:
   - example.com
   - kremvax.ru
   cacert: 'first line
@@ -59,7 +59,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Password: "guessit",
 	})
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{
-		APIAddresses: []string{"example.com", "kremvax.ru"},
+		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:       "first line\nsecond line",
 	})
 }
