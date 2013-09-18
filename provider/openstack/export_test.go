@@ -278,15 +278,8 @@ func ImageMetadataStorage(e environs.Environ) environs.Storage {
 	}
 }
 
-// ToolsMetadataStorage returns a Storage object pointing where you would
-// expect to find tools being stored. Note that the keystone entry does *not*
-// point directly at the container. Instead it points at the base level, and
-// the *tools* infrastructure tacks on "tools/". So URLs that are returned from
-// the Keystone tools Storage will not have an extra '/tools' in the URL
-func ToolsMetadataStorage(e environs.Environ) environs.Storage {
-	return CreateCustomStorage(e, "tools")
-}
-
+// CreateCustomStorage creates a swift container and returns the Storage object
+// so you can put data into it.
 func CreateCustomStorage(e environs.Environ, containerName string) environs.Storage {
 	env := e.(*environ)
 	swiftClient := swift.New(env.client)

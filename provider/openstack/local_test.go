@@ -872,11 +872,17 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 	// Make sure there is something to download from each location
 	private := "private-tools-content"
-	err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
+	// The Private data storage always tacks on "tools/" to the URL stream,
+	// so add it in here
+	err = s.env.Storage().Put("tools/"+private, bytes.NewBufferString(private), int64(len(private)))
 	c.Assert(err, gc.IsNil)
 
 	keystone := "keystone-tools-content"
-	keystoneStorage := openstack.ToolsMetadataStorage(s.env)
+	// The keystone entry just points at the root of the Swift storage, and
+	// we have to create a container to upload any data. So we just point
+	// into a subdirectory for the data we are downloading
+	keystoneContainer := "tools-test"
+	keystoneStorage := openstack.CreateCustomStorage(s.env, "tools-test")
 	err = keystoneStorage.Put(keystone, bytes.NewBufferString(keystone), int64(len(keystone)))
 	c.Assert(err, gc.IsNil)
 
@@ -900,15 +906,12 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	content, err = ioutil.ReadAll(contentReader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(content), gc.Equals, private)
-
-	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
 	//c.Check(url[:8], gc.Equals, "https://")
+	c.Check(strings.HasSuffix(url, "tools/"+private), jc.IsTrue)
 
 	// Check the entry we got from keystone
-	// Now fetch the data, and verify the contents. See the comment on
-	// ToolsMetadataStorage, but we have to add an extra "tools/" prefix to
-	// the URLs we fetch
-	contentReader, url, err = sources[3].Fetch("tools/" + keystone)
+	// Now fetch the data, and verify the contents.
+	contentReader, url, err = sources[2].Fetch(keystoneContainer + "/" + keystone)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
@@ -918,4 +921,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	keystoneURL, err := keystoneStorage.URL(keystone)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, keystoneURL)
+
+	// We *don't* test Fetch for sources[3] because it points to
+	// juju.canonical.com
 }

@@ -602,7 +602,11 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		source := simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames)
+		verify := simplestreams.VerifySSLHostnames
+		if !e.Config().SSLHostnameVerification() {
+			verify = simplestreams.NoVerifySSLHostnames
+		}
+		source := simplestreams.NewURLDataSource(toolsURL, verify)
 		e.toolsSources = append(e.toolsSources, source)
 	}
 	return e.toolsSources, nil
