@@ -10,18 +10,18 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"fmt"
-	"launchpad.net/juju-core/errors"
 )
 
 type BootstrapSuite struct {
@@ -49,39 +49,39 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 }
 
 type bootstrapRetryTest struct {
-	info string
-	args    []string
+	info             string
+	args             []string
 	allowRetryValues []bool
 }
 
 var bootstrapRetryTests = []bootstrapRetryTest{
 	{
-		info: "no tools uploaded, so no need to allow retries",
+		info:             "no tools uploaded, so no need to allow retries",
 		allowRetryValues: []bool{false},
 	},
 	{
-		info: "new tools uploaded, so we want to allow retries to give them a chance at showing up",
-		args: []string{"--upload-tools"},
+		info:             "new tools uploaded, so we want to allow retries to give them a chance at showing up",
+		args:             []string{"--upload-tools"},
 		allowRetryValues: []bool{true},
 	},
 }
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
-func (s *BootstrapSuite) TestAllowRetries (c *gc.C) {
-	for i, test := range bootstrapRetryTests{
+func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
+	for i, test := range bootstrapRetryTests {
 		fmt.Printf("test %d: %s\n", i, test.info)
 		s.runAllowRetriesTest(c, test)
 	}
 }
 
-func (s *BootstrapSuite) runAllowRetriesTest (c *gc.C, test bootstrapRetryTest) {
+func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 
 	var findToolsRetryValues []bool
 
 	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
-			filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+		filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
 		findToolsRetryValues = append(findToolsRetryValues, allowRetry)
 		return nil, errors.NotFoundf("tools")
 	}
