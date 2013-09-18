@@ -126,6 +126,7 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 		return nil, err
 	}
 	data, err := cloudcfg.Render()
+	logger.Tracef("Generated cloud init:\n%s", string(data))
 	if err != nil {
 		return nil, err
 	}
