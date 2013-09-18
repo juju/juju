@@ -78,6 +78,7 @@ func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 	if err := goyaml.Unmarshal(data, &info); err != nil {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
 	}
+	info.path = path
 	return &info, nil
 }
 
