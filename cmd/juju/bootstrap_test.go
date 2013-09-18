@@ -55,7 +55,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
 	uploadTools = mockUploadTools
-	defer func() { uploadTools = envtools.Upload }()
+	defer func() { uploadTools = sync.Upload }()
 
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)

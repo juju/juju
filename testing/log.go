@@ -29,7 +29,7 @@ func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line i
 func (t *LoggingSuite) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.setUp(c)
-	t.AddSuiteCleanup(func() {
+	t.AddSuiteCleanup(func(*gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
 	})

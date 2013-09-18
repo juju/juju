@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
@@ -230,14 +231,14 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.2.0.1",
-	expectUploaded: []string{"2.2.0.1-foo-bar", "2.2.0.1-precise-bar", "2.2.0.1-always-bar"},
+	expectUploaded: []string{"2.2.0.1-foo-bar", "2.2.0.1-precise-bar", "2.2.0.1-raring-bar"},
 }, {
 	about:          "upload with explicit version",
 	currentVersion: "2.2.0-foo-bar",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-foo-bar", "2.7.3.1-precise-bar", "2.7.3.1-always-bar"},
+	expectUploaded: []string{"2.7.3.1-foo-bar", "2.7.3.1-precise-bar", "2.7.3.1-raring-bar"},
 }, {
 	about:          "upload with explicit series",
 	currentVersion: "2.2.0-foo-bar",
@@ -251,7 +252,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.1.0.1",
-	expectUploaded: []string{"2.1.0.1-foo-bar", "2.1.0.1-precise-bar", "2.1.0.1-always-bar"},
+	expectUploaded: []string{"2.1.0.1-foo-bar", "2.1.0.1-precise-bar", "2.1.0.1-raring-bar"},
 }, {
 	about:          "upload bumps version when necessary",
 	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
@@ -260,7 +261,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.4.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.4.6.1",
-	expectUploaded: []string{"2.4.6.1-foo-bar", "2.4.6.1-precise-bar", "2.4.6.1-always-bar"},
+	expectUploaded: []string{"2.4.6.1-foo-bar", "2.4.6.1-precise-bar", "2.4.6.1-raring-bar"},
 }, {
 	about:          "upload re-bumps version when necessary",
 	private:        []string{"2.4.6-foo-bar", "2.4.6.2-flim-flam", "2.4.8-foo-bar"},
@@ -269,7 +270,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.4.6.2",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.4.6.3",
-	expectUploaded: []string{"2.4.6.3-foo-bar", "2.4.6.3-precise-bar", "2.4.6.3-always-bar"},
+	expectUploaded: []string{"2.4.6.3-foo-bar", "2.4.6.3-precise-bar", "2.4.6.3-raring-bar"},
 }, {
 	about:          "upload with explicit version bumps when necessary",
 	currentVersion: "2.2.0-foo-bar",
@@ -277,7 +278,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
-	expectUploaded: []string{"2.7.3.2-foo-bar", "2.7.3.2-precise-bar", "2.7.3.2-always-bar"},
+	expectUploaded: []string{"2.7.3.2-foo-bar", "2.7.3.2-precise-bar", "2.7.3.2-raring-bar"},
 }}
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
@@ -304,7 +305,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 	uploadTools = mockUploadTools
 	defer func() {
 		version.Current = oldVersion
-		uploadTools = envtools.Upload
+		uploadTools = sync.Upload
 	}()
 
 	for i, test := range upgradeJujuTests {
@@ -383,7 +384,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{
-		"default-series": "always",
+		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	})
 	c.Assert(err, gc.IsNil)
@@ -397,8 +398,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	name := envtools.StorageName(vers)
-	r, err := s.Conn.Environ.Storage().Get(name)
+	reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
+	defer reset()
+	tools, err := envtools.FindInstanceTools(s.Conn.Environ, vers.Number, vers.Series, &vers.Arch)
 	c.Assert(err, gc.IsNil)
-	r.Close()
+	c.Assert(len(tools), gc.Equals, 1)
 }

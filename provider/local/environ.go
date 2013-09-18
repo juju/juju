@@ -21,7 +21,8 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -164,7 +165,11 @@ func createLocalStorageListener(dir, address string) (net.Listener, error) {
 	} else if !info.Mode().IsDir() {
 		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
 	}
-	return localstorage.Serve(address, dir)
+	storage, err := filestorage.NewFileStorageWriter(dir)
+	if err != nil {
+		return nil, err
+	}
+	return httpstorage.Serve(address, storage)
 }
 
 // SetConfig is specified in the Environ interface.
@@ -319,12 +324,12 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() environs.Storage {
-	return localstorage.Client(env.config.storageAddr())
+	return httpstorage.Client(env.config.storageAddr())
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *localEnviron) PublicStorage() environs.StorageReader {
-	return localstorage.Client(env.config.sharedStorageAddr())
+	return httpstorage.Client(env.config.sharedStorageAddr())
 }
 
 // Destroy is specified in the Environ interface.
@@ -462,14 +467,13 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	toolsDir := agenttools.ToolsDir(dataDir, tag)
 
 	logDir := env.config.logDir()
-	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
 		"USER": env.config.user,
 		"HOME": osenv.Home(),
 	}
 	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
+		toolsDir, dataDir, logDir, tag, machineId, machineEnvironment)
 
 	agentService.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agentService.InitDir)
