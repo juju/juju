@@ -12,12 +12,15 @@ import (
 
 	"launchpad.net/gomaasapi"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -52,6 +55,8 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*maasEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*maasEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env := new(maasEnviron)
@@ -253,7 +258,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	// TODO(thumper): 2013-08-28 bug 1217614
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
-	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
+	machineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 	userdata, err := environs.ComposeUserData(
 		machineConfig,
 		runCmd,
@@ -422,4 +427,16 @@ func (*maasEnviron) Ports() ([]instance.Port, error) {
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (e *maasEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
 }

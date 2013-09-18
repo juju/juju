@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -35,17 +35,10 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 }
 
-func (s *machineSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
@@ -61,7 +54,7 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
 
@@ -82,7 +75,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	info.Tag = entity.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
 
 	// Check that we can log in with the correct password
 	info.Password = "foo"

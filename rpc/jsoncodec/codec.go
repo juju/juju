@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/rpc"
 	"sync"
 	"sync/atomic"
+
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
 )
 
 // JSONConn sends and receives messages to an underlying connection

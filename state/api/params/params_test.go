@@ -5,13 +5,15 @@ package params_test
 
 import (
 	"encoding/json"
+	"testing"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"testing"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -83,12 +85,13 @@ var marshalTestCases = []struct {
 	value: params.Delta{
 		Entity: &params.RelationInfo{
 			Key: "Benji",
+			Id:  4711,
 			Endpoints: []params.Endpoint{
 				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
 	},
-	json: `["relation","change",{"Key":"Benji", "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
+	json: `["relation","change",{"Key":"Benji", "Id": 4711, "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
 }, {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
@@ -109,7 +112,7 @@ var marshalTestCases = []struct {
 			Key: "Benji",
 		},
 	},
-	json: `["relation","remove",{"Key":"Benji", "Endpoints": null}]`,
+	json: `["relation","remove",{"Key":"Benji", "Id": 0, "Endpoints": null}]`,
 }}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {

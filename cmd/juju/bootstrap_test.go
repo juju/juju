@@ -55,7 +55,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
 	uploadTools = mockUploadTools
-	defer func() { uploadTools = envtools.Upload }()
+	defer func() { uploadTools = sync.Upload }()
 
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
@@ -171,37 +171,37 @@ var bootstrapTests = []bootstrapTest{{
 	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
 }, {
 	info:    "--upload-tools picks all reasonable series",
-	version: "1.2.3-hostseries-hostarch",
+	version: "1.2.3-saucy-hostarch",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.1-hostseries-hostarch",    // from version.Current
-		"1.2.3.1-defaultseries-hostarch", // from env.Config().DefaultSeries()
-		"1.2.3.1-precise-hostarch",       // from environs/config.DefaultSeries
+		"1.2.3.1-saucy-hostarch",   // from version.Current
+		"1.2.3.1-raring-hostarch",  // from env.Config().DefaultSeries()
+		"1.2.3.1-precise-hostarch", // from environs/config.DefaultSeries
 	},
 }, {
 	info:    "--upload-tools only uploads each file once",
 	version: "1.2.3-precise-hostarch",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.1-defaultseries-hostarch",
+		"1.2.3.1-raring-hostarch",
 		"1.2.3.1-precise-hostarch",
 	},
 }, {
-	info:    "--upload-tools accepts specific series even if they're crazy",
-	version: "1.2.3-hostseries-hostarch",
+	info:    "--upload-tools rejects invalid series",
+	version: "1.2.3-saucy-hostarch",
 	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
 	uploads: []string{
-		"1.2.3.1-hostseries-hostarch",
+		"1.2.3.1-saucy-hostarch",
 		"1.2.3.1-ping-hostarch",
 		"1.2.3.1-pong-hostarch",
 	},
-	err: "no matching tools available",
+	err: `invalid series "ping"`,
 }, {
 	info:    "--upload-tools always bumps build number",
-	version: "1.2.3.4-defaultseries-hostarch",
+	version: "1.2.3.4-raring-hostarch",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.5-defaultseries-hostarch",
+		"1.2.3.5-raring-hostarch",
 		"1.2.3.5-precise-hostarch",
 	},
 }}
@@ -288,7 +288,7 @@ func createToolsStore(c *gc.C) func() {
 }
 
 // createToolsSource writes the mock tools into a temporary
-// derectory and returns it.
+// directory and returns it.
 func createToolsSource(c *gc.C) string {
 	source := c.MkDir()
 	for _, vers := range vAll {
@@ -324,11 +324,11 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 }
 
 var (
-	v100d64 = version.MustParseBinary("1.0.0-defaultseries-amd64")
+	v100d64 = version.MustParseBinary("1.0.0-raring-amd64")
 	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
 	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
 	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	v120d64 = version.MustParseBinary("1.2.0-defaultseries-amd64")
+	v120d64 = version.MustParseBinary("1.2.0-raring-amd64")
 	v120p64 = version.MustParseBinary("1.2.0-precise-amd64")
 	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
 	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")

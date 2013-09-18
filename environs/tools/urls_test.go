@@ -7,7 +7,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -26,32 +28,35 @@ func (s *URLsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
-	attrs := map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"authorized-keys": "foo",
-		"state-server":    true,
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-	}
+	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
-		attrs["tools-url"] = toolsMetadataURL
+		attrs = attrs.Merge(testing.Attrs{
+			"tools-url": toolsMetadataURL,
+		})
 	}
 	env, err := environs.NewFromAttrs(attrs)
+	c.Assert(err, gc.IsNil)
+	env, err = environs.Prepare(env.Config())
 	c.Assert(err, gc.IsNil)
 	return env
 }
 
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
-	urls, err := tools.GetMetadataURLs(s.env(c, ""))
+	env := s.env(c, "")
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(urls, gc.DeepEquals, []string{
-		"dummy-tools-url", "http://juju.canonical.com/tools"})
+	privateStorageURL, err := env.Storage().URL("tools")
+	c.Assert(err, gc.IsNil)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		privateStorageURL, "https://juju.canonical.com/tools/"})
 }
 
-func (s *URLsSuite) TestToolsURLs(c *gc.C) {
-	urls, err := tools.GetMetadataURLs(s.env(c, "config-tools-url"))
+func (s *URLsSuite) TestToolsSources(c *gc.C) {
+	env := s.env(c, "config-tools-url")
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(urls, gc.DeepEquals, []string{
-		"config-tools-url", "dummy-tools-url", "http://juju.canonical.com/tools"})
+	privateStorageURL, err := env.Storage().URL("tools")
+	c.Assert(err, gc.IsNil)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		"config-tools-url/", privateStorageURL, "https://juju.canonical.com/tools/"})
 }

@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -25,6 +26,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -43,7 +45,7 @@ type LiveTests struct {
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
-	TestConfig TestConfig
+	TestConfig coretesting.Attrs
 
 	// Env holds the currently opened environment.
 	Env environs.Environ
@@ -65,10 +67,10 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
-	cfg, err := config.New(t.TestConfig.Config)
-	c.Assert(err, gc.IsNil)
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
 	e, err := environs.Prepare(cfg)
-	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig.Config))
+	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))
@@ -114,7 +116,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := envtools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := sync.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
 	err := bootstrap.Bootstrap(t.Env, cons)
@@ -424,7 +426,6 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	repoDir := c.MkDir()
 	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
-
 	c.Assert(err, gc.IsNil)
 	svc, err := conn.State.AddService("dummy", sch)
 	c.Assert(err, gc.IsNil)
@@ -686,9 +687,9 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := envtools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
+	upgradeTools, err := sync.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, gc.IsNil)
-	// envtools.Upload always returns tools for the series on which the tests are running.
+	// sync.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
 	upgradeTools.Version.Series = newVersion.Series
@@ -718,7 +719,7 @@ func (t *LiveTests) assertStartInstance(c *gc.C, m *state.Machine) {
 		c.Assert(err, gc.IsNil)
 		instId, err := m.InstanceId()
 		if err != nil {
-			c.Assert(state.IsNotProvisionedError(err), jc.IsTrue)
+			c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 			continue
 		}
 		_, err = t.Env.Instances([]instance.Id{instId})
@@ -757,7 +758,7 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 		c.Assert(err, gc.IsNil)
 		gotId, err = m.InstanceId()
 		if err != nil {
-			c.Assert(state.IsNotProvisionedError(err), jc.IsTrue)
+			c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 			if inst == nil {
 				return
 			}
@@ -865,14 +866,11 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
 
-	dummyenv, err := environs.NewFromAttrs(map[string]interface{}{
-		"type":           "dummy",
-		"name":           "dummy storage",
-		"secret":         "pizza",
-		"state-server":   false,
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	})
+	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+		"state-server": false,
+		"name":         "dummy storage",
+	}))
+	dummyenv, err := environs.Prepare(dummyCfg)
 	c.Assert(err, gc.IsNil)
 	defer dummyenv.Destroy(nil)
 
@@ -890,7 +888,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	defer envStorage.Remove(otherName)
 
-	_, err = envtools.Upload(dummyStorage, &current.Number)
+	_, err = sync.Upload(dummyStorage, &current.Number)
 	c.Assert(err, gc.IsNil)
 
 	// This will only work while cross-compiling across releases is safe,

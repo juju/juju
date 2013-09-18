@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"sync"
 
 	"launchpad.net/loggo"
 
@@ -20,6 +21,26 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
+const (
+	LxcBridge         = "LXC_BRIDGE"
+	ProviderType      = "PROVIDER_TYPE"
+	ContainerType     = "CONTAINER_TYPE"
+	StorageDir        = "STORAGE_DIR"
+	StorageAddr       = "STORAGE_ADDR"
+	SharedStorageDir  = "SHARED_STORAGE_DIR"
+	SharedStorageAddr = "SHARED_STORAGE_ADDR"
+)
+
+// The Config interface is the sole way that the agent gets access to the
+// configuration information for the machine and unit agents.  There should
+// only be one instance of a config object for any given agent, and this
+// interface is passed between multiple go routines.  The mutable methods are
+// protected by a mutex, and it is expected that the caller doesn't modify any
+// slice that may be returned.
+//
+// NOTE: should new mutating methods be added to this interface, consideration
+// is needed around the synchronisation as a single instance is used in
+// multiple go routines.
 type Config interface {
 	// DataDir returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
@@ -68,10 +89,32 @@ type Config interface {
 
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
+
+	// Value returns the value associated with the key, or an empty string if
+	// the key is not found.
+	Value(key string) string
+
+	// SetValue updates the value for the specified key.
+	SetValue(key, value string)
 }
 
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
+
+// The configMutex should be locked before any writing to disk during the
+// write commands, and unlocked when the writing is complete.  This process
+// wide lock should stop any unintended concurrent writes.  This may happen
+// when multiple go-routines may be adding things to the agent config, and
+// wanting to persist them to disk. To ensure that the correct data is written
+// to disk, the mutex should be locked prior to generating any disk state.
+// This way calls that might get interleaved would always write the most
+// recent state to disk.  Since we have different agent configs for each
+// agent, and there is only one process for each agent, a simple mutex is
+// enough for concurrency.  The mutex should also be locked around any access
+// to mutable values, either setting or getting.  The only mutable value is
+// the values map.  Retrieving and setting values here are protected by the
+// mutex.  New mutating methods should also be synchronized using this mutex.
+var configMutex sync.Mutex
 
 type connectionDetails struct {
 	addresses []string
@@ -88,8 +131,8 @@ type configInternal struct {
 	oldPassword     string
 	stateServerCert []byte
 	stateServerKey  []byte
-	statePort       int
 	apiPort         int
+	values          map[string]string
 }
 
 type AgentConfigParams struct {
@@ -100,6 +143,7 @@ type AgentConfigParams struct {
 	StateAddresses []string
 	APIAddresses   []string
 	CACert         []byte
+	Values         map[string]string
 }
 
 func newConfig(params AgentConfigParams) (*configInternal, error) {
@@ -123,6 +167,7 @@ func newConfig(params AgentConfigParams) (*configInternal, error) {
 		nonce:       params.Nonce,
 		caCert:      params.CACert,
 		oldPassword: params.Password,
+		values:      params.Values,
 	}
 	if len(params.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -136,6 +181,9 @@ func newConfig(params AgentConfigParams) (*configInternal, error) {
 	}
 	if err := config.check(); err != nil {
 		return nil, err
+	}
+	if config.values == nil {
+		config.values = make(map[string]string)
 	}
 	return config, nil
 }
@@ -168,7 +216,6 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	}
 	config.stateServerCert = params.StateServerCert
 	config.stateServerKey = params.StateServerKey
-	config.statePort = params.StatePort
 	config.apiPort = params.APIPort
 	return config, nil
 }
@@ -181,8 +228,22 @@ func Dir(dataDir, agentName string) string {
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
+	// Even though the ReadConf is done at the start of the agent loading, and
+	// that this should not be called more than once by an agent, I feel that
+	// not locking the mutex that is used to protect writes is wrong.
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	dir := Dir(dataDir, tag)
-	config, err := currentFormatter.read(dir)
+	format, err := readFormat(dir)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("Reading agent config, format: %s", format)
+	formatter, err := newFormatter(format)
+	if err != nil {
+		return nil, err
+	}
+	config, err := formatter.read(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -190,12 +251,18 @@ func ReadConf(dataDir, tag string) (Config, error) {
 	if err := config.check(); err != nil {
 		return nil, err
 	}
+
+	if format != currentFormat {
+		// Migrate the config to the new format.
+		currentFormatter.migrate(config)
+		// Write the content out in the new format.
+		if err := currentFormatter.write(config); err != nil {
+			logger.Errorf("Problem writing the agent config out in format: %s, %v", currentFormat, err)
+			return nil, err
+		}
+	}
+
 	return config, nil
-	// Read the format for the dir.
-	// Create a formatter for the format
-	// Read in the config
-	// If the format isn't the current format, call the upgrade function, and
-	// write out using the new formatter.
 }
 
 func requiredError(what string) error {
@@ -220,6 +287,22 @@ func (c *configInternal) CACert() []byte {
 	// modifying the config's copy.
 	result := append([]byte{}, c.caCert...)
 	return result
+}
+
+func (c *configInternal) Value(key string) string {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	return c.values[key]
+}
+
+func (c *configInternal) SetValue(key, value string) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	if value == "" {
+		delete(c.values, key)
+	} else {
+		c.values[key] = value
+	}
 }
 
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
@@ -308,6 +391,9 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 
 // Write writes the agent configuration.
 func (c *configInternal) Write() error {
+	// Lock is taken prior to generating any content to write.
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	return currentFormatter.write(c)
 }
 
@@ -336,7 +422,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 		if err == nil {
 			return st, "", nil
 		}
-		if params.ErrCode(err) != params.CodeUnauthorized {
+		if !params.IsCodeUnauthorized(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password

@@ -10,10 +10,12 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/worker"
 )
 
 type UnitSuite struct {
@@ -150,7 +152,32 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
-	c.Skip("unit agent API connection not implemented yet")
 	unit, _, _ := s.primeAgent(c)
 	s.testOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
+}
+
+func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
+	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password")
+	_, _, err := openAPIState(conf, nil)
+	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+}
+
+type fakeUnitAgent struct {
+	unitName string
+}
+
+func (f *fakeUnitAgent) Entity(st *state.State) (AgentState, error) {
+	return st.Unit(f.unitName)
+}
+
+func (f *fakeUnitAgent) Tag() string {
+	return names.UnitTag(f.unitName)
+}
+
+func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
+	unit, conf, _ := s.primeAgent(c)
+	err := unit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
+	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }

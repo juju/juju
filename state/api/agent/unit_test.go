@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 var _ = gc.Suite(&unitSuite{})
@@ -33,17 +34,10 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), "unit-password")
 }
 
-func (s *unitSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("wordpress/1")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
@@ -59,6 +53,6 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }

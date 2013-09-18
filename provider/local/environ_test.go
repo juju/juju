@@ -79,7 +79,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	os.Setenv("PATH", s.testPath+":"+s.oldPath)
 
 	// Add in an admin secret
-	s.Tests.TestConfig.Config["admin-secret"] = "sekrit"
+	s.Tests.TestConfig["admin-secret"] = "sekrit"
 	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return true })
 	s.Tests.SetUpTest(c)
 	s.dbServiceName = "juju-db-" + local.ConfigNamespace(s.Env.Config())
@@ -110,7 +110,7 @@ func (s *localJujuTestSuite) RunningStatus(c *gc.C) {
 
 var _ = gc.Suite(&localJujuTestSuite{
 	Tests: jujutest.Tests{
-		TestConfig: jujutest.TestConfig{minimalConfigValues()},
+		TestConfig: minimalConfigValues(),
 	},
 })
 

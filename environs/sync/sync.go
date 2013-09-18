@@ -5,16 +5,20 @@ package sync
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
-	"time"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/provider/ec2"
+	"launchpad.net/juju-core/provider/ec2/httpstorage"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -27,18 +31,20 @@ var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
 	// Target holds the destination for the tool synchronization
-	Target environs.EnvironStorage
+	Target environs.Storage
 
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
 
+	// Copy tools with major version, if MajorVersion > 0.
+	MajorVersion int
+
+	// Copy tools with minor version, if MinorVersion > 0.
+	MinorVersion int
+
 	// DryRun controls that nothing is copied. Instead it's logged
 	// what would be coppied.
 	DryRun bool
-
-	// PublicBucket controls the copy into the public pucket of the
-	// account instead of the private of the environment.
-	PublicBucket bool
 
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
@@ -50,86 +56,93 @@ type SyncContext struct {
 
 // SyncTools copies the Juju tools tarball from the official bucket
 // or a specified source directory into the user's environment.
-func SyncTools(ctx *SyncContext) error {
-	sourceStorage, err := selectSourceStorage(ctx)
+func SyncTools(syncContext *SyncContext) error {
+	sourceStorage, err := selectSourceStorage(syncContext)
 	if err != nil {
 		return fmt.Errorf("unable to select source: %v", err)
 	}
 
 	logger.Infof("listing available tools")
-	majorVersion := version.Current.Major
-	sourceTools, err := envtools.ReadList(sourceStorage, majorVersion, -1)
+	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
+		syncContext.MajorVersion = version.Current.Major
+		syncContext.MinorVersion = -1
+		if !syncContext.AllVersions {
+			syncContext.MinorVersion = version.Current.Minor
+		}
+	} else {
+		// If a major.minor version is specified, we allow dev versions.
+		syncContext.Dev = syncContext.MinorVersion != -1
+	}
+	sourceTools, err := envtools.ReadList(sourceStorage, syncContext.MajorVersion, syncContext.MinorVersion)
 	if err != nil {
 		return err
 	}
-	if !ctx.Dev {
-		// No development versions, only released ones.
-		filter := coretools.Filter{Released: true}
+	if !syncContext.Dev {
+		// If we are running from a dev version, then it is appropriate to allow
+		// dev version tools to be used.
+		filter := coretools.Filter{Released: !version.Current.IsDev()}
 		if sourceTools, err = sourceTools.Match(filter); err != nil {
 			return err
 		}
 	}
 	logger.Infof("found %d tools", len(sourceTools))
-	if !ctx.AllVersions {
+	if !syncContext.AllVersions {
 		var latest version.Number
 		latest, sourceTools = sourceTools.Newest()
 		logger.Infof("found %d recent tools (version %s)", len(sourceTools), latest)
 	}
 	for _, tool := range sourceTools {
-		logger.Debugf("found source tool: %s", tool)
+		logger.Debugf("found source tool: %v", tool)
 	}
 
 	logger.Infof("listing target bucket")
-	targetStorage := ctx.Target.Storage()
-	if ctx.PublicBucket {
-		switch _, err := envtools.ReadList(targetStorage, majorVersion, -1); err {
-		case envtools.ErrNoTools:
-		case nil, coretools.ErrNoMatches:
-			return fmt.Errorf("private tools present: public tools would be ignored")
-		default:
-			return err
-		}
-		var ok bool
-		if targetStorage, ok = ctx.Target.PublicStorage().(environs.Storage); !ok {
-			return fmt.Errorf("cannot write to public storage")
-		}
-	}
-	targetTools, err := envtools.ReadList(targetStorage, majorVersion, -1)
+	targetStorage := syncContext.Target
+	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
 		return err
 	}
 	for _, tool := range targetTools {
-		logger.Debugf("found target tool: %s", tool)
+		logger.Debugf("found target tool: %v", tool)
 	}
 
 	missing := sourceTools.Exclude(targetTools)
 	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
-	err = copyTools(missing, ctx, targetStorage, sourceStorage)
+	err = copyTools(missing, syncContext, targetStorage)
 	if err != nil {
 		return err
 	}
 	logger.Infof("copied %d tools", len(missing))
+
+	logger.Infof("generating tools metadata")
+	if !syncContext.DryRun {
+		targetTools = append(targetTools, missing...)
+		err = envtools.WriteMetadata(targetTools, true, targetStorage)
+		if err != nil {
+			return err
+		}
+	}
+	logger.Infof("tools metadata written")
 	return nil
 }
 
 // selectSourceStorage returns a storage reader based on the source setting.
-func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
-	if ctx.Source == "" {
-		return ec2.NewHTTPStorageReader(DefaultToolsLocation), nil
+func selectSourceStorage(syncContext *SyncContext) (environs.StorageReader, error) {
+	if syncContext.Source == "" {
+		return httpstorage.NewHTTPStorageReader(DefaultToolsLocation), nil
 	}
-	return filestorage.NewFileStorageReader(ctx.Source)
+	return filestorage.NewFileStorageReader(syncContext.Source)
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage, source environs.StorageReader) error {
+func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
-		if ctx.DryRun {
+		if syncContext.DryRun {
 			continue
 		}
-		if err := copyOneToolsPackage(tool, dest, source); err != nil {
+		if err := copyOneToolsPackage(tool, dest); err != nil {
 			return err
 		}
 	}
@@ -137,13 +150,17 @@ func copyTools(tools []*coretools.Tools, ctx *SyncContext, dest environs.Storage
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src environs.StorageReader) error {
+func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage) error {
+	reset := envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	defer reset()
+	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
-	srcFile, err := src.Get(toolsName)
+	resp, err := http.Get(tool.URL)
 	if err != nil {
 		return err
 	}
+	srcFile := resp.Body
 	defer srcFile.Close()
 	// We have to buffer the content, because Put requires the content
 	// length, but Get only returns us a ReadCloser
@@ -154,34 +171,112 @@ func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage, src envir
 	}
 	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
 	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
+	sha256hash := sha256.New()
+	sha256hash.Write(buf.Bytes())
+	tool.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
+	tool.Size = nBytes
+	return dest.Put(toolsName, buf, nBytes)
+}
 
-	if err := dest.Put(toolsName, buf, nBytes); err != nil {
+// copyFile writes the contents of the given source file to dest.
+func copyFile(dest, source string) error {
+	df, err := os.Create(dest)
+	if err != nil {
 		return err
 	}
-	return nil
+	f, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(df, f)
+	return err
 }
 
-// NewSyncLogWriter creates a loggo writer for registration
-// by the callers of Sync. This way the logged output can also
-// be displayed otherwise, e.g. on the screen.
-func NewSyncLogWriter(out, err io.Writer) loggo.Writer {
-	return &syncLogWriter{out, err}
-}
+// Upload builds whatever version of launchpad.net/juju-core is in $GOPATH,
+// uploads it to the given storage, and returns a Tools instance describing
+// them. If forceVersion is not nil, the uploaded tools bundle will report
+// the given version number; if any fakeSeries are supplied, additional copies
+// of the built tools will be uploaded for use by machines of those series.
+// Juju tools built for one series do not necessarily run on another, but this
+// func exists only for development use cases.
+func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
+	// TODO(rog) find binaries from $PATH when not using a development
+	// version of juju within a $GOPATH.
 
-// syncLogWriter filters the log messages for
-// "juju.environs.sync".
-type syncLogWriter struct {
-	out io.Writer
-	err io.Writer
-}
-
-// Write implements loggo's Writer interface.
-func (s *syncLogWriter) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
-	if name == "juju.environs.sync" {
-		if level <= loggo.INFO {
-			fmt.Fprintf(s.out, "%s\n", message)
-		} else {
-			fmt.Fprintf(s.err, "%s\n", message)
+	logger.Debugf("Uploading tools for %v", fakeSeries)
+	// We create the entire archive before asking the environment to
+	// start uploading so that we can be sure we have archived
+	// correctly.
+	f, err := ioutil.TempFile("", "juju-tgz")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	defer os.Remove(f.Name())
+	toolsVersion, sha256Hash, err := envtools.BundleTools(f, forceVersion)
+	if err != nil {
+		return nil, err
+	}
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
+	}
+	size := fileInfo.Size()
+	logger.Infof("built %v (%dkB)", toolsVersion, (size+512)/1024)
+	baseToolsDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(baseToolsDir)
+	putTools := func(vers version.Binary) (string, error) {
+		reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
+		defer reset()
+		name := envtools.StorageName(vers)
+		err = copyFile(filepath.Join(baseToolsDir, name), f.Name())
+		if err != nil {
+			return "", err
+		}
+		return name, nil
+	}
+	toolsDir := filepath.Join(baseToolsDir, "tools/releases")
+	err = os.MkdirAll(toolsDir, 0755)
+	if err != nil {
+		return nil, err
+	}
+	for _, series := range fakeSeries {
+		if series != toolsVersion.Series {
+			fakeVersion := toolsVersion
+			fakeVersion.Series = series
+			if _, err := putTools(fakeVersion); err != nil {
+				return nil, err
+			}
 		}
 	}
+	name, err := putTools(toolsVersion)
+	if err != nil {
+		return nil, err
+	}
+	syncContext := &SyncContext{
+		Source:       baseToolsDir,
+		Target:       storage,
+		AllVersions:  true,
+		Dev:          true,
+		MajorVersion: toolsVersion.Major,
+		MinorVersion: -1,
+	}
+	err = SyncTools(syncContext)
+	if err != nil {
+		return nil, err
+	}
+	url, err := storage.URL(name)
+	if err != nil {
+		return nil, err
+	}
+	return &coretools.Tools{
+		Version: toolsVersion,
+		URL:     url,
+		Size:    size,
+		SHA256:  sha256Hash,
+	}, nil
 }

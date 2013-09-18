@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -42,7 +43,6 @@ var _ = gc.Suite(&deployerSuite{})
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
-	c.Assert(s.stateAPI, gc.NotNil)
 
 	var err error
 	// Create the needed services and relate them.
@@ -72,14 +72,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.st, gc.NotNil)
 }
 
-func (s *deployerSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 // Note: This is really meant as a unit-test, this isn't a test that
 // should need all of the setup we have for this test suite
 func (s *deployerSuite) TestNew(c *gc.C) {
@@ -89,7 +81,7 @@ func (s *deployerSuite) TestNew(c *gc.C) {
 
 func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {

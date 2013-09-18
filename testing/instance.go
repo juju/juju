@@ -4,7 +4,7 @@
 package testing
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
 )
@@ -12,7 +12,7 @@ import (
 // MatchInstances uses DeepEquals to check the instances returned.  The lists
 // are first put into a map, so the ordering of the result and expected values
 // is not tested, and duplicates are ignored.
-func MatchInstances(c *C, result []instance.Instance, expected ...instance.Instance) {
+func MatchInstances(c *gc.C, result []instance.Instance, expected ...instance.Instance) {
 	resultMap := make(map[instance.Id]instance.Instance)
 	for _, i := range result {
 		resultMap[i.Id()] = i
@@ -22,5 +22,5 @@ func MatchInstances(c *C, result []instance.Instance, expected ...instance.Insta
 	for _, i := range expected {
 		expectedMap[i.Id()] = i
 	}
-	c.Assert(resultMap, DeepEquals, expectedMap)
+	c.Assert(resultMap, gc.DeepEquals, expectedMap)
 }

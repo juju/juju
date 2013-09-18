@@ -14,7 +14,7 @@ import (
 // LoggingSuite redirects the juju logger to the test logger
 // when embedded in a gocheck suite type.
 type LoggingSuite struct {
-	restoreLog func()
+	CleanupSuite
 }
 
 type gocheckWriter struct {
@@ -27,19 +27,17 @@ func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line i
 }
 
 func (t *LoggingSuite) SetUpSuite(c *gc.C) {
+	t.CleanupSuite.SetUpSuite(c)
 	t.setUp(c)
-}
-
-func (t *LoggingSuite) TearDownSuite(c *gc.C) {
-	loggo.ResetLoggers()
-	loggo.ResetWriters()
+	t.AddSuiteCleanup(func(*gc.C) {
+		loggo.ResetLoggers()
+		loggo.ResetWriters()
+	})
 }
 
 func (t *LoggingSuite) SetUpTest(c *gc.C) {
+	t.CleanupSuite.SetUpTest(c)
 	t.setUp(c)
-}
-
-func (t *LoggingSuite) TearDownTest(c *gc.C) {
 }
 
 func (t *LoggingSuite) setUp(c *gc.C) {

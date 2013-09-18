@@ -6,11 +6,12 @@ package charm
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 )
 
 const (

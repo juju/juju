@@ -4,17 +4,15 @@
 package provisioner
 
 import (
-	"os"
-
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/tools"
 )
 
@@ -23,18 +21,20 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 var _ environs.InstanceBroker = (*lxcBroker)(nil)
 var _ tools.HasTools = (*lxcBroker)(nil)
 
-func NewLxcBroker(config *config.Config, tools *tools.Tools) environs.InstanceBroker {
+func NewLxcBroker(config *config.Config, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
 	return &lxcBroker{
-		manager: lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
-		config:  config,
-		tools:   tools,
+		manager:     lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
+		config:      config,
+		tools:       tools,
+		agentConfig: agentConfig,
 	}
 }
 
 type lxcBroker struct {
-	manager lxc.ContainerManager
-	config  *config.Config
-	tools   *tools.Tools
+	manager     lxc.ContainerManager
+	config      *config.Config
+	tools       *tools.Tools
+	agentConfig agent.Config
 }
 
 func (broker *lxcBroker) Tools() tools.List {
@@ -49,7 +49,7 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
-	bridgeDevice := os.Getenv(osenv.JujuLxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}

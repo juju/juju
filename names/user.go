@@ -3,7 +3,9 @@
 
 package names
 
-import "strings"
+import (
+	"strings"
+)
 
 // IsUser returns whether id is a valid user id.
 // TODO(rog) stricter constraints

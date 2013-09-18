@@ -4,7 +4,7 @@
 package checkers
 
 import (
-	"reflect"
+	"regexp"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
@@ -38,13 +38,36 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 	}
 	switch params[1].(type) {
 	case []SimpleMessage:
-		return reflect.DeepEqual(obtained, params[1]), ""
+		expected := params[1].([]SimpleMessage)
+		if len(obtained) != len(expected) {
+			return false, ""
+		}
+		for i := 0; i < len(obtained); i++ {
+			if obtained[i].Level != expected[i].Level {
+				return false, ""
+			}
+			re := regexp.MustCompile(expected[i].Message)
+			if !re.MatchString(obtained[i].Message) {
+				return false, ""
+			}
+		}
+		return true, ""
 	case []string:
 		asString := make([]string, len(obtained))
 		for i, val := range obtained {
 			asString[i] = val.Message
 		}
-		return reflect.DeepEqual(asString, params[1]), ""
+		expected := params[1].([]string)
+		if len(obtained) != len(expected) {
+			return false, ""
+		}
+		for i := 0; i < len(obtained); i++ {
+			re := regexp.MustCompile(expected[i])
+			if !re.MatchString(obtained[i].Message) {
+				return false, ""
+			}
+		}
+		return true, ""
 	default:
 		return false, "Expected value must be of type []string or []SimpleMessage"
 	}

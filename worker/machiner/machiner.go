@@ -3,10 +3,11 @@
 package machiner
 
 import (
+	"fmt"
+
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -31,7 +32,7 @@ func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
 }
 
 func isNotFoundOrUnauthorized(err error) bool {
-	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
+	return params.IsCodeNotFound(err) || params.IsCodeUnauthorized(err)
 }
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
@@ -46,8 +47,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, ""); err != nil {
-		logger.Errorf("%s failed to set status started: %v", mr, err)
-		return nil, err
+		return nil, fmt.Errorf("%s failed to set status started: %v", mr.tag, err)
 	}
 	logger.Infof("%q started", mr.tag)
 
@@ -65,15 +65,13 @@ func (mr *Machiner) Handle() error {
 	}
 	logger.Debugf("%q is now %s", mr.tag, mr.machine.Life())
 	if err := mr.machine.SetStatus(params.StatusStopped, ""); err != nil {
-		logger.Errorf("%s failed to set status stopped: %v", mr, err)
-		return err
+		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
 	}
 
 	// If the machine is Dying, it has no units,
 	// and can be safely set to Dead.
 	if err := mr.machine.EnsureDead(); err != nil {
-		logger.Errorf("%s falied to set machine to dead: %v", mr, err)
-		return err
+		return fmt.Errorf("%s failed to set machine to dead: %v", mr.tag, err)
 	}
 	return worker.ErrTerminateAgent
 }

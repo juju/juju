@@ -122,6 +122,14 @@ type EnvironStorage interface {
 	PublicStorage() StorageReader
 }
 
+// ConfigGetter implements access to an environments configuration.
+type ConfigGetter interface {
+	// Config returns the configuration data with which the Environ was created.
+	// Note that this is not necessarily current; the canonical location
+	// for the configuration data is stored in the state.
+	Config() *config.Config
+}
+
 // Preflighter is an optional interface that an Environ may implement,
 // in order to support preflight checking of instance/container creation.
 type Preflighter interface {
@@ -153,9 +161,6 @@ type Preflighter interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	InstanceBroker
-	config.HasConfig
-
 	// Name returns the Environ's name.
 	Name() string
 
@@ -174,6 +179,13 @@ type Environ interface {
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
 	StateInfo() (*state.Info, *api.Info, error)
+
+	// InstanceBroker defines methods for starting and stopping
+	// instances.
+	InstanceBroker
+
+	// ConfigGetter allows the retrieval of the configuration data.
+	ConfigGetter
 
 	// SetConfig updates the Environ's configuration.
 	//

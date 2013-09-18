@@ -47,15 +47,12 @@ var _ = gc.Suite(&UpgraderSuite{})
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.state, s.machine = s.OpenAPIAsNewMachine(c)
-	s.oldRetryAfter = *upgrader.RetryAfter
-}
-
-func (s *UpgraderSuite) TearDownTest(c *gc.C) {
-	*upgrader.RetryAfter = s.oldRetryAfter
-	if s.state != nil {
-		s.state.Close()
-	}
-	s.JujuConnSuite.TearDownTest(c)
+	// Capture the value of RetryAfter, and use that captured
+	// value in the cleanup lambda.
+	oldRetryAfter := *upgrader.RetryAfter
+	s.AddCleanup(func(*gc.C) {
+		*upgrader.RetryAfter = oldRetryAfter
+	})
 }
 
 // primeTools sets up the current version of the tools to vers and

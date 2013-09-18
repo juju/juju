@@ -7,13 +7,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"sort"
 	"testing"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 func TestPackage(t *testing.T) { gc.TestingT(t) }
@@ -163,7 +166,7 @@ func (r *ContextRelation) UnitNames() []string {
 	return s
 }
 
-func (r *ContextRelation) ReadSettings(name string) (map[string]interface{}, error) {
+func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 	s, found := r.units[name]
 	if !found {
 		return nil, fmt.Errorf("unknown unit %s", name)
@@ -171,14 +174,14 @@ func (r *ContextRelation) ReadSettings(name string) (map[string]interface{}, err
 	return s.Map(), nil
 }
 
-type Settings map[string]interface{}
+type Settings params.Settings
 
 func (s Settings) Get(k string) (interface{}, bool) {
 	v, f := s[k]
 	return v, f
 }
 
-func (s Settings) Set(k string, v interface{}) {
+func (s Settings) Set(k, v string) {
 	s[k] = v
 }
 
@@ -186,8 +189,8 @@ func (s Settings) Delete(k string) {
 	delete(s, k)
 }
 
-func (s Settings) Map() map[string]interface{} {
-	r := map[string]interface{}{}
+func (s Settings) Map() params.Settings {
+	r := params.Settings{}
 	for k, v := range s {
 		r[k] = v
 	}

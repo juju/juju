@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -45,19 +45,9 @@ var _ = gc.Suite(&upgraderSuite{})
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	c.Assert(s.stateAPI, gc.NotNil)
-
 	// Create the upgrader facade.
 	s.st = s.stateAPI.Upgrader()
 	c.Assert(s.st, gc.NotNil)
-}
-
-func (s *upgraderSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that should
@@ -72,13 +62,13 @@ func (s *upgraderSuite) TestSetToolsWrongMachine(c *gc.C) {
 		Version: version.Current,
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawMachine.AgentTools()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(agentTools, gc.IsNil)
 	err = s.st.SetTools(s.rawMachine.Tag(), &tools.Tools{Version: cur})
 	c.Assert(err, gc.IsNil)
@@ -91,7 +81,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 func (s *upgraderSuite) TestToolsWrongMachine(c *gc.C) {
 	tools, err := s.st.Tools("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
 }
 

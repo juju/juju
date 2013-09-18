@@ -13,10 +13,10 @@ import (
 
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -41,45 +41,29 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config        attrs
-	change        attrs
-	expect        attrs
+	config        map[string]interface{}
+	change        map[string]interface{}
+	expect        map[string]interface{}
 	region        string
 	cbucket       string
 	pbucket       string
 	pbucketRegion string
 	accessKey     string
 	secretKey     string
-	firewallMode  config.FirewallMode
+	firewallMode  string
 	err           string
 }
 
 type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":           "ec2",
-				"ca-cert":        testing.CACert,
-				"ca-private-key": testing.CAKey,
-			},
-		},
-	}
-	testenv := envs["environments"].(attrs)["testenv"].(attrs)
-	for k, v := range t.config {
-		testenv[k] = v
-	}
-	if _, ok := testenv["control-bucket"]; !ok {
-		testenv["control-bucket"] = "x"
-	}
-	data, err := goyaml.Marshal(envs)
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "ec2",
+		"control-bucket": "x",
+	}).Merge(t.config)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, gc.IsNil)
-
-	e, err := es.Open("testenv")
+	e, err := environs.New(cfg)
 	if t.change != nil {
 		c.Assert(err, gc.IsNil)
 
@@ -259,11 +243,6 @@ var configTests = []configTest{
 		firewallMode: config.FwInstance,
 	}, {
 		config: attrs{
-			"firewall-mode": "",
-		},
-		firewallMode: config.FwInstance,
-	}, {
-		config: attrs{
 			"firewall-mode": "instance",
 		},
 		firewallMode: config.FwInstance,
@@ -305,7 +284,7 @@ func indent(s string, with string) string {
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.savedHome = os.Getenv("HOME")
+	s.savedHome = osenv.Home()
 	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -316,14 +295,14 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
 	c.Assert(err, gc.IsNil)
 
-	os.Setenv("HOME", home)
+	osenv.SetHome(home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 	aws.Regions["configtest"] = configTestRegion
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	os.Setenv("HOME", s.savedHome)
+	osenv.SetHome(s.savedHome)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")
