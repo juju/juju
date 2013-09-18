@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -73,6 +74,17 @@ func NewProvisionerAPI(
 	}, nil
 }
 
+func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag string) (*state.Machine, error) {
+	if !canAccess(tag) {
+		return nil, common.ErrPerm
+	}
+	entity, err := p.st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	return entity.(*state.Machine), nil
+}
+
 func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	canAccess, err := p.getAuthFunc()
@@ -115,12 +127,102 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 	return result, nil
 }
 
+// WatchForEnvironConfigChanges returns a NotifyWatcher to observe
+// changes to the environment configuration.
+func (p *ProvisionerAPI) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	watch := p.st.WatchForEnvironConfigChanges()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		result.NotifyWatcherId = p.resources.Register(watch)
+	} else {
+		result.Error = common.ServerError(watcher.MustErr(watch))
+	}
+	return result, nil
+}
+
+// EnvironConfig returns the current environment's configuration.
+func (p *ProvisionerAPI) EnvironConfig() (params.ConfigResult, error) {
+	result := params.ConfigResult{}
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = config.AllAttrs()
+	return result, nil
+}
+
+// Status returns the status of each given machine entity.
+func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, error) {
+	result := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			var status params.Status
+			info := ""
+			status, info, err = machine.Status()
+			if err == nil {
+				result.Results[i].Status = status
+				result.Results[i].Info = info
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// Series returns the deployed series for each given machine entity.
+func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			result.Results[i].Result = machine.Series()
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// Constraints returns the constraints for each given machine entity.
+func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsResults, error) {
+	result := params.ConstraintsResults{
+		Results: make([]params.ConstraintsResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			var cons constraints.Value
+			cons, err = machine.Constraints()
+			if err == nil {
+				result.Results[i].Constraints = cons
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // TODO(dimitern): Add methods to implement the followin at the client-side API:
-// machine.Series()
-// machine.Status()
-// machine.Constraints()
 // machine.SetProvisioned(inst.Id(), nonce, metadata)
 // machine.InstanceId()
-// p.st.WatchEnvironConfig()
 // p.st.WatchEnvironMachines()
-// st.EnvironConfig() (for worker/environ.go:WaitForEnviron)
