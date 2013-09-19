@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -163,7 +164,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 func (s *lxcBrokerSuite) assertInstances(c *gc.C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
 	c.Assert(err, gc.IsNil)
-	coretesting.MatchInstances(c, results, inst...)
+	instancetest.MatchInstances(c, results, inst...)
 }
 
 func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {

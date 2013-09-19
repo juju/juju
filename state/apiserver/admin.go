@@ -120,7 +120,7 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 	machine, ok := entity.(*state.Machine)
 	if ok {
 		if !machine.CheckProvisioned(c.Nonce) {
-			return nil, common.ErrNotProvisioned
+			return nil, state.NotProvisionedError(machine.Id())
 		}
 	}
 	setAgentAliver, ok := entity.(interface {
