@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package storage
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // RemoveAll is a default implementation for StorageWriter.RemoveAll.
@@ -16,7 +17,7 @@ import (
 // or safeguards against races with other users of the same storage medium.
 // But a simple way to implement RemoveAll would be to delegate to here.
 func RemoveAll(stor Storage) error {
-	files, err := stor.List("")
+	files, err := List(stor, "")
 	if err != nil {
 		return fmt.Errorf("unable to list files for deletion: %v", err)
 	}
@@ -31,10 +32,42 @@ func RemoveAll(stor Storage) error {
 	return err
 }
 
+// Get gets the named file from stor using the stor's default consistency strategy.
+func Get(stor StorageReader, name string) (io.ReadCloser, error) {
+	return GetWithRetry(stor, name, stor.DefaultConsistencyStrategy())
+}
+
+// GetWithRetry gets the named file from stor using the specified attempt strategy.
+func GetWithRetry(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.ReadCloser, err error) {
+	for a := attempt.Start(); a.Next(); {
+		r, err = stor.Get(name)
+		if err == nil || !stor.ShouldRetry(err) {
+			break
+		}
+	}
+	return r, err
+}
+
+// List lists the files matching prefix from stor using the stor's default consistency strategy.
+func List(stor StorageReader, prefix string) ([]string, error) {
+	return ListWithRetry(stor, prefix, stor.DefaultConsistencyStrategy())
+}
+
+// ListWithRetry lists the files matching prefix from stor using the specified attempt strategy.
+func ListWithRetry(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (list []string, err error) {
+	for a := attempt.Start(); a.Next(); {
+		list, err = stor.List(prefix)
+		if err == nil || !stor.ShouldRetry(err) {
+			break
+		}
+	}
+	return list, err
+}
+
 // BaseToolsPath is the container where tools tarballs and metadata are found.
 var BaseToolsPath = "tools"
 
-// A storageSimpleStreamsDataSource retrieves data from an environs.StorageReader.
+// A storageSimpleStreamsDataSource retrieves data from a StorageReader.
 type storageSimpleStreamsDataSource struct {
 	basePath string
 	storage  StorageReader
@@ -61,7 +94,7 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	if err == nil {
 		dataURL = fullURL
 	}
-	rc, err := s.storage.Get(relpath)
+	rc, err := GetWithRetry(s.storage, relpath, utils.AttemptStrategy{})
 	if err != nil {
 		return nil, dataURL, err
 	}

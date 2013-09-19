@@ -19,6 +19,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -221,7 +222,7 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	c.Assert(err, gc.IsNil)
 }
 
-func assertEmpty(c *gc.C, storage environs.StorageReader) {
+func assertEmpty(c *gc.C, storage storage.StorageReader) {
 	list, err := envtools.ReadList(storage, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)

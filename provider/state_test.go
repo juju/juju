@@ -10,8 +10,8 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -27,31 +27,31 @@ type StateSuite struct {
 var _ = gc.Suite(&StateSuite{})
 
 // makeDummyStorage creates a local storage.
-func (suite *StateSuite) makeDummyStorage(c *gc.C) environs.Storage {
-	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
+func (suite *StateSuite) makeDummyStorage(c *gc.C) storage.Storage {
+	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
-	return storage
+	return stor
 }
 
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
+	stor := suite.makeDummyStorage(c)
 
-	url, err := provider.CreateStateFile(storage)
+	url, err := provider.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.Get(provider.StateFile)
+	reader, err := storage.Get(stor, provider.StateFile)
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(data), gc.Equals, "")
 	c.Assert(url, gc.NotNil)
-	expectedURL, err := storage.URL(provider.StateFile)
+	expectedURL, err := stor.URL(provider.StateFile)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, expectedURL)
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
+	stor := suite.makeDummyStorage(c)
 	arch := "amd64"
 	state := provider.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
@@ -59,24 +59,24 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 
-	err = provider.SaveState(storage, &state)
+	err = provider.SaveState(stor, &state)
 	c.Assert(err, gc.IsNil)
 
-	loadedState, err := storage.Get(provider.StateFile)
+	loadedState, err := storage.Get(stor, provider.StateFile)
 	c.Assert(err, gc.IsNil)
 	content, err := ioutil.ReadAll(loadedState)
 	c.Assert(err, gc.IsNil)
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) setUpSavedState(c *gc.C, storage environs.Storage) provider.BootstrapState {
+func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) provider.BootstrapState {
 	arch := "amd64"
 	state := provider.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
 		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
-	err = storage.Put(provider.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
+	err = stor.Put(provider.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
 	c.Assert(err, gc.IsNil)
 	return state
 }
@@ -90,9 +90,9 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
-	state := suite.setUpSavedState(c, storage)
-	url, err := storage.URL(provider.StateFile)
+	stor := suite.makeDummyStorage(c)
+	state := suite.setUpSavedState(c, stor)
+	url, err := stor.URL(provider.StateFile)
 	c.Assert(err, gc.IsNil)
 	storedState, err := provider.LoadStateFromURL(url)
 	c.Assert(err, gc.IsNil)
@@ -100,10 +100,8 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
-
-	_, err := provider.LoadState(storage)
-
+	stor := suite.makeDummyStorage(c)
+	_, err := provider.LoadState(stor)
 	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 

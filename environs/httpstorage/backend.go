@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 )
 
 // TODO(axw) 2013-09-16 bug #1225916
@@ -18,7 +18,7 @@ import (
 
 // storageBackend provides HTTP access to a storage object.
 type storageBackend struct {
-	backend environs.Storage
+	backend storage.Storage
 }
 
 // ServeHTTP handles the HTTP requests to the container.
@@ -97,8 +97,8 @@ func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) 
 // Serve runs a storage server on the given network address, relaying
 // requests to the given storage implementation. It returns the network
 // listener. This can then be attached to with Client.
-func Serve(addr string, storage environs.Storage) (net.Listener, error) {
-	backend := &storageBackend{backend: storage}
+func Serve(addr string, stor storage.Storage) (net.Listener, error) {
+	backend := &storageBackend{backend: stor}
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start listener: %v", err)

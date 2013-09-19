@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
@@ -22,7 +22,7 @@ var storageAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// httpStorageReader implements the environs.StorageReader interface
+// httpStorageReader implements the storage.StorageReader interface
 // to access an EC2 storage via HTTP.
 
 type httpStorageReader struct {
@@ -31,11 +31,11 @@ type httpStorageReader struct {
 
 // NewHTTPStorageReader creates a storage reader for the HTTP
 // access to an EC2 storage like the juju-dist storage.
-func NewHTTPStorageReader(url string) environs.StorageReader {
+func NewHTTPStorageReader(url string) storage.StorageReader {
 	return &httpStorageReader{url}
 }
 
-// Get implements environs.StorageReader.Get.
+// Get implements storage.StorageReader.Get.
 func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
 	nameURL, err := h.URL(name)
 	if err != nil {
@@ -48,7 +48,7 @@ func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// List implements environs.StorageReader.List.
+// List implements storage.StorageReader.List.
 func (h *httpStorageReader) List(prefix string) ([]string, error) {
 	lbr, err := h.getListResult()
 	if err != nil {
@@ -64,7 +64,7 @@ func (h *httpStorageReader) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-// URL implements environs.StorageReader.URL.
+// URL implements storage.StorageReader.URL.
 func (h *httpStorageReader) URL(name string) (string, error) {
 	if strings.HasSuffix(h.url, "/") {
 		return h.url + name, nil
@@ -72,9 +72,14 @@ func (h *httpStorageReader) URL(name string) (string, error) {
 	return h.url + "/" + name, nil
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (s *httpStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
+func (s *httpStorageReader) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (h *httpStorageReader) ShouldRetry(err error) bool {
+	return false
 }
 
 // getListResult retrieves the index of the storage,

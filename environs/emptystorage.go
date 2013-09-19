@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
@@ -15,7 +16,7 @@ import (
 
 // EmptyStorage holds a StorageReader object that contains no files and
 // offers no URLs.
-var EmptyStorage StorageReader = emptyStorage{}
+var EmptyStorage storage.StorageReader = emptyStorage{}
 
 type emptyStorage struct{}
 
@@ -37,18 +38,23 @@ func (s emptyStorage) URL(name string) (string, error) {
 	return "", fmt.Errorf("file %q not found", name)
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (s emptyStorage) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{}
-}
-
 func (s emptyStorage) List(prefix string) ([]string, error) {
 	return nil, nil
 }
 
-func VerifyStorage(storage Storage) error {
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
+func (s emptyStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (s emptyStorage) ShouldRetry(err error) bool {
+	return false
+}
+
+func VerifyStorage(stor storage.Storage) error {
 	reader := strings.NewReader(verificationContent)
-	err := storage.Put(verificationFilename, reader,
+	err := stor.Put(verificationFilename, reader,
 		int64(len(verificationContent)))
 	if err != nil {
 		log.Debugf(
