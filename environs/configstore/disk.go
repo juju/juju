@@ -20,8 +20,10 @@ type diskStore struct {
 }
 
 type environInfo struct {
-	Creds    environs.APICredentials
-	Endpoint environs.APIEndpoint
+	User         string
+	Password     string
+	StateServers []string `yaml:"state-servers"`
+	CACert       string   `yaml:"ca-cert"`
 }
 
 // NewDisk returns a ConfigStorage implementation that
@@ -58,9 +60,15 @@ func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 }
 
 func (info *environInfo) APICredentials() environs.APICredentials {
-	return info.Creds
+	return environs.APICredentials{
+		User:     info.User,
+		Password: info.Password,
+	}
 }
 
 func (info *environInfo) APIEndpoint() environs.APIEndpoint {
-	return info.Endpoint
+	return environs.APIEndpoint{
+		Addresses: info.StateServers,
+		CACert:    info.CACert,
+	}
 }

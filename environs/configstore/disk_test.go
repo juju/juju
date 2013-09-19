@@ -34,14 +34,12 @@ func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 }
 
 var sampleInfo = `
-creds:
   user: rog
   password: guessit
-endpoint:
-  apiaddresses:
+  state-servers:
   - example.com
   - kremvax.ru
-  cacert: 'first line
+  ca-cert: 'first line
 
     second line'
 `[1:]
@@ -59,8 +57,8 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Password: "guessit",
 	})
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{
-		APIAddresses: []string{"example.com", "kremvax.ru"},
-		CACert:       "first line\nsecond line",
+		Addresses: []string{"example.com", "kremvax.ru"},
+		CACert:    "first line\nsecond line",
 	})
 }
 
