@@ -72,7 +72,7 @@ func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 		return nil, err
 	}
 	if len(data) == 0 {
-		return nil, fmt.Errorf("environment in progress XXX better error message needed")
+		return nil, fmt.Errorf("empty environment information (possibly because bootstrap in progress or interrupted)")
 	}
 	var info environInfo
 	if err := goyaml.Unmarshal(data, &info); err != nil {
@@ -98,16 +98,19 @@ func (info *environInfo) APIEndpoint() environs.APIEndpoint {
 	}
 }
 
+// SetAPIEndpoint implements environs.EnvironInfo.SetAPIEndpoint.
 func (info *environInfo) SetAPIEndpoint(endpoint environs.APIEndpoint) {
 	info.StateServers = endpoint.Addresses
 	info.CACert = endpoint.CACert
 }
 
+// SetAPICredentials implements environs.EnvironInfo.SetAPICredentials.
 func (info *environInfo) SetAPICredentials(creds environs.APICredentials) {
 	info.User = creds.User
 	info.Password = creds.Password
 }
 
+// Write implements environs.EnvironInfo.Write.
 func (info *environInfo) Write() error {
 	data, err := goyaml.Marshal(info)
 	if err != nil {
@@ -132,6 +135,7 @@ func (info *environInfo) Write() error {
 	return nil
 }
 
+// Destroy implements environs.EnvironInfo.Destroy.
 func (info *environInfo) Destroy() error {
 	err := os.Remove(info.path)
 	if os.IsNotExist(err) {

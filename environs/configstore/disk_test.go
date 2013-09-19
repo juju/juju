@@ -92,14 +92,34 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 
 	// Check that it can't be read (pending a Write)
 	info, err = store.ReadInfo("someenv")
-	c.Assert(err, gc.ErrorMatches, "environment in progress.*")
+	c.Assert(err, gc.ErrorMatches, "empty environment information .*")
 	c.Assert(info, gc.IsNil)
+}
 
+func (*diskStoreSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
+
+	info, err := store.CreateInfo("someenv")
+	c.Assert(err, gc.IsNil)
+
+	expectEndpoint := environs.APIEndpoint{
+		Addresses: []string{"example.com"},
+		CACert:    "a cert",
+	}
+	info.SetAPIEndpoint(expectEndpoint)
+	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
+
+	expectCreds := environs.APICredentials{
+		User:     "foobie",
+		Password: "bletch",
+	}
+	info.SetAPICredentials(expectCreds)
+	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
 }
 
 func (*diskStoreSuite) TestWrite(c *gc.C) {
-	// Also tests SetAPIEndpoint and SetAPICredentials.
-
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
@@ -114,14 +134,12 @@ func (*diskStoreSuite) TestWrite(c *gc.C) {
 		Password: "bletch",
 	}
 	info.SetAPICredentials(expectCreds)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
 
 	expectEndpoint := environs.APIEndpoint{
 		Addresses: []string{"example.com"},
 		CACert:    "a cert",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
 
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
