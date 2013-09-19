@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -76,17 +75,17 @@ func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// Make sure of that by providing a suitably long delay
 	// and checking that the connection happens within that
 	// time.
-	defer jc.Set(juju.ProviderConnectDelay, testing.LongWait).Restore()
-	bootstrapEnv(c, testing.SampleEnvName)
+	defer jc.Set(juju.ProviderConnectDelay, coretesting.LongWait).Restore()
+	bootstrapEnv(c, coretesting.SampleEnvName)
 
 	startTime := time.Now()
 	apiclient, err := juju.NewAPIClientFromName("")
 	c.Assert(err, gc.IsNil)
 	defer apiclient.Close()
-	c.Assert(time.Since(startTime), jc.LessThan, testing.LongWait)
+	c.Assert(time.Since(startTime), jc.LessThan, coretesting.LongWait)
 
 	// We should get the default sample environment if we ask for ""
-	assertEnvironmentName(c, apiclient, testing.SampleEnvName)
+	assertEnvironmentName(c, apiclient, coretesting.SampleEnvName)
 }
 
 func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
@@ -101,7 +100,7 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 }
 
 func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	creds := environs.APICredentials{
 		User:     "foo",
 		Password: "foopass",
@@ -134,7 +133,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 }
 
 func (*NewAPIClientSuite) TestWithInfoError(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	expectErr := fmt.Errorf("an error")
 	defer setDefaultConfigStore("noconfig", &environInfo{
 		err: expectErr,
@@ -150,7 +149,7 @@ func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 }
 
 func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{},
 		CACert:    "certificated",
@@ -166,7 +165,7 @@ func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 }
 
 func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"foo.com"},
 	}
@@ -186,11 +185,11 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, testing.SampleEnvName)
+	bootstrapEnv(c, coretesting.SampleEnvName)
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
-	defer setDefaultConfigStore(testing.SampleEnvName, &environInfo{
+	defer setDefaultConfigStore(coretesting.SampleEnvName, &environInfo{
 		endpoint: endpoint,
 	}).Restore()
 
@@ -214,7 +213,7 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer restoreAPIClose.Restore()
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromName(testing.SampleEnvName)
+	st, err := juju.NewAPIFromName(coretesting.SampleEnvName)
 	c.Assert(err, gc.IsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -223,7 +222,7 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 
 	select {
 	case <-infoEndpointOpened:
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("api never opened via info")
 	}
 
@@ -231,18 +230,18 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	select {
 	case st := <-stateClosed:
 		c.Assert(st, gc.Equals, infoOpenedState)
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for state to be closed")
 	}
 }
 
 func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, testing.SampleEnvName)
+	bootstrapEnv(c, coretesting.SampleEnvName)
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
-	defer setDefaultConfigStore(testing.SampleEnvName, &environInfo{
+	defer setDefaultConfigStore(coretesting.SampleEnvName, &environInfo{
 		endpoint: endpoint,
 	}).Restore()
 
@@ -269,7 +268,7 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromName(testing.SampleEnvName)
+		st, err := juju.NewAPIFromName(coretesting.SampleEnvName)
 		c.Check(err, gc.IsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -278,12 +277,12 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	// Check that we're trying to connect to both endpoints:
 	select {
 	case <-infoEndpointOpened:
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("api never opened via info")
 	}
 	select {
 	case <-cfgEndpointOpened:
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("api never opened via config")
 	}
 	// Let the info endpoint open go ahead and
@@ -291,7 +290,7 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	infoEndpointOpened <- struct{}{}
 	select {
 	case <-done:
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out opening API")
 	}
 
@@ -301,18 +300,18 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	select {
 	case st := <-stateClosed:
 		c.Assert(st, gc.Equals, cfgOpenedState)
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for state to be closed")
 	}
 }
 
 func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, testing.SampleEnvName)
+	bootstrapEnv(c, coretesting.SampleEnvName)
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
-	defer setDefaultConfigStore(testing.SampleEnvName, &environInfo{
+	defer setDefaultConfigStore(coretesting.SampleEnvName, &environInfo{
 		endpoint: endpoint,
 	}).Restore()
 
@@ -324,7 +323,7 @@ func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 		return nil, fmt.Errorf("config connect failed")
 	}
 	defer jc.Set(juju.APIOpen, apiOpen).Restore()
-	st, err := juju.NewAPIFromName(testing.SampleEnvName)
+	st, err := juju.NewAPIFromName(coretesting.SampleEnvName)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)
 }
