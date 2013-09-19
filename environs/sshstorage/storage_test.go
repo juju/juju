@@ -244,33 +244,42 @@ func (s *storageSuite) TestConsistencyStrategy(c *gc.C) {
 	c.Assert(stor.DefaultConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
 }
 
-// flock is a test helper that flocks a file,
-// executes "sleep" with the specified duration,
-// and returns the *Cmd so it can be early terminated.
-func (s *storageSuite) flock(c *gc.C, mode flockmode, lockfile string, duration time.Duration) *os.Process {
-	sleepcmd := fmt.Sprintf("sleep %vs", duration.Seconds())
-	cmd := exec.Command(flockBin, "--nonblock", "--close", string(mode), lockfile, "-c", sleepcmd)
-	c.Assert(cmd.Start(), gc.IsNil)
-	return cmd.Process
-}
-
 const defaultFlockTimeout = 5 * time.Second
 
-func (s *storageSuite) TestSynchronisation(c *gc.C) {
-	storageDir := c.MkDir()
-	proc := s.flock(c, flockShared, storageDir, defaultFlockTimeout)
-	defer proc.Wait()
-	defer proc.Kill()
+// flock is a test helper that flocks a file, executes "sleep" with the
+// specified duration, the command is terminated in the test tear down.
+func (s *storageSuite) flock(c *gc.C, mode flockmode, lockfile string) {
+	sleepcmd := fmt.Sprintf("echo started && sleep %vs", defaultFlockTimeout.Seconds())
+	cmd := exec.Command(flockBin, "--nonblock", "--close", string(mode), lockfile, "-c", sleepcmd)
+	stdout, err := cmd.StdoutPipe()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cmd.Start(), gc.IsNil)
+	// Make sure the flock has been taken before returning by reading stdout waiting for "started"
+	for count := len("started"); count > 0; {
+		result := make([]byte, count)
+		bytesRead, err := stdout.Read(result)
+		c.Assert(err, gc.IsNil)
+		count -= bytesRead
+	}
+	s.AddCleanup(func(*gc.C) {
+		cmd.Process.Kill()
+		cmd.Process.Wait()
+	})
+}
 
+func (s *storageSuite) TestCreateFailsIfFlockNotAvailable(c *gc.C) {
+	storageDir := c.MkDir()
+	s.flock(c, flockShared, storageDir)
 	// Creating storage requires an exclusive lock initially.
 	//
 	// flock exits with exit code 1 if it can't acquire the
 	// lock immediately in non-blocking mode (which the tests force).
 	_, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.ErrorMatches, "exit code 1")
+}
 
-	proc.Kill()
-	proc.Wait()
+func (s *storageSuite) TestWithSharedLocks(c *gc.C) {
+	storageDir := c.MkDir()
 	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
 
@@ -279,7 +288,7 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	data := []byte("abc\000def")
 	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, contentdir, "a"), data, 0644), gc.IsNil)
 
-	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
+	s.flock(c, flockShared, storageDir)
 	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.IsNil)
 	_, err = storage.List(stor, "")
@@ -287,12 +296,15 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(stor.Remove("a"), gc.NotNil)
 	c.Assert(stor.RemoveAll(), gc.NotNil)
-	proc.Kill()
-	proc.Wait()
+}
 
+func (s *storageSuite) TestWithExclusiveLocks(c *gc.C) {
+	storageDir := c.MkDir()
+	stor, err := NewSSHStorage("example.com", storageDir)
+	c.Assert(err, gc.IsNil)
 	// None of the methods (apart from URL) should be able to do anything
 	// while an exclusive lock is held.
-	proc = s.flock(c, flockExclusive, storageDir, defaultFlockTimeout)
+	s.flock(c, flockExclusive, storageDir)
 	_, err = stor.URL("a")
 	c.Assert(err, gc.IsNil)
 	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
