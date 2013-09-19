@@ -52,6 +52,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
+	c.Assert(info.Initialized(), jc.IsTrue)
 	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{
 		User:     "rog",
 		Password: "guessit",
@@ -81,6 +82,7 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{})
 	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{})
+	c.Assert(info.Initialized(), jc.IsFalse)
 	data, err := ioutil.ReadFile(filepath.Join(dir, "someenv.yaml"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.HasLen, 0)
@@ -92,8 +94,8 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 
 	// Check that it can't be read (pending a Write)
 	info, err = store.ReadInfo("someenv")
-	c.Assert(err, gc.ErrorMatches, "empty environment information .*")
-	c.Assert(info, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Initialized(), jc.IsFalse)
 }
 
 func (*diskStoreSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
@@ -143,6 +145,7 @@ func (*diskStoreSuite) TestWrite(c *gc.C) {
 
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
+	c.Assert(info.Initialized(), jc.IsTrue)
 
 	// Make sure there are no stray files left in the directory.
 	infos, err := ioutil.ReadDir(dir)

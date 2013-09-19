@@ -36,7 +36,7 @@ type ConfigStorage interface {
 	// return an errors.NotFound error.
 	ReadInfo(envName string) (EnvironInfo, error)
 
-	// CreateInfo creates some information associated
+	// CreateInfo creates some uninitialized information associated
 	// with the environment with the given name.
 	// It return ErrAlreadyExists if the
 	// information has already been created.
@@ -45,6 +45,11 @@ type ConfigStorage interface {
 
 // EnvironInfo holds information associated with an environment.
 type EnvironInfo interface {
+	// Initialized returns whether the environment information has
+	// been initialized. It will return true for EnvironInfo instances
+	// that have been created but not written.
+	Initialized() bool
+
 	// APIEndpoint returns the current API endpoint information.
 	APIEndpoint() APIEndpoint
 
@@ -61,7 +66,7 @@ type EnvironInfo interface {
 
 	// Write writes the current information to persistent storage.
 	// A subsequent call to ConfigStorage.ReadInfo
-	// can retrieve it.
+	// can retrieve it. After this call succeeds, Initialized will return true.
 	Write() error
 
 	// Destroy destroys the information associated with
