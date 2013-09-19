@@ -362,13 +362,15 @@ func newConfigStore(envName string, info *environInfo) environs.ConfigStorage {
 }
 
 type environInfo struct {
-	creds    environs.APICredentials
-	endpoint environs.APIEndpoint
-	err      error
+	environs.EnvironInfo // panic on methods we don't care about
+	creds                environs.APICredentials
+	endpoint             environs.APIEndpoint
+	err                  error
 }
 
 type configStorage struct {
-	envs map[string]*environInfo
+	environs.ConfigStorage // panic on methods we don't care about
+	envs                   map[string]*environInfo
 }
 
 func (store *configStorage) ReadInfo(envName string) (environs.EnvironInfo, error) {

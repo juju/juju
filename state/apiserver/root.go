@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/deployer"
 	"launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	"launchpad.net/juju-core/state/apiserver/provisioner"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -78,6 +79,17 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
+}
+
+// Provisioner returns an object that provides access to the
+// Provisioner API facade. The id argument is reserved for future use
+// and currently needs to be empty.
+func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
 }
 
 // MachineAgent returns an object that provides access to the machine
