@@ -131,28 +131,23 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	t.bootstrapped = false
 }
 
-func (t *LiveTests) TestPreflighter(c *gc.C) {
-	// Providers may implement Preflighter. If they do, then they should
+func (t *LiveTests) TestPrechecker(c *gc.C) {
+	// Providers may implement Prechecker. If they do, then they should
 	// return nil for empty constraints (excluding the null provider).
-	preflighter, ok := t.Env.(environs.Preflighter)
+	prechecker, ok := t.Env.(environs.Prechecker)
 	if !ok {
 		return
 	}
 
-	// No container should always pass.
 	const series = "precise"
 	var cons constraints.Value
-	c.Check(preflighter.Preflight(nil, series, cons), gc.IsNil)
+	c.Check(prechecker.PrecheckCreateMachine(series, cons), gc.IsNil)
 
-	// Container==instance.NONE should always pass.
-	// This is logically equivalent to the above.
-	container := instance.NONE
+	inst, _ := testing.StartInstance(c, t.Env, "0")
+	c.Assert(inst, gc.NotNil)
+	container := instance.LXC
 	cons.Container = &container
-	c.Check(preflighter.Preflight(nil, series, cons), gc.IsNil)
-
-	container = instance.LXC
-	cons.Container = &container
-	err := preflighter.Preflight(nil, series, cons)
+	err := prechecker.PrecheckCreateContainer(series, cons, inst)
 	// If err is nil, that is fine, some providers support containers.
 	if err != nil {
 		// But for ones that don't, they should have a standard error format.

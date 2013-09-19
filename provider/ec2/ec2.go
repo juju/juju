@@ -4,7 +4,6 @@
 package ec2
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -308,15 +307,16 @@ func (e *environ) s3() *s3.S3 {
 	return s3
 }
 
-// Preflight is specified in the environs.Preflighter interface.
-func (e *environ) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
+// PrecheckCreateMachine is specified in the environs.Prechecker interface.
+func (e *environ) PrecheckCreateMachine(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckCreateContainer is specified in the environs.Prechecker interface.
+func (e *environ) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
-	if cons.Container != nil && *cons.Container != instance.NONE {
-		err := errors.New("ec2 provider does not support containers")
-		return coreerrors.NewContainersUnsupported(err, "")
-	}
-	return nil
+	return coreerrors.NewContainersUnsupported(nil, "ec2 provider does not support containers")
 }
 
 func (e *environ) Name() string {

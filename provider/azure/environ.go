@@ -4,7 +4,6 @@
 package azure
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -138,15 +137,16 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	return key, nil
 }
 
-// Preflight is specified in the environs.Preflighter interface.
-func (env *azureEnviron) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
+// PrecheckCreateMachine is specified in the environs.Prechecker interface.
+func (*azureEnviron) PrecheckCreateMachine(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckCreateContainer is specified in the environs.Prechecker interface.
+func (*azureEnviron) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.
-	if cons.Container != nil && *cons.Container != instance.NONE {
-		err := errors.New("azure provider does not support containers")
-		return coreerrors.NewContainersUnsupported(err, "")
-	}
-	return nil
+	return coreerrors.NewContainersUnsupported(nil, "azure provider does not support containers")
 }
 
 // Name is specified in the Environ interface.

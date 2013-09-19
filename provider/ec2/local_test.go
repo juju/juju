@@ -185,14 +185,18 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
-func (t *localServerSuite) TestPreflight(c *gc.C) {
-	preflighter, ok := t.Env.(environs.Preflighter)
+func (t *localServerSuite) TestPrecheck(c *gc.C) {
+	prechecker, ok := t.Env.(environs.Prechecker)
 	c.Assert(ok, jc.IsTrue)
 	var cons constraints.Value
-	c.Check(preflighter.Preflight(nil, "precise", cons), gc.IsNil)
+	err := prechecker.PrecheckCreateMachine("precise", cons)
+	c.Check(err, gc.IsNil)
+
+	var inst instance.Instance
 	container := instance.LXC
 	cons.Container = &container
-	c.Check(preflighter.Preflight(nil, "precise", cons), gc.ErrorMatches, "ec2 provider does not support containers")
+	err = prechecker.PrecheckCreateContainer("precise", cons, inst)
+	c.Check(err, gc.ErrorMatches, "ec2 provider does not support containers")
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {

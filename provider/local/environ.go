@@ -4,7 +4,6 @@
 package local
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -97,15 +96,16 @@ func (env *localEnviron) ensureCertOwner() error {
 	return nil
 }
 
-// Preflight is specified in the environs.Preflighter interface.
-func (env *localEnviron) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
+// PrecheckCreateMachine is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckCreateMachine(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckCreateContainer is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.
-	if cons.Container != nil && *cons.Container != instance.NONE {
-		err := errors.New("local provider does not support nested containers")
-		return coreerrors.NewContainersUnsupported(err, "")
-	}
-	return nil
+	return coreerrors.NewContainersUnsupported(nil, "local provider does not support nested containers")
 }
 
 // Bootstrap is specified in the Environ interface.

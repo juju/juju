@@ -409,15 +409,16 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
-// Preflight is specified in the environs.Preflighter interface.
-func (e *environ) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
+// PrecheckCreateMachine is specified in the environs.Prechecker interface.
+func (*environ) PrecheckCreateMachine(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckCreateContainer is specified in the environs.Prechecker interface.
+func (*environ) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
 	// This check can either go away or be relaxed when the openstack
 	// provider manages container addressibility.
-	if cons.Container != nil && *cons.Container != instance.NONE {
-		err := errors.New("openstack provider does not support containers")
-		return coreerrors.NewContainersUnsupported(err, "")
-	}
-	return nil
+	return coreerrors.NewContainersUnsupported(nil, "openstack provider does not support containers")
 }
 
 func (e *environ) Name() string {

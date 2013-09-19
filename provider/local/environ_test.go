@@ -45,17 +45,22 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	c.Assert(environ.PublicStorage(), gc.NotNil)
 }
 
-func (s *environSuite) TestPreflight(c *gc.C) {
+func (s *environSuite) TestPrecheck(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	var cons constraints.Value
-	preflighter, ok := environ.(environs.Preflighter)
+	prechecker, ok := environ.(environs.Prechecker)
 	c.Assert(ok, jc.IsTrue)
-	c.Check(preflighter.Preflight(nil, "precise", cons), gc.IsNil)
+
+	err = prechecker.PrecheckCreateMachine("precise", cons)
+	c.Check(err, gc.IsNil)
 	container := instance.LXC
+
+	var inst instance.Instance
 	cons.Container = &container
-	c.Check(preflighter.Preflight(nil, "precise", cons), gc.ErrorMatches, "local provider does not support nested containers")
+	err = prechecker.PrecheckCreateContainer("precise", cons, inst)
+	c.Check(err, gc.ErrorMatches, "local provider does not support nested containers")
 }
 
 type localJujuTestSuite struct {
