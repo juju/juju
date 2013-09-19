@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -15,6 +16,34 @@ import (
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
+
+var _ = gc.Suite(&diskInterfaceSuite{})
+
+type diskInterfaceSuite struct {
+	interfaceSuite
+	dir string
+}
+
+func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
+	s.dir = c.MkDir()
+	s.NewStore = func(c *gc.C) environs.ConfigStorage {
+		store, err := configstore.NewDisk(s.dir)
+		c.Assert(err, gc.IsNil)
+		return store
+	}
+}
+
+func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
+	s.NewStore = nil
+	// Check that no stray temp files have been left behind
+	entries, err := ioutil.ReadDir(s.dir)
+	c.Assert(err, gc.IsNil)
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".yaml") {
+			c.Errorf("found possible stray temp file %q", entry.Name())
+		}
+	}
+}
 
 var _ = gc.Suite(&diskStoreSuite{})
 
@@ -92,83 +121,10 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.Equals, environs.ErrEnvironInfoAlreadyExists)
 	c.Assert(info, gc.IsNil)
 
-	// Check that it can't be read (pending a Write)
+	// Check that we can read it again.
 	info, err = store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsFalse)
-}
-
-func (*diskStoreSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
-
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
-
-	expectEndpoint := environs.APIEndpoint{
-		Addresses: []string{"example.com"},
-		CACert:    "a cert",
-	}
-	info.SetAPIEndpoint(expectEndpoint)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
-
-	expectCreds := environs.APICredentials{
-		User:     "foobie",
-		Password: "bletch",
-	}
-	info.SetAPICredentials(expectCreds)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
-}
-
-func (*diskStoreSuite) TestWrite(c *gc.C) {
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
-
-	// Create the info.
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
-
-	// Set it up with some actual data and write it out.
-	expectCreds := environs.APICredentials{
-		User:     "foobie",
-		Password: "bletch",
-	}
-	info.SetAPICredentials(expectCreds)
-
-	expectEndpoint := environs.APIEndpoint{
-		Addresses: []string{"example.com"},
-		CACert:    "a cert",
-	}
-	info.SetAPIEndpoint(expectEndpoint)
-
-	err = info.Write()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.Initialized(), jc.IsTrue)
-
-	// Make sure there are no stray files left in the directory.
-	infos, err := ioutil.ReadDir(dir)
-	c.Assert(err, gc.IsNil)
-	c.Assert(infos, gc.HasLen, 1)
-	c.Assert(infos[0].Name(), gc.Equals, "someenv.yaml")
-
-	// Check we can read the information back
-	info, err = store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
-
-	// Change the information and write it again.
-	expectCreds.User = "arble"
-	info.SetAPICredentials(expectCreds)
-	err = info.Write()
-	c.Assert(err, gc.IsNil)
-
-	// Check we can read the information back
-	info, err = store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
 }
 
 func (*diskStoreSuite) TestWriteTempFileFails(c *gc.C) {
@@ -210,7 +166,7 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot rename new environment info file: .*")
 }
 
-func (*diskStoreSuite) TestDestroy(c *gc.C) {
+func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
