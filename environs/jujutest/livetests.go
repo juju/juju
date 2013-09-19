@@ -514,6 +514,10 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, gc.IsNil)
 	conn.Close()
+
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	c.Assert(err, gc.IsNil)
+	apiConn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *gc.C) {

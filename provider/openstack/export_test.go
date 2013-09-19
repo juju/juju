@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
@@ -236,6 +237,25 @@ func RemoveTestImageData(e environs.Environ) {
 	WritablePublicStorage(e).Remove(productMetadatafile)
 }
 
+// DiscardSecurityGroup cleans up a security group, it is not an error to
+// delete something that doesn't exist.
+func DiscardSecurityGroup(e environs.Environ, name string) error {
+	env := e.(*environ)
+	novaClient := env.nova()
+	group, err := novaClient.SecurityGroupByName(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Group already deleted, done
+			return nil
+		}
+	}
+	err = novaClient.DeleteSecurityGroup(group.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
 	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
@@ -259,6 +279,10 @@ func GetSwiftURL(e environs.Environ) (string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
+}
+
+func SetUpGlobalGroup(e environs.Environ, name string, statePort, apiPort int) (nova.SecurityGroup, error) {
+	return e.(*environ).setUpGlobalGroup(name, statePort, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {

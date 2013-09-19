@@ -7,11 +7,13 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"sort"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
+	"launchpad.net/goose/nova"
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
@@ -125,4 +127,86 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
+}
+
+func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
+	rules := []nova.RuleInfo{
+		{ // First group explicitly asks for all services
+			IPProtocol: "tcp",
+			FromPort:   22,
+			ToPort:     22,
+			Cidr:       "0.0.0.0/0",
+		},
+		{ // Second group should only allow access from within the group
+			IPProtocol: "tcp",
+			FromPort:   1,
+			ToPort:     65535,
+		},
+	}
+	groupName := "juju-test-group-" + randomName()
+	// Make sure things are clean before we start, and clean when we are done
+	cleanup := func() {
+		c.Check(openstack.DiscardSecurityGroup(t.Env, groupName), gc.IsNil)
+	}
+	cleanup()
+	defer cleanup()
+	group, err := openstack.EnsureGroup(t.Env, groupName, rules)
+	c.Assert(err, gc.IsNil)
+	c.Check(group.Rules, gc.HasLen, 2)
+	c.Check(*group.Rules[0].IPProtocol, gc.Equals, "tcp")
+	c.Check(*group.Rules[0].FromPort, gc.Equals, 22)
+	c.Check(*group.Rules[0].ToPort, gc.Equals, 22)
+	c.Check(group.Rules[0].IPRange["cidr"], gc.Equals, "0.0.0.0/0")
+	c.Check(group.Rules[0].Group.Name, gc.Equals, "")
+	c.Check(group.Rules[0].Group.TenantId, gc.Equals, "")
+	c.Check(*group.Rules[1].IPProtocol, gc.Equals, "tcp")
+	c.Check(*group.Rules[1].FromPort, gc.Equals, 1)
+	c.Check(*group.Rules[1].ToPort, gc.Equals, 65535)
+	c.Check(group.Rules[1].IPRange, gc.HasLen, 0)
+	c.Check(group.Rules[1].Group.Name, gc.Equals, groupName)
+	c.Check(group.Rules[1].Group.TenantId, gc.Equals, group.TenantId)
+}
+
+func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
+	groupName := "juju-test-group-" + randomName()
+	// Make sure things are clean before we start, and will be clean when we finish
+	cleanup := func() {
+		c.Check(openstack.DiscardSecurityGroup(t.Env, groupName), gc.IsNil)
+	}
+	cleanup()
+	defer cleanup()
+	statePort := 12345 // Default 37017
+	apiPort := 34567   // Default 17070
+	group, err := openstack.SetUpGlobalGroup(t.Env, groupName, statePort, apiPort)
+	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	// We default to exporting 22, statePort, apiPort, and icmp/udp/tcp on
+	// all ports to other machines inside the same group
+	// TODO(jam): 2013-09-18 http://pad.lv/1227142
+	// We shouldn't be exposing the API and State ports on all the machines
+	// that *aren't* hosting the state server. (And once we finish
+	// client-via-API we can disable the State port as well.)
+	stringRules := make([]string, 0, len(group.Rules))
+	for _, rule := range group.Rules {
+		ruleStr := fmt.Sprintf("%s %d %d %q %q",
+			*rule.IPProtocol,
+			*rule.FromPort,
+			*rule.ToPort,
+			rule.IPRange["cidr"],
+			rule.Group.Name,
+		)
+		stringRules = append(stringRules, ruleStr)
+	}
+	// We don't care about the ordering, so we sort the result, and compare it.
+	expectedRules := []string{
+		`tcp 22 22 "0.0.0.0/0" ""`,
+		fmt.Sprintf(`tcp %d %d "0.0.0.0/0" ""`, statePort, statePort),
+		fmt.Sprintf(`tcp %d %d "0.0.0.0/0" ""`, apiPort, apiPort),
+		fmt.Sprintf(`tcp 1 65535 "" "%s"`, groupName),
+		fmt.Sprintf(`udp 1 65535 "" "%s"`, groupName),
+		fmt.Sprintf(`icmp -1 -1 "" "%s"`, groupName),
+	}
+	sort.Strings(stringRules)
+	sort.Strings(expectedRules)
+	c.Check(stringRules, gc.DeepEquals, expectedRules)
 }
