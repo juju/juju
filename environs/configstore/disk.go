@@ -21,6 +21,7 @@ type diskStore struct {
 
 type environInfo struct {
 	path         string
+	initialized  bool
 	User         string
 	Password     string
 	StateServers []string `yaml:"state-servers"`
@@ -71,15 +72,21 @@ func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 		}
 		return nil, err
 	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("empty environment information (possibly because bootstrap in progress or interrupted)")
-	}
 	var info environInfo
+	info.path = path
+	if len(data) == 0 {
+		return &info, nil
+	}
 	if err := goyaml.Unmarshal(data, &info); err != nil {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
 	}
-	info.path = path
+	info.initialized = true
 	return &info, nil
+}
+
+// Initialized implements environs.EnvironInfo.Initialized.
+func (info *environInfo) Initialized() bool {
+	return info.initialized
 }
 
 // APICredentials implements environs.EnvironInfo.APICredentials.
@@ -132,6 +139,7 @@ func (info *environInfo) Write() error {
 		os.Remove(tmpFile.Name())
 		return fmt.Errorf("cannot rename new environment info file: %v", err)
 	}
+	info.initialized = true
 	return nil
 }
 
