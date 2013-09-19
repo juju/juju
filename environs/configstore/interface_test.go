@@ -18,10 +18,6 @@ type interfaceSuite struct {
 	NewStore func(c *gc.C) environs.ConfigStorage
 }
 
-func (s *interfaceSuite) TestNew(c *gc.C) {
-	s.NewStore(c)
-}
-
 func (s *interfaceSuite) TestCreate(c *gc.C) {
 	store := s.NewStore(c)
 	info, err := store.CreateInfo("someenv")
