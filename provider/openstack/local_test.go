@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/testservices/hook"
@@ -113,9 +114,6 @@ func registerLocalTests() {
 			TestConfig: config,
 		},
 	})
-	gc.Suite(&publicBucketSuite{
-		cred: cred,
-	})
 }
 
 // localServer is used to spin up a local Openstack service double.
@@ -186,10 +184,10 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 type localServerSuite struct {
 	coretesting.LoggingSuite
 	jujutest.Tests
-	cred                   *identity.Credentials
-	srv                    localServer
-	env                    environs.Environ
-	writeablePublicStorage storage.Storage
+	cred            *identity.Credentials
+	srv             localServer
+	env             environs.Environ
+	metadataStorage storage.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -206,12 +204,23 @@ func (s *localServerSuite) TearDownSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
+	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
+	err := cl.Authenticate()
+	c.Assert(err, gc.IsNil)
+	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	c.Assert(err, gc.IsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"auth-url": s.cred.URL,
+		"tools-url":          containerURL + "/juju-dist-test/tools",
+		"image-metadata-url": containerURL + "/juju-dist-test",
+		"auth-url":           s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
-	s.writeablePublicStorage = openstack.WritablePublicStorage(s.Env)
-	envtesting.UploadFakeTools(c, s.writeablePublicStorage)
+	// For testing, we create a storage instance to which is uploaded tools and image metadata.
+	s.metadataStorage = openstack.MetadataStorage(s.Env)
+	// Put some fake metadata in place so that tests that are simply
+	// starting instances without any need to check if those instances
+	// are running can find the metadata.
+	envtesting.GenerateFakeMetadata(c, s.metadataStorage)
 	s.env = s.Tests.Env
 	openstack.UseTestImageData(s.env, s.cred)
 }
@@ -220,8 +229,8 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	if s.env != nil {
 		openstack.RemoveTestImageData(s.env)
 	}
-	if s.writeablePublicStorage != nil {
-		envtesting.RemoveFakeTools(c, s.writeablePublicStorage)
+	if s.metadataStorage != nil {
+		envtesting.RemoveFakeMetadata(c, s.metadataStorage)
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
@@ -488,10 +497,10 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
+	// The image-metadata-url ends with "/juju-dist-test/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
-	// The public bucket URL ends with "/juju-dist/".
-	c.Check(strings.HasSuffix(urls[1], "/juju-dist/"), jc.IsTrue)
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(s.env)), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
@@ -500,18 +509,20 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
+	c.Assert(len(sources), gc.Equals, 3)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
+	// The tools-url ends with "/juju-dist-test/tools/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
 	c.Assert(err, gc.IsNil)
-	// Check that the URL from keytone parses.
-	_, err = url.Parse(urls[1])
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
 	c.Assert(err, gc.IsNil)
 }
 
@@ -618,45 +629,4 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
 	assertRule(group)
-}
-
-// publicBucketSuite contains tests to ensure the public bucket is correctly set up.
-type publicBucketSuite struct {
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
-}
-
-func (s *publicBucketSuite) SetUpTest(c *gc.C) {
-	s.srv.start(c, s.cred)
-}
-
-func (s *publicBucketSuite) TearDownTest(c *gc.C) {
-	err := s.env.Destroy(nil)
-	c.Check(err, gc.IsNil)
-	s.srv.stop()
-}
-
-func (s *publicBucketSuite) TestPublicBucketFromEnv(c *gc.C) {
-	config := makeTestConfig(s.cred)
-	config["public-bucket-url"] = "http://127.0.0.1/public-bucket"
-	var err error
-	s.env, err = environs.NewFromAttrs(config)
-	c.Assert(err, gc.IsNil)
-	url, err := s.env.PublicStorage().URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "http://127.0.0.1/public-bucket/juju-dist/")
-}
-
-func (s *publicBucketSuite) TestPublicBucketFromKeystone(c *gc.C) {
-	config := makeTestConfig(s.cred)
-	config["public-bucket-url"] = ""
-	var err error
-	s.env, err = environs.NewFromAttrs(config)
-	c.Assert(err, gc.IsNil)
-	url, err := s.env.PublicStorage().URL("")
-	c.Assert(err, gc.IsNil)
-	swiftURL, err := openstack.GetSwiftURL(s.env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("%s/juju-dist/", swiftURL))
 }

@@ -73,6 +73,8 @@ openstack:
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
+  # If set, tools-url specifies from where tools are fetched.
+  # tools-url:  https://you-tools-url
   # Usually set via the env variable OS_AUTH_URL, but can be specified here
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
@@ -98,10 +100,12 @@ hpcloud:
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
+  # If set, tools-url specifies from where tools are fetched.
+  # tools-url:  https://you-tools-url
   # Not required if env variable OS_AUTH_URL is set
   auth-url: https://yourkeystoneurl:35357/v2.0/
-  # URL denoting a public container holding the juju tools.
-  public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
+  # URL denoting a location holding the juju tools.
+  tools-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910/juju-dist/tools
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   # The following are used for userpass authentication (the default)
@@ -222,15 +226,13 @@ func retryGet(uri string) (data []byte, err error) {
 type environ struct {
 	name string
 
-	ecfgMutex             sync.Mutex
-	publicStorageMutex    sync.Mutex
-	imageBaseMutex        sync.Mutex
-	toolsBaseMutex        sync.Mutex
-	ecfgUnlocked          *environConfig
-	client                client.AuthenticatingClient
-	novaUnlocked          *nova.Client
-	storageUnlocked       storage.Storage
-	publicStorageUnlocked storage.StorageReader // optional.
+	ecfgMutex       sync.Mutex
+	imageBaseMutex  sync.Mutex
+	toolsBaseMutex  sync.Mutex
+	ecfgUnlocked    *environConfig
+	client          client.AuthenticatingClient
+	novaUnlocked    *nova.Client
+	storageUnlocked storage.Storage
 	// An ordered list of sources in which to find the simplestreams index files used to
 	// look up image ids.
 	imageSources []simplestreams.DataSource
@@ -420,57 +422,9 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-// publicBucketURL gets the public bucket URL, either from env or keystone catalog.
-func (e *environ) publicBucketURL() string {
-	ecfg := e.ecfg()
-	publicBucketURL := ecfg.publicBucketURL()
-	if publicBucketURL == "" {
-		// No public bucket in env, so authenticate and look in keystone catalog.
-		if !e.client.IsAuthenticated() {
-			e.client.Authenticate()
-		}
-		var err error
-		publicBucketURL, err = e.client.MakeServiceURL("juju-tools", nil)
-		if err != nil {
-			return ""
-		}
-	}
-	return publicBucketURL
-}
-
 func (e *environ) PublicStorage() storage.StorageReader {
-	e.publicStorageMutex.Lock()
-	defer e.publicStorageMutex.Unlock()
-	ecfg := e.ecfg()
-	// If public storage has already been determined, return that instance.
-	publicStorage := e.publicStorageUnlocked
-	if publicStorage == nil && ecfg.publicBucket() == "" {
-		// If there is no public bucket name, then there can be no public storage.
-		e.publicStorageUnlocked = environs.EmptyStorage
-		publicStorage = e.publicStorageUnlocked
-	}
-	if publicStorage != nil {
-		return publicStorage
-	}
-	// If there is a public bucket URL defined, set up a public storage client referencing that URL,
-	// otherwise create a new public bucket using the user's credentials on the authenticated client.
-	publicBucketURL := e.publicBucketURL()
-	if publicBucketURL == "" {
-		e.publicStorageUnlocked = &openstackstorage{
-			containerName: ecfg.publicBucket(),
-			// this is possibly just a hack - if the ACL is swift.Private,
-			// the machine won't be able to get the tools (401 error)
-			containerACL: swift.PublicRead,
-			swift:        swift.New(e.client)}
-	} else {
-		pc := client.NewPublicClient(publicBucketURL, nil)
-		e.publicStorageUnlocked = &openstackstorage{
-			containerName: ecfg.publicBucket(),
-			containerACL:  swift.PublicRead,
-			swift:         swift.New(pc)}
-	}
-	publicStorage = e.publicStorageUnlocked
-	return publicStorage
+	// No public storage required. Tools are fetched from tools-url.
+	return environs.EmptyStorage
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
@@ -541,7 +495,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
 		swift:        swift.New(e.client)}
-	e.publicStorageUnlocked = nil
 	return nil
 }
 
@@ -561,8 +514,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	}
 	// Add the simplestreams source off the control bucket.
 	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
-	// Add the simplestreams source off the public bucket.
-	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
