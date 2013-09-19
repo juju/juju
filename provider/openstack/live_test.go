@@ -94,13 +94,12 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 		"auth-url":           t.cred.URL,
 	})
 	t.LiveTests.SetUpSuite(c)
-	openstack.SetFakeToolsStorage(true)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	t.metadataStorage = openstack.MetadataStorage(t.Env)
-	// Put some fake metadata in place so that tests that are simply
+	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.GenerateFakeMetadata(c, t.metadataStorage)
+	envtesting.GenerateFakeToolsMetadata(c, t.metadataStorage)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -109,9 +108,8 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		return
 	}
 	if t.metadataStorage != nil {
-		envtesting.RemoveFakeMetadata(c, t.metadataStorage)
+		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage)
 	}
-	openstack.SetFakeToolsStorage(false)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }

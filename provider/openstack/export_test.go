@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -62,14 +61,6 @@ var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
 )
-
-func SetFakeToolsStorage(useFake bool) {
-	if useFake {
-		tools.SetToolPrefix("tools_test/juju-")
-	} else {
-		tools.SetToolPrefix(tools.DefaultToolPrefix)
-	}
-}
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) storage.Storage {

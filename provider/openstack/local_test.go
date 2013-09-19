@@ -220,7 +220,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.GenerateFakeMetadata(c, s.metadataStorage)
+	envtesting.GenerateFakeToolsMetadata(c, s.metadataStorage)
 	s.env = s.Tests.Env
 	openstack.UseTestImageData(s.env, s.cred)
 }
@@ -230,7 +230,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 		openstack.RemoveTestImageData(s.env)
 	}
 	if s.metadataStorage != nil {
-		envtesting.RemoveFakeMetadata(c, s.metadataStorage)
+		envtesting.RemoveFakeToolsMetadata(c, s.metadataStorage)
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()

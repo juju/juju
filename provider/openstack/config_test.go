@@ -369,7 +369,7 @@ var configTests = []configTest{
 		config: attrs{
 			"public-bucket-url": "http://some/url",
 		},
-		toolsURL: "http://some/url/tools",
+		toolsURL: "http://some/url/juju-dist/tools",
 	}, {
 		summary: "public bucket URL with tools URL",
 		config: attrs{

@@ -38,12 +38,12 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-// GenerateFakeMetadata puts fake tools metadata into the supplied storage,
+// GenerateFakeToolsMetadata puts fake tools metadata into the supplied storage,
 // containing a record for tools with a binary version matching version.Current;
 // if version.Current's series is different to config.DefaultSeries, matching fake
 // metadata will be included for that series.
 // This is useful for tests that are kinda casual about specifying their environment.
-func GenerateFakeMetadata(c *gc.C, stor storage.Storage) {
+func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	toolsVersion := version.Current
 	versions := []version.Binary{toolsVersion}
 	if toolsVersion.Series != config.DefaultSeries {
@@ -77,8 +77,8 @@ func GenerateFakeMetadata(c *gc.C, stor storage.Storage) {
 	}
 }
 
-// RemoveFakeMetadata deletes the fake nmetadata from the supplied storage.
-func RemoveFakeMetadata(c *gc.C, stor storage.Storage) {
+// RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
+func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	files := []string{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, envtools.ProductMetadataPath}
 	for _, file := range files {
 		path := filepath.Join("tools", file)

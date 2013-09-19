@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
-	"path"
 )
 
 var configFields = schema.Fields{
@@ -92,10 +91,6 @@ func (c *environConfig) controlBucket() string {
 	return c.attrs["control-bucket"].(string)
 }
 
-func (c *environConfig) publicBucket() string {
-	return c.attrs["public-bucket"].(string)
-}
-
 func (c *environConfig) useFloatingIP() bool {
 	return c.attrs["use-floating-ip"].(bool)
 }
@@ -148,13 +143,13 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			"Config attribute %q (%v) is deprecated.\n"+
 				"The location to find tools is now specified using the %q attribute.\n"+
 				"Your configuration should be upddated to set %q as follows\n%v: %v.",
-			"public-bucket-url", publicBucketURL, "tools-url", "tools-url", "tools-url", path.Join(publicBucketURL.(string), "tools"))
+			"public-bucket-url", publicBucketURL, "tools-url", "tools-url", "tools-url", fmt.Sprintf("%v/juju-dist/tools", publicBucketURL))
 		logger.Warningf(msg)
 
 		newAttrs := map[string]interface{}{"public-bucket-url": ""}
 		// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
 		if toolsURL := cfg.AllAttrs()["tools-url"]; toolsURL == nil || toolsURL.(string) == "" {
-			toolsURL = fmt.Sprintf("%v/tools", publicBucketURL)
+			toolsURL = fmt.Sprintf("%v/juju-dist/tools", publicBucketURL)
 			logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
 			newAttrs["tools-url"] = toolsURL
 		}

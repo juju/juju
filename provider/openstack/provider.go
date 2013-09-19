@@ -100,12 +100,10 @@ hpcloud:
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
-  # If set, tools-url specifies from where tools are fetched.
-  # tools-url:  https://you-tools-url
   # Not required if env variable OS_AUTH_URL is set
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # URL denoting a location holding the juju tools.
-  tools-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910/juju-dist/tools
+  tools-url: https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   # The following are used for userpass authentication (the default)
