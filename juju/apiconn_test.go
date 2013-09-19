@@ -109,10 +109,10 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		Addresses: []string{"foo.com"},
 		CACert:    "certificated",
 	}
-	defer setDefaultConfigStore("noconfig", &environInfo{
+	store := newConfigStore("noconfig", &environInfo{
 		creds:    creds,
 		endpoint: endpoint,
-	}).Restore()
+	})
 
 	called := 0
 	expectState := new(api.State)
@@ -126,7 +126,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		return expectState, nil
 	}
 	defer coretesting.PatchValue(juju.APIOpen, apiOpen).Restore()
-	st, err := juju.NewAPIFromName("noconfig")
+	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -135,11 +135,11 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 func (*NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	expectErr := fmt.Errorf("an error")
-	defer setDefaultConfigStore("noconfig", &environInfo{
+	store := newConfigStore("noconfig", &environInfo{
 		err: expectErr,
-	}).Restore()
+	})
 	defer coretesting.PatchValue(juju.APIOpen, panicAPIOpen).Restore()
-	client, err := juju.NewAPIClientFromName("noconfig")
+	client, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
@@ -154,14 +154,14 @@ func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 		Addresses: []string{},
 		CACert:    "certificated",
 	}
-	defer setDefaultConfigStore("noconfig", &environInfo{
+	store := newConfigStore("noconfig", &environInfo{
 		endpoint: endpoint,
-	}).Restore()
+	})
 	defer coretesting.PatchValue(juju.APIOpen, panicAPIOpen).Restore()
 
-	client, err := juju.NewAPIClientFromName("noconfig")
+	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.ErrorMatches, `environment "noconfig" not found`)
-	c.Assert(client, gc.IsNil)
+	c.Assert(st, gc.IsNil)
 }
 
 func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
@@ -169,18 +169,18 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"foo.com"},
 	}
-	defer setDefaultConfigStore("noconfig", &environInfo{
+	store := newConfigStore("noconfig", &environInfo{
 		endpoint: endpoint,
-	}).Restore()
+	})
 
 	expectErr := fmt.Errorf("an error")
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 		return nil, expectErr
 	}
 	defer coretesting.PatchValue(juju.APIOpen, apiOpen).Restore()
-	client, err := juju.NewAPIClientFromName("noconfig")
+	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.Equals, expectErr)
-	c.Assert(client, gc.IsNil)
+	c.Assert(st, gc.IsNil)
 }
 
 func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
@@ -189,9 +189,9 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
-	defer setDefaultConfigStore(coretesting.SampleEnvName, &environInfo{
+	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
 		endpoint: endpoint,
-	}).Restore()
+	})
 
 	infoOpenedState := new(api.State)
 	infoEndpointOpened := make(chan struct{})
@@ -213,7 +213,7 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer restoreAPIClose.Restore()
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromName(coretesting.SampleEnvName)
+	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)
 	c.Assert(err, gc.IsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -241,9 +241,9 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
-	defer setDefaultConfigStore(coretesting.SampleEnvName, &environInfo{
+	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
 		endpoint: endpoint,
-	}).Restore()
+	})
 
 	infoOpenedState := new(api.State)
 	infoEndpointOpened := make(chan struct{})
@@ -268,7 +268,7 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromName(coretesting.SampleEnvName)
+		st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)
 		c.Check(err, gc.IsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -311,9 +311,9 @@ func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 	endpoint := environs.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
-	defer setDefaultConfigStore(coretesting.SampleEnvName, &environInfo{
+	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
 		endpoint: endpoint,
-	}).Restore()
+	})
 
 	defer coretesting.PatchValue(juju.ProviderConnectDelay, 0*time.Second).Restore()
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
@@ -323,7 +323,7 @@ func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 		return nil, fmt.Errorf("config connect failed")
 	}
 	defer coretesting.PatchValue(juju.APIOpen, apiOpen).Restore()
-	st, err := juju.NewAPIFromName(coretesting.SampleEnvName)
+	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)
 }
@@ -353,14 +353,12 @@ func setAPIClosed() (<-chan *api.State, coretesting.Restorer) {
 	return stateClosed, coretesting.PatchValue(juju.APIClose, apiClose)
 }
 
-func setDefaultConfigStore(envName string, info *environInfo) coretesting.Restorer {
-	return coretesting.PatchValue(juju.DefaultConfigStore, func() (environs.ConfigStorage, error) {
-		return &configStorage{
-			envs: map[string]*environInfo{
-				envName: info,
-			},
-		}, nil
-	})
+func newConfigStore(envName string, info *environInfo) environs.ConfigStorage {
+	return &configStorage{
+		envs: map[string]*environInfo{
+			envName: info,
+		},
+	}
 }
 
 type environInfo struct {

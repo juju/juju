@@ -21,11 +21,8 @@ var logger = loggo.GetLogger("juju")
 // The following are variables so that they can be
 // changed by tests.
 var (
-	apiOpen            = api.Open
-	apiClose           = (*api.State).Close
-	defaultConfigStore = func() (environs.ConfigStorage, error) {
-		return configstore.NewDisk(config.JujuHomePath("environments"))
-	}
+	apiOpen              = api.Open
+	apiClose             = (*api.State).Close
 	providerConnectDelay = 2 * time.Second
 )
 
@@ -69,13 +66,24 @@ func (c *APIConn) Close() error {
 	return c.State.Close()
 }
 
-// newAPIFromName implements the bulk of NewAPIClientFromName
-// but is separate for testing purposes.
-func newAPIFromName(envName string) (*api.State, error) {
-	store, err := defaultConfigStore()
+// NewAPIClientFromName returns an api.Client connected to the API Server for
+// the named environment. If envName is "", the default environment
+// will be used.
+func NewAPIClientFromName(envName string) (*api.Client, error) {
+	store, err := configstore.NewDisk(config.JujuHomePath("environments"))
 	if err != nil {
 		return nil, err
 	}
+	st, err := newAPIFromName(envName, store)
+	if err != nil {
+		return nil, err
+	}
+	return st.Client(), nil
+}
+
+// newAPIFromName implements the bulk of NewAPIClientFromName
+// but is separate for testing purposes.
+func newAPIFromName(envName string, store environs.ConfigStorage) (*api.State, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -156,17 +164,6 @@ func newAPIFromName(envName string) (*api.State, error) {
 		return nil, cfgErr
 	}
 	return nil, infoErr
-}
-
-// NewAPIClientFromName returns an api.Client connected to the API Server for
-// the named environment. If envName is "", the default environment
-// will be used.
-func NewAPIClientFromName(envName string) (*api.Client, error) {
-	st, err := newAPIFromName(envName)
-	if err != nil {
-		return nil, err
-	}
-	return st.Client(), nil
 }
 
 type apiOpenResult struct {
