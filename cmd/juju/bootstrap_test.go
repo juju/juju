@@ -328,14 +328,14 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	checkTools(c, env, v120All)
 }
 
-func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers string) environs.Environ {
+func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
 	uploadTools = mockUploadTools
-	s.AddCleanup(func(_ *gc.C) { uploadTools = sync.Upload })
+	s.AddCleanup(func(*gc.C) { uploadTools = sync.Upload })
 
 	// Prepare a mock storage for testing and store the
 	// dummy tools in there.
 	restore := createToolsStore(c)
-	s.AddCleanup(func(_ *gc.C) { restore() })
+	s.AddCleanup(func(*gc.C) { restore() })
 
 	// Change the tools location to be the test location and also
 	// the version and ensure their later restoring.
@@ -343,30 +343,33 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers string) environs.Envi
 	// so we can test that an upload is forced.
 	origVersion := version.Current
 	version.Current.Number = version.MustParse(vers)
-	s.AddCleanup(func(_ *gc.C) { version.Current = origVersion })
+	version.Current.Series = series
+	s.AddCleanup(func(*gc.C) { version.Current = origVersion })
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	env, fake := makeEmptyFakeHome(c)
-	s.AddCleanup(func(_ *gc.C) { fake.Restore() })
+	s.AddCleanup(func(*gc.C) { fake.Restore() })
 	return env
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	env := s.setupAutoUploadTest(c, "1.7.3")
+	otherSeries := "precise"
+	if otherSeries == version.CurrentSeries() {
+		otherSeries = "raring"
+	}
+	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
 	opc, errc := runCommand(nil, new(BootstrapCommand))
-	if !c.Check(<-errc, gc.IsNil) {
-		return
-	}
-	c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
+	c.Assert(<-errc, gc.IsNil)
+	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	c.Check(urls, gc.HasLen, 2)
+	c.Assert(urls, gc.HasLen, 2)
 	expectedVers := []version.Binary{
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-precise-%s", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.CurrentSeries(), version.CurrentArch())),
 	}
 	for _, vers := range expectedVers {
@@ -377,20 +380,20 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3")
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	_, errc := runCommand(nil, new(BootstrapCommand))
 	err := <-errc
-	c.Check(err, gc.ErrorMatches, "no matching tools available")
+	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3")
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	context := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
-	c.Check(code, gc.Equals, 1)
+	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
-	c.Check(errText, gc.Matches, ".*You may want to use the 'tools-url'.*")
+	c.Assert(errText, gc.Matches, ".*You may want to use the 'tools-url'.*")
 }
 
 func uploadToolsAlwaysFails(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
@@ -398,14 +401,14 @@ func uploadToolsAlwaysFails(stor storage.Storage, forceVersion *version.Number, 
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.7.3")
+	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	uploadTools = uploadToolsAlwaysFails
 	context := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
-	c.Check(code, gc.Equals, 1)
+	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
-	c.Check(errText, gc.Matches, ".*An attempt was made to build and upload.*")
+	c.Assert(errText, gc.Matches, ".*An attempt was made to build and upload.*")
 }
 
 // createToolsStore creates the fake tools store.
