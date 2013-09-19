@@ -47,3 +47,8 @@ func (s *CleanupSuite) AddCleanup(cleanup CleanupFunc) {
 func (s *CleanupSuite) AddSuiteCleanup(cleanup CleanupFunc) {
 	s.suiteStack = append(s.suiteStack, cleanup)
 }
+
+func (s *CleanupSuite) PatchEnvironment(name, value string) {
+	restore := PatchEnvironment(name, value)
+	s.AddCleanup(func(*gc.C) { restore() })
+}
