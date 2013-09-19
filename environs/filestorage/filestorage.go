@@ -141,7 +141,7 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 		return err
 	}
 	// Write to a temporary file first, and then move (atomically).
-	file, err := ioutil.TempFile(tmpdir, "juju-filestorage-"+name)
+	file, err := ioutil.TempFile(tmpdir, "juju-filestorage-")
 	if err != nil {
 		return err
 	}

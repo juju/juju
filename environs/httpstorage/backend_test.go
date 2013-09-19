@@ -36,7 +36,7 @@ var _ = gc.Suite(&backendSuite{})
 // a base URL for the server and the directory path.
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir)
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	listener, err = httpstorage.Serve("localhost:0", embedded)
 	c.Assert(err, gc.IsNil)

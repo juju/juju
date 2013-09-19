@@ -28,7 +28,7 @@ import (
 // directory.
 func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	dataDir = c.MkDir()
-	underlying, err := filestorage.NewFileStorageWriter(dataDir)
+	underlying, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	listener, err := httpstorage.Serve("localhost:0", underlying)
 	c.Assert(err, gc.IsNil)

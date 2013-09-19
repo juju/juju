@@ -166,7 +166,7 @@ func createLocalStorageListener(dir, address string) (net.Listener, error) {
 	} else if !info.Mode().IsDir() {
 		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
 	}
-	storage, err := filestorage.NewFileStorageWriter(dir)
+	storage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	if err != nil {
 		return nil, err
 	}
