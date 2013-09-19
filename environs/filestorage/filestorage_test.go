@@ -39,7 +39,7 @@ func (s *filestorageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.reader, err = filestorage.NewFileStorageReader(s.dir)
 	c.Assert(err, gc.IsNil)
-	s.writer, err = filestorage.NewFileStorageWriter(s.dir)
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -134,4 +134,36 @@ func (s *filestorageSuite) TestRemoveAll(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = ioutil.ReadFile(expectedpath)
 	c.Assert(err, gc.Not(gc.IsNil))
+}
+
+func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
+	// Put should create and clean up the temporary directory if
+	// tmpdir==UseDefaultTmpDir.
+	err := s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// To deal with recovering from hard failure, UseDefaultTmpDir
+	// doesn't care if the temporary directory already exists. It
+	// still removes it, though.
+	err = os.Mkdir(s.dir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// If we explicitly set the temporary directory, it must already exist.
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, s.dir+".tmp")
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	err = os.Mkdir(s.dir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	// Temporary directory should not have been moved.
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, gc.IsNil)
 }

@@ -23,7 +23,7 @@ type fileStorageReader struct {
 	path string
 }
 
-// newFileStorageReader returns a new storage reader for
+// NewFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
 func NewFileStorageReader(path string) (storage.StorageReader, error) {
 	p := filepath.Clean(path)
@@ -98,27 +98,60 @@ func (f *fileStorageReader) ShouldRetry(err error) bool {
 
 type fileStorageWriter struct {
 	fileStorageReader
+	tmpdir string
 }
 
-func NewFileStorageWriter(path string) (storage.Storage, error) {
+// UseDefaultTmpDir may be passed into NewFileStorageWriter
+// for the tmpdir argument, to signify that the default
+// value should be used. See NewFileStorageWriter for more.
+const UseDefaultTmpDir = ""
+
+// NewFileStorageWriter returns a new read/write storag for
+// a directory inside the local file system.
+//
+// A temporary directory may be specified, in which files will be written
+// to before moving to the final destination. If specified, the temporary
+// directory should be on the same filesystem as the storage directory
+// to ensure atomicity. If tmpdir == UseDefaultTmpDir (""), then path+".tmp"
+// will be used.
+//
+// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
+// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
+// already exist, and will never be removed.
+func NewFileStorageWriter(path, tmpdir string) (storage.Storage, error) {
 	reader, err := NewFileStorageReader(path)
 	if err != nil {
 		return nil, err
 	}
-	return &fileStorageWriter{*reader.(*fileStorageReader)}, nil
+	return &fileStorageWriter{*reader.(*fileStorageReader), tmpdir}, nil
 }
 
 func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 	fullpath := f.fullPath(name)
 	dir := filepath.Dir(fullpath)
+	tmpdir := f.tmpdir
+	if tmpdir == UseDefaultTmpDir {
+		tmpdir = f.path + ".tmp"
+		if err := os.MkdirAll(tmpdir, 0755); err != nil && !os.IsExist(err) {
+			return err
+		}
+		defer os.Remove(tmpdir)
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
 		return err
 	}
-	data, err := ioutil.ReadAll(r)
+	// Write to a temporary file first, and then move (atomically).
+	file, err := ioutil.TempFile(tmpdir, "juju-filestorage-")
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(fullpath, data, 0644)
+	_, err = io.CopyN(file, r, length)
+	file.Close()
+	if err != nil {
+		os.Remove(file.Name())
+		return err
+	}
+	return os.Rename(file.Name(), fullpath)
 }
 
 func (f *fileStorageWriter) Remove(name string) error {
