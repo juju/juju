@@ -1,7 +1,15 @@
 #!/bin/bash
 
-# release-public-tools consumes the release dpkg and uploads
-# a matching set of tools to the juju-dist public bucket.
+# release-public-tools consumes a url representing a .deb which contains
+# the juju tools -- /usr/bin/jujud.
+#
+# An attempt to deduce tools version and target series from the url is made, but
+# if unsucessful SERIES and VERSION can be supplied as environment variables.
+# 
+# SERIES=precise VERSION=1.15.0 bash release-public-tools.sh $URL
+#
+# Please use with care
+
 
 set -e
 
@@ -20,13 +28,15 @@ WORK=$(mktemp -d)
 curl -L -o ${WORK}/juju.deb ${SRC}
 mkdir ${WORK}/juju
 dpkg-deb -e ${WORK}/juju.deb ${WORK}/juju
-VERSION=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\1.\2.\3/p' ${WORK}/juju/control)
+version=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\1.\2.\3/p' ${WORK}/juju/control)
+VERSION=${VERSION:-${version}}
 if [ "${VERSION}" == "" ] ; then
 	echo "cannot extract deb version"
 	exit 2
 fi
 
-SERIES=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\5/p' ${WORK}/juju/control)
+series=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\5/p' ${WORK}/juju/control)
+SERIES=${SERIES:-${series}}
 case "${SERIES}" in 
 	"precise" | "quantal" | "raring" | "saucy" )
 		;;

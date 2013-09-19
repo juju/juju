@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -228,8 +229,8 @@ type environ struct {
 	ecfgUnlocked          *environConfig
 	client                client.AuthenticatingClient
 	novaUnlocked          *nova.Client
-	storageUnlocked       environs.Storage
-	publicStorageUnlocked environs.StorageReader // optional.
+	storageUnlocked       storage.Storage
+	publicStorageUnlocked storage.StorageReader // optional.
 	// An ordered list of sources in which to find the simplestreams index files used to
 	// look up image ids.
 	imageSources []simplestreams.DataSource
@@ -412,11 +413,11 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() environs.Storage {
+func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
-	storage := e.storageUnlocked
+	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
-	return storage
+	return stor
 }
 
 // publicBucketURL gets the public bucket URL, either from env or keystone catalog.
@@ -437,7 +438,7 @@ func (e *environ) publicBucketURL() string {
 	return publicBucketURL
 }
 
-func (e *environ) PublicStorage() environs.StorageReader {
+func (e *environ) PublicStorage() storage.StorageReader {
 	e.publicStorageMutex.Lock()
 	defer e.publicStorageMutex.Unlock()
 	ecfg := e.ecfg()
@@ -455,7 +456,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	// otherwise create a new public bucket using the user's credentials on the authenticated client.
 	publicBucketURL := e.publicBucketURL()
 	if publicBucketURL == "" {
-		e.publicStorageUnlocked = &storage{
+		e.publicStorageUnlocked = &openstackstorage{
 			containerName: ecfg.publicBucket(),
 			// this is possibly just a hack - if the ACL is swift.Private,
 			// the machine won't be able to get the tools (401 error)
@@ -463,7 +464,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 			swift:        swift.New(e.client)}
 	} else {
 		pc := client.NewPublicClient(publicBucketURL, nil)
-		e.publicStorageUnlocked = &storage{
+		e.publicStorageUnlocked = &openstackstorage{
 			containerName: ecfg.publicBucket(),
 			containerACL:  swift.PublicRead,
 			swift:         swift.New(pc)}
@@ -534,7 +535,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	// public storage instance creation is deferred until needed since authenticated
 	// access to the identity service is required so that any juju-tools endpoint can be used.
-	e.storageUnlocked = &storage{
+	e.storageUnlocked = &openstackstorage{
 		containerName: ecfg.controlBucket(),
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
@@ -559,9 +560,9 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
+	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
 	// Add the simplestreams source off the public bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
+	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
@@ -585,7 +586,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath))
+	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {

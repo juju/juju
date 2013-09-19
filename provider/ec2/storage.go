@@ -4,30 +4,33 @@
 package ec2
 
 import (
-	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
-	"sort"
-	"strings"
+	"net"
 	"sync"
 	"time"
 
 	"launchpad.net/goamz/s3"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
-func NewStorage(bucket *s3.Bucket) environs.Storage {
-	return &storage{bucket: bucket}
+func init() {
+	// We will decide when to retry and under what circumstances, not s3.
+	// Sometimes it is expected a file may not exist and we don't want s3
+	// to hold things up by unilaterally deciding to retry for no good reason.
+	s3.RetryAttempts(false)
 }
 
-// storage implements environs.Storage on
+func NewStorage(bucket *s3.Bucket) storage.Storage {
+	return &ec2storage{bucket: bucket}
+}
+
+// ec2storage implements storage.Storage on
 // an ec2.bucket.
-type storage struct {
+type ec2storage struct {
 	sync.Mutex
 	madeBucket bool
 	bucket     *s3.Bucket
@@ -37,7 +40,7 @@ type storage struct {
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *storage) makeBucket() error {
+func (s *ec2storage) makeBucket() error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeBucket {
@@ -54,7 +57,7 @@ func (s *storage) makeBucket() error {
 	return nil
 }
 
-func (s *storage) Put(file string, r io.Reader, length int64) error {
+func (s *ec2storage) Put(file string, r io.Reader, length int64) error {
 	if err := s.makeBucket(); err != nil {
 		return fmt.Errorf("cannot make S3 control bucket: %v", err)
 	}
@@ -65,17 +68,12 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	for a := s.ConsistencyStrategy().Start(); a.Next(); {
-		r, err = s.bucket.GetReader(file)
-		if s3ErrorStatusCode(err) != 404 {
-			break
-		}
-	}
+func (s *ec2storage) Get(file string) (r io.ReadCloser, err error) {
+	r, err = s.bucket.GetReader(file)
 	return r, maybeNotFound(err)
 }
 
-func (s *storage) URL(name string) (string, error) {
+func (s *ec2storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
 	return s.bucket.SignedURL(name, time.Now().AddDate(10, 0, 0)), nil
 }
@@ -86,8 +84,37 @@ var storageAttempt = utils.AttemptStrategy{
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *ec2storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (s *ec2storage) ShouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch err {
+	case io.ErrUnexpectedEOF, io.EOF:
+		return true
+	}
+	if s3ErrorStatusCode(err) == 404 {
+		return true
+	}
+	switch e := err.(type) {
+	case *net.DNSError:
+		return true
+	case *net.OpError:
+		switch e.Op {
+		case "read", "write":
+			return true
+		}
+	case *s3.Error:
+		switch e.Code {
+		case "InternalError":
+			return true
+		}
+	}
+	return false
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
@@ -107,7 +134,7 @@ func s3ErrCode(err error) string {
 	return ""
 }
 
-func (s *storage) Remove(file string) error {
+func (s *ec2storage) Remove(file string) error {
 	err := s.bucket.Del(file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
@@ -117,7 +144,7 @@ func (s *storage) Remove(file string) error {
 	return err
 }
 
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *ec2storage) List(prefix string) ([]string, error) {
 	// TODO cope with more than 1000 objects in the bucket.
 	resp, err := s.bucket.List(prefix, "", "", 0)
 	if err != nil {
@@ -136,8 +163,8 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-func (s *storage) RemoveAll() error {
-	names, err := s.List("")
+func (s *ec2storage) RemoveAll() error {
+	names, err := storage.List(s, "")
 	if err != nil {
 		return err
 	}
@@ -169,9 +196,20 @@ func (s *storage) RemoveAll() error {
 	// Even DelBucket fails, it won't harm if we try again - the operation
 	// might have succeeded even if we get an error.
 	s.madeBucket = false
+	err = deleteBucket(s)
 	err = s.bucket.DelBucket()
 	if s3ErrorStatusCode(err) == 404 {
 		return nil
+	}
+	return err
+}
+
+func deleteBucket(s *ec2storage) (err error) {
+	for a := s.DefaultConsistencyStrategy().Start(); a.Next(); {
+		err = s.bucket.DelBucket()
+		if err == nil || !s.ShouldRetry(err) {
+			break
+		}
 	}
 	return err
 }
@@ -181,88 +219,4 @@ func maybeNotFound(err error) error {
 		return errors.NewNotFoundError(err, "")
 	}
 	return err
-}
-
-// listBucketResult is the top level XML element of the storage index.
-// We only need the contents.
-type listBucketResult struct {
-	Contents []*contents
-}
-
-// contents describes one entry of the storage index.
-type contents struct {
-	Key string
-}
-
-// httpStorageReader implements the environs.StorageReader interface
-// to access an EC2 storage via HTTP.
-type httpStorageReader struct {
-	url string
-}
-
-// NewHTTPStorageReader creates a storage reader for the HTTP
-// access to an EC2 storage like the juju-dist storage.
-func NewHTTPStorageReader(url string) environs.StorageReader {
-	return &httpStorageReader{url}
-}
-
-// Get implements environs.StorageReader.Get.
-func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
-	nameURL, err := h.URL(name)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.Get(nameURL)
-	if err != nil || resp.StatusCode == http.StatusNotFound {
-		return nil, errors.NewNotFoundError(err, "")
-	}
-	return resp.Body, nil
-}
-
-// List implements environs.StorageReader.List.
-func (h *httpStorageReader) List(prefix string) ([]string, error) {
-	lbr, err := h.getListBucketResult()
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, c := range lbr.Contents {
-		if strings.HasPrefix(c.Key, prefix) {
-			names = append(names, c.Key)
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-// URL implements environs.StorageReader.URL.
-func (h *httpStorageReader) URL(name string) (string, error) {
-	if strings.HasSuffix(h.url, "/") {
-		return h.url + name, nil
-	}
-	return h.url + "/" + name, nil
-}
-
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (s *httpStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
-	return storageAttempt
-}
-
-// getListBucketResult retrieves the index of the storage,
-func (h *httpStorageReader) getListBucketResult() (*listBucketResult, error) {
-	resp, err := http.Get(h.url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var lbr listBucketResult
-	err = xml.Unmarshal(buf, &lbr)
-	if err != nil {
-		return nil, err
-	}
-	return &lbr, nil
 }

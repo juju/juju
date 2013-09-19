@@ -5,7 +5,8 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -40,7 +41,12 @@ func (s *storageWorker) waitForDeath() error {
 	storageAddr := s.config.Value(agent.StorageAddr)
 	logger.Infof("serving %s on %s", storageDir, storageAddr)
 
-	storageListener, err := localstorage.Serve(storageAddr, storageDir)
+	storage, err := filestorage.NewFileStorageWriter(storageDir)
+	if err != nil {
+		logger.Errorf("error with local storage: %v", err)
+		return err
+	}
+	storageListener, err := httpstorage.Serve(storageAddr, storage)
 	if err != nil {
 		logger.Errorf("error with local storage: %v", err)
 		return err
@@ -51,7 +57,12 @@ func (s *storageWorker) waitForDeath() error {
 	sharedStorageAddr := s.config.Value(agent.SharedStorageAddr)
 	logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
 
-	sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)
+	sharedStorage, err := filestorage.NewFileStorageWriter(sharedStorageDir)
+	if err != nil {
+		logger.Errorf("error with local storage: %v", err)
+		return err
+	}
+	sharedStorageListener, err := httpstorage.Serve(sharedStorageAddr, sharedStorage)
 	if err != nil {
 		logger.Errorf("error with local storage: %v", err)
 		return err
