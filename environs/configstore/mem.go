@@ -12,13 +12,13 @@ import (
 )
 
 type memStore struct {
-	mu sync.Mutex
-	envs map[string] *memInfo
+	mu   sync.Mutex
+	envs map[string]*memInfo
 }
 
 type memInfo struct {
 	store *memStore
-	name string
+	name  string
 	environInfo
 }
 
@@ -33,8 +33,10 @@ func (info *memInfo) clone() *memInfo {
 
 // NewMem returns a ConfigStorage implementation that
 // stores configuration in memory.
-func NewMem(dir string) environs.ConfigStorage {
-	return &memStore{}
+func NewMem() environs.ConfigStorage {
+	return &memStore{
+		envs: make(map[string]*memInfo),
+	}
 }
 
 // CreateInfo implements environs.ConfigStorage.CreateInfo.
@@ -46,7 +48,7 @@ func (m *memStore) CreateInfo(envName string) (environs.EnvironInfo, error) {
 	}
 	info := &memInfo{
 		store: m,
-		name: envName,
+		name:  envName,
 	}
 	m.envs[envName] = info.clone()
 	return info, nil
