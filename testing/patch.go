@@ -1,4 +1,4 @@
-package checkers
+package testing
 
 import (
 	"reflect"
@@ -13,12 +13,10 @@ func (r Restorer) Restore() {
 	r()
 }
 
-// Set sets the value pointed to by the given
-// destination to the given value, and returns
-// a function to restore it to its original value.
-// The value must be assignable to the element
-// type of the destination.
-func Set(dest, value interface{}) Restorer {
+// PatchValue sets the value pointed to by the given destination to the given
+// value, and returns a function to restore it to its original value.  The
+// value must be assignable to the element type of the destination.
+func PatchValue(dest, value interface{}) Restorer {
 	destv := reflect.ValueOf(dest).Elem()
 	oldv := reflect.New(destv.Type()).Elem()
 	oldv.Set(destv)
