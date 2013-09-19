@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -304,15 +305,9 @@ func (s *provisionerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	assertStatus := func(index int, expectStatus params.Status, expectInfo string) {
-		status, info, err := s.machines[index].Status()
-		c.Assert(err, gc.IsNil)
-		c.Assert(status, gc.Equals, expectStatus)
-		c.Assert(info, gc.Equals, expectInfo)
-	}
-	assertStatus(0, params.StatusError, "not really")
-	assertStatus(1, params.StatusStopped, "foobar")
-	assertStatus(2, params.StatusStarted, "again")
+	s.assertStatus(c, 0, params.StatusError, "not really")
+	s.assertStatus(c, 1, params.StatusStopped, "foobar")
+	s.assertStatus(c, 2, params.StatusStarted, "again")
 }
 
 func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
@@ -355,6 +350,13 @@ func (s *provisionerSuite) assertLife(c *gc.C, index int, expectLife state.Life)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 
+func (s *provisionerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string) {
+	status, info, err := s.machines[index].Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, expectStatus)
+	c.Assert(info, gc.Equals, expectInfo)
+}
+
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -390,4 +392,232 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc0.AssertNoChange()
 	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
 	wc1.AssertNoChange()
+}
+
+func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	result, err := s.provisioner.WatchForEnvironConfigChanges()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
+		NotifyWatcherId: "1",
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Config, gc.DeepEquals, params.Config(envConfig.AllAttrs()))
+}
+
+func (s *provisionerSuite) TestStatus(c *gc.C) {
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah")
+	c.Assert(err, gc.IsNil)
+	err = s.machines[1].SetStatus(params.StatusStopped, "foo")
+	c.Assert(err, gc.IsNil)
+	err = s.machines[2].SetStatus(params.StatusError, "not really")
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[1].Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.Status(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Status: params.StatusStarted, Info: "blah"},
+			{Status: params.StatusStopped, Info: "foo"},
+			{Status: params.StatusError, Info: "not really"},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestSeries(c *gc.C) {
+	// Add a machine with different series.
+	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: foobarMachine.Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.Series(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: s.machines[0].Series()},
+			{Result: foobarMachine.Series()},
+			{Result: s.machines[2].Series()},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestConstraints(c *gc.C) {
+	// Add a machine with some constraints.
+	machineParams := state.AddMachineParams{
+		Series:      "series",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: constraints.MustParse("cpu-cores=123", "mem=8G"),
+	}
+	consMachine, err := s.State.AddMachineWithConstraints(&machineParams)
+	c.Assert(err, gc.IsNil)
+
+	machine0Constraints, err := s.machines[0].Constraints()
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: consMachine.Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.Constraints(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ConstraintsResults{
+		Results: []params.ConstraintsResult{
+			{Constraints: machine0Constraints},
+			{Constraints: machineParams.Constraints},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestSetProvisioned(c *gc.C) {
+	// Provision machine 0 first.
+	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", &hwChars)
+	c.Assert(err, gc.IsNil)
+
+	args := params.SetProvisioned{Machines: []params.MachineSetProvisioned{
+		{Tag: s.machines[0].Tag(), InstanceId: "i-was", Nonce: "fake_nonce", Characteristics: nil},
+		{Tag: s.machines[1].Tag(), InstanceId: "i-will", Nonce: "fake_nonce", Characteristics: &hwChars},
+		{Tag: s.machines[2].Tag(), InstanceId: "i-am-too", Nonce: "fake", Characteristics: nil},
+		{Tag: "machine-42", InstanceId: "", Nonce: "", Characteristics: nil},
+		{Tag: "unit-foo-0", InstanceId: "", Nonce: "", Characteristics: nil},
+		{Tag: "service-bar", InstanceId: "", Nonce: "", Characteristics: nil},
+	}}
+	result, err := s.provisioner.SetProvisioned(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{&params.Error{
+				Message: `cannot set instance data for machine "0": already set`,
+			}},
+			{nil},
+			{nil},
+			{apiservertesting.NotFoundError("machine 42")},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify machine 1 and 2 were provisioned.
+	c.Assert(s.machines[1].Refresh(), gc.IsNil)
+	c.Assert(s.machines[2].Refresh(), gc.IsNil)
+
+	instanceId, err := s.machines[1].InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Check(instanceId, gc.Equals, instance.Id("i-will"))
+	instanceId, err = s.machines[2].InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Check(instanceId, gc.Equals, instance.Id("i-am-too"))
+	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
+	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
+	gotHardware, err := s.machines[1].HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Check(gotHardware, gc.DeepEquals, &hwChars)
+}
+
+func (s *provisionerSuite) TestInstanceId(c *gc.C) {
+	// Provision 2 machines first.
+	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", &hwChars)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[1].Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.InstanceId(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: "i-am"},
+			{Result: "i-am-not"},
+			{Error: apiservertesting.NotProvisionedError("2")},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	result, err := s.provisioner.WatchEnvironMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          []string{"0", "1", "2"},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	// Make sure WatchEnvironMachines fails with a machine agent login.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.Manager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	result, err = aProvisioner.WatchEnvironMachines()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }

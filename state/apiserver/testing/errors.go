@@ -18,3 +18,10 @@ func NotFoundError(prefixMessage string) *params.Error {
 		Code:    params.CodeNotFound,
 	}
 }
+
+func NotProvisionedError(machineId string) *params.Error {
+	return &params.Error{
+		Message: "machine " + machineId + " is not provisioned",
+		Code:    params.CodeNotProvisioned,
+	}
+}
