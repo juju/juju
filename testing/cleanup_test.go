@@ -38,7 +38,8 @@ func (s *cleanupSuite) TestAddSuiteCleanup(c *gc.C) {
 	s.TearDownSuite(c)
 	c.Assert(order, gc.DeepEquals, []string{"second", "first"})
 
-	// and to avoid calling them twice, clear out the stack.
+	// SetUpSuite resets the cleanup stack, this stops the cleanup functions
+	// being called again.
 	s.SetUpSuite(c)
 }
 
@@ -54,7 +55,8 @@ func (s *cleanupSuite) TestAddCleanup(c *gc.C) {
 	s.TearDownTest(c)
 	c.Assert(order, gc.DeepEquals, []string{"second", "first"})
 
-	// and to avoid calling them twice, clear out the stack.
+	// SetUpTest resets the cleanup stack, this stops the cleanup functions
+	// being called again.
 	s.SetUpTest(c)
 }
 
@@ -71,7 +73,8 @@ func (s *cleanupSuite) TestPatchEnvironment(c *gc.C) {
 	s.TearDownTest(c)
 	c.Check(os.Getenv(envName), gc.Equals, "initial")
 
-	// and to avoid calling them twice, clear out the stack
+	// SetUpTest resets the cleanup stack, this stops the cleanup functions
+	// being called again.
 	s.SetUpTest(c)
 	// explicitly return the envName to the old value
 	os.Setenv(envName, oldValue)
@@ -85,7 +88,8 @@ func (s *cleanupSuite) TestPatchValueInt(c *gc.C) {
 	s.TearDownTest(c)
 	c.Assert(i, gc.Equals, 42)
 
-	// and to avoid calling them twice, clear out the stack
+	// SetUpTest resets the cleanup stack, this stops the cleanup functions
+	// being called again.
 	s.SetUpTest(c)
 }
 
@@ -102,6 +106,7 @@ func (s *cleanupSuite) TestPatchValueFunction(c *gc.C) {
 	s.TearDownTest(c)
 	c.Assert(function(), gc.Equals, "original")
 
-	// and to avoid calling them twice, clear out the stack
+	// SetUpTest resets the cleanup stack, this stops the cleanup functions
+	// being called again.
 	s.SetUpTest(c)
 }
