@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -100,8 +101,9 @@ func (env *localEnviron) ensureCertOwner() error {
 func (env *localEnviron) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.
-	if cons.Container != nil {
-		return errors.New("local provider does not support nested containers")
+	if cons.Container != nil && *cons.Container != instance.NONE {
+		err := errors.New("local provider does not support nested containers")
+		return coreerrors.NewContainersUnsupported(err, "")
 	}
 	return nil
 }

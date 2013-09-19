@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -311,8 +312,9 @@ func (e *environ) s3() *s3.S3 {
 func (e *environ) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
-	if cons.Container != nil {
-		return errors.New("ec2 provider does not support containers")
+	if cons.Container != nil && *cons.Container != instance.NONE {
+		err := errors.New("ec2 provider does not support containers")
+		return coreerrors.NewContainersUnsupported(err, "")
 	}
 	return nil
 }

@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -412,8 +413,9 @@ func (e *environ) nova() *nova.Client {
 func (e *environ) Preflight(inst instance.Instance, series string, cons constraints.Value) error {
 	// This check can either go away or be relaxed when the openstack
 	// provider manages container addressibility.
-	if cons.Container != nil {
-		return errors.New("openstack provider does not support containers")
+	if cons.Container != nil && *cons.Container != instance.NONE {
+		err := errors.New("openstack provider does not support containers")
+		return coreerrors.NewContainersUnsupported(err, "")
 	}
 	return nil
 }

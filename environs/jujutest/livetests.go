@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -138,18 +139,25 @@ func (t *LiveTests) TestPreflighter(c *gc.C) {
 		return
 	}
 
+	// No container should always pass.
 	const series = "precise"
-
 	var cons constraints.Value
 	c.Check(preflighter.Preflight(nil, series, cons), gc.IsNil)
 
-	container := instance.LXC
+	// Container==instance.NONE should always pass.
+	// This is logically equivalent to the above.
+	container := instance.NONE
+	cons.Container = &container
+	c.Check(preflighter.Preflight(nil, series, cons), gc.IsNil)
+
+	container = instance.LXC
 	cons.Container = &container
 	err := preflighter.Preflight(nil, series, cons)
 	// If err is nil, that is fine, some providers support containers.
 	if err != nil {
 		// But for ones that don't, they should have a standard error format.
 		c.Check(err, gc.ErrorMatches, ".*provider does not support containers")
+		c.Check(err, jc.Satisfies, coreerrors.IsContainersUnsupported)
 	}
 }
 
