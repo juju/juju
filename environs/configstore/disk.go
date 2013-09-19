@@ -20,11 +20,11 @@ type diskStore struct {
 }
 
 type environInfo struct {
-	path string
-	User string
-	Password string
-	StateServers []string	`yaml:"state-servers"`
-	CACert string	`yaml:"ca-cert"`
+	path         string
+	User         string
+	Password     string
+	StateServers []string `yaml:"state-servers"`
+	CACert       string   `yaml:"ca-cert"`
 }
 
 // NewDisk returns a ConfigStorage implementation that
@@ -85,7 +85,7 @@ func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 // APICredentials implements environs.EnvironInfo.APICredentials.
 func (info *environInfo) APICredentials() environs.APICredentials {
 	return environs.APICredentials{
-		User: info.User,
+		User:     info.User,
 		Password: info.Password,
 	}
 }
@@ -94,7 +94,7 @@ func (info *environInfo) APICredentials() environs.APICredentials {
 func (info *environInfo) APIEndpoint() environs.APIEndpoint {
 	return environs.APIEndpoint{
 		Addresses: info.StateServers,
-		CACert: info.CACert,
+		CACert:    info.CACert,
 	}
 }
 
@@ -133,5 +133,9 @@ func (info *environInfo) Write() error {
 }
 
 func (info *environInfo) Destroy() error {
-	return os.Remove(info.path)
+	err := os.Remove(info.path)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("environment info has already been removed")
+	}
+	return err
 }

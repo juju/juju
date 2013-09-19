@@ -98,6 +98,8 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 }
 
 func (*diskStoreSuite) TestWrite(c *gc.C) {
+	// Also tests SetAPIEndpoint and SetAPICredentials.
+
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
@@ -108,7 +110,7 @@ func (*diskStoreSuite) TestWrite(c *gc.C) {
 
 	// Set it up with some actual data and write it out.
 	expectCreds := environs.APICredentials{
-		User: "foobie",
+		User:     "foobie",
 		Password: "bletch",
 	}
 	info.SetAPICredentials(expectCreds)
@@ -162,6 +164,10 @@ func (*diskStoreSuite) TestWriteTempFileFails(c *gc.C) {
 
 	err = info.Write()
 	c.Assert(err, gc.ErrorMatches, "cannot create temporary file: .*")
+
+	// Make the directory writable again so that gocheck can clean it up.
+	err = os.Chmod(dir, 0777)
+	c.Assert(err, gc.IsNil)
 }
 
 func (*diskStoreSuite) TestRenameFails(c *gc.C) {
@@ -172,10 +178,34 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
 
-	// Make the file non-writable
-	err = os.Chmod(filepath.Join(dir, "someenv.yaml"), 0444)
+	// Replace the file by an directory which can't be renamed over.
+	path := filepath.Join(dir, "someenv.yaml")
+	err = os.Remove(path)
+	c.Assert(err, gc.IsNil)
+	err = os.Mkdir(path, 0777)
 	c.Assert(err, gc.IsNil)
 
 	err = info.Write()
 	c.Assert(err, gc.ErrorMatches, "cannot rename new environment info file: .*")
+}
+
+func (*diskStoreSuite) TestDestroy(c *gc.C) {
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
+
+	info, err := store.CreateInfo("someenv")
+	c.Assert(err, gc.IsNil)
+
+	_, err = os.Stat(filepath.Join(dir, "someenv.yaml"))
+	c.Assert(err, gc.IsNil)
+
+	err = info.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	_, err = os.Stat(filepath.Join(dir, "someenv.yaml"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	err = info.Destroy()
+	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
 }
