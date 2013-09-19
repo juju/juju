@@ -33,8 +33,8 @@ func (info *memInfo) clone() *memInfo {
 
 // NewMem returns a ConfigStorage implementation that
 // stores configuration in memory.
-func NewMem(dir string) (environs.ConfigStorage, error) {
-	return &memStore{}, nil
+func NewMem(dir string) environs.ConfigStorage {
+	return &memStore{}
 }
 
 // CreateInfo implements environs.ConfigStorage.CreateInfo.
