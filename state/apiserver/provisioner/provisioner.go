@@ -84,6 +84,8 @@ func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag string) (*sta
 	if err != nil {
 		return nil, err
 	}
+	// The authorization function guarantees that the tag represents a
+	// machine.
 	return entity.(*state.Machine), nil
 }
 
@@ -141,7 +143,7 @@ func (p *ProvisionerAPI) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = p.resources.Register(watch)
 	} else {
-		result.Error = common.ServerError(watcher.MustErr(watch))
+		return result, watcher.MustErr(watch)
 	}
 	return result, nil
 }
@@ -170,7 +172,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
 			var status params.Status
-			info := ""
+			var info string
 			status, info, err = machine.Status()
 			if err == nil {
 				result.Results[i].Status = status
@@ -225,8 +227,8 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 }
 
 // SetProvisioned sets the provider specific machine id, nonce and
-// also metadata for each given machine. Once set, the instance id
-// cannot be changed.
+// metadata for each given machine. Once set, the instance id cannot
+// be changed.
 func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
@@ -274,15 +276,17 @@ func (p *ProvisionerAPI) InstanceId(args params.Entities) (params.StringResults,
 // the current environment.
 func (p *ProvisionerAPI) WatchEnvironMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
+	if !p.authorizer.AuthEnvironManager() {
+		return result, common.ErrPerm
+	}
 	watch := p.st.WatchEnvironMachines()
-	var err error
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = p.resources.Register(watch)
 		result.Changes = changes
 	} else {
-		err = fmt.Errorf("cannot obtain initial environment machines")
+		err := watcher.MustErr(watch)
+		return result, fmt.Errorf("cannot obtain initial environment machines: %v", err)
 	}
-	result.Error = common.ServerError(err)
 	return result, nil
 }

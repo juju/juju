@@ -601,10 +601,8 @@ func (e *notProvisionedError) Error() string {
 
 // IsNotProvisionedError returns true if err is a notProvisionedError.
 func IsNotProvisionedError(err error) bool {
-	if _, ok := err.(*notProvisionedError); ok {
-		return true
-	}
-	return false
+	_, ok := err.(*notProvisionedError)
+	return ok
 }
 
 // Addresses returns any hostnames and ips associated with a machine
