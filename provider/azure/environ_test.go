@@ -703,8 +703,7 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 }
 
 func (s *environSuite) setServiceDeletionConcurrency(nbGoroutines int) {
-	restore := jc.Set(&maxConcurrentDeletes, nbGoroutines)
-	s.AddCleanup(func(*gc.C) { restore() })
+	s.PatchValue(&maxConcurrentDeletes, nbGoroutines)
 }
 
 func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {

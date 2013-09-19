@@ -24,9 +24,8 @@ type LogSuite struct {
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
-	restore := testing.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
 	s.AddCleanup(func(_ *gc.C) {
-		restore()
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
 	})
