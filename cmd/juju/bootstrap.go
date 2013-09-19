@@ -128,7 +128,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		}
 		// Synchronization done, try again.
 		_, err = tools.FindBootstrapTools(
-			env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development(), true)
+			env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development(), tools.AllowRetry(true))
 	} else if err != nil {
 		return err
 	}
