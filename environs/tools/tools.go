@@ -107,13 +107,15 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 // Tests can turn off this feature.
 var UseLegacyFallback = true
 
+type AllowRetry bool
+
 // FindTools returns a List containing all tools with a given
 // major.minor version number available in the cloud instance, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
 func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
-	filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+	filter coretools.Filter, allowRetry AllowRetry) (list coretools.List, err error) {
 
 	var cloudSpec simplestreams.CloudSpec
 	if inst, ok := cloudInst.(simplestreams.HasRegion); ok {
@@ -167,7 +169,7 @@ var BootstrapFindTools = FindTools
 // which it would be reasonable to launch an environment's first machine, given the supplied constraints.
 // If a specific agent version is not requested, all tools matching the current major.minor version are chosen.
 func FindBootstrapTools(cloudInst environs.ConfigGetter,
-	vers *version.Number, series string, arch *string, useDev bool, allowRetry bool) (list coretools.List, err error) {
+	vers *version.Number, series string, arch *string, useDev bool, allowRetry AllowRetry) (list coretools.List, err error) {
 
 	// Construct a tools filter.
 	cliVersion := version.Current.Number

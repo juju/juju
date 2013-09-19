@@ -10,7 +10,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -49,27 +48,27 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 }
 
 type bootstrapRetryTest struct {
-	info             string
-	args             []string
-	allowRetryValues []bool
+	info               string
+	args               []string
+	expectedAllowRetry []bool
 }
 
 var bootstrapRetryTests = []bootstrapRetryTest{
 	{
-		info:             "no tools uploaded, so no need to allow retries",
-		allowRetryValues: []bool{false},
+		info:               "no tools uploaded, so no need to allow retries",
+		expectedAllowRetry: []bool{false},
 	},
 	{
-		info:             "new tools uploaded, so we want to allow retries to give them a chance at showing up",
-		args:             []string{"--upload-tools"},
-		allowRetryValues: []bool{true},
+		info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
+		args:               []string{"--upload-tools"},
+		expectedAllowRetry: []bool{true},
 	},
 }
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
 func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
 	for i, test := range bootstrapRetryTests {
-		fmt.Printf("test %d: %s\n", i, test.info)
+		c.Logf("test %d: %s\n", i, test.info)
 		s.runAllowRetriesTest(c, test)
 	}
 }
@@ -81,8 +80,8 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	var findToolsRetryValues []bool
 
 	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
-		filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
-		findToolsRetryValues = append(findToolsRetryValues, allowRetry)
+		filter coretools.Filter, allowRetry envtools.AllowRetry) (list coretools.List, err error) {
+		findToolsRetryValues = append(findToolsRetryValues, bool(allowRetry))
 		return nil, errors.NotFoundf("tools")
 	}
 
@@ -92,7 +91,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 
 	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	err := <-errc
-	c.Assert(findToolsRetryValues, gc.DeepEquals, test.allowRetryValues)
+	c.Assert(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 

@@ -116,7 +116,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		vers = &agentVersion
 	}
 	_, err := tools.FindBootstrapTools(
-		env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development(), uploadPerformed)
+		env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development(), tools.AllowRetry(uploadPerformed))
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
