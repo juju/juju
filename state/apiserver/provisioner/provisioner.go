@@ -171,13 +171,8 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 	for i, entity := range args.Entities {
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
-			var status params.Status
-			var info string
-			status, info, err = machine.Status()
-			if err == nil {
-				result.Results[i].Status = status
-				result.Results[i].Info = info
-			}
+			r := &result.Results[i]
+			r.Status, r.Info, err = machine.Status()
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
