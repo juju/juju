@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"os"
 	"reflect"
 )
 
@@ -29,5 +30,16 @@ func PatchValue(dest, value interface{}) Restorer {
 	destv.Set(valuev)
 	return func() {
 		destv.Set(oldv)
+	}
+}
+
+// PatchEnvironment provides a test a simple way to override a single
+// environment variable. A function is returned that will return the
+// environment to what it was before.
+func PatchEnvironment(name, value string) Restorer {
+	oldValue := os.Getenv(name)
+	os.Setenv(name, value)
+	return func() {
+		os.Setenv(name, oldValue)
 	}
 }

@@ -2,6 +2,7 @@ package testing_test
 
 import (
 	"errors"
+	"os"
 
 	gc "launchpad.net/gocheck"
 
@@ -52,4 +53,21 @@ func (*PatchValueSuite) TestSetPanicsWhenNotAssignable(c *gc.C) {
 	i := 99
 	type otherInt int
 	c.Assert(func() { testing.PatchValue(&i, otherInt(88)) }, gc.PanicMatches, `reflect\.Set: value of type testing_test\.otherInt is not assignable to type int`)
+}
+
+type PatchEnvironmentSuite struct{}
+
+var _ = gc.Suite(&PatchEnvironmentSuite{})
+
+func (*PatchEnvironmentSuite) TestPatchEnvironment(c *gc.C) {
+	const envName = "TESTING_PATCH_ENVIRONMENT"
+	// remember the old value, and set it to something we can check
+	oldValue := os.Getenv(envName)
+	os.Setenv(envName, "initial")
+	restore := testing.PatchEnvironment(envName, "new value")
+	// Using check to make sure the environment gets set back properly in the test.
+	c.Check(os.Getenv(envName), gc.Equals, "new value")
+	restore()
+	c.Check(os.Getenv(envName), gc.Equals, "initial")
+	os.Setenv(envName, oldValue)
 }
