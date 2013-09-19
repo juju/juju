@@ -37,14 +37,30 @@ func NewFromName(name string) (Environ, error) {
 	return New(cfg)
 }
 
+// DefaultConfigStorage returns disk-based environment config storage
+// rooted at JujuHome.
+func DefaultConfigStorage() (ConfigStorage, error) {
+	return configstore.NewDisk(config.JujuHomePath("environments"))
+}
+
 // PrepareFromName is the same as NewFromName except
-// that the environment is is prepared as well as opened.
-func PrepareFromName(name string) (Environ, error) {
+// that the environment is is prepared as well as opened,
+// and environment information is created using the
+// given store. If store is nil, DefaultConfigStorage will be
+// used.
+func PrepareFromName(name string, store ConfigStorage) (Environ, error) {
+	if store == nil {
+		store1, err := DefaultConfigStorage()
+		if err != nil {
+			return nil, err
+		}
+		store = store1
+	}
 	cfg, err := ConfigForName(name)
 	if err != nil {
 		return nil, err
 	}
-	return Prepare(cfg)
+	return Prepare(cfg, store)
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
@@ -67,12 +83,24 @@ func New(config *config.Config) (Environ, error) {
 }
 
 // Prepare prepares a new environment based on the provided configuration.
-func Prepare(config *config.Config) (Environ, error) {
+func Prepare(config *config.Config, store ConfigStorage) (Environ, error) {
 	p, err := Provider(config.Type())
 	if err != nil {
 		return nil, err
 	}
-	return p.Prepare(config)
+	info, err = store.CreateInfo(config.Name())
+	if err != nil {
+		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
+	}
+	env, err := p.Prepare(config)
+	if err != nil {
+		if err := info.Destroy(); err != nil {
+			logger.Warningf("cannot destroy newly created environment info: %v", err)
+		}
+		return nil, err
+	}
+	// TODO(rog) 2013-09-19 write out newly added attributes from environ to store
+	return env, nil
 }
 
 // CheckEnvironment checks if an environment has a bootstrap-verify
