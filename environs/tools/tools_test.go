@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -66,7 +67,7 @@ func (s *LegacyToolsSuite) removeTools(c *gc.C) {
 	envtesting.RemoveAllTools(c, s.env)
 }
 
-func (s *LegacyToolsSuite) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *LegacyToolsSuite) uploadVersions(c *gc.C, storage storage.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	for _, vers := range verses {
 		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
@@ -79,8 +80,8 @@ func (s *LegacyToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[v
 }
 
 func (s *LegacyToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	storage := s.env.PublicStorage().(environs.Storage)
-	return s.uploadVersions(c, storage, verses...)
+	stor := s.env.PublicStorage().(storage.Storage)
+	return s.uploadVersions(c, stor, verses...)
 }
 
 func (s *LegacyToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
@@ -150,7 +151,7 @@ func (s *SimpleStreamsToolsSuite) generateMetadata(c *gc.C, verses ...version.Bi
 	return objects
 }
 
-func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, storage storage.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	if len(verses) == 0 {
 		return uploaded

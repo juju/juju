@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -42,10 +43,15 @@ func InstanceEC2(inst instance.Instance) *ec2.Instance {
 
 // BucketStorage returns a storage instance addressing
 // an arbitrary s3 bucket.
-func BucketStorage(b *s3.Bucket) environs.Storage {
-	return &storage{
+func BucketStorage(b *s3.Bucket) storage.Storage {
+	return &ec2storage{
 		bucket: b,
 	}
+}
+
+// DeleteBucket deletes the s3 bucket used by the storage instance.
+func DeleteBucket(s storage.Storage) error {
+	return deleteBucket(s.(*ec2storage))
 }
 
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
@@ -134,7 +140,7 @@ type Storage interface {
 	ResetMadeBucket()
 }
 
-func (s *storage) ResetMadeBucket() {
+func (s *ec2storage) ResetMadeBucket() {
 	s.Lock()
 	defer s.Unlock()
 	s.madeBucket = false
@@ -142,12 +148,12 @@ func (s *storage) ResetMadeBucket() {
 
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
 // It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
+func WritablePublicStorage(e environs.Environ) storage.Storage {
 	// In the case of ec2, access to the public storage instance is created with the user's AWS credentials.
 	// So write access is there implicitly, and we just need to cast to a writable storage instance.
 	// This contrasts with the openstack case, where the public storage instance truly is read only and we need
 	// to create a separate writable instance. If the ec2 case ever changes, the changes are confined to this method.
-	return e.PublicStorage().(environs.Storage)
+	return e.PublicStorage().(storage.Storage)
 }
 
 var TestImagesData = map[string]string{

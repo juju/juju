@@ -4,6 +4,8 @@
 package params
 
 import (
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -116,6 +118,15 @@ type SettingsResult struct {
 // settings for multiple entities.
 type SettingsResults struct {
 	Results []SettingsResult
+}
+
+// Config holds configuration with string keys and arbitrary values.
+type Config map[string]interface{}
+
+// ConfigResult holds a configuration map or an error.
+type ConfigResult struct {
+	Error  *Error
+	Config Config
 }
 
 // RelationUnit holds a relation and a unit tag.
@@ -233,6 +244,21 @@ type SetEntityAddresses struct {
 	Entities []SetEntityAddress
 }
 
+// MachineSetProvisioned holds a machine tag, provider-specific instance id,
+// a nonce, or an error.
+type MachineSetProvisioned struct {
+	Tag             string
+	InstanceId      instance.Id
+	Nonce           string
+	Characteristics *instance.HardwareCharacteristics
+}
+
+// SetProvisioned holds the parameters for making a SetProvisioned
+// call for a machine.
+type SetProvisioned struct {
+	Machines []MachineSetProvisioned
+}
+
 // MachineSetStatus holds a machine tag, status and extra info.
 // DEPRECATE(v1.14)
 type MachineSetStatus struct {
@@ -260,6 +286,30 @@ type SetStatus struct {
 	// Machines is only here to ensure compatibility with v1.12.
 	// DEPRECATE(v1.14)
 	Machines []SetEntityStatus
+}
+
+// StatusResult holds an entity status, extra information, or an
+// error.
+type StatusResult struct {
+	Error  *Error
+	Status Status
+	Info   string
+}
+
+// StatusResults holds multiple status results.
+type StatusResults struct {
+	Results []StatusResult
+}
+
+// ConstraintsResult holds machine constraints or an error.
+type ConstraintsResult struct {
+	Error       *Error
+	Constraints constraints.Value
+}
+
+// ConstraintsResults holds multiple constraints results.
+type ConstraintsResults struct {
+	Results []ConstraintsResult
 }
 
 // MachineAgentGetMachinesResults holds the results of a

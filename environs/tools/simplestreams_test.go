@@ -284,7 +284,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 		},
 	}
 	dir := c.MkDir()
-	writer, err := filestorage.NewFileStorageWriter(dir)
+	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.WriteMetadata(toolsList, false, writer)
 	c.Assert(err, gc.IsNil)
@@ -311,7 +311,7 @@ func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
 			URL:     "file://" + filepath.Join(dir, "tools/releases/juju-2.0.1-raring-amd64.tgz"),
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir)
+	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.WriteMetadata(toolsList, true, writer)
 	c.Assert(err, gc.IsNil)
@@ -332,7 +332,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "xyz",
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir)
+	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.WriteMetadata(existingToolsList, true, writer)
 	c.Assert(err, gc.IsNil)

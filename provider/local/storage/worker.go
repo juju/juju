@@ -41,7 +41,7 @@ func (s *storageWorker) waitForDeath() error {
 	storageAddr := s.config.Value(agent.StorageAddr)
 	logger.Infof("serving %s on %s", storageDir, storageAddr)
 
-	storage, err := filestorage.NewFileStorageWriter(storageDir)
+	storage, err := filestorage.NewFileStorageWriter(storageDir, filestorage.UseDefaultTmpDir)
 	if err != nil {
 		logger.Errorf("error with local storage: %v", err)
 		return err
@@ -57,7 +57,7 @@ func (s *storageWorker) waitForDeath() error {
 	sharedStorageAddr := s.config.Value(agent.SharedStorageAddr)
 	logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
 
-	sharedStorage, err := filestorage.NewFileStorageWriter(sharedStorageDir)
+	sharedStorage, err := filestorage.NewFileStorageWriter(sharedStorageDir, filestorage.UseDefaultTmpDir)
 	if err != nil {
 		logger.Errorf("error with local storage: %v", err)
 		return err

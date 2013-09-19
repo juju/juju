@@ -16,8 +16,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -28,8 +28,8 @@ func TestPackage(t *testing.T) {
 
 type filestorageSuite struct {
 	dir    string
-	reader environs.StorageReader
-	writer environs.StorageWriter
+	reader storage.StorageReader
+	writer storage.StorageWriter
 }
 
 var _ = gc.Suite(&filestorageSuite{})
@@ -39,7 +39,7 @@ func (s *filestorageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.reader, err = filestorage.NewFileStorageReader(s.dir)
 	c.Assert(err, gc.IsNil)
-	s.writer, err = filestorage.NewFileStorageWriter(s.dir)
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -75,7 +75,7 @@ func (s *filestorageSuite) TestList(c *gc.C) {
 		{"", names},
 	} {
 		c.Logf("test %d: prefix=%q", i, test.prefix)
-		files, err := s.reader.List(test.prefix)
+		files, err := storage.List(s.reader, test.prefix)
 		c.Assert(err, gc.IsNil)
 		c.Assert(files, gc.DeepEquals, test.expected)
 	}
@@ -92,7 +92,7 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 func (s *filestorageSuite) TestGet(c *gc.C) {
 	expectedpath, data := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
-	rc, err := s.reader.Get(file)
+	rc, err := storage.Get(s.reader, file)
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
 	c.Assert(err, gc.IsNil)
@@ -134,4 +134,36 @@ func (s *filestorageSuite) TestRemoveAll(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = ioutil.ReadFile(expectedpath)
 	c.Assert(err, gc.Not(gc.IsNil))
+}
+
+func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
+	// Put should create and clean up the temporary directory if
+	// tmpdir==UseDefaultTmpDir.
+	err := s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// To deal with recovering from hard failure, UseDefaultTmpDir
+	// doesn't care if the temporary directory already exists. It
+	// still removes it, though.
+	err = os.Mkdir(s.dir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// If we explicitly set the temporary directory, it must already exist.
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, s.dir+".tmp")
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	err = os.Mkdir(s.dir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	// Temporary directory should not have been moved.
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, gc.IsNil)
 }
