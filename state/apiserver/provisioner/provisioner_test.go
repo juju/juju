@@ -609,4 +609,15 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	// in the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+
+	// Make sure WatchEnvironMachines fails with a machine agent login.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.Manager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	result, err = aProvisioner.WatchEnvironMachines()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
