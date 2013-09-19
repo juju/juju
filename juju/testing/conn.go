@@ -58,6 +58,7 @@ type JujuConnSuite struct {
 	State        *state.State
 	APIConn      *juju.APIConn
 	APIState     *api.State
+	ConfigStore environs.ConfigStorage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
 	oldHome      string
@@ -233,7 +234,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, gc.IsNil)
 
-	environ, err := environs.PrepareFromName("dummyenv", configstore.Default())
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	s.ConfigStore = store
+
+	environ, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")

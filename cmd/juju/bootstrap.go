@@ -61,9 +61,11 @@ func (c *BootstrapCommand) Init(args []string) error {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	// TODO(rog): arrange for PrepareFromName to write any additional
-	// config attributes, or do so after calling it.
-	environ, err := environs.PrepareFromName(c.EnvName, configstore.Default())
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	environ, err := environs.PrepareFromName(c.EnvName, store)
 	if err != nil {
 		return err
 	}
