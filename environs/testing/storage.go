@@ -16,7 +16,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/version"
@@ -27,9 +28,11 @@ import (
 // directory.
 func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	dataDir = c.MkDir()
-	listener, err := localstorage.Serve("localhost:0", dataDir)
+	underlying, err := filestorage.NewFileStorageWriter(dataDir)
 	c.Assert(err, gc.IsNil)
-	stor = localstorage.Client(listener.Addr().String())
+	listener, err := httpstorage.Serve("localhost:0", underlying)
+	c.Assert(err, gc.IsNil)
+	stor = httpstorage.Client(listener.Addr().String())
 	closer = listener
 	return
 }

@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -17,4 +18,11 @@ func NormalizePath(dir string) string {
 		dir = filepath.Join(osenv.Home(), dir[2:])
 	}
 	return filepath.Clean(dir)
+}
+
+// JoinServerPath joins any number of path elements into a single path, adding
+// a path separator (based on the current juju server OS) if necessary. The
+// result is Cleaned; in particular, all empty strings are ignored.
+func JoinServerPath(elem ...string) string {
+	return path.Join(elem...)
 }

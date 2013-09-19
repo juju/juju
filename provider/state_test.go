@@ -11,8 +11,8 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -20,23 +20,21 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-type StateSuite struct{}
+type StateSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = gc.Suite(&StateSuite{})
 
 // makeDummyStorage creates a local storage.
-// Returns a cleanup function that must be called when done with the storage.
-func makeDummyStorage(c *gc.C) (storage.Storage, func()) {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
-	c.Assert(err, gc.IsNil)
-	stor := localstorage.Client(listener.Addr().String())
-	cleanup := func() { listener.Close() }
-	return stor, cleanup
+func (suite *StateSuite) makeDummyStorage(c *gc.C) storage.Storage {
+	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
+	suite.AddCleanup(func(*gc.C) { closer.Close() })
+	return stor
 }
 
-func (*StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
-	stor, cleanup := makeDummyStorage(c)
-	defer cleanup()
+func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
+	stor := suite.makeDummyStorage(c)
 
 	url, err := provider.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
@@ -53,8 +51,7 @@ func (*StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
-	stor, cleanup := makeDummyStorage(c)
-	defer cleanup()
+	stor := suite.makeDummyStorage(c)
 	arch := "amd64"
 	state := provider.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
@@ -85,8 +82,7 @@ func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) provider
 }
 
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
-	storage, cleanup := makeDummyStorage(c)
-	defer cleanup()
+	storage := suite.makeDummyStorage(c)
 	state := suite.setUpSavedState(c, storage)
 	storedState, err := provider.LoadState(storage)
 	c.Assert(err, gc.IsNil)
@@ -94,8 +90,7 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	stor, cleanup := makeDummyStorage(c)
-	defer cleanup()
+	stor := suite.makeDummyStorage(c)
 	state := suite.setUpSavedState(c, stor)
 	url, err := stor.URL(provider.StateFile)
 	c.Assert(err, gc.IsNil)
@@ -105,17 +100,13 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
-	storage, cleanup := makeDummyStorage(c)
-	defer cleanup()
-
-	_, err := provider.LoadState(storage)
-
+	stor := suite.makeDummyStorage(c)
+	_, err := provider.LoadState(stor)
 	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
-	storage, cleanup := makeDummyStorage(c)
-	defer cleanup()
+	storage := suite.makeDummyStorage(c)
 	arch := "amd64"
 	state := provider.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},

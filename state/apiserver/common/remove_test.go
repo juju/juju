@@ -58,7 +58,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 			return false
 		}, nil
 	}
-	r := common.NewRemover(st, getCanModify)
+	r := common.NewRemover(st, true, getCanModify)
 	entities := params.Entities{[]params.Entity{
 		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"}, {"x6"},
 	}}
@@ -75,13 +75,26 @@ func (*removeSuite) TestRemove(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
+
+	// Make sure when callEnsureDead is false EnsureDead() doesn't
+	// get called.
+	r = common.NewRemover(st, false, getCanModify)
+	entities = params.Entities{[]params.Entity{{"x0"}, {"x1"}}}
+	result, err = r.Remove(entities)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{&params.Error{Message: "x1 Remove fails"}},
+		},
+	})
 }
 
 func (*removeSuite) TestRemoveError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, getCanModify)
+	r := common.NewRemover(&fakeState{}, true, getCanModify)
 	_, err := r.Remove(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -90,7 +103,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, getCanModify)
+	r := common.NewRemover(&fakeState{}, true, getCanModify)
 	result, err := r.Remove(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
