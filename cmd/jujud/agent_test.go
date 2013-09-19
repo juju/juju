@@ -268,8 +268,8 @@ func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Tools 
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	stor := s.Conn.Environ.Storage()
+	err := stor.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, gc.IsNil)
 	url, err := s.Conn.Environ.Storage().URL(envtools.StorageName(vers))
 	c.Assert(err, gc.IsNil)

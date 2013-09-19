@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -198,7 +199,7 @@ type bootstrapEnviron struct {
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
 	constraints    constraints.Value
-	storage        environs.Storage
+	storage        storage.Storage
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
@@ -224,8 +225,8 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 // into the given environment, so that tests can manipulate storage as if it
 // were real.
 func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
-	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
-	env.storage = storage
+	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
+	env.storage = stor
 	envtesting.UploadFakeTools(c, env.storage)
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
@@ -249,10 +250,10 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *bootstrapEnviron) Storage() environs.Storage {
+func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-func (e *bootstrapEnviron) PublicStorage() environs.StorageReader {
+func (e *bootstrapEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }

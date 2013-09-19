@@ -13,21 +13,21 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
-func (e *environ) Storage() environs.Storage {
+func (e *environ) Storage() storage.Storage {
 	return e.state().storage
 }
 
-func (e *environ) PublicStorage() environs.StorageReader {
+func (e *environ) PublicStorage() storage.StorageReader {
 	return e.state().publicStorage
 }
 
-func newStorage(state *environState, path string) *storage {
-	return &storage{
+func newStorage(state *environState, path string) *dummystorage {
+	return &dummystorage{
 		state:    state,
 		files:    make(map[string][]byte),
 		path:     path,
@@ -37,14 +37,14 @@ func newStorage(state *environState, path string) *storage {
 
 // Poison causes all fetches of the given path to
 // return the given error.
-func Poison(ss environs.Storage, path string, err error) {
-	s := ss.(*storage)
+func Poison(ss storage.Storage, path string, err error) {
+	s := ss.(*dummystorage)
 	s.state.mu.Lock()
 	s.poisoned[path] = err
 	s.state.mu.Unlock()
 }
 
-func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (s *dummystorage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		http.Error(w, "only GET is supported", http.StatusMethodNotAllowed)
 		return
@@ -61,7 +61,7 @@ func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Write(data)
 }
 
-func (s *storage) Get(name string) (io.ReadCloser, error) {
+func (s *dummystorage) Get(name string) (io.ReadCloser, error) {
 	data, err := s.dataWithDelay(name)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 // dataWithDelay returns the data for the given path,
 // waiting for the configured amount of time before
 // accessing it.
-func (s *storage) dataWithDelay(path string) (data []byte, err error) {
+func (s *dummystorage) dataWithDelay(path string) (data []byte, err error) {
 	s.state.mu.Lock()
 	delay := s.state.storageDelay
 	s.state.mu.Unlock()
@@ -89,16 +89,21 @@ func (s *storage) dataWithDelay(path string) (data []byte, err error) {
 	return data, nil
 }
 
-func (s *storage) URL(name string) (string, error) {
+func (s *dummystorage) URL(name string) (string, error) {
 	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *dummystorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-func (s *storage) Put(name string, r io.Reader, length int64) error {
+// ShouldRetry is specified in the StorageReader interface.
+func (s *dummystorage) ShouldRetry(err error) bool {
+	return false
+}
+
+func (s *dummystorage) Put(name string, r io.Reader, length int64) error {
 	// Allow Put to be poisoned as well.
 	if err := s.poisoned[name]; err != nil {
 		return err
@@ -119,21 +124,21 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storage) Remove(name string) error {
+func (s *dummystorage) Remove(name string) error {
 	s.state.mu.Lock()
 	delete(s.files, name)
 	s.state.mu.Unlock()
 	return nil
 }
 
-func (s *storage) RemoveAll() error {
+func (s *dummystorage) RemoveAll() error {
 	s.state.mu.Lock()
 	s.files = make(map[string][]byte)
 	s.state.mu.Unlock()
 	return nil
 }
 
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *dummystorage) List(prefix string) ([]string, error) {
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()
 	var names []string

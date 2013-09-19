@@ -16,9 +16,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -26,13 +26,13 @@ import (
 // CreateLocalTestStorage returns the listener, which needs to be closed, and
 // the storage that is backed by a directory created in the running tests temp
 // directory.
-func CreateLocalTestStorage(c *gc.C) (closer io.Closer, storage environs.Storage, dataDir string) {
+func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	dataDir = c.MkDir()
 	underlying, err := filestorage.NewFileStorageWriter(dataDir)
 	c.Assert(err, gc.IsNil)
 	listener, err := httpstorage.Serve("localhost:0", underlying)
 	c.Assert(err, gc.IsNil)
-	storage = httpstorage.Client(listener.Addr().String())
+	stor = httpstorage.Client(listener.Addr().String())
 	closer = listener
 	return
 }

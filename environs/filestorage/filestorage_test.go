@@ -16,8 +16,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -28,8 +28,8 @@ func TestPackage(t *testing.T) {
 
 type filestorageSuite struct {
 	dir    string
-	reader environs.StorageReader
-	writer environs.StorageWriter
+	reader storage.StorageReader
+	writer storage.StorageWriter
 }
 
 var _ = gc.Suite(&filestorageSuite{})
@@ -75,7 +75,7 @@ func (s *filestorageSuite) TestList(c *gc.C) {
 		{"", names},
 	} {
 		c.Logf("test %d: prefix=%q", i, test.prefix)
-		files, err := s.reader.List(test.prefix)
+		files, err := storage.List(s.reader, test.prefix)
 		c.Assert(err, gc.IsNil)
 		c.Assert(files, gc.DeepEquals, test.expected)
 	}
@@ -92,7 +92,7 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 func (s *filestorageSuite) TestGet(c *gc.C) {
 	expectedpath, data := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
-	rc, err := s.reader.Get(file)
+	rc, err := storage.Get(s.reader, file)
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
 	c.Assert(err, gc.IsNil)

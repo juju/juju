@@ -93,18 +93,8 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 // confirm that the environment isn't already running, and that the storage
 // works.
 func verifyBootstrapInit(env environs.Environ) error {
-	var err error
-
-	storage := env.Storage()
-
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
-		if _, err = provider.LoadState(storage); err != nil {
-			break
-		}
-	}
+	stor := env.Storage()
+	_, err := provider.LoadState(stor)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -112,7 +102,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	return environs.VerifyStorage(storage)
+	return environs.VerifyStorage(stor)
 }
 
 // ConfigureBootstrapMachine adds the initial machine into state.  As a part

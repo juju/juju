@@ -420,9 +420,7 @@ func patchEC2ForTesting() func() {
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
-	s3.RetryAttempts(false)
 	return func() {
-		s3.RetryAttempts(true)
 		restoreTimeouts()
 		ec2.UseTestImageData(nil)
 		ec2.UseTestInstanceTypeData(nil)
