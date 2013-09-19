@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package localstorage
+package httpstorage
 
 import (
 	"fmt"
@@ -117,6 +117,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	req.ContentLength = length
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err

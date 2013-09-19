@@ -78,11 +78,11 @@ func NewProvisioner(pt ProvisionerType, st *state.State, machineId string, agent
 }
 
 func (p *Provisioner) loop() error {
-	environWatcher := p.st.WatchEnvironConfig()
+	environWatcher := p.st.WatchForEnvironConfigChanges()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	var err error
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.tomb.Dying())
+	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
 		return err
 	}
@@ -120,11 +120,16 @@ func (p *Provisioner) loop() error {
 			err := environmentProvisioner.Err()
 			logger.Errorf("environment provisioner died: %v", err)
 			return err
-		case cfg, ok := <-environWatcher.Changes():
+		case _, ok := <-environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			if err := p.setConfig(cfg); err != nil {
+			config, err := p.st.EnvironConfig()
+			if err != nil {
+				logger.Errorf("cannot load environment configuration: %v", err)
+				return err
+			}
+			if err := p.setConfig(config); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
 		}

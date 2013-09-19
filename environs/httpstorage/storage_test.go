@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package localstorage_test
+package httpstorage_test
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -25,8 +25,8 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) TestList(c *gc.C) {
 	listener, _, _ := startServer(c)
 	defer listener.Close()
-	stor := localstorage.Client(listener.Addr().String())
-	names, err := storage.ListWithDefaultRetry(stor, "a/b/c")
+	stor := httpstorage.Client(listener.Addr().String())
+	names, err := storage.List(stor, "a/b/c")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.HasLen, 0)
 }
@@ -37,7 +37,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 	listener, _, _ := startServer(c)
 	defer listener.Close()
 
-	stor := localstorage.Client(listener.Addr().String())
+	stor := httpstorage.Client(listener.Addr().String())
 	names := []string{
 		"aa",
 		"zzz/aa",
@@ -51,7 +51,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 	checkList(c, stor, "a", []string{"aa"})
 	checkList(c, stor, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	storage2 := localstorage.Client(listener.Addr().String())
+	storage2 := httpstorage.Client(listener.Addr().String())
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name))
 	}
@@ -83,7 +83,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 }
 
 func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
-	lnames, err := storage.ListWithDefaultRetry(stor, prefix)
+	lnames, err := storage.List(stor, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(lnames, gc.DeepEquals, names)
 }
@@ -110,13 +110,13 @@ func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []b
 }
 
 func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string) {
-	r, err := storage.GetWithDefaultRetry(stor, name)
+	r, err := storage.Get(stor, name)
 	c.Assert(r, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte) {
-	r, err := storage.GetWithDefaultRetry(stor, name)
+	r, err := storage.Get(stor, name)
 	c.Assert(err, gc.IsNil)
 	c.Check(r, gc.NotNil)
 	defer r.Close()
@@ -148,11 +148,11 @@ func checkRemoveAll(c *gc.C, stor storage.Storage) {
 	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
 
-	files, err := storage.ListWithDefaultRetry(stor, "")
+	files, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 
-	_, err = storage.GetWithDefaultRetry(stor, aFile)
+	_, err = storage.Get(stor, aFile)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("file %q not found", aFile))
 }

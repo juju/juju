@@ -17,7 +17,7 @@ import (
 // or safeguards against races with other users of the same storage medium.
 // But a simple way to implement RemoveAll would be to delegate to here.
 func RemoveAll(stor Storage) error {
-	files, err := ListWithDefaultRetry(stor, "")
+	files, err := List(stor, "")
 	if err != nil {
 		return fmt.Errorf("unable to list files for deletion: %v", err)
 	}
@@ -32,13 +32,13 @@ func RemoveAll(stor Storage) error {
 	return err
 }
 
-// GetWithDefaultRetry gets the named file from stor using the stor's default consistency strategy.
-func GetWithDefaultRetry(stor StorageReader, name string) (io.ReadCloser, error) {
-	return Get(stor, name, stor.DefaultConsistencyStrategy())
+// Get gets the named file from stor using the stor's default consistency strategy.
+func Get(stor StorageReader, name string) (io.ReadCloser, error) {
+	return GetWithRetry(stor, name, stor.DefaultConsistencyStrategy())
 }
 
-// Get gets the named file from stor using the specified attempt strategy.
-func Get(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.ReadCloser, err error) {
+// GetWithRetry gets the named file from stor using the specified attempt strategy.
+func GetWithRetry(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.ReadCloser, err error) {
 	for a := attempt.Start(); a.Next(); {
 		r, err = stor.Get(name)
 		if err == nil || !stor.ShouldRetry(err) {
@@ -48,13 +48,13 @@ func Get(stor StorageReader, name string, attempt utils.AttemptStrategy) (r io.R
 	return r, err
 }
 
-// ListWithDefaultRetry lists the files matching prefix from stor using the stor's default consistency strategy.
-func ListWithDefaultRetry(stor StorageReader, prefix string) ([]string, error) {
-	return List(stor, prefix, stor.DefaultConsistencyStrategy())
+// List lists the files matching prefix from stor using the stor's default consistency strategy.
+func List(stor StorageReader, prefix string) ([]string, error) {
+	return ListWithRetry(stor, prefix, stor.DefaultConsistencyStrategy())
 }
 
-// List lists the files matching prefix from stor using the specified attempt strategy.
-func List(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (list []string, err error) {
+// ListWithRetry lists the files matching prefix from stor using the specified attempt strategy.
+func ListWithRetry(stor StorageReader, prefix string, attempt utils.AttemptStrategy) (list []string, err error) {
 	for a := attempt.Start(); a.Next(); {
 		list, err = stor.List(prefix)
 		if err == nil || !stor.ShouldRetry(err) {
@@ -108,7 +108,7 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	if s.allowRetry {
 		attempt = s.storage.DefaultConsistencyStrategy()
 	}
-	rc, err := Get(s.storage, relpath, attempt)
+	rc, err := GetWithRetry(s.storage, relpath, attempt)
 	if err != nil {
 		return nil, dataURL, err
 	}

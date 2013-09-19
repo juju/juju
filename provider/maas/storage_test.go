@@ -74,7 +74,7 @@ func (s *storageSuite) TestGetRetrievesFile(c *gc.C) {
 	content, err := base64.StdEncoding.DecodeString(base64Content)
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.GetWithDefaultRetry(stor, filename)
+	reader, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 
@@ -134,7 +134,7 @@ func (s *storageSuite) TestFileContentsAreBinary(c *gc.C) {
 
 	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, gc.IsNil)
-	file, err := storage.GetWithDefaultRetry(stor, filename)
+	file, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	content, err := ioutil.ReadAll(file)
 	c.Assert(err, gc.IsNil)
@@ -145,13 +145,13 @@ func (s *storageSuite) TestFileContentsAreBinary(c *gc.C) {
 func (s *storageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *gc.C) {
 	const filename = "lost-data"
 	stor := NewStorage(s.environ)
-	_, err := storage.GetWithDefaultRetry(stor, filename)
+	_, err := storage.Get(stor, filename)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestListReturnsEmptyIfNoFilesStored(c *gc.C) {
 	stor := NewStorage(s.environ)
-	listing, err := storage.ListWithDefaultRetry(stor, "")
+	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
@@ -163,7 +163,7 @@ func (s *storageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
 		s.fakeStoredFile(stor, name)
 	}
 
-	listing, err := storage.ListWithDefaultRetry(stor, "")
+	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, files)
 }
@@ -175,7 +175,7 @@ func (s *storageSuite) TestListSortsResults(c *gc.C) {
 		s.fakeStoredFile(stor, name)
 	}
 
-	listing, err := storage.ListWithDefaultRetry(stor, "")
+	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{"1a", "2b", "3c", "4d"})
 }
@@ -184,7 +184,7 @@ func (s *storageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
 	stor := NewStorage(s.environ)
 	s.fakeStoredFile(stor, "foo")
 
-	listing, err := storage.ListWithDefaultRetry(stor, "bar")
+	listing, err := storage.List(stor, "bar")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
@@ -194,7 +194,7 @@ func (s *storageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
 	s.fakeStoredFile(stor, "abc")
 	s.fakeStoredFile(stor, "xyz")
 
-	listing, err := storage.ListWithDefaultRetry(stor, "x")
+	listing, err := storage.List(stor, "x")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{"xyz"})
 }
@@ -204,7 +204,7 @@ func (s *storageSuite) TestListMatchesPrefixOnly(c *gc.C) {
 	s.fakeStoredFile(stor, "abc")
 	s.fakeStoredFile(stor, "xabc")
 
-	listing, err := storage.ListWithDefaultRetry(stor, "a")
+	listing, err := storage.List(stor, "a")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{"abc"})
 }
@@ -213,7 +213,7 @@ func (s *storageSuite) TestListOperatesOnFlatNamespace(c *gc.C) {
 	stor := NewStorage(s.environ)
 	s.fakeStoredFile(stor, "a/b/c/d")
 
-	listing, err := storage.ListWithDefaultRetry(stor, "a/b")
+	listing, err := storage.List(stor, "a/b")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{"a/b/c/d"})
 }
@@ -260,7 +260,7 @@ func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 
 	err := stor.Put(filename, bytes.NewReader(contents), length)
 
-	reader, err := storage.GetWithDefaultRetry(stor, filename)
+	reader, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 
@@ -278,7 +278,7 @@ func (s *storageSuite) TestPutOverwritesFile(c *gc.C) {
 	err := stor.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.GetWithDefaultRetry(stor, filename)
+	reader, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 
@@ -297,7 +297,7 @@ func (s *storageSuite) TestPutStopsAtGivenLength(c *gc.C) {
 	err := stor.Put(filename, bytes.NewReader(contents), length)
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.GetWithDefaultRetry(stor, filename)
+	reader, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 
@@ -317,7 +317,7 @@ func (s *storageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 	err = stor.Put(filename, bytes.NewReader(newContents), int64(len(newContents)))
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.GetWithDefaultRetry(stor, filename)
+	reader, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 
@@ -335,10 +335,10 @@ func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 	err := stor.Remove(filename)
 	c.Assert(err, gc.IsNil)
 
-	_, err = storage.GetWithDefaultRetry(stor, filename)
+	_, err = storage.Get(stor, filename)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	listing, err := storage.ListWithDefaultRetry(stor, filename)
+	listing, err := storage.List(stor, filename)
 	c.Assert(err, gc.IsNil)
 	c.Assert(listing, gc.DeepEquals, []string{})
 }
@@ -369,7 +369,7 @@ func (s *storageSuite) TestNamesMayHaveSlashes(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(anonURL, gc.Matches, "http[s]*://.*")
 
-	reader, err := storage.GetWithDefaultRetry(stor, filename)
+	reader, err := storage.Get(stor, filename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	data, err := ioutil.ReadAll(reader)
@@ -386,7 +386,7 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 
 	err := stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	listing, err := storage.ListWithDefaultRetry(stor, "")
+	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(listing, gc.DeepEquals, []string{})
 }

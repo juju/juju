@@ -6,7 +6,7 @@ package cloudinit
 import (
 	"encoding/base64"
 	"fmt"
-	"path/filepath"
+	"path"
 
 	"launchpad.net/goyaml"
 
@@ -222,7 +222,7 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
-	return filepath.Join(cfg.DataDir, name)
+	return path.Join(cfg.DataDir, name)
 }
 
 func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
@@ -292,7 +292,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 }
 
 func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
-	dbDir := filepath.Join(cfg.DataDir, "db")
+	dbDir := path.Join(cfg.DataDir, "db")
 	c.AddScripts(
 		"mkdir -p "+dbDir+"/journal",
 		"chmod 0700 "+dbDir,
@@ -315,8 +315,8 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 // to use as a directory for storing the tools executables in
 // by using the last element stripped of its extension.
 func versionDir(toolsURL string) string {
-	name := filepath.Base(toolsURL)
-	ext := filepath.Ext(name)
+	name := path.Base(toolsURL)
+	ext := path.Ext(name)
 	return name[:len(name)-len(ext)]
 }
 

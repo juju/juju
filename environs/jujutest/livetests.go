@@ -486,7 +486,7 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 	t.BootstrapOnce(c)
 	environ := t.Env
 	stor := environ.Storage()
-	reader, err := storage.GetWithDefaultRetry(stor, "bootstrap-verify")
+	reader, err := storage.Get(stor, "bootstrap-verify")
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)
@@ -527,10 +527,10 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *gc.C) {
 	}
 	t.BootstrapOnce(c)
 	environ := t.Env
-	storage := environ.Storage()
-	err := storage.Remove("bootstrap-verify")
+	stor := environ.Storage()
+	err := stor.Remove("bootstrap-verify")
 	c.Assert(err, gc.IsNil)
-	defer restoreBootstrapVerificationFile(c, storage)
+	defer restoreBootstrapVerificationFile(c, stor)
 
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, gc.IsNil)
@@ -548,17 +548,17 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *gc.C) {
 	}
 	t.BootstrapOnce(c)
 	environ := t.Env
-	storage := environ.Storage()
+	stor := environ.Storage()
 
 	// Finally, replace the content with an arbitrary string.
 	badVerificationContent := "bootstrap storage verification"
 	reader := strings.NewReader(badVerificationContent)
-	err := storage.Put(
+	err := stor.Put(
 		"bootstrap-verify",
 		reader,
 		int64(len(badVerificationContent)))
 	c.Assert(err, gc.IsNil)
-	defer restoreBootstrapVerificationFile(c, storage)
+	defer restoreBootstrapVerificationFile(c, stor)
 
 	// Running NewConn() should fail.
 	_, err = juju.NewConn(t.Env)
@@ -754,13 +754,13 @@ var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *gc.C) {
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	storage := t.Env.Storage()
+	stor := t.Env.Storage()
 
-	checkFileDoesNotExist(c, storage, name, t.Attempt)
-	checkPutFile(c, storage, name, contents)
-	checkFileHasContents(c, storage, name, contents, t.Attempt)
-	checkPutFile(c, storage, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, storage, name, contents2, t.Attempt)
+	checkFileDoesNotExist(c, stor, name, t.Attempt)
+	checkPutFile(c, stor, name, contents)
+	checkFileHasContents(c, stor, name, contents, t.Attempt)
+	checkPutFile(c, stor, name, contents2) // check that we can overwrite the file
+	checkFileHasContents(c, stor, name, contents2, t.Attempt)
 
 	// check that the listed contents include the
 	// expected name.
@@ -769,7 +769,7 @@ func (t *LiveTests) TestFile(c *gc.C) {
 attempt:
 	for a := t.Attempt.Start(); a.Next(); {
 		var err error
-		names, err = storage.List("")
+		names, err = stor.List("")
 		c.Assert(err, gc.IsNil)
 		for _, lname := range names {
 			if lname == name {
@@ -781,20 +781,20 @@ attempt:
 	if !found {
 		c.Errorf("file name %q not found in file list %q", name, names)
 	}
-	err := storage.Remove(name)
+	err := stor.Remove(name)
 	c.Check(err, gc.IsNil)
-	checkFileDoesNotExist(c, storage, name, t.Attempt)
+	checkFileDoesNotExist(c, stor, name, t.Attempt)
 	// removing a file that does not exist should not be an error.
-	err = storage.Remove(name)
+	err = stor.Remove(name)
 	c.Check(err, gc.IsNil)
 
 	// RemoveAll deletes all files from storage.
-	checkPutFile(c, storage, "file-1.txt", contents)
-	checkPutFile(c, storage, "file-2.txt", contents)
-	err = storage.RemoveAll()
+	checkPutFile(c, stor, "file-1.txt", contents)
+	checkPutFile(c, stor, "file-2.txt", contents)
+	err = stor.RemoveAll()
 	c.Check(err, gc.IsNil)
-	checkFileDoesNotExist(c, storage, "file-1.txt", t.Attempt)
-	checkFileDoesNotExist(c, storage, "file-2.txt", t.Attempt)
+	checkFileDoesNotExist(c, stor, "file-1.txt", t.Attempt)
+	checkFileDoesNotExist(c, stor, "file-2.txt", t.Attempt)
 }
 
 // Check that we can't start an instance running tools that correspond with no
@@ -894,7 +894,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 }
 
 func storageCopy(source storage.Storage, sourcePath string, target storage.Storage, targetPath string) error {
-	rc, err := storage.GetWithDefaultRetry(source, sourcePath)
+	rc, err := storage.Get(source, sourcePath)
 	if err != nil {
 		return err
 	}

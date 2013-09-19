@@ -78,10 +78,10 @@ func (s *storageSuite) TearDownSuite(c *gc.C) {
 func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
 	storageDir := c.MkDir()
 	for i := 0; i < 2; i++ {
-		storage, err := NewSSHStorage("example.com", storageDir)
+		stor, err := NewSSHStorage("example.com", storageDir)
 		c.Assert(err, gc.IsNil)
-		c.Assert(storage, gc.NotNil)
-		c.Assert(storage.Close(), gc.IsNil)
+		c.Assert(stor, gc.NotNil)
+		c.Assert(stor.Close(), gc.IsNil)
 	}
 	c.Assert(os.RemoveAll(storageDir), gc.IsNil)
 
@@ -105,17 +105,17 @@ func (s *storageSuite) TestPathValidity(c *gc.C) {
 
 	for _, prefix := range []string{"..", "a/../.."} {
 		c.Logf("prefix: %q", prefix)
-		_, err := storage.ListWithDefaultRetry(stor, prefix)
+		_, err := storage.List(stor, prefix)
 		c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(fmt.Sprintf("%q escapes storage directory", prefix)))
 	}
 
 	// Paths are always relative, so a leading "/" may as well not be there.
-	names, err := storage.ListWithDefaultRetry(stor, "/")
+	names, err := storage.List(stor, "/")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 
 	// Paths will be canonicalised.
-	names, err = storage.ListWithDefaultRetry(stor, "a/..")
+	names, err = storage.List(stor, "a/..")
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, []string{"a/b"})
 }
@@ -130,14 +130,14 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	for _, name := range []string{"b", filepath.Join("a", "b")} {
 		err = ioutil.WriteFile(filepath.Join(storageDir, contentdir, name), data, 0644)
 		c.Assert(err, gc.IsNil)
-		r, err := storage.GetWithDefaultRetry(stor, name)
+		r, err := storage.Get(stor, name)
 		c.Assert(err, gc.IsNil)
 		out, err := ioutil.ReadAll(r)
 		c.Assert(err, gc.IsNil)
 		c.Assert(out, gc.DeepEquals, data)
 	}
 
-	_, err = storage.GetWithDefaultRetry(stor, "notthere")
+	_, err = storage.Get(stor, "notthere")
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
@@ -158,68 +158,68 @@ func (s *storageSuite) TestPut(c *gc.C) {
 
 func (s *storageSuite) assertList(c *gc.C, stor storage.StorageReader, prefix string, expected []string) {
 	c.Logf("List: %v", prefix)
-	names, err := storage.ListWithDefaultRetry(stor, prefix)
+	names, err := storage.List(stor, prefix)
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.DeepEquals, expected)
 }
 
 func (s *storageSuite) TestList(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-	s.assertList(c, storage, "", nil)
+	defer stor.Close()
+	s.assertList(c, stor, "", nil)
 
 	// Directories don't show up in List.
 	contentDir := filepath.Join(storageDir, contentdir)
 	c.Assert(os.Mkdir(filepath.Join(contentDir, "a"), 0755), gc.IsNil)
-	s.assertList(c, storage, "", nil)
-	s.assertList(c, storage, "a", nil)
+	s.assertList(c, stor, "", nil)
+	s.assertList(c, stor, "a", nil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b1"), nil, 0), gc.IsNil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b2"), nil, 0), gc.IsNil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "b"), nil, 0), gc.IsNil)
-	s.assertList(c, storage, "", []string{"a/b1", "a/b2", "b"})
-	s.assertList(c, storage, "a", []string{"a/b1", "a/b2"})
-	s.assertList(c, storage, "a/b", []string{"a/b1", "a/b2"})
-	s.assertList(c, storage, "a/b1", []string{"a/b1"})
-	s.assertList(c, storage, "a/b3", nil)
-	s.assertList(c, storage, "a/b/c", nil)
-	s.assertList(c, storage, "b", []string{"b"})
+	s.assertList(c, stor, "", []string{"a/b1", "a/b2", "b"})
+	s.assertList(c, stor, "a", []string{"a/b1", "a/b2"})
+	s.assertList(c, stor, "a/b", []string{"a/b1", "a/b2"})
+	s.assertList(c, stor, "a/b1", []string{"a/b1"})
+	s.assertList(c, stor, "a/b3", nil)
+	s.assertList(c, stor, "a/b/c", nil)
+	s.assertList(c, stor, "b", []string{"b"})
 }
 
 func (s *storageSuite) TestRemove(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	defer stor.Close()
 
 	contentDir := filepath.Join(storageDir, contentdir)
 	c.Assert(os.Mkdir(filepath.Join(contentDir, "a"), 0755), gc.IsNil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b1"), nil, 0), gc.IsNil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b2"), nil, 0), gc.IsNil)
-	c.Assert(storage.Remove("a"), gc.ErrorMatches, "rm: cannot remove.*Is a directory")
-	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
-	c.Assert(storage.Remove("a/b"), gc.IsNil) // doesn't exist; not an error
-	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
-	c.Assert(storage.Remove("a/b2"), gc.IsNil)
-	s.assertList(c, storage, "", []string{"a/b1"})
-	c.Assert(storage.Remove("a/b1"), gc.IsNil)
-	s.assertList(c, storage, "", nil)
+	c.Assert(stor.Remove("a"), gc.ErrorMatches, "rm: cannot remove.*Is a directory")
+	s.assertList(c, stor, "", []string{"a/b1", "a/b2"})
+	c.Assert(stor.Remove("a/b"), gc.IsNil) // doesn't exist; not an error
+	s.assertList(c, stor, "", []string{"a/b1", "a/b2"})
+	c.Assert(stor.Remove("a/b2"), gc.IsNil)
+	s.assertList(c, stor, "", []string{"a/b1"})
+	c.Assert(stor.Remove("a/b1"), gc.IsNil)
+	s.assertList(c, stor, "", nil)
 }
 
 func (s *storageSuite) TestRemoveAll(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	defer stor.Close()
 
 	contentDir := filepath.Join(storageDir, contentdir)
 	c.Assert(os.Mkdir(filepath.Join(contentDir, "a"), 0755), gc.IsNil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b1"), nil, 0), gc.IsNil)
 	c.Assert(ioutil.WriteFile(filepath.Join(contentDir, "a", "b2"), nil, 0), gc.IsNil)
-	s.assertList(c, storage, "", []string{"a/b1", "a/b2"})
-	c.Assert(storage.RemoveAll(), gc.IsNil)
-	s.assertList(c, storage, "", nil)
+	s.assertList(c, stor, "", []string{"a/b1", "a/b2"})
+	c.Assert(stor.RemoveAll(), gc.IsNil)
+	s.assertList(c, stor, "", nil)
 
 	// RemoveAll does not remove the base storage directory.
 	_, err = os.Stat(contentDir)
@@ -228,20 +228,20 @@ func (s *storageSuite) TestRemoveAll(c *gc.C) {
 
 func (s *storageSuite) TestURL(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-	url, err := storage.URL("a/b")
+	defer stor.Close()
+	url, err := stor.URL("a/b")
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.Equals, "sftp://example.com/"+path.Join(storageDir, contentdir, "a/b"))
 }
 
 func (s *storageSuite) TestConsistencyStrategy(c *gc.C) {
 	storageDir := c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir)
+	stor, err := NewSSHStorage("example.com", storageDir)
 	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-	c.Assert(storage.DefaultConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
+	defer stor.Close()
+	c.Assert(stor.DefaultConsistencyStrategy(), gc.Equals, utils.AttemptStrategy{})
 }
 
 // flock is a test helper that flocks a file,
@@ -280,9 +280,9 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(ioutil.WriteFile(filepath.Join(storageDir, contentdir, "a"), data, 0644), gc.IsNil)
 
 	proc = s.flock(c, flockShared, storageDir, defaultFlockTimeout)
-	_, err = storage.GetWithDefaultRetry(stor, "a")
+	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.IsNil)
-	_, err = storage.ListWithDefaultRetry(stor, "")
+	_, err = storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(stor.Remove("a"), gc.NotNil)
@@ -298,8 +298,8 @@ func (s *storageSuite) TestSynchronisation(c *gc.C) {
 	c.Assert(stor.Put("a", bytes.NewBuffer(nil), 0), gc.NotNil)
 	c.Assert(stor.Remove("a"), gc.NotNil)
 	c.Assert(stor.RemoveAll(), gc.NotNil)
-	_, err = storage.GetWithDefaultRetry(stor, "a")
+	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.NotNil)
-	_, err = storage.ListWithDefaultRetry(stor, "")
+	_, err = storage.List(stor, "")
 	c.Assert(err, gc.NotNil)
 }

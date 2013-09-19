@@ -86,7 +86,7 @@ func Prepare(config *config.Config) (Environ, error) {
 // Returns InvalidEnvironmentError on failure, nil otherwise.
 func CheckEnvironment(environ Environ) error {
 	stor := environ.Storage()
-	reader, err := storage.GetWithDefaultRetry(stor, verificationFilename)
+	reader, err := storage.Get(stor, verificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.
