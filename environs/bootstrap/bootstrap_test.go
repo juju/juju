@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
@@ -151,7 +152,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		}
 		env, err := environs.NewFromAttrs(attrs)
 		c.Assert(err, gc.IsNil)
-		env, err = environs.Prepare(env.Config())
+		env, err = environs.Prepare(env.Config(), configstore.NewMem())
 		c.Assert(err, gc.IsNil)
 		envtesting.RemoveAllTools(c, env)
 

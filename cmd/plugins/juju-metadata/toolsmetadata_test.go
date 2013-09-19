@@ -33,7 +33,7 @@ var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.home = coretesting.MakeSampleHome(c)
-	env, err := environs.PrepareFromName("erewhemos")
+	env, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)

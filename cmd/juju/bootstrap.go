@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -62,7 +63,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// TODO(rog): arrange for PrepareFromName to write any additional
 	// config attributes, or do so after calling it.
-	environ, err := environs.PrepareFromName(c.EnvName)
+	environ, err := environs.PrepareFromName(c.EnvName, configstore.Default())
 	if err != nil {
 		return err
 	}

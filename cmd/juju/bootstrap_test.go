@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/sync"
@@ -308,7 +309,7 @@ func createToolsSource(c *gc.C) string {
 func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	fake := coretesting.MakeFakeHome(c, envConfig)
 	dummy.Reset()
-	env, err := environs.PrepareFromName("peckham")
+	env, err := environs.PrepareFromName("peckham", configstore.Default())
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

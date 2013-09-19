@@ -37,25 +37,11 @@ func NewFromName(name string) (Environ, error) {
 	return New(cfg)
 }
 
-// DefaultConfigStorage returns disk-based environment config storage
-// rooted at JujuHome.
-func DefaultConfigStorage() (ConfigStorage, error) {
-	return configstore.NewDisk(config.JujuHomePath("environments"))
-}
-
 // PrepareFromName is the same as NewFromName except
 // that the environment is is prepared as well as opened,
 // and environment information is created using the
-// given store. If store is nil, DefaultConfigStorage will be
-// used.
+// given store.
 func PrepareFromName(name string, store ConfigStorage) (Environ, error) {
-	if store == nil {
-		store1, err := DefaultConfigStorage()
-		if err != nil {
-			return nil, err
-		}
-		store = store1
-	}
 	cfg, err := ConfigForName(name)
 	if err != nil {
 		return nil, err
@@ -88,7 +74,7 @@ func Prepare(config *config.Config, store ConfigStorage) (Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	info, err = store.CreateInfo(config.Name())
+	info, err := store.CreateInfo(config.Name())
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
 	}

@@ -148,7 +148,7 @@ func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 
 func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	// Prepare the environment so we can destroy it.
-	_, err := environs.PrepareFromName("")
+	_, err := environs.PrepareFromName("", configstore.Default())
 	c.Assert(err, gc.IsNil)
 
 	// normal destroy

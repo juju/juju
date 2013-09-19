@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -70,7 +71,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
-	e, err := environs.Prepare(cfg)
+	e, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -848,7 +849,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg)
+	dummyenv, err := environs.Prepare(dummyCfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	defer dummyenv.Destroy(nil)
 

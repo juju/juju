@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -232,7 +233,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, gc.IsNil)
 
-	environ, err := environs.PrepareFromName("dummyenv")
+	environ, err := environs.PrepareFromName("dummyenv", configstore.Default())
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")

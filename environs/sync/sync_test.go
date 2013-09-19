@@ -19,6 +19,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -251,7 +252,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	envtools.UseLegacyFallback = false
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg)
+	s.env, err = environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 }
 

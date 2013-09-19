@@ -11,9 +11,16 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 )
+
+// Default returns disk-based environment config storage
+// rooted at JujuHome.
+func Default() (environs.ConfigStorage, error) {
+	return NewDisk(config.JujuHomePath("environments"))
+}
 
 type diskStore struct {
 	dir string

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
@@ -51,7 +52,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	t.ToolsFixture.SetUpTest(c)
 	c.Assert(err, gc.IsNil)
-	t.Env, err = environs.Prepare(cfg)
+	t.Env, err = environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 }
 

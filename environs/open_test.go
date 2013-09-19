@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
@@ -32,7 +33,7 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrap.Bootstrap(env, constraints.Value{}), gc.IsNil)
 }
@@ -119,7 +120,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	// Check we can access storage ok, which implies the environment has been prepared.
 	c.Assert(e.Storage(), gc.NotNil)
