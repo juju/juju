@@ -95,7 +95,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
-	err = c.ensureToolsAvailability(environ, ctx)
+	err = c.ensureToolsAvailability(environ, ctx, c.UploadTools)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 // ensureToolsAvailability verifies the tools are available. If no tools are
 // found, it will automatically synchronize them.
-func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context) error {
+func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context, uploadPerformed bool) error {
 	// Capture possible logging while syncing and write it on the screen.
 	loggo.RegisterWriter("bootstrap", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("bootstrap")
@@ -115,8 +115,12 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 	if agentVersion, ok := cfg.AgentVersion(); ok {
 		vers = &agentVersion
 	}
-	_, err := tools.FindBootstrapTools(
-		env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
+	params := tools.BootstrapToolsParams{
+		Version:    vers,
+		Arch:       c.Constraints.Arch,
+		AllowRetry: uploadPerformed,
+	}
+	_, err := tools.FindBootstrapTools(env, params)
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
@@ -127,8 +131,8 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 			return err
 		}
 		// Synchronization done, try again.
-		_, err = tools.FindBootstrapTools(
-			env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development())
+		params.AllowRetry = true
+		_, err = tools.FindBootstrapTools(env, params)
 	} else if err != nil {
 		return err
 	}

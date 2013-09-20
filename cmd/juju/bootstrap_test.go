@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
@@ -44,6 +45,50 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
+}
+
+type bootstrapRetryTest struct {
+	info               string
+	args               []string
+	expectedAllowRetry []bool
+}
+
+var bootstrapRetryTests = []bootstrapRetryTest{{
+	info:               "no tools uploaded, so no need to allow retries",
+	expectedAllowRetry: []bool{false},
+}, {
+	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
+	args:               []string{"--upload-tools"},
+	expectedAllowRetry: []bool{true},
+}}
+
+// Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
+func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
+	for i, test := range bootstrapRetryTests {
+		c.Logf("test %d: %s\n", i, test.info)
+		s.runAllowRetriesTest(c, test)
+	}
+}
+
+func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	var findToolsRetryValues []bool
+
+	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
+		filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+		findToolsRetryValues = append(findToolsRetryValues, allowRetry)
+		return nil, errors.NotFoundf("tools")
+	}
+
+	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
+	defer restore()
+
+	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
+	err := <-errc
+	c.Assert(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
+	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -105,7 +150,8 @@ func (test bootstrapTest) run(c *gc.C) {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 		}
-		list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{})
+		list, err := envtools.FindTools(
+			env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 		c.Check(err, gc.IsNil)
 		c.Logf("found: " + list.String())
 		urls := list.URLs()
@@ -258,7 +304,8 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
-	_, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{})
+	_, err := envtools.FindTools(
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.ErrorMatches, "no tools available")
 
 	// Bootstrap the environment with the valid source. This time
@@ -316,7 +363,8 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
-	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{})
+	list, err := envtools.FindTools(
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
