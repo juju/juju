@@ -121,8 +121,8 @@ func (t configTest) check(c *gc.C) {
 
 	// check storage buckets are configured correctly
 	env := e.(*environ)
-	c.Assert(env.Storage().(*storage).bucket.Region.Name, gc.Equals, ecfg.region())
-	c.Assert(env.PublicStorage().(*storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
+	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
+	c.Assert(env.PublicStorage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
 }
 
 var configTests = []configTest{

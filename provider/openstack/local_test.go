@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -188,7 +189,7 @@ type localServerSuite struct {
 	cred                   *identity.Credentials
 	srv                    localServer
 	env                    environs.Environ
-	writeablePublicStorage environs.Storage
+	writeablePublicStorage storage.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -539,45 +540,45 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	storage := s.Env.Storage()
+	stor := s.Env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
 		name := string(content)
-		err := storage.Put(name, bytes.NewBuffer(content),
+		err := stor.Put(name, bytes.NewBuffer(content),
 			int64(len(content)))
 		c.Assert(err, gc.IsNil)
 	}
-	reader, err := storage.Get("a")
+	reader, err := storage.Get(stor, "a")
 	c.Assert(err, gc.IsNil)
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(allContent), gc.Equals, "a")
-	err = storage.RemoveAll()
+	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	_, err = storage.Get("a")
+	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	storage := s.Env.Storage()
+	stor := s.Env.Storage()
 	// 6*26 = 156 items
 	for _, a := range []byte("abcdef") {
 		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
 			content := []byte{a, b}
 			name := string(content)
-			err := storage.Put(name, bytes.NewBuffer(content),
+			err := stor.Put(name, bytes.NewBuffer(content),
 				int64(len(content)))
 			c.Assert(err, gc.IsNil)
 		}
 	}
-	reader, err := storage.Get("ab")
+	reader, err := storage.Get(stor, "ab")
 	c.Assert(err, gc.IsNil)
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(allContent), gc.Equals, "ab")
-	err = storage.RemoveAll()
+	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	_, err = storage.Get("ab")
+	_, err = storage.Get(stor, "ab")
 	c.Assert(err, gc.NotNil)
 }
 

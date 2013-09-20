@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 )
@@ -72,10 +73,10 @@ func SetFakeToolsStorage(useFake bool) {
 
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
 // It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
+func WritablePublicStorage(e environs.Environ) storage.Storage {
 	ecfg := e.(*environ).ecfg()
 	authModeCfg := AuthMode(ecfg.authMode())
-	writablePublicStorage := &storage{
+	writablePublicStorage := &openstackstorage{
 		containerName: ecfg.publicBucket(),
 		swift:         swift.New(e.(*environ).authClient(ecfg, authModeCfg)),
 	}

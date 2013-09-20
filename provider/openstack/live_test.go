@@ -13,8 +13,8 @@ import (
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
@@ -75,7 +75,7 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
 	cred                   *identity.Credentials
-	writeablePublicStorage environs.Storage
+	writeablePublicStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {

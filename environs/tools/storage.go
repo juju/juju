@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -40,26 +40,26 @@ func StorageName(vers version.Binary) string {
 // ReadList returns a List of the tools in store with the given major.minor version.
 // If minorVersion = -1, then only majorVersion is considered.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(storage environs.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
+func ReadList(stor storage.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
 	origPrefix := toolPrefix
 	defer func() {
 		SetToolPrefix(origPrefix)
 	}()
-	toolsList, err := internalReadList(storage, majorVersion, minorVersion)
+	toolsList, err := internalReadList(stor, majorVersion, minorVersion)
 	if err == ErrNoTools {
 		SetToolPrefix(NewToolPrefix)
-		toolsList, err = internalReadList(storage, majorVersion, minorVersion)
+		toolsList, err = internalReadList(stor, majorVersion, minorVersion)
 	}
 	return toolsList, err
 }
 
-func internalReadList(storage environs.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
+func internalReadList(stor storage.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
 		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
 	} else {
 		logger.Debugf("reading v%d.* tools", majorVersion)
 	}
-	names, err := storage.List(toolPrefix)
+	names, err := storage.List(stor, toolPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func internalReadList(storage environs.StorageReader, majorVersion, minorVersion
 			continue
 		}
 		logger.Debugf("found %s", vers)
-		if t.URL, err = storage.URL(name); err != nil {
+		if t.URL, err = stor.URL(name); err != nil {
 			return nil, err
 		}
 		list = append(list, &t)

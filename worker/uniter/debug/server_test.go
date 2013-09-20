@@ -14,14 +14,15 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type DebugHooksServerSuite struct {
+	testing.LoggingSuite
 	ctx     *HooksContext
 	fakebin string
 	tmpdir  string
-	oldenv  []string
 }
 
 var _ = gc.Suite(&DebugHooksServerSuite{})
@@ -35,33 +36,19 @@ exit $EXIT_CODE
 
 var fakecommands = []string{"tmux"}
 
-func (s *DebugHooksServerSuite) setenv(key, value string) {
-	s.oldenv = append(s.oldenv, key, os.Getenv(key))
-	os.Setenv(key, value)
-}
-
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.fakebin = c.MkDir()
 	s.tmpdir = c.MkDir()
-	s.setenv("PATH", s.fakebin+":"+os.Getenv("PATH"))
-	s.setenv("TMPDIR", s.tmpdir)
-	s.setenv("TEST_RESULT", "")
+	s.PatchEnvironment("PATH", s.fakebin+":"+os.Getenv("PATH"))
+	s.PatchEnvironment("TMPDIR", s.tmpdir)
+	s.PatchEnvironment("TEST_RESULT", "")
 	for _, name := range fakecommands {
 		err := ioutil.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
 		c.Assert(err, gc.IsNil)
 	}
 	s.ctx = NewHooksContext("foo/8")
 	s.ctx.FlockDir = s.tmpdir
-	s.setenv("JUJU_UNIT_NAME", s.ctx.Unit)
-}
-
-func (s *DebugHooksServerSuite) TearDownTest(c *gc.C) {
-	if len(s.oldenv) > 0 {
-		for i := len(s.oldenv) - 2; i >= 0; i = i - 2 {
-			os.Setenv(s.oldenv[i], s.oldenv[i+1])
-		}
-		s.oldenv = nil
-	}
+	s.PatchEnvironment("JUJU_UNIT_NAME", s.ctx.Unit)
 }
 
 func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
@@ -124,9 +111,9 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	// process' death).
 	ch := make(chan bool)
 	var clientExited bool
-	defer jc.Set(&waitClientExit, func(*ServerSession) {
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
 		clientExited = <-ch
-	})()
+	})
 	go func() { ch <- true }()
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
 	c.Assert(clientExited, jc.IsTrue)

@@ -225,12 +225,3 @@ func MakeSampleHome(c *gc.C) *FakeHome {
 func MakeMultipleEnvHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
 }
-
-// PatchEnvironment provides a test a simple way to override a single
-// environment variable. A function is returned that will return the
-// environment to what it was before.
-func PatchEnvironment(name, value string) func() {
-	oldValue := os.Getenv(name)
-	os.Setenv(name, value)
-	return func() { os.Setenv(name, oldValue) }
-}

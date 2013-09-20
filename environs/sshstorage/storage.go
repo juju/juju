@@ -21,7 +21,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// SSHStorage implements environs.Storage.
+// SSHStorage implements storage.Storage.
 //
 // The storage is created under sudo, and ownership given over to the
 // login uid/gid. This is done so that we don't require sudo, and by
@@ -92,7 +92,7 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 		stdin.Close()
 		return nil, err
 	}
-	storage := &SSHStorage{
+	stor := &SSHStorage{
 		host:       host,
 		remotepath: storagedir,
 		tmpdir:     tmpdir,
@@ -104,14 +104,14 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	cmd.Start()
 
 	// Verify we have write permissions.
-	_, err = storage.runf(flockExclusive, "touch %s", utils.ShQuote(storagedir))
+	_, err = stor.runf(flockExclusive, "touch %s", utils.ShQuote(storagedir))
 	if err != nil {
 		stdin.Close()
 		stdout.Close()
 		cmd.Wait()
 		return nil, err
 	}
-	return storage, nil
+	return stor, nil
 }
 
 // Close cleanly terminates the underlying SSH connection.
@@ -168,7 +168,7 @@ func (s *SSHStorage) path(name string) (string, error) {
 	return remotepath, nil
 }
 
-// Get implements environs.StorageReader.Get.
+// Get implements storage.StorageReader.Get.
 func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	path, err := s.path(name)
 	if err != nil {
@@ -189,7 +189,7 @@ func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewBuffer(decoded)), nil
 }
 
-// List implements environs.StorageReader.List.
+// List implements storage.StorageReader.List.
 func (s *SSHStorage) List(prefix string) ([]string, error) {
 	remotepath, err := s.path(prefix)
 	if err != nil {
@@ -214,7 +214,7 @@ func (s *SSHStorage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-// URL implements environs.StorageReader.URL.
+// URL implements storage.StorageReader.URL.
 func (s *SSHStorage) URL(name string) (string, error) {
 	path, err := s.path(name)
 	if err != nil {
@@ -223,12 +223,17 @@ func (s *SSHStorage) URL(name string) (string, error) {
 	return fmt.Sprintf("sftp://%s/%s", s.host, path), nil
 }
 
-// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
-func (s *SSHStorage) ConsistencyStrategy() utils.AttemptStrategy {
+// DefaultConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
+func (s *SSHStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-// Put implements environs.StorageWriter.Put
+// ShouldRetry is specified in the StorageReader interface.
+func (s *SSHStorage) ShouldRetry(err error) bool {
+	return false
+}
+
+// Put implements storage.StorageWriter.Put
 func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	path, err := s.path(name)
 	if err != nil {
@@ -269,7 +274,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	return err
 }
 
-// Remove implements environs.StorageWriter.Remove
+// Remove implements storage.StorageWriter.Remove
 func (s *SSHStorage) Remove(name string) error {
 	path, err := s.path(name)
 	if err != nil {
@@ -280,7 +285,7 @@ func (s *SSHStorage) Remove(name string) error {
 	return err
 }
 
-// RemoveAll implements environs.StorageWriter.RemoveAll
+// RemoveAll implements storage.StorageWriter.RemoveAll
 func (s *SSHStorage) RemoveAll() error {
 	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(s.remotepath))
 	return err
