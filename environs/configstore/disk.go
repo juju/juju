@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"launchpad.net/juju-core/log"
 
 	"launchpad.net/goyaml"
 
@@ -34,13 +35,17 @@ type environInfo struct {
 	CACert       string   `yaml:"ca-cert"`
 }
 
-// NewDisk returns a ConfigStorage implementation that
-// stores configuration in the given directory.
-// The parent of the directory must already exist;
-// the directory itself is created on demand.
+// NewDisk returns a ConfigStorage implementation that stores
+// configuration in the given directory. The parent of the directory
+// must already exist; the directory itself is created on demand.
 func NewDisk(dir string) (Storage, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err
+	}
+	log.Infof("configstore.NewDisk %q", dir)
+	entries, _ := ioutil.ReadDir(filepath.Join(dir, "environments"))
+	for _, info := range entries {
+		log.Infof("existing entry %q", info.Name())
 	}
 	return &diskStore{dir}, nil
 }

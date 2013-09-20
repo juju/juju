@@ -78,6 +78,7 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 	}
 	info, err := store.CreateInfo(config.Name())
 	if err != nil {
+		logger.Infof("environment info already exists; using New not Prepare")
 		if err == configstore.ErrEnvironInfoAlreadyExists {
 			return New(config)
 		}

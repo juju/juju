@@ -134,6 +134,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	env, err = environs.Prepare(cfg, store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Name(), gc.Equals, "erewhemos")
+	c.Assert(env.Storage(), gc.NotNil)
 }
 
 func (OpenSuite) TestNewFromAttrs(c *gc.C) {
