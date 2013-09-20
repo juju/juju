@@ -62,7 +62,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	// Create a "sudo" command which just executes its args.
 	err = os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo"))
 	c.Assert(err, gc.IsNil)
-	restoreSshCommand := jc.Set(&sshCommand, sshCommandTesting)
+	restoreSshCommand := testbase.PatchValue(&sshCommand, sshCommandTesting)
 	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })
 
 	// Create a new "flock" which calls the original, but in non-blocking mode.
