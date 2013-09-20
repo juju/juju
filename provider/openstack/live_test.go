@@ -75,8 +75,8 @@ func registerLiveTests(cred *identity.Credentials) {
 type LiveTests struct {
 	testbase.LoggingSuite
 	jujutest.LiveTests
-	cred                   *identity.Credentials
-	writeablePublicStorage storage.Storage
+	cred            *identity.Credentials
+	metadataStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
@@ -87,22 +87,20 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, gc.IsNil)
-	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
-		"public-bucket-url": publicBucketURL,
-		"auth-url":          t.cred.URL,
+		"tools-url":          containerURL + "/juju-dist-test/tools",
+		"image-metadata-url": containerURL + "/juju-dist-test",
+		"auth-url":           t.cred.URL,
 	})
 	t.LiveTests.SetUpSuite(c)
-	openstack.SetFakeToolsStorage(true)
-	// Environ.PublicStorage() is read only.
-	// For testing, we create a specific storage instance which is authorised to write to
-	// the public storage bucket so that we can upload files for testing.
-	t.writeablePublicStorage = openstack.WritablePublicStorage(t.Env)
-	// Put some fake tools in place so that tests that are simply
+	// For testing, we create a storage instance to which is uploaded tools and image metadata.
+	t.metadataStorage = openstack.MetadataStorage(t.Env)
+	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
-	// are running will find them in the public bucket.
-	envtesting.UploadFakeTools(c, t.writeablePublicStorage)
+	// are running can find the metadata.
+	envtesting.GenerateFakeToolsMetadata(c, t.metadataStorage)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -110,10 +108,9 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	if t.writeablePublicStorage != nil {
-		envtesting.RemoveFakeTools(c, t.writeablePublicStorage)
+	if t.metadataStorage != nil {
+		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage)
 	}
-	openstack.SetFakeToolsStorage(false)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }

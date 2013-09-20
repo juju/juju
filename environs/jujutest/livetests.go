@@ -496,10 +496,10 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func restoreBootstrapVerificationFile(c *gc.C, storage storage.Storage) {
+func restoreBootstrapVerificationFile(c *gc.C, stor storage.Storage) {
 	content := "juju-core storage writing verified: ok\n"
 	contentReader := strings.NewReader(content)
-	err := storage.Put("bootstrap-verify", contentReader,
+	err := stor.Put("bootstrap-verify", contentReader,
 		int64(len(content)))
 	c.Assert(err, gc.IsNil)
 }
@@ -811,7 +811,6 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
 	}
 	c.Assert(inst, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 // Check that we can't start an instance with an empty nonce value.

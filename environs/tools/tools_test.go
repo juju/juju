@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -151,20 +152,20 @@ func (s *SimpleStreamsToolsSuite) generateMetadata(c *gc.C, verses ...version.Bi
 	return objects
 }
 
-func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, storage storage.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, stor storage.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	if len(verses) == 0 {
 		return uploaded
 	}
 	var err error
 	for _, vers := range verses {
-		uploaded[vers], err = storage.URL(fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String()))
+		uploaded[vers], err = stor.URL(fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String()))
 		c.Assert(err, gc.IsNil)
 	}
 	objects := s.generateMetadata(c, verses...)
 	for _, object := range objects {
-		path := filepath.Join("tools", object.path)
-		err = storage.Put(path, bytes.NewReader(object.data), int64(len(object.data)))
+		toolspath := path.Join("tools", object.path)
+		err = stor.Put(toolspath, bytes.NewReader(object.data), int64(len(object.data)))
 		c.Assert(err, gc.IsNil)
 	}
 	return uploaded
