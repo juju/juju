@@ -40,7 +40,7 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
+	restore := testbase.PatchValue(&charm.CacheDir, c.MkDir())
 	s.AddSuiteCleanup(func(*gc.C) { restore() })
 }
 
