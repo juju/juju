@@ -73,7 +73,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// If we are using a local provider, always upload tools.
+	// TODO (wallyworld): 2013-09-20 bug 1227931
+	// We can set a custom tools data source instead of doing an
+	// unecessary upload.
 	if environ.Config().Type() == provider.Local {
 		c.UploadTools = true
 	}
@@ -112,13 +114,13 @@ func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {
 	return nil
 }
 
-var noToolsMessage = `
+const NoToolsMessage = `
 Juju cannot bootstrap because no tools are available for your environment.
 An attempt was made to build and upload appropriate tools but this was unsuccessful.
 
 `
 
-var noToolsNoUploadMessage = `
+const NoToolsNoUploadMessage = `
 Juju cannot bootstrap because no tools are available for your environment.
 In addition, no tools could be located to upload.
 You may want to use the 'tools-url' configuration setting to specify the tools location.
@@ -126,11 +128,12 @@ You may want to use the 'tools-url' configuration setting to specify the tools l
 `
 
 func processToolsError(w io.Writer, err *error, uploadAttempted *bool) {
+
 	if *uploadAttempted && *err != nil {
-		fmt.Fprint(w, noToolsMessage)
+		fmt.Fprint(w, NoToolsMessage)
 	} else {
 		if errors.IsNotFoundError(*err) || *err == coretools.ErrNoMatches {
-			fmt.Fprint(w, noToolsNoUploadMessage)
+			fmt.Fprint(w, NoToolsNoUploadMessage)
 		}
 	}
 }
@@ -151,8 +154,12 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		vers = &agentVersion
 	}
 	logger.Debugf("looking for bootstrap tools")
-	_, err = envtools.FindBootstrapTools(
-		env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development(), envtools.AllowRetry(uploadPerformed))
+	params := envtools.BootstrapToolsParams{
+		Version:    vers,
+		Arch:       c.Constraints.Arch,
+		AllowRetry: uploadPerformed,
+	}
+	_, err = envtools.FindBootstrapTools(env, params)
 	if errors.IsNotFoundError(err) {
 		// No tools available, so synchronize.
 		toolsSource := c.Source
@@ -176,8 +183,8 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 			}
 		}
 		// Synchronization done, try again.
-		_, err = envtools.FindBootstrapTools(
-			env, vers, cfg.DefaultSeries(), c.Constraints.Arch, cfg.Development(), envtools.AllowRetry(true))
+		params.AllowRetry = true
+		_, err = envtools.FindBootstrapTools(env, params)
 	} else if err != nil {
 		return err
 	}

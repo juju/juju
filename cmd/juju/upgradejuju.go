@@ -169,7 +169,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		return nil, errUpToDate
 	}
 	client := version.Current.Number
-	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, false)
+	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
 			return nil, err
