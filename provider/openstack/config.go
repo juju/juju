@@ -200,20 +200,20 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	// even if they are not running with --debug.
 	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
 		msg := fmt.Sprintf(
-							"Config attribute %q (%v) is deprecated and ignored.\n"+
-									"Your cloud provider should have set up image metadata to provide the correct image id\n"+
-								"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
-							"existing image metadata, please run 'juju help image-metadata' to see how suitable image"+
-						"metadata can be generated.",
+			"Config attribute %q (%v) is deprecated and ignored.\n"+
+				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
+				"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
+				"existing image metadata, please run 'juju help image-metadata' to see how suitable image"+
+				"metadata can be generated.",
 			"default-image-id", defaultImageId)
 		logger.Warningf(msg)
 	}
 	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
 		msg := fmt.Sprintf(
-						"Config attribute %q (%v) is deprecated and ignored.\n"+
-								"The correct instance flavor is determined using constraints, globally specified\n"+
-							"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
-						"See 'juju help bootstrap' or 'juju help deploy'.",
+			"Config attribute %q (%v) is deprecated and ignored.\n"+
+				"The correct instance flavor is determined using constraints, globally specified\n"+
+				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
+				"See 'juju help bootstrap' or 'juju help deploy'.",
 			"default-instance-type", defaultInstanceType)
 		logger.Warningf(msg)
 	}
@@ -230,9 +230,9 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 	if publicBucketURL := cfg.AllAttrs()["public-bucket-url"]; publicBucketURL != nil && publicBucketURL.(string) != "" {
 		msg := fmt.Sprintf(
-					"Config attribute %q (%v) is deprecated.\n"+
-							"The location to find tools is now specified using the %q attribute.\n"+
-						"Your configuration should be upddated to set %q as follows\n%v: %v.",
+			"Config attribute %q (%v) is deprecated.\n"+
+				"The location to find tools is now specified using the %q attribute.\n"+
+				"Your configuration should be upddated to set %q as follows\n%v: %v.",
 			"public-bucket-url", publicBucketURL, "tools-url", "tools-url", "tools-url", fmt.Sprintf("%v/juju-dist/tools", publicBucketURL))
 		logger.Warningf(msg)
 
