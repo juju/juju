@@ -103,11 +103,11 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	creds := environs.APICredentials{
+	creds := configstore.APICredentials{
 		User:     "foo",
 		Password: "foopass",
 	}
-	endpoint := environs.APIEndpoint{
+	endpoint := configstore.APIEndpoint{
 		Addresses: []string{"foo.com"},
 		CACert:    "certificated",
 	}
@@ -152,7 +152,7 @@ func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 
 func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	endpoint := environs.APIEndpoint{
+	endpoint := configstore.APIEndpoint{
 		Addresses: []string{},
 		CACert:    "certificated",
 	}
@@ -168,7 +168,7 @@ func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	endpoint := environs.APIEndpoint{
+	endpoint := configstore.APIEndpoint{
 		Addresses: []string{"foo.com"},
 	}
 	store := newConfigStore("noconfig", &environInfo{
@@ -188,7 +188,7 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	bootstrapEnv(c, coretesting.SampleEnvName)
-	endpoint := environs.APIEndpoint{
+	endpoint := configstore.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -240,7 +240,7 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	bootstrapEnv(c, coretesting.SampleEnvName)
-	endpoint := environs.APIEndpoint{
+	endpoint := configstore.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -310,7 +310,7 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	bootstrapEnv(c, coretesting.SampleEnvName)
-	endpoint := environs.APIEndpoint{
+	endpoint := configstore.APIEndpoint{
 		Addresses: []string{"infoapi.com"},
 	}
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -355,7 +355,7 @@ func setAPIClosed() (<-chan *api.State, testbase.Restorer) {
 	return stateClosed, testbase.PatchValue(juju.APIClose, apiClose)
 }
 
-func newConfigStore(envName string, info *environInfo) environs.ConfigStorage {
+func newConfigStore(envName string, info *environInfo) configstore.Storage {
 	return &configStorage{
 		envs: map[string]*environInfo{
 			envName: info,
@@ -364,18 +364,18 @@ func newConfigStore(envName string, info *environInfo) environs.ConfigStorage {
 }
 
 type environInfo struct {
-	environs.EnvironInfo // panic on methods we don't care about
-	creds                environs.APICredentials
-	endpoint             environs.APIEndpoint
-	err                  error
+	configstore.EnvironInfo // panic on methods we don't care about
+	creds                   configstore.APICredentials
+	endpoint                configstore.APIEndpoint
+	err                     error
 }
 
 type configStorage struct {
-	environs.ConfigStorage // panic on methods we don't care about
-	envs                   map[string]*environInfo
+	configstore.Storage // panic on methods we don't care about
+	envs                map[string]*environInfo
 }
 
-func (store *configStorage) ReadInfo(envName string) (environs.EnvironInfo, error) {
+func (store *configStorage) ReadInfo(envName string) (configstore.EnvironInfo, error) {
 	info := store.envs[envName]
 	if info == nil {
 		return nil, errors.NotFoundf("info on environment %q", envName)
@@ -386,10 +386,10 @@ func (store *configStorage) ReadInfo(envName string) (environs.EnvironInfo, erro
 	return info, nil
 }
 
-func (info *environInfo) APICredentials() environs.APICredentials {
+func (info *environInfo) APICredentials() configstore.APICredentials {
 	return info.creds
 }
 
-func (info *environInfo) APIEndpoint() environs.APIEndpoint {
+func (info *environInfo) APIEndpoint() configstore.APIEndpoint {
 	return info.endpoint
 }

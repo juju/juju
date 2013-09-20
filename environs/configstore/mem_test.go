@@ -6,7 +6,6 @@ package configstore_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 )
 
@@ -17,7 +16,7 @@ type memInterfaceSuite struct {
 }
 
 func (s *memInterfaceSuite) SetUpSuite(c *gc.C) {
-	s.NewStore = func(c *gc.C) environs.ConfigStorage {
+	s.NewStore = func(c *gc.C) configstore.Storage {
 		return configstore.NewMem()
 	}
 }
