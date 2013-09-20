@@ -117,48 +117,6 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		return nil, err
 	}
 
-	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
-	// even if they are not running with --debug.
-	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
-		msg := fmt.Sprintf(
-			"Config attribute %q (%v) is deprecated and ignored.\n"+
-				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
-				"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
-				"existing image metadata, please run 'juju help image-metadata' to see how suitable image"+
-				"metadata can be generated.",
-			"default-image-id", defaultImageId)
-		logger.Warningf(msg)
-	}
-	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
-		msg := fmt.Sprintf(
-			"Config attribute %q (%v) is deprecated and ignored.\n"+
-				"The correct instance flavor is determined using constraints, globally specified\n"+
-				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
-				"See 'juju help bootstrap' or 'juju help deploy'.",
-			"default-instance-type", defaultInstanceType)
-		logger.Warningf(msg)
-	}
-	if publicBucketURL := cfg.AllAttrs()["public-bucket-url"]; publicBucketURL != nil && publicBucketURL.(string) != "" {
-		msg := fmt.Sprintf(
-			"Config attribute %q (%v) is deprecated.\n"+
-				"The location to find tools is now specified using the %q attribute.\n"+
-				"Your configuration should be upddated to set %q as follows\n%v: %v.",
-			"public-bucket-url", publicBucketURL, "tools-url", "tools-url", "tools-url", fmt.Sprintf("%v/juju-dist/tools", publicBucketURL))
-		logger.Warningf(msg)
-
-		newAttrs := map[string]interface{}{"public-bucket-url": ""}
-		// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
-		if toolsURL := cfg.AllAttrs()["tools-url"]; toolsURL == nil || toolsURL.(string) == "" {
-			toolsURL = fmt.Sprintf("%v/juju-dist/tools", publicBucketURL)
-			logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
-			newAttrs["tools-url"] = toolsURL
-		}
-		cfg, err = cfg.Apply(newAttrs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
@@ -235,6 +193,55 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 		if controlBucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != controlBucket {
 			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", controlBucket, ecfg.controlBucket())
+		}
+	}
+
+	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
+	// even if they are not running with --debug.
+	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
+		msg := fmt.Sprintf(
+							"Config attribute %q (%v) is deprecated and ignored.\n"+
+									"Your cloud provider should have set up image metadata to provide the correct image id\n"+
+								"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
+							"existing image metadata, please run 'juju help image-metadata' to see how suitable image"+
+						"metadata can be generated.",
+			"default-image-id", defaultImageId)
+		logger.Warningf(msg)
+	}
+	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
+		msg := fmt.Sprintf(
+						"Config attribute %q (%v) is deprecated and ignored.\n"+
+								"The correct instance flavor is determined using constraints, globally specified\n"+
+							"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
+						"See 'juju help bootstrap' or 'juju help deploy'.",
+			"default-instance-type", defaultInstanceType)
+		logger.Warningf(msg)
+	}
+
+	// If the user hasn't specified a tools-url, see if their cloud is one we support and hence know the correct
+	// tools-url for.
+	if toolsURL := cfg.AllAttrs()["tools-url"]; toolsURL == nil || toolsURL.(string) == "" {
+		toolsURL, ok := GetCertifiedToolsURL(ecfg.authURL())
+		if ok {
+			logger.Debugf("certified cloud tools-url set to %s", toolsURL)
+			ecfg.attrs["tools-url"] = toolsURL
+		}
+	}
+
+	if publicBucketURL := cfg.AllAttrs()["public-bucket-url"]; publicBucketURL != nil && publicBucketURL.(string) != "" {
+		msg := fmt.Sprintf(
+					"Config attribute %q (%v) is deprecated.\n"+
+							"The location to find tools is now specified using the %q attribute.\n"+
+						"Your configuration should be upddated to set %q as follows\n%v: %v.",
+			"public-bucket-url", publicBucketURL, "tools-url", "tools-url", "tools-url", fmt.Sprintf("%v/juju-dist/tools", publicBucketURL))
+		logger.Warningf(msg)
+
+		ecfg.attrs["public-bucket-url"] = ""
+		// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
+		if toolsURL := cfg.AllAttrs()["tools-url"]; toolsURL == nil || toolsURL.(string) == "" {
+			toolsURL = fmt.Sprintf("%v/juju-dist/tools", publicBucketURL)
+			logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
+			ecfg.attrs["tools-url"] = toolsURL
 		}
 	}
 
