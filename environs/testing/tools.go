@@ -4,11 +4,11 @@
 package testing
 
 import (
-	"strings"
-	"path"
-	"time"
 	"bytes"
 	"fmt"
+	"path"
+	"strings"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
