@@ -72,7 +72,7 @@ const UseDefaultTmpDir = ""
 // already exist, and will never be removed.
 func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", utils.ShQuote(storagedir))
-	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c '%s'", script))
+	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
 		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(string(out)))
@@ -123,20 +123,29 @@ func (s *SSHStorage) Close() error {
 
 func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface{}) (string, error) {
 	command = fmt.Sprintf(command, args...)
-	return s.run(flockmode, command)
+	return s.run(flockmode, command, nil)
 }
 
-func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
+func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (string, error) {
 	const rcPrefix = "JUJU-RC: "
 	command = fmt.Sprintf(
-		"(SHELL=/bin/bash flock %s %s -c %s) 2>&1; echo %s$?",
+		"SHELL=/bin/bash flock %s %s -c %s",
 		flockmode,
 		s.remotepath,
 		utils.ShQuote(command),
-		rcPrefix,
 	)
-	if _, err := s.stdin.Write([]byte(command + "\r\n")); err != nil {
+	if input != nil {
+		command = fmt.Sprintf("line | base64 -d | (%s)", command)
+	}
+	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
+	if _, err := s.stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
+	}
+	if input != nil {
+		encoded := base64.StdEncoding.EncodeToString(input)
+		if _, err := s.stdin.Write([]byte(encoded + "\n")); err != nil {
+			return "", fmt.Errorf("failed to write input: %v", err)
+		}
 	}
 	var output []string
 	for s.scanner.Scan() {
@@ -243,17 +252,16 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	if _, err := r.Read(buf); err != nil {
 		return err
 	}
-	encoded := base64.StdEncoding.EncodeToString(buf)
 	path = utils.ShQuote(path)
 
 	tmpdir := s.tmpdir
 	if tmpdir == UseDefaultTmpDir {
-		tmpdir = s.remotepath + ".tmp"
+		tmpdir = s.remotepath + "/.tmp"
 	}
 	tmpdir = utils.ShQuote(tmpdir)
 
 	// Write to a temporary file ($TMPFILE), then mv atomically.
-	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $TMPFILE", path)
+	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
 	command = fmt.Sprintf(
 		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
 		tmpdir, command, path,
@@ -264,13 +272,12 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	// Otherwise, the temporary directory is expected
 	// to already exist, and is never removed.
 	if s.tmpdir == UseDefaultTmpDir {
-		installTmpdir := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", tmpdir)
+		installTmpdir := fmt.Sprintf("install -d %s", tmpdir)
 		removeTmpdir := fmt.Sprintf("rm -fr %s", tmpdir)
 		command = fmt.Sprintf("%s && (%s); rc=$?; %s; exit $rc", installTmpdir, command, removeTmpdir)
 	}
 
-	command = fmt.Sprintf("(%s) << EOF\n%s\nEOF", command, encoded)
-	_, err = s.runf(flockExclusive, command+"\n")
+	_, err = s.run(flockExclusive, command+"\n", buf)
 	return err
 }
 

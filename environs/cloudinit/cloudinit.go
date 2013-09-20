@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path"
+	"strings"
 
 	"launchpad.net/goyaml"
 
@@ -30,6 +31,9 @@ import (
 // hardware characteristics). It is a transient file, only used as the node
 // is bootstrapping.
 const BootstrapStateURLFile = "/tmp/provider-state-url"
+
+// fileSchemePrefix is the prefix for file:// URLs.
+const fileSchemePrefix = "file://"
 
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
@@ -140,10 +144,16 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
+	var untarCmd string
+	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
+		untarCmd = fmt.Sprintf("tar xz -C $bin -f %s", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
+	} else {
+		untarCmd = fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL))
+	}
 	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
+		untarCmd,
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
