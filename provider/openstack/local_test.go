@@ -99,7 +99,7 @@ func registerLocalTests() {
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)
-	config["agent-version"] = version.CurrentNumber().String()
+	config["agent-version"] = version.Current.Number.String()
 	config["authorized-keys"] = "fakekey"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
