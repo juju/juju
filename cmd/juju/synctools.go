@@ -83,7 +83,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 
 	target := environ.Storage()
 	if c.destination != "" {
-		target, err = filestorage.NewFileStorageWriter(c.destination)
+		target, err = filestorage.NewFileStorageWriter(c.destination, filestorage.UseDefaultTmpDir)
 		if err != nil {
 			return err
 		}

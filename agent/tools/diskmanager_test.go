@@ -11,6 +11,7 @@ import (
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -20,7 +21,7 @@ var _ = gc.Suite(&DiskManagerSuite{})
 var _ agenttools.ToolsManager = (*agenttools.DiskManager)(nil)
 
 type DiskManagerSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	dataDir string
 	manager agenttools.ToolsManager
 }

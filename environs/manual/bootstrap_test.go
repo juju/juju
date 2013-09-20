@@ -11,6 +11,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/environs/storage"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
@@ -26,14 +28,14 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 type localStorageEnviron struct {
 	environs.Environ
-	storage           environs.Storage
+	storage           storage.Storage
 	storageAddr       string
 	storageDir        string
 	sharedStorageAddr string
 	sharedStorageDir  string
 }
 
-func (e *localStorageEnviron) BootstrapStorage() (environs.Storage, error) {
+func (e *localStorageEnviron) BootstrapStorage() (storage.Storage, error) {
 	return e.storage, nil
 }
 
@@ -59,7 +61,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		Environ:    s.Conn.Environ,
 		storageDir: c.MkDir(),
 	}
-	storage, err := filestorage.NewFileStorageWriter(s.env.storageDir)
+	storage, err := filestorage.NewFileStorageWriter(s.env.storageDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	s.env.storage = storage
 }
@@ -67,8 +69,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
-	series := s.Conn.Environ.Config().DefaultSeries()
-	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, nil, series, nil, false)
+	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, tools.BootstrapToolsParams{})
 	c.Assert(err, gc.IsNil)
 	return BootstrapArgs{
 		Host:          hostname,
@@ -118,7 +119,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	// Since the script failed, the state file should have been
 	// removed from storage.
 	_, err = provider.LoadState(s.env.storage)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotBootstrapped)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyHost(c *gc.C) {

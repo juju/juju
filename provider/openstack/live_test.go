@@ -13,11 +13,12 @@ import (
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // generate a different bucket name for each config instance, so that
@@ -72,10 +73,10 @@ func registerLiveTests(cred *identity.Credentials) {
 // The deployment can be a real live instance or service doubles.
 // Each test runs using the same connection.
 type LiveTests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	jujutest.LiveTests
 	cred                   *identity.Credentials
-	writeablePublicStorage environs.Storage
+	writeablePublicStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {

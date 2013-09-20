@@ -302,6 +302,10 @@ func (ind *Indices) extractIndexes() IndexMetadataSlice {
 	return result
 }
 
+func (metadata *IndexMetadata) String() string {
+	return fmt.Sprintf("%v", *metadata)
+}
+
 // hasCloud tells you whether an IndexMetadata has the given cloud in its
 // Clouds list. If IndexMetadata has no clouds defined, then hasCloud
 // returns true regardless.

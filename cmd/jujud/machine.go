@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -28,6 +29,7 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/localstorage"
+	"launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -96,6 +98,11 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	// Due to changes in the logging, and needing to care about old
+	// environments that have been upgraded, we need to explicitly remove the
+	// file writer if one has been added, otherwise we will get duplicate
+	// lines of all logging in the log file.
+	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
 	log.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
@@ -173,13 +180,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		ensureStateWorker()
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-	// Only the machiner currently connects to the API.
-	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+	})
+	runner.StartWorker("logger", func() (worker.Worker, error) {
+		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	for _, job := range entity.Jobs() {
 		switch job {

@@ -37,15 +37,6 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	c.Assert(s.stateAPI, gc.NotNil)
-}
-
-func (s *watcherSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {

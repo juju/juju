@@ -28,11 +28,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
-// for each test. It also includes testing.LoggingSuite.
+// for each test. It also includes testbase.LoggingSuite.
 //
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
@@ -50,7 +51,7 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	Conn         *juju.Conn
@@ -162,32 +163,41 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	return apiInfo
 }
 
+// openAPIAs opens the API and ensures that the *api.State returned will be
+// closed during the test teardown by using a cleanup function.
 func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Tag = tag
 	info.Password = password
 	info.Nonce = nonce
-	st, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
-	c.Assert(st, gc.NotNil)
-	return st
+	c.Assert(apiState, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := apiState.Close()
+		c.Check(err, gc.IsNil)
+	})
+	return apiState
 }
 
-// OpenAPIAs opens the API using the given identity tag
-// and password for authentication.
+// OpenAPIAs opens the API using the given identity tag and password for
+// authentication.  The returned *api.State should not be closed by the caller
+// as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag, password string) *api.State {
 	return s.openAPIAs(c, tag, password, "")
 }
 
-// OpenAPIAsMachine opens the API using the given machine tag,
-// password and nonce for authentication.
+// OpenAPIAsMachine opens the API using the given machine tag, password and
+// nonce for authentication. The returned *api.State should not be closed by
+// the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *api.State {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
-// OpenAPIAsNewMachine creates a new machine entry that lives in system state, and
-// then uses that to open the API.
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state,
+// and then uses that to open the API. The returned *api.State should not be
+// closed by the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)

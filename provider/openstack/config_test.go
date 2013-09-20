@@ -10,16 +10,16 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedVars   map[string]string
 	oldJujuHome *testing.FakeHome
 }
@@ -50,9 +50,9 @@ var _ = gc.Suite(&ConfigSuite{})
 // parse matches the given error.
 type configTest struct {
 	summary       string
-	config        attrs
-	change        attrs
-	expect        attrs
+	config        map[string]interface{}
+	change        map[string]interface{}
+	expect        map[string]interface{}
 	envVars       map[string]string
 	region        string
 	controlBucket string
@@ -79,26 +79,13 @@ func restoreEnvVars(envVars map[string]string) {
 }
 
 func (t configTest) check(c *gc.C) {
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "fakekey",
-			},
-		},
-	}
-	testenv := envs["environments"].(attrs)["testenv"].(attrs)
-	for k, v := range t.config {
-		testenv[k] = v
-	}
-	if _, ok := testenv["control-bucket"]; !ok {
-		testenv["control-bucket"] = "x"
-	}
-	data, err := goyaml.Marshal(envs)
-	c.Assert(err, gc.IsNil)
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "openstack",
+		"control-bucket": "x",
+	}).Merge(t.config)
 
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, gc.IsNil)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
 
 	// Set environment variables if any.
 	savedVars := make(map[string]string)
@@ -110,7 +97,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	defer restoreEnvVars(savedVars)
 
-	e, err := es.Open("testenv")
+	e, err := environs.New(cfg)
 	if t.change != nil {
 		c.Assert(err, gc.IsNil)
 
@@ -400,12 +387,6 @@ var configTests = []configTest{
 	}, {
 		summary:      "default firewall-mode",
 		config:       attrs{},
-		firewallMode: config.FwInstance,
-	}, {
-		summary: "unset firewall-mode",
-		config: attrs{
-			"firewall-mode": "",
-		},
 		firewallMode: config.FwInstance,
 	}, {
 		summary: "instance firewall-mode",

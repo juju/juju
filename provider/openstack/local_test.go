@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -32,6 +33,7 @@ import (
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -148,7 +150,7 @@ func (s *localServer) stop() {
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
 type localLiveSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	LiveTests
 	srv localServer
 }
@@ -183,12 +185,12 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Openstack server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	jujutest.Tests
 	cred                   *identity.Credentials
 	srv                    localServer
 	env                    environs.Environ
-	writeablePublicStorage environs.Storage
+	writeablePublicStorage storage.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -539,45 +541,45 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	storage := s.Env.Storage()
+	stor := s.Env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
 		name := string(content)
-		err := storage.Put(name, bytes.NewBuffer(content),
+		err := stor.Put(name, bytes.NewBuffer(content),
 			int64(len(content)))
 		c.Assert(err, gc.IsNil)
 	}
-	reader, err := storage.Get("a")
+	reader, err := storage.Get(stor, "a")
 	c.Assert(err, gc.IsNil)
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(allContent), gc.Equals, "a")
-	err = storage.RemoveAll()
+	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	_, err = storage.Get("a")
+	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	storage := s.Env.Storage()
+	stor := s.Env.Storage()
 	// 6*26 = 156 items
 	for _, a := range []byte("abcdef") {
 		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
 			content := []byte{a, b}
 			name := string(content)
-			err := storage.Put(name, bytes.NewBuffer(content),
+			err := stor.Put(name, bytes.NewBuffer(content),
 				int64(len(content)))
 			c.Assert(err, gc.IsNil)
 		}
 	}
-	reader, err := storage.Get("ab")
+	reader, err := storage.Get(stor, "ab")
 	c.Assert(err, gc.IsNil)
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(allContent), gc.Equals, "ab")
-	err = storage.RemoveAll()
+	err = stor.RemoveAll()
 	c.Assert(err, gc.IsNil)
-	_, err = storage.Get("ab")
+	_, err = storage.Get(stor, "ab")
 	c.Assert(err, gc.NotNil)
 }
 

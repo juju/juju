@@ -6,7 +6,7 @@ package cloudinit
 import (
 	"encoding/base64"
 	"fmt"
-	"path/filepath"
+	"path"
 
 	"launchpad.net/goyaml"
 
@@ -147,13 +147,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
-	// TODO (thumper): work out how to pass the logging config to the children
-	debugFlag := ""
-	// TODO: disable debug mode by default when the system is stable.
-	if true {
-		debugFlag = " --debug"
-	}
-
 	if err := cfg.addLogging(c); err != nil {
 		return nil, err
 	}
@@ -189,16 +182,17 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		}
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
+			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --constraints "+shquote(cfg.Constraints.String())+
-				debugFlag,
+				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
-	if err := cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId, debugFlag); err != nil {
+	if err := cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId); err != nil {
 		return nil, err
 	}
 
@@ -208,18 +202,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return c, nil
 }
-
-var logrotateConf = `
-/var/log/juju/*.log {
-        daily
-        minsize 5M
-        maxsize 50M
-        copytruncate
-        rotate 7
-        missingok
-        compress
-        delaycompress
-}`[1:]
 
 func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	var configRenderer syslog.SyslogConfigRenderer
@@ -235,13 +217,12 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 		return err
 	}
 	c.AddFile("/etc/rsyslog.d/25-juju.conf", string(content), 0600)
-	c.AddFile("/etc/logrotate.d/juju", logrotateConf, 0600)
 	c.AddRunCmd("restart rsyslog")
 	return nil
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
-	return filepath.Join(cfg.DataDir, name)
+	return path.Join(cfg.DataDir, name)
 }
 
 func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
@@ -292,7 +273,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 	return acfg, nil
 }
 
-func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machineId, logConfig string) error {
+func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machineId string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -301,7 +282,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, nil)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
@@ -311,7 +292,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 }
 
 func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
-	dbDir := filepath.Join(cfg.DataDir, "db")
+	dbDir := path.Join(cfg.DataDir, "db")
 	c.AddScripts(
 		"mkdir -p "+dbDir+"/journal",
 		"chmod 0700 "+dbDir,
@@ -334,8 +315,8 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 // to use as a directory for storing the tools executables in
 // by using the last element stripped of its extension.
 func versionDir(toolsURL string) string {
-	name := filepath.Base(toolsURL)
-	ext := filepath.Ext(name)
+	name := path.Base(toolsURL)
+	ext := path.Ext(name)
 	return name[:len(name)-len(ext)]
 }
 

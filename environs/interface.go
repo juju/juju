@@ -5,15 +5,14 @@ package environs
 
 import (
 	"errors"
-	"io"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -60,66 +59,13 @@ type EnvironProvider interface {
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
 
-// A StorageReader can retrieve and list files from a storage provider.
-type StorageReader interface {
-	// Get opens the given storage file and returns a ReadCloser
-	// that can be used to read its contents.  It is the caller's
-	// responsibility to close it after use.  If the name does not
-	// exist, it should return a *NotFoundError.
-	Get(name string) (io.ReadCloser, error)
-
-	// List lists all names in the storage with the given prefix, in
-	// alphabetical order.  The names in the storage are considered
-	// to be in a flat namespace, so the prefix may include slashes
-	// and the names returned are the full names for the matching
-	// entries.
-	List(prefix string) ([]string, error)
-
-	// URL returns a URL that can be used to access the given storage file.
-	URL(name string) (string, error)
-
-	// ConsistencyStrategy returns the appropriate polling for waiting
-	// for this storage to become consistent.
-	// If the storage implementation has immediate consistency, the
-	// strategy won't need to wait at all.  But for eventually-consistent
-	// storage backends a few seconds of polling may be needed.
-	ConsistencyStrategy() utils.AttemptStrategy
-}
-
-// A StorageWriter adds and removes files in a storage provider.
-type StorageWriter interface {
-	// Put reads from r and writes to the given storage file.
-	// The length must give the total length of the file.
-	Put(name string, r io.Reader, length int64) error
-
-	// Remove removes the given file from the environment's
-	// storage. It should not return an error if the file does
-	// not exist.
-	Remove(name string) error
-
-	// RemoveAll deletes all files that have been stored here.
-	// If the underlying storage implementation may be shared
-	// with other actors, it must be sure not to delete their
-	// file as well.
-	// Nevertheless, use with care!  This method is only mean
-	// for cleaning up an environment that's being destroyed.
-	RemoveAll() error
-}
-
-// Storage represents storage that can be both
-// read and written.
-type Storage interface {
-	StorageReader
-	StorageWriter
-}
-
 // EnvironStorage implements storage access for an environment.
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
-	Storage() Storage
+	Storage() storage.Storage
 
 	// PublicStorage returns storage shared between environments.
-	PublicStorage() StorageReader
+	PublicStorage() storage.StorageReader
 }
 
 // BootstrapStorager is an interface that returns a environs.Storage that may
@@ -130,7 +76,7 @@ type EnvironStorage interface {
 type BootstrapStorager interface {
 	// BootstrapStorager returns an environs.Storage that may be used while
 	// bootstrapping a machine.
-	BootstrapStorage() (Storage, error)
+	BootstrapStorage() (storage.Storage, error)
 }
 
 // ConfigGetter implements access to an environments configuration.

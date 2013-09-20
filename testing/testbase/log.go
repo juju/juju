@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package testbase
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line i
 func (t *LoggingSuite) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.setUp(c)
-	t.AddSuiteCleanup(func() {
+	t.AddSuiteCleanup(func(*gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
 	})

@@ -9,7 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -41,7 +41,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	args.Host = "ubuntu@" + args.Host
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
+	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.Storage))
 	defer fakeSSH{
 		series: series, arch: arch, skipProvisionAgent: true,
 	}.install(c).Restore()

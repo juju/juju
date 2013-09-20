@@ -21,19 +21,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-const (
-	// tmpdir is the name of the subdirectory
-	// inside the remote storage directory where
-	// temporary files are created.
-	tmpdir = "tmp"
-
-	// contentdir is the name of the subdirectory
-	// inside the remote storage directory where
-	// files are stored.
-	contentdir = "content"
-)
-
-// SSHStorage implements environs.Storage.
+// SSHStorage implements storage.Storage.
 //
 // The storage is created under sudo, and ownership given over to the
 // login uid/gid. This is done so that we don't require sudo, and by
@@ -42,6 +30,7 @@ const (
 type SSHStorage struct {
 	host       string
 	remotepath string
+	tmpdir     string
 
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
@@ -65,12 +54,24 @@ const (
 	flockExclusive flockmode = "-x"
 )
 
+// UseDefaultTmpDir may be passed into NewSSHStorage
+// for the tmpdir argument, to signify that the default
+// value should be used. See NewSSHStorage for more.
+const UseDefaultTmpDir = ""
+
 // NewSSHStorage creates a new SSHStorage, connected to the
 // specified host, managing state under the specified remote path.
-func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
-	contentdir := path.Join(remotepath, contentdir)
-	tmpdir := path.Join(remotepath, tmpdir)
-	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s %s", contentdir, tmpdir)
+//
+// A temporary directory may be specified, in which case it should
+// be a directory on the same filesystem as the storage directory
+// to ensure atomic writes. If left unspecified, tmpdir will be
+// assigned a value of storagedir+".tmp".
+//
+// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
+// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
+// already exist, and will never be removed.
+func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
+	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", utils.ShQuote(storagedir))
 	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c '%s'", script))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -91,9 +92,10 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 		stdin.Close()
 		return nil, err
 	}
-	storage := &SSHStorage{
+	stor := &SSHStorage{
 		host:       host,
-		remotepath: remotepath,
+		remotepath: storagedir,
+		tmpdir:     tmpdir,
 		cmd:        cmd,
 		stdin:      stdin,
 		stdout:     stdout,
@@ -101,20 +103,15 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 	}
 	cmd.Start()
 
-	// Verify we have write permissions, and set the temporary directory.
-	_, err = storage.runf(
-		flockExclusive,
-		"touch %s && export TMPDIR=%s",
-		utils.ShQuote(remotepath),
-		utils.ShQuote(tmpdir),
-	)
+	// Verify we have write permissions.
+	_, err = stor.runf(flockExclusive, "touch %s", utils.ShQuote(storagedir))
 	if err != nil {
 		stdin.Close()
 		stdout.Close()
 		cmd.Wait()
 		return nil, err
 	}
-	return storage, nil
+	return stor, nil
 }
 
 // Close cleanly terminates the underlying SSH connection.
@@ -132,7 +129,7 @@ func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface
 func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
 	const rcPrefix = "JUJU-RC: "
 	command = fmt.Sprintf(
-		"(flock %s %s -c %s) 2>&1; echo %s$?",
+		"(SHELL=/bin/bash flock %s %s -c %s) 2>&1; echo %s$?",
 		flockmode,
 		s.remotepath,
 		utils.ShQuote(command),
@@ -164,15 +161,14 @@ func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
 
 // path returns a remote absolute path for a storage object name.
 func (s *SSHStorage) path(name string) (string, error) {
-	contentdir := path.Join(s.remotepath, contentdir)
-	remotepath := path.Clean(path.Join(contentdir, name))
-	if !strings.HasPrefix(remotepath, contentdir) {
+	remotepath := path.Clean(path.Join(s.remotepath, name))
+	if !strings.HasPrefix(remotepath, s.remotepath) {
 		return "", fmt.Errorf("%q escapes storage directory", name)
 	}
 	return remotepath, nil
 }
 
-// Get implements environs.StorageReader.Get.
+// Get implements storage.StorageReader.Get.
 func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	path, err := s.path(name)
 	if err != nil {
@@ -193,7 +189,7 @@ func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewBuffer(decoded)), nil
 }
 
-// List implements environs.StorageReader.List.
+// List implements storage.StorageReader.List.
 func (s *SSHStorage) List(prefix string) ([]string, error) {
 	remotepath, err := s.path(prefix)
 	if err != nil {
@@ -209,17 +205,16 @@ func (s *SSHStorage) List(prefix string) ([]string, error) {
 		return nil, nil
 	}
 	var names []string
-	contentdir := path.Join(s.remotepath, contentdir)
 	for _, name := range strings.Split(out, "\n") {
 		if strings.HasPrefix(name[len(dir):], prefix) {
-			names = append(names, name[len(contentdir)+1:])
+			names = append(names, name[len(s.remotepath)+1:])
 		}
 	}
 	sort.Strings(names)
 	return names, nil
 }
 
-// URL implements environs.StorageReader.URL.
+// URL implements storage.StorageReader.URL.
 func (s *SSHStorage) URL(name string) (string, error) {
 	path, err := s.path(name)
 	if err != nil {
@@ -228,12 +223,17 @@ func (s *SSHStorage) URL(name string) (string, error) {
 	return fmt.Sprintf("sftp://%s/%s", s.host, path), nil
 }
 
-// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
-func (s *SSHStorage) ConsistencyStrategy() utils.AttemptStrategy {
+// DefaultConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
+func (s *SSHStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-// Put implements environs.StorageWriter.Put
+// ShouldRetry is specified in the StorageReader interface.
+func (s *SSHStorage) ShouldRetry(err error) bool {
+	return false
+}
+
+// Put implements storage.StorageWriter.Put
 func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	path, err := s.path(name)
 	if err != nil {
@@ -245,15 +245,36 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	encoded := base64.StdEncoding.EncodeToString(buf)
 	path = utils.ShQuote(path)
+
+	tmpdir := s.tmpdir
+	if tmpdir == UseDefaultTmpDir {
+		tmpdir = s.remotepath + ".tmp"
+	}
+	tmpdir = utils.ShQuote(tmpdir)
+
 	// Write to a temporary file ($TMPFILE), then mv atomically.
 	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $TMPFILE", path)
-	command = fmt.Sprintf("TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)", command, path)
+	command = fmt.Sprintf(
+		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
+		tmpdir, command, path,
+	)
+
+	// If UseDefaultTmpDir is passed, then create the
+	// temporary directory, and remove it afterwards.
+	// Otherwise, the temporary directory is expected
+	// to already exist, and is never removed.
+	if s.tmpdir == UseDefaultTmpDir {
+		installTmpdir := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", tmpdir)
+		removeTmpdir := fmt.Sprintf("rm -fr %s", tmpdir)
+		command = fmt.Sprintf("%s && (%s); rc=$?; %s; exit $rc", installTmpdir, command, removeTmpdir)
+	}
+
 	command = fmt.Sprintf("(%s) << EOF\n%s\nEOF", command, encoded)
 	_, err = s.runf(flockExclusive, command+"\n")
 	return err
 }
 
-// Remove implements environs.StorageWriter.Remove
+// Remove implements storage.StorageWriter.Remove
 func (s *SSHStorage) Remove(name string) error {
 	path, err := s.path(name)
 	if err != nil {
@@ -264,9 +285,8 @@ func (s *SSHStorage) Remove(name string) error {
 	return err
 }
 
-// RemoveAll implements environs.StorageWriter.RemoveAll
+// RemoveAll implements storage.StorageWriter.RemoveAll
 func (s *SSHStorage) RemoveAll() error {
-	contentdir := path.Join(s.remotepath, contentdir)
-	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(contentdir))
+	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(s.remotepath))
 	return err
 }

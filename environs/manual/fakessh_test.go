@@ -12,8 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // sshscript should only print the result on the first execution,
@@ -47,7 +46,7 @@ fi`
 //    - nil (no output)
 //    - a string (stdout)
 //    - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *gc.C, input string, output interface{}, rc int) jc.Restorer {
+func installFakeSSH(c *gc.C, input string, output interface{}, rc int) testbase.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	sshexpectedinput := ssh + ".expected-input"
@@ -65,7 +64,7 @@ func installFakeSSH(c *gc.C, input string, output interface{}, rc int) jc.Restor
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
 	c.Assert(err, gc.IsNil)
-	return testing.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
+	return testbase.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
 }
 
 // fakeSSH wraps the invocation of installFakeSSH based on the parameters.
@@ -85,7 +84,7 @@ type fakeSSH struct {
 // install installs fake SSH commands, which will respond to
 // manual provisioning/bootstrapping commands with the specified
 // output and exit codes.
-func (r fakeSSH) install(c *gc.C) jc.Restorer {
+func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 	series := r.series
 	if series == "" {
 		series = "precise"
@@ -100,7 +99,7 @@ func (r fakeSSH) install(c *gc.C) jc.Restorer {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
-	var restore jc.Restorer
+	var restore testbase.Restorer
 	add := func(input string, output interface{}, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}

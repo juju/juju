@@ -20,19 +20,21 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type lxcSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }
@@ -163,7 +165,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 func (s *lxcBrokerSuite) assertInstances(c *gc.C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
 	c.Assert(err, gc.IsNil)
-	coretesting.MatchInstances(c, results, inst...)
+	instancetest.MatchInstances(c, results, inst...)
 }
 
 func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {

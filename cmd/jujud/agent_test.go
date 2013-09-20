@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -32,7 +33,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var errorImportanceTests = []error{
@@ -268,8 +269,8 @@ func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Tools 
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	stor := s.Conn.Environ.Storage()
+	err := stor.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, gc.IsNil)
 	url, err := s.Conn.Environ.Storage().URL(envtools.StorageName(vers))
 	c.Assert(err, gc.IsNil)

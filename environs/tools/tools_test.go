@@ -17,12 +17,13 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -39,7 +40,7 @@ type toolsTestHelper interface {
 type ToolsSuite struct {
 	toolsTestHelper
 	env environs.Environ
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	origCurrentVersion version.Binary
 }
@@ -66,7 +67,7 @@ func (s *LegacyToolsSuite) removeTools(c *gc.C) {
 	envtesting.RemoveAllTools(c, s.env)
 }
 
-func (s *LegacyToolsSuite) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *LegacyToolsSuite) uploadVersions(c *gc.C, storage storage.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	for _, vers := range verses {
 		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
@@ -79,8 +80,8 @@ func (s *LegacyToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[v
 }
 
 func (s *LegacyToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	storage := s.env.PublicStorage().(environs.Storage)
-	return s.uploadVersions(c, storage, verses...)
+	stor := s.env.PublicStorage().(storage.Storage)
+	return s.uploadVersions(c, stor, verses...)
 }
 
 func (s *LegacyToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
@@ -150,7 +151,7 @@ func (s *SimpleStreamsToolsSuite) generateMetadata(c *gc.C, verses ...version.Bi
 	return objects
 }
 
-func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, storage storage.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	if len(verses) == 0 {
 		return uploaded
@@ -281,7 +282,7 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{})
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -306,7 +307,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 	s.reset(c, nil)
 	custom := s.uploadToStorage(c, s.env.Storage(), envtesting.V110p...)
 	s.uploadPublic(c, envtesting.VAll...)
-	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{})
+	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.IsNil)
 	expect := map[version.Binary]string{}
 	for _, expected := range envtesting.V110p {
@@ -319,7 +320,8 @@ func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
-	_, err := envtools.FindTools(s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+	_, err := envtools.FindTools(
+		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
@@ -359,9 +361,11 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			s.uploadPublic(c, envtesting.VAll...)
 		}
 
-		cfg := s.env.Config()
-		actual, err := envtools.FindBootstrapTools(
-			s.env, agentVersion, cfg.DefaultSeries(), &test.Arch, cfg.Development())
+		params := envtools.BootstrapToolsParams{
+			Version: agentVersion,
+			Arch:    &test.Arch,
+		}
+		actual, err := envtools.FindBootstrapTools(s.env, params)
 		if test.Err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())

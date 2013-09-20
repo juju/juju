@@ -17,9 +17,11 @@ import (
 
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
+	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -29,7 +31,7 @@ func Test(t *stdtesting.T) {
 }
 
 type LxcSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	lxc.TestSuite
 	oldPath string
 }
@@ -208,15 +210,15 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 
 	result, err := foo.ListContainers()
 	c.Assert(err, gc.IsNil)
-	testing.MatchInstances(c, result, foo1, foo2, foo3)
+	instancetest.MatchInstances(c, result, foo1, foo2, foo3)
 
 	result, err = bar.ListContainers()
 	c.Assert(err, gc.IsNil)
-	testing.MatchInstances(c, result, bar1, bar2)
+	instancetest.MatchInstances(c, result, bar1, bar2)
 }
 
 type NetworkSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&NetworkSuite{})
