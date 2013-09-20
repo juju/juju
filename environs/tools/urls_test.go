@@ -63,8 +63,8 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 		"config-tools-url/", privateStorageURL, "https://juju.canonical.com/tools/"})
 	haveExpectedSources := false
 	for _, source := range sources {
-		haveExpectedSources = true
 		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
+			haveExpectedSources = true
 			c.Assert(allowRetry, jc.IsFalse)
 		}
 	}
@@ -77,10 +77,11 @@ func (s *URLsSuite) TestToolsSourcesWithRetry(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	haveExpectedSources := false
 	for _, source := range sources {
-		haveExpectedSources = true
 		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
+			haveExpectedSources = true
 			c.Assert(allowRetry, jc.IsTrue)
 		}
 	}
+	c.Assert(haveExpectedSources, jc.IsTrue)
 	c.Assert(haveExpectedSources, jc.IsTrue)
 }
