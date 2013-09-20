@@ -68,6 +68,17 @@ type EnvironStorage interface {
 	PublicStorage() storage.StorageReader
 }
 
+// BootstrapStorager is an interface that returns a environs.Storage that may
+// be used before the bootstrap machine agent has been provisioned.
+//
+// This is useful for environments where the storage is managed by the machine
+// agent once bootstrapped.
+type BootstrapStorager interface {
+	// BootstrapStorager returns an environs.Storage that may be used while
+	// bootstrapping a machine.
+	BootstrapStorage() (storage.Storage, error)
+}
+
 // ConfigGetter implements access to an environments configuration.
 type ConfigGetter interface {
 	// Config returns the configuration data with which the Environ was created.

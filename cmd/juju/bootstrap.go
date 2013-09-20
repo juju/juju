@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -67,6 +68,15 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	environ, err := environs.PrepareFromName(c.EnvName)
 	if err != nil {
 		return err
+	}
+	// If the environment has a special bootstrap Storage, use it wherever
+	// we'd otherwise use environ.Storage.
+	if bs, ok := environ.(environs.BootstrapStorager); ok {
+		bootstrapStorage, err := bs.BootstrapStorage()
+		if err != nil {
+			return fmt.Errorf("failed to acquire bootstrap storage: %v", err)
+		}
+		environ = &bootstrapStorageEnviron{environ, bootstrapStorage}
 	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
 	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
@@ -221,4 +231,13 @@ func getUploadSeries(cfg *config.Config, series []string) []string {
 		unique.Add(cfg.DefaultSeries())
 	}
 	return unique.Values()
+}
+
+type bootstrapStorageEnviron struct {
+	environs.Environ
+	bootstrapStorage storage.Storage
+}
+
+func (b *bootstrapStorageEnviron) Storage() storage.Storage {
+	return b.bootstrapStorage
 }
