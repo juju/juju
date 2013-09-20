@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -69,7 +70,7 @@ func factory(contextId, cmdName string) (cmd.Command, error) {
 }
 
 type ServerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	server   *jujuc.Server
 	sockPath string
 	err      chan error

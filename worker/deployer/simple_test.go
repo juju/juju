@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
@@ -129,7 +130,7 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 }
 
 type SimpleToolsFixture struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	dataDir         string
 	initDir         string
 	logDir          string

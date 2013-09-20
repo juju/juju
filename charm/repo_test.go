@@ -20,6 +20,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type MockStore struct {
@@ -151,7 +152,7 @@ func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 }
 
 type StoreSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	server      *MockStore
 	store       *charm.CharmStore
 	oldCacheDir string
@@ -172,7 +173,7 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.server.downloads = nil
 }
 
-// Uses the TearDownTest from testing.LoggingSuite
+// Uses the TearDownTest from testbase.LoggingSuite
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
 	charm.CacheDir = s.oldCacheDir
@@ -392,7 +393,7 @@ func (s *StoreSuite) TestCharmURL(c *gc.C) {
 }
 
 type LocalRepoSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	repo       *charm.LocalRepository
 	seriesPath string
 }

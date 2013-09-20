@@ -14,12 +14,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type format_1_16Suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	formatter formatter_1_16
 }
 
