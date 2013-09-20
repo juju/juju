@@ -4,7 +4,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func (*importSuite) TestHomeLinux(c *gc.C) {

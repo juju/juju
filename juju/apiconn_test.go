@@ -21,7 +21,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type NewAPIConnSuite struct {
@@ -346,7 +345,7 @@ func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
 	c.Assert(envInfo.Name, gc.Equals, expectName)
 }
 
-func setAPIClosed() (<-chan *api.State, coretesting.Restorer) {
+func setAPIClosed() (<-chan *api.State, testbase.Restorer) {
 	stateClosed := make(chan *api.State)
 	apiClose := func(st *api.State) error {
 		stateClosed <- st

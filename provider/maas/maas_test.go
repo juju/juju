@@ -10,7 +10,6 @@ import (
 	"launchpad.net/gomaasapi"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 

@@ -9,7 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testbase"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type formatSuite struct {

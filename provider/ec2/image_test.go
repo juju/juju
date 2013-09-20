@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 

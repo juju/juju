@@ -12,7 +12,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
