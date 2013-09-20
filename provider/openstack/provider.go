@@ -80,7 +80,7 @@ openstack:
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   # The following are used for userpass authentication (the default)
-  auth-mode: userpass
+  # auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
   # username: <your username>
   # Usually set via the env variable OS_PASSWORD, but can be specified here
@@ -89,6 +89,12 @@ openstack:
   # tenant-name: <your tenant name>
   # Usually set via the env variable OS_REGION_NAME, but can be specified here
   # region: <your region>
+  # USe the following if you require keypair autherntication
+  # auth-mode: keypair
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
 
 ## https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
@@ -101,27 +107,7 @@ hpcloud:
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
-  auth-url: https://yourkeystoneurl:35357/v2.0/
-  # URL denoting a location holding the juju tools.
-  tools-url: https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # The following are used for userpass authentication (the default)
-  auth-mode: userpass
-  # Usually set via the env variable OS_USERNAME, but can be specified here
-  # username: <your username>
-  # Usually set via the env variable OS_PASSWORD, but can be specified here
-  # password: <secret>
-  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
-  # tenant-name: <your tenant name>
-  # Usually set via the env variable OS_REGION_NAME, but can be specified here
-  # region: <your region>
-  # The following are used for keypair authentication
-  # auth-mode: keypair
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-  # secret-key: <secret>
+  # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
 
 `[1:]
 }

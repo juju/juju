@@ -148,3 +148,16 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
+
+func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
+	// Error and warning go to stderr even with ShowLog=false
+	l := &cmd.Log{Config: "<root>=INFO", ShowLog: false}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+	logger.Warningf("a warning")
+	logger.Errorf("an error")
+	logger.Infof("an info")
+	c.Assert(testing.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+}

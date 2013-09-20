@@ -250,7 +250,7 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.1-ping-hostarch",
 		"1.2.3.1-pong-hostarch",
 	},
-	err: `invalid series "ping"`,
+	err: `no matching tools available`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-hostarch",

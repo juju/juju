@@ -79,12 +79,20 @@ environments:
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
+	// Populate the old tools location which will interfere with the uploads
+	// if the new tools locations are not correctly set up.
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	for _, vers := range v180all {
+		envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), vers)
+	}
+
 	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	// Populate both with the public tools.
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
 		putBinary(c, s.localStorage, vers)
 	}
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 
 	// Switch tools location.
 	s.origLocation = sync.DefaultToolsLocation
@@ -184,6 +192,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
+			envtools.SetToolPrefix(envtools.NewToolPrefix)
 			targetTools, err := envtools.FindTools(
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)

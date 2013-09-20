@@ -379,6 +379,12 @@ var configTests = []configTest{
 		},
 		toolsURL: "http://tools/url",
 	}, {
+		summary: "HP Cloud config sets tools URL",
+		config: attrs{
+			"auth-url": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0",
+		},
+		toolsURL: "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools",
+	}, {
 		summary: "admin-secret given",
 		config: attrs{
 			"admin-secret": "Futumpsh",

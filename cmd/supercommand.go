@@ -279,7 +279,9 @@ func (c *SuperCommand) Run(ctx *Context) error {
 	}
 	err := c.subcmd.Run(ctx)
 	if err != nil && err != ErrSilent {
-		log.Errorf("command failed: %v", err)
+		log.Errorf("%v", err)
+		// Now that this has been logged, don't log again in cmd.Main.
+		err = ErrSilent
 	} else {
 		log.Infof("command finished")
 	}
