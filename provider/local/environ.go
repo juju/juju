@@ -453,7 +453,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
-	agentTools.Version.Series = version.CurrentSeries()
+	agentTools.Version.Series = version.Current.Series
 	err = agenttools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0

@@ -371,7 +371,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, gc.Equals, true)
-	c.Check(agentVersion, gc.Equals, version.CurrentNumber())
+	c.Check(agentVersion, gc.Equals, version.Current.Number)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()
