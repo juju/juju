@@ -20,13 +20,14 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.
 type BootstrapSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	dataDir              string
 	providerStateURLFile string

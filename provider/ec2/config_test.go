@@ -18,12 +18,13 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedHome, savedAccessKey, savedSecretKey string
 }
 

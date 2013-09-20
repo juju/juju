@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -372,7 +373,7 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ

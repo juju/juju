@@ -16,10 +16,11 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedVars   map[string]string
 	oldJujuHome *testing.FakeHome
 }

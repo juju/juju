@@ -14,12 +14,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type DebugHooksServerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	ctx     *HooksContext
 	fakebin string
 	tmpdir  string
