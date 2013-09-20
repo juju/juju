@@ -17,6 +17,7 @@ import (
 	"launchpad.net/tomb"
 
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/fslock"
 )
 
@@ -25,7 +26,7 @@ func Test(t *testing.T) {
 }
 
 type fslockSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	lockDelay time.Duration
 }
 

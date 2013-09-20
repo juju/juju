@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -27,7 +28,7 @@ import (
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type cloudinitSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&cloudinitSuite{})

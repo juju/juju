@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -37,7 +38,7 @@ func Test(t *stdtesting.T) {
 }
 
 type NewConnSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 
@@ -223,7 +224,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 }
 
 type ConnSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn

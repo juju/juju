@@ -1,15 +1,18 @@
-package testing_test
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package testbase_test
 
 import (
 	"os"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type cleanupSuite struct {
-	testing.CleanupSuite
+	testbase.CleanupSuite
 }
 
 var _ = gc.Suite(&cleanupSuite{})

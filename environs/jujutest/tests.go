@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -33,7 +34,7 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
 	Env environs.Environ

@@ -34,6 +34,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -43,7 +44,7 @@ import (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
@@ -496,10 +497,10 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func restoreBootstrapVerificationFile(c *gc.C, storage storage.Storage) {
+func restoreBootstrapVerificationFile(c *gc.C, stor storage.Storage) {
 	content := "juju-core storage writing verified: ok\n"
 	contentReader := strings.NewReader(content)
-	err := storage.Put("bootstrap-verify", contentReader,
+	err := stor.Put("bootstrap-verify", contentReader,
 		int64(len(content)))
 	c.Assert(err, gc.IsNil)
 }
@@ -811,7 +812,6 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
 	}
 	c.Assert(inst, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 // Check that we can't start an instance with an empty nonce value.
