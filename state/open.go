@@ -188,8 +188,10 @@ func maybeUnauthorized(err error, msg string) error {
 	return fmt.Errorf("%s: %v", msg, err)
 }
 
-// isUnauthorized is a copy of the same function in state/open.go.
 func isUnauthorized(err error) bool {
+	if err == nil {
+		return false
+	}
 	// Some unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
