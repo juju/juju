@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
+	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -36,9 +36,9 @@ var (
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	pt          ProvisionerType
-	st          *state.State
-	machineId   string // Which machine runs the provisioner.
-	machine     *state.Machine
+	st          *apiprovisioner.State
+	machineTag  string // Which machine runs the provisioner.
+	machine     *apiprovisioner.Machine
 	environ     environs.Environ
 	agentConfig agent.Config
 	tomb        tomb.Tomb
@@ -63,11 +63,11 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(pt ProvisionerType, st *state.State, machineId string, agentConfig agent.Config) *Provisioner {
+func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig agent.Config) *Provisioner {
 	p := &Provisioner{
 		pt:          pt,
 		st:          st,
-		machineId:   machineId,
+		machineTag:  agentConfig.Tag(),
 		agentConfig: agentConfig,
 	}
 	go func() {
@@ -78,10 +78,12 @@ func NewProvisioner(pt ProvisionerType, st *state.State, machineId string, agent
 }
 
 func (p *Provisioner) loop() error {
-	environWatcher := p.st.WatchForEnvironConfigChanges()
+	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	if err != nil {
+		return err
+	}
 	defer watcher.Stop(environWatcher, &p.tomb)
 
-	var err error
 	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
 		return err
@@ -105,7 +107,7 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 	environmentProvisioner := NewProvisionerTask(
-		p.machineId,
+		p.machineTag,
 		p.st,
 		machineWatcher,
 		instanceBroker,
@@ -136,11 +138,11 @@ func (p *Provisioner) loop() error {
 	}
 }
 
-func (p *Provisioner) getMachine() (*state.Machine, error) {
+func (p *Provisioner) getMachine() (*apiprovisioner.Machine, error) {
 	if p.machine == nil {
 		var err error
-		if p.machine, err = p.st.Machine(p.machineId); err != nil {
-			logger.Errorf("machine %s is not in state", p.machineId)
+		if p.machine, err = p.st.Machine(p.machineTag); err != nil {
+			logger.Errorf("%s is not in state", p.machineTag)
 			return nil, err
 		}
 	}
@@ -150,13 +152,13 @@ func (p *Provisioner) getMachine() (*state.Machine, error) {
 func (p *Provisioner) getWatcher() (Watcher, error) {
 	switch p.pt {
 	case ENVIRON:
-		return p.st.WatchEnvironMachines(), nil
+		return p.st.WatchEnvironMachines()
 	case LXC:
 		machine, err := p.getMachine()
 		if err != nil {
 			return nil, err
 		}
-		return machine.WatchContainers(instance.LXC), nil
+		return machine.WatchContainers(instance.LXC)
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }
@@ -211,10 +213,6 @@ func (p *Provisioner) Kill() {
 // Wait implements worker.Worker.Wait.
 func (p *Provisioner) Wait() error {
 	return p.tomb.Wait()
-}
-
-func (p *Provisioner) String() string {
-	return fmt.Sprintf("%s provisioning worker for machine %s", string(p.pt), p.machineId)
 }
 
 // Stop stops the Provisioner and returns any error encountered while

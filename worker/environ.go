@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 )
 
@@ -26,7 +26,7 @@ type EnvironConfiger interface {
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
 // it receives a value on dying.
-func WaitForEnviron(w state.NotifyWatcher, st EnvironConfiger, dying <-chan struct{}) (environs.Environ, error) {
+func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfiger, dying <-chan struct{}) (environs.Environ, error) {
 	for {
 		select {
 		case <-dying:
