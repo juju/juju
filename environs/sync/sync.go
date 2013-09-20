@@ -96,6 +96,10 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
+	// When we read the contents of the target bucket, we don't want to have the ReadList() method
+	// below look for tools in the old location, since the old location is no longer used and if it
+	// finds tools there, it will incorrectly think they exist in the target. For completeness, the
+	// default tools prefix is restored at the end.
 	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
 	defer restore()
 	targetStorage := syncContext.Target
