@@ -120,10 +120,20 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	store := configstore.NewMem()
+	env, err := environs.Prepare(cfg, store)
 	c.Assert(err, gc.IsNil)
 	// Check we can access storage ok, which implies the environment has been prepared.
 	c.Assert(e.Storage(), gc.NotNil)
+
+	// Check that the environment info file was correctly created.
+	_, err := store.ReadInfo("erewhemos")
+	c.Assert(err, gc.IsNil)
+
+	// Check we can call Prepare again.
+	env, err = environs.Prepare(cfg, store)
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Name(), gc.Equals, "erewhemos")
 }
 
 func (OpenSuite) TestNewFromAttrs(c *gc.C) {

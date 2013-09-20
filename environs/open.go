@@ -69,6 +69,7 @@ func New(config *config.Config) (Environ, error) {
 }
 
 // Prepare prepares a new environment based on the provided configuration.
+// If the environment is already prepared, it behaves like New.
 func Prepare(config *config.Config, store ConfigStorage) (Environ, error) {
 	p, err := Provider(config.Type())
 	if err != nil {
@@ -76,6 +77,9 @@ func Prepare(config *config.Config, store ConfigStorage) (Environ, error) {
 	}
 	info, err := store.CreateInfo(config.Name())
 	if err != nil {
+		if err == ErrEnvironInfoAlreadyExists {
+			return New(config)
+		}
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
 	}
 	env, err := p.Prepare(config)

@@ -19,7 +19,7 @@ import (
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
 func Default() (environs.ConfigStorage, error) {
-	return NewDisk(config.JujuHomePath("environments"))
+	return NewDisk(config.JujuHome())
 }
 
 type diskStore struct {

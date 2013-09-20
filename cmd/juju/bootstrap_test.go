@@ -96,7 +96,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 
 	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	err := <-errc
-	c.Assert(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
+	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, test.err)
 }
 
