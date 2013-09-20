@@ -6,6 +6,7 @@ package sshstorage
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -255,12 +256,8 @@ func (s *storageSuite) flock(c *gc.C, mode flockmode, lockfile string) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(cmd.Start(), gc.IsNil)
 	// Make sure the flock has been taken before returning by reading stdout waiting for "started"
-	for count := len("started"); count > 0; {
-		result := make([]byte, count)
-		bytesRead, err := stdout.Read(result)
-		c.Assert(err, gc.IsNil)
-		count -= bytesRead
-	}
+	_, err = io.ReadFull(stdout, make([]byte, len("started")))
+	c.Assert(err, gc.IsNil)
 	s.AddCleanup(func(*gc.C) {
 		cmd.Process.Kill()
 		cmd.Process.Wait()
