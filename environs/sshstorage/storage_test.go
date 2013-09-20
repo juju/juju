@@ -20,14 +20,13 @@ import (
 
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
 type storageSuite struct {
-	testing.LoggingSuite
-	restoreEnv func()
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -40,8 +39,8 @@ func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
 	cmd := exec.Command("bash", "-c", command)
 	uid := fmt.Sprint(os.Getuid())
 	gid := fmt.Sprint(os.Getgid())
-	defer testing.PatchEnvironment("SUDO_UID", uid)()
-	defer testing.PatchEnvironment("SUDO_GID", gid)()
+	defer testbase.PatchEnvironment("SUDO_UID", uid)()
+	defer testbase.PatchEnvironment("SUDO_GID", gid)()
 	cmd.Env = os.Environ()
 	return cmd
 }
@@ -57,7 +56,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	bin := c.MkDir()
-	restoreEnv := testing.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
+	restoreEnv := testbase.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
 	s.AddSuiteCleanup(func(*gc.C) { restoreEnv() })
 
 	// Create a "sudo" command which just executes its args.

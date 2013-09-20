@@ -33,6 +33,7 @@ import (
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -149,7 +150,7 @@ func (s *localServer) stop() {
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
 type localLiveSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	LiveTests
 	srv localServer
 }
@@ -184,7 +185,7 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Openstack server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	jujutest.Tests
 	cred                   *identity.Credentials
 	srv                    localServer
