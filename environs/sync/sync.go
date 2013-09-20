@@ -96,6 +96,8 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
+	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
+	defer restore()
 	targetStorage := syncContext.Target
 	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
