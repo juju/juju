@@ -285,16 +285,16 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(storage storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
 	}
-	t := envtesting.MustUploadFakeToolsVersion(storage, vers)
+	t := envtesting.MustUploadFakeToolsVersion(stor, vers)
 	for _, series := range series {
 		if series != version.Current.Series {
 			vers.Series = series
-			envtesting.MustUploadFakeToolsVersion(storage, vers)
+			envtesting.MustUploadFakeToolsVersion(stor, vers)
 		}
 	}
 	return t, nil

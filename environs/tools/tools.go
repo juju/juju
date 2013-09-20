@@ -107,12 +107,16 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 // Tests can turn off this feature.
 var UseLegacyFallback = true
 
+// Define some boolean parameter values.
+const DoNotAllowRetry = false
+
 // FindTools returns a List containing all tools with a given
 // major.minor version number available in the cloud instance, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
+	filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
 
 	var cloudSpec simplestreams.CloudSpec
 	if inst, ok := cloudInst.(simplestreams.HasRegion); ok {
@@ -142,7 +146,7 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, 
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-	sources, err := GetMetadataSources(cloudInst)
+	sources, err := GetMetadataSourcesWithRetries(cloudInst, allowRetry)
 	if err != nil {
 		return nil, err
 	}
@@ -159,28 +163,47 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int, 
 	return list, err
 }
 
+// The following allows FindTools, as called by FindBootstrapTools, to be patched for testing.
+var bootstrapFindTools = FindTools
+
+type findtoolsfunc func(environs.ConfigGetter, int, int, coretools.Filter, bool) (coretools.List, error)
+
+func TestingPatchBootstrapFindTools(stub findtoolsfunc) func() {
+	origFunc := bootstrapFindTools
+	bootstrapFindTools = stub
+	return func() {
+		bootstrapFindTools = origFunc
+	}
+}
+
+// BootstrapToolsParams contains parameters for FindBootstrapTools
+type BootstrapToolsParams struct {
+	Version    *version.Number
+	Arch       *string
+	AllowRetry bool
+}
+
 // FindBootstrapTools returns a ToolsList containing only those tools with
 // which it would be reasonable to launch an environment's first machine, given the supplied constraints.
 // If a specific agent version is not requested, all tools matching the current major.minor version are chosen.
-func FindBootstrapTools(cloudInst environs.ConfigGetter,
-	vers *version.Number, series string, arch *string, useDev bool) (list coretools.List, err error) {
-
+func FindBootstrapTools(cloudInst environs.ConfigGetter, params BootstrapToolsParams) (list coretools.List, err error) {
 	// Construct a tools filter.
+	cfg := cloudInst.Config()
 	cliVersion := version.Current.Number
 	filter := coretools.Filter{
-		Series: series,
-		Arch:   stringOrEmpty(arch),
+		Series: cfg.DefaultSeries(),
+		Arch:   stringOrEmpty(params.Arch),
 	}
-	if vers != nil {
+	if params.Version != nil {
 		// If we already have an explicit agent version set, we're done.
-		filter.Number = *vers
-		return FindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter)
+		filter.Number = *params.Version
+		return bootstrapFindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter, params.AllowRetry)
 	}
-	if dev := cliVersion.IsDev() || useDev; !dev {
+	if dev := cliVersion.IsDev() || cfg.Development(); !dev {
 		logger.Infof("filtering tools by released version")
 		filter.Released = true
 	}
-	return FindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter)
+	return bootstrapFindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter, params.AllowRetry)
 }
 
 func stringOrEmpty(pstr *string) string {
@@ -202,7 +225,7 @@ func FindInstanceTools(cloudInst environs.ConfigGetter,
 		Series: series,
 		Arch:   stringOrEmpty(arch),
 	}
-	return FindTools(cloudInst, vers.Major, vers.Minor, filter)
+	return FindTools(cloudInst, vers.Major, vers.Minor, filter, DoNotAllowRetry)
 }
 
 // FindExactTools returns only the tools that match the supplied version.
@@ -217,14 +240,14 @@ func FindExactTools(cloudInst environs.ConfigGetter,
 		Series: series,
 		Arch:   arch,
 	}
-	availaleTools, err := FindTools(cloudInst, vers.Major, vers.Minor, filter)
+	availableTools, err := FindTools(cloudInst, vers.Major, vers.Minor, filter, DoNotAllowRetry)
 	if err != nil {
 		return nil, err
 	}
-	if len(availaleTools) != 1 {
-		return nil, fmt.Errorf("expected one tools, got %d tools", len(availaleTools))
+	if len(availableTools) != 1 {
+		return nil, fmt.Errorf("expected one tools, got %d tools", len(availableTools))
 	}
-	return availaleTools[0], nil
+	return availableTools[0], nil
 }
 
 // CheckToolsSeries verifies that all the given possible tools are for the
