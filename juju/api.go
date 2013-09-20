@@ -70,7 +70,7 @@ func (c *APIConn) Close() error {
 // the named environment. If envName is "", the default environment
 // will be used.
 func NewAPIClientFromName(envName string) (*api.Client, error) {
-	store, err := configstore.NewDisk(config.JujuHomePath("environments"))
+	store, err := configstore.NewDisk(config.JujuHome())
 	if err != nil {
 		return nil, err
 	}
