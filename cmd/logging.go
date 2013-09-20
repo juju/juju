@@ -73,12 +73,27 @@ func (l *Log) Start(ctx *Context) error {
 		}
 	} else {
 		loggo.RemoveWriter("default")
+		// Create a simple writer that doesn't show filenames, or timestamps,
+		// and only shows warning or above.
+		writer := loggo.NewSimpleWriter(ctx.Stderr, &warningFormatter{})
+		err = loggo.RegisterWriter("warning", writer, loggo.WARNING)
+		if err != nil {
+			return err
+		}
 	}
 	// Set the level on the root logger.
 	loggo.GetLogger("").SetLogLevel(level)
 	// Override the logging config with specified logging config.
 	loggo.ConfigureLoggers(l.Config)
 	return nil
+}
+
+// warningFormatter is a simple loggo formatter that produces something like:
+//   WARNING The message...
+type warningFormatter struct{}
+
+func (*warningFormatter) Format(level Level, module, filename string, line int, timestamp time.Time, message string) string {
+	return fmt.Sprintf("%s %s", level, message)
 }
 
 // NewCommandLogWriter creates a loggo writer for registration
