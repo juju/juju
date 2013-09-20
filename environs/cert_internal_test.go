@@ -12,7 +12,7 @@ import (
 
 // EnvironsCertSuite tests the internal functions defined in environs/cert.go
 type EnvironsCertSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&EnvironsCertSuite{})

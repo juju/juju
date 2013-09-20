@@ -17,7 +17,7 @@ import (
 )
 
 type detectionSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&detectionSuite{})

@@ -25,7 +25,7 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	home string
 }
 

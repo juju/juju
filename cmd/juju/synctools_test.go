@@ -18,7 +18,7 @@ import (
 )
 
 type syncToolsSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
 	localStorage string

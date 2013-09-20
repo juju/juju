@@ -18,7 +18,7 @@ import (
 // Sadly, this is a very slow test suite, heavily dominated by calls to bzr.
 
 type PublishSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.HTTPSuite
 
 	home       *testing.FakeHome

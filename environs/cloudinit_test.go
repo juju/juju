@@ -34,7 +34,7 @@ func dummySampleConfig() testing.Attrs {
 }
 
 type CloudInitSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&CloudInitSuite{})

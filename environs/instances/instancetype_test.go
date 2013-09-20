@@ -13,18 +13,10 @@ import (
 )
 
 type instanceTypeSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&instanceTypeSuite{})
-
-func (s *instanceTypeSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-}
-
-func (s *instanceTypeSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
-}
 
 var hvm = "hvm"
 

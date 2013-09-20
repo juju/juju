@@ -32,7 +32,7 @@ const (
 
 type bootstrapSuite struct {
 	home *coretesting.FakeHome
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 

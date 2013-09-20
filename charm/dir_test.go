@@ -20,7 +20,7 @@ import (
 )
 
 type DirSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&DirSuite{})

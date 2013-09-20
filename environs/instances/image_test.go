@@ -15,7 +15,7 @@ import (
 )
 
 type imageSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 func Test(t *testing.T) {
@@ -23,14 +23,6 @@ func Test(t *testing.T) {
 }
 
 var _ = gc.Suite(&imageSuite{})
-
-func (s *imageSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-}
-
-func (s *imageSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
-}
 
 var jsonImagesContent = `
 {

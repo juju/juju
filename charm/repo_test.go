@@ -151,7 +151,7 @@ func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 }
 
 type StoreSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	server      *MockStore
 	store       *charm.CharmStore
 	oldCacheDir string
@@ -392,7 +392,7 @@ func (s *StoreSuite) TestCharmURL(c *gc.C) {
 }
 
 type LocalRepoSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	repo       *charm.LocalRepository
 	seriesPath string
 }

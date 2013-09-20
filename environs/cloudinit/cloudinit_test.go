@@ -27,7 +27,7 @@ import (
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type cloudinitSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&cloudinitSuite{})

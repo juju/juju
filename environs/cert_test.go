@@ -14,7 +14,7 @@ import (
 )
 
 type EnvironsCertSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&EnvironsCertSuite{})

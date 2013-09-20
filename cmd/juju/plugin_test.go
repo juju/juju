@@ -18,7 +18,7 @@ import (
 )
 
 type PluginSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	oldPath string
 	home    *testing.FakeHome
 }

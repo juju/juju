@@ -26,7 +26,7 @@ func TestLocal(t *stdtesting.T) {
 }
 
 type backendSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&backendSuite{})

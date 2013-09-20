@@ -30,7 +30,7 @@ func Test(t *stdtesting.T) {
 }
 
 type LxcSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	lxc.TestSuite
 	oldPath string
 }
@@ -217,7 +217,7 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 }
 
 type NetworkSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&NetworkSuite{})

@@ -28,7 +28,7 @@ import (
 )
 
 type BootstrapSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
 }
