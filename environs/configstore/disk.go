@@ -40,19 +40,29 @@ type environInfo struct {
 // The parent of the directory must already exist;
 // the directory itself is created on demand.
 func NewDisk(dir string) (environs.ConfigStorage, error) {
-	parent, _ := filepath.Split(dir)
-	if _, err := os.Stat(parent); err != nil {
+	if _, err := os.Stat(dir); err != nil {
 		return nil, err
 	}
 	return &diskStore{dir}, nil
 }
 
 func (d *diskStore) envPath(envName string) string {
-	return filepath.Join(d.dir, envName+".yaml")
+	return filepath.Join(d.dir, "environments", envName+".yaml")
+}
+
+func (d *diskStore) mkEnvironmentsDir() error {
+	err := os.Mkdir(filepath.Join(d.dir, "environments"), 0700)
+	if err == nil || os.IsExist(err) {
+		return nil
+	}
+	return err
 }
 
 // CreateInfo implements environs.ConfigStorage.CreateInfo.
 func (d *diskStore) CreateInfo(envName string) (environs.EnvironInfo, error) {
+	if err := d.mkEnvironmentsDir(); err != nil {
+		return nil, err
+	}
 	// We create an empty file so that any subsequent CreateInfos
 	// will fail.
 	path := d.envPath(envName)
