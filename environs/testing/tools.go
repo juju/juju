@@ -5,11 +5,13 @@ package testing
 
 import (
 	"strings"
+	"path"
+	"time"
+	"bytes"
+	"fmt"
 
 	gc "launchpad.net/gocheck"
 
-	"bytes"
-	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -18,8 +20,6 @@ import (
 	"launchpad.net/juju-core/log"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"path/filepath"
-	"time"
 )
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
@@ -71,7 +71,7 @@ func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 		{envtools.ProductMetadataPath, products},
 	}
 	for _, object := range objects {
-		path := filepath.Join("tools", object.path)
+		path := path.Join("tools", object.path)
 		err = stor.Put(path, bytes.NewReader(object.data), int64(len(object.data)))
 		c.Assert(err, gc.IsNil)
 	}
@@ -81,8 +81,8 @@ func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	files := []string{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, envtools.ProductMetadataPath}
 	for _, file := range files {
-		path := filepath.Join("tools", file)
-		err := stor.Remove(path)
+		toolspath := path.Join("tools", file)
+		err := stor.Remove(toolspath)
 		c.Check(err, gc.IsNil)
 	}
 }
