@@ -275,7 +275,7 @@ func newSimpleTools(vers string) *tools.Tools {
 
 // check that any --env-config $base64 is valid and matches t.cfg.Config
 func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
-	re := regexp.MustCompile(`--env-config '([\w,=+/]+)'`)
+	re := regexp.MustCompile(`--env-config '([^']+)'`)
 	found := false
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
