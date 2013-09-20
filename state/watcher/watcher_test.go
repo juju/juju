@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Test tuning parameters.
@@ -46,7 +47,7 @@ func TestPackage(t *stdtesting.T) {
 
 type watcherSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 
 	log       *mgo.Collection
 	stash     *mgo.Collection

@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func Test(t *stdtesting.T) {
@@ -30,7 +31,7 @@ var _ = gc.Suite(&TrivialSuite{})
 type StoreSuite struct {
 	MgoSuite
 	testing.HTTPSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	store *store.Store
 }
 

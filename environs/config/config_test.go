@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -25,7 +26,7 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	home string
 }
 
