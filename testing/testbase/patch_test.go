@@ -75,10 +75,10 @@ func (*PatchEnvironmentSuite) TestPatchEnvironment(c *gc.C) {
 	os.Setenv(envName, oldValue)
 }
 
-func (*SetSuite) TestRestorerAdd(c *gc.C) {
+func (*PatchEnvironmentSuite) TestRestorerAdd(c *gc.C) {
 	var order []string
-	first := jc.Restorer(func() { order = append(order, "first") })
-	second := jc.Restorer(func() { order = append(order, "second") })
+	first := testbase.Restorer(func() { order = append(order, "first") })
+	second := testbase.Restorer(func() { order = append(order, "second") })
 	restore := first.Add(second)
 	restore()
 	c.Assert(order, gc.DeepEquals, []string{"second", "first"})
