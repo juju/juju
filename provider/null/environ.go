@@ -10,12 +10,12 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/sshstorage"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -42,7 +42,7 @@ func (*nullEnviron) StopInstances([]instance.Instance) error {
 }
 
 func (e *nullEnviron) AllInstances() ([]instance.Instance, error) {
-	return []instance.Instance{nullBootstrapInstance{}}, nil
+	return e.Instances([]instance.Id{manual.BootstrapInstanceId})
 }
 
 func (e *nullEnviron) envConfig() (cfg *environConfig) {
@@ -89,7 +89,7 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	var found bool
 	for i, id := range ids {
 		if id == manual.BootstrapInstanceId {
-			instances[i] = nullBootstrapInstance{}
+			instances[i] = nullBootstrapInstance{e.envConfig().bootstrapHost()}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -104,7 +104,7 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 // Implements environs/bootstrap.BootstrapStorage.
 func (e *nullEnviron) BootstrapStorage() (storage.Storage, error) {
 	cfg := e.envConfig()
-	return sshstorage.NewSSHStorage(cfg.sshHost(), cfg.storageDir(),  sshstorage.UseDefaultTmpDir)
+	return sshstorage.NewSSHStorage(cfg.sshHost(), cfg.storageDir(), sshstorage.UseDefaultTmpDir)
 }
 
 func (e *nullEnviron) Storage() storage.Storage {
