@@ -83,7 +83,7 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 
 // newAPIFromName implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromName(envName string, store environs.ConfigStorage) (*api.State, error) {
+func newAPIFromName(envName string, store configstore.Storage) (*api.State, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -173,7 +173,7 @@ type apiOpenResult struct {
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(store environs.ConfigStorage, envName string, stop <-chan struct{}) <-chan apiOpenResult {
+func apiInfoConnect(store configstore.Storage, envName string, stop <-chan struct{}) <-chan apiOpenResult {
 	resultc := make(chan apiOpenResult)
 	info, err := store.ReadInfo(envName)
 	if err != nil {
