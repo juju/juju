@@ -15,10 +15,11 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type syncToolsSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
 	localStorage string

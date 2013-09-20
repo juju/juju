@@ -9,11 +9,11 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type AddressSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&AddressSuite{})

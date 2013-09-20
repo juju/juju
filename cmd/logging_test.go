@@ -13,12 +13,13 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	testing.CleanupSuite
+	testbase.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
@@ -59,7 +60,7 @@ func (s *LogSuite) TestFlags(c *gc.C) {
 
 func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
-	testing.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	testbase.PatchEnvironment(osenv.JujuLoggingConfig, config)
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
 	c.Assert(log.Verbose, gc.Equals, false)

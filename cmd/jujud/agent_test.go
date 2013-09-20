@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -32,7 +33,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var errorImportanceTests = []error{

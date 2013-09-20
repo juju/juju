@@ -33,6 +33,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -42,7 +43,7 @@ import (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.

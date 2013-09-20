@@ -12,12 +12,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type errorsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&errorsSuite{})
