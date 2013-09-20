@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {

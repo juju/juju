@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestLocal(t *stdtesting.T) {

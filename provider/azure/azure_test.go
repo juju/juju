@@ -10,6 +10,7 @@ import (
 
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestAzureProvider(t *stdtesting.T) {

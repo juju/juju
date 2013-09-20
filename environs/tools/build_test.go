@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type buildSuite struct {

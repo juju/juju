@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // TestPackage integrates the tests into gotest.

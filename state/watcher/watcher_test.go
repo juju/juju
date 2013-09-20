@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Test tuning parameters.

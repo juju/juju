@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type SettingsSuite struct {
