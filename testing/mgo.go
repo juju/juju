@@ -267,9 +267,9 @@ func MgoReset() {
 
 func isUnauthorized(err error) bool {
 	if err, ok := err.(*mgo.QueryError); ok {
-		if err.Code == 10057 || err.Message == "need to login" {
-			return true
-		}
+		return err.Code == 10057 ||
+			err.Message == "need to login" ||
+			err.Message == "unauthorized"
 	}
 	return false
 }

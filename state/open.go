@@ -182,15 +182,25 @@ func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
 		return nil
 	}
-	// Unauthorized access errors have no error code,
-	// just a simple error string.
-	if err.Error() == "auth fails" {
-		return errors.NewUnauthorizedError(err, msg)
-	}
-	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return errors.NewUnauthorizedError(err, msg)
+	if isUnauthorized(err) {
+		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
 	}
 	return fmt.Errorf("%s: %v", msg, err)
+}
+
+// isUnauthorized is a copy of the same function in state/open.go.
+func isUnauthorized(err error) bool {
+	// Some unauthorized access errors have no error code,
+	// just a simple error string.
+	if err.Error() == "auth fails" {
+		return true
+	}
+	if err, ok := err.(*mgo.QueryError); ok {
+		return err.Code == 10057 ||
+			err.Message == "need to login" ||
+			err.Message == "unauthorized"
+	}
+	return false
 }
 
 func newState(session *mgo.Session, info *Info) (*State, error) {
