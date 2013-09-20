@@ -1,16 +1,19 @@
-package testing_test
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package testbase_test
 
 import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&logSuite{})
 
 type logSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 func (s *logSuite) SetUpSuite(c *gc.C) {

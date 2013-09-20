@@ -212,7 +212,7 @@ The essential configuration sections for HP Cloud look like this:
         username: "xxxyour-hpcloud-usernamexxx"
         password: "xxxpasswordxxx"
         region: az-1.region-a.geo-1
-        public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
+        tools-url: https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools
 
 Please refer to the question on Ask Ubuntu [1] for details on how to get
 the relevant information to finish configuring your hpcloud environment.

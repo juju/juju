@@ -25,6 +25,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -34,7 +35,7 @@ func TestPackage(t *testing.T) {
 }
 
 type syncSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
@@ -182,7 +183,8 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{})
+			targetTools, err := envtools.FindTools(
+				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
@@ -240,7 +242,7 @@ func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 
 type uploadSuite struct {
 	env environs.Environ
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -22,7 +23,7 @@ func TestPackage(t *stdtesting.T) {
 
 type PresenceSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	presence *mgo.Collection
 	pings    *mgo.Collection
 }
