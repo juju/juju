@@ -49,8 +49,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 	c.Assert(m, gc.IsNil)
 
-	cfg := s.Conn.Environ.Config()
-	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, nil, cfg.DefaultSeries(), nil, false)
+	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, tools.BootstrapToolsParams{})
 	c.Assert(err, gc.IsNil)
 	args.Tools = toolsList[0]
 
