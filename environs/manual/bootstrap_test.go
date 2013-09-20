@@ -10,8 +10,8 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/tools"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -234,9 +235,9 @@ func getUploadSeries(cfg *config.Config, series []string) []string {
 
 type bootstrapStorageEnviron struct {
 	environs.Environ
-	bootstrapStorage environs.Storage
+	bootstrapStorage storage.Storage
 }
 
-func (b *bootstrapStorageEnviron) Storage() environs.Storage {
+func (b *bootstrapStorageEnviron) Storage() storage.Storage {
 	return b.bootstrapStorage
 }
