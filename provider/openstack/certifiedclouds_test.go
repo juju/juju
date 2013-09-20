@@ -7,8 +7,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/provider/openstack"
-	"launchpad.net/juju-core/testing/testbase"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type CertifiedCloudsSuite struct {
