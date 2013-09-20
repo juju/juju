@@ -1047,6 +1047,9 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
+	if st == nil {
+		panic("nil state")
+	}
 	admin := st.db.Session.DB("admin")
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when

@@ -72,7 +72,7 @@ func (OpenSuite) TestNewFromNameDefault(c *gc.C) {
 
 func (OpenSuite) TestPrepareFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	e, err := environs.PrepareFromName("erewhemos")
+	e, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Name(), gc.Equals, "erewhemos")
 	// Check we can access storage ok, which implies the environment has been prepared.
@@ -124,10 +124,10 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	env, err := environs.Prepare(cfg, store)
 	c.Assert(err, gc.IsNil)
 	// Check we can access storage ok, which implies the environment has been prepared.
-	c.Assert(e.Storage(), gc.NotNil)
+	c.Assert(env.Storage(), gc.NotNil)
 
 	// Check that the environment info file was correctly created.
-	_, err := store.ReadInfo("erewhemos")
+	_, err = store.ReadInfo("erewhemos")
 	c.Assert(err, gc.IsNil)
 
 	// Check we can call Prepare again.
@@ -166,7 +166,7 @@ func (s *checkEnvironmentSuite) TearDownTest(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -181,7 +181,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -202,7 +202,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -222,7 +222,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.

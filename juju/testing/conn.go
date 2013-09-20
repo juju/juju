@@ -59,7 +59,7 @@ type JujuConnSuite struct {
 	State        *state.State
 	APIConn      *juju.APIConn
 	APIState     *api.State
-	ConfigStore environs.ConfigStorage
+	ConfigStore configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
 	oldHome      string

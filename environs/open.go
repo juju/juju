@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 )
@@ -41,7 +42,7 @@ func NewFromName(name string) (Environ, error) {
 // that the environment is is prepared as well as opened,
 // and environment information is created using the
 // given store.
-func PrepareFromName(name string, store ConfigStorage) (Environ, error) {
+func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
 	cfg, err := ConfigForName(name)
 	if err != nil {
 		return nil, err
@@ -70,14 +71,14 @@ func New(config *config.Config) (Environ, error) {
 
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
-func Prepare(config *config.Config, store ConfigStorage) (Environ, error) {
+func Prepare(config *config.Config, store configstore.Storage) (Environ, error) {
 	p, err := Provider(config.Type())
 	if err != nil {
 		return nil, err
 	}
 	info, err := store.CreateInfo(config.Name())
 	if err != nil {
-		if err == ErrEnvironInfoAlreadyExists {
+		if err == configstore.ErrEnvironInfoAlreadyExists {
 			return New(config)
 		}
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
