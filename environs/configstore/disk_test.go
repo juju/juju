@@ -11,7 +11,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -26,7 +25,7 @@ type diskInterfaceSuite struct {
 
 func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
-	s.NewStore = func(c *gc.C) environs.ConfigStorage {
+	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)
 		c.Assert(err, gc.IsNil)
 		return store
@@ -94,11 +93,11 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 	info, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
-	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{
+	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{
 		User:     "rog",
 		Password: "guessit",
 	})
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{
+	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{
 		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
@@ -121,8 +120,8 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 	// Create some new environment info.
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{})
-	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{})
+	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
+	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
 	c.Assert(info.Initialized(), jc.IsFalse)
 	data, err := ioutil.ReadFile(storePath(dir, "someenv"))
 	c.Assert(err, gc.IsNil)
@@ -130,7 +129,7 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 
 	// Check that we can't create it twice.
 	info, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.Equals, environs.ErrEnvironInfoAlreadyExists)
+	c.Assert(err, gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 	c.Assert(info, gc.IsNil)
 
 	// Check that we can read it again.
