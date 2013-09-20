@@ -76,7 +76,7 @@ func (l *Log) Start(ctx *Context) error {
 		// Create a simple writer that doesn't show filenames, or timestamps,
 		// and only shows warning or above.
 		writer := loggo.NewSimpleWriter(ctx.Stderr, &warningFormatter{})
-		err = loggo.RegisterWriter("warning", writer, loggo.WARNING)
+		err := loggo.RegisterWriter("warning", writer, loggo.WARNING)
 		if err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (l *Log) Start(ctx *Context) error {
 //   WARNING The message...
 type warningFormatter struct{}
 
-func (*warningFormatter) Format(level Level, module, filename string, line int, timestamp time.Time, message string) string {
+func (*warningFormatter) Format(level loggo.Level, _, _ string, _ int, _ time.Time, message string) string {
 	return fmt.Sprintf("%s %s", level, message)
 }
 

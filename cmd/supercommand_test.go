@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
@@ -22,7 +23,9 @@ func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	return jc, tc, testing.InitCommand(jc, args)
 }
 
-type SuperCommandSuite struct{}
+type SuperCommandSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&SuperCommandSuite{})
 
