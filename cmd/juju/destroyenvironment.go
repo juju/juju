@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 )
 
 // DestroyEnvironmentCommand destroys an environment.
@@ -38,7 +39,14 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
+	store, err := configstore.Default()
+	if err != nil {
+		return fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	info, err := store.ReadInfo(environ.Name())
+	if err != nil {
+		return fmt.Errorf("cannot read environment information: %v", err)
+	}
 	if !c.assumeYes {
 		var answer string
 		fmt.Fprintf(ctx.Stdout, destroyEnvMsg[1:], environ.Name(), environ.Config().Type())
@@ -53,7 +61,13 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	// destroy manually provisioned machines, or otherwise
 	// block destroy-environment until all manually provisioned
 	// machines have been manually "destroyed".
-	return environ.Destroy(nil)
+	if err := environ.Destroy(nil); err != nil {
+		return err
+	}
+	if err := info.Destroy(); err != nil {
+		return fmt.Errorf("cannot destroy environment information: %v", err)
+	}
+	return nil
 }
 
 const destroyEnvMsg = `

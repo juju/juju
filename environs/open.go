@@ -78,8 +78,15 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 	}
 	info, err := store.CreateInfo(config.Name())
 	if err != nil {
-		logger.Infof("environment info already exists; using New not Prepare")
 		if err == configstore.ErrEnvironInfoAlreadyExists {
+			logger.Infof("environment info already exists; using New not Prepare")
+			info, err := store.ReadInfo(config.Name())
+			if err != nil {
+				return nil, fmt.Errorf("error reading environment info %q: %v", err)
+			}
+			if !info.Initialized() {
+				return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", config.Name())
+			}
 			return New(config)
 		}
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
@@ -91,7 +98,11 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 		}
 		return nil, err
 	}
-	// TODO(rog) 2013-09-19 write out newly added attributes from environ to store
+	// TODO(rog) 2013-09-19 add newly created attributes to info.
+	err = info.Write()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create environment info %q: %v", err)
+	}
 	return env, nil
 }
 

@@ -544,11 +544,11 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	if err := e.checkBroken("StateInfo"); err != nil {
 		return nil, nil, err
 	}
-	if !e.ecfg().stateServer() {
-		return nil, nil, errors.New("dummy environment has no state configured")
-	}
 	if !estate.bootstrapped {
 		return nil, nil, errors.New("dummy environment not bootstrapped")
+	}
+	if !e.ecfg().stateServer() {
+		return nil, nil, errors.New("dummy environment has no state configured")
 	}
 	return stateInfo(), &api.Info{
 		Addrs:  []string{estate.apiServer.Addr()},

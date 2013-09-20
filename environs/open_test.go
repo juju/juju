@@ -16,6 +16,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -127,8 +128,9 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(env.Storage(), gc.NotNil)
 
 	// Check that the environment info file was correctly created.
-	_, err = store.ReadInfo("erewhemos")
+	info, err := store.ReadInfo("erewhemos")
 	c.Assert(err, gc.IsNil)
+	c.Assert(info.Initialized(), jc.IsTrue)
 
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, store)
