@@ -9,6 +9,6 @@ import (
 
 func (*importSuite) TestHomeLinux(c *gc.C) {
 	h := "/home/foo/bar"
-	testing.PatchEnvironment("HOME", h)
+	testbase.PatchEnvironment("HOME", h)
 	c.Check(osenv.Home(), gc.Equals, h)
 }

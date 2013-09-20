@@ -72,7 +72,7 @@ func sshresponse(c *gc.C, input string, output interface{}, rc int) func() {
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
 	c.Assert(err, gc.IsNil)
-	return testing.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
+	return testbase.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
 }
 
 func (s *detectionSuite) TestDetectSeries(c *gc.C) {

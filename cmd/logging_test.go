@@ -60,7 +60,7 @@ func (s *LogSuite) TestFlags(c *gc.C) {
 
 func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
-	testing.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	testbase.PatchEnvironment(osenv.JujuLoggingConfig, config)
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
 	c.Assert(log.Verbose, gc.Equals, false)
