@@ -46,7 +46,7 @@ func TestPackage(t *stdtesting.T) {
 
 type watcherSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 
 	log       *mgo.Collection
 	stash     *mgo.Collection

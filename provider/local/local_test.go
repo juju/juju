@@ -19,7 +19,7 @@ func TestLocal(t *stdtesting.T) {
 }
 
 type localSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&localSuite{})

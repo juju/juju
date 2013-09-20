@@ -18,7 +18,7 @@ import (
 
 type StorageSuite struct {
 	env environs.Environ
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	dataDir string
 }
 

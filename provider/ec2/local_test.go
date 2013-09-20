@@ -372,7 +372,7 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ

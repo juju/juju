@@ -15,7 +15,7 @@ import (
 )
 
 type SettingsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	state *State
 	key   string

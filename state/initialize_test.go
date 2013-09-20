@@ -16,7 +16,7 @@ import (
 
 type InitializeSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	State *state.State
 }
 

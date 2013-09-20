@@ -24,7 +24,7 @@ func Test(t *stdtesting.T) {
 }
 
 type storeSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&storeSuite{})
@@ -270,7 +270,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 }
 
 type storeManagerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&storeManagerSuite{})

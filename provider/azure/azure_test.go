@@ -17,7 +17,7 @@ func TestAzureProvider(t *stdtesting.T) {
 }
 
 type providerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	restoreTimeouts func()
 }

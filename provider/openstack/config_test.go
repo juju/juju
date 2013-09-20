@@ -18,7 +18,7 @@ import (
 )
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedVars   map[string]string
 	oldJujuHome *testing.FakeHome
 }

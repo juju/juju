@@ -21,7 +21,7 @@ var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 
 type GitDirSuite struct {
 	testing.GitSuite
-	LoggingSuite testing.LoggingSuite
+	LoggingSuite testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&GitDirSuite{})

@@ -21,7 +21,7 @@ import (
 )
 
 type StateSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&StateSuite{})

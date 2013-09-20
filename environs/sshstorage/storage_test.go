@@ -26,7 +26,7 @@ import (
 )
 
 type storageSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	restoreEnv func()
 }
 

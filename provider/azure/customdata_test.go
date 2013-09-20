@@ -18,7 +18,7 @@ import (
 )
 
 type customDataSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&customDataSuite{})

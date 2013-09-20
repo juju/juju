@@ -17,7 +17,7 @@ import (
 )
 
 type suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.HTTPSuite
 }
 

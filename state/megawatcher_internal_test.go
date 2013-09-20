@@ -28,7 +28,7 @@ options:
 `
 
 type storeManagerStateSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	State *State
 }

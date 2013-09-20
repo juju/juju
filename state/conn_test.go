@@ -22,7 +22,7 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	annotations *mgo.Collection
 	charms      *mgo.Collection
 	machines    *mgo.Collection

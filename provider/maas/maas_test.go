@@ -18,7 +18,7 @@ func TestMAAS(t *stdtesting.T) {
 }
 
 type providerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	environ         *maasEnviron
 	testMAASObject  *gomaasapi.TestMAASObject

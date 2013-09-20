@@ -34,7 +34,7 @@ func TestPackage(t *testing.T) {
 }
 
 type syncSuite struct {
-	coretesting.LoggingSuite
+	coretestbase.LoggingSuite
 	envtesting.ToolsFixture
 	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
@@ -241,7 +241,7 @@ func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 
 type uploadSuite struct {
 	env environs.Environ
-	coretesting.LoggingSuite
+	coretestbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 

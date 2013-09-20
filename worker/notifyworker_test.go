@@ -19,7 +19,7 @@ import (
 )
 
 type notifyWorkerSuite struct {
-	coretesting.LoggingSuite
+	coretestbase.LoggingSuite
 	worker worker.Worker
 	actor  *notifyHandler
 }

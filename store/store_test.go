@@ -30,7 +30,7 @@ var _ = gc.Suite(&TrivialSuite{})
 type StoreSuite struct {
 	MgoSuite
 	testing.HTTPSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	store *store.Store
 }
 

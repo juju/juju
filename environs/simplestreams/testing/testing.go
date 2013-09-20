@@ -392,7 +392,7 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURL
 }
 
 type LocalLiveSimplestreamsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	Source          simplestreams.DataSource
 	RequireSigned   bool
 	DataType        string

@@ -22,7 +22,7 @@ func TestPackage(t *stdtesting.T) {
 
 type PresenceSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	presence *mgo.Collection
 	pings    *mgo.Collection
 }

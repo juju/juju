@@ -129,7 +129,7 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 }
 
 type SimpleToolsFixture struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	dataDir         string
 	initDir         string
 	logDir          string

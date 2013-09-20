@@ -14,7 +14,7 @@ import (
 )
 
 type prereqsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	tmpdir  string
 	oldpath string
 }

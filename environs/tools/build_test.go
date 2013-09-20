@@ -16,7 +16,7 @@ import (
 )
 
 type buildSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	restore  func()
 	cwd      string
 	filePath string

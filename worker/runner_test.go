@@ -17,7 +17,7 @@ import (
 )
 
 type runnerSuite struct {
-	coretesting.LoggingSuite
+	coretestbase.LoggingSuite
 	restartDelay time.Duration
 }
 

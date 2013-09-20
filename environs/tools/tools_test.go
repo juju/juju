@@ -40,7 +40,7 @@ type toolsTestHelper interface {
 type ToolsSuite struct {
 	toolsTestHelper
 	env environs.Environ
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	origCurrentVersion version.Binary
 }

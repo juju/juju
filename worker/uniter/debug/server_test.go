@@ -19,7 +19,7 @@ import (
 )
 
 type DebugHooksServerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	ctx     *HooksContext
 	fakebin string
 	tmpdir  string

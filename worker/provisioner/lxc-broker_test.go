@@ -33,7 +33,7 @@ import (
 )
 
 type lxcSuite struct {
-	coretesting.LoggingSuite
+	coretestbase.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }

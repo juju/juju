@@ -23,7 +23,7 @@ import (
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedHome, savedAccessKey, savedSecretKey string
 }
 

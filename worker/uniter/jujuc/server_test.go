@@ -69,7 +69,7 @@ func factory(contextId, cmdName string) (cmd.Command, error) {
 }
 
 type ServerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	server   *jujuc.Server
 	sockPath string
 	err      chan error

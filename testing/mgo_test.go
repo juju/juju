@@ -13,7 +13,7 @@ import (
 )
 
 type mgoSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 }
 

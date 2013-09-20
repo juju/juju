@@ -19,7 +19,7 @@ import (
 )
 
 type stringsWorkerSuite struct {
-	coretesting.LoggingSuite
+	coretestbase.LoggingSuite
 	worker worker.Worker
 	actor  *stringsHandler
 }

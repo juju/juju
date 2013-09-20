@@ -13,7 +13,7 @@ import (
 )
 
 type AddressSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&AddressSuite{})
