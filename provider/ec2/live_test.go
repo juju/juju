@@ -72,7 +72,7 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 	jujutest.LiveTests
 	writablePublicStorage storage.Storage
 }

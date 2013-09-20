@@ -25,7 +25,7 @@ func Test(t *testing.T) {
 }
 
 type fslockSuite struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 	lockDelay time.Duration
 }
 

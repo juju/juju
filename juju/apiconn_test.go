@@ -23,7 +23,7 @@ import (
 )
 
 type NewAPIConnSuite struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 
@@ -58,7 +58,7 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 }
 
 type NewAPIClientSuite struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&NewAPIClientSuite{})

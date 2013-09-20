@@ -12,7 +12,7 @@ import (
 )
 
 type ValidateSuite struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 	home *coretesting.FakeHome
 }
 

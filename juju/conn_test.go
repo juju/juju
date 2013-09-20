@@ -36,7 +36,7 @@ func Test(t *stdtesting.T) {
 }
 
 type NewConnSuite struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 
@@ -222,7 +222,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 }
 
 type ConnSuite struct {
-	coretestbase.LoggingSuite
+	testbase.LoggingSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn
