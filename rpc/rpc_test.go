@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -87,6 +88,12 @@ func (r *Root) ErrorMethods(id string) (*ErrorMethods, error) {
 	}
 	return r.errorInst, nil
 }
+
+func (r *Root) Discard1() {}
+
+func (r *Root) Discard2(id string) error { return nil }
+
+func (r *Root) Discard3(id string) int { return 0 }
 
 func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 	return &CallbackMethods{r}, nil
@@ -174,6 +181,14 @@ func (a *SimpleMethods) SliceArg(struct{ X []string }) stringVal {
 	return stringVal{"SliceArg ret"}
 }
 
+func (a *SimpleMethods) Discard1(int) {}
+
+func (a *SimpleMethods) Discard2(struct{}, struct{}) {}
+
+func (a *SimpleMethods) Discard3() int { return 0 }
+
+func (a *SimpleMethods) Discard4() (_, _ struct{}) { return }
+
 type DelayedMethods struct {
 	ready     chan struct{}
 	done      chan string
@@ -260,14 +275,18 @@ func (*suite) TestRPC(c *gc.C) {
 	}
 }
 
-func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
-	root.calls = nil
-	root.returnErr = testErr
+func callName(narg, nret int, retErr bool) string {
 	e := ""
 	if retErr {
 		e = "e"
 	}
-	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+	return fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+}
+
+func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
+	root.calls = nil
+	root.returnErr = testErr
+	method := callName(narg, nret, retErr)
 	c.Logf("test call %s", method)
 	var r stringVal
 	err := conn.Call(entry, "a99", method, stringVal{"arg"}, &r)
@@ -302,6 +321,93 @@ func (*suite) TestInterfaceMethods(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	root.testCall(c, client, "InterfaceMethods", 1, 1, true, false)
 	root.testCall(c, client, "InterfaceMethods", 1, 1, true, true)
+}
+
+func (*suite) TestRootInfo(c *gc.C) {
+	methods := rpc.RootInfo(reflect.TypeOf(&Root{}))
+	c.Assert(methods.DiscardedMethods(), gc.DeepEquals, []string{
+		"Discard1",
+		"Discard2",
+		"Discard3",
+	})
+	expect := map[string]*rpc.RootMethod{
+		"CallbackMethods": {
+			Type: reflect.TypeOf(&CallbackMethods{}),
+		},
+		"ChangeAPIMethods": {
+			Type: reflect.TypeOf(&ChangeAPIMethods{}),
+		},
+		"DelayedMethods": {
+			Type: reflect.TypeOf(&DelayedMethods{}),
+		},
+		"ErrorMethods": {
+			Type: reflect.TypeOf(&ErrorMethods{}),
+		},
+		"InterfaceMethods": {
+			Type: reflect.TypeOf((*InterfaceMethods)(nil)).Elem(),
+		},
+		"SimpleMethods": {
+			Type: reflect.TypeOf(&SimpleMethods{}),
+		},
+	}
+	for _, m := range expect {
+		m.Methods = rpc.ObjectInfo(m.Type)
+	}
+	c.Assert(methods.MethodNames(), gc.HasLen, len(expect))
+	for name, expectMethod := range expect {
+		m, ok := methods.Method(name)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(m, gc.NotNil)
+		c.Assert(m.Call, gc.NotNil)
+		c.Assert(m.Type, gc.Equals, expectMethod.Type)
+		c.Assert(m.Methods, gc.Equals, expectMethod.Methods)
+	}
+	m, ok := methods.Method("not found")
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(m, gc.DeepEquals, rpc.RootMethod{})
+}
+
+func (*suite) TestObjectInfo(c *gc.C) {
+	methods := rpc.ObjectInfo(reflect.TypeOf(&SimpleMethods{}))
+	c.Check(methods.DiscardedMethods(), gc.DeepEquals, []string{
+		"Discard1",
+		"Discard2",
+		"Discard3",
+		"Discard4",
+	})
+	expect := map[string]*rpc.Method{
+		"SliceArg": &rpc.Method{
+			Params: reflect.TypeOf(struct{ X []string }{}),
+			Result: reflect.TypeOf(stringVal{}),
+		},
+	}
+	for narg := 0; narg < 2; narg++ {
+		for nret := 0; nret < 2; nret++ {
+			for nerr := 0; nerr < 2; nerr++ {
+				retErr := nerr != 0
+				var m rpc.Method
+				if narg > 0 {
+					m.Params = reflect.TypeOf(stringVal{})
+				}
+				if nret > 0 {
+					m.Result = reflect.TypeOf(stringVal{})
+				}
+				expect[callName(narg, nret, retErr)] = &m
+			}
+		}
+	}
+	c.Assert(methods.MethodNames(), gc.HasLen, len(expect))
+	for name, expectMethod := range expect {
+		m, ok := methods.Method(name)
+		c.Check(ok, jc.IsTrue)
+		c.Assert(m, gc.NotNil)
+		c.Check(m.Call, gc.NotNil)
+		c.Check(m.Params, gc.Equals, expectMethod.Params)
+		c.Check(m.Result, gc.Equals, expectMethod.Result)
+	}
+	m, ok := methods.Method("not found")
+	c.Check(ok, jc.IsFalse)
+	c.Check(m, gc.DeepEquals, rpc.Method{})
 }
 
 func (*suite) TestConcurrentCalls(c *gc.C) {

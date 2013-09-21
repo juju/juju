@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"launchpad.net/juju-core/log"
 	"reflect"
 	"sort"
 	"sync"
@@ -38,7 +39,9 @@ type RootMethods struct {
 	discarded []string
 }
 
-func (r *RootMethods) RPCMethods() []string {
+// MethodNames returns the names of all the root object
+// methods on the receiving object.
+func (r *RootMethods) MethodNames() []string {
 	var names []string
 	for name := range r.method {
 		names = append(names, name)
@@ -174,8 +177,9 @@ func (ms *Methods) DiscardedMethods() []string {
 	return append([]string(nil), ms.discarded...)
 }
 
-// RPCMethods returns the names of all the RPC methods.
-func (m *Methods) RPCMethods() []string {
+// MethodNames returns the names of all the RPC methods
+// defined on the object.
+func (m *Methods) MethodNames() []string {
 	var names []string
 	for name := range m.method {
 		names = append(names, name)
@@ -230,6 +234,7 @@ func objectInfo(objType reflect.Type) *Methods {
 		if m.PkgPath != "" {
 			continue
 		}
+		log.Infof("considering method %#v\n", m)
 		if objm := newMethod(m, objType.Kind()); objm != nil {
 			objMethods.method[m.Name] = objm
 		} else {
