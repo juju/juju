@@ -93,3 +93,5 @@ func (*reflectSuite) TestObjTypeOf(c *gc.C) {
 	c.Check(ok, jc.IsFalse)
 	c.Check(m, gc.DeepEquals, rpcreflect.ObjMethod{})
 }
+
+// MORE TESTS!
