@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc/rpcreflect"
 )
 
 // A Codec implements reading and writing of messages in an RPC
@@ -369,8 +370,8 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 }
 
 type requestInfo struct {
-	rootMethod      RootMethod
-	objMethod       Method
+	rootMethod      rpcreflect.RootMethod
+	objMethod       rpcreflect.Method
 	transformErrors func(error) error
 }
 
@@ -383,7 +384,7 @@ func (conn *Conn) findRequest(hdr *Header) (requestInfo, error) {
 	if !rootValue.IsValid() {
 		return requestInfo{}, fmt.Errorf("no service")
 	}
-	methods := RootInfo(rootValue.Type())
+	methods := rpcreflect.RootInfo(rootValue.Type())
 	var info requestInfo
 	var ok bool
 	info.rootMethod, ok = methods.Method(hdr.Type)
@@ -423,7 +424,7 @@ func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, ar
 	}
 }
 
-func (conn *Conn) runRequest0(reqId uint64, objId string, rootMethod *RootMethod, method *Method, arg reflect.Value) (reflect.Value, error) {
+func (conn *Conn) runRequest0(reqId uint64, objId string, rootMethod *rpcreflect.RootMethod, method *rpcreflect.Method, arg reflect.Value) (reflect.Value, error) {
 	obj, err := rootMethod.Call(conn.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err

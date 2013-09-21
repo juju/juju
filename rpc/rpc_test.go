@@ -16,10 +16,14 @@ import (
 
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/rpcreflect"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
+
+// We also test rpc/rpcreflect in this package, so that the
+// tests can all share the same testing Root type.
 
 type suite struct {
 	testbase.LoggingSuite
@@ -324,13 +328,13 @@ func (*suite) TestInterfaceMethods(c *gc.C) {
 }
 
 func (*suite) TestRootInfo(c *gc.C) {
-	methods := rpc.RootInfo(reflect.TypeOf(&Root{}))
+	methods := rpcreflect.RootInfo(reflect.TypeOf(&Root{}))
 	c.Assert(methods.DiscardedMethods(), gc.DeepEquals, []string{
 		"Discard1",
 		"Discard2",
 		"Discard3",
 	})
-	expect := map[string]*rpc.RootMethod{
+	expect := map[string]*rpcreflect.RootMethod{
 		"CallbackMethods": {
 			Type: reflect.TypeOf(&CallbackMethods{}),
 		},
@@ -351,7 +355,7 @@ func (*suite) TestRootInfo(c *gc.C) {
 		},
 	}
 	for _, m := range expect {
-		m.Methods = rpc.ObjectInfo(m.Type)
+		m.Methods = rpcreflect.ObjectInfo(m.Type)
 	}
 	c.Assert(methods.MethodNames(), gc.HasLen, len(expect))
 	for name, expectMethod := range expect {
@@ -364,19 +368,19 @@ func (*suite) TestRootInfo(c *gc.C) {
 	}
 	m, ok := methods.Method("not found")
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(m, gc.DeepEquals, rpc.RootMethod{})
+	c.Assert(m, gc.DeepEquals, rpcreflect.RootMethod{})
 }
 
 func (*suite) TestObjectInfo(c *gc.C) {
-	methods := rpc.ObjectInfo(reflect.TypeOf(&SimpleMethods{}))
+	methods := rpcreflect.ObjectInfo(reflect.TypeOf(&SimpleMethods{}))
 	c.Check(methods.DiscardedMethods(), gc.DeepEquals, []string{
 		"Discard1",
 		"Discard2",
 		"Discard3",
 		"Discard4",
 	})
-	expect := map[string]*rpc.Method{
-		"SliceArg": &rpc.Method{
+	expect := map[string]*rpcreflect.Method{
+		"SliceArg": &rpcreflect.Method{
 			Params: reflect.TypeOf(struct{ X []string }{}),
 			Result: reflect.TypeOf(stringVal{}),
 		},
@@ -385,7 +389,7 @@ func (*suite) TestObjectInfo(c *gc.C) {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
 				retErr := nerr != 0
-				var m rpc.Method
+				var m rpcreflect.Method
 				if narg > 0 {
 					m.Params = reflect.TypeOf(stringVal{})
 				}
@@ -407,7 +411,7 @@ func (*suite) TestObjectInfo(c *gc.C) {
 	}
 	m, ok := methods.Method("not found")
 	c.Check(ok, jc.IsFalse)
-	c.Check(m, gc.DeepEquals, rpc.Method{})
+	c.Check(m, gc.DeepEquals, rpcreflect.Method{})
 }
 
 func (*suite) TestConcurrentCalls(c *gc.C) {
