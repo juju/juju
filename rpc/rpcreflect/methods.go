@@ -4,6 +4,7 @@
 package rpcreflect
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/log"
 	"reflect"
 	"sort"
@@ -37,6 +38,68 @@ type Type struct {
 
 	// discarded holds names of all discarded methods.
 	discarded []string
+}
+
+// MethodCaller knows how to call a particular RPC method.
+type MethodCaller struct {
+	// ParamsType holds the required type of the parameter to the object method.
+	ParamsType reflect.Type
+	// ResultType holds the result type of the result of caling the object method.
+	ResultType reflect.Type
+
+	rootValue reflect.Value
+	rootMethod RootMethod
+	objMethod ObjMethod
+}
+
+// MethodCaller holds the value of the root of an RPC server that
+// can call methods directly on a Go value.
+type Value struct {
+	rootValue reflect.Value
+	rootType *Type
+}
+
+// NewValue returns a value that can be used to call RPC-style
+// methods on the given root value.
+func NewValue(rootValue reflect.Value) Value {
+	return Value{
+		rootValue: rootValue,
+		rootType: TypeOf(rootValue.Type()),
+	}
+}
+
+func (v Value) Call(objId string, objType, id, action string, params, response interface{}) error {
+	panic("unimplemented")
+}
+
+// MethodCaller returns an object that can be used to make calls on
+// the given root value to the given root method and object method.
+// It returns an error if either the root method or the object
+// method were not found.
+func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller, error) {
+	caller := MethodCaller{
+		rootValue: v.rootValue,
+	}
+	var ok bool
+	caller.rootMethod, ok = v.rootType.Method(rootMethodName)
+	if !ok {
+		return MethodCaller{}, fmt.Errorf("unknown object type %q", rootMethodName)
+	}
+	caller.objMethod, ok = caller.rootMethod.ObjType.Method(objMethodName)
+	if !ok {
+		return MethodCaller{}, fmt.Errorf("no such request %q on %s", objMethodName, rootMethodName)
+	}
+	caller.ParamsType = caller.objMethod.Params
+	caller.ResultType = caller.objMethod.Result
+	return caller, nil
+}
+
+func (caller MethodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	return caller.objMethod.Call(obj, arg)
 }
 
 // MethodNames returns the names of all the root object
@@ -151,7 +214,7 @@ func newRootMethod(m reflect.Method) *RootMethod {
 // ObjType holds information on RPC methods implemented on
 // an RPC object.
 type ObjType struct {
-	goType    reflect.Type
+	goType reflect.Type
 	method    map[string]*ObjMethod
 	discarded []string
 }
