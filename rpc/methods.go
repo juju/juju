@@ -4,11 +4,9 @@
 package rpc
 
 import (
-	"fmt"
 	"reflect"
+	"sort"
 	"sync"
-
-	"launchpad.net/juju-core/log"
 )
 
 var (
@@ -17,90 +15,116 @@ var (
 )
 
 var (
-	typeMutex     sync.RWMutex
-	methodsByType = make(map[reflect.Type]*serverMethods)
+	rootTypeMutex     sync.RWMutex
+	rootMethodsByType = make(map[reflect.Type]*RootMethods)
+
+	objTypeMutex     sync.RWMutex
+	objMethodsByType = make(map[reflect.Type]*Methods)
 )
 
-// serverMethods holds information about a type that
+// RootMethods holds information about a type that
 // implements RPC server methods.
-type serverMethods struct {
+type RootMethods struct {
 	// root holds the root type.
 	root reflect.Type
 
-	// obtain maps from root-object method name to
+	// method maps from root-object method name to
 	// information about that method. The term "obtain"
 	// is because these methods obtain an object to
 	// call an action on.
-	obtain map[string]*obtainer
+	method map[string]*RootMethod
 
-	// action maps from an object type (as returned by
-	// an obtainer method) to the set of methods on an
-	// object of that type, with information about each
-	// method.
-	action map[reflect.Type]map[string]*action
+	// discarded holds names of all discarded methods.
+	discarded []string
 }
 
-// methods returns information on the RPC methods
-// implemented by the given type.
-func methods(rootType reflect.Type) (*serverMethods, error) {
-	typeMutex.RLock()
-	methods := methodsByType[rootType]
-	typeMutex.RUnlock()
-	if methods != nil {
-		return methods, nil
+func (r *RootMethods) RPCMethods() []string {
+	var names []string
+	for name := range r.method {
+		names = append(names, name)
 	}
-	typeMutex.Lock()
-	defer typeMutex.Unlock()
-	methods = methodsByType[rootType]
-	if methods != nil {
-		return methods, nil
-	}
-	methods = &serverMethods{
-		obtain: make(map[string]*obtainer),
-		action: make(map[reflect.Type]map[string]*action),
-	}
-	for i := 0; i < rootType.NumMethod(); i++ {
-		rootMethod := rootType.Method(i)
-		obtain := methodToObtainer(rootMethod)
-		if obtain == nil {
-			log.Infof("rpc: discarding obtainer method %#v", rootMethod)
-			continue
-		}
-		actions := make(map[string]*action)
-		for i := 0; i < obtain.ret.NumMethod(); i++ {
-			obtainMethod := obtain.ret.Method(i)
-			if act := methodToAction(obtainMethod, obtain.ret.Kind()); act != nil {
-				actions[obtainMethod.Name] = act
-			} else {
-				log.Infof("rpc: discarding action method %#v", obtainMethod)
-			}
-		}
-		if len(actions) > 0 {
-			methods.action[obtain.ret] = actions
-			methods.obtain[rootMethod.Name] = obtain
-		} else {
-			log.Infof("rpc: discarding obtainer %v because its result has no methods", rootMethod.Name)
-		}
-	}
-	if len(methods.obtain) == 0 {
-		return nil, fmt.Errorf("no RPC methods found on %s", rootType)
-	}
-	methodsByType[rootType] = methods
-	return methods, nil
+	sort.Strings(names)
+	return names
 }
 
-// obtainer holds information on a root-level method.
-type obtainer struct {
-	// ret holds the type of the object returned by the method.
-	ret reflect.Type
+// Method returns information on the method with the given name,
+// or the zero Method and false if there is no such method.
+func (r *RootMethods) Method(name string) (RootMethod, bool) {
+	m, ok := r.method[name]
+	if !ok {
+		return RootMethod{}, false
+	}
+	return *m, true
+}
 
-	// call invokes the obtainer method. The rcvr parameter must be
+func (r *RootMethods) DiscardedMethods() []string {
+	return append([]string(nil), r.discarded...)
+}
+
+// RootMethod holds information on a root-level method.
+type RootMethod struct {
+	// Call invokes the method. The rcvr parameter must be
 	// the same type as the root object. The given id is passed
 	// as an argument to the method.
-	call func(rcvr reflect.Value, id string) (reflect.Value, error)
+	Call func(rcvr reflect.Value, id string) (reflect.Value, error)
+
+	// Type holds the type of value that will be returned
+	// by the method.
+	Type reflect.Type
+
+	// Methods holds RPC object-method information about
+	// objects of the above typr
+	Methods *Methods
 }
 
-func methodToObtainer(m reflect.Method) *obtainer {
+// RootInfo returns information on all the rpc "type" methods
+// implemented by an object of the given type.
+func RootInfo(rootType reflect.Type) *RootMethods {
+	rootTypeMutex.RLock()
+	methods := rootMethodsByType[rootType]
+	rootTypeMutex.RUnlock()
+	if methods != nil {
+		return methods
+	}
+	rootTypeMutex.Lock()
+	defer rootTypeMutex.Unlock()
+	methods = rootMethodsByType[rootType]
+	if methods != nil {
+		return methods
+	}
+	methods = rootInfo(rootType)
+	rootMethodsByType[rootType] = methods
+	return methods
+}
+
+// rootInfo is like RootInfo but without the cache - it
+// always allocates. Called with rootTypeMutex locked.
+func rootInfo(rootType reflect.Type) *RootMethods {
+	rm := &RootMethods{
+		method: make(map[string]*RootMethod),
+	}
+	for i := 0; i < rootType.NumMethod(); i++ {
+		m := rootType.Method(i)
+		if m.PkgPath != "" || isKillMethod(m) {
+			// The Kill method gets a special exception because
+			// it fulfils the Killer interface which we're expecting,
+			// so it's not really discarded as such.
+			continue
+		}
+		if o := newRootMethod(m); o != nil {
+			rm.method[m.Name] = o
+		} else {
+			rm.discarded = append(rm.discarded, m.Name)
+		}
+	}
+	return rm
+}
+
+func isKillMethod(m reflect.Method) bool {
+	return m.Name == "Kill" && m.Type.NumIn() == 1 && m.Type.NumOut() == 0
+}
+
+func newRootMethod(m reflect.Method) *RootMethod {
 	if m.PkgPath != "" {
 		return nil
 	}
@@ -119,34 +143,107 @@ func methodToObtainer(m reflect.Method) *obtainer {
 		r = out[0]
 		return
 	}
-	return &obtainer{
-		ret:  t.Out(0),
-		call: f,
+	_type := t.Out(0)
+	return &RootMethod{
+		Type:    _type,
+		Call:    f,
+		Methods: ObjectInfo(_type),
 	}
 }
 
-// action holds information about a method on an object
-// that can be obtained from the root object.
-type action struct {
-	// arg holds the argument type of the method, or nil
-	// if there is no argument.
-	arg reflect.Type
-
-	// ret holds the return type of the method, or nil
-	// if the method returns no value.
-	ret reflect.Type
-
-	// call calls the action method with the given argument
-	// on the given receiver value. If the method does
-	// not return a value, the returned value will not be valid.
-	call func(rcvr, arg reflect.Value) (reflect.Value, error)
+// Methods holds information on RPC methods implemented on
+// an RPC object.
+type Methods struct {
+	method    map[string]*Method
+	discarded []string
 }
 
-func methodToAction(m reflect.Method, receiverKind reflect.Kind) *action {
+// Method returns information on the method with the given name,
+// or the zero Method and false if there is no such method.
+func (ms *Methods) Method(name string) (method Method, ok bool) {
+	m, ok := ms.method[name]
+	if !ok {
+		return Method{}, false
+	}
+	return *m, true
+}
+
+// DiscardedMethods returns the names of all methods that cannot
+// implement RPC calls because their type signature is inappropriate.
+func (ms *Methods) DiscardedMethods() []string {
+	return append([]string(nil), ms.discarded...)
+}
+
+// RPCMethods returns the names of all the RPC methods.
+func (m *Methods) RPCMethods() []string {
+	var names []string
+	for name := range m.method {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// Method holds information about an RPC method on an
+// object returned by a root-level method.
+type Method struct {
+	// Params holds the argument type of the method, or nil
+	// if there is no argument.
+	Params reflect.Type
+
+	// Result holds the return type of the method, or nil
+	// if the method returns no value.
+	Result reflect.Type
+
+	// Call calls the method with the given argument
+	// on the given receiver value. If the method does
+	// not return a value, the returned value will not be valid.
+	Call func(rcvr, arg reflect.Value) (reflect.Value, error)
+}
+
+func ObjectInfo(objType reflect.Type) *Methods {
+	objTypeMutex.RLock()
+	methods := objMethodsByType[objType]
+	objTypeMutex.RUnlock()
+	if methods != nil {
+		return methods
+	}
+	objTypeMutex.Lock()
+	defer objTypeMutex.Unlock()
+	methods = objMethodsByType[objType]
+	if methods != nil {
+		return methods
+	}
+	methods = objectInfo(objType)
+	objMethodsByType[objType] = methods
+	return methods
+}
+
+// objectInfo is like ObjectInfo but without the cache.
+// Called with objTypeMutex locked.
+func objectInfo(objType reflect.Type) *Methods {
+	objMethods := &Methods{
+		method: make(map[string]*Method),
+	}
+	for i := 0; i < objType.NumMethod(); i++ {
+		m := objType.Method(i)
+		if m.PkgPath != "" {
+			continue
+		}
+		if objm := newMethod(m, objType.Kind()); objm != nil {
+			objMethods.method[m.Name] = objm
+		} else {
+			objMethods.discarded = append(objMethods.discarded, m.Name)
+		}
+	}
+	return objMethods
+}
+
+func newMethod(m reflect.Method, receiverKind reflect.Kind) *Method {
 	if m.PkgPath != "" {
 		return nil
 	}
-	var p action
+	var p Method
 	var assemble func(arg reflect.Value) []reflect.Value
 	// N.B. The method type has the receiver as its first argument
 	// unless the receiver is an interface.
@@ -163,7 +260,7 @@ func methodToAction(m reflect.Method, receiverKind reflect.Kind) *action {
 		}
 	case t.NumIn() == 1+receiverArgCount:
 		// Method(T) ...
-		p.arg = t.In(receiverArgCount)
+		p.Params = t.In(receiverArgCount)
 		assemble = func(arg reflect.Value) []reflect.Value {
 			return []reflect.Value{arg}
 		}
@@ -174,13 +271,13 @@ func methodToAction(m reflect.Method, receiverKind reflect.Kind) *action {
 	switch {
 	case t.NumOut() == 0:
 		// Method(...)
-		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
+		p.Call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
 			rcvr.Method(m.Index).Call(assemble(arg))
 			return
 		}
 	case t.NumOut() == 1 && t.Out(0) == errorType:
 		// Method(...) error
-		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
+		p.Call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
 			out := rcvr.Method(m.Index).Call(assemble(arg))
 			if !out[0].IsNil() {
 				err = out[0].Interface().(error)
@@ -189,15 +286,15 @@ func methodToAction(m reflect.Method, receiverKind reflect.Kind) *action {
 		}
 	case t.NumOut() == 1:
 		// Method(...) R
-		p.ret = t.Out(0)
-		p.call = func(rcvr, arg reflect.Value) (reflect.Value, error) {
+		p.Result = t.Out(0)
+		p.Call = func(rcvr, arg reflect.Value) (reflect.Value, error) {
 			out := rcvr.Method(m.Index).Call(assemble(arg))
 			return out[0], nil
 		}
 	case t.NumOut() == 2 && t.Out(1) == errorType:
 		// Method(...) (R, error)
-		p.ret = t.Out(0)
-		p.call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
+		p.Result = t.Out(0)
+		p.Call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
 			out := rcvr.Method(m.Index).Call(assemble(arg))
 			r = out[0]
 			if !out[1].IsNil() {
@@ -208,10 +305,11 @@ func methodToAction(m reflect.Method, receiverKind reflect.Kind) *action {
 	default:
 		return nil
 	}
-	if p.arg != nil && p.arg.Kind() != reflect.Struct {
+	// The parameters and return value must be of struct type.
+	if p.Params != nil && p.Params.Kind() != reflect.Struct {
 		return nil
 	}
-	if p.ret != nil && p.ret.Kind() != reflect.Struct {
+	if p.Result != nil && p.Result.Kind() != reflect.Struct {
 		return nil
 	}
 	return &p

@@ -220,12 +220,12 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 	return int64val{x.I * r.I}, nil
 }
 
-func (a *ChangeAPIMethods) ChangeAPI() error {
-	return a.r.conn.Serve(&changedAPIRoot{}, nil)
+func (a *ChangeAPIMethods) ChangeAPI() {
+	a.r.conn.Serve(&changedAPIRoot{}, nil)
 }
 
-func (a *ChangeAPIMethods) RemoveAPI() error {
-	return a.r.conn.Serve(nil, nil)
+func (a *ChangeAPIMethods) RemoveAPI() {
+	a.r.conn.Serve(nil, nil)
 }
 
 type changedAPIRoot struct{}
@@ -678,7 +678,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	go func() {
 		conn, err := l.Accept()
 		if err != nil {
-			srvDone <- err
+			srvDone <- nil
 			return
 		}
 		defer l.Close()
@@ -687,11 +687,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 			role = roleBoth
 		}
 		rpcConn := rpc.NewConn(NewJSONCodec(conn, role))
-		err = rpcConn.Serve(root, tfErr)
-		if err != nil {
-			srvDone <- err
-			return
-		}
+		rpcConn.Serve(root, tfErr)
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
 		}
