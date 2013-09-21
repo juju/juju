@@ -22,14 +22,11 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-// We also test rpc/rpcreflect in this package, so that the
-// tests can all share the same testing Root type.
-
-type suite struct {
+type rpcSuite struct {
 	testbase.LoggingSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = gc.Suite(&rpcSuite{})
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -259,7 +256,7 @@ func (newlyAvailableMethods) NewMethod() stringVal {
 	return stringVal{"new method result"}
 }
 
-func (*suite) TestRPC(c *gc.C) {
+func (*rpcSuite) TestRPC(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -316,7 +313,7 @@ func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int
 	}
 }
 
-func (*suite) TestInterfaceMethods(c *gc.C) {
+func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -327,7 +324,7 @@ func (*suite) TestInterfaceMethods(c *gc.C) {
 	root.testCall(c, client, "InterfaceMethods", 1, 1, true, true)
 }
 
-func (*suite) TestRootInfo(c *gc.C) {
+func (*rpcSuite) TestRootInfo(c *gc.C) {
 	rtype := rpcreflect.TypeOf(reflect.TypeOf(&Root{}))
 	c.Assert(rtype.DiscardedMethods(), gc.DeepEquals, []string{
 		"Discard1",
@@ -356,7 +353,7 @@ func (*suite) TestRootInfo(c *gc.C) {
 	c.Assert(m, gc.DeepEquals, rpcreflect.RootMethod{})
 }
 
-func (*suite) TestObjectInfo(c *gc.C) {
+func (*rpcSuite) TestObjectInfo(c *gc.C) {
 	objType := rpcreflect.ObjTypeOf(reflect.TypeOf(&SimpleMethods{}))
 	c.Check(objType.DiscardedMethods(), gc.DeepEquals, []string{
 		"Discard1",
@@ -399,7 +396,7 @@ func (*suite) TestObjectInfo(c *gc.C) {
 	c.Check(m, gc.DeepEquals, rpcreflect.ObjMethod{})
 }
 
-func (*suite) TestConcurrentCalls(c *gc.C) {
+func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
 	start1 := make(chan string)
 	start2 := make(chan string)
 	ready1 := make(chan struct{})
@@ -450,7 +447,7 @@ func (e *codedError) ErrorCode() string {
 	return e.code
 }
 
-func (*suite) TestErrorCode(c *gc.C) {
+func (*rpcSuite) TestErrorCode(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
@@ -461,7 +458,7 @@ func (*suite) TestErrorCode(c *gc.C) {
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
 }
 
-func (*suite) TestTransformErrors(c *gc.C) {
+func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
@@ -495,7 +492,7 @@ func (*suite) TestTransformErrors(c *gc.C) {
 
 }
 
-func (*suite) TestServerWaitsForOutstandingCalls(c *gc.C) {
+func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 	ready := make(chan struct{})
 	start := make(chan string)
 	root := &Root{
@@ -535,7 +532,7 @@ func chanRead(c *gc.C, ch <-chan struct{}, what string) {
 	}
 }
 
-func (*suite) TestCompatibility(c *gc.C) {
+func (*rpcSuite) TestCompatibility(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -579,7 +576,7 @@ func (*suite) TestCompatibility(c *gc.C) {
 	c.Assert(r, gc.Equals, extra{})
 }
 
-func (*suite) TestBadCall(c *gc.C) {
+func (*rpcSuite) TestBadCall(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -598,7 +595,7 @@ func (*suite) TestBadCall(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "request error: unknown SimpleMethods id")
 }
 
-func (*suite) TestContinueAfterReadBodyError(c *gc.C) {
+func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -629,7 +626,7 @@ func (*suite) TestContinueAfterReadBodyError(c *gc.C) {
 	c.Assert(ret.Val, gc.Equals, "SliceArg ret")
 }
 
-func (*suite) TestErrorAfterClientClose(c *gc.C) {
+func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
 	client, srvDone := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, gc.IsNil)
@@ -639,7 +636,7 @@ func (*suite) TestErrorAfterClientClose(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (*suite) TestClientCloseIdempotent(c *gc.C) {
+func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
 	client, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, gc.IsNil)
@@ -658,7 +655,7 @@ func (r *KillerRoot) Kill() {
 	r.killed = true
 }
 
-func (*suite) TestRootIsKilled(c *gc.C) {
+func (*rpcSuite) TestRootIsKilled(c *gc.C) {
 	root := &KillerRoot{}
 	client, srvDone := newRPCClientServer(c, root, nil, false)
 	err := client.Close()
@@ -668,7 +665,7 @@ func (*suite) TestRootIsKilled(c *gc.C) {
 	c.Assert(root.killed, gc.Equals, true)
 }
 
-func (*suite) TestBidirectional(c *gc.C) {
+func (*rpcSuite) TestBidirectional(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -680,7 +677,7 @@ func (*suite) TestBidirectional(c *gc.C) {
 	c.Assert(r.I, gc.Equals, int64(479001600))
 }
 
-func (*suite) TestServerRequestWhenNotServing(c *gc.C) {
+func (*rpcSuite) TestServerRequestWhenNotServing(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -689,7 +686,7 @@ func (*suite) TestServerRequestWhenNotServing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "request error: request error: no service")
 }
 
-func (*suite) TestChangeAPI(c *gc.C) {
+func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -705,7 +702,7 @@ func (*suite) TestChangeAPI(c *gc.C) {
 	c.Assert(s, gc.Equals, stringVal{"new method result"})
 }
 
-func (*suite) TestChangeAPIToNil(c *gc.C) {
+func (*rpcSuite) TestChangeAPIToNil(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -717,7 +714,7 @@ func (*suite) TestChangeAPIToNil(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "request error: no service")
 }
 
-func (*suite) TestChangeAPIWhileServingRequest(c *gc.C) {
+func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	ready := make(chan struct{})
 	done := make(chan error)
 	srvRoot := &Root{
