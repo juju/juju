@@ -151,7 +151,7 @@ func newRootMethod(m reflect.Method) *RootMethod {
 // ObjType holds information on RPC methods implemented on
 // an RPC object.
 type ObjType struct {
-	goType reflect.Type
+	goType    reflect.Type
 	method    map[string]*ObjMethod
 	discarded []string
 }
