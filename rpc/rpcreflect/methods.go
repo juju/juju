@@ -16,16 +16,16 @@ var (
 )
 
 var (
-	rootTypeMutex     sync.RWMutex
-	rootMethodsByType = make(map[reflect.Type]*RootMethods)
+	typeMutex     sync.RWMutex
+	typesByGoType = make(map[reflect.Type]*Type)
 
 	objTypeMutex     sync.RWMutex
-	objMethodsByType = make(map[reflect.Type]*Methods)
+	objTypesByGoType = make(map[reflect.Type]*ObjType)
 )
 
-// RootMethods holds information about a type that
-// implements RPC server methods.
-type RootMethods struct {
+// Type holds information about a type that implements RPC server methods,
+// a root-level RPC type.
+type Type struct {
 	// root holds the root type.
 	root reflect.Type
 
@@ -41,7 +41,7 @@ type RootMethods struct {
 
 // MethodNames returns the names of all the root object
 // methods on the receiving object.
-func (r *RootMethods) MethodNames() []string {
+func (r *Type) MethodNames() []string {
 	var names []string
 	for name := range r.method {
 		names = append(names, name)
@@ -52,7 +52,7 @@ func (r *RootMethods) MethodNames() []string {
 
 // Method returns information on the method with the given name,
 // or the zero Method and false if there is no such method.
-func (r *RootMethods) Method(name string) (RootMethod, bool) {
+func (r *Type) Method(name string) (RootMethod, bool) {
 	m, ok := r.method[name]
 	if !ok {
 		return RootMethod{}, false
@@ -60,7 +60,7 @@ func (r *RootMethods) Method(name string) (RootMethod, bool) {
 	return *m, true
 }
 
-func (r *RootMethods) DiscardedMethods() []string {
+func (r *Type) DiscardedMethods() []string {
 	return append([]string(nil), r.discarded...)
 }
 
@@ -71,43 +71,39 @@ type RootMethod struct {
 	// as an argument to the method.
 	Call func(rcvr reflect.Value, id string) (reflect.Value, error)
 
-	// Type holds the type of value that will be returned
-	// by the method.
-	Type reflect.Type
-
 	// Methods holds RPC object-method information about
-	// objects of the above typr
-	Methods *Methods
+	// objects returned from the above call.
+	ObjType *ObjType
 }
 
-// RootInfo returns information on all the rpc "type" methods
-// implemented by an object of the given type.
-func RootInfo(rootType reflect.Type) *RootMethods {
-	rootTypeMutex.RLock()
-	methods := rootMethodsByType[rootType]
-	rootTypeMutex.RUnlock()
-	if methods != nil {
-		return methods
+// TypeOf returns information on all root-level RPC methods
+// implemented by an object of the given Go type.
+func TypeOf(goType reflect.Type) *Type {
+	typeMutex.RLock()
+	t := typesByGoType[goType]
+	typeMutex.RUnlock()
+	if t != nil {
+		return t
 	}
-	rootTypeMutex.Lock()
-	defer rootTypeMutex.Unlock()
-	methods = rootMethodsByType[rootType]
-	if methods != nil {
-		return methods
+	typeMutex.Lock()
+	defer typeMutex.Unlock()
+	t = typesByGoType[goType]
+	if t != nil {
+		return t
 	}
-	methods = rootInfo(rootType)
-	rootMethodsByType[rootType] = methods
-	return methods
+	t = rootInfo(goType)
+	typesByGoType[goType] = t
+	return t
 }
 
 // rootInfo is like RootInfo but without the cache - it
 // always allocates. Called with rootTypeMutex locked.
-func rootInfo(rootType reflect.Type) *RootMethods {
-	rm := &RootMethods{
+func rootInfo(goType reflect.Type) *Type {
+	rm := &Type{
 		method: make(map[string]*RootMethod),
 	}
-	for i := 0; i < rootType.NumMethod(); i++ {
-		m := rootType.Method(i)
+	for i := 0; i < goType.NumMethod(); i++ {
+		m := goType.Method(i)
 		if m.PkgPath != "" || isKillMethod(m) {
 			// The Kill method gets a special exception because
 			// it fulfils the Killer interface which we're expecting,
@@ -146,51 +142,54 @@ func newRootMethod(m reflect.Method) *RootMethod {
 		r = out[0]
 		return
 	}
-	_type := t.Out(0)
 	return &RootMethod{
-		Type:    _type,
 		Call:    f,
-		Methods: ObjectInfo(_type),
+		ObjType: ObjTypeOf(t.Out(0)),
 	}
 }
 
-// Methods holds information on RPC methods implemented on
+// ObjType holds information on RPC methods implemented on
 // an RPC object.
-type Methods struct {
-	method    map[string]*Method
+type ObjType struct {
+	goType reflect.Type
+	method    map[string]*ObjMethod
 	discarded []string
 }
 
-// Method returns information on the method with the given name,
+func (t *ObjType) GoType() reflect.Type {
+	return t.goType
+}
+
+// Type returns information on the method with the given name,
 // or the zero Method and false if there is no such method.
-func (ms *Methods) Method(name string) (method Method, ok bool) {
-	m, ok := ms.method[name]
+func (t *ObjType) Method(name string) (method ObjMethod, ok bool) {
+	m, ok := t.method[name]
 	if !ok {
-		return Method{}, false
+		return ObjMethod{}, false
 	}
 	return *m, true
 }
 
 // DiscardedMethods returns the names of all methods that cannot
 // implement RPC calls because their type signature is inappropriate.
-func (ms *Methods) DiscardedMethods() []string {
-	return append([]string(nil), ms.discarded...)
+func (t *ObjType) DiscardedMethods() []string {
+	return append([]string(nil), t.discarded...)
 }
 
 // MethodNames returns the names of all the RPC methods
-// defined on the object.
-func (m *Methods) MethodNames() []string {
+// defined on the type.
+func (t *ObjType) MethodNames() []string {
 	var names []string
-	for name := range m.method {
+	for name := range t.method {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	return names
 }
 
-// Method holds information about an RPC method on an
+// ObjMethod holds information about an RPC method on an
 // object returned by a root-level method.
-type Method struct {
+type ObjMethod struct {
 	// Params holds the argument type of the method, or nil
 	// if there is no argument.
 	Params reflect.Type
@@ -205,50 +204,54 @@ type Method struct {
 	Call func(rcvr, arg reflect.Value) (reflect.Value, error)
 }
 
-func ObjectInfo(objType reflect.Type) *Methods {
+// ObjTypeOf returns information on all RPC methods
+// implemented by an object of the given Go type,
+// as returned from a root-level method.
+func ObjTypeOf(objType reflect.Type) *ObjType {
 	objTypeMutex.RLock()
-	methods := objMethodsByType[objType]
+	methods := objTypesByGoType[objType]
 	objTypeMutex.RUnlock()
 	if methods != nil {
 		return methods
 	}
 	objTypeMutex.Lock()
 	defer objTypeMutex.Unlock()
-	methods = objMethodsByType[objType]
+	methods = objTypesByGoType[objType]
 	if methods != nil {
 		return methods
 	}
-	methods = objectInfo(objType)
-	objMethodsByType[objType] = methods
+	methods = objTypeOf(objType)
+	objTypesByGoType[objType] = methods
 	return methods
 }
 
-// objectInfo is like ObjectInfo but without the cache.
+// objTypeOf is like bjTypeOf but without the cache.
 // Called with objTypeMutex locked.
-func objectInfo(objType reflect.Type) *Methods {
-	objMethods := &Methods{
-		method: make(map[string]*Method),
+func objTypeOf(goType reflect.Type) *ObjType {
+	objType := &ObjType{
+		method: make(map[string]*ObjMethod),
+		goType: goType,
 	}
-	for i := 0; i < objType.NumMethod(); i++ {
-		m := objType.Method(i)
+	for i := 0; i < goType.NumMethod(); i++ {
+		m := goType.Method(i)
 		if m.PkgPath != "" {
 			continue
 		}
 		log.Infof("considering method %#v\n", m)
-		if objm := newMethod(m, objType.Kind()); objm != nil {
-			objMethods.method[m.Name] = objm
+		if objm := newMethod(m, goType.Kind()); objm != nil {
+			objType.method[m.Name] = objm
 		} else {
-			objMethods.discarded = append(objMethods.discarded, m.Name)
+			objType.discarded = append(objType.discarded, m.Name)
 		}
 	}
-	return objMethods
+	return objType
 }
 
-func newMethod(m reflect.Method, receiverKind reflect.Kind) *Method {
+func newMethod(m reflect.Method, receiverKind reflect.Kind) *ObjMethod {
 	if m.PkgPath != "" {
 		return nil
 	}
-	var p Method
+	var p ObjMethod
 	var assemble func(arg reflect.Value) []reflect.Value
 	// N.B. The method type has the receiver as its first argument
 	// unless the receiver is an interface.

@@ -371,7 +371,7 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 
 type requestInfo struct {
 	rootMethod      rpcreflect.RootMethod
-	objMethod       rpcreflect.Method
+	objMethod       rpcreflect.ObjMethod
 	transformErrors func(error) error
 }
 
@@ -384,14 +384,14 @@ func (conn *Conn) findRequest(hdr *Header) (requestInfo, error) {
 	if !rootValue.IsValid() {
 		return requestInfo{}, fmt.Errorf("no service")
 	}
-	methods := rpcreflect.RootInfo(rootValue.Type())
+	rootType := rpcreflect.TypeOf(rootValue.Type())
 	var info requestInfo
 	var ok bool
-	info.rootMethod, ok = methods.Method(hdr.Type)
+	info.rootMethod, ok = rootType.Method(hdr.Type)
 	if !ok {
 		return requestInfo{}, fmt.Errorf("unknown object type %q", hdr.Type)
 	}
-	info.objMethod, ok = info.rootMethod.Methods.Method(hdr.Request)
+	info.objMethod, ok = info.rootMethod.ObjType.Method(hdr.Request)
 	if !ok {
 		return requestInfo{}, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
 	}
@@ -424,10 +424,10 @@ func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, ar
 	}
 }
 
-func (conn *Conn) runRequest0(reqId uint64, objId string, rootMethod *rpcreflect.RootMethod, method *rpcreflect.Method, arg reflect.Value) (reflect.Value, error) {
+func (conn *Conn) runRequest0(reqId uint64, objId string, rootMethod *rpcreflect.RootMethod, objMethod *rpcreflect.ObjMethod, arg reflect.Value) (reflect.Value, error) {
 	obj, err := rootMethod.Call(conn.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return method.Call(obj, arg)
+	return objMethod.Call(obj, arg)
 }

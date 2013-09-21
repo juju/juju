@@ -16,8 +16,8 @@ import (
 
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/rpc/rpcreflect"
 	"launchpad.net/juju-core/rpc/jsoncodec"
+	"launchpad.net/juju-core/rpc/rpcreflect"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -328,59 +328,44 @@ func (*suite) TestInterfaceMethods(c *gc.C) {
 }
 
 func (*suite) TestRootInfo(c *gc.C) {
-	methods := rpcreflect.RootInfo(reflect.TypeOf(&Root{}))
-	c.Assert(methods.DiscardedMethods(), gc.DeepEquals, []string{
+	rtype := rpcreflect.TypeOf(reflect.TypeOf(&Root{}))
+	c.Assert(rtype.DiscardedMethods(), gc.DeepEquals, []string{
 		"Discard1",
 		"Discard2",
 		"Discard3",
 	})
-	expect := map[string]*rpcreflect.RootMethod{
-		"CallbackMethods": {
-			Type: reflect.TypeOf(&CallbackMethods{}),
-		},
-		"ChangeAPIMethods": {
-			Type: reflect.TypeOf(&ChangeAPIMethods{}),
-		},
-		"DelayedMethods": {
-			Type: reflect.TypeOf(&DelayedMethods{}),
-		},
-		"ErrorMethods": {
-			Type: reflect.TypeOf(&ErrorMethods{}),
-		},
-		"InterfaceMethods": {
-			Type: reflect.TypeOf((*InterfaceMethods)(nil)).Elem(),
-		},
-		"SimpleMethods": {
-			Type: reflect.TypeOf(&SimpleMethods{}),
-		},
+	expect := map[string]reflect.Type{
+		"CallbackMethods":  reflect.TypeOf(&CallbackMethods{}),
+		"ChangeAPIMethods": reflect.TypeOf(&ChangeAPIMethods{}),
+		"DelayedMethods":   reflect.TypeOf(&DelayedMethods{}),
+		"ErrorMethods":     reflect.TypeOf(&ErrorMethods{}),
+		"InterfaceMethods": reflect.TypeOf((*InterfaceMethods)(nil)).Elem(),
+		"SimpleMethods":    reflect.TypeOf(&SimpleMethods{}),
 	}
-	for _, m := range expect {
-		m.Methods = rpcreflect.ObjectInfo(m.Type)
-	}
-	c.Assert(methods.MethodNames(), gc.HasLen, len(expect))
-	for name, expectMethod := range expect {
-		m, ok := methods.Method(name)
+	c.Assert(rtype.MethodNames(), gc.HasLen, len(expect))
+	for name, expectGoType := range expect {
+		m, ok := rtype.Method(name)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(m, gc.NotNil)
 		c.Assert(m.Call, gc.NotNil)
-		c.Assert(m.Type, gc.Equals, expectMethod.Type)
-		c.Assert(m.Methods, gc.Equals, expectMethod.Methods)
+		c.Assert(m.ObjType, gc.Equals, rpcreflect.ObjTypeOf(expectGoType))
+		c.Assert(m.ObjType.GoType(), gc.Equals, expectGoType)
 	}
-	m, ok := methods.Method("not found")
+	m, ok := rtype.Method("not found")
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(m, gc.DeepEquals, rpcreflect.RootMethod{})
 }
 
 func (*suite) TestObjectInfo(c *gc.C) {
-	methods := rpcreflect.ObjectInfo(reflect.TypeOf(&SimpleMethods{}))
-	c.Check(methods.DiscardedMethods(), gc.DeepEquals, []string{
+	objType := rpcreflect.ObjTypeOf(reflect.TypeOf(&SimpleMethods{}))
+	c.Check(objType.DiscardedMethods(), gc.DeepEquals, []string{
 		"Discard1",
 		"Discard2",
 		"Discard3",
 		"Discard4",
 	})
-	expect := map[string]*rpcreflect.Method{
-		"SliceArg": &rpcreflect.Method{
+	expect := map[string]*rpcreflect.ObjMethod{
+		"SliceArg": {
 			Params: reflect.TypeOf(struct{ X []string }{}),
 			Result: reflect.TypeOf(stringVal{}),
 		},
@@ -389,7 +374,7 @@ func (*suite) TestObjectInfo(c *gc.C) {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
 				retErr := nerr != 0
-				var m rpcreflect.Method
+				var m rpcreflect.ObjMethod
 				if narg > 0 {
 					m.Params = reflect.TypeOf(stringVal{})
 				}
@@ -400,18 +385,18 @@ func (*suite) TestObjectInfo(c *gc.C) {
 			}
 		}
 	}
-	c.Assert(methods.MethodNames(), gc.HasLen, len(expect))
+	c.Assert(objType.MethodNames(), gc.HasLen, len(expect))
 	for name, expectMethod := range expect {
-		m, ok := methods.Method(name)
+		m, ok := objType.Method(name)
 		c.Check(ok, jc.IsTrue)
 		c.Assert(m, gc.NotNil)
 		c.Check(m.Call, gc.NotNil)
 		c.Check(m.Params, gc.Equals, expectMethod.Params)
 		c.Check(m.Result, gc.Equals, expectMethod.Result)
 	}
-	m, ok := methods.Method("not found")
+	m, ok := objType.Method("not found")
 	c.Check(ok, jc.IsFalse)
-	c.Check(m, gc.DeepEquals, rpcreflect.Method{})
+	c.Check(m, gc.DeepEquals, rpcreflect.ObjMethod{})
 }
 
 func (*suite) TestConcurrentCalls(c *gc.C) {
