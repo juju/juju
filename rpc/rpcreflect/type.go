@@ -4,8 +4,6 @@
 package rpcreflect
 
 import (
-	"fmt"
-	"launchpad.net/juju-core/log"
 	"reflect"
 	"sort"
 	"sync"
@@ -38,86 +36,6 @@ type Type struct {
 
 	// discarded holds names of all discarded methods.
 	discarded []string
-}
-
-// MethodCaller knows how to call a particular RPC method.
-type MethodCaller struct {
-	// ParamsType holds the required type of the parameter to the object method.
-	ParamsType reflect.Type
-	// ResultType holds the result type of the result of caling the object method.
-	ResultType reflect.Type
-
-	rootValue  reflect.Value
-	rootMethod RootMethod
-	objMethod  ObjMethod
-}
-
-// MethodCaller holds the value of the root of an RPC server that
-// can call methods directly on a Go value.
-type Value struct {
-	rootValue reflect.Value
-	rootType  *Type
-}
-
-// ValueOf returns a value that can be used to call RPC-style
-// methods on the given root value. It returns the zero
-// Value if rootValue.IsValid is false.
-func ValueOf(rootValue reflect.Value) Value {
-	if !rootValue.IsValid() {
-		return Value{}
-	}
-	return Value{
-		rootValue: rootValue,
-		rootType:  TypeOf(rootValue.Type()),
-	}
-}
-
-// IsValid returns whether the Value has been initialized with ValueOf.
-func (v Value) IsValid() bool {
-	return v.rootType != nil
-}
-
-func (v Value) Call(objId string, objType, id, action string, params, response interface{}) error {
-	panic("unimplemented")
-}
-
-// GoValue returns the value that was passed to ValueOf to create v.
-func (v Value) GoValue() reflect.Value {
-	return v.rootValue
-}
-
-// MethodCaller returns an object that can be used to make calls on
-// the given root value to the given root method and object method.
-// It returns an error if either the root method or the object
-// method were not found.
-// It panics if called on the zero Value.
-func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller, error) {
-	if !v.IsValid() {
-		panic("MethodCaller called on invalid Value")
-	}
-	caller := MethodCaller{
-		rootValue: v.rootValue,
-	}
-	var ok bool
-	caller.rootMethod, ok = v.rootType.Method(rootMethodName)
-	if !ok {
-		return MethodCaller{}, fmt.Errorf("unknown object type %q", rootMethodName)
-	}
-	caller.objMethod, ok = caller.rootMethod.ObjType.Method(objMethodName)
-	if !ok {
-		return MethodCaller{}, fmt.Errorf("no such request %q on %s", objMethodName, rootMethodName)
-	}
-	caller.ParamsType = caller.objMethod.Params
-	caller.ResultType = caller.objMethod.Result
-	return caller, nil
-}
-
-func (caller MethodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
-	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	return caller.objMethod.Call(obj, arg)
 }
 
 // MethodNames returns the names of all the root object
@@ -324,7 +242,6 @@ func objTypeOf(goType reflect.Type) *ObjType {
 		if m.PkgPath != "" {
 			continue
 		}
-		log.Infof("considering method %#v\n", m)
 		if objm := newMethod(m, goType.Kind()); objm != nil {
 			objType.method[m.Name] = objm
 		} else {
