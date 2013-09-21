@@ -47,36 +47,54 @@ type MethodCaller struct {
 	// ResultType holds the result type of the result of caling the object method.
 	ResultType reflect.Type
 
-	rootValue reflect.Value
+	rootValue  reflect.Value
 	rootMethod RootMethod
-	objMethod ObjMethod
+	objMethod  ObjMethod
 }
 
 // MethodCaller holds the value of the root of an RPC server that
 // can call methods directly on a Go value.
 type Value struct {
 	rootValue reflect.Value
-	rootType *Type
+	rootType  *Type
 }
 
-// NewValue returns a value that can be used to call RPC-style
-// methods on the given root value.
-func NewValue(rootValue reflect.Value) Value {
+// ValueOf returns a value that can be used to call RPC-style
+// methods on the given root value. It returns the zero
+// Value if rootValue.IsValid is false.
+func ValueOf(rootValue reflect.Value) Value {
+	if !rootValue.IsValid() {
+		return Value{}
+	}
 	return Value{
 		rootValue: rootValue,
-		rootType: TypeOf(rootValue.Type()),
+		rootType:  TypeOf(rootValue.Type()),
 	}
+}
+
+// IsValid returns whether the Value has been initialized with ValueOf.
+func (v Value) IsValid() bool {
+	return v.rootType != nil
 }
 
 func (v Value) Call(objId string, objType, id, action string, params, response interface{}) error {
 	panic("unimplemented")
 }
 
+// GoValue returns the value that was passed to ValueOf to create v.
+func (v Value) GoValue() reflect.Value {
+	return v.rootValue
+}
+
 // MethodCaller returns an object that can be used to make calls on
 // the given root value to the given root method and object method.
 // It returns an error if either the root method or the object
 // method were not found.
+// It panics if called on the zero Value.
 func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller, error) {
+	if !v.IsValid() {
+		panic("MethodCaller called on invalid Value")
+	}
 	caller := MethodCaller{
 		rootValue: v.rootValue,
 	}
@@ -142,6 +160,9 @@ type RootMethod struct {
 // TypeOf returns information on all root-level RPC methods
 // implemented by an object of the given Go type.
 func TypeOf(goType reflect.Type) *Type {
+	if goType == nil {
+		return nil
+	}
 	typeMutex.RLock()
 	t := typesByGoType[goType]
 	typeMutex.RUnlock()
@@ -154,14 +175,14 @@ func TypeOf(goType reflect.Type) *Type {
 	if t != nil {
 		return t
 	}
-	t = rootInfo(goType)
+	t = typeOf(goType)
 	typesByGoType[goType] = t
 	return t
 }
 
-// rootInfo is like RootInfo but without the cache - it
+// typeOf is like TypeOf but without the cache - it
 // always allocates. Called with rootTypeMutex locked.
-func rootInfo(goType reflect.Type) *Type {
+func typeOf(goType reflect.Type) *Type {
 	rm := &Type{
 		method: make(map[string]*RootMethod),
 	}
@@ -214,7 +235,7 @@ func newRootMethod(m reflect.Method) *RootMethod {
 // ObjType holds information on RPC methods implemented on
 // an RPC object.
 type ObjType struct {
-	goType reflect.Type
+	goType    reflect.Type
 	method    map[string]*ObjMethod
 	discarded []string
 }
@@ -271,6 +292,9 @@ type ObjMethod struct {
 // implemented by an object of the given Go type,
 // as returned from a root-level method.
 func ObjTypeOf(objType reflect.Type) *ObjType {
+	if objType == nil {
+		return nil
+	}
 	objTypeMutex.RLock()
 	methods := objTypesByGoType[objType]
 	objTypeMutex.RUnlock()

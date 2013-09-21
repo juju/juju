@@ -89,7 +89,7 @@ type Conn struct {
 	mutex sync.Mutex
 
 	// rootValue holds the value to use to serve RPC requests, if any.
-	rootValue reflect.Value
+	rootValue rpcreflect.Value
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -179,11 +179,9 @@ func (conn *Conn) Start() {
 // no effect on calls that are currently being services.
 // If root is nil, the connection will serve no methods.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
-	rootValue := reflect.ValueOf(root)
-	if root != nil {
-		if transformErrors == nil {
-			transformErrors = func(err error) error { return err }
-		}
+	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
+	if rootValue.IsValid() && transformErrors == nil {
+		transformErrors = func(err error) error { return err }
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
@@ -221,7 +219,7 @@ func (conn *Conn) Close() error {
 	// Kill server requests if appropriate.  Client requests will be
 	// terminated when the input loop finishes.
 	if conn.rootValue.IsValid() {
-		if killer, ok := conn.rootValue.Interface().(Killer); ok {
+		if killer, ok := conn.rootValue.GoValue().Interface().(Killer); ok {
 			killer.Kill()
 		}
 	}
@@ -305,7 +303,7 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
-	reqInfo, err := conn.findRequest(hdr)
+	req, err := conn.findRequest(hdr)
 	if err != nil {
 		if err := conn.readBody(nil, true); err != nil {
 			return err
@@ -316,8 +314,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	var argp interface{}
 	var arg reflect.Value
-	if reqInfo.objMethod.Params != nil {
-		v := reflect.New(reqInfo.objMethod.Params)
+	if req.ParamsType != nil {
+		v := reflect.New(req.ParamsType)
 		arg = v.Elem()
 		argp = v.Interface()
 	}
@@ -335,18 +333,18 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr.RequestId, reqInfo.transformErrors(err))
+		return conn.writeErrorResponse(hdr.RequestId, req.transformErrors(err))
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(hdr.RequestId, hdr.Id, reqInfo, arg)
+		go conn.runRequest(hdr.RequestId, hdr.Id, req, arg)
 	}
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr.RequestId, reqInfo.transformErrors(ErrShutdown))
+		return conn.writeErrorResponse(hdr.RequestId, req.transformErrors(ErrShutdown))
 	}
 	return nil
 }
@@ -369,42 +367,36 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 	return nil
 }
 
-type requestInfo struct {
-	rootMethod      rpcreflect.RootMethod
-	objMethod       rpcreflect.ObjMethod
+type request struct {
+	rpcreflect.MethodCaller
 	transformErrors func(error) error
 }
 
-func (conn *Conn) findRequest(hdr *Header) (requestInfo, error) {
+func (conn *Conn) findRequest(hdr *Header) (request, error) {
 	conn.mutex.Lock()
 	rootValue := conn.rootValue
 	transformErrors := conn.transformErrors
 	conn.mutex.Unlock()
 
 	if !rootValue.IsValid() {
-		return requestInfo{}, fmt.Errorf("no service")
+		return request{}, fmt.Errorf("no service")
 	}
-	rootType := rpcreflect.TypeOf(rootValue.Type())
-	var info requestInfo
-	var ok bool
-	info.rootMethod, ok = rootType.Method(hdr.Type)
-	if !ok {
-		return requestInfo{}, fmt.Errorf("unknown object type %q", hdr.Type)
+	caller, err := rootValue.MethodCaller(hdr.Type, hdr.Request)
+	if err != nil {
+		return request{}, err
 	}
-	info.objMethod, ok = info.rootMethod.ObjType.Method(hdr.Request)
-	if !ok {
-		return requestInfo{}, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
-	}
-	info.transformErrors = transformErrors
-	return info, nil
+	return request{
+		MethodCaller:    caller,
+		transformErrors: transformErrors,
+	}, nil
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, arg reflect.Value) {
+func (conn *Conn) runRequest(reqId uint64, objId string, req request, arg reflect.Value) {
 	defer conn.srvPending.Done()
-	rv, err := conn.runRequest0(reqId, objId, &reqInfo.rootMethod, &reqInfo.objMethod, arg)
+	rv, err := req.Call(objId, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(reqId, reqInfo.transformErrors(err))
+		err = conn.writeErrorResponse(reqId, req.transformErrors(err))
 	} else {
 		var rvi interface{}
 		hdr := &Header{
@@ -422,12 +414,4 @@ func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, ar
 	if err != nil {
 		log.Errorf("rpc: error writing response: %v", err)
 	}
-}
-
-func (conn *Conn) runRequest0(reqId uint64, objId string, rootMethod *rpcreflect.RootMethod, objMethod *rpcreflect.ObjMethod, arg reflect.Value) (reflect.Value, error) {
-	obj, err := rootMethod.Call(conn.rootValue, objId)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	return objMethod.Call(obj, arg)
 }
