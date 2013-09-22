@@ -66,13 +66,13 @@ func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller,
 	caller := MethodCaller{
 		rootValue: v.rootValue,
 	}
-	var ok bool
-	caller.rootMethod, ok = v.rootType.Method(rootMethodName)
-	if !ok {
+	var err error
+	caller.rootMethod, err = v.rootType.Method(rootMethodName)
+	if err != nil {
 		return MethodCaller{}, fmt.Errorf("unknown object type %q", rootMethodName)
 	}
-	caller.objMethod, ok = caller.rootMethod.ObjType.Method(objMethodName)
-	if !ok {
+	caller.objMethod, err = caller.rootMethod.ObjType.Method(objMethodName)
+	if err != nil {
 		return MethodCaller{}, fmt.Errorf("no such request %q on %s", objMethodName, rootMethodName)
 	}
 	caller.ParamsType = caller.objMethod.Params

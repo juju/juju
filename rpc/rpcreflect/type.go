@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"sync"
-
-	"launchpad.net/juju-core/log"
 )
 
 var (
