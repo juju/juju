@@ -34,7 +34,6 @@ import (
 )
 
 type lxcSuite struct {
-	testbase.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }

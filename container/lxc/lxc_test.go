@@ -31,7 +31,6 @@ func Test(t *stdtesting.T) {
 }
 
 type LxcSuite struct {
-	testbase.LoggingSuite
 	lxc.TestSuite
 	oldPath string
 }

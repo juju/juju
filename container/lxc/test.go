@@ -20,7 +20,6 @@ import (
 type TestSuite struct {
 	testbase.LoggingSuite
 	Factory      mock.ContainerFactory
-	oldFactory   golxc.ContainerFactory
 	ContainerDir string
 	RemovedDir   string
 	LxcDir       string
