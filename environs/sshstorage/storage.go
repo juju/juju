@@ -64,15 +64,22 @@ const UseDefaultTmpDir = ""
 //
 // A temporary directory may be specified, in which case it should
 // be a directory on the same filesystem as the storage directory
-// to ensure atomic writes. If left unspecified, tmpdir will be
-// assigned a value of storagedir+".tmp".
+// to ensure atomic writes. If left unspecified, the storage
+// directory itself is used; this carries the potential risk of
+// temporary files being left in storage in the event of hard failure.
 //
-// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
-// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
-// already exist, and will never be removed.
+// If tmpdir != UseDefaultTmpDir, it will be created when NewSSHStorage
+// is invoked if it doesn't already exist; it will never be removed.
+// NewSSHStorage will attempt to reassign ownership to the login user,
+// and will return an error if it cannot do so.
 func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", utils.ShQuote(storagedir))
-	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c '%s'", script))
+	if tmpdir != UseDefaultTmpDir {
+		// Also create the tmpdir.
+		script += " " + utils.ShQuote(tmpdir)
+	}
+
+	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
 		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(string(out)))
@@ -256,7 +263,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 
 	tmpdir := s.tmpdir
 	if tmpdir == UseDefaultTmpDir {
-		tmpdir = s.remotepath + ".tmp"
+		tmpdir = s.remotepath
 	}
 	tmpdir = utils.ShQuote(tmpdir)
 
@@ -266,16 +273,6 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
 		tmpdir, command, path,
 	)
-
-	// If UseDefaultTmpDir is passed, then create the
-	// temporary directory, and remove it afterwards.
-	// Otherwise, the temporary directory is expected
-	// to already exist, and is never removed.
-	if s.tmpdir == UseDefaultTmpDir {
-		installTmpdir := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", tmpdir)
-		removeTmpdir := fmt.Sprintf("rm -fr %s", tmpdir)
-		command = fmt.Sprintf("%s && (%s); rc=$?; %s; exit $rc", installTmpdir, command, removeTmpdir)
-	}
 
 	_, err = s.run(flockExclusive, command+"\n", buf)
 	return err

@@ -305,38 +305,24 @@ func (s *storageSuite) TestPutLarge(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *storageSuite) TestPutTmpDir(c *gc.C) {
-	stor, storageDir := s.makeStorage(c)
+func (s *storageSuite) TestTmpDir(c *gc.C) {
+	// If we explicitly set the temporary directory,
+	// it may already exist, but doesn't have to.
+	storageDir := c.MkDir()
+	tmpdirs := []string{storageDir, filepath.Join(storageDir, "subdir")}
+	for _, tmpdir := range tmpdirs {
+		stor, err := NewSSHStorage("example.com", storageDir, tmpdir)
+		defer stor.Close()
+		c.Assert(err, gc.IsNil)
+		err = stor.Put("test-write", bytes.NewReader(nil), 0)
+		c.Assert(err, gc.IsNil)
+	}
 
-	// Put should create and clean up the temporary directory if
-	// tmpdir==UseDefaultTmpDir.
-	err := stor.Put("test-write", bytes.NewReader(nil), 0)
-	c.Assert(err, gc.IsNil)
-	_, err = os.Stat(storageDir + ".tmp")
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	// To deal with recovering from hard failure, UseDefaultTmpDir
-	// doesn't care if the temporary directory already exists. It
-	// still removes it, though.
-	err = os.Mkdir(storageDir+".tmp", 0755)
-	c.Assert(err, gc.IsNil)
-	err = stor.Put("test-write", bytes.NewReader(nil), 0)
-	c.Assert(err, gc.IsNil)
-	_, err = os.Stat(storageDir + ".tmp")
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	// If we explicitly set the temporary directory, it must already exist.
-	stor.Close()
-	stor, err = NewSSHStorage("example.com", storageDir, storageDir+".tmp")
-	defer stor.Close()
-	c.Assert(err, gc.IsNil)
-	err = stor.Put("test-write", bytes.NewReader(nil), 0)
-	c.Assert(err, gc.ErrorMatches, "mktemp: failed to create file.*No such file or directory")
-	err = os.Mkdir(storageDir+".tmp", 0755)
-	c.Assert(err, gc.IsNil)
-	err = stor.Put("test-write", bytes.NewReader(nil), 0)
-	c.Assert(err, gc.IsNil)
-	// Temporary directory should not have been moved.
-	_, err = os.Stat(storageDir + ".tmp")
-	c.Assert(err, gc.IsNil)
+	// NewSSHStorage will fail if it can't create or change the
+	// permissions of the temporary directory.
+	tmpdir := c.MkDir()
+	os.Chmod(tmpdir, 0400)
+	defer os.Chmod(tmpdir, 0755)
+	_, err := NewSSHStorage("example.com", storageDir, filepath.Join(tmpdir, "subdir2"))
+	c.Assert(err, gc.ErrorMatches, ".*install: cannot create directory.*Permission denied.*")
 }
