@@ -4,9 +4,12 @@
 package rpcreflect
 
 import (
+	"errors"
 	"reflect"
 	"sort"
 	"sync"
+
+	"launchpad.net/juju-core/log"
 )
 
 var (
@@ -21,6 +24,8 @@ var (
 	objTypeMutex     sync.RWMutex
 	objTypesByGoType = make(map[reflect.Type]*ObjType)
 )
+
+var ErrMethodNotFound = errors.New("no such method")
 
 // Type holds information about a type that implements RPC server methods,
 // a root-level RPC type.
@@ -50,13 +55,13 @@ func (r *Type) MethodNames() []string {
 }
 
 // Method returns information on the method with the given name,
-// or the zero Method and false if there is no such method.
-func (r *Type) Method(name string) (RootMethod, bool) {
+// or the zero Method and ErrMethodNotFound if there is no such method.
+func (r *Type) Method(name string) (RootMethod, error) {
 	m, ok := r.method[name]
 	if !ok {
-		return RootMethod{}, false
+		return RootMethod{}, ErrMethodNotFound
 	}
-	return *m, true
+	return *m, nil
 }
 
 func (r *Type) DiscardedMethods() []string {
@@ -162,14 +167,14 @@ func (t *ObjType) GoType() reflect.Type {
 	return t.goType
 }
 
-// Type returns information on the method with the given name,
-// or the zero Method and false if there is no such method.
-func (t *ObjType) Method(name string) (method ObjMethod, ok bool) {
+// Method returns information on the method with the given name,
+// or the zero Method and an error if there is no such method.
+func (t *ObjType) Method(name string) (ObjMethod, error) {
 	m, ok := t.method[name]
 	if !ok {
-		return ObjMethod{}, false
+		return ObjMethod{}, ErrMethodNotFound
 	}
-	return *m, true
+	return *m, nil
 }
 
 // DiscardedMethods returns the names of all methods that cannot
@@ -230,7 +235,7 @@ func ObjTypeOf(objType reflect.Type) *ObjType {
 	return methods
 }
 
-// objTypeOf is like bjTypeOf but without the cache.
+// objTypeOf is like ObjTypeOf but without the cache.
 // Called with objTypeMutex locked.
 func objTypeOf(goType reflect.Type) *ObjType {
 	objType := &ObjType{
