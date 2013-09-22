@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/rpc/rpcreflect"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
