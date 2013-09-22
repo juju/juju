@@ -386,13 +386,13 @@ func (conn *Conn) findRequest(hdr *Header) (requestInfo, error) {
 	}
 	rootType := rpcreflect.TypeOf(rootValue.Type())
 	var info requestInfo
-	var ok bool
-	info.rootMethod, ok = rootType.Method(hdr.Type)
-	if !ok {
+	var err error
+	info.rootMethod, err = rootType.Method(hdr.Type)
+	if err != nil {
 		return requestInfo{}, fmt.Errorf("unknown object type %q", hdr.Type)
 	}
-	info.objMethod, ok = info.rootMethod.ObjType.Method(hdr.Request)
-	if !ok {
+	info.objMethod, err = info.rootMethod.ObjType.Method(hdr.Request)
+	if err != nil {
 		return requestInfo{}, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
 	}
 	info.transformErrors = transformErrors

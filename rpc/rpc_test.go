@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/rpc/rpcreflect"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -344,15 +343,15 @@ func (*suite) TestRootInfo(c *gc.C) {
 	}
 	c.Assert(rtype.MethodNames(), gc.HasLen, len(expect))
 	for name, expectGoType := range expect {
-		m, ok := rtype.Method(name)
-		c.Assert(ok, jc.IsTrue)
+		m, err := rtype.Method(name)
+		c.Assert(err, gc.IsNil)
 		c.Assert(m, gc.NotNil)
 		c.Assert(m.Call, gc.NotNil)
 		c.Assert(m.ObjType, gc.Equals, rpcreflect.ObjTypeOf(expectGoType))
 		c.Assert(m.ObjType.GoType(), gc.Equals, expectGoType)
 	}
-	m, ok := rtype.Method("not found")
-	c.Assert(ok, jc.IsFalse)
+	m, err := rtype.Method("not found")
+	c.Assert(err, gc.Equals, rpcreflect.ErrMethodNotFound)
 	c.Assert(m, gc.DeepEquals, rpcreflect.RootMethod{})
 }
 
@@ -387,15 +386,15 @@ func (*suite) TestObjectInfo(c *gc.C) {
 	}
 	c.Assert(objType.MethodNames(), gc.HasLen, len(expect))
 	for name, expectMethod := range expect {
-		m, ok := objType.Method(name)
-		c.Check(ok, jc.IsTrue)
+		m, err := objType.Method(name)
+		c.Check(err, gc.IsNil)
 		c.Assert(m, gc.NotNil)
 		c.Check(m.Call, gc.NotNil)
 		c.Check(m.Params, gc.Equals, expectMethod.Params)
 		c.Check(m.Result, gc.Equals, expectMethod.Result)
 	}
-	m, ok := objType.Method("not found")
-	c.Check(ok, jc.IsFalse)
+	m, err := objType.Method("not found")
+	c.Check(err, gc.Equals, rpcreflect.ErrMethodNotFound)
 	c.Check(m, gc.DeepEquals, rpcreflect.ObjMethod{})
 }
 
