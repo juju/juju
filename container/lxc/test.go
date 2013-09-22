@@ -9,7 +9,6 @@ package lxc
 
 import (
 	gc "launchpad.net/gocheck"
-	"launchpad.net/golxc"
 
 	"launchpad.net/juju-core/container/lxc/mock"
 	"launchpad.net/juju-core/testing/testbase"

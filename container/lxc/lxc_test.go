@@ -32,17 +32,15 @@ func Test(t *stdtesting.T) {
 
 type LxcSuite struct {
 	lxc.TestSuite
-	oldPath string
 }
 
 var _ = gc.Suite(&LxcSuite{})
 
 func (s *LxcSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 	tmpDir := c.MkDir()
-	s.oldPath = os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir)
+	restore := testbase.PatchEnvironment("PATH", tmpDir)
+	s.AddSuiteCleanup(func(*gc.C) { restore() })
 	err := ioutil.WriteFile(
 		filepath.Join(tmpDir, "apt-config"),
 		[]byte(aptConfigScript),
@@ -50,21 +48,9 @@ func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *LxcSuite) TearDownSuite(c *gc.C) {
-	os.Setenv("PATH", s.oldPath)
-	s.TestSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *LxcSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
-}
-
-func (s *LxcSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 const (
