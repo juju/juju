@@ -15,42 +15,6 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-// SetContainerDir allows tests in other packages to override the
-// containerDir.
-func SetContainerDir(dir string) (old string) {
-	old, containerDir = containerDir, dir
-	return
-}
-
-// SetLxcContainerDir allows tests in other packages to override the
-// lxcContainerDir.
-func SetLxcContainerDir(dir string) (old string) {
-	old, lxcContainerDir = lxcContainerDir, dir
-	return
-}
-
-// SetLxcRestartDir allows tests in other packages to override the
-// lxcRestartDir, which contains the symlinks to the config files so
-// containers can be auto-restarted on reboot.
-func SetLxcRestartDir(dir string) (old string) {
-	old, lxcRestartDir = lxcRestartDir, dir
-	return
-}
-
-// SetRemovedContainerDir allows tests in other packages to override the
-// removedContainerDir.
-func SetRemovedContainerDir(dir string) (old string) {
-	old, removedContainerDir = removedContainerDir, dir
-	return
-}
-
-// SetLxcFactory allows tests in other packages to override the lxcObjectFactory
-func SetLxcFactory(factory golxc.ContainerFactory) (old golxc.ContainerFactory) {
-	logger.Infof("lxcObjectFactory replaced with %v", factory)
-	old, lxcObjectFactory = lxcObjectFactory, factory
-	return
-}
-
 // TestSuite replaces the lxc factory that the broker uses with a mock
 // implementation.
 type TestSuite struct {
