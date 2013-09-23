@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc/rpcreflect"
 )
 
 // A Codec implements reading and writing of messages in an RPC
@@ -173,28 +174,21 @@ func (conn *Conn) Start() {
 // with specified codes.  There will be a panic if transformErrors
 // returns nil.
 //
-// It is an error if if the root value implements no RPC methods.
-//
 // Serve may be called at any time on a connection to change the
 // set of methods being served by the connection. This will have
 // no effect on calls that are currently being services.
 // If root is nil, the connection will serve no methods.
-func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) error {
+func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := reflect.ValueOf(root)
 	if root != nil {
 		if transformErrors == nil {
 			transformErrors = func(err error) error { return err }
-		}
-		// Check that rootValue is ok to use as an RPC server type.
-		if _, err := methods(rootValue.Type()); err != nil {
-			return err
 		}
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	conn.rootValue = rootValue
 	conn.transformErrors = transformErrors
-	return nil
 }
 
 // Dead returns a channel that is closed when the connection
@@ -322,8 +316,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	var argp interface{}
 	var arg reflect.Value
-	if reqInfo.action.arg != nil {
-		v := reflect.New(reqInfo.action.arg)
+	if reqInfo.objMethod.Params != nil {
+		v := reflect.New(reqInfo.objMethod.Params)
 		arg = v.Elem()
 		argp = v.Interface()
 	}
@@ -376,8 +370,8 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 }
 
 type requestInfo struct {
-	obtain          *obtainer
-	action          *action
+	rootMethod      rpcreflect.RootMethod
+	objMethod       rpcreflect.ObjMethod
 	transformErrors func(error) error
 }
 
@@ -390,30 +384,25 @@ func (conn *Conn) findRequest(hdr *Header) (requestInfo, error) {
 	if !rootValue.IsValid() {
 		return requestInfo{}, fmt.Errorf("no service")
 	}
-	m, err := methods(rootValue.Type())
+	rootType := rpcreflect.TypeOf(rootValue.Type())
+	var info requestInfo
+	var err error
+	info.rootMethod, err = rootType.Method(hdr.Type)
 	if err != nil {
-		panic("failed to get methods")
-	}
-	o := m.obtain[hdr.Type]
-	if o == nil {
 		return requestInfo{}, fmt.Errorf("unknown object type %q", hdr.Type)
 	}
-	a := m.action[o.ret][hdr.Request]
-	if a == nil {
+	info.objMethod, err = info.rootMethod.ObjType.Method(hdr.Request)
+	if err != nil {
 		return requestInfo{}, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
 	}
-	info := requestInfo{
-		obtain:          o,
-		action:          a,
-		transformErrors: transformErrors,
-	}
+	info.transformErrors = transformErrors
 	return info, nil
 }
 
 // runRequest runs the given request and sends the reply.
 func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, arg reflect.Value) {
 	defer conn.srvPending.Done()
-	rv, err := conn.runRequest0(reqId, objId, reqInfo.obtain, reqInfo.action, arg)
+	rv, err := conn.runRequest0(reqId, objId, &reqInfo.rootMethod, &reqInfo.objMethod, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(reqId, reqInfo.transformErrors(err))
 	} else {
@@ -435,10 +424,10 @@ func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, ar
 	}
 }
 
-func (conn *Conn) runRequest0(reqId uint64, objId string, obtain *obtainer, act *action, arg reflect.Value) (reflect.Value, error) {
-	obj, err := obtain.call(conn.rootValue, objId)
+func (conn *Conn) runRequest0(reqId uint64, objId string, rootMethod *rpcreflect.RootMethod, objMethod *rpcreflect.ObjMethod, arg reflect.Value) (reflect.Value, error) {
+	obj, err := rootMethod.Call(conn.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return act.call(obj, arg)
+	return objMethod.Call(obj, arg)
 }
