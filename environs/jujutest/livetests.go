@@ -64,7 +64,7 @@ type LiveTests struct {
 	// a provisioning agent.
 	HasProvisioner bool
 
-	prepared bool
+	prepared     bool
 	bootstrapped bool
 }
 

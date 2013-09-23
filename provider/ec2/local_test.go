@@ -69,7 +69,7 @@ var localConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 	"public-bucket-region": "test",
 	"access-key":           "x",
 	"secret-key":           "x",
-	"agent-version": version.Current.Number.String(),
+	"agent-version":        version.Current.Number.String(),
 })
 
 func registerLocalTests() {
