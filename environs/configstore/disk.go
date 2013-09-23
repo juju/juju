@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 )
 
@@ -32,26 +31,36 @@ type environInfo struct {
 // stores configuration in the given directory.
 // The parent of the directory must already exist;
 // the directory itself is created on demand.
-func NewDisk(dir string) (environs.ConfigStorage, error) {
-	parent, _ := filepath.Split(dir)
-	if _, err := os.Stat(parent); err != nil {
+func NewDisk(dir string) (Storage, error) {
+	if _, err := os.Stat(dir); err != nil {
 		return nil, err
 	}
 	return &diskStore{dir}, nil
 }
 
 func (d *diskStore) envPath(envName string) string {
-	return filepath.Join(d.dir, envName+".yaml")
+	return filepath.Join(d.dir, "environments", envName+".yaml")
 }
 
-// CreateInfo implements environs.ConfigStorage.CreateInfo.
-func (d *diskStore) CreateInfo(envName string) (environs.EnvironInfo, error) {
+func (d *diskStore) mkEnvironmentsDir() error {
+	err := os.Mkdir(filepath.Join(d.dir, "environments"), 0700)
+	if err == nil || os.IsExist(err) {
+		return nil
+	}
+	return err
+}
+
+// CreateInfo implements Storage.CreateInfo.
+func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
+	if err := d.mkEnvironmentsDir(); err != nil {
+		return nil, err
+	}
 	// We create an empty file so that any subsequent CreateInfos
 	// will fail.
 	path := d.envPath(envName)
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if os.IsExist(err) {
-		return nil, environs.ErrEnvironInfoAlreadyExists
+		return nil, ErrEnvironInfoAlreadyExists
 	}
 	if err != nil {
 		return nil, err
@@ -62,8 +71,8 @@ func (d *diskStore) CreateInfo(envName string) (environs.EnvironInfo, error) {
 	}, nil
 }
 
-// ReadInfo implements environs.ConfigStorage.ReadInfo.
-func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
+// ReadInfo implements Storage.ReadInfo.
+func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	path := d.envPath(envName)
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -84,40 +93,40 @@ func (d *diskStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 	return &info, nil
 }
 
-// Initialized implements environs.EnvironInfo.Initialized.
+// Initialized implements EnvironInfo.Initialized.
 func (info *environInfo) Initialized() bool {
 	return info.initialized
 }
 
-// APICredentials implements environs.EnvironInfo.APICredentials.
-func (info *environInfo) APICredentials() environs.APICredentials {
-	return environs.APICredentials{
+// APICredentials implements EnvironInfo.APICredentials.
+func (info *environInfo) APICredentials() APICredentials {
+	return APICredentials{
 		User:     info.User,
 		Password: info.Password,
 	}
 }
 
-// APIEndpoint implements environs.EnvironInfo.APIEndpoint.
-func (info *environInfo) APIEndpoint() environs.APIEndpoint {
-	return environs.APIEndpoint{
+// APIEndpoint implements EnvironInfo.APIEndpoint.
+func (info *environInfo) APIEndpoint() APIEndpoint {
+	return APIEndpoint{
 		Addresses: info.StateServers,
 		CACert:    info.CACert,
 	}
 }
 
-// SetAPIEndpoint implements environs.EnvironInfo.SetAPIEndpoint.
-func (info *environInfo) SetAPIEndpoint(endpoint environs.APIEndpoint) {
+// SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.
+func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.StateServers = endpoint.Addresses
 	info.CACert = endpoint.CACert
 }
 
-// SetAPICredentials implements environs.EnvironInfo.SetAPICredentials.
-func (info *environInfo) SetAPICredentials(creds environs.APICredentials) {
+// SetAPICredentials implements EnvironInfo.SetAPICredentials.
+func (info *environInfo) SetAPICredentials(creds APICredentials) {
 	info.User = creds.User
 	info.Password = creds.Password
 }
 
-// Write implements environs.EnvironInfo.Write.
+// Write implements EnvironInfo.Write.
 func (info *environInfo) Write() error {
 	data, err := goyaml.Marshal(info)
 	if err != nil {
@@ -143,7 +152,7 @@ func (info *environInfo) Write() error {
 	return nil
 }
 
-// Destroy implements environs.EnvironInfo.Destroy.
+// Destroy implements EnvironInfo.Destroy.
 func (info *environInfo) Destroy() error {
 	err := os.Remove(info.path)
 	if os.IsNotExist(err) {

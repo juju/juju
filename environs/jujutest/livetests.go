@@ -371,7 +371,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, gc.Equals, true)
-	c.Check(agentVersion, gc.Equals, version.CurrentNumber())
+	c.Check(agentVersion, gc.Equals, version.Current.Number)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()
@@ -496,10 +496,10 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func restoreBootstrapVerificationFile(c *gc.C, storage storage.Storage) {
+func restoreBootstrapVerificationFile(c *gc.C, stor storage.Storage) {
 	content := "juju-core storage writing verified: ok\n"
 	contentReader := strings.NewReader(content)
-	err := storage.Put("bootstrap-verify", contentReader,
+	err := stor.Put("bootstrap-verify", contentReader,
 		int64(len(content)))
 	c.Assert(err, gc.IsNil)
 }
@@ -515,6 +515,10 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, gc.IsNil)
 	conn.Close()
+
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	c.Assert(err, gc.IsNil)
+	apiConn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *gc.C) {
@@ -811,7 +815,6 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
 	}
 	c.Assert(inst, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 // Check that we can't start an instance with an empty nonce value.

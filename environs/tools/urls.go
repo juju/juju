@@ -28,15 +28,15 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 // The sources are configured to use retries according to the value of allowRetry.
 func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
-	if userURL, ok := env.Config().ToolsURL(); ok {
-		sources = append(sources, simplestreams.NewURLDataSource(userURL))
-	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()
 		if err != nil {
 			return nil, err
 		}
 		sources = append(sources, customSources...)
+	}
+	if userURL, ok := env.Config().ToolsURL(); ok {
+		sources = append(sources, simplestreams.NewURLDataSource(userURL))
 	}
 
 	if DefaultBaseURL != "" {
