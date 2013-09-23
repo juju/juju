@@ -16,6 +16,7 @@ var (
 		"bootstrap-user": schema.String(),
 		"storage-ip":     schema.String(),
 		"storage-dir":    schema.String(),
+		"storage-tmpdir": schema.String(),
 		"storage-port":   schema.Int(),
 	}
 	configDefaults = schema.Defaults{
@@ -23,6 +24,7 @@ var (
 		"bootstrap-user": "",
 		"storage-ip":     "",
 		"storage-dir":    "/var/lib/juju/storage",
+		"storage-tmpdir": "/var/lib/juju/tmp-storage",
 		"storage-port":   8040,
 	}
 )
@@ -54,6 +56,10 @@ func (c *environConfig) sshHost() string {
 
 func (c *environConfig) storageDir() string {
 	return c.attrs["storage-dir"].(string)
+}
+
+func (c *environConfig) storageTmpdir() string {
+	return c.attrs["storage-tmpdir"].(string)
 }
 
 func (c *environConfig) storageIPAddress() string {

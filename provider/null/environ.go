@@ -104,7 +104,7 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 // Implements environs/bootstrap.BootstrapStorage.
 func (e *nullEnviron) BootstrapStorage() (storage.Storage, error) {
 	cfg := e.envConfig()
-	return sshstorage.NewSSHStorage(cfg.sshHost(), cfg.storageDir(), sshstorage.UseDefaultTmpDir)
+	return sshstorage.NewSSHStorage(cfg.sshHost(), cfg.storageDir(), cfg.storageTmpdir())
 }
 
 func (e *nullEnviron) Storage() storage.Storage {

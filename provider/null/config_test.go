@@ -12,11 +12,12 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type configSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&configSuite{})
@@ -32,20 +33,20 @@ func minimalConfigValues() map[string]interface{} {
 		"bootstrap-host": "hostname",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+		"ca-cert":        coretesting.CACert,
+		"ca-private-key": coretesting.CAKey,
 	}
 }
 
 func minimalConfig(c *gc.C) *config.Config {
 	minimal := minimalConfigValues()
-	testConfig, err := config.New(minimal)
+	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	return testConfig
 }
 
 func getEnvironConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
-	testConfig, err := config.New(attrs)
+	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	envConfig, err := nullProvider{}.validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)

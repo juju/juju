@@ -90,13 +90,19 @@ func (_ nullProvider) BoilerplateConfig() string {
     "null":
         type: "null"
         admin-secret: {{rand}}
-        # set bootstrap-host to the host where the bootstrap machine agent
-        # should be provisioned.
+        ## set bootstrap-host to the host where the bootstrap machine agent
+        ## should be provisioned.
         bootstrap-host:
         # bootstrap-user:
         # storage-ip:
         # storage-port: 8040
         # storage-dir: /var/lib/juju/storage
+        #
+        ## set storage-tmpdir to a temporary directory where files will
+        ## be created before moving into storage. To ensure that no partial
+        ## files are created in storage, situate this is outside of the
+        ## storage directory, but on the same filesystem.
+        # storage-tmpdir: /var/lib/juju/tmp-storage
 `
 }
 
