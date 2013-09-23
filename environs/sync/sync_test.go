@@ -68,7 +68,7 @@ environments:
         authorized-keys: "not-really-one"
 `)
 	var err error
-	s.targetEnv, err = environs.PrepareFromName("test-target")
+	s.targetEnv, err = environs.PrepareFromName("test-target", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 

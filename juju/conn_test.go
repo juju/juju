@@ -73,7 +73,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 }
 
 func bootstrapEnv(c *gc.C, envName string) {
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.PrepareFromName(envName, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
