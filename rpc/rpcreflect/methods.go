@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"sync"
-
-	"launchpad.net/juju-core/log"
 )
 
 var (
@@ -46,7 +44,7 @@ type Type struct {
 // MethodNames returns the names of all the root object
 // methods on the receiving object.
 func (r *Type) MethodNames() []string {
-	var names []string
+	names := make([]string, 0, len(r.method))
 	for name := range r.method {
 		names = append(names, name)
 	}
@@ -183,7 +181,7 @@ func (t *ObjType) DiscardedMethods() []string {
 // MethodNames returns the names of all the RPC methods
 // defined on the type.
 func (t *ObjType) MethodNames() []string {
-	var names []string
+	names := make([]string, 0, len(t.method))
 	for name := range t.method {
 		names = append(names, name)
 	}
@@ -241,7 +239,6 @@ func objTypeOf(goType reflect.Type) *ObjType {
 		if m.PkgPath != "" {
 			continue
 		}
-		log.Infof("considering method %#v\n", m)
 		if objm := newMethod(m, goType.Kind()); objm != nil {
 			objType.method[m.Name] = objm
 		} else {
