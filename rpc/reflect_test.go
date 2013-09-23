@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -93,4 +94,41 @@ func (*reflectSuite) TestObjTypeOf(c *gc.C) {
 	c.Check(m, gc.DeepEquals, rpcreflect.ObjMethod{})
 }
 
-// MORE TESTS!
+func (*reflectSuite) TestValueOf(c *gc.C) {
+	v := rpcreflect.ValueOf(reflect.ValueOf(nil))
+	c.Check(v.IsValid(), jc.IsFalse)
+	c.Check(func() { v.MethodCaller("foo", "bar") }, gc.PanicMatches, "MethodCaller called on invalid Value")
+
+	root := &Root{}
+	v = rpcreflect.ValueOf(reflect.ValueOf(root))
+	c.Check(v.IsValid(), jc.IsTrue)
+	c.Check(v.GoValue().Interface(), gc.Equals, root)
+}
+
+func (*reflectSuite) TestMethodCaller(c *gc.C) {
+	// MethodCaller is actually extensively tested because it's
+	// used in the implementation of the rpc server,
+	// so just a simple sanity check test here.
+	root := &Root{
+		simple: make(map[string]*SimpleMethods),
+	}
+	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
+	v := rpcreflect.ValueOf(reflect.ValueOf(root))
+
+	m, err := v.MethodCaller("foo", "bar")
+	c.Assert(err, gc.ErrorMatches, `unknown object type "foo"`)
+	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
+
+	m, err = v.MethodCaller("SimpleMethods", "bar")
+	c.Assert(err, gc.ErrorMatches, `no such request "bar" on SimpleMethods`)
+	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
+
+	m, err = v.MethodCaller("SimpleMethods", "Call1r1e")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.ParamsType, gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ResultType, gc.Equals, reflect.TypeOf(stringVal{}))
+
+	ret, err := m.Call("a99", reflect.ValueOf(stringVal{"foo"}))
+	c.Assert(err, gc.IsNil)
+	c.Assert(ret.Interface(), gc.Equals, stringVal{"Call1r1e ret"})
+}

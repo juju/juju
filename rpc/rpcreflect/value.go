@@ -45,10 +45,6 @@ func (v Value) IsValid() bool {
 	return v.rootType != nil
 }
 
-func (v Value) Call(objId string, objType, id, action string, params, response interface{}) error {
-	panic("unimplemented")
-}
-
 // GoValue returns the value that was passed to ValueOf to create v.
 func (v Value) GoValue() reflect.Value {
 	return v.rootValue
