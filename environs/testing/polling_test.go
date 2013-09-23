@@ -4,6 +4,7 @@
 package testing
 
 import (
+	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -11,6 +12,10 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 )
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 type testingSuite struct{}
 

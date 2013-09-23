@@ -114,9 +114,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 		codec.SetLogging(true)
 	}
 	conn := rpc.NewConn(codec)
-	if err := conn.Serve(newStateServer(srv, conn), serverError); err != nil {
-		return err
-	}
+	conn.Serve(newStateServer(srv, conn), serverError)
 	conn.Start()
 	select {
 	case <-conn.Dead():
