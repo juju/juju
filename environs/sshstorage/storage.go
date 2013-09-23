@@ -134,16 +134,21 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (str
 		s.remotepath,
 		utils.ShQuote(command),
 	)
+	var encoded string
 	if input != nil {
-		command = fmt.Sprintf("line | base64 -d | (%s)", command)
+		encoded = base64.StdEncoding.EncodeToString(input)
+		command = fmt.Sprintf(
+			"head -q -c %d | base64 -d | (%s)",
+			len(encoded),
+			command,
+		)
 	}
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
 	if _, err := s.stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
 	if input != nil {
-		encoded := base64.StdEncoding.EncodeToString(input)
-		if _, err := s.stdin.Write([]byte(encoded + "\n")); err != nil {
+		if _, err := s.stdin.Write([]byte(encoded)); err != nil {
 			return "", fmt.Errorf("failed to write input: %v", err)
 		}
 	}
