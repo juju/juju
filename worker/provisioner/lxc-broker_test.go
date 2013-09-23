@@ -27,14 +27,12 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type lxcSuite struct {
-	testbase.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }
@@ -47,18 +45,7 @@ type lxcBrokerSuite struct {
 
 var _ = gc.Suite(&lxcBrokerSuite{})
 
-func (s *lxcSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
-}
-
-func (s *lxcSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *lxcSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	go func() {
@@ -72,7 +59,6 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
 	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
