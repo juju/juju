@@ -93,7 +93,7 @@ func (mock *mockFactory) String() string {
 	return fmt.Sprintf("<Mock KVM Factory>")
 }
 
-func (mock *mockFactory) New(name string) gokvm.Container {
+func (mock *mockFactory) New(name string) kvm.Container {
 	container, ok := mock.instances[name]
 	if ok {
 		return container

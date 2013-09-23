@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"fmt"
 	"os/exec"
 
 	"launchpad.net/loggo"
