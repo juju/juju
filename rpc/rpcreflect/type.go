@@ -53,7 +53,8 @@ func (r *Type) MethodNames() []string {
 }
 
 // Method returns information on the method with the given name,
-// or the zero Method and ErrMethodNotFound if there is no such method.
+// or the zero Method and ErrMethodNotFound if there is no such method
+// (the only possible error).
 func (r *Type) Method(name string) (RootMethod, error) {
 	m, ok := r.method[name]
 	if !ok {
@@ -166,7 +167,8 @@ func (t *ObjType) GoType() reflect.Type {
 }
 
 // Method returns information on the method with the given name,
-// or the zero Method and an error if there is no such method.
+// or the zero Method and ErrMethodNotFound if there is no such method
+// (the only possible error).
 func (t *ObjType) Method(name string) (ObjMethod, error) {
 	m, ok := t.method[name]
 	if !ok {
