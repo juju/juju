@@ -298,6 +298,13 @@ func (s *storageSuite) TestWithExclusiveLocks(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
+func (s *storageSuite) TestPutLarge(c *gc.C) {
+	stor, _ := s.makeStorage(c)
+	buf := make([]byte, 1048576)
+	err := stor.Put("ohmy", bytes.NewBuffer(buf), int64(len(buf)))
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *storageSuite) TestPutTmpDir(c *gc.C) {
 	stor, storageDir := s.makeStorage(c)
 
