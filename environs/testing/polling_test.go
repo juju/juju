@@ -4,8 +4,8 @@
 package testing
 
 import (
-	"time"
 	stdtesting "testing"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
