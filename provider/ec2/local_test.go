@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -32,6 +33,7 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 type ProviderSuite struct{}
@@ -67,6 +69,7 @@ var localConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 	"public-bucket-region": "test",
 	"access-key":           "x",
 	"secret-key":           "x",
+	"agent-version": version.Current.Number.String(),
 })
 
 func registerLocalTests() {
@@ -187,23 +190,24 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
-	envtesting.UploadFakeTools(c, t.Env.Storage())
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	bootstrapState, err := provider.LoadState(t.Env.Storage())
+	bootstrapState, err := provider.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
 
 	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M root-disk=8192M")
-	insts, err := t.Env.AllInstances()
+	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
 	c.Check(expectedHardware, gc.DeepEquals, bootstrapState.Characteristics[0])
 
-	info, apiInfo, err := t.Env.StateInfo()
+	info, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 
@@ -229,11 +233,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
-	series := t.Env.Config().DefaultSeries()
+	series := env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst1, hc, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, hc, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -251,40 +255,42 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
-	err = t.Env.Destroy(append(insts, inst1))
+	err = env.Destroy(append(insts, inst1))
 	c.Assert(err, gc.IsNil)
 
-	_, err = provider.LoadState(t.Env.Storage())
+	_, err = provider.LoadState(env.Storage())
 	c.Assert(err, gc.NotNil)
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := t.Env.Config().DefaultSeries()
-	info, apiInfo, err := t.Env.StateInfo()
+	series := env.Config().DefaultSeries()
+	info, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := t.Env.Config().DefaultSeries()
-	info, apiInfo, err := t.Env.StateInfo()
+	series := env.Config().DefaultSeries()
+	info, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	_, hc, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	_, hc, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -293,16 +299,17 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := t.Env.Config().DefaultSeries()
-	info, apiInfo, err := t.Env.StateInfo()
+	series := env.Config().DefaultSeries()
+	info, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst, _, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
@@ -334,11 +341,12 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := t.Env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
+	env := t.Open(c)
+	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
-	params.Sources, err = imagemetadata.GetMetadataSources(t.Env)
+	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
@@ -347,7 +355,8 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	sources, err := imagemetadata.GetMetadataSources(t.Env)
+	env := t.Open(c)
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
 	var urls = make([]string, len(sources))
@@ -357,17 +366,18 @@ func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(t.Env)), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)), jc.IsTrue)
 	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
-	sources, err := tools.GetMetadataSources(t.Env)
+	env := t.Open(c)
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(url, ec2.ControlBucketName(t.Env)+"/tools"), jc.IsTrue)
+	c.Assert(strings.Contains(url, ec2.ControlBucketName(env)+"/tools"), jc.IsTrue)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
@@ -396,7 +406,9 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
-	env, err := environs.NewFromAttrs(localConfigAttrs)
+	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	t.env = env
 }
