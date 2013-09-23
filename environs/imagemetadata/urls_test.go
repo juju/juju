@@ -59,5 +59,5 @@ func (s *URLsSuite) TestImageMetadataURLs(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-image-metadata-url/", privateStorageURL, "http://cloud-images.ubuntu.com/releases/"})
+		privateStorageURL, "config-image-metadata-url/", "http://cloud-images.ubuntu.com/releases/"})
 }

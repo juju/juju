@@ -372,7 +372,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, gc.Equals, true)
-	c.Check(agentVersion, gc.Equals, version.CurrentNumber())
+	c.Check(agentVersion, gc.Equals, version.Current.Number)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := conn.State.EnvironConstraints()
@@ -516,6 +516,10 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, gc.IsNil)
 	conn.Close()
+
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	c.Assert(err, gc.IsNil)
+	apiConn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *gc.C) {

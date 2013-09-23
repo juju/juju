@@ -99,7 +99,7 @@ func registerLocalTests() {
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)
-	config["agent-version"] = version.CurrentNumber().String()
+	config["agent-version"] = version.Current.Number.String()
 	config["authorized-keys"] = "fakekey"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
@@ -498,12 +498,12 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The image-metadata-url ends with "/juju-dist-test/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(s.env)), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
+	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
+	// The image-metadata-url ends with "/juju-dist-test/".
+	c.Check(strings.HasSuffix(urls[2], "/juju-dist-test/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
@@ -517,14 +517,14 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The tools-url ends with "/juju-dist-test/tools/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 	// Check that the URL from keystone parses.
-	_, err = url.Parse(urls[2])
+	_, err = url.Parse(urls[1])
 	c.Assert(err, gc.IsNil)
+	// The tools-url ends with "/juju-dist-test/tools/".
+	c.Check(strings.HasSuffix(urls[2], "/juju-dist-test/tools/"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {

@@ -48,9 +48,9 @@ func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
 
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
-	version.CurrentNumber().String() + "-quantal-amd64",
-	version.CurrentNumber().String() + "-quantal-arm",
-	version.CurrentNumber().String() + "-quantal-i386",
+	version.Current.Number.String() + "-quantal-amd64",
+	version.Current.Number.String() + "-quantal-arm",
+	version.Current.Number.String() + "-quantal-i386",
 }
 
 var versionStrings = append([]string{
@@ -138,7 +138,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
-	currentVersion := version.CurrentNumber()
+	currentVersion := version.Current.Number
 	currentVersion.Build = 0
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",

@@ -24,38 +24,23 @@ import (
 // number of the release package.
 const version = "1.15.0"
 
-// CurrentNumber returns the version number.
-func CurrentNumber() Number {
-	return MustParse(version)
-}
-
-// CurrentSeries returns the current Ubuntu release name.
-func CurrentSeries() string {
-	return readSeries("/etc/lsb-release")
-}
-
-// CurrentArch returns the architecture of the machine.
-func CurrentArch() string {
-	return ubuntuArch(runtime.GOARCH)
-}
-
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: CurrentNumber(),
-	Series: CurrentSeries(),
-	Arch:   CurrentArch(),
+	Number: MustParse(version),
+	Series: readSeries("/etc/lsb-release"),
+	Arch:   ubuntuArch(runtime.GOARCH),
 }
 
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
 		}
-		panic(fmt.Errorf("version: cannot read forced version: %v", err))
+		return
 	}
 	Current.Number = MustParse(strings.TrimSpace(string(v)))
 }
