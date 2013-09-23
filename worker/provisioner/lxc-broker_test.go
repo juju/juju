@@ -45,18 +45,7 @@ type lxcBrokerSuite struct {
 
 var _ = gc.Suite(&lxcBrokerSuite{})
 
-func (s *lxcSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
-}
-
-func (s *lxcSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *lxcSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	go func() {
@@ -70,7 +59,6 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
 	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
