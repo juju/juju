@@ -168,6 +168,9 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	_, err = store.ReadInfo("peckham")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
+	_, err = environs.PrepareFromName("brokenenv", store)
+	c.Assert(err, gc.IsNil)
+
 	// destroy with broken environment
 	opc, errc = runCommand(nil, new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
 	c.Check(<-opc, gc.IsNil)
@@ -200,11 +203,12 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	assertNotDestroyed := func(env environs.Environ) {
-		_, _, err := env.StateInfo()
-		c.Assert(err, gc.IsNil)
 		info, err := store.ReadInfo(env.Name())
 		c.Assert(err, gc.IsNil)
 		c.Assert(info.Initialized(), jc.IsTrue)
+
+		_, err = environs.NewFromName(env.Name())
+		c.Assert(err, gc.IsNil)
 	}
 	assertNotDestroyed(env)
 
@@ -225,10 +229,11 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	assertNotDestroyed(env)
 
 	assertDestroyed := func(env environs.Environ) {
-		_, _, err := env.StateInfo()
-		c.Assert(err, gc.ErrorMatches, "dummy environment not bootstrapped")
 		_, err = store.ReadInfo(env.Name())
 		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+		_, err := environs.NewFromName(env.Name())
+		c.Assert(err, gc.ErrorMatches, "not found")
 	}
 		
 	// "--yes" passed: no confirmation request.
