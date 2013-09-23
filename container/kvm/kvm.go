@@ -56,3 +56,30 @@ type ContainerManager interface {
 	// this manager.
 	ListContainers() ([]instance.Instance, error)
 }
+
+// containerManager handles all of the business logic at the juju specific
+// level. It makes sure that the necessary directories are in place, that the
+// user-data is written out in the right place.
+type containerManager struct {
+	name   string
+	logDir string
+}
+
+var _ ContainerManager = (*containerManager)(nil)
+
+func (manager *containerManager) StartContainer(
+	machineId, series, nonce string,
+	tools *tools.Tools,
+	environConfig *config.Config,
+	stateInfo *state.Info,
+	apiInfo *api.Info) (instance.Instance, error) {
+	return nil, fmt.Errorf("not yet implemented")
+}
+
+func (manager *containerManager) StopContainer(instance.Instance) error {
+	return fmt.Errorf("not yet implemented")
+}
+
+func (manager *containerManager) ListContainers() ([]instance.Instance, error) {
+	return nil, fmt.Errorf("not yet implemented")
+}
