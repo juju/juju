@@ -93,14 +93,14 @@ func TypeOf(goType reflect.Type) *Type {
 	if t != nil {
 		return t
 	}
-	t = typeInfo(goType)
+	t = typeOf(goType)
 	typesByGoType[goType] = t
 	return t
 }
 
-// typeInfo is like TypeInfo but without the cache - it
+// typeOf is like TypeOf but without the cache - it
 // always allocates. Called with rootTypeMutex locked.
-func typeInfo(goType reflect.Type) *Type {
+func typeOf(goType reflect.Type) *Type {
 	rm := &Type{
 		method: make(map[string]*RootMethod),
 	}
