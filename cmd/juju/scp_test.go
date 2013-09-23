@@ -6,11 +6,13 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	coretesting "launchpad.net/juju-core/testing"
-	"net/url"
 )
 
 var _ = gc.Suite(&SCPSuite{})

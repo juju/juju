@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/resumer"

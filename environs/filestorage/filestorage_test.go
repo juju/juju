@@ -10,13 +10,16 @@ package filestorage_test
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/storage"
+	coreerrors "launchpad.net/juju-core/errors"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestPackage(t *testing.T) {
@@ -25,8 +28,8 @@ func TestPackage(t *testing.T) {
 
 type filestorageSuite struct {
 	dir    string
-	reader environs.StorageReader
-	writer environs.StorageWriter
+	reader storage.StorageReader
+	writer storage.StorageWriter
 }
 
 var _ = gc.Suite(&filestorageSuite{})
@@ -36,12 +39,14 @@ func (s *filestorageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.reader, err = filestorage.NewFileStorageReader(s.dir)
 	c.Assert(err, gc.IsNil)
-	s.writer, err = filestorage.NewFileStorageWriter(s.dir)
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *filestorageSuite) createFile(c *gc.C) (fullpath string, data []byte) {
-	fullpath = filepath.Join(s.dir, "test-file")
+func (s *filestorageSuite) createFile(c *gc.C, name string) (fullpath string, data []byte) {
+	fullpath = filepath.Join(s.dir, name)
+	dir := filepath.Dir(fullpath)
+	c.Assert(os.MkdirAll(dir, 0755), gc.IsNil)
 	data = []byte{1, 2, 3, 4, 5}
 	err := ioutil.WriteFile(fullpath, data, 0644)
 	c.Assert(err, gc.IsNil)
@@ -49,15 +54,35 @@ func (s *filestorageSuite) createFile(c *gc.C) (fullpath string, data []byte) {
 }
 
 func (s *filestorageSuite) TestList(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
-	files, err := s.reader.List("test-")
-	c.Assert(err, gc.IsNil)
-	_, file := filepath.Split(expectedpath)
-	c.Assert(files, gc.DeepEquals, []string{file})
+	names := []string{
+		"a/b/c",
+		"a/bb",
+		"a/c",
+		"aa",
+		"b/c/d",
+	}
+	for _, name := range names {
+		s.createFile(c, name)
+	}
+	type test struct {
+		prefix   string
+		expected []string
+	}
+	for i, test := range []test{
+		{"a", []string{"a/b/c", "a/bb", "a/c", "aa"}},
+		{"a/b", []string{"a/b/c", "a/bb"}},
+		{"a/b/c", []string{"a/b/c"}},
+		{"", names},
+	} {
+		c.Logf("test %d: prefix=%q", i, test.prefix)
+		files, err := storage.List(s.reader, test.prefix)
+		c.Assert(err, gc.IsNil)
+		c.Assert(files, gc.DeepEquals, test.expected)
+	}
 }
 
 func (s *filestorageSuite) TestURL(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
+	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	url, err := s.reader.URL(file)
 	c.Assert(err, gc.IsNil)
@@ -65,15 +90,24 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestGet(c *gc.C) {
-	expectedpath, data := s.createFile(c)
+	expectedpath, data := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
-	rc, err := s.reader.Get(file)
+	rc, err := storage.Get(s.reader, file)
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
 	c.Assert(err, gc.IsNil)
 	b, err := ioutil.ReadAll(rc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.DeepEquals, data)
+
+	// Get on a non-existant path returns NotFoundError
+	_, err = s.reader.Get("nowhere")
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+
+	// Get on a directory returns NotFoundError
+	s.createFile(c, "dir/file")
+	_, err = s.reader.Get("dir")
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
 func (s *filestorageSuite) TestPut(c *gc.C) {
@@ -86,7 +120,7 @@ func (s *filestorageSuite) TestPut(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestRemove(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
+	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
 	err := s.writer.Remove(file)
 	c.Assert(err, gc.IsNil)
@@ -95,9 +129,41 @@ func (s *filestorageSuite) TestRemove(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestRemoveAll(c *gc.C) {
-	expectedpath, _ := s.createFile(c)
+	expectedpath, _ := s.createFile(c, "test-file")
 	err := s.writer.RemoveAll()
 	c.Assert(err, gc.IsNil)
 	_, err = ioutil.ReadFile(expectedpath)
 	c.Assert(err, gc.Not(gc.IsNil))
+}
+
+func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
+	// Put should create and clean up the temporary directory if
+	// tmpdir==UseDefaultTmpDir.
+	err := s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// To deal with recovering from hard failure, UseDefaultTmpDir
+	// doesn't care if the temporary directory already exists. It
+	// still removes it, though.
+	err = os.Mkdir(s.dir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	// If we explicitly set the temporary directory, it must already exist.
+	s.writer, err = filestorage.NewFileStorageWriter(s.dir, s.dir+".tmp")
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	err = os.Mkdir(s.dir+".tmp", 0755)
+	c.Assert(err, gc.IsNil)
+	err = s.writer.Put("test-write", bytes.NewReader(nil), 0)
+	c.Assert(err, gc.IsNil)
+	// Temporary directory should not have been moved.
+	_, err = os.Stat(s.dir + ".tmp")
+	c.Assert(err, gc.IsNil)
 }

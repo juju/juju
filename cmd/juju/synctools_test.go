@@ -15,10 +15,11 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type syncToolsSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
 	localStorage string
@@ -97,6 +98,14 @@ var tests = []struct {
 			DryRun: true,
 		},
 	},
+	{
+		description: "specify version",
+		args:        []string{"-e", "test-target", "--version", "1.2"},
+		sctx: &sync.SyncContext{
+			MajorVersion: 1,
+			MinorVersion: 2,
+		},
+	},
 }
 
 func (s *syncToolsSuite) Reset(c *gc.C) {
@@ -110,6 +119,8 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 		called := false
 		syncTools = func(sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
+			c.Assert(sctx.MajorVersion, gc.Equals, test.sctx.MajorVersion)
+			c.Assert(sctx.MinorVersion, gc.Equals, test.sctx.MinorVersion)
 			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
 			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)

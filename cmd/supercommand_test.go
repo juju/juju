@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
@@ -22,7 +23,9 @@ func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 	return jc, tc, testing.InitCommand(jc, args)
 }
 
-type SuperCommandSuite struct{}
+type SuperCommandSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&SuperCommandSuite{})
 
@@ -175,8 +178,7 @@ func (s *SuperCommandSuite) TestLogging(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, gc.Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* ERROR .* command failed: BAM!
-error: BAM!
+	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* ERROR .* BAM!
 `)
 }
 
@@ -245,7 +247,7 @@ func (s *SuperCommandSuite) TestMissingCallbackErrors(c *gc.C) {
 	code := cmd.Main(NewSuperWithCallback(callback), ctx, []string{"foo"})
 	c.Assert(code, gc.Equals, 1)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "error: command not found \"foo\"\n")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "ERROR command not found \"foo\"\n")
 }
 
 func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *gc.C) {

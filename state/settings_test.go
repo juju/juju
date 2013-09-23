@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"labix.org/v2/mgo/txn"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type SettingsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	state *State
 	key   string
@@ -84,7 +84,7 @@ func (s *SettingsSuite) TestCannotOverwrite(c *gc.C) {
 func (s *SettingsSuite) TestCannotReadMissing(c *gc.C) {
 	_, err := readSettings(s.state, s.key)
 	c.Assert(err, gc.ErrorMatches, "settings not found")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
@@ -97,7 +97,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
 	node.Set("foo", "bar")
 	_, err = node.Write()
 	c.Assert(err, gc.ErrorMatches, "settings not found")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {

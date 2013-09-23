@@ -229,3 +229,38 @@ func (suite) TestNumberMarshalUnmarshal(c *gc.C) {
 		c.Assert(v, gc.Equals, nv)
 	}
 }
+
+var parseMajorMinorTests = []struct {
+	v           string
+	err         string
+	expectMajor int
+	expectMinor int
+}{{
+	v:           "1.2",
+	expectMajor: 1,
+	expectMinor: 2,
+}, {
+	v:           "1",
+	expectMajor: 1,
+	expectMinor: -1,
+}, {
+	v:   "1.2.3",
+	err: "invalid major.minor version number 1.2.3",
+}, {
+	v:   "blah",
+	err: `invalid major version number blah: strconv.ParseInt: parsing "blah": invalid syntax`,
+}}
+
+func (suite) TestParseMajorMinor(c *gc.C) {
+	for i, test := range parseMajorMinorTests {
+		c.Logf("test %d", i)
+		major, minor, err := version.ParseMajorMinor(test.v)
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Check(err, gc.IsNil)
+			c.Check(major, gc.Equals, test.expectMajor)
+			c.Check(minor, gc.Equals, test.expectMinor)
+		}
+	}
+}

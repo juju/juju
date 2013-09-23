@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -57,20 +58,16 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
 }
 
-var localConfigAttrs = map[string]interface{}{
+var localConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 	"name":                 "sample",
 	"type":                 "ec2",
 	"region":               "test",
 	"control-bucket":       "test-bucket",
 	"public-bucket":        "public-tools",
 	"public-bucket-region": "test",
-	"admin-secret":         "local-secret",
 	"access-key":           "x",
 	"secret-key":           "x",
-	"authorized-keys":      "foo",
-	"ca-cert":              testing.CACert,
-	"ca-private-key":       testing.CAKey,
-}
+})
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -93,7 +90,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
-	t.TestConfig.Config = localConfigAttrs
+	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
@@ -169,7 +166,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
-	t.TestConfig.Config = localConfigAttrs
+	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.Tests.SetUpSuite(c)
 }
@@ -376,7 +373,7 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ
@@ -424,9 +421,7 @@ func patchEC2ForTesting() func() {
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
-	s3.RetryAttempts(false)
 	return func() {
-		s3.RetryAttempts(true)
 		restoreTimeouts()
 		ec2.UseTestImageData(nil)
 		ec2.UseTestInstanceTypeData(nil)

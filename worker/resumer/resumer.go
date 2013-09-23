@@ -5,9 +5,11 @@ package resumer
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/tomb"
 	"time"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/log"
 )
 
 // defaultInterval is the standard value for the interval setting.

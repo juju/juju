@@ -4,17 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/testing"
 	"reflect"
 	"regexp"
 	stdtesting "testing"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&suite{})

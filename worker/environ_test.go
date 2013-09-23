@@ -28,12 +28,12 @@ func TestPackage(t *stdtesting.T) {
 }
 
 func (s *suite) TestStop(c *gc.C) {
-	w := s.State.WatchEnvironConfig()
+	w := s.State.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
 	done := make(chan error)
 	go func() {
-		env, err := worker.WaitForEnviron(w, stop)
+		env, err := worker.WaitForEnviron(w, s.State, stop)
 		c.Check(env, gc.IsNil)
 		done <- err
 	}()
@@ -41,7 +41,7 @@ func (s *suite) TestStop(c *gc.C) {
 	c.Assert(<-done, gc.Equals, tomb.ErrDying)
 }
 
-func stopWatcher(c *gc.C, w *state.EnvironConfigWatcher) {
+func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 	err := w.Stop()
 	c.Check(err, gc.IsNil)
 }
@@ -53,17 +53,17 @@ func (s *suite) TestInvalidConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m := cfg.AllAttrs()
 	m["type"] = "unknown"
-	invalidCfg, err := config.New(m)
+	invalidCfg, err := config.New(config.NoDefaults, m)
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetEnvironConfig(invalidCfg)
 	c.Assert(err, gc.IsNil)
 
-	w := s.State.WatchEnvironConfig()
+	w := s.State.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
-		env, err := worker.WaitForEnviron(w, nil)
+		env, err := worker.WaitForEnviron(w, s.State, nil)
 		c.Check(err, gc.IsNil)
 		done <- env
 	}()
@@ -73,7 +73,7 @@ func (s *suite) TestInvalidConfig(c *gc.C) {
 	// Then load a valid configuration back in.
 	m = cfg.AllAttrs()
 	m["secret"] = "environ_test"
-	validCfg, err := config.New(m)
+	validCfg, err := config.New(config.NoDefaults, m)
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetEnvironConfig(validCfg)

@@ -63,6 +63,12 @@ func (s *StateSuite) TestStateInfo(c *gc.C) {
 	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
 }
 
+func (s *StateSuite) TestPing(c *gc.C) {
+	c.Assert(s.State.Ping(), gc.IsNil)
+	testing.MgoRestart()
+	c.Assert(s.State.Ping(), gc.NotNil)
+}
+
 func (s *StateSuite) TestAPIAddresses(c *gc.C) {
 	config, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -1514,7 +1520,7 @@ var findEntityTests = []struct {
 }, {
 	tag: "user-arble",
 }, {
-	tag: "environment-test-name",
+	tag: "environment-testenv",
 }}
 
 var entityTypes = map[string]interface{}{

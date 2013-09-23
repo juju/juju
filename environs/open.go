@@ -8,54 +8,22 @@ import (
 	"io/ioutil"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 )
 
-var InvalidEnvironmentError error = fmt.Errorf(
-	"environment is not a juju-core environment")
+var InvalidEnvironmentError = fmt.Errorf("environment is not a juju-core environment")
 
-// Open creates a new Environ using the environment configuration with the
-// given name. If name is empty, the default environment will be used.
-func (envs *Environs) Open(name string) (Environ, error) {
-	if name == "" {
-		name = envs.Default
-		if name == "" {
-			return nil, fmt.Errorf("no default environment found")
-		}
-	}
-	e, ok := envs.environs[name]
-	if !ok {
-		return nil, fmt.Errorf("unknown environment %q", name)
-	}
-	if e.err != nil {
-		return nil, e.err
-	}
-	return New(e.config)
-}
-
-// ConfigForName returns the configuration for the
-// environment with the given name from the default
-// environments file. If the name is blank, the default
-// environment will be used.
+// ConfigForName returns the configuration for the environment with the
+// given name from the default environments file. If the name is blank,
+// the default environment will be used. If the configuration is not
+// found, an errors.NotFoundError is returned.
 func ConfigForName(name string) (*config.Config, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
 		return nil, err
 	}
-	if name == "" {
-		name = envs.Default
-		if name == "" {
-			return nil, fmt.Errorf("no default environment found")
-		}
-	}
-	e, ok := envs.environs[name]
-	if !ok {
-		return nil, fmt.Errorf("unknown environment %q", name)
-	}
-	if e.err != nil {
-		return nil, e.err
-	}
-	return e.config, nil
+	return envs.Config(name)
 }
 
 // NewFromName opens the environment with the given
@@ -82,7 +50,7 @@ func PrepareFromName(name string) (Environ, error) {
 // NewFromAttrs returns a new environment based on the provided configuration
 // attributes.
 func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +85,8 @@ func Prepare(config *config.Config) (Environ, error) {
 //
 // Returns InvalidEnvironmentError on failure, nil otherwise.
 func CheckEnvironment(environ Environ) error {
-	storage := environ.Storage()
-	reader, err := storage.Get(verificationFilename)
+	stor := environ.Storage()
+	reader, err := storage.Get(stor, verificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.

@@ -6,8 +6,10 @@ package api
 import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/api/upgrader"
 )
@@ -40,6 +42,12 @@ func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
 }
 
+// Provisioner returns a version of the state that provides functionality
+// required by the provisioner worker.
+func (st *State) Provisioner() *provisioner.State {
+	return provisioner.NewState(st)
+}
+
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
@@ -60,4 +68,9 @@ func (st *State) Upgrader() *upgrader.State {
 // Deployer returns access to the Deployer API
 func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
+}
+
+// Logger returns access to the Logger API
+func (st *State) Logger() *logger.State {
+	return logger.NewState(st)
 }

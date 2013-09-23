@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
-func TimeBetween(start, end time.Time) Checker {
+func TimeBetween(start, end time.Time) gc.Checker {
 	if end.Before(start) {
 		return &timeBetweenChecker{end, start}
 	}
@@ -23,8 +23,8 @@ type timeBetweenChecker struct {
 	start, end time.Time
 }
 
-func (checker *timeBetweenChecker) Info() *CheckerInfo {
-	info := CheckerInfo{
+func (checker *timeBetweenChecker) Info() *gc.CheckerInfo {
+	info := gc.CheckerInfo{
 		Name:   "TimeBetween",
 		Params: []string{"obtained"},
 	}
@@ -48,11 +48,11 @@ func (checker *timeBetweenChecker) Check(params []interface{}, names []string) (
 // DurationLessThan checker
 
 type durationLessThanChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var DurationLessThan Checker = &durationLessThanChecker{
-	&CheckerInfo{Name: "DurationLessThan", Params: []string{"obtained", "expected"}},
+var DurationLessThan gc.Checker = &durationLessThanChecker{
+	&gc.CheckerInfo{Name: "DurationLessThan", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *durationLessThanChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -80,11 +80,11 @@ func stringOrStringer(value interface{}) (string, bool) {
 }
 
 type hasPrefixChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var HasPrefix Checker = &hasPrefixChecker{
-	&CheckerInfo{Name: "HasPrefix", Params: []string{"obtained", "expected"}},
+var HasPrefix gc.Checker = &hasPrefixChecker{
+	&gc.CheckerInfo{Name: "HasPrefix", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *hasPrefixChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -102,11 +102,11 @@ func (checker *hasPrefixChecker) Check(params []interface{}, names []string) (re
 }
 
 type hasSuffixChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var HasSuffix Checker = &hasSuffixChecker{
-	&CheckerInfo{Name: "HasSuffix", Params: []string{"obtained", "expected"}},
+var HasSuffix gc.Checker = &hasSuffixChecker{
+	&gc.CheckerInfo{Name: "HasSuffix", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *hasSuffixChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -124,11 +124,11 @@ func (checker *hasSuffixChecker) Check(params []interface{}, names []string) (re
 }
 
 type containsChecker struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
-var Contains Checker = &containsChecker{
-	&CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
+var Contains gc.Checker = &containsChecker{
+	&gc.CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *containsChecker) Check(params []interface{}, names []string) (result bool, error string) {
@@ -146,14 +146,14 @@ func (checker *containsChecker) Check(params []interface{}, names []string) (res
 }
 
 type sameContents struct {
-	*CheckerInfo
+	*gc.CheckerInfo
 }
 
 // SameContents checks that the obtained slice contains all the values (and
 // same number of values) of the expected slice and vice versa, without respect
 // to order or duplicates. Uses DeepEquals on mapped contents to compare.
-var SameContents Checker = &sameContents{
-	&CheckerInfo{Name: "SameContents", Params: []string{"obtained", "expected"}},
+var SameContents gc.Checker = &sameContents{
+	&gc.CheckerInfo{Name: "SameContents", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *sameContents) Check(params []interface{}, names []string) (result bool, error string) {

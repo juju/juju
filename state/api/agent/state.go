@@ -3,11 +3,10 @@
 
 package agent
 
-// TODO(fwereade): there's nothing machine-specific in here...
-
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -75,6 +74,12 @@ func (m *Entity) Life() params.Life {
 // the empty list.
 func (m *Entity) Jobs() []params.MachineJob {
 	return m.doc.Jobs
+}
+
+// ContainerType returns the type of container hosting this entity.
+// If the entity is not a machine, it returns an empty string.
+func (m *Entity) ContainerType() instance.ContainerType {
+	return m.doc.ContainerType
 }
 
 // SetPassword sets the password associated with the agent's entity.

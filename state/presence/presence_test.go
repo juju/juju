@@ -4,14 +4,17 @@
 package presence_test
 
 import (
-	"labix.org/v2/mgo"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/tomb"
 	"strconv"
 	stdtesting "testing"
 	"time"
+
+	"labix.org/v2/mgo"
+	gc "launchpad.net/gocheck"
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -20,7 +23,7 @@ func TestPackage(t *stdtesting.T) {
 
 type PresenceSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	presence *mgo.Collection
 	pings    *mgo.Collection
 }

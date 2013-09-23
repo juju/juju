@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -52,26 +53,19 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
-// makeEnviron creates a functional maasEnviron for a test.  Its configuration
-// is a bit arbitrary and none of the test code's business.
+// makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
-	config, err := config.New(map[string]interface{}{
-		"name":            suite.environ.Name(),
-		"type":            "maas",
-		"admin-secret":    "local-secret",
-		"authorized-keys": "foo",
-		"agent-version":   version.CurrentNumber().String(),
-		"maas-oauth":      "a:b:c",
-		"maas-server":     suite.testMAASObject.TestServer.URL,
-		// These are not needed by MAAS, but juju-core breaks without them. Needs
-		// fixing there.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"name":        suite.environ.Name(),
+		"type":        "maas",
+		"maas-oauth":  "a:b:c",
+		"maas-server": suite.testMAASObject.TestServer.URL,
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}
-	env, err := NewEnviron(config)
+	env, err := NewEnviron(cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -83,8 +77,8 @@ func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
-	storage := NewStorage(suite.environ)
-	envtesting.UploadFakeTools(c, storage)
+	stor := NewStorage(suite.environ)
+	envtesting.UploadFakeTools(c, stor)
 }
 
 func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
@@ -212,19 +206,19 @@ func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) 
 
 func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	env := suite.makeEnviron()
-	storage := env.Storage()
-	c.Check(storage, gc.NotNil)
+	stor := env.Storage()
+	c.Check(stor, gc.NotNil)
 	// The Storage object is really a maasStorage.
-	specificStorage := storage.(*maasStorage)
+	specificStorage := stor.(*maasStorage)
 	// Its environment pointer refers back to its environment.
 	c.Check(specificStorage.environUnlocked, gc.Equals, env)
 }
 
 func (suite *environSuite) TestPublicStorageReturnsEmptyStorage(c *gc.C) {
 	env := suite.makeEnviron()
-	storage := env.PublicStorage()
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage, gc.Equals, environs.EmptyStorage)
+	stor := env.PublicStorage()
+	c.Assert(stor, gc.NotNil)
+	c.Check(stor, gc.Equals, environs.EmptyStorage)
 }
 
 func decodeUserData(userData string) ([]byte, error) {
@@ -311,8 +305,8 @@ func stringp(val string) *string {
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
-	storage := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
+	stor := NewStorage(suite.environ)
+	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
@@ -326,8 +320,8 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
-	storage := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
+	stor := NewStorage(suite.environ)
+	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
@@ -426,7 +420,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	testInstance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
-	storage := env.Storage()
+	stor := env.Storage()
 
 	err := env.Destroy([]instance.Instance{testInstance})
 
@@ -436,7 +430,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
 	c.Check(operations, gc.DeepEquals, expectedOperations)
 	// Files have been cleaned up.
-	listing, err := storage.List("")
+	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }

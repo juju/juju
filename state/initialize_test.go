@@ -12,11 +12,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type InitializeSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	State *state.State
 }
 
@@ -122,7 +123,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	good := testing.EnvironConfig(c)
 	attrs := good.AllAttrs()
 	delete(attrs, "agent-version")
-	bad, err := config.New(attrs)
+	bad, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts())

@@ -5,9 +5,10 @@ package uniter
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
+
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 // EnsureJujucSymlinks creates a symbolic link to jujuc within dir for each

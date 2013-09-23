@@ -7,15 +7,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
+	"launchpad.net/juju-core/agent"
 	corecloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
-	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -24,33 +23,38 @@ import (
 )
 
 type provisionMachineAgentArgs struct {
-	host      string
-	dataDir   string
-	env       environs.Environ
-	machine   *state.Machine
-	nonce     string
-	stateInfo *state.Info
-	apiInfo   *api.Info
-	series    string
-	arch      string
-	tools     *tools.Tools
+	host          string
+	dataDir       string
+	bootstrap     bool
+	environConfig *config.Config
+	machineId     string
+	nonce         string
+	stateFileURL  string
+	stateInfo     *state.Info
+	apiInfo       *api.Info
+	tools         *tools.Tools
+
+	// agentEnv is an optional map of
+	// arbitrary key/value pairs to pass
+	// into the machine agent.
+	agentEnv map[string]string
 }
 
 // provisionMachineAgent connects to a machine over SSH,
 // copies across the tools, and installs a machine agent.
 func provisionMachineAgent(args provisionMachineAgentArgs) error {
+	logger.Infof("Provisioning machine agent on %s", args.host)
 	script, err := provisionMachineAgentScript(args)
 	if err != nil {
 		return err
 	}
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	sshArgs := []string{
+	cmd := sshCommand(
 		args.host,
-		"-t", // allocate a pseudo-tty
-		"--", fmt.Sprintf("sudo bash -c '%s'", script),
-	}
-	cmd := exec.Command("ssh", sshArgs...)
+		fmt.Sprintf("sudo bash -c '%s'", script),
+		allocateTTY,
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -60,28 +64,27 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 // provisionMachineAgentScript generates the script necessary
 // to install a machine agent on the specified host.
 func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error) {
-	tools := args.tools
-	if tools == nil {
-		var err error
-		tools, err = findMachineAgentTools(args.env, args.series, args.arch)
-		if err != nil {
-			return "", err
-		}
-	}
-
 	// We generate a cloud-init config, which we'll then pull the runcmds
 	// and prerequisite packages out of. Rather than generating a cloud-config,
 	// we'll just generate a shell script.
-	mcfg := environs.NewMachineConfig(args.machine.Id(), args.nonce, args.stateInfo, args.apiInfo)
+	var mcfg *cloudinit.MachineConfig
+	if args.bootstrap {
+		mcfg = environs.NewBootstrapMachineConfig(args.machineId, args.nonce)
+	} else {
+		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo)
+	}
 	if args.dataDir != "" {
 		mcfg.DataDir = args.dataDir
 	}
-	mcfg.Tools = tools
-	err := environs.FinishMachineConfig(mcfg, args.env.Config(), constraints.Value{})
+	mcfg.Tools = args.tools
+	err := environs.FinishMachineConfig(mcfg, args.environConfig, constraints.Value{})
 	if err != nil {
 		return "", err
 	}
-	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Null
+	mcfg.AgentEnvironment[agent.ProviderType] = provider.Null
+	for k, v := range args.agentEnv {
+		mcfg.AgentEnvironment[k] = v
+	}
 	cloudcfg := corecloudinit.New()
 	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
 		return "", err
@@ -117,21 +120,4 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	}
 	script = append(head, tail...)
 	return strings.Join(script, "\n"), nil
-}
-
-func findMachineAgentTools(env environs.Environ, series, arch string) (*tools.Tools, error) {
-	agentVersion, ok := env.Config().AgentVersion()
-	if !ok {
-		return nil, fmt.Errorf("no agent version set in environment configuration")
-	}
-	possibleTools, err := envtools.FindInstanceTools(env, agentVersion, series, &arch)
-	if err != nil {
-		return nil, err
-	}
-	arches := possibleTools.Arches()
-	possibleTools, err = possibleTools.Match(tools.Filter{Arch: arch})
-	if err != nil {
-		return nil, fmt.Errorf("chosen architecture %v not present in %v", arch, arches)
-	}
-	return possibleTools[0], nil
 }

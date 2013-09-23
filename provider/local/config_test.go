@@ -38,19 +38,15 @@ func (s *configSuite) TearDownTest(c *gc.C) {
 }
 
 func minimalConfigValues() map[string]interface{} {
-	return map[string]interface{}{
+	return testing.FakeConfig().Merge(testing.Attrs{
 		"name": "test",
 		"type": provider.Local,
-		// While the ca-cert bits aren't entirely minimal, they avoid the need
-		// to set up a fake home.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
-	}
+	})
 }
 
 func minimalConfig(c *gc.C) *config.Config {
 	minimal := minimalConfigValues()
-	testConfig, err := config.New(minimal)
+	testConfig, err := config.New(config.NoDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	return testConfig
 }
@@ -70,7 +66,7 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 	values := minimalConfigValues()
 	root := c.MkDir()
 	values["root-dir"] = root
-	testConfig, err := config.New(values)
+	testConfig, err := config.New(config.NoDefaults, values)
 	c.Assert(err, gc.IsNil)
 
 	valid, err := local.Provider.Validate(testConfig, nil)
@@ -82,7 +78,7 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	values := minimalConfigValues()
 	values["root-dir"] = "~/.juju/foo"
-	testConfig, err := config.New(values)
+	testConfig, err := config.New(config.NoDefaults, values)
 	c.Assert(err, gc.IsNil)
 
 	valid, err := local.Provider.Validate(testConfig, nil)

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -25,6 +26,8 @@ import (
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -48,18 +51,18 @@ func registerAmazonTests() {
 	// environment variables to make the Amazon testing work:
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
-	attrs := map[string]interface{}{
+	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"name":           "sample-" + uniqueName,
 		"type":           "ec2",
 		"control-bucket": "juju-test-" + uniqueName,
 		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
-	}
+		"firewall-mode":  config.FwInstance,
+		"agent-version":  version.Current.Number.String(),
+	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
-			TestConfig:     jujutest.TestConfig{attrs},
+			TestConfig:     attrs,
 			Attempt:        *ec2.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
@@ -70,15 +73,15 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	jujutest.LiveTests
-	writablePublicStorage environs.Storage
+	writablePublicStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// TODO: Share code from jujutest.LiveTests for creating environment
-	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	e, err := environs.NewFromAttrs(t.TestConfig)
 	c.Assert(err, gc.IsNil)
 
 	// Environ.PublicStorage() is read only.
@@ -226,9 +229,9 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// has been deleted).
 	perms := info[0].IPPerms
 	c.Assert(perms, gc.HasLen, 6)
-	checkPortAllowed(c, perms, 22)    // SSH
-	checkPortAllowed(c, perms, 37017) // MongoDB
-	checkPortAllowed(c, perms, 17070) // API
+	checkPortAllowed(c, perms, 22) // SSH
+	checkPortAllowed(c, perms, coretesting.FakeConfig()["state-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeConfig()["api-port"].(int))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
@@ -266,13 +269,13 @@ func (t *LiveTests) TestDestroy(c *gc.C) {
 
 	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
-	names, err := s.List("")
+	names, err := storage.List(s, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(names) >= 2, gc.Equals, true)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		names, err = s.List("")
+		names, err = storage.List(s, "")
 		if len(names) == 0 {
 			break
 		}
@@ -362,7 +365,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
 	c.Assert(err, gc.IsNil)
 
-	r, err := s.Get("test-object")
+	r, err := storage.Get(s, "test-object")
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
 
@@ -371,7 +374,7 @@ func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	c.Assert(string(data), gc.Equals, contents)
 
 	// Check that the public storage isn't aliased to the private storage.
-	r, err = t.Env.Storage().Get("test-object")
+	r, err = storage.Get(t.Env.Storage(), "test-object")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
@@ -392,7 +395,7 @@ func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	err = s.Remove("test-object")
 	c.Assert(err, gc.IsNil)
 
-	err = b.DelBucket()
+	err = ec2.DeleteBucket(s)
 	c.Assert(err, gc.IsNil)
 
 	err = s.Put("test-object", strings.NewReader("test"), 4)

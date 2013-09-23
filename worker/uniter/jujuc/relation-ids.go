@@ -5,9 +5,11 @@ package jujuc
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/cmd"
 	"sort"
+
+	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/cmd"
 )
 
 // RelationIdsCommand implements the relation-ids command.

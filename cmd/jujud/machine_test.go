@@ -24,7 +24,8 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
@@ -33,7 +34,6 @@ import (
 type MachineSuite struct {
 	agentSuite
 	lxc.TestSuite
-	oldCacheDir string
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -41,11 +41,11 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	s.oldCacheDir = charm.CacheDir
+	restore := testbase.PatchValue(&charm.CacheDir, c.MkDir())
+	s.AddSuiteCleanup(func(*gc.C) { restore() })
 }
 
 func (s *MachineSuite) TearDownSuite(c *gc.C) {
-	charm.CacheDir = s.oldCacheDir
 	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
 }
@@ -231,7 +231,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 		if err == nil && attempt.HasNext() {
 			continue
 		}
-		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -239,7 +239,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = u1.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	ctx.waitDeployed(c)
 }
 
@@ -300,7 +300,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		if _, err := m1.InstanceId(); err == nil {
 			break
 		} else {
-			c.Check(err, gc.FitsTypeOf, (*state.NotProvisionedError)(nil))
+			c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
 		}
 	}
 	err = units[0].OpenPort("tcp", 999)

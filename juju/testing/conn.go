@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -26,11 +28,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
-// for each test. It also includes testing.LoggingSuite.
+// for each test. It also includes testbase.LoggingSuite.
 //
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
@@ -48,7 +51,7 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	Conn         *juju.Conn
@@ -112,16 +115,6 @@ func StartInstanceWithConstraints(c *gc.C, env environs.Environ, machineId strin
 
 const AdminSecret = "dummy-secret"
 
-var envConfig = `
-environments:
-    dummyenv:
-        type: dummy
-        state-server: true
-        authorized-keys: 'i-am-a-key'
-        admin-secret: ` + AdminSecret + `
-        agent-version: %s
-`
-
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -133,7 +126,6 @@ func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
-	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
@@ -145,7 +137,6 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-	config.SetJujuHome(s.oldJujuHome)
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -170,32 +161,41 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	return apiInfo
 }
 
+// openAPIAs opens the API and ensures that the *api.State returned will be
+// closed during the test teardown by using a cleanup function.
 func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Tag = tag
 	info.Password = password
 	info.Nonce = nonce
-	st, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
-	c.Assert(st, gc.NotNil)
-	return st
+	c.Assert(apiState, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := apiState.Close()
+		c.Check(err, gc.IsNil)
+	})
+	return apiState
 }
 
-// OpenAPIAs opens the API using the given identity tag
-// and password for authentication.
+// OpenAPIAs opens the API using the given identity tag and password for
+// authentication.  The returned *api.State should not be closed by the caller
+// as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag, password string) *api.State {
 	return s.openAPIAs(c, tag, password, "")
 }
 
-// OpenAPIAsMachine opens the API using the given machine tag,
-// password and nonce for authentication.
+// OpenAPIAsMachine opens the API using the given machine tag, password and
+// nonce for authentication. The returned *api.State should not be closed by
+// the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *api.State {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
-// OpenAPIAsNewMachine creates a new machine entry that lives in system state, and
-// then uses that to open the API.
+// OpenAPIAsNewMachine creates a new machine entry that lives in system state,
+// and then uses that to open the API. The returned *api.State should not be
+// closed by the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -216,14 +216,17 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, gc.IsNil)
 	osenv.SetHome(home)
+	s.oldJujuHome = config.SetJujuHome(filepath.Join(home, ".juju"))
+	err = os.Mkdir(config.JujuHome(), 0777)
+	c.Assert(err, gc.IsNil)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
 
-	yaml := []byte(fmt.Sprintf(envConfig, version.Current.Number))
-	err = ioutil.WriteFile(config.JujuHomePath("environments.yaml"), yaml, 0600)
-	c.Assert(err, gc.IsNil)
+	// TODO(rog) remove these files and add them only when
+	// the tests specifically need them (in cmd/juju for example)
+	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
 
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, gc.IsNil)
@@ -251,6 +254,21 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.environ = environ
 }
 
+func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
+	attrs := dummy.SampleConfig().Merge(testing.Attrs{
+		"admin-secret":  AdminSecret,
+		"agent-version": version.Current.Number.String(),
+	}).Delete("name")
+	whole := map[string]interface{}{
+		"environments": map[string]interface{}{
+			"dummyenv": attrs,
+		},
+	}
+	data, err := goyaml.Marshal(whole)
+	c.Assert(err, gc.IsNil)
+	s.WriteConfig(string(data))
+}
+
 type GetStater interface {
 	GetStateInAPIServer() *state.State
 }
@@ -270,6 +288,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	s.Conn = nil
 	s.State = nil
 	osenv.SetHome(s.oldHome)
+	config.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }
@@ -302,4 +321,19 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)
 	return sch
+}
+
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
+	config, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:        s.DataDir(),
+			Tag:            tag,
+			Password:       "dummy-secret",
+			Nonce:          "nonce",
+			StateAddresses: s.StateInfo(c).Addrs,
+			APIAddresses:   s.APIInfo(c).Addrs,
+			CACert:         []byte(testing.CACert),
+		})
+	c.Assert(err, gc.IsNil)
+	return config
 }

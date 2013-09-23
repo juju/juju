@@ -284,7 +284,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 		},
 	}
 	dir := c.MkDir()
-	writer, err := filestorage.NewFileStorageWriter(dir)
+	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.WriteMetadata(toolsList, false, writer)
 	c.Assert(err, gc.IsNil)
@@ -311,12 +311,44 @@ func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
 			URL:     "file://" + filepath.Join(dir, "tools/releases/juju-2.0.1-raring-amd64.tgz"),
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir)
+	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.WriteMetadata(toolsList, true, writer)
 	c.Assert(err, gc.IsNil)
 	metadata := ttesting.ParseMetadata(c, dir)
 	assertMetadataMatches(c, toolsList, metadata)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
+	dir := c.MkDir()
+	existingToolsList := coretools.List{
+		{
+			Version: version.MustParseBinary("1.2.3-precise-amd64"),
+			Size:    123,
+			SHA256:  "abc",
+		}, {
+			Version: version.MustParseBinary("2.0.1-raring-amd64"),
+			Size:    456,
+			SHA256:  "xyz",
+		},
+	}
+	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	err = tools.WriteMetadata(existingToolsList, true, writer)
+	c.Assert(err, gc.IsNil)
+	newToolsList := coretools.List{
+		existingToolsList[0],
+		{
+			Version: version.MustParseBinary("2.1.0-raring-amd64"),
+			Size:    789,
+			SHA256:  "def",
+		},
+	}
+	err = tools.WriteMetadata(newToolsList, true, writer)
+	c.Assert(err, gc.IsNil)
+	requiredToolsList := append(existingToolsList, newToolsList[1])
+	metadata := ttesting.ParseMetadata(c, dir)
+	assertMetadataMatches(c, requiredToolsList, metadata)
 }
 
 type productSpecSuite struct{}

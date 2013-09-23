@@ -11,6 +11,8 @@ import (
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 // Log supplies the necessary functionality for Commands that wish to set up
@@ -30,7 +32,8 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
 	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
-	f.StringVar(&l.Config, "log-config", "", "specify log levels for modules")
+	defaultLogConfig := os.Getenv(osenv.JujuLoggingConfig)
+	f.StringVar(&l.Config, "log-config", defaultLogConfig, "specify log levels for modules")
 	f.BoolVar(&l.ShowLog, "show-log", false, "if set, write the log file to stderr")
 }
 
@@ -70,12 +73,27 @@ func (l *Log) Start(ctx *Context) error {
 		}
 	} else {
 		loggo.RemoveWriter("default")
+		// Create a simple writer that doesn't show filenames, or timestamps,
+		// and only shows warning or above.
+		writer := loggo.NewSimpleWriter(ctx.Stderr, &warningFormatter{})
+		err := loggo.RegisterWriter("warning", writer, loggo.WARNING)
+		if err != nil {
+			return err
+		}
 	}
 	// Set the level on the root logger.
 	loggo.GetLogger("").SetLogLevel(level)
 	// Override the logging config with specified logging config.
 	loggo.ConfigureLoggers(l.Config)
 	return nil
+}
+
+// warningFormatter is a simple loggo formatter that produces something like:
+//   WARNING The message...
+type warningFormatter struct{}
+
+func (*warningFormatter) Format(level loggo.Level, _, _ string, _ int, _ time.Time, message string) string {
+	return fmt.Sprintf("%s %s", level, message)
 }
 
 // NewCommandLogWriter creates a loggo writer for registration

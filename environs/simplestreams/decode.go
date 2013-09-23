@@ -5,11 +5,12 @@ package simplestreams
 
 import (
 	"bytes"
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/clearsign"
 	"fmt"
 	"io"
 	"io/ioutil"
+
+	"code.google.com/p/go.crypto/openpgp"
+	"code.google.com/p/go.crypto/openpgp/clearsign"
 )
 
 // simpleStreamSigningKey is the public key required to

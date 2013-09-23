@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
 )
 
@@ -28,7 +29,6 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 	}()
 
 	st, _ := s.OpenAPIAsNewMachine(c)
-	defer st.Close()
 
 	// Connection still alive
 	select {
@@ -47,4 +47,14 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 	case <-st.Broken():
 		return
 	}
+}
+
+func (s *stateSuite) TestPing(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c)
+	err := st.Ping()
+	c.Assert(err, gc.IsNil)
+	err = st.Close()
+	c.Assert(err, gc.IsNil)
+	err = st.Ping()
+	c.Assert(err, gc.Equals, rpc.ErrShutdown)
 }

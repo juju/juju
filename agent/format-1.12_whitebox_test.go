@@ -9,25 +9,16 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type format_1_12Suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	formatter formatter_1_12
 }
 
 var _ = gc.Suite(&format_1_12Suite{})
-
-var agentParams = AgentConfigParams{
-	Tag:            "omg",
-	Password:       "sekrit",
-	CACert:         []byte("ca cert"),
-	StateAddresses: []string{"localhost:1234"},
-	APIAddresses:   []string{"localhost:1235"},
-	Nonce:          "a nonce",
-}
 
 func (s *format_1_12Suite) newConfig(c *gc.C) *configInternal {
 	params := agentParams

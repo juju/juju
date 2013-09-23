@@ -6,17 +6,22 @@ package uniter_test
 import (
 	"fmt"
 	"io/ioutil"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
+	apiuniter "launchpad.net/juju-core/state/api/uniter"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RunHookSuite struct {
@@ -259,9 +264,9 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 
 	// Mess with multiple relation settings.
 	node0, err := s.relctxs[0].Settings()
-	node0.Set("foo", 1)
+	node0.Set("foo", "1")
 	node1, err := s.relctxs[1].Settings()
-	node1.Set("bar", 2)
+	node1.Set("bar", "2")
 
 	// Run the failing hook.
 	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
@@ -270,26 +275,26 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Check that the changes to the local settings nodes have been discarded.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, map[string]interface{}{"relation-name": "db0"})
+	c.Assert(node0.Map(), gc.DeepEquals, params.Settings{"relation-name": "db0"})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, map[string]interface{}{"relation-name": "db1"})
+	c.Assert(node1.Map(), gc.DeepEquals, params.Settings{"relation-name": "db1"})
 
 	// Check that the changes have been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings0, gc.DeepEquals, node0.Map())
+	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{"relation-name": "db0"})
 	settings1, err := s.relunits[1].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings1, gc.DeepEquals, node1.Map())
+	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{"relation-name": "db1"})
 
 	// Create a charm with a working hook, and mess with settings again.
 	charmDir, _ = makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
 	})
-	node0.Set("baz", 3)
-	node1.Set("qux", 4)
+	node0.Set("baz", "3")
+	node1.Set("qux", "4")
 
 	// Run the hook.
 	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
@@ -298,24 +303,30 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Check that the changes to the local settings nodes are still there.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(node0.Map(), gc.DeepEquals, params.Settings{
 		"relation-name": "db0",
-		"baz":           3,
+		"baz":           "3",
 	})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(node1.Map(), gc.DeepEquals, params.Settings{
 		"relation-name": "db1",
-		"qux":           4,
+		"qux":           "4",
 	})
 
 	// Check that the changes have been written to state.
 	settings0, err = s.relunits[0].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings0, gc.DeepEquals, node0.Map())
+	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{
+		"relation-name": "db0",
+		"baz":           "3",
+	})
 	settings1, err = s.relunits[1].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings1, gc.DeepEquals, node1.Map())
+	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{
+		"relation-name": "db1",
+		"qux":           "4",
+	})
 }
 
 type ContextRelationSuite struct {
@@ -323,6 +334,10 @@ type ContextRelationSuite struct {
 	svc *state.Service
 	rel *state.Relation
 	ru  *state.RelationUnit
+
+	st         *api.State
+	uniter     *apiuniter.State
+	apiRelUnit *apiuniter.RelationUnit
 }
 
 var _ = gc.Suite(&ContextRelationSuite{})
@@ -343,39 +358,52 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.ru.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
+
+	err = unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	s.uniter = s.st.Uniter()
+	c.Assert(s.uniter, gc.NotNil)
+
+	apiRel, err := s.uniter.Relation(s.rel.Tag())
+	c.Assert(err, gc.IsNil)
+	apiUnit, err := s.uniter.Unit(unit.Tag())
+	c.Assert(err, gc.IsNil)
+	s.apiRelUnit, err = apiRel.Unit(apiUnit)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
-	ctx := uniter.NewContextRelation(s.ru, nil)
+	ctx := uniter.NewContextRelation(s.apiRelUnit, nil)
 	c.Assert(ctx.UnitNames(), gc.HasLen, 0)
 
 	// Check the units and settings after a simple update.
 	ctx.UpdateMembers(uniter.SettingsMap{
-		"u/2": {"baz": 2},
-		"u/4": {"qux": 4},
+		"u/2": {"baz": "2"},
+		"u/4": {"qux": "4"},
 	})
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/2", "u/4"})
-	assertSettings := func(unit string, expect map[string]interface{}) {
+	assertSettings := func(unit string, expect params.Settings) {
 		actual, err := ctx.ReadSettings(unit)
 		c.Assert(err, gc.IsNil)
 		c.Assert(actual, gc.DeepEquals, expect)
 	}
-	assertSettings("u/2", map[string]interface{}{"baz": 2})
-	assertSettings("u/4", map[string]interface{}{"qux": 4})
+	assertSettings("u/2", params.Settings{"baz": "2"})
+	assertSettings("u/4", params.Settings{"qux": "4"})
 
 	// Send a second update; check that members are only added, not removed.
 	ctx.UpdateMembers(uniter.SettingsMap{
-		"u/1": {"foo": 1},
-		"u/2": {"abc": 2},
-		"u/3": {"bar": 3},
+		"u/1": {"foo": "1"},
+		"u/2": {"abc": "2"},
+		"u/3": {"bar": "3"},
 	})
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1", "u/2", "u/3", "u/4"})
 
 	// Check that all settings remain cached.
-	assertSettings("u/1", map[string]interface{}{"foo": 1})
-	assertSettings("u/2", map[string]interface{}{"abc": 2})
-	assertSettings("u/3", map[string]interface{}{"bar": 3})
-	assertSettings("u/4", map[string]interface{}{"qux": 4})
+	assertSettings("u/1", params.Settings{"foo": "1"})
+	assertSettings("u/2", params.Settings{"abc": "2"})
+	assertSettings("u/3", params.Settings{"bar": "3"})
+	assertSettings("u/4", params.Settings{"qux": "4"})
 
 	// Delete a member, and check that it is no longer a member...
 	ctx.DeleteMember("u/2")
@@ -383,7 +411,7 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 
 	// ...and that its settings are no longer cached.
 	_, err := ctx.ReadSettings("u/2")
-	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "u/2" in relation "u:ring": settings not found`)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
@@ -398,13 +426,14 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 	settings.Set("ping", "pong")
 	_, err = settings.Write()
 	c.Assert(err, gc.IsNil)
-	ctx := uniter.NewContextRelation(s.ru, map[string]int64{"u/1": 0})
+	ctx := uniter.NewContextRelation(s.apiRelUnit, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	expect := settings.Map()
-	c.Assert(m, gc.DeepEquals, expect)
+	expectMap := settings.Map()
+	expectSettings := convertMap(expectMap)
+	c.Assert(m, gc.DeepEquals, expectSettings)
 
 	// Check that changes to state do not affect the cached settings.
 	settings.Set("ping", "pow")
@@ -412,20 +441,20 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m, gc.DeepEquals, expect)
+	c.Assert(m, gc.DeepEquals, expectSettings)
 
 	// Check that ClearCache spares the members cache.
 	ctx.ClearCache()
 	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m, gc.DeepEquals, expect)
+	c.Assert(m, gc.DeepEquals, expectSettings)
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
 	ctx.UpdateMembers(uniter.SettingsMap{"u/1": {"entirely": "different"}})
 	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m, gc.DeepEquals, map[string]interface{}{"entirely": "different"})
+	c.Assert(m, gc.DeepEquals, params.Settings{"entirely": "different"})
 }
 
 func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
@@ -440,13 +469,14 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 	settings.Set("ping", "pong")
 	_, err = settings.Write()
 	c.Assert(err, gc.IsNil)
-	ctx := uniter.NewContextRelation(s.ru, nil)
+	ctx := uniter.NewContextRelation(s.apiRelUnit, nil)
 
 	// Check that settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	expect := settings.Map()
-	c.Assert(m, gc.DeepEquals, expect)
+	expectMap := settings.Map()
+	expectSettings := convertMap(expectMap)
+	c.Assert(m, gc.DeepEquals, expectSettings)
 
 	// Check that changes to state do not affect the obtained settings...
 	settings.Set("ping", "pow")
@@ -454,7 +484,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m, gc.DeepEquals, expect)
+	c.Assert(m, gc.DeepEquals, expectSettings)
 
 	// ...until the caches are cleared.
 	ctx.ClearCache()
@@ -465,24 +495,25 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestSettings(c *gc.C) {
-	ctx := uniter.NewContextRelation(s.ru, nil)
+	ctx := uniter.NewContextRelation(s.apiRelUnit, nil)
 
 	// Change Settings, then clear cache without writing.
 	node, err := ctx.Settings()
 	c.Assert(err, gc.IsNil)
-	expect := node.Map()
+	expectSettings := node.Map()
+	expectMap := convertSettings(expectSettings)
 	node.Set("change", "exciting")
 	ctx.ClearCache()
 
 	// Check that the change is not cached...
 	node, err = ctx.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node.Map(), gc.DeepEquals, expect)
+	c.Assert(node.Map(), gc.DeepEquals, expectSettings)
 
 	// ...and not written to state.
 	settings, err := s.ru.ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(settings, gc.DeepEquals, expectMap)
 
 	// Change again, write settings, and clear caches.
 	node.Set("change", "exciting")
@@ -491,15 +522,16 @@ func (s *ContextRelationSuite) TestSettings(c *gc.C) {
 	ctx.ClearCache()
 
 	// Check that the change is reflected in Settings...
-	expect["change"] = "exciting"
+	expectSettings["change"] = "exciting"
+	expectMap["change"] = expectSettings["change"]
 	node, err = ctx.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node.Map(), gc.DeepEquals, expect)
+	c.Assert(node.Map(), gc.DeepEquals, expectSettings)
 
 	// ...and was written to state.
 	settings, err = s.ru.ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(settings, gc.DeepEquals, expectMap)
 }
 
 type InterfaceSuite struct {
@@ -594,6 +626,10 @@ type HookContextSuite struct {
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
 	relctxs  map[int]*uniter.ContextRelation
+
+	st      *api.State
+	uniter  *apiuniter.State
+	apiUnit *apiuniter.Unit
 }
 
 func (s *HookContextSuite) SetUpTest(c *gc.C) {
@@ -603,6 +639,13 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.service, err = s.State.AddService("u", sch)
 	c.Assert(err, gc.IsNil)
 	s.unit = s.AddUnit(c, s.service)
+
+	err = s.unit.SetPassword("password")
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), "password")
+	s.uniter = s.st.Uniter()
+	c.Assert(s.uniter, gc.NotNil)
+
 	// Note: The unit must always have a charm URL set, because this
 	// happens as part of the installation process (that happens
 	// before the initial install hook).
@@ -636,7 +679,13 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, gc.IsNil)
-	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
+	s.apiUnit, err = s.uniter.Unit(s.unit.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRel, err := s.uniter.Relation(rel.Tag())
+	c.Assert(err, gc.IsNil)
+	apiRelUnit, err := apiRel.Unit(s.apiUnit)
+	c.Assert(err, gc.IsNil)
+	s.relctxs[rel.Id()] = uniter.NewContextRelation(apiRelUnit, nil)
 }
 
 func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
@@ -645,6 +694,24 @@ func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, gc.Equals, true)
 	}
-	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote,
+	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid, relid, remote,
 		s.relctxs, apiAddrs)
+	c.Assert(err, gc.IsNil)
+	return context
+}
+
+func convertSettings(settings params.Settings) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range settings {
+		result[k] = v
+	}
+	return result
+}
+
+func convertMap(settingsMap map[string]interface{}) params.Settings {
+	result := make(params.Settings)
+	for k, v := range settingsMap {
+		result[k] = v.(string)
+	}
+	return result
 }

@@ -9,7 +9,9 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	"launchpad.net/juju-core/state/apiserver/provisioner"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -79,6 +81,17 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
 }
 
+// Provisioner returns an object that provides access to the
+// Provisioner API facade. The id argument is reserved for future use
+// and currently needs to be empty.
+func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
+}
+
 // MachineAgent returns an object that provides access to the machine
 // agent API.  The id argument is reserved for future use and must currently
 // be empty.
@@ -119,6 +132,16 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
+}
+
+// Logger returns an object that provides access to the Logger API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) Logger(id string) (*logger.LoggerAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return logger.NewLoggerAPI(r.srv.state, r.resources, r)
 }
 
 // Upgrader returns an object that provides access to the Upgrader API facade.

@@ -11,39 +11,61 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
+var logger = loggo.GetLogger("juju.test")
+
 type LogSuite struct {
+	testbase.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
 
-func (s *LogSuite) TearDownTest(c *gc.C) {
-	loggo.ResetLoggers()
-	loggo.ResetWriters()
+func (s *LogSuite) SetUpTest(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.AddCleanup(func(_ *gc.C) {
+		loggo.ResetLoggers()
+		loggo.ResetWriters()
+	})
 }
 
-func (s *LogSuite) TestAddFlags(c *gc.C) {
-	l := &cmd.Log{}
-	f := testing.NewFlagSet()
-	l.AddFlags(f)
-
-	err := f.Parse(false, []string{})
+func newLogWithFlags(c *gc.C, flags []string) *cmd.Log {
+	log := &cmd.Log{}
+	flagSet := testing.NewFlagSet()
+	log.AddFlags(flagSet)
+	err := flagSet.Parse(false, flags)
 	c.Assert(err, gc.IsNil)
-	c.Assert(l.Path, gc.Equals, "")
-	c.Assert(l.Verbose, gc.Equals, false)
-	c.Assert(l.Debug, gc.Equals, false)
-	c.Assert(l.Config, gc.Equals, "")
+	return log
+}
 
-	err = f.Parse(false, []string{"--log-file", "foo", "--verbose", "--debug",
+func (s *LogSuite) TestNoFlags(c *gc.C) {
+	log := newLogWithFlags(c, []string{})
+	c.Assert(log.Path, gc.Equals, "")
+	c.Assert(log.Verbose, gc.Equals, false)
+	c.Assert(log.Debug, gc.Equals, false)
+	c.Assert(log.Config, gc.Equals, "")
+}
+
+func (s *LogSuite) TestFlags(c *gc.C) {
+	log := newLogWithFlags(c, []string{"--log-file", "foo", "--verbose", "--debug",
 		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(l.Path, gc.Equals, "foo")
-	c.Assert(l.Verbose, gc.Equals, true)
-	c.Assert(l.Debug, gc.Equals, true)
-	c.Assert(l.Config, gc.Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
+	c.Assert(log.Path, gc.Equals, "foo")
+	c.Assert(log.Verbose, gc.Equals, true)
+	c.Assert(log.Debug, gc.Equals, true)
+	c.Assert(log.Config, gc.Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
+}
+
+func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
+	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
+	testbase.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	log := newLogWithFlags(c, []string{})
+	c.Assert(log.Path, gc.Equals, "")
+	c.Assert(log.Verbose, gc.Equals, false)
+	c.Assert(log.Debug, gc.Equals, false)
+	c.Assert(log.Config, gc.Equals, config)
 }
 
 func (s *LogSuite) TestVerboseSetsLogLevel(c *gc.C) {
@@ -84,7 +106,7 @@ func (s *LogSuite) TestStderr(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 }
 
@@ -93,7 +115,7 @@ func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -107,7 +129,7 @@ func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
@@ -119,10 +141,23 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	log.Infof("hello")
+	logger.Infof("hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
 	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
+	// Error and warning go to stderr even with ShowLog=false
+	l := &cmd.Log{Config: "<root>=INFO", ShowLog: false}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+	logger.Warningf("a warning")
+	logger.Errorf("an error")
+	logger.Infof("an info")
+	c.Assert(testing.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

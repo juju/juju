@@ -6,11 +6,11 @@ package environs
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -70,10 +70,11 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
 	mcfg.AuthorizedKeys = authKeys
-	if mcfg.MachineEnvironment == nil {
-		mcfg.MachineEnvironment = make(map[string]string)
+	if mcfg.AgentEnvironment == nil {
+		mcfg.AgentEnvironment = make(map[string]string)
 	}
-	mcfg.MachineEnvironment[osenv.JujuProviderType] = cfg.Type()
+	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
+	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	if !mcfg.StateServer {
 		return nil
 	}
@@ -125,6 +126,7 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 		return nil, err
 	}
 	data, err := cloudcfg.Render()
+	logger.Tracef("Generated cloud init:\n%s", string(data))
 	if err != nil {
 		return nil, err
 	}

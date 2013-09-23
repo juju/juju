@@ -13,6 +13,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -36,6 +37,26 @@ func (e *Environs) Names() (names []string) {
 		names = append(names, name)
 	}
 	return
+}
+
+// Config returns the environment configuration for the environment
+// with the given name. If the configuration is not
+// found, an errors.NotFoundError is returned.
+func (envs *Environs) Config(name string) (*config.Config, error) {
+	if name == "" {
+		name = envs.Default
+		if name == "" {
+			return nil, fmt.Errorf("no default environment found")
+		}
+	}
+	e, ok := envs.environs[name]
+	if !ok {
+		return nil, errors.NotFoundf("environment %q", name)
+	}
+	if e.err != nil {
+		return nil, e.err
+	}
+	return e.config, nil
 }
 
 // providers maps from provider type to EnvironProvider for
@@ -110,7 +131,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 		// store the name of the this environment in the config itself
 		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := config.New(attrs)
+		cfg, err := config.New(config.UseDefaults, attrs)
 		if err != nil {
 			environs[name] = environ{
 				err: fmt.Errorf("error parsing environment %q: %v", name, err),
@@ -204,8 +225,8 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
-	m["ca-private-key"] = ""
-	if cfg, err = config.New(m); err != nil {
+	delete(m, "ca-private-key")
+	if cfg, err = config.New(config.NoDefaults, m); err != nil {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

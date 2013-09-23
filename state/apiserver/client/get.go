@@ -49,7 +49,9 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 		if value := settings[name]; value != nil {
 			info["value"] = value
 		} else {
-			info["value"] = option.Default
+			if option.Default != nil {
+				info["value"] = option.Default
+			}
 			info["default"] = true
 		}
 		results[name] = info

@@ -8,11 +8,12 @@ import (
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // EnvironsCertSuite tests the internal functions defined in environs/cert.go
 type EnvironsCertSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&EnvironsCertSuite{})

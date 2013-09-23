@@ -38,6 +38,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -52,6 +53,28 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
+
+// SampleConfig() returns an environment configuration with all required
+// attributes set.
+func SampleConfig() testing.Attrs {
+	return testing.Attrs{
+		"type":                      "dummy",
+		"name":                      "only",
+		"authorized-keys":           "my-keys",
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "fish",
+		"ca-cert":                   testing.CACert,
+		"ca-private-key":            testing.CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                1234,
+		"api-port":                  4321,
+		"default-series":            "precise",
+
+		"secret":       "pork",
+		"state-server": true,
+	}
+}
 
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
@@ -137,8 +160,8 @@ type environState struct {
 	globalPorts   map[instance.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
-	storage       *storage
-	publicStorage *storage
+	storage       *dummystorage
+	publicStorage *dummystorage
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
@@ -156,10 +179,10 @@ var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
-// storage holds the storage for an environState.
+// dummystorage holds the storage for an environState.
 // There are two instances for each environState
 // instance, one for public files and one for private.
-type storage struct {
+type dummystorage struct {
 	path     string // path prefix in http space.
 	state    *environState
 	files    map[string][]byte
@@ -400,14 +423,13 @@ func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) 
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	m["secret"] = ecfg.secret()
-	return m, nil
-
+	return map[string]interface{}{
+		"secret": ecfg.secret(),
+	}, nil
 }
 
 func (*environProvider) PublicAddress() (string, error) {
@@ -452,12 +474,12 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
@@ -756,7 +778,7 @@ type dummyInstance struct {
 	id           instance.Id
 	machineId    string
 	series       string
-	firewallMode config.FirewallMode
+	firewallMode string
 }
 
 func (inst *dummyInstance) Id() instance.Id {

@@ -4,27 +4,31 @@
 package imagemetadata
 
 import (
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
-// SupportsCustomSources instances can host image metadata at provider specific sources.
+// SupportsCustomSources represents an environment that
+// can host image metadata at provider specific sources.
 type SupportsCustomSources interface {
 	GetImageSources() ([]simplestreams.DataSource, error)
 }
 
-// GetMetadataSources returns the sources to use when looking for simplestreams image id metadata.
-func GetMetadataSources(cloudInst config.HasConfig) ([]simplestreams.DataSource, error) {
+// GetMetadataSources returns the sources to use when looking for
+// simplestreams image id metadata. If env implements
+// SupportsCustomSurces, the sources returned from that method will also
+// be considered.
+func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
-	if userURL, ok := cloudInst.Config().ImageMetadataURL(); ok {
-		sources = append(sources, simplestreams.NewURLDataSource(userURL))
-	}
-	if custom, ok := cloudInst.(SupportsCustomSources); ok {
+	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetImageSources()
 		if err != nil {
 			return nil, err
 		}
 		sources = append(sources, customSources...)
+	}
+	if userURL, ok := env.Config().ImageMetadataURL(); ok {
+		sources = append(sources, simplestreams.NewURLDataSource(userURL))
 	}
 
 	if DefaultBaseURL != "" {

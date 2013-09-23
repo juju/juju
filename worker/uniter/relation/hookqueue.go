@@ -4,12 +4,14 @@
 package relation
 
 import (
+	"sort"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/tomb"
-	"sort"
 )
 
 // HookQueue is the minimal interface implemented by both AliveHookQueue and

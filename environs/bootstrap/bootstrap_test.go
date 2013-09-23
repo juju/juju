@@ -13,10 +13,11 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -32,12 +33,8 @@ const (
 
 type bootstrapSuite struct {
 	home *coretesting.FakeHome
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
-}
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
@@ -56,8 +53,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	fixEnv := func(key string, value interface{}) {
 		cfg, err := env.Config().Apply(map[string]interface{}{
 			key: value,
@@ -91,8 +87,7 @@ func uploadTools(c *gc.C, env environs.Environ) {
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	uploadTools(c, env)
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -102,8 +97,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	uploadTools(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(env, cons)
@@ -148,17 +142,11 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 	for i, test := range allTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()
-		attrs := map[string]interface{}{
-			"name":            "test",
-			"type":            "dummy",
-			"state-server":    false,
-			"admin-secret":    "a-secret",
-			"authorized-keys": "i-am-a-key",
-			"ca-cert":         coretesting.CACert,
-			"ca-private-key":  coretesting.CAKey,
-			"development":     test.Development,
-			"default-series":  test.DefaultSeries,
-		}
+		attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+			"state-server":   false,
+			"development":    test.Development,
+			"default-series": test.DefaultSeries,
+		})
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
 		}
@@ -198,8 +186,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
@@ -213,24 +200,19 @@ type bootstrapEnviron struct {
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
 	constraints    constraints.Value
-	storage        environs.Storage
+	storage        storage.Storage
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
-	m := map[string]interface{}{
-		"name":            name,
-		"type":            "test",
-		"ca-cert":         "",
-		"ca-private-key":  "",
-		"authorized-keys": "",
+	m := dummy.SampleConfig()
+	if !defaultKeys {
+		m = m.Delete(
+			"ca-cert",
+			"ca-private-key",
+			"admin-secret",
+		)
 	}
-	if defaultKeys {
-		m["ca-cert"] = coretesting.CACert
-		m["ca-private-key"] = coretesting.CAKey
-		m["admin-secret"] = version.Current.Number.String()
-		m["authorized-keys"] = "foo"
-	}
-	cfg, err := config.New(m)
+	cfg, err := config.New(config.NoDefaults, m)
 	if err != nil {
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}
@@ -243,13 +225,11 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 // setDummyStorage injects the local provider's fake storage implementation
 // into the given environment, so that tests can manipulate storage as if it
 // were real.
-// Returns a cleanup function that must be called when done with the storage.
-func setDummyStorage(c *gc.C, env *bootstrapEnviron) func() {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
-	c.Assert(err, gc.IsNil)
-	env.storage = localstorage.Client(listener.Addr().String())
+func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
+	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
+	env.storage = stor
 	envtesting.UploadFakeTools(c, env.storage)
-	return func() { listener.Close() }
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
 func (e *bootstrapEnviron) Name() string {
@@ -271,10 +251,10 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *bootstrapEnviron) Storage() environs.Storage {
+func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-func (e *bootstrapEnviron) PublicStorage() environs.StorageReader {
+func (e *bootstrapEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }

@@ -20,7 +20,10 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -30,7 +33,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var errorImportanceTests = []error{
@@ -44,6 +47,70 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 	for i, err0 := range errorImportanceTests {
 		for j, err1 := range errorImportanceTests {
 			c.Assert(moreImportant(err0, err1), gc.Equals, i > j)
+		}
+	}
+}
+
+var isFatalTests = []struct {
+	err     error
+	isFatal bool
+}{{
+	err:     worker.ErrTerminateAgent,
+	isFatal: true,
+}, {
+	err:     &upgrader.UpgradeReadyError{},
+	isFatal: true,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code:    params.CodeNotProvisioned,
+	},
+	isFatal: true,
+}, {
+	err:     &fatalError{"some fatal error"},
+	isFatal: true,
+}, {
+	err:     stderrors.New("foo"),
+	isFatal: false,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code:    params.CodeNotFound,
+	},
+	isFatal: false,
+}}
+
+func (*toolSuite) TestIsFatal(c *gc.C) {
+	for i, test := range isFatalTests {
+		c.Logf("test %d: %s", i, test.err)
+		c.Assert(isFatal(test.err), gc.Equals, test.isFatal)
+	}
+}
+
+type testPinger func() error
+
+func (f testPinger) Ping() error {
+	return f()
+}
+
+func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
+	var (
+		errPinger testPinger = func() error {
+			return stderrors.New("ping error")
+		}
+		okPinger testPinger = func() error {
+			return nil
+		}
+	)
+	for i, pinger := range []testPinger{errPinger, okPinger} {
+		for j, test := range isFatalTests {
+			c.Logf("test %d.%d: %s", i, j, test.err)
+			fatal := connectionIsFatal(pinger)(test.err)
+			if test.isFatal {
+				c.Check(fatal, jc.IsTrue)
+			} else {
+				c.Check(fatal, gc.Equals, i == 0)
+			}
 		}
 	}
 }
@@ -202,8 +269,8 @@ func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Tools 
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	stor := s.Conn.Environ.Storage()
+	err := stor.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, gc.IsNil)
 	url, err := s.Conn.Environ.Storage().URL(envtools.StorageName(vers))
 	c.Assert(err, gc.IsNil)

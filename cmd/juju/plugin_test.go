@@ -12,12 +12,14 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type PluginSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	oldPath string
 	home    *testing.FakeHome
 }
@@ -115,21 +117,21 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {
 
 func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *gc.C) {
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, HasPrefix, PluginTopicText)
-	c.Assert(output, HasSuffix, "\n\nNo plugins found.\n")
+	c.Assert(output, jc.HasPrefix, PluginTopicText)
+	c.Assert(output, jc.HasSuffix, "\n\nNo plugins found.\n")
 }
 
 func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	suite.makeFullPlugin(PluginParams{Name: "bar"})
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, HasPrefix, PluginTopicText)
+	c.Assert(output, jc.HasPrefix, PluginTopicText)
 	expectedPlugins := `
 
 bar  bar description
 foo  foo description
 `
-	c.Assert(output, HasSuffix, expectedPlugins)
+	c.Assert(output, jc.HasSuffix, expectedPlugins)
 }
 
 func (suite *PluginSuite) TestHelpPluginName(c *gc.C) {
@@ -144,7 +146,7 @@ something useful
 
 func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	output := badrun(c, 0, "help", "foo")
-	expectedHelp := "error: unknown command or topic for foo\n"
+	expectedHelp := "ERROR unknown command or topic for foo\n"
 	c.Assert(output, gc.Matches, expectedHelp)
 }
 

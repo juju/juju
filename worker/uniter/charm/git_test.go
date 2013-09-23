@@ -14,6 +14,7 @@ import (
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -21,8 +22,7 @@ var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 
 type GitDirSuite struct {
 	testing.GitSuite
-	LoggingSuite testing.LoggingSuite
-	resetLcAll   func()
+	LoggingSuite testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&GitDirSuite{})
@@ -30,11 +30,10 @@ var _ = gc.Suite(&GitDirSuite{})
 func (s *GitDirSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
-	s.resetLcAll = testing.PatchEnvironment("LC_ALL", "en_US")
+	s.LoggingSuite.PatchEnvironment("LC_ALL", "en_US")
 }
 
 func (s *GitDirSuite) TearDownTest(c *gc.C) {
-	s.resetLcAll()
 	s.LoggingSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }

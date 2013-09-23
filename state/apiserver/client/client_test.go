@@ -5,7 +5,9 @@ package client_test
 
 import (
 	"fmt"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -14,7 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type clientSuite struct {
@@ -389,7 +391,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 		_, err = s.State.Service("service")
-		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	}
 }
 
@@ -478,7 +480,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
