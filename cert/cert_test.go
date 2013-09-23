@@ -76,7 +76,7 @@ func (certSuite) TestNewServer(c *gc.C) {
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, gc.IsNil)
 
-	srvCertPEM, srvKeyPEM, err := cert.NewServer("juju test", caCertPEM, caKeyPEM, expiry)
+	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry)
 	c.Assert(err, gc.IsNil)
 
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
@@ -98,14 +98,14 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 
-	certPEM, _, err = cert.NewServer("foo", certPEM, keyPEM, expiry)
+	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry)
 	xcert, err = cert.ParseCert(certPEM)
 	c.Assert(err, gc.IsNil)
 	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 }
 
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
-	srvCert, srvKey, err := cert.NewServer("foo", nonCACert, nonCAKey, time.Now())
+	srvCert, srvKey, err := cert.NewServer(nonCACert, nonCAKey, time.Now())
 	c.Check(srvCert, gc.IsNil)
 	c.Check(srvKey, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "CA certificate is not a valid CA")
@@ -116,7 +116,7 @@ func (certSuite) TestVerify(c *gc.C) {
 	caCert, caKey, err := cert.NewCA("foo", now.Add(1*time.Minute))
 	c.Assert(err, gc.IsNil)
 
-	srvCert, _, err := cert.NewServer("foo", caCert, caKey, now.Add(3*time.Minute))
+	srvCert, _, err := cert.NewServer(caCert, caKey, now.Add(3*time.Minute))
 	c.Assert(err, gc.IsNil)
 
 	err = cert.Verify(srvCert, caCert, now)
@@ -139,7 +139,7 @@ func (certSuite) TestVerify(c *gc.C) {
 	err = cert.Verify(srvCert, caCert2, now)
 	c.Check(err, gc.ErrorMatches, "x509: certificate signed by unknown authority")
 
-	srvCert2, _, err := cert.NewServer("bar", caCert2, caKey2, now.Add(1*time.Minute))
+	srvCert2, _, err := cert.NewServer(caCert2, caKey2, now.Add(1*time.Minute))
 	c.Assert(err, gc.IsNil)
 
 	// Check new server certificate against original CA.
