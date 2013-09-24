@@ -131,7 +131,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 }
 
 func (t *LiveTests) Destroy(c *gc.C) {
-	err := t.Env.Destroy(nil)
+	err := t.Env.Destroy()
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -354,7 +354,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	c.Logf("destroy env")
 	env := t.Env
 	t.Destroy(c)
-	env.Destroy(nil) // Again, should work fine and do nothing.
+	env.Destroy() // Again, should work fine and do nothing.
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
@@ -871,7 +871,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	}))
 	dummyenv, err := environs.Prepare(dummyCfg)
 	c.Assert(err, gc.IsNil)
-	defer dummyenv.Destroy(nil)
+	defer dummyenv.Destroy()
 
 	// BUG: We destroy the environment, then write to its storage.
 	// This is bogus, strictly speaking, but it works on
@@ -898,7 +898,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	defer env.Destroy(nil)
+	defer env.Destroy()
 
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
