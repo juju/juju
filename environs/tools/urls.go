@@ -17,11 +17,17 @@ type SupportsCustomSources interface {
 // GetMetadataSources returns the sources to use when looking for
 // simplestreams tools metadata. If env implements SupportsCustomSurces,
 // the sources returned from that method will also be considered.
+// The sources are configured to not use retries.
 func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
+	return GetMetadataSourcesWithRetries(env, false)
+}
+
+// GetMetadataSourcesWithRetries returns the sources to use when looking for
+// simplestreams tools metadata. If env implements SupportsCustomSurces,
+// the sources returned from that method will also be considered.
+// The sources are configured to use retries according to the value of allowRetry.
+func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
-	if userURL, ok := env.Config().ToolsURL(); ok {
-		sources = append(sources, simplestreams.NewURLDataSource(userURL))
-	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()
 		if err != nil {
@@ -29,9 +35,15 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		}
 		sources = append(sources, customSources...)
 	}
+	if userURL, ok := env.Config().ToolsURL(); ok {
+		sources = append(sources, simplestreams.NewURLDataSource(userURL))
+	}
 
 	if DefaultBaseURL != "" {
 		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL))
+	}
+	for _, source := range sources {
+		source.SetAllowRetry(bool(allowRetry))
 	}
 	return sources, nil
 }

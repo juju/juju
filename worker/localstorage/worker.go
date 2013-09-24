@@ -1,4 +1,7 @@
-package storage
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package localstorage
 
 import (
 	"launchpad.net/loggo"
@@ -10,7 +13,7 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-var logger = loggo.GetLogger("juju.local.storage")
+var logger = loggo.GetLogger("juju.worker.localstorage")
 
 type storageWorker struct {
 	config agent.Config
@@ -55,19 +58,22 @@ func (s *storageWorker) waitForDeath() error {
 
 	sharedStorageDir := s.config.Value(agent.SharedStorageDir)
 	sharedStorageAddr := s.config.Value(agent.SharedStorageAddr)
-	logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
-
-	sharedStorage, err := filestorage.NewFileStorageWriter(sharedStorageDir, filestorage.UseDefaultTmpDir)
-	if err != nil {
-		logger.Errorf("error with local storage: %v", err)
-		return err
+	if sharedStorageAddr != "" && sharedStorageDir != "" {
+		logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
+		sharedStorage, err := filestorage.NewFileStorageWriter(sharedStorageDir, filestorage.UseDefaultTmpDir)
+		if err != nil {
+			logger.Errorf("error with local storage: %v", err)
+			return err
+		}
+		sharedStorageListener, err := httpstorage.Serve(sharedStorageAddr, sharedStorage)
+		if err != nil {
+			logger.Errorf("error with local storage: %v", err)
+			return err
+		}
+		defer sharedStorageListener.Close()
+	} else {
+		logger.Infof("no shared storage: dir=%q addr=%q", sharedStorageDir, sharedStorageAddr)
 	}
-	sharedStorageListener, err := httpstorage.Serve(sharedStorageAddr, sharedStorage)
-	if err != nil {
-		logger.Errorf("error with local storage: %v", err)
-		return err
-	}
-	defer sharedStorageListener.Close()
 
 	logger.Infof("storage routines started, awaiting death")
 

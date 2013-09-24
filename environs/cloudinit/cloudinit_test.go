@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -27,7 +28,7 @@ import (
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type cloudinitSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&cloudinitSuite{})
@@ -274,7 +275,7 @@ func newSimpleTools(vers string) *tools.Tools {
 
 // check that any --env-config $base64 is valid and matches t.cfg.Config
 func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
-	re := regexp.MustCompile(`--env-config '([\w,=]+)'`)
+	re := regexp.MustCompile(`--env-config '([^']+)'`)
 	found := false
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)

@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -22,7 +23,7 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	annotations *mgo.Collection
 	charms      *mgo.Collection
 	machines    *mgo.Collection

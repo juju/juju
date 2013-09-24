@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,18 +22,6 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-const (
-	// tmpdir is the name of the subdirectory
-	// inside the remote storage directory where
-	// temporary files are created.
-	tmpdir = "tmp"
-
-	// contentdir is the name of the subdirectory
-	// inside the remote storage directory where
-	// files are stored.
-	contentdir = "content"
-)
-
 // SSHStorage implements storage.Storage.
 //
 // The storage is created under sudo, and ownership given over to the
@@ -42,6 +31,7 @@ const (
 type SSHStorage struct {
 	host       string
 	remotepath string
+	tmpdir     string
 
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
@@ -67,11 +57,28 @@ const (
 
 // NewSSHStorage creates a new SSHStorage, connected to the
 // specified host, managing state under the specified remote path.
-func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
-	contentdir := path.Join(remotepath, contentdir)
-	tmpdir := path.Join(remotepath, tmpdir)
-	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s %s", contentdir, tmpdir)
-	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c '%s'", script))
+//
+// A temporary directory must be specified, and should be located on the
+// same filesystem as the storage directory to ensure atomic writes.
+// The temporary directory will be created when NewSSHStorage is invoked
+// if it doesn't already exist; it will never be removed. NewSSHStorage
+// will attempt to reassign ownership to the login user, and will return
+// an error if it cannot do so.
+func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
+	if storagedir == "" {
+		return nil, errors.New("storagedir must be specified and non-empty")
+	}
+	if tmpdir == "" {
+		return nil, errors.New("tmpdir must be specified and non-empty")
+	}
+
+	script := fmt.Sprintf(
+		"install -d -g $SUDO_GID -o $SUDO_UID %s %s",
+		utils.ShQuote(storagedir),
+		utils.ShQuote(tmpdir),
+	)
+
+	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
 		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(string(out)))
@@ -93,7 +100,8 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 	}
 	stor := &SSHStorage{
 		host:       host,
-		remotepath: remotepath,
+		remotepath: storagedir,
+		tmpdir:     tmpdir,
 		cmd:        cmd,
 		stdin:      stdin,
 		stdout:     stdout,
@@ -101,13 +109,8 @@ func NewSSHStorage(host string, remotepath string) (*SSHStorage, error) {
 	}
 	cmd.Start()
 
-	// Verify we have write permissions, and set the temporary directory.
-	_, err = stor.runf(
-		flockExclusive,
-		"touch %s && export TMPDIR=%s",
-		utils.ShQuote(remotepath),
-		utils.ShQuote(tmpdir),
-	)
+	// Verify we have write permissions.
+	_, err = stor.runf(flockExclusive, "touch %s", utils.ShQuote(storagedir))
 	if err != nil {
 		stdin.Close()
 		stdout.Close()
@@ -126,20 +129,34 @@ func (s *SSHStorage) Close() error {
 
 func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface{}) (string, error) {
 	command = fmt.Sprintf(command, args...)
-	return s.run(flockmode, command)
+	return s.run(flockmode, command, nil)
 }
 
-func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
+func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (string, error) {
 	const rcPrefix = "JUJU-RC: "
 	command = fmt.Sprintf(
-		"(SHELL=/bin/bash flock %s %s -c %s) 2>&1; echo %s$?",
+		"SHELL=/bin/bash flock %s %s -c %s",
 		flockmode,
 		s.remotepath,
 		utils.ShQuote(command),
-		rcPrefix,
 	)
-	if _, err := s.stdin.Write([]byte(command + "\r\n")); err != nil {
+	var encoded string
+	if input != nil {
+		encoded = base64.StdEncoding.EncodeToString(input)
+		command = fmt.Sprintf(
+			"head -q -c %d | base64 -d | (%s)",
+			len(encoded),
+			command,
+		)
+	}
+	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
+	if _, err := s.stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
+	}
+	if input != nil {
+		if _, err := s.stdin.Write([]byte(encoded)); err != nil {
+			return "", fmt.Errorf("failed to write input: %v", err)
+		}
 	}
 	var output []string
 	for s.scanner.Scan() {
@@ -164,9 +181,8 @@ func (s *SSHStorage) run(flockmode flockmode, command string) (string, error) {
 
 // path returns a remote absolute path for a storage object name.
 func (s *SSHStorage) path(name string) (string, error) {
-	contentdir := path.Join(s.remotepath, contentdir)
-	remotepath := path.Clean(path.Join(contentdir, name))
-	if !strings.HasPrefix(remotepath, contentdir) {
+	remotepath := path.Clean(path.Join(s.remotepath, name))
+	if !strings.HasPrefix(remotepath, s.remotepath) {
 		return "", fmt.Errorf("%q escapes storage directory", name)
 	}
 	return remotepath, nil
@@ -209,10 +225,9 @@ func (s *SSHStorage) List(prefix string) ([]string, error) {
 		return nil, nil
 	}
 	var names []string
-	contentdir := path.Join(s.remotepath, contentdir)
 	for _, name := range strings.Split(out, "\n") {
 		if strings.HasPrefix(name[len(dir):], prefix) {
-			names = append(names, name[len(contentdir)+1:])
+			names = append(names, name[len(s.remotepath)+1:])
 		}
 	}
 	sort.Strings(names)
@@ -248,13 +263,17 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	if _, err := r.Read(buf); err != nil {
 		return err
 	}
-	encoded := base64.StdEncoding.EncodeToString(buf)
 	path = utils.ShQuote(path)
+	tmpdir := utils.ShQuote(s.tmpdir)
+
 	// Write to a temporary file ($TMPFILE), then mv atomically.
-	command := fmt.Sprintf("mkdir -p `dirname %s` && base64 -d > $TMPFILE", path)
-	command = fmt.Sprintf("TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)", command, path)
-	command = fmt.Sprintf("(%s) << EOF\n%s\nEOF", command, encoded)
-	_, err = s.runf(flockExclusive, command+"\n")
+	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
+	command = fmt.Sprintf(
+		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
+		tmpdir, command, path,
+	)
+
+	_, err = s.run(flockExclusive, command+"\n", buf)
 	return err
 }
 
@@ -271,7 +290,6 @@ func (s *SSHStorage) Remove(name string) error {
 
 // RemoveAll implements storage.StorageWriter.RemoveAll
 func (s *SSHStorage) RemoveAll() error {
-	contentdir := path.Join(s.remotepath, contentdir)
-	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(contentdir))
+	_, err := s.runf(flockExclusive, "rm -fr %s/*", utils.ShQuote(s.remotepath))
 	return err
 }

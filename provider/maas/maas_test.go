@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestMAAS(t *stdtesting.T) {
@@ -18,7 +18,7 @@ func TestMAAS(t *stdtesting.T) {
 }
 
 type providerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	environ         *maasEnviron
 	testMAASObject  *gomaasapi.TestMAASObject

@@ -17,9 +17,11 @@ import (
 
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
+	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -29,19 +31,16 @@ func Test(t *stdtesting.T) {
 }
 
 type LxcSuite struct {
-	testing.LoggingSuite
 	lxc.TestSuite
-	oldPath string
 }
 
 var _ = gc.Suite(&LxcSuite{})
 
 func (s *LxcSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 	tmpDir := c.MkDir()
-	s.oldPath = os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir)
+	restore := testbase.PatchEnvironment("PATH", tmpDir)
+	s.AddSuiteCleanup(func(*gc.C) { restore() })
 	err := ioutil.WriteFile(
 		filepath.Join(tmpDir, "apt-config"),
 		[]byte(aptConfigScript),
@@ -49,21 +48,9 @@ func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *LxcSuite) TearDownSuite(c *gc.C) {
-	os.Setenv("PATH", s.oldPath)
-	s.TestSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *LxcSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
-}
-
-func (s *LxcSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 const (
@@ -208,15 +195,15 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 
 	result, err := foo.ListContainers()
 	c.Assert(err, gc.IsNil)
-	testing.MatchInstances(c, result, foo1, foo2, foo3)
+	instancetest.MatchInstances(c, result, foo1, foo2, foo3)
 
 	result, err = bar.ListContainers()
 	c.Assert(err, gc.IsNil)
-	testing.MatchInstances(c, result, bar1, bar2)
+	instancetest.MatchInstances(c, result, bar1, bar2)
 }
 
 type NetworkSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&NetworkSuite{})

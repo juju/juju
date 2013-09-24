@@ -17,14 +17,14 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type suite struct {
-	testing.LoggingSuite
+type rpcSuite struct {
+	testbase.LoggingSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = gc.Suite(&rpcSuite{})
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -87,6 +87,12 @@ func (r *Root) ErrorMethods(id string) (*ErrorMethods, error) {
 	}
 	return r.errorInst, nil
 }
+
+func (r *Root) Discard1() {}
+
+func (r *Root) Discard2(id string) error { return nil }
+
+func (r *Root) Discard3(id string) int { return 0 }
 
 func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 	return &CallbackMethods{r}, nil
@@ -174,6 +180,14 @@ func (a *SimpleMethods) SliceArg(struct{ X []string }) stringVal {
 	return stringVal{"SliceArg ret"}
 }
 
+func (a *SimpleMethods) Discard1(int) {}
+
+func (a *SimpleMethods) Discard2(struct{}, struct{}) {}
+
+func (a *SimpleMethods) Discard3() int { return 0 }
+
+func (a *SimpleMethods) Discard4() (_, _ struct{}) { return }
+
 type DelayedMethods struct {
 	ready     chan struct{}
 	done      chan string
@@ -220,12 +234,12 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 	return int64val{x.I * r.I}, nil
 }
 
-func (a *ChangeAPIMethods) ChangeAPI() error {
-	return a.r.conn.Serve(&changedAPIRoot{}, nil)
+func (a *ChangeAPIMethods) ChangeAPI() {
+	a.r.conn.Serve(&changedAPIRoot{}, nil)
 }
 
-func (a *ChangeAPIMethods) RemoveAPI() error {
-	return a.r.conn.Serve(nil, nil)
+func (a *ChangeAPIMethods) RemoveAPI() {
+	a.r.conn.Serve(nil, nil)
 }
 
 type changedAPIRoot struct{}
@@ -240,7 +254,7 @@ func (newlyAvailableMethods) NewMethod() stringVal {
 	return stringVal{"new method result"}
 }
 
-func (*suite) TestRPC(c *gc.C) {
+func (*rpcSuite) TestRPC(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -260,14 +274,18 @@ func (*suite) TestRPC(c *gc.C) {
 	}
 }
 
-func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
-	root.calls = nil
-	root.returnErr = testErr
+func callName(narg, nret int, retErr bool) string {
 	e := ""
 	if retErr {
 		e = "e"
 	}
-	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+	return fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+}
+
+func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
+	root.calls = nil
+	root.returnErr = testErr
+	method := callName(narg, nret, retErr)
 	c.Logf("test call %s", method)
 	var r stringVal
 	err := conn.Call(entry, "a99", method, stringVal{"arg"}, &r)
@@ -293,7 +311,7 @@ func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int
 	}
 }
 
-func (*suite) TestInterfaceMethods(c *gc.C) {
+func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -304,7 +322,7 @@ func (*suite) TestInterfaceMethods(c *gc.C) {
 	root.testCall(c, client, "InterfaceMethods", 1, 1, true, true)
 }
 
-func (*suite) TestConcurrentCalls(c *gc.C) {
+func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
 	start1 := make(chan string)
 	start2 := make(chan string)
 	ready1 := make(chan struct{})
@@ -355,7 +373,7 @@ func (e *codedError) ErrorCode() string {
 	return e.code
 }
 
-func (*suite) TestErrorCode(c *gc.C) {
+func (*rpcSuite) TestErrorCode(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
@@ -366,7 +384,7 @@ func (*suite) TestErrorCode(c *gc.C) {
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
 }
 
-func (*suite) TestTransformErrors(c *gc.C) {
+func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
@@ -400,7 +418,7 @@ func (*suite) TestTransformErrors(c *gc.C) {
 
 }
 
-func (*suite) TestServerWaitsForOutstandingCalls(c *gc.C) {
+func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 	ready := make(chan struct{})
 	start := make(chan string)
 	root := &Root{
@@ -440,7 +458,7 @@ func chanRead(c *gc.C, ch <-chan struct{}, what string) {
 	}
 }
 
-func (*suite) TestCompatibility(c *gc.C) {
+func (*rpcSuite) TestCompatibility(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -484,7 +502,7 @@ func (*suite) TestCompatibility(c *gc.C) {
 	c.Assert(r, gc.Equals, extra{})
 }
 
-func (*suite) TestBadCall(c *gc.C) {
+func (*rpcSuite) TestBadCall(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -503,7 +521,7 @@ func (*suite) TestBadCall(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "request error: unknown SimpleMethods id")
 }
 
-func (*suite) TestContinueAfterReadBodyError(c *gc.C) {
+func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -534,7 +552,7 @@ func (*suite) TestContinueAfterReadBodyError(c *gc.C) {
 	c.Assert(ret.Val, gc.Equals, "SliceArg ret")
 }
 
-func (*suite) TestErrorAfterClientClose(c *gc.C) {
+func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
 	client, srvDone := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, gc.IsNil)
@@ -544,7 +562,7 @@ func (*suite) TestErrorAfterClientClose(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (*suite) TestClientCloseIdempotent(c *gc.C) {
+func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
 	client, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, gc.IsNil)
@@ -563,7 +581,7 @@ func (r *KillerRoot) Kill() {
 	r.killed = true
 }
 
-func (*suite) TestRootIsKilled(c *gc.C) {
+func (*rpcSuite) TestRootIsKilled(c *gc.C) {
 	root := &KillerRoot{}
 	client, srvDone := newRPCClientServer(c, root, nil, false)
 	err := client.Close()
@@ -573,7 +591,7 @@ func (*suite) TestRootIsKilled(c *gc.C) {
 	c.Assert(root.killed, gc.Equals, true)
 }
 
-func (*suite) TestBidirectional(c *gc.C) {
+func (*rpcSuite) TestBidirectional(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -585,7 +603,7 @@ func (*suite) TestBidirectional(c *gc.C) {
 	c.Assert(r.I, gc.Equals, int64(479001600))
 }
 
-func (*suite) TestServerRequestWhenNotServing(c *gc.C) {
+func (*rpcSuite) TestServerRequestWhenNotServing(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -594,7 +612,7 @@ func (*suite) TestServerRequestWhenNotServing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "request error: request error: no service")
 }
 
-func (*suite) TestChangeAPI(c *gc.C) {
+func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -610,7 +628,7 @@ func (*suite) TestChangeAPI(c *gc.C) {
 	c.Assert(s, gc.Equals, stringVal{"new method result"})
 }
 
-func (*suite) TestChangeAPIToNil(c *gc.C) {
+func (*rpcSuite) TestChangeAPIToNil(c *gc.C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
@@ -622,7 +640,7 @@ func (*suite) TestChangeAPIToNil(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "request error: no service")
 }
 
-func (*suite) TestChangeAPIWhileServingRequest(c *gc.C) {
+func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	ready := make(chan struct{})
 	done := make(chan error)
 	srvRoot := &Root{
@@ -678,7 +696,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	go func() {
 		conn, err := l.Accept()
 		if err != nil {
-			srvDone <- err
+			srvDone <- nil
 			return
 		}
 		defer l.Close()
@@ -687,11 +705,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 			role = roleBoth
 		}
 		rpcConn := rpc.NewConn(NewJSONCodec(conn, role))
-		err = rpcConn.Serve(root, tfErr)
-		if err != nil {
-			srvDone <- err
-			return
-		}
+		rpcConn.Serve(root, tfErr)
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
 		}

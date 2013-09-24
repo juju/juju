@@ -9,10 +9,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type AddressSuite struct{}
+type AddressSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&AddressSuite{})
 
@@ -151,14 +153,14 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 	}
 }
 
-func (*AddressSuite) TestHostAddresses(c *gc.C) {
+func (s *AddressSuite) TestHostAddresses(c *gc.C) {
 	// Mock the call to net.LookupIP made from HostAddresses.
 	var lookupIPs []net.IP
 	var lookupErr error
 	lookupIP := func(addr string) ([]net.IP, error) {
 		return append([]net.IP{}, lookupIPs...), lookupErr
 	}
-	defer jc.Set(&netLookupIP, lookupIP).Restore()
+	s.PatchValue(&netLookupIP, lookupIP)
 
 	// err is only non-nil if net.LookupIP fails.
 	addrs, err := HostAddresses("")

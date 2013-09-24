@@ -10,8 +10,8 @@ import (
 )
 
 func (*importSuite) TestHome(c *gc.C) {
-	testing.PatchEnvironment("HOMEPATH", "")
-	testing.PatchEnvironment("HOMEDRIVE", "")
+	testbase.PatchEnvironment("HOMEPATH", "")
+	testbase.PatchEnvironment("HOMEDRIVE", "")
 
 	drive := "P:"
 	path := `\home\foo\bar`

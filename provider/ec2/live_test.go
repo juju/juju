@@ -26,6 +26,7 @@ import (
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -72,7 +73,7 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	jujutest.LiveTests
 	writablePublicStorage storage.Storage
 }

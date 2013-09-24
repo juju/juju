@@ -4,12 +4,17 @@
 package testing
 
 import (
+	"bytes"
+	"fmt"
+	"path"
 	"strings"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
@@ -31,6 +36,55 @@ func (s *ToolsFixture) SetUpTest(c *gc.C) {
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
+}
+
+// GenerateFakeToolsMetadata puts fake tools metadata into the supplied storage,
+// containing a record for tools with a binary version matching version.Current;
+// if version.Current's series is different to config.DefaultSeries, matching fake
+// metadata will be included for that series.
+// This is useful for tests that are kinda casual about specifying their environment.
+func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
+	toolsVersion := version.Current
+	versions := []version.Binary{toolsVersion}
+	if toolsVersion.Series != config.DefaultSeries {
+		toolsVersion.Series = config.DefaultSeries
+		versions = append(versions, toolsVersion)
+	}
+
+	var metadata = make([]*envtools.ToolsMetadata, len(versions))
+	for i, vers := range versions {
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		metadata[i] = &envtools.ToolsMetadata{
+			Release: vers.Series,
+			Version: vers.Number.String(),
+			Arch:    vers.Arch,
+			Path:    basePath,
+		}
+	}
+	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
+	c.Assert(err, gc.IsNil)
+	objects := []struct {
+		path string
+		data []byte
+	}{
+		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{envtools.ProductMetadataPath, products},
+	}
+	for _, object := range objects {
+		path := path.Join("tools", object.path)
+		err = stor.Put(path, bytes.NewReader(object.data), int64(len(object.data)))
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+// RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
+func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
+	files := []string{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, envtools.ProductMetadataPath}
+	for _, file := range files {
+		toolspath := path.Join("tools", file)
+		err := stor.Remove(toolspath)
+		c.Check(err, gc.IsNil)
+	}
 }
 
 func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretools.Tools, error) {

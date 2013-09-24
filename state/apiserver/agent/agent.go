@@ -68,6 +68,7 @@ func (api *API) getEntity(tag string) (result params.AgentGetEntitiesResult, err
 	result.Life = params.Life(entity.Life().String())
 	if machine, ok := entity.(*state.Machine); ok {
 		result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
+		result.ContainerType = machine.ContainerType()
 	}
 	return
 }

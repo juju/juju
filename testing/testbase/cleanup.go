@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package testbase
 
 import (
 	gc "launchpad.net/gocheck"
@@ -40,10 +40,31 @@ func (s *CleanupSuite) callStack(c *gc.C, stack cleanupStack) {
 	}
 }
 
+// AddCleanup pushes the cleanup function onto the stack of functions to be
+// called during TearDownTest.
 func (s *CleanupSuite) AddCleanup(cleanup CleanupFunc) {
 	s.testStack = append(s.testStack, cleanup)
 }
 
+// AddSuiteCleanup pushes the cleanup function onto the stack of functions to
+// be called during TearDownSuite.
 func (s *CleanupSuite) AddSuiteCleanup(cleanup CleanupFunc) {
 	s.suiteStack = append(s.suiteStack, cleanup)
+}
+
+// PatchEnvironment sets the environment variable 'name' the the value passed
+// in. The old value is saved and returned to the original value at test tear
+// down time using a cleanup function.
+func (s *CleanupSuite) PatchEnvironment(name, value string) {
+	restore := PatchEnvironment(name, value)
+	s.AddCleanup(func(*gc.C) { restore() })
+}
+
+// PatchValue sets the 'dest' variable the the value passed in. The old value
+// is saved and returned to the original value at test tear down time using a
+// cleanup function. The value must be assignable to the element type of the
+// destination.
+func (s *CleanupSuite) PatchValue(dest, value interface{}) {
+	restore := PatchValue(dest, value)
+	s.AddCleanup(func(*gc.C) { restore() })
 }

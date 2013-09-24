@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -17,6 +18,10 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 var _ = gc.Suite(&datasourceSuite{})
 
@@ -70,6 +75,27 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	c.Assert(url, gc.Equals, s.baseURL+"base/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
+}
+
+func (s *datasourceSuite) TestFetchWithRetry(c *gc.C) {
+	stor := &fakeStorage{shouldRetry: true}
+	ds := storage.NewStorageSimpleStreamsDataSource(stor, "base")
+	ds.SetAllowRetry(true)
+	_, _, err := ds.Fetch("foo/bar/data.txt")
+	c.Assert(err, gc.ErrorMatches, "an error")
+	c.Assert(stor.getName, gc.Equals, "base/foo/bar/data.txt")
+	c.Assert(stor.invokeCount, gc.Equals, 10)
+}
+
+func (s *datasourceSuite) TestFetchWithNoRetry(c *gc.C) {
+	// NB shouldRetry below is true indicating the fake storage is capable of
+	// retrying, not that it will retry.
+	stor := &fakeStorage{shouldRetry: true}
+	ds := storage.NewStorageSimpleStreamsDataSource(stor, "base")
+	_, _, err := ds.Fetch("foo/bar/data.txt")
+	c.Assert(err, gc.ErrorMatches, "an error")
+	c.Assert(stor.getName, gc.Equals, "base/foo/bar/data.txt")
+	c.Assert(stor.invokeCount, gc.Equals, 1)
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
