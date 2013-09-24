@@ -81,6 +81,7 @@ type RootMethod struct {
 
 // TypeOf returns information on all root-level RPC methods
 // implemented by an object of the given Go type.
+// If goType is nil, it returns nil.
 func TypeOf(goType reflect.Type) *Type {
 	if goType == nil {
 		return nil
@@ -214,6 +215,7 @@ type ObjMethod struct {
 // ObjTypeOf returns information on all RPC methods
 // implemented by an object of the given Go type,
 // as returned from a root-level method.
+// If objType is nil, it returns nil.
 func ObjTypeOf(objType reflect.Type) *ObjType {
 	if objType == nil {
 		return nil
