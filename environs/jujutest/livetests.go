@@ -117,9 +117,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	if t.bootstrapped {
 		return
 	}
-	if !t.prepared {
-		t.PrepareOnce(c)
-	}
+	t.PrepareOnce(c)
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
