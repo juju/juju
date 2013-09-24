@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -62,10 +63,10 @@ type azureEnviron struct {
 	ecfg *azureEnvironConfig
 
 	// storage is this environ's own private storage.
-	storage environs.Storage
+	storage storage.Storage
 
 	// publicStorage is the public storage that this environ uses.
-	publicStorage environs.StorageReader
+	publicStorage storage.StorageReader
 
 	// storageAccountKey holds an access key to this environment's
 	// private storage.  This is automatically queried from Azure on
@@ -666,12 +667,12 @@ func convertToInstances(services []gwacl.HostedServiceDescriptor, env *azureEnvi
 }
 
 // Storage is specified in the Environ interface.
-func (env *azureEnviron) Storage() environs.Storage {
+func (env *azureEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
 // PublicStorage is specified in the Environ interface.
-func (env *azureEnviron) PublicStorage() environs.StorageReader {
+func (env *azureEnviron) PublicStorage() storage.StorageReader {
 	return env.getSnapshot().publicStorage
 }
 
@@ -908,7 +909,7 @@ var baseURLs = []string{
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
-	sources[0] = environs.NewStorageSimpleStreamsDataSource(env.Storage(), "")
+	sources[0] = storage.NewStorageSimpleStreamsDataSource(env.Storage(), "")
 	for i, url := range baseURLs {
 		sources[i+1] = simplestreams.NewURLDataSource(url, simplestreams.VerifySSLHostnames)
 	}
@@ -918,7 +919,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(env.Storage(), environs.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

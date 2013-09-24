@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
@@ -33,7 +34,6 @@ import (
 type MachineSuite struct {
 	agentSuite
 	lxc.TestSuite
-	restoreCacheDir jc.Restorer
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -41,11 +41,11 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	s.restoreCacheDir = jc.Set(&charm.CacheDir, c.MkDir())
+	restore := testbase.PatchValue(&charm.CacheDir, c.MkDir())
+	s.AddSuiteCleanup(func(*gc.C) { restore() })
 }
 
 func (s *MachineSuite) TearDownSuite(c *gc.C) {
-	s.restoreCacheDir()
 	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
 }
@@ -300,7 +300,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		if _, err := m1.InstanceId(); err == nil {
 			break
 		} else {
-			c.Check(err, gc.FitsTypeOf, (*state.NotProvisionedError)(nil))
+			c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
 		}
 	}
 	err = units[0].OpenPort("tcp", 999)

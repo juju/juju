@@ -34,13 +34,6 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), "unit-password")
 }
 
-func (s *unitSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("wordpress/1")
 	c.Assert(err, gc.ErrorMatches, "permission denied")

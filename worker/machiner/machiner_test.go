@@ -56,12 +56,6 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag())
 }
 
-func (s *MachinerSuite) TearDownTest(c *gc.C) {
-	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus params.Status) {
 	timeout := time.After(worstCase)
 	for {

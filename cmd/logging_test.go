@@ -13,20 +13,20 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	testing.CleanupSuite
+	testbase.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
-	restore := testing.PatchEnvironment(osenv.JujuLoggingConfig, "")
-	s.AddCleanup(func() {
-		restore()
+	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.AddCleanup(func(_ *gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
 	})
@@ -60,7 +60,7 @@ func (s *LogSuite) TestFlags(c *gc.C) {
 
 func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
-	testing.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	testbase.PatchEnvironment(osenv.JujuLoggingConfig, config)
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
 	c.Assert(log.Verbose, gc.Equals, false)
@@ -146,5 +146,18 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
 	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
+	// Error and warning go to stderr even with ShowLog=false
+	l := &cmd.Log{Config: "<root>=INFO", ShowLog: false}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+	logger.Warningf("a warning")
+	logger.Errorf("an error")
+	logger.Infof("an info")
+	c.Assert(testing.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

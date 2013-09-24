@@ -8,9 +8,11 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type URLsSuite struct {
@@ -58,5 +60,28 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-url/", privateStorageURL, "https://juju.canonical.com/tools/"})
+		privateStorageURL, "config-tools-url/", "https://juju.canonical.com/tools/"})
+	haveExpectedSources := false
+	for _, source := range sources {
+		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
+			haveExpectedSources = true
+			c.Assert(allowRetry, jc.IsFalse)
+		}
+	}
+	c.Assert(haveExpectedSources, jc.IsTrue)
+}
+
+func (s *URLsSuite) TestToolsSourcesWithRetry(c *gc.C) {
+	env := s.env(c, "")
+	sources, err := tools.GetMetadataSourcesWithRetries(env, true)
+	c.Assert(err, gc.IsNil)
+	haveExpectedSources := false
+	for _, source := range sources {
+		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
+			haveExpectedSources = true
+			c.Assert(allowRetry, jc.IsTrue)
+		}
+	}
+	c.Assert(haveExpectedSources, jc.IsTrue)
+	c.Assert(haveExpectedSources, jc.IsTrue)
 }

@@ -21,14 +21,18 @@ var loadedInvalid = func() {}
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
 // it receives a value on dying.
-func WaitForEnviron(w *state.EnvironConfigWatcher, dying <-chan struct{}) (environs.Environ, error) {
+func WaitForEnviron(w state.NotifyWatcher, st *state.State, dying <-chan struct{}) (environs.Environ, error) {
 	for {
 		select {
 		case <-dying:
 			return nil, tomb.ErrDying
-		case config, ok := <-w.Changes():
+		case _, ok := <-w.Changes():
 			if !ok {
 				return nil, watcher.MustErr(w)
+			}
+			config, err := st.EnvironConfig()
+			if err != nil {
+				return nil, err
 			}
 			environ, err := environs.New(config)
 			if err == nil {

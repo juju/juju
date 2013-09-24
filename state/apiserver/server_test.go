@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -77,6 +78,11 @@ func (s *serverSuite) TestStop(c *gc.C) {
 }
 
 func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
+	assertNotProvisioned := func(err error) {
+		c.Assert(err, gc.NotNil)
+		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+		c.Assert(err, gc.ErrorMatches, `machine \d+ is not provisioned`)
+	}
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
@@ -91,13 +97,13 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	info.Password = "password"
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, params.CodeNotProvisioned)
+	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
 
 	// Try with empty nonce as well.
 	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, params.CodeNotProvisioned)
+	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
 
 	// Finally, with the correct one succeeds.
@@ -117,7 +123,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	info.Tag = stm1.Tag()
 	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, params.CodeNotProvisioned)
+	assertNotProvisioned(err)
 	c.Assert(st, gc.IsNil)
 }
 
@@ -135,7 +141,6 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 
 	// Login as the machine agent of the created machine.
 	st := s.OpenAPIAsMachine(c, machine.Tag(), "password", "fake_nonce")
-	defer st.Close()
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
@@ -165,7 +170,6 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 
 	// Login as the unit agent of the created unit.
 	st := s.OpenAPIAs(c, unit.Tag(), "password")
-	defer st.Close()
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)

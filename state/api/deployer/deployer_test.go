@@ -43,7 +43,6 @@ var _ = gc.Suite(&deployerSuite{})
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
-	c.Assert(s.stateAPI, gc.NotNil)
 
 	var err error
 	// Create the needed services and relate them.
@@ -71,14 +70,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the deployer facade.
 	s.st = s.stateAPI.Deployer()
 	c.Assert(s.st, gc.NotNil)
-}
-
-func (s *deployerSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that

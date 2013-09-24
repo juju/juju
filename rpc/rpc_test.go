@@ -17,11 +17,15 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/rpc/rpcreflect"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
+// We also test rpc/rpcreflect in this package, so that the
+// tests can all share the same testing Root type.
+
 type suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&suite{})
@@ -87,6 +91,12 @@ func (r *Root) ErrorMethods(id string) (*ErrorMethods, error) {
 	}
 	return r.errorInst, nil
 }
+
+func (r *Root) Discard1() {}
+
+func (r *Root) Discard2(id string) error { return nil }
+
+func (r *Root) Discard3(id string) int { return 0 }
 
 func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 	return &CallbackMethods{r}, nil
@@ -174,6 +184,14 @@ func (a *SimpleMethods) SliceArg(struct{ X []string }) stringVal {
 	return stringVal{"SliceArg ret"}
 }
 
+func (a *SimpleMethods) Discard1(int) {}
+
+func (a *SimpleMethods) Discard2(struct{}, struct{}) {}
+
+func (a *SimpleMethods) Discard3() int { return 0 }
+
+func (a *SimpleMethods) Discard4() (_, _ struct{}) { return }
+
 type DelayedMethods struct {
 	ready     chan struct{}
 	done      chan string
@@ -220,12 +238,12 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 	return int64val{x.I * r.I}, nil
 }
 
-func (a *ChangeAPIMethods) ChangeAPI() error {
-	return a.r.conn.Serve(&changedAPIRoot{}, nil)
+func (a *ChangeAPIMethods) ChangeAPI() {
+	a.r.conn.Serve(&changedAPIRoot{}, nil)
 }
 
-func (a *ChangeAPIMethods) RemoveAPI() error {
-	return a.r.conn.Serve(nil, nil)
+func (a *ChangeAPIMethods) RemoveAPI() {
+	a.r.conn.Serve(nil, nil)
 }
 
 type changedAPIRoot struct{}
@@ -260,14 +278,18 @@ func (*suite) TestRPC(c *gc.C) {
 	}
 }
 
-func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
-	root.calls = nil
-	root.returnErr = testErr
+func callName(narg, nret int, retErr bool) string {
 	e := ""
 	if retErr {
 		e = "e"
 	}
-	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+	return fmt.Sprintf("Call%dr%d%s", narg, nret, e)
+}
+
+func (root *Root) testCall(c *gc.C, conn *rpc.Conn, entry string, narg, nret int, retErr, testErr bool) {
+	root.calls = nil
+	root.returnErr = testErr
+	method := callName(narg, nret, retErr)
 	c.Logf("test call %s", method)
 	var r stringVal
 	err := conn.Call(entry, "a99", method, stringVal{"arg"}, &r)
@@ -302,6 +324,78 @@ func (*suite) TestInterfaceMethods(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	root.testCall(c, client, "InterfaceMethods", 1, 1, true, false)
 	root.testCall(c, client, "InterfaceMethods", 1, 1, true, true)
+}
+
+func (*suite) TestRootInfo(c *gc.C) {
+	rtype := rpcreflect.TypeOf(reflect.TypeOf(&Root{}))
+	c.Assert(rtype.DiscardedMethods(), gc.DeepEquals, []string{
+		"Discard1",
+		"Discard2",
+		"Discard3",
+	})
+	expect := map[string]reflect.Type{
+		"CallbackMethods":  reflect.TypeOf(&CallbackMethods{}),
+		"ChangeAPIMethods": reflect.TypeOf(&ChangeAPIMethods{}),
+		"DelayedMethods":   reflect.TypeOf(&DelayedMethods{}),
+		"ErrorMethods":     reflect.TypeOf(&ErrorMethods{}),
+		"InterfaceMethods": reflect.TypeOf((*InterfaceMethods)(nil)).Elem(),
+		"SimpleMethods":    reflect.TypeOf(&SimpleMethods{}),
+	}
+	c.Assert(rtype.MethodNames(), gc.HasLen, len(expect))
+	for name, expectGoType := range expect {
+		m, err := rtype.Method(name)
+		c.Assert(err, gc.IsNil)
+		c.Assert(m, gc.NotNil)
+		c.Assert(m.Call, gc.NotNil)
+		c.Assert(m.ObjType, gc.Equals, rpcreflect.ObjTypeOf(expectGoType))
+		c.Assert(m.ObjType.GoType(), gc.Equals, expectGoType)
+	}
+	m, err := rtype.Method("not found")
+	c.Assert(err, gc.Equals, rpcreflect.ErrMethodNotFound)
+	c.Assert(m, gc.DeepEquals, rpcreflect.RootMethod{})
+}
+
+func (*suite) TestObjectInfo(c *gc.C) {
+	objType := rpcreflect.ObjTypeOf(reflect.TypeOf(&SimpleMethods{}))
+	c.Check(objType.DiscardedMethods(), gc.DeepEquals, []string{
+		"Discard1",
+		"Discard2",
+		"Discard3",
+		"Discard4",
+	})
+	expect := map[string]*rpcreflect.ObjMethod{
+		"SliceArg": {
+			Params: reflect.TypeOf(struct{ X []string }{}),
+			Result: reflect.TypeOf(stringVal{}),
+		},
+	}
+	for narg := 0; narg < 2; narg++ {
+		for nret := 0; nret < 2; nret++ {
+			for nerr := 0; nerr < 2; nerr++ {
+				retErr := nerr != 0
+				var m rpcreflect.ObjMethod
+				if narg > 0 {
+					m.Params = reflect.TypeOf(stringVal{})
+				}
+				if nret > 0 {
+					m.Result = reflect.TypeOf(stringVal{})
+				}
+				expect[callName(narg, nret, retErr)] = &m
+			}
+		}
+	}
+	c.Assert(objType.MethodNames(), gc.HasLen, len(expect))
+	for name, expectMethod := range expect {
+		m, err := objType.Method(name)
+		c.Check(err, gc.IsNil)
+		c.Assert(m, gc.NotNil)
+		c.Check(m.Call, gc.NotNil)
+		c.Check(m.Params, gc.Equals, expectMethod.Params)
+		c.Check(m.Result, gc.Equals, expectMethod.Result)
+	}
+	m, err := objType.Method("not found")
+	c.Check(err, gc.Equals, rpcreflect.ErrMethodNotFound)
+	c.Check(m, gc.DeepEquals, rpcreflect.ObjMethod{})
 }
 
 func (*suite) TestConcurrentCalls(c *gc.C) {
@@ -678,7 +772,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	go func() {
 		conn, err := l.Accept()
 		if err != nil {
-			srvDone <- err
+			srvDone <- nil
 			return
 		}
 		defer l.Close()
@@ -687,11 +781,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 			role = roleBoth
 		}
 		rpcConn := rpc.NewConn(NewJSONCodec(conn, role))
-		err = rpcConn.Serve(root, tfErr)
-		if err != nil {
-			srvDone <- err
-			return
-		}
+		rpcConn.Serve(root, tfErr)
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
 		}

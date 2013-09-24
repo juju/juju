@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -72,12 +73,14 @@ openstack:
   admin-secret: {{rand}}
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
+  # If set, tools-url specifies from where tools are fetched.
+  # tools-url:  https://you-tools-url
   # Usually set via the env variable OS_AUTH_URL, but can be specified here
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   # The following are used for userpass authentication (the default)
-  auth-mode: userpass
+  # auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
   # username: <your username>
   # Usually set via the env variable OS_PASSWORD, but can be specified here
@@ -86,6 +89,12 @@ openstack:
   # tenant-name: <your tenant name>
   # Usually set via the env variable OS_REGION_NAME, but can be specified here
   # region: <your region>
+  # USe the following if you require keypair autherntication
+  # auth-mode: keypair
+  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # access-key: <secret>
+  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # secret-key: <secret>
 
 ## https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
@@ -98,27 +107,7 @@ hpcloud:
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
-  auth-url: https://yourkeystoneurl:35357/v2.0/
-  # URL denoting a public container holding the juju tools.
-  public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # The following are used for userpass authentication (the default)
-  auth-mode: userpass
-  # Usually set via the env variable OS_USERNAME, but can be specified here
-  # username: <your username>
-  # Usually set via the env variable OS_PASSWORD, but can be specified here
-  # password: <secret>
-  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
-  # tenant-name: <your tenant name>
-  # Usually set via the env variable OS_REGION_NAME, but can be specified here
-  # region: <your region>
-  # The following are used for keypair authentication
-  # auth-mode: keypair
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-  # secret-key: <secret>
+  # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
 
 `[1:]
 }
@@ -221,15 +210,13 @@ func retryGet(uri string) (data []byte, err error) {
 type environ struct {
 	name string
 
-	ecfgMutex             sync.Mutex
-	publicStorageMutex    sync.Mutex
-	imageBaseMutex        sync.Mutex
-	toolsBaseMutex        sync.Mutex
-	ecfgUnlocked          *environConfig
-	client                client.AuthenticatingClient
-	novaUnlocked          *nova.Client
-	storageUnlocked       environs.Storage
-	publicStorageUnlocked environs.StorageReader // optional.
+	ecfgMutex       sync.Mutex
+	imageBaseMutex  sync.Mutex
+	toolsBaseMutex  sync.Mutex
+	ecfgUnlocked    *environConfig
+	client          client.AuthenticatingClient
+	novaUnlocked    *nova.Client
+	storageUnlocked storage.Storage
 	// An ordered list of sources in which to find the simplestreams index files used to
 	// look up image ids.
 	imageSources []simplestreams.DataSource
@@ -412,68 +399,16 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() environs.Storage {
+func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
-	storage := e.storageUnlocked
+	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
-	return storage
+	return stor
 }
 
-// publicBucketURL gets the public bucket URL, either from env or keystone catalog.
-func (e *environ) publicBucketURL() string {
-	ecfg := e.ecfg()
-	publicBucketURL := ecfg.publicBucketURL()
-	if publicBucketURL == "" {
-		// No public bucket in env, so authenticate and look in keystone catalog.
-		if !e.client.IsAuthenticated() {
-			e.client.Authenticate()
-		}
-		var err error
-		publicBucketURL, err = e.client.MakeServiceURL("juju-tools", nil)
-		if err != nil {
-			return ""
-		}
-	}
-	return publicBucketURL
-}
-
-func (e *environ) PublicStorage() environs.StorageReader {
-	e.publicStorageMutex.Lock()
-	defer e.publicStorageMutex.Unlock()
-	ecfg := e.ecfg()
-	// If public storage has already been determined, return that instance.
-	publicStorage := e.publicStorageUnlocked
-	if publicStorage == nil && ecfg.publicBucket() == "" {
-		// If there is no public bucket name, then there can be no public storage.
-		e.publicStorageUnlocked = environs.EmptyStorage
-		publicStorage = e.publicStorageUnlocked
-	}
-	if publicStorage != nil {
-		return publicStorage
-	}
-	// If there is a public bucket URL defined, set up a public storage client referencing that URL,
-	// otherwise create a new public bucket using the user's credentials on the authenticated client.
-	publicBucketURL := e.publicBucketURL()
-	if publicBucketURL == "" {
-		e.publicStorageUnlocked = &storage{
-			containerName: ecfg.publicBucket(),
-			// this is possibly just a hack - if the ACL is swift.Private,
-			// the machine won't be able to get the tools (401 error)
-			containerACL: swift.PublicRead,
-			swift:        swift.New(e.client)}
-	} else {
-		newPublicClient := client.NewPublicClient
-		if !ecfg.SSLHostnameVerification() {
-			newPublicClient = client.NewNonValidatingPublicClient
-		}
-		pc := newPublicClient(publicBucketURL, nil)
-		e.publicStorageUnlocked = &storage{
-			containerName: ecfg.publicBucket(),
-			containerACL:  swift.PublicRead,
-			swift:         swift.New(pc)}
-	}
-	publicStorage = e.publicStorageUnlocked
-	return publicStorage
+func (e *environ) PublicStorage() storage.StorageReader {
+	// No public storage required. Tools are fetched from tools-url.
+	return environs.EmptyStorage
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
@@ -542,13 +477,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	// public storage instance creation is deferred until needed since authenticated
 	// access to the identity service is required so that any juju-tools endpoint can be used.
-	e.storageUnlocked = &storage{
+	e.storageUnlocked = &openstackstorage{
 		containerName: ecfg.controlBucket(),
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
 		swift:        swift.New(e.client)}
-	e.publicStorageUnlocked = nil
 	return nil
 }
 
@@ -567,9 +501,7 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
-	// Add the simplestreams source off the public bucket.
-	e.imageSources = append(e.imageSources, environs.NewStorageSimpleStreamsDataSource(e.PublicStorage(), ""))
+	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
@@ -598,7 +530,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.toolsSources = append(e.toolsSources, environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath))
+	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
@@ -1008,15 +940,8 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-// setUpGroups creates the security groups for the new machine, and
-// returns them.
-//
-// Instances are tagged with a group so they can be distinguished from
-// other instances that might be running on the same OpenStack account.
-// In addition, a specific machine security group is created for each
-// machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
+	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
@@ -1028,6 +953,12 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 				IPProtocol: "tcp",
 				FromPort:   statePort,
 				ToPort:     statePort,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   apiPort,
+				ToPort:     apiPort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -1046,6 +977,21 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 				ToPort:     -1,
 			},
 		})
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+//
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same OpenStack account.
+// In addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+//
+// Note: ideally we'd have a better way to determine group membership so that 2
+// people that happen to share an openstack account and name their environment
+// "openstack" don't end up destroying each other's machines.
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
 	if err != nil {
 		return nil, err
 	}
@@ -1098,6 +1044,13 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	group.Rules = make([]nova.SecurityGroupRule, len(rules))
 	for i, rule := range rules {
 		rule.ParentGroupId = group.Id
+		if rule.Cidr == "" {
+			// http://pad.lv/1226996 Rules that don't have a CIDR
+			// are meant to apply only to this group. If you don't
+			// supply CIDR or GroupId then openstack assumes you
+			// mean CIDR=0.0.0.0/0
+			rule.GroupId = &group.Id
+		}
 		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err

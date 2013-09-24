@@ -22,6 +22,9 @@ type DataSource interface {
 	// URL returns the full URL of the path, as applicable to this datasource.
 	// This method is used primarily for logging purposes.
 	URL(path string) (string, error)
+	// SetAllowRetry sets the flag which determines if the datasource will retry fetching the metadata
+	// if it is not immediately available.
+	SetAllowRetry(allow bool)
 }
 
 type SSLHostnameVerification bool
@@ -88,4 +91,9 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 // URL is defined in simplestreams.DataSource.
 func (h *urlDataSource) URL(path string) (string, error) {
 	return urlJoin(h.baseURL, path), nil
+}
+
+// SetAllowRetry is defined in simplestreams.DataSource.
+func (h *urlDataSource) SetAllowRetry(allow bool) {
+	// This is a NOOP for url datasources.
 }

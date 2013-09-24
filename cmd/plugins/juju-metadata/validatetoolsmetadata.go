@@ -113,7 +113,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 		}
 	}
 	if c.exactVersion == "current" {
-		c.exactVersion = version.CurrentNumber().String()
+		c.exactVersion = version.Current.Number.String()
 	}
 	if c.partVersion != "" {
 		var err error

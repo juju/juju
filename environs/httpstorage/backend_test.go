@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package localstorage_test
+package httpstorage_test
 
 import (
 	"bytes"
@@ -16,8 +16,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/localstorage"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestLocal(t *stdtesting.T) {
@@ -25,7 +26,7 @@ func TestLocal(t *stdtesting.T) {
 }
 
 type backendSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&backendSuite{})
@@ -35,7 +36,9 @@ var _ = gc.Suite(&backendSuite{})
 // a base URL for the server and the directory path.
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
-	listener, err := localstorage.Serve("localhost:0", dataDir)
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	listener, err = httpstorage.Serve("localhost:0", embedded)
 	c.Assert(err, gc.IsNil)
 	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }

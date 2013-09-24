@@ -35,13 +35,6 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 }
 
-func (s *machineSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")

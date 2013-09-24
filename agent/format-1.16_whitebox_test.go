@@ -14,12 +14,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type format_1_16Suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	formatter formatter_1_16
 }
 
@@ -105,13 +105,13 @@ func (s *format_1_16Suite) TestReadWriteStateConfig(c *gc.C) {
 }
 
 func (s *format_1_16Suite) TestMigrate(c *gc.C) {
-	defer testing.PatchEnvironment(JujuLxcBridge, "lxc bridge")()
-	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
-	defer testing.PatchEnvironment(osenv.JujuContainerType, "container type")()
-	defer testing.PatchEnvironment(JujuStorageDir, "storage dir")()
-	defer testing.PatchEnvironment(JujuStorageAddr, "storage addr")()
-	defer testing.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")()
-	defer testing.PatchEnvironment(JujuSharedStorageAddr, "shared storage addr")()
+	s.PatchEnvironment(JujuLxcBridge, "lxc bridge")
+	s.PatchEnvironment(JujuProviderType, "provider type")
+	s.PatchEnvironment(osenv.JujuContainerType, "container type")
+	s.PatchEnvironment(JujuStorageDir, "storage dir")
+	s.PatchEnvironment(JujuStorageAddr, "storage addr")
+	s.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")
+	s.PatchEnvironment(JujuSharedStorageAddr, "shared storage addr")
 
 	config := s.newConfig(c)
 	s.formatter.migrate(config)
@@ -130,7 +130,7 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 }
 
 func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
-	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
+	s.PatchEnvironment(JujuProviderType, "provider type")
 
 	config := s.newConfig(c)
 	s.formatter.migrate(config)

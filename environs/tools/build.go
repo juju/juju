@@ -6,6 +6,7 @@ package tools
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,12 +19,12 @@ import (
 )
 
 // archive writes the executable files found in the given directory in
-// gzipped tar format to w.  An error is returned if an entry inside dir
-// is not a regular executable file.
-func archive(w io.Writer, dir string) (err error) {
+// gzipped tar format to w, returning the SHA256 hash of the resulting file.
+// An error is returned if an entry inside dir is not a regular executable file.
+func archive(w io.Writer, dir string) (string, error) {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	gzw := gzip.NewWriter(w)
@@ -32,6 +33,7 @@ func archive(w io.Writer, dir string) (err error) {
 	tarw := tar.NewWriter(gzw)
 	defer closeErrorCheck(&err, tarw)
 
+	sha256hash := sha256.New()
 	for _, ent := range entries {
 		h := tarHeader(ent)
 		logger.Debugf("adding entry: %#v", h)
@@ -43,13 +45,17 @@ func archive(w io.Writer, dir string) (err error) {
 		}
 		err := tarw.WriteHeader(h)
 		if err != nil {
-			return err
+			return "", err
 		}
-		if err := copyFile(tarw, filepath.Join(dir, ent.Name())); err != nil {
-			return err
+		fileName := filepath.Join(dir, ent.Name())
+		if err := copyFile(tarw, fileName); err != nil {
+			return "", err
+		}
+		if err := copyFile(sha256hash, fileName); err != nil {
+			return "", err
 		}
 	}
-	return nil
+	return fmt.Sprintf("%x", sha256hash.Sum(nil)), nil
 }
 
 // copyFile writes the contents of the given file to w.
@@ -195,43 +201,43 @@ func buildJujud(dir string) error {
 	return nil
 }
 
-// bundleTools bundles all the current juju tools in gzipped tar
+// BundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 // If forceVersion is not nil, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
-func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, error) {
+func BundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binary, sha256Hash string, err error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
-		return version.Binary{}, err
+		return version.Binary{}, "", err
 	}
 	defer os.RemoveAll(dir)
 
 	if err := copyExistingJujud(dir); err != nil {
 		logger.Debugf("copy existing failed: %v", err)
 		if err := buildJujud(dir); err != nil {
-			return version.Binary{}, err
+			return version.Binary{}, "", err
 		}
 	}
 
 	if forceVersion != nil {
 		logger.Debugf("forcing version to %s", forceVersion)
 		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-			return version.Binary{}, err
+			return version.Binary{}, "", err
 		}
 	}
 	cmd := exec.Command(filepath.Join(dir, "jujud"), "version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return version.Binary{}, fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
+		return version.Binary{}, "", fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
 	}
 	tvs := strings.TrimSpace(string(out))
-	tvers, err := version.ParseBinary(tvs)
+	tvers, err = version.ParseBinary(tvs)
 	if err != nil {
-		return version.Binary{}, fmt.Errorf("invalid version %q printed by jujud", tvs)
+		return version.Binary{}, "", fmt.Errorf("invalid version %q printed by jujud", tvs)
 	}
-	err = archive(w, dir)
+	sha256Hash, err = archive(w, dir)
 	if err != nil {
-		return version.Binary{}, err
+		return version.Binary{}, "", err
 	}
-	return tvers, err
+	return tvers, sha256Hash, err
 }
