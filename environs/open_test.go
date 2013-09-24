@@ -12,10 +12,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type OpenSuite struct {
@@ -123,6 +125,34 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Check we can access storage ok, which implies the environment has been prepared.
 	c.Assert(e.Storage(), gc.NotNil)
+}
+
+func (OpenSuite) TestDestroy(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
+		testing.Attrs{
+			"state-server": false,
+			"name":         "erewhemos",
+		},
+	))
+	c.Assert(err, gc.IsNil)
+	e, err := environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+
+	// Make some config storage, create some info for the environment
+	// and sanity-check it's there.
+	store := configstore.NewMem()
+	store.CreateInfo(e.Name())
+	_, err = store.ReadInfo(e.Name())
+	c.Assert(err, gc.IsNil)
+
+	err = environs.Destroy(e, store)
+	c.Assert(err, gc.IsNil)
+
+	// Check that the environment has actually been destroyed
+	// and that the config info has been destroyed too.
+	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment.* is not prepared")
+	_, err = store.ReadInfo(e.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (OpenSuite) TestNewFromAttrs(c *gc.C) {
