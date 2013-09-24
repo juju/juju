@@ -16,8 +16,8 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type OpenSuite struct {

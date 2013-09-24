@@ -11,10 +11,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
@@ -238,7 +238,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 
 		c.Assert(func() { env.Instances([]instance.Id{"invalid"}) }, gc.PanicMatches, `environment.*is not prepared`)
 	}
-		
+
 	// "--yes" passed: no confirmation request.
 	stdin.Reset()
 	stdout.Reset()

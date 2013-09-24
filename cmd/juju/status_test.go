@@ -1583,7 +1583,7 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	defer func() {
 		if p := recover(); p != nil {
 			go panic(p)
-			select{}
+			select {}
 		}
 	}()
 	for i, t := range statusTests {

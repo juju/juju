@@ -8,8 +8,8 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/version"

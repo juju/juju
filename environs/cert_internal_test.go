@@ -6,8 +6,8 @@ package environs
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
