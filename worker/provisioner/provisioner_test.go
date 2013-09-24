@@ -74,12 +74,6 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	s.cfg = cfg
-
-	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	s.APILogin(c, machine)
 }
 
 func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
@@ -142,7 +136,7 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) i
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value) (inst instance.Instance) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	for {
 		select {
 		case o := <-s.op:
@@ -198,7 +192,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 
 // checkNoOperations checks that the environ was not operated upon.
 func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
 		c.Fatalf("unexpected operation %#v", o)
@@ -209,7 +203,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 
 // checkStopInstances checks that an instance has been stopped.
 func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instance.Instance) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
 		instanceIds.Add(string(instance.Id()))
@@ -252,7 +246,7 @@ func (s *CommonProvisionerSuite) waitMachine(c *gc.C, m *state.Machine, check fu
 			}
 		case <-resync:
 			resync = time.After(coretesting.ShortWait)
-			s.State.StartSync()
+			s.BackingState.StartSync()
 		case <-timeout:
 			c.Fatalf("machine %v wait timed out", m)
 		}
@@ -272,7 +266,7 @@ func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *gc.C, m *state.M
 			}
 		case <-resync:
 			resync = time.After(coretesting.ShortWait)
-			s.State.StartSync()
+			s.BackingState.StartSync()
 		case <-timeout:
 			c.Fatalf("hardware characteristics for machine %v wait timed out", m)
 		}
@@ -308,6 +302,16 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 	})
 }
 
+func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
+	s.CommonProvisionerSuite.SetUpTest(c)
+
+	// Add an environment manager machine and login to the API.
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+	s.APILogin(c, machine)
+}
+
 func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) *provisioner.Provisioner {
 	machineTag := "machine-0"
 	agentConfig := s.AgentConfigForTag(c, machineTag)
@@ -325,7 +329,7 @@ func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	}
-	return s.State.AddMachineWithConstraints(&params)
+	return s.BackingState.AddMachineWithConstraints(&params)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -489,11 +493,12 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
-	// check that there is only one machine known
+	// check that there is only one machine provisioned.
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
-	c.Check(len(machines), gc.Equals, 1)
+	c.Check(len(machines), gc.Equals, 2)
 	c.Check(machines[0].Id(), gc.Equals, "0")
+	c.Check(machines[1].CheckProvisioned("fake_nonce"), jc.IsFalse)
 
 	// the PA should not create it a second time
 	s.checkNoOperations(c)
@@ -570,7 +575,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	s.checkStartInstance(c, m)
 
 	s.invalidateEnvironment(c)
-	s.State.StartSync()
+	s.BackingState.StartSync()
 
 	// create a second machine
 	m, err = s.addMachine()
@@ -594,7 +599,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(cfg)
 
-	s.State.StartSync()
+	s.BackingState.StartSync()
 
 	// wait for the PA to load the new configuration
 	select {

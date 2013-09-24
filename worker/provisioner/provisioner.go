@@ -70,6 +70,7 @@ func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig ag
 		machineTag:  agentConfig.Tag(),
 		agentConfig: agentConfig,
 	}
+	logger.SetLogLevel(loggo.TRACE)
 	go func() {
 		defer p.tomb.Done()
 		p.tomb.Kill(p.loop())
