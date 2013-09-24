@@ -610,5 +610,6 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	if !hasCAKey {
 		return nil, nil, fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
+	var noHostnames []string
+	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }

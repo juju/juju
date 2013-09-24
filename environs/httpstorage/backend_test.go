@@ -54,11 +54,10 @@ func startServerTLS(c *gc.C, caCertPEM, caKeyPEM []byte) (listener net.Listener,
 	dataDir = c.MkDir()
 	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	listener, err = httpstorage.ServeTLS("localhost:0", embedded, caCertPEM, caKeyPEM)
+	hostnames := []string{"127.0.0.1"}
+	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames)
 	c.Assert(err, gc.IsNil)
-	//return listener, fmt.Sprintf("https://%s/", listener.Addr()), dataDir
-	addr := listener.Addr().(*net.TCPAddr)
-	return listener, fmt.Sprintf("https://%s:%d/", "localhost", addr.Port), dataDir
+	return listener, fmt.Sprintf("https://%s/", listener.Addr()), dataDir
 }
 
 type testCase struct {

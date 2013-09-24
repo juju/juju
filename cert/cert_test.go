@@ -76,11 +76,11 @@ func (certSuite) TestNewServer(c *gc.C) {
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, gc.IsNil)
 
-	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry)
+	var noHostnames []string
+	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, noHostnames)
 	c.Assert(err, gc.IsNil)
 
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Assert(err, gc.IsNil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")
 	c.Assert(srvCert.NotAfter.Equal(expiry), gc.Equals, true)
@@ -88,6 +88,41 @@ func (certSuite) TestNewServer(c *gc.C) {
 	c.Assert(srvCert.IsCA, gc.Equals, false)
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
+}
+
+func (certSuite) TestNewServerHostnames(c *gc.C) {
+	type test struct {
+		hostnames           []string
+		expectedDNSNames    []string
+		expectedIPAddresses []net.IP
+	}
+	tests := []test{{
+		[]string{},
+		nil,
+		nil,
+	}, {
+		[]string{"example.com"},
+		[]string{"example.com"},
+		nil,
+	}, {
+		[]string{"example.com", "127.0.0.1"},
+		[]string{"example.com"},
+		[]net.IP{net.IPv4(127, 0, 0, 1).To4()},
+	}, {
+		[]string{"::1"},
+		nil,
+		[]net.IP{net.IPv6loopback},
+	}}
+	for i, t := range tests {
+		c.Logf("test %d: %v", i, t.hostnames)
+		expiry := roundTime(time.Now().AddDate(1, 0, 0))
+		srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, t.hostnames)
+		c.Assert(err, gc.IsNil)
+		srvCert, _, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
+		c.Assert(err, gc.IsNil)
+		c.Assert(srvCert.DNSNames, gc.DeepEquals, t.expectedDNSNames)
+		c.Assert(srvCert.IPAddresses, gc.DeepEquals, t.expectedIPAddresses)
+	}
 }
 
 func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
@@ -98,14 +133,16 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 
-	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry)
+	var noHostnames []string
+	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry, noHostnames)
 	xcert, err = cert.ParseCert(certPEM)
 	c.Assert(err, gc.IsNil)
 	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 }
 
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
-	srvCert, srvKey, err := cert.NewServer(nonCACert, nonCAKey, time.Now())
+	var noHostnames []string
+	srvCert, srvKey, err := cert.NewServer(nonCACert, nonCAKey, time.Now(), noHostnames)
 	c.Check(srvCert, gc.IsNil)
 	c.Check(srvKey, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "CA certificate is not a valid CA")
@@ -116,7 +153,8 @@ func (certSuite) TestVerify(c *gc.C) {
 	caCert, caKey, err := cert.NewCA("foo", now.Add(1*time.Minute))
 	c.Assert(err, gc.IsNil)
 
-	srvCert, _, err := cert.NewServer(caCert, caKey, now.Add(3*time.Minute))
+	var noHostnames []string
+	srvCert, _, err := cert.NewServer(caCert, caKey, now.Add(3*time.Minute), noHostnames)
 	c.Assert(err, gc.IsNil)
 
 	err = cert.Verify(srvCert, caCert, now)
@@ -139,7 +177,7 @@ func (certSuite) TestVerify(c *gc.C) {
 	err = cert.Verify(srvCert, caCert2, now)
 	c.Check(err, gc.ErrorMatches, "x509: certificate signed by unknown authority")
 
-	srvCert2, _, err := cert.NewServer(caCert2, caKey2, now.Add(1*time.Minute))
+	srvCert2, _, err := cert.NewServer(caCert2, caKey2, now.Add(1*time.Minute), noHostnames)
 	c.Assert(err, gc.IsNil)
 
 	// Check new server certificate against original CA.

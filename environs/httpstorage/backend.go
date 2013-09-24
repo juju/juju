@@ -12,7 +12,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/storage"
 )
 
@@ -128,8 +130,13 @@ func Serve(addr string, stor storage.Storage) (net.Listener, error) {
 //
 // This method returns the network listener, which can then be attached
 // to with ClientTLS.
-func ServeTLS(addr string, stor storage.Storage, caCertPEM, caKeyPEM []byte) (net.Listener, error) {
-	cert, err := tls.X509KeyPair(caCertPEM, caKeyPEM)
+func ServeTLS(addr string, stor storage.Storage, caCertPEM, caKeyPEM []byte, hostnames []string) (net.Listener, error) {
+	expiry := time.Now().UTC().AddDate(10, 0, 0)
+	certPEM, keyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hostnames)
+	if err != nil {
+		return nil, err
+	}
+	serverCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +146,7 @@ func ServeTLS(addr string, stor storage.Storage, caCertPEM, caKeyPEM []byte) (ne
 	}
 	config := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{cert},
+		Certificates: []tls.Certificate{serverCert},
 		ClientAuth:   tls.VerifyClientCertIfGiven,
 		ClientCAs:    caCerts,
 	}
