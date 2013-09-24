@@ -11,12 +11,13 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&ConfigSuite{})
 
 type ConfigSuite struct{
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
@@ -25,7 +26,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	defer env.Destroy(nil)
+	defer env.Destroy()
 	expected := map[string]interface{}{
 		"secret": "pork",
 	}
@@ -81,7 +82,7 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-		defer env.Destroy(nil)
+		defer env.Destroy()
 
 		firewallMode := env.Config().FirewallMode()
 		c.Assert(firewallMode, gc.Equals, test.firewallMode)

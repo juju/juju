@@ -165,8 +165,8 @@ type environState struct {
 	globalPorts   map[instance.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
-	storage       *dummystorage
-	publicStorage *dummystorage
+	storage       *storageServer
+	publicStorage *storageServer
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
