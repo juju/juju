@@ -98,6 +98,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	})
 	t.LiveTests.SetUpSuite(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
+	t.PrepareOnce(c)
 	t.metadataStorage = openstack.MetadataStorage(t.Env)
 	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
@@ -128,6 +129,7 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 }
 
 func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
+	t.PrepareOnce(c)
 	rules := []nova.RuleInfo{
 		{ // First group explicitly asks for all services
 			IPProtocol: "tcp",
@@ -166,6 +168,7 @@ func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
 }
 
 func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
+	t.PrepareOnce(c)
 	groupName := "juju-test-group-" + randomName()
 	// Make sure things are clean before we start, and will be clean when we finish
 	cleanup := func() {

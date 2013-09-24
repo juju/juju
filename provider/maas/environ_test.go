@@ -416,17 +416,16 @@ func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 func (suite *environSuite) TestDestroy(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.getInstance("test1")
-	testInstance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	stor := env.Storage()
 
-	err := env.Destroy([]instance.Instance{testInstance})
-
+	err := env.Destroy()
 	c.Check(err, gc.IsNil)
+
 	// Instances have been stopped.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
-	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
+	expectedOperations := map[string][]string{"test1": {"release"}}
 	c.Check(operations, gc.DeepEquals, expectedOperations)
 	// Files have been cleaned up.
 	listing, err := storage.List(stor, "")
