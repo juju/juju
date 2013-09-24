@@ -646,22 +646,33 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 // things that depend on the HTTPS connection, all other functional tests on a
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	attrs                  map[string]interface{}
 	cred                   *identity.Credentials
 	srv                    localServer
 	env                    environs.Environ
-	writeablePublicStorage environs.Storage
+	writeablePublicStorage storage.Storage
 }
 
-func (s *localHTTPSServerSuite) createConfigAttrs() map[string]interface{} {
+func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {
 	attrs := makeTestConfig(s.cred)
-	attrs["agent-version"] = version.CurrentNumber().String()
+	attrs["agent-version"] = version.Current.Number.String()
 	attrs["authorized-keys"] = "fakekey"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
 	attrs["ssl-hostname-verification"] = false
 	attrs["auth-url"] = s.cred.URL
+	// Now connect and set up test-local tools and image-metadata URLs
+	cl := client.NewNonValidatingClient(s.cred, identity.AuthUserPass, nil)
+	err := cl.Authenticate()
+	c.Assert(err, gc.IsNil)
+	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	c.Assert(err, gc.IsNil)
+	c.Check(containerURL[:8], gc.Equals, "https://")
+	attrs["tools-url"] = containerURL + "/juju-dist-test/tools"
+	c.Logf("Set tools-url=%q", attrs["tools-url"])
+	attrs["image-metadata-url"] = containerURL + "/juju-dist-test"
+	c.Logf("Set image-metadata-url=%q", attrs["image-metadata-url"])
 	return attrs
 }
 
@@ -677,7 +688,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	// Note: start() will change cred.URL to point to s.srv.Server.URL
 	s.srv.start(c, cred)
 	s.cred = cred
-	attrs := s.createConfigAttrs()
+	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -725,16 +736,17 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
-	writeablePublicStorage := openstack.WritablePublicStorage(s.env)
-	envtesting.UploadFakeTools(c, writeablePublicStorage)
-	defer envtesting.RemoveFakeTools(c, writeablePublicStorage)
+	// For testing, we create a storage instance to which is uploaded tools and image metadata.
+	metadataStorage := openstack.MetadataStorage(s.env)
+	url, err := metadataStorage.URL("")
+	c.Assert(err, gc.IsNil)
+	c.Logf("Generating fake tools for: %v", url)
+	envtesting.GenerateFakeToolsMetadata(c, metadataStorage)
+	defer envtesting.RemoveFakeTools(c, metadataStorage)
 	openstack.UseTestImageData(s.env, s.cred)
 	defer openstack.RemoveTestImageData(s.env)
 
-	// TODO: Currently this is broken because imagemetadat.FindInstanceSpec
-	// uses its own net/http.Client object which doesn't look at the
-	// ssl-hostname-verify flag
-	err := bootstrap.Bootstrap(s.env, constraints.Value{})
+	err = bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -760,15 +772,11 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 5)
+	c.Assert(sources, gc.HasLen, 4)
 
 	// Make sure there is something to download from each location
 	private := "private-content"
 	err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
-	c.Assert(err, gc.IsNil)
-
-	public := "public-content"
-	err = openstack.WritablePublicStorage(s.env).Put(public, bytes.NewBufferString(public), int64(len(public)))
 	c.Assert(err, gc.IsNil)
 
 	metadata := "metadata-content"
@@ -780,39 +788,17 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the Config entry's image-metadata-url
-	contentReader, url, err := sources[0].Fetch(custom)
+	// Read from the private bucket
+	contentReader, url, err := sources[0].Fetch(private)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, custom)
+	c.Check(string(content), gc.Equals, private)
 	c.Check(url[:8], gc.Equals, "https://")
 
-	// Read from the private bucket
-	contentReader, url, err = sources[1].Fetch(private)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(content), gc.Equals, private)
-
-	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
-	//c.Check(url[:8], gc.Equals, "https://")
-
-	// Read from the public bucket
-	contentReader, url, err = sources[2].Fetch(public)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, public)
-	// TODO: Currently Fetch always returns a relpath, restore this when that is fixed
-	//c.Check(url[:8], gc.Equals, "https://")
-
 	// Check the entry we got from keystone
-	// Now fetch the data, and verify the contents
-	contentReader, url, err = sources[3].Fetch(metadata)
+	contentReader, url, err = sources[1].Fetch(metadata)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
@@ -823,6 +809,16 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	metaURL, err := metadataStorage.URL(metadata)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, metaURL)
+
+	// Read from the Config entry's image-metadata-url
+	contentReader, url, err = sources[2].Fetch(custom)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, custom)
+	c.Check(url[:8], gc.Equals, "https://")
+
 }
 
 func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
@@ -862,20 +858,11 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the Config entry's tools-url
-	contentReader, url, err := sources[0].Fetch(custom)
+	// Read from the private bucket
+	contentReader, url, err := sources[0].Fetch(private)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, custom)
-	c.Check(url[:8], gc.Equals, "https://")
-
-	// Read from the private bucket
-	contentReader, url, err = sources[1].Fetch(private)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(content), gc.Equals, private)
 	//c.Check(url[:8], gc.Equals, "https://")
@@ -883,7 +870,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 	// Check the entry we got from keystone
 	// Now fetch the data, and verify the contents.
-	contentReader, url, err = sources[2].Fetch(keystoneContainer + "/" + keystone)
+	contentReader, url, err = sources[1].Fetch(keystoneContainer + "/" + keystone)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
@@ -893,6 +880,15 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	keystoneURL, err := keystoneStorage.URL(keystone)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, keystoneURL)
+
+	// Read from the Config entry's tools-url
+	contentReader, url, err = sources[2].Fetch(custom)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, custom)
+	c.Check(url[:8], gc.Equals, "https://")
 
 	// We *don't* test Fetch for sources[3] because it points to
 	// juju.canonical.com

@@ -288,9 +288,9 @@ func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
-func ImageMetadataStorage(e environs.Environ) environs.Storage {
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
 	env := e.(*environ)
-	return &storage{
+	return &openstackstorage{
 		containerName: "imagemetadata",
 		swift:         swift.New(env.client),
 	}
@@ -298,13 +298,13 @@ func ImageMetadataStorage(e environs.Environ) environs.Storage {
 
 // CreateCustomStorage creates a swift container and returns the Storage object
 // so you can put data into it.
-func CreateCustomStorage(e environs.Environ, containerName string) environs.Storage {
+func CreateCustomStorage(e environs.Environ, containerName string) storage.Storage {
 	env := e.(*environ)
 	swiftClient := swift.New(env.client)
 	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
 		panic(err)
 	}
-	return &storage{
+	return &openstackstorage{
 		containerName: containerName,
 		swift:         swiftClient,
 	}
