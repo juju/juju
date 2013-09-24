@@ -75,3 +75,70 @@ func (*MockSuite) TestContainerStoppingRunningStops(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(container.IsRunning(), jc.IsFalse)
 }
+
+func (*MockSuite) TestAddListener(c *gc.C) {
+	listener := make(chan mock.Event)
+	factory := mock.MockFactory()
+	factory.AddListener(listener)
+	c.Assert(factory.HasListener(listener), jc.IsTrue)
+}
+
+func (*MockSuite) TestRemoveFirstListener(c *gc.C) {
+	factory := mock.MockFactory()
+	first := make(chan mock.Event)
+	factory.AddListener(first)
+	second := make(chan mock.Event)
+	factory.AddListener(second)
+	third := make(chan mock.Event)
+	factory.AddListener(third)
+	factory.RemoveListener(first)
+	c.Assert(factory.HasListener(first), jc.IsFalse)
+	c.Assert(factory.HasListener(second), jc.IsTrue)
+	c.Assert(factory.HasListener(third), jc.IsTrue)
+}
+
+func (*MockSuite) TestRemoveMiddleListener(c *gc.C) {
+	factory := mock.MockFactory()
+	first := make(chan mock.Event)
+	factory.AddListener(first)
+	second := make(chan mock.Event)
+	factory.AddListener(second)
+	third := make(chan mock.Event)
+	factory.AddListener(third)
+	factory.RemoveListener(second)
+	c.Assert(factory.HasListener(first), jc.IsTrue)
+	c.Assert(factory.HasListener(second), jc.IsFalse)
+	c.Assert(factory.HasListener(third), jc.IsTrue)
+}
+
+func (*MockSuite) TestRemoveLastListener(c *gc.C) {
+	factory := mock.MockFactory()
+	first := make(chan mock.Event)
+	factory.AddListener(first)
+	second := make(chan mock.Event)
+	factory.AddListener(second)
+	third := make(chan mock.Event)
+	factory.AddListener(third)
+	factory.RemoveListener(third)
+	c.Assert(factory.HasListener(first), jc.IsTrue)
+	c.Assert(factory.HasListener(second), jc.IsTrue)
+	c.Assert(factory.HasListener(third), jc.IsFalse)
+}
+
+func (*MockSuite) TestEvents(c *gc.C) {
+	factory := mock.MockFactory()
+	listener := make(chan mock.Event, 5)
+	factory.AddListener(listener)
+
+	first := factory.New("first")
+	second := factory.New("second")
+	first.Start()
+	second.Start()
+	second.Stop()
+	first.Stop()
+
+	c.Assert(<-listener, gc.Equals, mock.Event{mock.Started, "first"})
+	c.Assert(<-listener, gc.Equals, mock.Event{mock.Started, "second"})
+	c.Assert(<-listener, gc.Equals, mock.Event{mock.Stopped, "second"})
+	c.Assert(<-listener, gc.Equals, mock.Event{mock.Stopped, "first"})
+}

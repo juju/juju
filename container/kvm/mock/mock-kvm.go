@@ -41,6 +41,7 @@ type ContainerFactory interface {
 
 	AddListener(chan<- Event)
 	RemoveListener(chan<- Event)
+	HasListener(chan<- Event) bool
 }
 
 type mockFactory struct {
@@ -136,4 +137,13 @@ func (mock *mockFactory) RemoveListener(listener chan<- Event) {
 		}
 	}
 	mock.listeners = append(mock.listeners[:pos], mock.listeners[pos+1:]...)
+}
+
+func (mock *mockFactory) HasListener(listener chan<- Event) bool {
+	for _, c := range mock.listeners {
+		if c == listener {
+			return true
+		}
+	}
+	return false
 }
