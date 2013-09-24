@@ -106,6 +106,26 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 	return env, nil
 }
 
+// Destroy destroys the environment and, if successful,
+// its associated configuration data from the given store.
+func Destroy(env Environ, store configstore.Storage) error {
+	name := env.Name()
+	if err := env.Destroy(); err != nil {
+		return err
+	}
+	info, err := store.ReadInfo(name)
+	if err != nil {
+		if errors.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	if err := info.Destroy(); err != nil {
+		return fmt.Errorf("cannot destroy environment configuration information: %v", err)
+	}
+	return nil
+}
+
 // CheckEnvironment checks if an environment has a bootstrap-verify
 // that is written by juju-core commands (as compared to one being
 // written by Python juju).
