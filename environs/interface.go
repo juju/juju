@@ -145,11 +145,11 @@ type Prechecker interface {
 
 	// PrecheckContainer performs a preflight check on the container type,
 	// ensuring that the environment is possibly capable of creating a
-	// container of the specified type.
+	// container of the specified type and series.
 	//
 	// The container type must be a valid ContainerType as specified
 	// in the instance package, and != instance.NONE.
-	PrecheckContainer(kind instance.ContainerType) error
+	PrecheckContainer(series string, kind instance.ContainerType) error
 }
 
 // An Environ represents a juju environment as specified

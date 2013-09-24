@@ -233,7 +233,7 @@ func (t *localServerSuite) TestPrecheck(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	err := prechecker.PrecheckInstance("precise", cons)
 	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer(instance.LXC)
+	err = prechecker.PrecheckContainer("precise", instance.LXC)
 	c.Check(err, gc.ErrorMatches, "openstack provider does not support containers")
 }
 

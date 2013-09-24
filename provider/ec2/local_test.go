@@ -191,7 +191,7 @@ func (t *localServerSuite) TestPrecheck(c *gc.C) {
 	var cons constraints.Value
 	err := prechecker.PrecheckInstance("precise", cons)
 	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer(instance.LXC)
+	err = prechecker.PrecheckContainer("precise", instance.LXC)
 	c.Check(err, gc.ErrorMatches, "ec2 provider does not support containers")
 }
 

@@ -313,7 +313,7 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value) error 
 }
 
 // PrecheckContainer is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckContainer(instance.ContainerType) error {
+func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
 	return coreerrors.NewContainersUnsupported(nil, "ec2 provider does not support containers")

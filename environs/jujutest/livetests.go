@@ -143,7 +143,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	var cons constraints.Value
 	c.Check(prechecker.PrecheckInstance(series, cons), gc.IsNil)
 
-	err := prechecker.PrecheckContainer(instance.LXC)
+	err := prechecker.PrecheckContainer(series, instance.LXC)
 	// If err is nil, that is fine, some providers support containers.
 	if err != nil {
 		// But for ones that don't, they should have a standard error format.

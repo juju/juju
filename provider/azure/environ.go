@@ -143,7 +143,7 @@ func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) err
 }
 
 // PrecheckContainer is specified in the environs.Prechecker interface.
-func (*azureEnviron) PrecheckContainer(instance.ContainerType) error {
+func (*azureEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.
 	return coreerrors.NewContainersUnsupported(nil, "azure provider does not support containers")
