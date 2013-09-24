@@ -141,13 +141,9 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 
 	const series = "precise"
 	var cons constraints.Value
-	c.Check(prechecker.PrecheckCreateMachine(series, cons), gc.IsNil)
+	c.Check(prechecker.PrecheckInstance(series, cons), gc.IsNil)
 
-	inst, _ := testing.StartInstance(c, t.Env, "0")
-	c.Assert(inst, gc.NotNil)
-	container := instance.LXC
-	cons.Container = &container
-	err := prechecker.PrecheckCreateContainer(series, cons, inst)
+	err := prechecker.PrecheckContainer(instance.LXC)
 	// If err is nil, that is fine, some providers support containers.
 	if err != nil {
 		// But for ones that don't, they should have a standard error format.

@@ -231,13 +231,9 @@ func (t *localServerSuite) TestPrecheck(c *gc.C) {
 	var cons constraints.Value
 	prechecker, ok := t.Env.(environs.Prechecker)
 	c.Assert(ok, jc.IsTrue)
-	err := prechecker.PrecheckCreateMachine("precise", cons)
+	err := prechecker.PrecheckInstance("precise", cons)
 	c.Check(err, gc.IsNil)
-
-	var inst instance.Instance
-	container := instance.LXC
-	cons.Container = &container
-	err = prechecker.PrecheckCreateContainer("precise", cons, inst)
+	err = prechecker.PrecheckContainer(instance.LXC)
 	c.Check(err, gc.ErrorMatches, "openstack provider does not support containers")
 }
 

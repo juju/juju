@@ -96,13 +96,13 @@ func (env *localEnviron) ensureCertOwner() error {
 	return nil
 }
 
-// PrecheckCreateMachine is specified in the environs.Prechecker interface.
-func (*localEnviron) PrecheckCreateMachine(series string, cons constraints.Value) error {
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckCreateContainer is specified in the environs.Prechecker interface.
-func (*localEnviron) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckContainer(instance.ContainerType) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.
 	return coreerrors.NewContainersUnsupported(nil, "local provider does not support nested containers")

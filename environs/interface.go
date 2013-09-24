@@ -133,23 +133,23 @@ type ConfigGetter interface {
 // Prechecker is an optional interface that an Environ may implement,
 // in order to support pre-flight checking of instance/container creation.
 //
-// Prechecker's methods are best effort, and not guaranteed to eliminated
+// Prechecker's methods are best effort, and not guaranteed to eliminate
 // all invalid parameters. If a precheck method returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
 type Prechecker interface {
-	// PrecheckCreateMachine performs a preflight check on the specified
+	// PrecheckInstance performs a preflight check on the specified
 	// series and constraints, ensuring that they are possibly valid for
 	// creating an instance in this environment.
-	PrecheckCreateMachine(series string, cons constraints.Value) error
+	PrecheckInstance(series string, cons constraints.Value) error
 
-	// PrecheckCreateContainer performs a preflight check on the specified
-	// instance, series and constraints, ensuring that they are possibly valid
-	// for creating a container on the specified instance in this environment.
+	// PrecheckContainer performs a preflight check on the container type,
+	// ensuring that the environment is possibly capable of creating a
+	// container of the specified type.
 	//
-	// The container type can be obtained via cons.Container, which must
-	// be non-nil, and != instance.NONE.
-	PrecheckCreateContainer(series string, cons constraints.Value, host instance.Instance) error
+	// The container type must be a valid ContainerType as specified
+	// in the instance package, and != instance.NONE.
+	PrecheckContainer(kind instance.ContainerType) error
 }
 
 // An Environ represents a juju environment as specified

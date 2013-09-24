@@ -93,13 +93,9 @@ func (*environSuite) TestName(c *gc.C) {
 func (*environSuite) TestPrecheck(c *gc.C) {
 	env := azureEnviron{name: "foo"}
 	var cons constraints.Value
-	err := env.PrecheckCreateMachine("saucy", cons)
+	err := env.PrecheckInstance("saucy", cons)
 	c.Check(err, gc.IsNil)
-
-	var inst instance.Instance
-	container := instance.LXC
-	cons.Container = &container
-	err = env.PrecheckCreateContainer("saucy", cons, inst)
+	err = env.PrecheckContainer(instance.LXC)
 	c.Check(err, gc.ErrorMatches, "azure provider does not support containers")
 }
 

@@ -307,13 +307,13 @@ func (e *environ) s3() *s3.S3 {
 	return s3
 }
 
-// PrecheckCreateMachine is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckCreateMachine(series string, cons constraints.Value) error {
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckCreateContainer is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (e *environ) PrecheckContainer(instance.ContainerType) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
 	return coreerrors.NewContainersUnsupported(nil, "ec2 provider does not support containers")

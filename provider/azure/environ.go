@@ -137,13 +137,13 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	return key, nil
 }
 
-// PrecheckCreateMachine is specified in the environs.Prechecker interface.
-func (*azureEnviron) PrecheckCreateMachine(series string, cons constraints.Value) error {
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckCreateContainer is specified in the environs.Prechecker interface.
-func (*azureEnviron) PrecheckCreateContainer(series string, cons constraints.Value, inst instance.Instance) error {
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*azureEnviron) PrecheckContainer(instance.ContainerType) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.
 	return coreerrors.NewContainersUnsupported(nil, "azure provider does not support containers")

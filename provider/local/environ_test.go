@@ -53,13 +53,10 @@ func (s *environSuite) TestPrecheck(c *gc.C) {
 	prechecker, ok := environ.(environs.Prechecker)
 	c.Assert(ok, jc.IsTrue)
 
-	err = prechecker.PrecheckCreateMachine("precise", cons)
+	err = prechecker.PrecheckInstance("precise", cons)
 	c.Check(err, gc.IsNil)
-	container := instance.LXC
 
-	var inst instance.Instance
-	cons.Container = &container
-	err = prechecker.PrecheckCreateContainer("precise", cons, inst)
+	err = prechecker.PrecheckContainer(instance.LXC)
 	c.Check(err, gc.ErrorMatches, "local provider does not support nested containers")
 }
 
