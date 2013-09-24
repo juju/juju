@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 )
@@ -73,6 +74,26 @@ func Prepare(config *config.Config) (Environ, error) {
 		return nil, err
 	}
 	return p.Prepare(config)
+}
+
+// Destroy destroys the environment and, if successful,
+// its associated configuration data from the given store.
+func Destroy(env Environ, store configstore.Storage) error {
+	name := env.Name()
+	if err := env.Destroy(); err != nil {
+		return err
+	}
+	info, err := store.ReadInfo(name)
+	if err != nil {
+		if errors.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	if err := info.Destroy(); err != nil {
+		return fmt.Errorf("cannot destroy environment configuration information: %v", err)
+	}
+	return nil
 }
 
 // CheckEnvironment checks if an environment has a bootstrap-verify
