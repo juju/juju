@@ -11,7 +11,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
