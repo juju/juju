@@ -102,6 +102,7 @@ func (mock *mockFactory) New(name string) kvm.Container {
 		factory: mock,
 		name:    name,
 	}
+	mock.instances[name] = container
 	return container
 }
 
