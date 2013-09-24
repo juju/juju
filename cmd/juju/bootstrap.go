@@ -86,10 +86,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unecessary upload.
-	switch environ.Config().Type() {
-	case provider.Null:
-		fallthrough
-	case provider.Local:
+	if environ.Config().Type() == provider.Local {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
