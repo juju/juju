@@ -2,12 +2,12 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package provider
-import "errors"
 
+import "errors"
 
 var (
 	// ErrNotPrepared should be returned by providers when
 	// an operation is attempted on an unprepared environment.
 	ErrNotPrepared = errors.New("environment is not prepared")
-	ErrDestroyed = errors.New("environment has been destroyed")
+	ErrDestroyed   = errors.New("environment has been destroyed")
 )

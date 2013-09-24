@@ -20,14 +20,14 @@ import (
 
 func (e *environ) Storage() storage.Storage {
 	return &dummyStorage{
-		env: e,
+		env:    e,
 		public: false,
 	}
 }
 
 func (e *environ) PublicStorage() storage.StorageReader {
 	return &dummyStorage{
-		env: e,
+		env:    e,
 		public: true,
 	}
 }
@@ -172,7 +172,7 @@ func (s *storageServer) List(prefix string) ([]string, error) {
 
 // dummyStorage implements the client side of the Storage interface.
 type dummyStorage struct {
-	env *environ
+	env    *environ
 	public bool
 }
 

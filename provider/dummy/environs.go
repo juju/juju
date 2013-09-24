@@ -25,13 +25,13 @@ package dummy
 import (
 	"errors"
 	"fmt"
+	"local/runtime/debug"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
-	"local/runtime/debug"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -144,7 +144,7 @@ type environProvider struct {
 	mu  sync.Mutex
 	ops chan<- Operation
 	// We have one state for each environment name
-	state map[int]*environState
+	state      map[int]*environState
 	maxStateId int
 }
 
@@ -156,7 +156,7 @@ const noStateId = 0
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	id int
+	id            int
 	name          string
 	ops           chan<- Operation
 	mu            sync.Mutex
@@ -170,7 +170,7 @@ type environState struct {
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
-	callers []byte
+	callers       []byte
 }
 
 // environ represents a client's connection to a given environment's
@@ -326,11 +326,11 @@ var configFields = schema.Fields{
 	"state-server": schema.Bool(),
 	"broken":       schema.String(),
 	"secret":       schema.String(),
-	"state-id":  schema.Int(),
+	"state-id":     schema.Int(),
 }
 var configDefaults = schema.Defaults{
-	"broken": "",
-	"secret": "pork",
+	"broken":   "",
+	"secret":   "pork",
 	"state-id": schema.Omit,
 }
 

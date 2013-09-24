@@ -16,7 +16,7 @@ import (
 
 var _ = gc.Suite(&ConfigSuite{})
 
-type ConfigSuite struct{
+type ConfigSuite struct {
 	testbase.LoggingSuite
 }
 

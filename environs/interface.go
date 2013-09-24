@@ -57,9 +57,9 @@ type EnvironProvider interface {
 }
 
 var (
-	ErrNoInstances = errors.New("no instances found")
+	ErrNoInstances      = errors.New("no instances found")
 	ErrPartialInstances = errors.New("only some instances were found")
-	ErrNotBootstrapped = errors.New("environment is not bootstrapped")
+	ErrNotBootstrapped  = errors.New("environment is not bootstrapped")
 )
 
 // EnvironStorage implements storage access for an environment.
