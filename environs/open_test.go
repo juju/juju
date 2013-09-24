@@ -12,10 +12,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type OpenSuite struct {
@@ -148,8 +150,8 @@ func (OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
-	c.Assert(func() {e.Storage()}, gc.PanicMatches, "something")
-	info, err := store.ReadInfo(e.Name())
+	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment.* is not prepared")
+	_, err = store.ReadInfo(e.Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
