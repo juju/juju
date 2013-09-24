@@ -382,6 +382,18 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	return nil
 }
 
+// CurrentHookName returns the current full hook name.
+func (u *Uniter) CurrentHookName() string {
+	hookInfo := u.s.Hook
+	hookName := string(hookInfo.Kind)
+	if hookInfo.Kind.IsRelation() {
+		relationer := u.relationers[hookInfo.RelationId]
+		name := relationer.ru.Endpoint().Name
+		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
+	}
+	return hookName
+}
+
 // restoreRelations reconciles the supplied relation state dirs with the
 // remote state of the corresponding relations.
 func (u *Uniter) restoreRelations() error {

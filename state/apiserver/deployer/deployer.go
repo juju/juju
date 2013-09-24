@@ -46,7 +46,7 @@ func getAllUnits(st *state.State, machineTag string) ([]string, error) {
 	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", machineTag, watch.Err())
 }
 
-// NewDeployerAPI creates a new client-side DeployerAPI facade.
+// NewDeployerAPI creates a new server-side DeployerAPI facade.
 func NewDeployerAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -73,7 +73,7 @@ func NewDeployerAPI(
 		}, nil
 	}
 	return &DeployerAPI{
-		Remover:         common.NewRemover(st, getAuthFunc),
+		Remover:         common.NewRemover(st, true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
 		st:              st,

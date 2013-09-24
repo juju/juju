@@ -338,14 +338,17 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
-	// TODO(mue) Check data and naming.
-	data := params.StatusData{
-		"hook-kind":   u.s.Hook.Kind,
-		"relation-id": u.s.Hook.RelationId,
-		"remote-unit": u.s.Hook.RemoteUnit,
+	msg := fmt.Sprintf("hook failed: %q", u.CurrentHookName())
+	// Create error information for status.
+	data := params.StatusData{"hook": u.CurrentHookName()}
+	if u.s.Hook.RelationId != -1 {
+		data["relation-id"] = u.s.Hook.RelationId
 	}
-	if err = u.unit.SetStatus(params.StatusError, msg, data); err != nil {
+	if u.s.Hook.RemoteUnit != "" {
+		data["remote-unit"] = u.s.Hook.RemoteUnit
+	}
+	// TODO(mue) Add data in next CL together with testing.
+	if err = u.unit.SetStatus(params.StatusError, msg, nil); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
@@ -384,7 +387,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
-		// TODO(mue) Add helpful data here too.
+		// TODO(mue) Add helpful data here too in later CL.
 		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, err
 		}

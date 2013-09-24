@@ -283,21 +283,12 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
-		"hook-kind":   "relation-joined",
-		"relation-id": 4711,
-		"remote-unit": "unit-mysql-0",
-	})
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	data, err := s.unit.StatusData()
-	c.Assert(err, gc.IsNil)
-	c.Assert(data["hook-kind"], gc.Equals, "relation-joined")
-	c.Assert(data["relation-id"], gc.Equals, 4711)
-	c.Assert(data["remote-unit"], gc.Equals, "unit-mysql-0")
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
@@ -314,6 +305,58 @@ func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
+}
+
+func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
+	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, err = s.unit.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Regular status setting with data.
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+		"hook-kind":   "relation-joined",
+		"relation-id": 4711,
+		"remote-unit": "unit-mysql-0",
+	})
+	c.Assert(err, gc.IsNil)
+	status, info, err := s.unit.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "test-hook failed")
+
+	data, err := state.UnitStatusData(s.unit)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data["hook-kind"], gc.Equals, "relation-joined")
+	c.Assert(data["relation-id"], gc.Equals, 4711)
+	c.Assert(data["remote-unit"], gc.Equals, "unit-mysql-0")
+}
+
+func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
+	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, err = s.unit.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Status setting with MongoDB special values.
+	err = s.unit.SetStatus(params.StatusError, "mongo", params.StatusData{
+		`{name: "Joe"}`: "$where",
+		"eval":          `eval(function(foo) { return foo; }, "bar")`,
+		"mapReduce":     "mapReduce",
+		"group":         "group",
+	})
+	c.Assert(err, gc.IsNil)
+	status, info, err := s.unit.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "mongo")
+
+	data, err := state.UnitStatusData(s.unit)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data[`{name: "Joe"}`], gc.Equals, "$where")
+	c.Assert(data["eval"], gc.Equals, `eval(function(foo) { return foo; }, "bar")`)
+	c.Assert(data["mapReduce"], gc.Equals, "mapReduce")
+	c.Assert(data["group"], gc.Equals, "group")
 }
 
 func (s *UnitSuite) TestUnitCharm(c *gc.C) {

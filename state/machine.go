@@ -699,15 +699,6 @@ func (m *Machine) Status() (status params.Status, info string, err error) {
 	return
 }
 
-// StatusData returns the additional status data of the machine.
-func (m *Machine) StatusData() (params.StatusData, error) {
-	doc, err := getStatus(m.st, m.globalKey())
-	if err != nil {
-		return nil, err
-	}
-	return doc.StatusData, nil
-}
-
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{

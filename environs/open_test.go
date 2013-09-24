@@ -160,8 +160,8 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
-	storage := environ.Storage()
-	err = environs.VerifyStorage(storage)
+	stor := environ.Storage()
+	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.IsNil)
 	err = environs.CheckEnvironment(environ)
 	c.Assert(err, gc.IsNil)
@@ -175,14 +175,14 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
-	storage := environ.Storage()
-	err = environs.VerifyStorage(storage)
+	stor := environ.Storage()
+	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.IsNil)
 
 	// When the bootstrap-verify file does not exist, it still believes
 	// the environment is a juju-core one because earlier versions
 	// did not create that file.
-	err = storage.Remove("bootstrap-verify")
+	err = stor.Remove("bootstrap-verify")
 	c.Assert(err, gc.IsNil)
 	err = environs.CheckEnvironment(environ)
 	c.Assert(err, gc.IsNil)
@@ -196,14 +196,14 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
-	storage := environ.Storage()
-	err = environs.VerifyStorage(storage)
+	stor := environ.Storage()
+	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.IsNil)
 
 	// When fetching the verification file from storage fails,
 	// we get an InvalidEnvironmentError.
 	someError := errors.Unauthorizedf("you shall not pass")
-	dummy.Poison(storage, "bootstrap-verify", someError)
+	dummy.Poison(stor, "bootstrap-verify", someError)
 	err = environs.CheckEnvironment(environ)
 	c.Assert(err, gc.Equals, someError)
 }
@@ -215,10 +215,10 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.
-	storage := environ.Storage()
+	stor := environ.Storage()
 	content := "bad verification content"
 	reader := strings.NewReader(content)
-	err = storage.Put("bootstrap-verify", reader, int64(len(content)))
+	err = stor.Put("bootstrap-verify", reader, int64(len(content)))
 	c.Assert(err, gc.IsNil)
 
 	// When the bootstrap-verify file contains unexpected content,

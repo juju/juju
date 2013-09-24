@@ -18,6 +18,18 @@ type Entities struct {
 	Entities []Entity
 }
 
+// WatchContainer identifies a single container type within a machine.
+type WatchContainer struct {
+	MachineTag    string
+	ContainerType string
+}
+
+// WatchContainers holds the arguments for making a WatchContainers
+// API call.
+type WatchContainers struct {
+	Params []WatchContainer
+}
+
 // CharmURL identifies a single charm URL.
 type CharmURL struct {
 	URL string

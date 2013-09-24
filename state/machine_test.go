@@ -958,19 +958,12 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
-		"reason":  "unknown",
-		"retries": 5,
-	})
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	data, err := s.machine.StatusData()
-	c.Assert(err, gc.IsNil)
-	c.Assert(data["reason"], gc.Equals, "unknown")
-	c.Assert(data["retries"], gc.Equals, 5)
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
@@ -1000,6 +993,56 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	_, _, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
+}
+
+func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Regular status setting with data.
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+		"reason":  "unknown",
+		"retries": 5,
+	})
+	c.Assert(err, gc.IsNil)
+	status, info, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "provisioning failed")
+
+	data, err := state.MachineStatusData(s.machine)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data["reason"], gc.Equals, "unknown")
+	c.Assert(data["retries"], gc.Equals, 5)
+}
+
+func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Status setting with MongoDB special values.
+	err = s.machine.SetStatus(params.StatusError, "mongo", params.StatusData{
+		`{name: "Joe"}`: "$where",
+		"eval":          `eval(function(foo) { return foo; }, "bar")`,
+		"mapReduce":     "mapReduce",
+		"group":         "group",
+	})
+	c.Assert(err, gc.IsNil)
+	status, info, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "mongo")
+
+	data, err := state.MachineStatusData(s.machine)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data[`{name: "Joe"}`], gc.Equals, "$where")
+	c.Assert(data["eval"], gc.Equals, `eval(function(foo) { return foo; }, "bar")`)
+	c.Assert(data["mapReduce"], gc.Equals, "mapReduce")
+	c.Assert(data["group"], gc.Equals, "group")
 }
 
 func (s *MachineSuite) TestSetAddresses(c *gc.C) {

@@ -15,7 +15,7 @@ import (
 
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
@@ -31,13 +31,13 @@ type maasStorage struct {
 	maasClientUnlocked gomaasapi.MAASObject
 }
 
-var _ environs.Storage = (*maasStorage)(nil)
+var _ storage.Storage = (*maasStorage)(nil)
 
-func NewStorage(env *maasEnviron) environs.Storage {
-	storage := new(maasStorage)
-	storage.environUnlocked = env
-	storage.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
-	return storage
+func NewStorage(env *maasEnviron) storage.Storage {
+	stor := new(maasStorage)
+	stor.environUnlocked = env
+	stor.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
+	return stor
 }
 
 // getSnapshot returns a consistent copy of a maasStorage.  Use this if you
@@ -161,10 +161,15 @@ func (stor *maasStorage) URL(name string) (string, error) {
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (stor *maasStorage) ConsistencyStrategy() utils.AttemptStrategy {
+func (stor *maasStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.
 	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (stor *maasStorage) ShouldRetry(err error) bool {
+	return false
 }
 
 // Put is specified in the StorageWriter interface.
@@ -191,7 +196,7 @@ func (stor *maasStorage) Remove(name string) error {
 
 // RemoveAll is specified in the StorageWriter interface.
 func (stor *maasStorage) RemoveAll() error {
-	names, err := stor.List("")
+	names, err := storage.List(stor, "")
 	if err != nil {
 		return err
 	}

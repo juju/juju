@@ -37,6 +37,9 @@ func (doc statusDoc) validateSet() error {
 			return fmt.Errorf("cannot set status %q without info", doc.Status)
 		}
 	}
+	if doc.StatusData != nil && doc.Status != params.StatusError {
+		return fmt.Errorf("cannot set status data when status is %q", doc.Status)
+	}
 	return nil
 }
 
