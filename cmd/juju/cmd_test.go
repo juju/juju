@@ -265,7 +265,6 @@ func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.
 	c.Assert(err, gc.IsNil)
 }
 
-
 var deployTests = []struct {
 	args []string
 	com  *DeployCommand
