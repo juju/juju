@@ -210,6 +210,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
+	s.APILogin(c, m)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
@@ -282,12 +283,10 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
-	container := s.addContainer(c)
-	s.APILogin(c, container)
-
 	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 
+	container := s.addContainer(c)
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
