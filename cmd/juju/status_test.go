@@ -75,14 +75,11 @@ func (s *StatusSuite) newContext() *context {
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
-	c.Logf("resetting context (state %p)", s.State)
 	for _, up := range ctx.pingers {
 		err := up.Kill()
 		c.Check(err, gc.IsNil)
 	}
-	c.Logf("calling Reset")
 	s.JujuConnSuite.Reset(c)
-	c.Logf("done reset; State now %p", s.State)
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -1580,12 +1577,6 @@ func (e expect) step(c *gc.C, ctx *context) {
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
-	defer func() {
-		if p := recover(); p != nil {
-			go panic(p)
-			select {}
-		}
-	}()
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func() {
@@ -1593,7 +1584,6 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 			ctx := s.newContext()
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
-			c.Logf("at end of test %d, state: %p", i, s.State)
 		}()
 	}
 }

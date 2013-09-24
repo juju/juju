@@ -42,11 +42,6 @@ func NewDisk(dir string) (Storage, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err
 	}
-	log.Infof("configstore.NewDisk %q", dir)
-	entries, _ := ioutil.ReadDir(filepath.Join(dir, "environments"))
-	for _, info := range entries {
-		log.Infof("existing entry %q", info.Name())
-	}
 	return &diskStore{dir}, nil
 }
 
