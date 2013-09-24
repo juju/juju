@@ -105,6 +105,10 @@ type MachineConfig struct {
 
 	// StateInfoURL is the URL of a file which contains information about the state server machines.
 	StateInfoURL string
+
+	// DisableSSLHostnameVerification can be set to true to tell cloud-init
+	// that it shouldn't verify SSL certificates
+	DisableSSLHostnameVerification bool
 }
 
 func base64yaml(m *config.Config) string {
@@ -138,12 +142,16 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
+	wgetCommand := "wget --no-verbose -O -"
+	if cfg.DisableSSLHostnameVerification {
+		wgetCommand = "wget --no-check-certificate --no-verbose -O -"
+	}
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
+		fmt.Sprintf("%s %s | tar xz -C $bin", wgetCommand, shquote(cfg.Tools.URL)),
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 

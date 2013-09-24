@@ -25,8 +25,11 @@ func StartInstance(broker environs.InstanceBroker, machineId, machineNonce strin
 
 	var err error
 	var possibleTools coretools.List
+	disableSSLHostnameVerification := false
 	if env, ok := broker.(environs.Environ); ok {
-		agentVersion, ok := env.Config().AgentVersion()
+		config := env.Config()
+		disableSSLHostnameVerification = !config.SSLHostnameVerification()
+		agentVersion, ok := config.AgentVersion()
 		if !ok {
 			return nil, nil, fmt.Errorf("no agent version set in environment configuration")
 		}
@@ -39,7 +42,7 @@ func StartInstance(broker environs.InstanceBroker, machineId, machineNonce strin
 	} else {
 		panic(fmt.Errorf("broker of type %T does not provide any tools", broker))
 	}
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo, disableSSLHostnameVerification)
 	return broker.StartInstance(cons, possibleTools, machineConfig)
 }
 
@@ -57,7 +60,9 @@ func StartBootstrapInstance(env environs.Environ, cons constraints.Value, possib
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
+	disableSSLHostnameVerification := !env.Config().SSLHostnameVerification()
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL,
+		disableSSLHostnameVerification)
 	inst, hw, err := env.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)

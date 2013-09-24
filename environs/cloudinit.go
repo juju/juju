@@ -25,7 +25,8 @@ var DataDir = "/var/lib/juju"
 // node.  You'll still need to supply more information, but this takes care of
 // the fixed entries and the ones that are always needed.
 func NewMachineConfig(machineID, machineNonce string,
-	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
+	stateInfo *state.Info, apiInfo *api.Info,
+	disableSSLHostnameVerification bool) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
 		DataDir: DataDir,
@@ -35,6 +36,7 @@ func NewMachineConfig(machineID, machineNonce string,
 		MachineNonce: machineNonce,
 		StateInfo:    stateInfo,
 		APIInfo:      apiInfo,
+		DisableSSLHostnameVerification: disableSSLHostnameVerification,
 	}
 }
 
@@ -42,10 +44,12 @@ func NewMachineConfig(machineID, machineNonce string,
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 // stateInfoURL is the storage URL for the environment's state file.
-func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(machineID, stateInfoURL string,
+	disableSSLHostnameVerification bool) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info.
-	mcfg := NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg := NewMachineConfig(machineID, state.BootstrapNonce, nil, nil,
+		disableSSLHostnameVerification)
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	return mcfg
