@@ -147,13 +147,12 @@ func (OpenSuite) TestDestroy(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg)
-	c.Assert(err, gc.IsNil)
 
-	// Make some config storage, create some info for the environment
-	// and sanity-check it's there.
 	store := configstore.NewMem()
-	store.CreateInfo(e.Name())
+	// Prepare the environment and sanity-check that
+	// the config storage info has been made.
+	e, err := environs.Prepare(cfg, store)
+	c.Assert(err, gc.IsNil)
 	_, err = store.ReadInfo(e.Name())
 	c.Assert(err, gc.IsNil)
 

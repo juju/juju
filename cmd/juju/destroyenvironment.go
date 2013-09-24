@@ -43,7 +43,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
 	}
-	info, err := store.ReadInfo(environ.Name())
+	_, err = store.ReadInfo(environ.Name())
 	if err != nil {
 		return fmt.Errorf("cannot read environment information: %v", err)
 	}
@@ -61,13 +61,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	// destroy manually provisioned machines, or otherwise
 	// block destroy-environment until all manually provisioned
 	// machines have been manually "destroyed".
-	if err := environ.Destroy(); err != nil {
-		return err
-	}
-	if err := info.Destroy(); err != nil {
-		return fmt.Errorf("cannot destroy environment information: %v", err)
-	}
-	return nil
+	return environs.Destroy(environ, store)
 }
 
 const destroyEnvMsg = `

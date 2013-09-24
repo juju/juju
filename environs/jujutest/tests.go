@@ -52,6 +52,7 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 	return e
 }
 
+// Prepare prepares an instance of the testing environment.
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
@@ -143,7 +144,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Check(info2, gc.DeepEquals, info)
 	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
 
-	err = e2.Destroy()
+	err = environs.Destroy(e2, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
 	// Prepare again because Destroy invalidates old environments.

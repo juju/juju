@@ -143,12 +143,8 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 }
 
 func (t *LiveTests) Destroy(c *gc.C) {
-	err := t.Env.Destroy()
+	err := environs.Destroy(t.Env, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
-	if info, err := t.ConfigStore.ReadInfo(t.Env.Name()); err == nil {
-		err := info.Destroy()
-		c.Assert(err, gc.IsNil)
-	}
 	t.bootstrapped = false
 	t.prepared = false
 	t.Env = nil
@@ -874,13 +870,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		other.Series = "precise"
 	}
 
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{"default-series": other.Series})
-	c.Assert(err, gc.IsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, gc.IsNil)
-
 	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"state-server": false,
 		"name":         "dummy storage",
@@ -889,12 +878,14 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer dummyenv.Destroy()
 
-	// BUG: We destroy the environment, then write to its storage.
-	// This is bogus, strictly speaking, but it works on
-	// existing providers for the time being and means
-	// this test does not fail when the environment is
-	// already bootstrapped.
 	t.Destroy(c)
+
+	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, t.ConfigStore)
+	c.Assert(err, gc.IsNil)
+	defer environs.Destroy(env, t.ConfigStore)
 
 	currentName := envtools.StorageName(current)
 	otherName := envtools.StorageName(other)
@@ -914,7 +905,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	defer env.Destroy()
 
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
