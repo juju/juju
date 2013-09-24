@@ -34,3 +34,44 @@ func (*MockSuite) TestNewContainersInList(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, jc.SameContents, added)
 }
+
+func (*MockSuite) TestContainers(c *gc.C) {
+	factory := mock.MockFactory()
+	container := factory.New("first")
+	c.Assert(container.Name(), gc.Equals, "first")
+	c.Assert(container.IsRunning(), jc.IsFalse)
+}
+
+func (*MockSuite) TestContainerStoppingStoppedErrors(c *gc.C) {
+	factory := mock.MockFactory()
+	container := factory.New("first")
+	err := container.Stop()
+	c.Assert(err, gc.ErrorMatches, "container is not running")
+}
+
+func (*MockSuite) TestContainerStartStarts(c *gc.C) {
+	factory := mock.MockFactory()
+	container := factory.New("first")
+	err := container.Start()
+	c.Assert(err, gc.IsNil)
+	c.Assert(container.IsRunning(), jc.IsTrue)
+}
+
+func (*MockSuite) TestContainerStartingRunningErrors(c *gc.C) {
+	factory := mock.MockFactory()
+	container := factory.New("first")
+	err := container.Start()
+	c.Assert(err, gc.IsNil)
+	err = container.Start()
+	c.Assert(err, gc.ErrorMatches, "container is already running")
+}
+
+func (*MockSuite) TestContainerStoppingRunningStops(c *gc.C) {
+	factory := mock.MockFactory()
+	container := factory.New("first")
+	err := container.Start()
+	c.Assert(err, gc.IsNil)
+	err = container.Stop()
+	c.Assert(err, gc.IsNil)
+	c.Assert(container.IsRunning(), jc.IsFalse)
+}

@@ -17,6 +17,9 @@ type Container interface {
 	// Stop terminates the running container.
 	Stop() error
 
+	// IsRunning returns wheter or not the container is running and active.
+	IsRunning() bool
+
 	// String returns information about the container, like the name, state,
 	// and process id.
 	String() string

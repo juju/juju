@@ -77,11 +77,15 @@ func (mock *mockContainer) Start() error {
 // Stop terminates the running container.
 func (mock *mockContainer) Stop() error {
 	if !mock.started {
-		return fmt.Errorf("container is already stopped")
+		return fmt.Errorf("container is not running")
 	}
 	mock.started = false
 	mock.factory.notify(Stopped, mock.name)
 	return nil
+}
+
+func (mock *mockContainer) IsRunning() bool {
+	return mock.started
 }
 
 // String returns information about the container.
