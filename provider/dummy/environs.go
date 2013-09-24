@@ -370,14 +370,22 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	return cfg.Apply(validated)
 }
 
-func (e *environ) state() *environState {
+func (e *environ) maybeState() (*environState, bool) {
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if state := p.state[e.name]; state != nil {
+		return state, true
+	}
+	return nil, false
+}
+
+func (e *environ) state() *environState {
+	if state, ok := e.maybeState(); !ok {
+		panic(fmt.Errorf("environment %q is not prepared", e.name))
+	} else {
 		return state
 	}
-	panic(fmt.Errorf("environment %q is not prepared", e.name))
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -579,7 +587,15 @@ func (e *environ) Destroy([]instance.Instance) error {
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	estate := e.state()
+	estate, ok := e.maybeState()
+	if !ok {
+		return nil
+	}
+	p := &providerInstance
+	p.mu.Lock()
+	delete(p.state, e.name)
+	p.mu.Unlock()
+
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.ops <- OpDestroy{Env: estate.name}

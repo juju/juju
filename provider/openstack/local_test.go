@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -187,7 +188,6 @@ type localServerSuite struct {
 	jujutest.Tests
 	cred            *identity.Credentials
 	srv             localServer
-	env             environs.Environ
 	metadataStorage storage.Storage
 }
 
@@ -217,19 +217,17 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	})
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	s.metadataStorage = openstack.MetadataStorage(s.Env)
+	env := s.Open(c)
+	s.metadataStorage = openstack.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
 	envtesting.GenerateFakeToolsMetadata(c, s.metadataStorage)
-	s.env = s.Tests.Env
-	openstack.UseTestImageData(s.env, s.cred)
+	openstack.UseTestImageData(env, s.cred)
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
-	if s.env != nil {
-		openstack.RemoveTestImageData(s.env)
-	}
+	openstack.RemoveTestImageData(s.Open(c))
 	if s.metadataStorage != nil {
 		envtesting.RemoveFakeToolsMetadata(c, s.metadataStorage)
 	}
@@ -249,10 +247,10 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	)
 	defer cleanup()
 
-	// Create a config that matches s.Config but with use-floating-ip set to true
-	cfg, err := s.Env.Config().Apply(map[string]interface{}{
+	// Create a config that matches s.TestConfig but with use-floating-ip set to true
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
 		"use-floating-ip": true,
-	})
+	}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -279,23 +277,24 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	defer cleanup()
 
-	cfg, err := s.Env.Config().Apply(map[string]interface{}{
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
 		"use-floating-ip": false,
-	})
+	}))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.StartInstance(c, env, "100")
-	err = s.Env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	err := bootstrap.Bootstrap(s.Env, constraints.Value{})
+	env := s.Prepare(c)
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	_, hc := testing.StartInstanceWithConstraints(c, s.Env, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.StartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -350,20 +349,22 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
+	env := s.Prepare(c)
 	// goose's test service always returns ACTIVE state.
-	inst, _ := testing.StartInstance(c, s.Env, "100")
+	inst, _ := testing.StartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
-	err := s.Env.StopInstances([]instance.Instance{inst})
+	err := env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
-	inst0, _ := testing.StartInstance(c, s.Env, "100")
+	env := s.Prepare(c)
+	inst0, _ := testing.StartInstance(c, env, "100")
 	id0 := inst0.Id()
-	inst1, _ := testing.StartInstance(c, s.Env, "101")
+	inst1, _ := testing.StartInstance(c, env, "101")
 	id1 := inst1.Id()
 	defer func() {
-		err := s.Env.StopInstances([]instance.Instance{inst0, inst1})
+		err := env.StopInstances([]instance.Instance{inst0, inst1})
 		c.Assert(err, gc.IsNil)
 	}()
 
@@ -378,7 +379,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 				ids[j] = id1
 			}
 		}
-		insts, err := s.Env.Instances(ids)
+		insts, err := env.Instances(ids)
 		c.Assert(err, gc.Equals, test.err)
 		if err == environs.ErrNoInstances {
 			c.Assert(insts, gc.HasLen, 0)
@@ -396,6 +397,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 }
 
 func (s *localServerSuite) TestCollectInstances(c *gc.C) {
+	env := s.Prepare(c)
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -405,20 +407,21 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _ := testing.StartInstance(c, s.Env, "100")
+	stateInst, _ := testing.StartInstance(c, env, "100")
 	defer func() {
-		err := s.Env.StopInstances([]instance.Instance{stateInst})
+		err := env.StopInstances([]instance.Instance{stateInst})
 		c.Assert(err, gc.IsNil)
 	}()
 	found := make(map[instance.Id]instance.Instance)
 	missing := []instance.Id{stateInst.Id()}
 
-	resultMissing := openstack.CollectInstances(s.Env, missing, found)
+	resultMissing := openstack.CollectInstances(env, missing, found)
 
 	c.Assert(resultMissing, gc.DeepEquals, missing)
 }
 
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
+	env := s.Prepare(c)
 	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
@@ -429,13 +432,13 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _ := testing.StartInstance(c, s.Env, "100")
+	stateInst, _ := testing.StartInstance(c, env, "100")
 	defer func() {
-		err := s.Env.StopInstances([]instance.Instance{stateInst})
+		err := env.StopInstances([]instance.Instance{stateInst})
 		c.Assert(err, gc.IsNil)
 	}()
 
-	instances, err := s.Env.Instances([]instance.Id{stateInst.Id()})
+	instances, err := env.Instances([]instance.Id{stateInst.Id()})
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(instances, gc.HasLen, 1)
@@ -445,22 +448,23 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
-	err := bootstrap.Bootstrap(s.env, constraints.Value{})
+	env := s.Prepare(c)
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := provider.LoadState(s.env.Storage())
+	stateData, err := provider.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
 	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=512M")
-	insts, err := s.env.AllInstances()
+	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
 	c.Check(expectedHardware, gc.DeepEquals, stateData.Characteristics[0])
 
-	info, apiInfo, err := s.env.StateInfo()
+	info, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 
@@ -474,22 +478,23 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	// check that a new instance will be started with a machine agent,
 	// and without a provisioning agent.
-	series := s.env.Config().DefaultSeries()
+	series := env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst1, _, err := provider.StartInstance(s.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, _, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 
-	err = s.env.Destroy(append(insts, inst1))
+	err = env.Destroy(append(insts, inst1))
 	c.Assert(err, gc.IsNil)
 
-	_, err = provider.LoadState(s.env.Storage())
+	_, err = provider.LoadState(env.Storage())
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	sources, err := imagemetadata.GetMetadataSources(s.env)
+	env := s.Open(c)
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 4)
 	var urls = make([]string, len(sources))
@@ -499,7 +504,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(env)), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
 	// The image-metadata-url ends with "/juju-dist-test/".
@@ -508,7 +513,8 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
-	sources, err := tools.GetMetadataSources(s.env)
+	env := s.Open(c)
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 3)
 	var urls = make([]string, len(sources))
@@ -518,7 +524,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
 	c.Assert(err, gc.IsNil)
 	// Check that the URL from keystone parses.
 	_, err = url.Parse(urls[1])
@@ -528,22 +534,25 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
-	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
+	env := s.Open(c)
+	spec, err := openstack.FindInstanceSpec(env, "raring", "amd64", "mem=512M")
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.Image.Id, gc.Equals, "id-y")
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
+	env := s.Open(c)
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
+	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := s.Env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
+	env := s.Open(c)
+	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
-	params.Sources, err = imagemetadata.GetMetadataSources(s.Env)
+	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
@@ -552,7 +561,8 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	stor := s.Env.Storage()
+	env := s.Prepare(c)
+	stor := env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
 		name := string(content)
@@ -572,7 +582,8 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	stor := s.Env.Storage()
+	env := s.Prepare(c)
+	stor := env.Storage()
 	// 6*26 = 156 items
 	for _, a := range []byte("abcdef") {
 		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
@@ -597,6 +608,7 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
+	env := s.Prepare(c)
 	rule := []nova.RuleInfo{
 		{
 			IPProtocol: "tcp",
@@ -612,7 +624,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 		c.Check(*group.Rules[0].ToPort, gc.Equals, 22)
 	}
 
-	group, err := openstack.EnsureGroup(s.env, "test group", rule)
+	group, err := openstack.EnsureGroup(env, "test group", rule)
 	c.Assert(err, gc.IsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
 	assertRule(group)
@@ -625,7 +637,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			ToPort:     65535,
 		},
 	}
-	group, err = openstack.EnsureGroup(s.env, "test group", anotherRule)
+	group, err = openstack.EnsureGroup(env, "test group", anotherRule)
 	c.Assert(err, gc.IsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")

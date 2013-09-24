@@ -37,7 +37,6 @@ type Tests struct {
 	testbase.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
-	Env environs.Environ
 }
 
 // Open opens an instance of the testing environment.
@@ -48,27 +47,27 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 	return e
 }
 
+func (t *Tests) Prepare(c *gc.C) environs.Environ {
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	c.Assert(err, gc.IsNil)
+	e, err := environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
+	c.Assert(e, gc.NotNil)
+	return e
+}
+
 func (t *Tests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	t.ToolsFixture.SetUpTest(c)
-	c.Assert(err, gc.IsNil)
-	t.Env, err = environs.Prepare(cfg, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
-	if t.Env != nil {
-		err := t.Env.Destroy(nil)
-		c.Check(err, gc.IsNil)
-		t.Env = nil
-	}
 	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *Tests) TestStartStop(c *gc.C) {
-	e := t.Open(c)
+	e := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e.Storage())
 	cfg, err := e.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
@@ -119,8 +118,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 }
 
 func (t *Tests) TestBootstrap(c *gc.C) {
-	// TODO tests for Bootstrap(true)
-	e := t.Open(c)
+	e := t.Prepare(c)
 	err := bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -142,8 +140,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = e2.Destroy(nil)
 	c.Assert(err, gc.IsNil)
 
-	// Open again because Destroy invalidates old environments.
-	e3 := t.Open(c)
+	// Prepare again because Destroy invalidates old environments.
+	e3 := t.Prepare(c)
 
 	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -155,7 +153,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 var noRetry = utils.AttemptStrategy{}
 
 func (t *Tests) TestPersistence(c *gc.C) {
-	stor := t.Open(c).Storage()
+	stor := t.Prepare(c).Storage()
 
 	names := []string{
 		"aa",
