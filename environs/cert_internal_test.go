@@ -7,12 +7,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // EnvironsCertSuite tests the internal functions defined in environs/cert.go
 type EnvironsCertSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&EnvironsCertSuite{})
@@ -24,7 +26,7 @@ type testCerts struct {
 
 func (*EnvironsCertSuite) TestGenerateCertificate(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
-	env, err := PrepareFromName(testing.SampleEnvName)
+	env, err := PrepareFromName(testing.SampleEnvName, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	var savedCerts testCerts

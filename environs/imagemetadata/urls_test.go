@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/provider/dummy"
@@ -36,7 +37,7 @@ func (s *URLsSuite) env(c *gc.C, imageMetadataURL string) environs.Environ {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	env, err = environs.Prepare(env.Config())
+	env, err = environs.Prepare(env.Config(), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env
 }
@@ -58,5 +59,5 @@ func (s *URLsSuite) TestImageMetadataURLs(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-image-metadata-url/", privateStorageURL, "http://cloud-images.ubuntu.com/releases/"})
+		privateStorageURL, "config-image-metadata-url/", "http://cloud-images.ubuntu.com/releases/"})
 }

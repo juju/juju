@@ -7,11 +7,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type suite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&suite{})

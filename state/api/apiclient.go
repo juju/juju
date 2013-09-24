@@ -4,16 +4,18 @@
 package api
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
 	"crypto/x509"
+	"time"
+
+	"code.google.com/p/go.net/websocket"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"time"
 )
 
 // PingPeriod defines how often the internal connection health check

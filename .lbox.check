@@ -14,8 +14,11 @@ go tool vet \
 	-methods \
 	-printf \
 	-rangeloops \
-	-printfuncs 'ErrorContextf:1,notFoundf:0,badReqErrorf:0,Commitf:0,Snapshotf:0,Debugf:0,Infof:0,Warningf:0,Errorf:0,Criticalf:0,Logf:1,Tracef:0' \
+	-printfuncs 'ErrorContextf:1,notFoundf:0,badReqErrorf:0,Commitf:0,Snapshotf:0,Debugf:0,Infof:0,Warningf:0,Errorf:0,Criticalf:0,Tracef:0' \
 	.
 
 # check this branch builds cleanly
 go build launchpad.net/juju-core/...
+
+# check that all tests are wired up
+./scripts/checktesting.bash

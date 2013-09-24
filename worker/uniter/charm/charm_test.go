@@ -22,7 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -98,7 +98,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Check it doesn't get created until it's needed.
 	_, err := os.Stat(bunsdir)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Add a charm to state that we can try to get.
 	apiCharm, sch, bundata := s.AddCharm(c)

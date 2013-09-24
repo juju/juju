@@ -7,6 +7,7 @@
 package tools
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"hash"
@@ -15,9 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"bytes"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
@@ -183,10 +183,10 @@ type MetadataFile struct {
 	Data []byte
 }
 
-func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore environs.Storage) error {
+func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore storage.Storage) error {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	// The metadata from toolsList is already present, the existing data is overwritten.
-	dataSource := environs.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
+	dataSource := storage.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
 	if err != nil {
 		return err

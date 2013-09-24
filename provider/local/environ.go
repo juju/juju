@@ -21,7 +21,9 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -164,7 +166,11 @@ func createLocalStorageListener(dir, address string) (net.Listener, error) {
 	} else if !info.Mode().IsDir() {
 		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
 	}
-	return localstorage.Serve(address, dir)
+	storage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		return nil, err
+	}
+	return httpstorage.Serve(address, storage)
 }
 
 // SetConfig is specified in the Environ interface.
@@ -318,17 +324,17 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 }
 
 // Storage is specified in the Environ interface.
-func (env *localEnviron) Storage() environs.Storage {
-	return localstorage.Client(env.config.storageAddr())
+func (env *localEnviron) Storage() storage.Storage {
+	return httpstorage.Client(env.config.storageAddr())
 }
 
 // PublicStorage is specified in the Environ interface.
-func (env *localEnviron) PublicStorage() environs.StorageReader {
-	return localstorage.Client(env.config.sharedStorageAddr())
+func (env *localEnviron) PublicStorage() storage.StorageReader {
+	return httpstorage.Client(env.config.sharedStorageAddr())
 }
 
 // Destroy is specified in the Environ interface.
-func (env *localEnviron) Destroy(insts []instance.Instance) error {
+func (env *localEnviron) Destroy() error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("destroying a local environment must be done as root")
 	}
@@ -447,7 +453,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
-	agentTools.Version.Series = version.CurrentSeries()
+	agentTools.Version.Series = version.Current.Series
 	err = agenttools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
@@ -462,14 +468,13 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	toolsDir := agenttools.ToolsDir(dataDir, tag)
 
 	logDir := env.config.logDir()
-	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
 		"USER": env.config.user,
 		"HOME": osenv.Home(),
 	}
 	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
+		toolsDir, dataDir, logDir, tag, machineId, machineEnvironment)
 
 	agentService.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agentService.InitDir)

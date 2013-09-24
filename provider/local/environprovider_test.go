@@ -13,7 +13,6 @@ import (
 )
 
 type baseProviderSuite struct {
-	testing.LoggingSuite
 	lxc.TestSuite
 	home    *testing.FakeHome
 	restore func()

@@ -58,7 +58,11 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if agentVersion, ok := cfg.AgentVersion(); ok {
 		vers = &agentVersion
 	}
-	newestTools, err := tools.FindBootstrapTools(environ, vers, cfg.DefaultSeries(), cons.Arch, cfg.Development())
+	params := tools.BootstrapToolsParams{
+		Version: vers,
+		Arch:    cons.Arch,
+	}
+	newestTools, err := tools.FindBootstrapTools(environ, params)
 	if err != nil {
 		return fmt.Errorf("cannot find bootstrap tools: %v", err)
 	}
@@ -96,18 +100,8 @@ func verifyBootstrapInit(env environs.Environ) error {
 	// should not necessarily be required to store their bootstrap
 	// state in a file. This verification should probably
 	// be moved into provider and called by the providers themselves.
-	var err error
-
-	storage := env.Storage()
-
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
-		if _, err = provider.LoadState(storage); err != nil {
-			break
-		}
-	}
+	stor := env.Storage()
+	_, err := provider.LoadState(stor)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -115,7 +109,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	return environs.VerifyStorage(storage)
+	return environs.VerifyStorage(stor)
 }
 
 // ConfigureBootstrapMachine adds the initial machine into state.  As a part

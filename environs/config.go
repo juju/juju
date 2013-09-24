@@ -13,6 +13,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -36,6 +37,26 @@ func (e *Environs) Names() (names []string) {
 		names = append(names, name)
 	}
 	return
+}
+
+// Config returns the environment configuration for the environment
+// with the given name. If the configuration is not
+// found, an errors.NotFoundError is returned.
+func (envs *Environs) Config(name string) (*config.Config, error) {
+	if name == "" {
+		name = envs.Default
+		if name == "" {
+			return nil, fmt.Errorf("no default environment found")
+		}
+	}
+	e, ok := envs.environs[name]
+	if !ok {
+		return nil, errors.NotFoundf("environment %q", name)
+	}
+	if e.err != nil {
+		return nil, e.err
+	}
+	return e.config, nil
 }
 
 // providers maps from provider type to EnvironProvider for

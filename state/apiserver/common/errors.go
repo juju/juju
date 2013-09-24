@@ -52,7 +52,6 @@ var (
 	ErrUnknownPinger  = stderrors.New("unknown pinger id")
 	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
 	ErrBadRequest     = stderrors.New("invalid request")
-	ErrNotProvisioned = stderrors.New("not provisioned")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -66,7 +65,6 @@ var singletonErrorCodes = map[error]string{
 	ErrNotLoggedIn:               params.CodeUnauthorized,
 	ErrUnknownWatcher:            params.CodeNotFound,
 	ErrStoppedWatcher:            params.CodeStopped,
-	ErrNotProvisioned:            params.CodeNotProvisioned,
 }
 
 func singletonCode(err error) (string, bool) {
@@ -100,6 +98,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeHasAssignedUnits
 	case IsNoAddressSetError(err):
 		code = params.CodeNoAddressSet
+	case state.IsNotProvisionedError(err):
+		code = params.CodeNotProvisioned
 	default:
 		code = params.ErrCode(err)
 	}

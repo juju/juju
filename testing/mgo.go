@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
@@ -160,10 +160,10 @@ func MgoTestPackage(t *stdtesting.T) {
 		t.Fatal(err)
 	}
 	defer destroyMgoServer()
-	TestingT(t)
+	gc.TestingT(t)
 }
 
-func (s *MgoSuite) SetUpSuite(c *C) {
+func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoAddr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
@@ -200,7 +200,7 @@ func readLines(r io.Reader, n int) []string {
 	return final
 }
 
-func (s *MgoSuite) TearDownSuite(c *C) {
+func (s *MgoSuite) TearDownSuite(c *gc.C) {
 	utils.FastInsecureHash = false
 }
 
@@ -229,7 +229,7 @@ func MgoDial() *mgo.Session {
 	return session
 }
 
-func (s *MgoSuite) SetUpTest(c *C) {
+func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
 	s.Session = MgoDial()
 }
@@ -265,16 +265,25 @@ func MgoReset() {
 	}
 }
 
+// isUnauthorized is a copy of the same function in state/open.go.
 func isUnauthorized(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Some unauthorized access errors have no error code,
+	// just a simple error string.
+	if err.Error() == "auth fails" {
+		return true
+	}
 	if err, ok := err.(*mgo.QueryError); ok {
-		if err.Code == 10057 || err.Message == "need to login" {
-			return true
-		}
+		return err.Code == 10057 ||
+			err.Message == "need to login" ||
+			err.Message == "unauthorized"
 	}
 	return false
 }
 
-func (s *MgoSuite) TearDownTest(c *C) {
+func (s *MgoSuite) TearDownTest(c *gc.C) {
 	MgoReset()
 	s.Session.Close()
 	for i := 0; ; i++ {

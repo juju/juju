@@ -5,23 +5,25 @@ package jujutest
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"sort"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -32,129 +34,133 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
-	Env        environs.Environ
 
-	preparedConfig *config.Config
+	// ConfigStore holds the configuration storage
+	// used when preparing the environment.
+	// This is initialized by SetUpTest.
+	ConfigStore configstore.Storage
 }
 
 // Open opens an instance of the testing environment.
-func (t *Tests) Open(c *C) environs.Environ {
-	e, err := environs.New(t.preparedConfig)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.preparedConfig))
-	c.Assert(e, NotNil)
+func (t *Tests) Open(c *gc.C) environs.Environ {
+	e, err := environs.NewFromAttrs(t.TestConfig)
+	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
+	c.Assert(e, gc.NotNil)
 	return e
 }
 
-func (t *Tests) SetUpTest(c *C) {
-	t.LoggingSuite.SetUpTest(c)
+// Prepare prepares an instance of the testing environment.
+func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	t.ToolsFixture.SetUpTest(c)
-	c.Assert(err, IsNil)
-	t.Env, err = environs.Prepare(cfg)
-	c.Assert(err, IsNil)
-	t.preparedConfig = t.Env.Config()
+	c.Assert(err, gc.IsNil)
+	e, err := environs.Prepare(cfg, t.ConfigStore)
+	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
+	c.Assert(e, gc.NotNil)
+	return e
 }
 
-func (t *Tests) TearDownTest(c *C) {
-	if t.Env != nil {
-		err := t.Env.Destroy(nil)
-		c.Check(err, IsNil)
-		t.Env = nil
-		t.preparedConfig = nil
-	}
+func (t *Tests) SetUpTest(c *gc.C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.ToolsFixture.SetUpTest(c)
+	t.ConfigStore = configstore.NewMem()
+}
+
+func (t *Tests) TearDownTest(c *gc.C) {
 	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func (t *Tests) TestStartStop(c *C) {
-	envtesting.UploadFakeTools(c, t.Env.Storage())
-	cfg, err := t.Env.Config().Apply(map[string]interface{}{
+func (t *Tests) TestStartStop(c *gc.C) {
+	e := t.Prepare(c)
+	envtesting.UploadFakeTools(c, e.Storage())
+	cfg, err := e.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
 	})
-	c.Assert(err, IsNil)
-	err = t.Env.SetConfig(cfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
+	err = e.SetConfig(cfg)
+	c.Assert(err, gc.IsNil)
 
-	insts, err := t.Env.Instances(nil)
-	c.Assert(err, IsNil)
-	c.Assert(insts, HasLen, 0)
+	insts, err := e.Instances(nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc := testing.StartInstance(c, t.Env, "0")
-	c.Assert(inst0, NotNil)
+	inst0, hc := testing.StartInstance(c, e, "0")
+	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
-	c.Assert(hc.Arch, NotNil)
-	c.Assert(hc.Mem, NotNil)
-	c.Assert(hc.CpuCores, NotNil)
+	c.Assert(hc.Arch, gc.NotNil)
+	c.Assert(hc.Mem, gc.NotNil)
+	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _ := testing.StartInstance(c, t.Env, "1")
-	c.Assert(inst1, NotNil)
+	inst1, _ := testing.StartInstance(c, e, "1")
+	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
-	insts, err = t.Env.Instances([]instance.Id{id0, id1})
-	c.Assert(err, IsNil)
-	c.Assert(insts, HasLen, 2)
-	c.Assert(insts[0].Id(), Equals, id0)
-	c.Assert(insts[1].Id(), Equals, id1)
+	insts, err = e.Instances([]instance.Id{id0, id1})
+	c.Assert(err, gc.IsNil)
+	c.Assert(insts, gc.HasLen, 2)
+	c.Assert(insts[0].Id(), gc.Equals, id0)
+	c.Assert(insts[1].Id(), gc.Equals, id1)
 
 	// order of results is not specified
-	insts, err = t.Env.AllInstances()
-	c.Assert(err, IsNil)
-	c.Assert(insts, HasLen, 2)
-	c.Assert(insts[0].Id(), Not(Equals), insts[1].Id())
+	insts, err = e.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(insts, gc.HasLen, 2)
+	c.Assert(insts[0].Id(), gc.Not(gc.Equals), insts[1].Id())
 
-	err = t.Env.StopInstances([]instance.Instance{inst0})
-	c.Assert(err, IsNil)
+	err = e.StopInstances([]instance.Instance{inst0})
+	c.Assert(err, gc.IsNil)
 
-	insts, err = t.Env.Instances([]instance.Id{id0, id1})
-	c.Assert(err, Equals, environs.ErrPartialInstances)
-	c.Assert(insts[0], IsNil)
-	c.Assert(insts[1].Id(), Equals, id1)
+	insts, err = e.Instances([]instance.Id{id0, id1})
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(insts[0], gc.IsNil)
+	c.Assert(insts[1].Id(), gc.Equals, id1)
 
-	insts, err = t.Env.AllInstances()
-	c.Assert(err, IsNil)
-	c.Assert(insts[0].Id(), Equals, id1)
+	insts, err = e.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(insts[0].Id(), gc.Equals, id1)
 }
 
-func (t *Tests) TestBootstrap(c *C) {
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
-	c.Assert(err, IsNil)
+func (t *Tests) TestBootstrap(c *gc.C) {
+	e := t.Prepare(c)
+	err := bootstrap.Bootstrap(e, constraints.Value{})
+	c.Assert(err, gc.IsNil)
 
-	info, apiInfo, err := t.Env.StateInfo()
-	c.Check(info.Addrs, Not(HasLen), 0)
-	c.Check(apiInfo.Addrs, Not(HasLen), 0)
+	info, apiInfo, err := e.StateInfo()
+	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
+	c.Check(apiInfo.Addrs, gc.Not(gc.HasLen), 0)
 
-	err = bootstrap.Bootstrap(t.Env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+	err = bootstrap.Bootstrap(e, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
 	err = bootstrap.Bootstrap(e2, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
+	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
-	c.Check(info2, DeepEquals, info)
-	c.Check(apiInfo2, DeepEquals, apiInfo)
+	c.Check(info2, gc.DeepEquals, info)
+	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
 
-	err = e2.Destroy(nil)
-	c.Assert(err, IsNil)
+	err = environs.Destroy(e2, t.ConfigStore)
+	c.Assert(err, gc.IsNil)
 
-	// Open again because Destroy invalidates old environments.
-	e3 := t.Open(c)
-
-	err = bootstrap.Bootstrap(e3, constraints.Value{})
-	c.Assert(err, IsNil)
+	// Prepare again because Destroy invalidates old environments.
+	e3 := t.Prepare(c)
 
 	err = bootstrap.Bootstrap(e3, constraints.Value{})
-	c.Assert(err, NotNil)
+	c.Assert(err, gc.IsNil)
+
+	err = bootstrap.Bootstrap(e3, constraints.Value{})
+	c.Assert(err, gc.NotNil)
 }
 
 var noRetry = utils.AttemptStrategy{}
 
-func (t *Tests) TestPersistence(c *C) {
-	storage := t.Env.Storage()
+func (t *Tests) TestPersistence(c *gc.C) {
+	stor := t.Prepare(c).Storage()
 
 	names := []string{
 		"aa",
@@ -162,12 +168,12 @@ func (t *Tests) TestPersistence(c *C) {
 		"zzz/bb",
 	}
 	for _, name := range names {
-		checkFileDoesNotExist(c, storage, name, noRetry)
-		checkPutFile(c, storage, name, []byte(name))
+		checkFileDoesNotExist(c, stor, name, noRetry)
+		checkPutFile(c, stor, name, []byte(name))
 	}
-	checkList(c, storage, "", names)
-	checkList(c, storage, "a", []string{"aa"})
-	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
+	checkList(c, stor, "", names)
+	checkList(c, stor, "a", []string{"aa"})
+	checkList(c, stor, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
 	storage2 := t.Open(c).Storage()
 	for _, name := range names {
@@ -176,36 +182,36 @@ func (t *Tests) TestPersistence(c *C) {
 
 	// remove the first file and check that the others remain.
 	err := storage2.Remove(names[0])
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	// check that it's ok to remove a file twice.
 	err = storage2.Remove(names[0])
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, storage, names[0], noRetry)
+	checkFileDoesNotExist(c, stor, names[0], noRetry)
 
 	// ... and that the rest of the files are still around
 	checkList(c, storage2, "", names[1:])
 
 	for _, name := range names[1:] {
 		err := storage2.Remove(name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	// check they've all gone
 	checkList(c, storage2, "", nil)
 }
 
-func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
-	lnames, err := storage.List(prefix)
-	c.Assert(err, IsNil)
+func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
+	lnames, err := storage.List(stor, prefix)
+	c.Assert(err, gc.IsNil)
 	// TODO(dfc) gocheck should grow an SliceEquals checker.
 	expected := copyslice(lnames)
 	sort.Strings(expected)
 	actual := copyslice(names)
 	sort.Strings(actual)
-	c.Assert(expected, DeepEquals, actual)
+	c.Assert(expected, gc.DeepEquals, actual)
 }
 
 // copyslice returns a copy of the slice
@@ -215,50 +221,43 @@ func copyslice(s []string) []string {
 	return r
 }
 
-func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {
-	err := storage.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
-	c.Assert(err, IsNil)
+func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
+	err := stor.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
+	c.Assert(err, gc.IsNil)
 }
 
-func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, attempt utils.AttemptStrategy) {
-	var r io.ReadCloser
-	var err error
-	for a := attempt.Start(); a.Next(); {
-		r, err = storage.Get(name)
-		if err != nil {
-			break
-		}
-	}
-	c.Assert(r, IsNil)
+func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string, attempt utils.AttemptStrategy) {
+	r, err := storage.GetWithRetry(stor, name, attempt)
+	c.Assert(r, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
-	r, err := storage.Get(name)
-	c.Assert(err, IsNil)
-	c.Check(r, NotNil)
+func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
+	r, err := storage.GetWithRetry(stor, name, attempt)
+	c.Assert(err, gc.IsNil)
+	c.Check(r, gc.NotNil)
 	defer r.Close()
 
 	data, err := ioutil.ReadAll(r)
-	c.Check(err, IsNil)
-	c.Check(data, DeepEquals, contents)
+	c.Check(err, gc.IsNil)
+	c.Check(data, gc.DeepEquals, contents)
 
-	url, err := storage.URL(name)
-	c.Assert(err, IsNil)
+	url, err := stor.URL(name)
+	c.Assert(err, gc.IsNil)
 
 	var resp *http.Response
 	for a := attempt.Start(); a.Next(); {
 		resp, err = http.Get(url)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		if resp.StatusCode != 404 {
 			break
 		}
 		c.Logf("get retrying after earlier get succeeded. *sigh*.")
 	}
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	data, err = ioutil.ReadAll(resp.Body)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, Equals, 200, Commentf("error response: %s", data))
-	c.Check(data, DeepEquals, contents)
+	c.Assert(resp.StatusCode, gc.Equals, 200, gc.Commentf("error response: %s", data))
+	c.Check(data, gc.DeepEquals, contents)
 }

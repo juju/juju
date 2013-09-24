@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 )
 
 // checkProvisionedScript is the script to run on the remote machine
@@ -23,9 +24,9 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 // checkProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
 func checkProvisioned(sshHost string) (bool, error) {
-	cmd := sshCommand(sshHost, "bash")
+	logger.Infof("Checking if %s is already provisioned", sshHost)
+	cmd := sshCommand(sshHost, fmt.Sprintf("bash -c %s", utils.ShQuote(checkProvisionedScript)))
 	var stdout, stderr bytes.Buffer
-	cmd.Stdin = bytes.NewBufferString(checkProvisionedScript)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -34,13 +35,21 @@ func checkProvisioned(sshHost string) (bool, error) {
 		}
 		return false, err
 	}
-	return len(strings.TrimSpace(stdout.String())) > 0, nil
+	output := strings.TrimSpace(stdout.String())
+	provisioned := len(output) > 0
+	if provisioned {
+		logger.Infof("%s is already provisioned [%q]", sshHost, output)
+	} else {
+		logger.Infof("%s is not provisioned", sshHost)
+	}
+	return provisioned, nil
 }
 
 // detectSeriesHardwareCharacteristics detects the OS series
 // and hardware characteristics of the remote machine by
 // connecting to the machine and executing a bash script.
 func detectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
+	logger.Infof("Detecting series and characteristics on %s", sshHost)
 	cmd := sshCommand(sshHost, "bash")
 	cmd.Stdin = bytes.NewBufferString(detectionScript)
 	out, err := cmd.CombinedOutput()
@@ -101,6 +110,7 @@ func detectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.Hardwar
 	}
 
 	// TODO(axw) calculate CpuPower. What algorithm do we use?
+	logger.Infof("series: %s, characteristics: %s", series, hc)
 	return hc, series, nil
 }
 
@@ -116,6 +126,7 @@ var archREs = []struct {
 }
 
 const detectionScript = `#!/bin/bash
+set -e
 lsb_release -cs
 uname -m
 grep MemTotal /proc/meminfo

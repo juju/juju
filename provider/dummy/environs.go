@@ -39,6 +39,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -164,8 +165,8 @@ type environState struct {
 	globalPorts   map[instance.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
-	storage       *storageServer
-	publicStorage *storageServer
+	storage       *dummystorage
+	publicStorage *dummystorage
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
@@ -503,12 +504,12 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
@@ -609,8 +610,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy([]instance.Instance) error {
-	log.Infof("Destroy called by %s", debug.Callers(0, 15))
+func (e *environ) Destroy() error {
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
@@ -622,11 +622,15 @@ func (e *environ) Destroy([]instance.Instance) error {
 		}
 		return err
 	}
+	p := &providerInstance
+	p.mu.Lock()
+	delete(p.state, estate.id)
+	p.mu.Unlock()
+
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.ops <- OpDestroy{Env: estate.name}
 	estate.destroy()
-	delete(providerInstance.state, estate.id)
 	return nil
 }
 

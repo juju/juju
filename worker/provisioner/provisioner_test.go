@@ -9,7 +9,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -22,7 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
@@ -88,15 +87,13 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 // invalidateEnvironment alters the environment configuration
 // so the Settings returned from the watcher will not pass
 // validation.
-func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) error {
-	admindb := s.Session.DB("admin")
-	err := admindb.Login("admin", testing.AdminSecret)
-	if err != nil {
-		err = admindb.Login("admin", utils.PasswordHash(testing.AdminSecret))
-	}
+func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
+	attrs := s.cfg.AllAttrs()
+	attrs["type"] = "unknown"
+	invalidCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	settings := s.Session.DB("juju").C("settings")
-	return settings.UpdateId("e", bson.D{{"$unset", bson.D{{"type", 1}}}})
+	err = s.State.SetEnvironConfig(invalidCfg)
+	c.Assert(err, gc.IsNil)
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
@@ -133,7 +130,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, gc.HasLen, 2)
 				c.Assert(nonceParts[0], gc.Equals, names.MachineTag("0"))
-				c.Assert(nonceParts[1], checkers.Satisfies, utils.IsValidUUIDString)
+				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Constraints, gc.DeepEquals, cons)
 
@@ -400,14 +397,13 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *gc.C) {
-	err := s.invalidateEnvironment(c)
-	c.Assert(err, gc.IsNil)
+	s.invalidateEnvironment(c)
 
 	p := s.newEnvironProvisioner(c, "0")
 	defer stop(c, p)
 
 	// try to create a machine
-	_, err = s.addMachine()
+	_, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 
 	// the PA should not create it
@@ -415,8 +411,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 }
 
 func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
-	err := s.invalidateEnvironment(c)
-	c.Assert(err, gc.IsNil)
+	s.invalidateEnvironment(c)
 
 	p := s.newEnvironProvisioner(c, "0")
 	defer stop(c, p)
@@ -444,8 +439,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 
 	s.checkStartInstance(c, m)
 
-	err = s.invalidateEnvironment(c)
-	c.Assert(err, gc.IsNil)
+	s.invalidateEnvironment(c)
 
 	// create a second machine
 	m, err = s.addMachine()
@@ -549,8 +543,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 	s.checkStartInstance(c, m)
 
-	err = s.invalidateEnvironment(c)
-	c.Assert(err, gc.IsNil)
+	s.invalidateEnvironment(c)
 	s.State.StartSync()
 
 	// create a second machine

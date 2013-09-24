@@ -5,9 +5,9 @@ package tools
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
-	"fmt"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )

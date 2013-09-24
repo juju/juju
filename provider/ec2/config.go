@@ -5,7 +5,9 @@ package ec2
 
 import (
 	"fmt"
+
 	"launchpad.net/goamz/aws"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 )

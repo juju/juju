@@ -32,18 +32,18 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	}
 }
 
-// storageServer holds the storage for an environState.
+// dummystorage holds the storage for an environState.
 // There are two instances for each environState
 // instance, one for public files and one for private.
-type storageServer struct {
+type dummystorage struct {
 	path     string // path prefix in http space.
 	state    *environState
 	files    map[string][]byte
 	poisoned map[string]error
 }
 
-func newStorageServer(state *environState, path string) *storageServer {
-	return &storageServer{
+func newStorage(state *environState, path string) *dummystorage {
+	return &dummystorage{
 		state:    state,
 		files:    make(map[string][]byte),
 		path:     path,
@@ -54,7 +54,7 @@ func newStorageServer(state *environState, path string) *storageServer {
 // Poison causes all fetches of the given path to
 // return the given error.
 func Poison(ss environs.Storage, path string, err error) {
-	s := ss.(*storage)
+	s := ss.(*dummystorage)
 	srv, err := s.server()
 	if err != nil {
 		panic("cannot poison destroyed storage")
@@ -64,7 +64,7 @@ func Poison(ss environs.Storage, path string, err error) {
 	srv.state.mu.Unlock()
 }
 
-func (s *storageServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (s *dummystorage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		http.Error(w, "only GET is supported", http.StatusMethodNotAllowed)
 		return
@@ -84,7 +84,7 @@ func (s *storageServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // dataWithDelay returns the data for the given path,
 // waiting for the configured amount of time before
 // accessing it.
-func (s *storageServer) dataWithDelay(path string) (data []byte, err error) {
+func (s *dummystorage) dataWithDelay(path string) (data []byte, err error) {
 	s.state.mu.Lock()
 	delay := s.state.storageDelay
 	s.state.mu.Unlock()
@@ -101,7 +101,7 @@ func (s *storageServer) dataWithDelay(path string) (data []byte, err error) {
 	return data, nil
 }
 
-func (s *storageServer) Put(name string, r io.Reader, length int64) error {
+func (s *dummystorage) Put(name string, r io.Reader, length int64) error {
 	// Allow Put to be poisoned as well.
 	if err := s.poisoned[name]; err != nil {
 		return err
@@ -122,7 +122,7 @@ func (s *storageServer) Put(name string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storageServer) Get(name string) (io.ReadCloser, error) {
+func (s *dummystorage) Get(name string) (io.ReadCloser, error) {
 	data, err := s.dataWithDelay(name)
 	if err != nil {
 		return nil, err
@@ -130,29 +130,34 @@ func (s *storageServer) Get(name string) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
 }
 
-func (s *storageServer) URL(name string) (string, error) {
+func (s *dummystorage) URL(name string) (string, error) {
 	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
 }
 
-func (s *storageServer) Remove(name string) error {
+func (s *dummystorage) Remove(name string) error {
 	s.state.mu.Lock()
 	delete(s.files, name)
 	s.state.mu.Unlock()
 	return nil
 }
 
-func (s *storageServer) ConsistencyStrategy() utils.AttemptStrategy {
+func (s *dummystorage) ConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-func (s *storageServer) RemoveAll() error {
+// ShouldRetry is specified in the StorageReader interface.
+func (s *dummystorage) ShouldRetry(err error) bool {
+	return false
+}
+
+func (s *dummystorage) RemoveAll() error {
 	s.state.mu.Lock()
 	s.files = make(map[string][]byte)
 	s.state.mu.Unlock()
 	return nil
 }
 
-func (s *storageServer) List(prefix string) ([]string, error) {
+func (s *dummystorage) List(prefix string) ([]string, error) {
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()
 	var names []string
@@ -172,7 +177,7 @@ type storage struct {
 }
 
 // server returns the server side of the given storage.
-func (s *storage) server() (*storageServer, error) {
+func (s *storage) server() (*dummystorage, error) {
 	st, err := s.env.state()
 	if err != nil {
 		return nil, err

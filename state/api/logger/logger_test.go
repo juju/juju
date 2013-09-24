@@ -32,9 +32,6 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var stateAPI *api.State
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
-	c.Assert(stateAPI, gc.NotNil)
-	s.AddCleanup(func() { stateAPI.Close() })
-
 	// Create the logger facade.
 	s.logger = stateAPI.Logger()
 	c.Assert(s.logger, gc.NotNil)

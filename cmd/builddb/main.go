@@ -15,10 +15,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
-)
 
-// Import the providers.
-import (
+	// Import the providers.
 	_ "launchpad.net/juju-core/provider/all"
 )
 

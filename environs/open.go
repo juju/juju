@@ -8,54 +8,23 @@ import (
 	"io/ioutil"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 )
 
-var InvalidEnvironmentError error = fmt.Errorf(
-	"environment is not a juju-core environment")
+var InvalidEnvironmentError = fmt.Errorf("environment is not a juju-core environment")
 
-// Open creates a new Environ using the environment configuration with the
-// given name. If name is empty, the default environment will be used.
-func (envs *Environs) Open(name string) (Environ, error) {
-	if name == "" {
-		name = envs.Default
-		if name == "" {
-			return nil, fmt.Errorf("no default environment found")
-		}
-	}
-	e, ok := envs.environs[name]
-	if !ok {
-		return nil, fmt.Errorf("unknown environment %q", name)
-	}
-	if e.err != nil {
-		return nil, e.err
-	}
-	return New(e.config)
-}
-
-// ConfigForName returns the configuration for the
-// environment with the given name from the default
-// environments file. If the name is blank, the default
-// environment will be used.
+// ConfigForName returns the configuration for the environment with the
+// given name from the default environments file. If the name is blank,
+// the default environment will be used. If the configuration is not
+// found, an errors.NotFoundError is returned.
 func ConfigForName(name string) (*config.Config, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
 		return nil, err
 	}
-	if name == "" {
-		name = envs.Default
-		if name == "" {
-			return nil, fmt.Errorf("no default environment found")
-		}
-	}
-	e, ok := envs.environs[name]
-	if !ok {
-		return nil, fmt.Errorf("unknown environment %q", name)
-	}
-	if e.err != nil {
-		return nil, e.err
-	}
-	return e.config, nil
+	return envs.Config(name)
 }
 
 // NewFromName opens the environment with the given
@@ -70,13 +39,15 @@ func NewFromName(name string) (Environ, error) {
 }
 
 // PrepareFromName is the same as NewFromName except
-// that the environment is is prepared as well as opened.
-func PrepareFromName(name string) (Environ, error) {
+// that the environment is is prepared as well as opened,
+// and environment information is created using the
+// given store.
+func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
 	cfg, err := ConfigForName(name)
 	if err != nil {
 		return nil, err
 	}
-	return Prepare(cfg)
+	return Prepare(cfg, store)
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
@@ -99,12 +70,60 @@ func New(config *config.Config) (Environ, error) {
 }
 
 // Prepare prepares a new environment based on the provided configuration.
-func Prepare(config *config.Config) (Environ, error) {
+// If the environment is already prepared, it behaves like New.
+func Prepare(config *config.Config, store configstore.Storage) (Environ, error) {
 	p, err := Provider(config.Type())
 	if err != nil {
 		return nil, err
 	}
-	return p.Prepare(config)
+	info, err := store.CreateInfo(config.Name())
+	if err != nil {
+		if err == configstore.ErrEnvironInfoAlreadyExists {
+			logger.Infof("environment info already exists; using New not Prepare")
+			info, err := store.ReadInfo(config.Name())
+			if err != nil {
+				return nil, fmt.Errorf("error reading environment info %q: %v", err)
+			}
+			if !info.Initialized() {
+				return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", config.Name())
+			}
+			return New(config)
+		}
+		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
+	}
+	env, err := p.Prepare(config)
+	if err != nil {
+		if err := info.Destroy(); err != nil {
+			logger.Warningf("cannot destroy newly created environment info: %v", err)
+		}
+		return nil, err
+	}
+	// TODO(rog) 2013-09-19 add newly created attributes to info.
+	err = info.Write()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create environment info %q: %v", err)
+	}
+	return env, nil
+}
+
+// Destroy destroys the environment and, if successful,
+// its associated configuration data from the given store.
+func Destroy(env Environ, store configstore.Storage) error {
+	name := env.Name()
+	if err := env.Destroy(); err != nil {
+		return err
+	}
+	info, err := store.ReadInfo(name)
+	if err != nil {
+		if errors.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	if err := info.Destroy(); err != nil {
+		return fmt.Errorf("cannot destroy environment configuration information: %v", err)
+	}
+	return nil
 }
 
 // CheckEnvironment checks if an environment has a bootstrap-verify
@@ -117,8 +136,8 @@ func Prepare(config *config.Config) (Environ, error) {
 //
 // Returns InvalidEnvironmentError on failure, nil otherwise.
 func CheckEnvironment(environ Environ) error {
-	storage := environ.Storage()
-	reader, err := storage.Get(verificationFilename)
+	stor := environ.Storage()
+	reader, err := storage.Get(stor, verificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.

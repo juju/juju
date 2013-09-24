@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -116,7 +117,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
-		out:     "error: unknown command or topic for foo\n",
+		out:     "ERROR unknown command or topic for foo\n",
 	}, {
 		summary: "juju help deploy shows the default help without global options",
 		args:    []string{"help", "deploy"},
@@ -136,7 +137,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
 		code:    1,
-		out:     "error: unrecognized command: juju discombobulate\n",
+		out:     "ERROR unrecognized command: juju discombobulate\n",
 	}, {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
@@ -193,10 +194,10 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "--log-file", logpath, "bootstrap")
-	c.Assert(out, gc.Equals, "error: "+msg+"\n")
+	c.Assert(out, jc.HasSuffix, "ERROR "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* %s\n`, msg)
 	c.Assert(string(content), gc.Matches, fullmsg)
 }
 
@@ -206,10 +207,10 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "bootstrap", "--log-file", logpath)
-	c.Assert(out, gc.Equals, "error: "+msg+"\n")
+	c.Assert(out, jc.HasSuffix, "ERROR "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* %s\n`, msg)
 	c.Assert(string(content), gc.Matches, fullmsg)
 }
 

@@ -6,11 +6,13 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/store"
-	"launchpad.net/lpad"
 	"os"
 	"path/filepath"
+
+	"launchpad.net/goyaml"
+	"launchpad.net/lpad"
+
+	"launchpad.net/juju-core/store"
 )
 
 func main() {

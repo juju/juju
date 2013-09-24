@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/version"
@@ -76,14 +77,18 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	environ, err := environs.PrepareFromName(c.EnvName)
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	environ, err := environs.PrepareFromName(c.EnvName, store)
 	if err != nil {
 		return err
 	}
 
 	target := environ.Storage()
 	if c.destination != "" {
-		target, err = filestorage.NewFileStorageWriter(c.destination)
+		target, err = filestorage.NewFileStorageWriter(c.destination, filestorage.UseDefaultTmpDir)
 		if err != nil {
 			return err
 		}

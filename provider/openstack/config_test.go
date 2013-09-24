@@ -10,16 +10,17 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedVars   map[string]string
 	oldJujuHome *testing.FakeHome
 }
@@ -50,14 +51,13 @@ var _ = gc.Suite(&ConfigSuite{})
 // parse matches the given error.
 type configTest struct {
 	summary       string
-	config        attrs
-	change        attrs
-	expect        attrs
+	config        map[string]interface{}
+	change        map[string]interface{}
+	expect        map[string]interface{}
 	envVars       map[string]string
 	region        string
 	controlBucket string
-	publicBucket  string
-	pbucketURL    string
+	toolsURL      string
 	useFloatingIP bool
 	username      string
 	password      string
@@ -79,26 +79,13 @@ func restoreEnvVars(envVars map[string]string) {
 }
 
 func (t configTest) check(c *gc.C) {
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"authorized-keys": "fakekey",
-			},
-		},
-	}
-	testenv := envs["environments"].(attrs)["testenv"].(attrs)
-	for k, v := range t.config {
-		testenv[k] = v
-	}
-	if _, ok := testenv["control-bucket"]; !ok {
-		testenv["control-bucket"] = "x"
-	}
-	data, err := goyaml.Marshal(envs)
-	c.Assert(err, gc.IsNil)
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "openstack",
+		"control-bucket": "x",
+	}).Merge(t.config)
 
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, gc.IsNil)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
 
 	// Set environment variables if any.
 	savedVars := make(map[string]string)
@@ -110,7 +97,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	defer restoreEnvVars(savedVars)
 
-	e, err := es.Open("testenv")
+	e, err := environs.New(cfg)
 	if t.change != nil {
 		c.Assert(err, gc.IsNil)
 
@@ -163,9 +150,10 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
 	}
-	if t.pbucketURL != "" {
-		c.Assert(ecfg.publicBucketURL(), gc.Equals, t.pbucketURL)
-		c.Assert(ecfg.publicBucket(), gc.Equals, t.publicBucket)
+	if t.toolsURL != "" {
+		toolsURL, ok := ecfg.ToolsURL()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(toolsURL, gc.Equals, t.toolsURL)
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
@@ -378,20 +366,24 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL",
+		summary: "public bucket URL sets tools URL",
 		config: attrs{
-			"public-bucket":     "juju-dist-non-default",
 			"public-bucket-url": "http://some/url",
 		},
-		publicBucket: "juju-dist-non-default",
-		pbucketURL:   "http://some/url",
+		toolsURL: "http://some/url/juju-dist/tools",
 	}, {
-		summary: "public bucket URL with default bucket",
+		summary: "public bucket URL with tools URL",
 		config: attrs{
 			"public-bucket-url": "http://some/url",
+			"tools-url":         "http://tools/url",
 		},
-		publicBucket: "juju-dist",
-		pbucketURL:   "http://some/url",
+		toolsURL: "http://tools/url",
+	}, {
+		summary: "HP Cloud config sets tools URL",
+		config: attrs{
+			"auth-url": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0",
+		},
+		toolsURL: "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{
@@ -400,12 +392,6 @@ var configTests = []configTest{
 	}, {
 		summary:      "default firewall-mode",
 		config:       attrs{},
-		firewallMode: config.FwInstance,
-	}, {
-		summary: "unset firewall-mode",
-		config: attrs{
-			"firewall-mode": "",
-		},
 		firewallMode: config.FwInstance,
 	}, {
 		summary: "instance firewall-mode",
@@ -505,12 +491,13 @@ func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
 	for attr, value := range map[string]string{
 		"default-image-id":      "foo",
 		"default-instance-type": "bar",
+		"public-bucket-url":     "somewhere",
 	} {
 		s.setupLogger(c)
 		s.setupEnv(c, attr, value)
 		s.resetLogger(c)
 		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated and ignored.*`, attr, value)
+		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
 		c.Assert(stripped, gc.Matches, expected)
 	}
 }

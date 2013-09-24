@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -58,7 +58,6 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
-	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -68,14 +67,6 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *RelationerSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		err := s.st.Close()
-		c.Assert(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
@@ -136,7 +127,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	// Verify PrepareHook created the dir.
 	fi, err := os.Stat(filepath.Join(s.dirPath, strconv.Itoa(s.rel.Id())))
 	c.Assert(err, gc.IsNil)
-	c.Assert(fi, checkers.Satisfies, os.FileInfo.IsDir)
+	c.Assert(fi, jc.Satisfies, os.FileInfo.IsDir)
 
 	err = r.CommitHook(hi)
 	c.Assert(err, gc.IsNil)
@@ -404,13 +395,8 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = u.SetPassword("password")
 	c.Assert(err, gc.IsNil)
 	st := s.OpenAPIAs(c, u.Tag(), "password")
-	c.Assert(st, gc.NotNil)
 	uniterState := st.Uniter()
 	c.Assert(uniterState, gc.NotNil)
-	defer func() {
-		err := st.Close()
-		c.Assert(err, gc.IsNil)
-	}()
 
 	apiUnit, err := uniterState.Unit(u.Tag())
 	c.Assert(err, gc.IsNil)
@@ -420,7 +406,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	r := uniter.NewRelationer(apiRelUnit, dir, hooks)
-	c.Assert(r, checkers.Satisfies, (*uniter.Relationer).IsImplicit)
+	c.Assert(r, jc.Satisfies, (*uniter.Relationer).IsImplicit)
 
 	// Join the relationer; the dir won't be created until necessary
 	err = r.Join()
@@ -450,7 +436,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = r.SetDying()
 	c.Assert(err, gc.IsNil)
 	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Check that it left scope, by leaving scope on the other side and destroying
 	// the relation.
@@ -459,7 +445,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = rel.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = rel.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// Verify that no other hooks were sent at any stage.
 	select {

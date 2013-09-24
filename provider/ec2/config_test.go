@@ -13,18 +13,18 @@ import (
 
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedHome, savedAccessKey, savedSecretKey string
 }
 
@@ -42,9 +42,9 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config        attrs
-	change        attrs
-	expect        attrs
+	config        map[string]interface{}
+	change        map[string]interface{}
+	expect        map[string]interface{}
 	region        string
 	cbucket       string
 	pbucket       string
@@ -58,29 +58,13 @@ type configTest struct {
 type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":           "ec2",
-				"ca-cert":        testing.CACert,
-				"ca-private-key": testing.CAKey,
-			},
-		},
-	}
-	testenv := envs["environments"].(attrs)["testenv"].(attrs)
-	for k, v := range t.config {
-		testenv[k] = v
-	}
-	if _, ok := testenv["control-bucket"]; !ok {
-		testenv["control-bucket"] = "x"
-	}
-	data, err := goyaml.Marshal(envs)
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "ec2",
+		"control-bucket": "x",
+	}).Merge(t.config)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, gc.IsNil)
-
-	e, err := es.Open("testenv")
+	e, err := environs.New(cfg)
 	if t.change != nil {
 		c.Assert(err, gc.IsNil)
 
@@ -138,8 +122,8 @@ func (t configTest) check(c *gc.C) {
 
 	// check storage buckets are configured correctly
 	env := e.(*environ)
-	c.Assert(env.Storage().(*storage).bucket.Region.Name, gc.Equals, ecfg.region())
-	c.Assert(env.PublicStorage().(*storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
+	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
+	c.Assert(env.PublicStorage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
 }
 
 var configTests = []configTest{
@@ -257,11 +241,6 @@ var configTests = []configTest{
 		},
 	}, {
 		config:       attrs{},
-		firewallMode: config.FwInstance,
-	}, {
-		config: attrs{
-			"firewall-mode": "",
-		},
 		firewallMode: config.FwInstance,
 	}, {
 		config: attrs{

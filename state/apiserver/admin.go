@@ -5,13 +5,14 @@ package apiserver
 
 import (
 	stderrors "errors"
+	"sync"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/presence"
-	"sync"
 )
 
 func newStateServer(srv *Server, rpcConn *rpc.Conn) *initialRoot {
@@ -89,9 +90,7 @@ func (a *srvAdmin) Login(c params.Creds) error {
 		return err
 	}
 
-	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
-		return err
-	}
+	a.root.rpcConn.Serve(newRoot, serverError)
 	return nil
 }
 
@@ -119,7 +118,7 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 	machine, ok := entity.(*state.Machine)
 	if ok {
 		if !machine.CheckProvisioned(c.Nonce) {
-			return nil, common.ErrNotProvisioned
+			return nil, state.NotProvisionedError(machine.Id())
 		}
 	}
 	setAgentAliver, ok := entity.(interface {

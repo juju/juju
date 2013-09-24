@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -18,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
-	"strings"
 )
 
 // MakeTools creates some fake tools with the given version strings.

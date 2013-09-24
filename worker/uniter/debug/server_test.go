@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package debug_test
+package debug
 
 import (
 	"fmt"
@@ -15,14 +15,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/worker/uniter/debug"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type DebugHooksServerSuite struct {
-	ctx     *debug.HooksContext
+	testbase.LoggingSuite
+	ctx     *HooksContext
 	fakebin string
 	tmpdir  string
-	oldenv  []string
 }
 
 var _ = gc.Suite(&DebugHooksServerSuite{})
@@ -36,33 +36,19 @@ exit $EXIT_CODE
 
 var fakecommands = []string{"tmux"}
 
-func (s *DebugHooksServerSuite) setenv(key, value string) {
-	s.oldenv = append(s.oldenv, key, os.Getenv(key))
-	os.Setenv(key, value)
-}
-
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.fakebin = c.MkDir()
 	s.tmpdir = c.MkDir()
-	s.setenv("PATH", s.fakebin+":"+os.Getenv("PATH"))
-	s.setenv("TMPDIR", s.tmpdir)
-	s.setenv("TEST_RESULT", "")
+	s.PatchEnvironment("PATH", s.fakebin+":"+os.Getenv("PATH"))
+	s.PatchEnvironment("TMPDIR", s.tmpdir)
+	s.PatchEnvironment("TEST_RESULT", "")
 	for _, name := range fakecommands {
 		err := ioutil.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
 		c.Assert(err, gc.IsNil)
 	}
-	s.ctx = debug.NewHooksContext("foo/8")
+	s.ctx = NewHooksContext("foo/8")
 	s.ctx.FlockDir = s.tmpdir
-	s.setenv("JUJU_UNIT_NAME", s.ctx.Unit)
-}
-
-func (s *DebugHooksServerSuite) TearDownTest(c *gc.C) {
-	if len(s.oldenv) > 0 {
-		for i := len(s.oldenv) - 2; i >= 0; i = i - 2 {
-			os.Setenv(s.oldenv[i], s.oldenv[i+1])
-		}
-		s.oldenv = nil
-	}
+	s.PatchEnvironment("JUJU_UNIT_NAME", s.ctx.Unit)
 }
 
 func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
@@ -118,18 +104,20 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
 	c.Assert(err, gc.ErrorMatches, "signal: killed")
 
-	// Run the hook in debug mode with the exit flock held.
-	// This simulates the client process starting but not
-	// cleanly exiting (normally the .pid file is updated,
-	// and the server waits on the client process' death).
-	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 1s")
-	c.Assert(cmd.Start(), gc.IsNil)
-	expected := time.Now().Add(time.Second)
+	// Run the hook in debug mode, simulating the holding
+	// of the exit flock. This simulates the client process
+	// starting but not cleanly exiting (normally the .pid
+	// file is updated, and the server waits on the client
+	// process' death).
+	ch := make(chan bool)
+	var clientExited bool
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		clientExited = <-ch
+	})
+	go func() { ch <- true }()
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
-	after := time.Now()
-	c.Assert(after, jc.TimeBetween(expected.Add(-100*time.Millisecond), expected.Add(100*time.Millisecond)))
+	c.Assert(clientExited, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "signal: killed")
-	c.Assert(cmd.Wait(), gc.IsNil)
 }
 
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
@@ -151,46 +139,53 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	go func() {
 		ch <- session.RunHook(hookName, s.tmpdir, os.Environ())
 	}()
+
+	// Wait until either we find the debug dir, or the flock is released.
+	ticker := time.Tick(10 * time.Millisecond)
 	var debugdir os.FileInfo
-	for i := 0; i < 10; i++ {
-		tmpdir, err := os.Open(s.tmpdir)
-		if err != nil {
-			c.Fatalf("Failed to open $TMPDIR: %s", err)
-		}
-		fi, err := tmpdir.Readdir(-1)
-		if err != nil {
-			c.Fatalf("Failed to read $TMPDIR: %s", err)
-		}
-		tmpdir.Close()
-		for _, fi := range fi {
-			if fi.IsDir() {
-				hooksh := filepath.Join(s.tmpdir, fi.Name(), "hook.sh")
-				if _, err = os.Stat(hooksh); err == nil {
-					debugdir = fi
-					break
+	for debugdir == nil {
+		select {
+		case err = <-ch:
+			// flock was released before we found the debug dir.
+			c.Error("could not find hook.sh")
+
+		case <-ticker:
+			tmpdir, err := os.Open(s.tmpdir)
+			if err != nil {
+				c.Fatalf("Failed to open $TMPDIR: %s", err)
+			}
+			fi, err := tmpdir.Readdir(-1)
+			if err != nil {
+				c.Fatalf("Failed to read $TMPDIR: %s", err)
+			}
+			tmpdir.Close()
+			for _, fi := range fi {
+				if fi.IsDir() {
+					hooksh := filepath.Join(s.tmpdir, fi.Name(), "hook.sh")
+					if _, err = os.Stat(hooksh); err == nil {
+						debugdir = fi
+						break
+					}
 				}
 			}
+			if debugdir != nil {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
 		}
-		if debugdir != nil {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
-	if debugdir == nil {
-		c.Error("could not find hook.sh")
-	} else {
-		envsh := filepath.Join(s.tmpdir, debugdir.Name(), "env.sh")
-		s.verifyEnvshFile(c, envsh, hookName)
 
-		hookpid := filepath.Join(s.tmpdir, debugdir.Name(), "hook.pid")
-		err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
-		c.Assert(err, gc.IsNil)
+	envsh := filepath.Join(s.tmpdir, debugdir.Name(), "env.sh")
+	s.verifyEnvshFile(c, envsh, hookName)
 
-		// RunHook should complete without waiting to be
-		// killed, and despite the exit lock being held.
-		err = <-ch
-		c.Assert(err, gc.IsNil)
-	}
+	hookpid := filepath.Join(s.tmpdir, debugdir.Name(), "hook.pid")
+	err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
+	c.Assert(err, gc.IsNil)
+
+	// RunHook should complete without waiting to be
+	// killed, and despite the exit lock being held.
+	err = <-ch
+	c.Assert(err, gc.IsNil)
 	cmd.Process.Kill() // kill flock
 }
 
