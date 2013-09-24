@@ -67,20 +67,27 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["bootstrap-host"], gc.Equals, "hostname")
 	c.Assert(unknownAttrs["bootstrap-user"], gc.Equals, "")
-	c.Assert(unknownAttrs["storage-ip"], gc.Equals, "")
+	c.Assert(unknownAttrs["storage-listen-ip"], gc.Equals, "")
 	c.Assert(unknownAttrs["storage-port"], gc.Equals, int64(8040))
 	c.Assert(unknownAttrs["storage-dir"], gc.Equals, "/var/lib/juju/storage")
+}
+
+func (s *configSuite) TestConfigMutability(c *gc.C) {
+	testConfig := minimalConfig(c)
+	valid, err := nullProvider{}.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+	unknownAttrs := valid.UnknownAttrs()
 
 	// Make sure the immutable values can't be changed. It'd be nice to be
 	// able to change these, but that would involve somehow updating the
 	// machine agent's config/upstart config.
 	oldConfig := testConfig
 	for k, v := range map[string]interface{}{
-		"bootstrap-host": "new-hostname",
-		"bootstrap-user": "new-username",
-		"storage-ip":     "10.0.0.123",
-		"storage-dir":    "/new/storage/dir",
-		"storage-port":   int64(1234),
+		"bootstrap-host":    "new-hostname",
+		"bootstrap-user":    "new-username",
+		"storage-listen-ip": "10.0.0.123",
+		"storage-dir":       "/new/storage/dir",
+		"storage-port":      int64(1234),
 	} {
 		testConfig = minimalConfig(c)
 		testConfig, err = testConfig.Apply(map[string]interface{}{k: v})
@@ -111,7 +118,7 @@ func (s *configSuite) TestStorageParams(c *gc.C) {
 	testConfig := getEnvironConfig(c, values)
 	c.Assert(testConfig.storageAddr(), gc.Equals, "hostname:8040")
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, ":8040")
-	values["storage-ip"] = "10.0.0.123"
+	values["storage-listen-ip"] = "10.0.0.123"
 	values["storage-port"] = int64(1234)
 	values["storage-dir"] = "/some/where"
 	testConfig = getEnvironConfig(c, values)

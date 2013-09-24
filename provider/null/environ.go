@@ -84,6 +84,12 @@ func (e *nullEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// Implements environs.Environ.
+//
+// This method will only ever return an Instance for the Id
+// environ/manual.BootstrapInstanceId. If any others are
+// specified, then ErrPartialInstances or ErrNoInstances
+// will result.
 func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instance, err error) {
 	instances = make([]instance.Instance, len(ids))
 	var found bool

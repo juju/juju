@@ -62,7 +62,7 @@ func (p nullProvider) validate(cfg, old *config.Config) (*environConfig, error) 
 		for _, key := range [...]string{
 			"bootstrap-user",
 			"bootstrap-host",
-			"storage-ip",
+			"storage-listen-ip",
 			"storage-dir",
 		} {
 			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
@@ -94,7 +94,7 @@ func (_ nullProvider) BoilerplateConfig() string {
         ## should be provisioned.
         bootstrap-host:
         # bootstrap-user:
-        # storage-ip:
+        # storage-listen-ip:
         # storage-port: 8040
         # storage-dir: /var/lib/juju/storage
         #

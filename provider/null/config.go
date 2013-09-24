@@ -12,20 +12,19 @@ import (
 
 var (
 	configFields = schema.Fields{
-		"bootstrap-host": schema.String(),
-		"bootstrap-user": schema.String(),
-		"storage-ip":     schema.String(),
-		"storage-dir":    schema.String(),
-		"storage-tmpdir": schema.String(),
-		"storage-port":   schema.Int(),
+		"bootstrap-host":    schema.String(),
+		"bootstrap-user":    schema.String(),
+		"storage-listen-ip": schema.String(),
+		"storage-dir":       schema.String(),
+		"storage-tmpdir":    schema.String(),
+		"storage-port":      schema.Int(),
 	}
 	configDefaults = schema.Defaults{
-		"bootstrap-host": "",
-		"bootstrap-user": "",
-		"storage-ip":     "",
-		"storage-dir":    "/var/lib/juju/storage",
-		"storage-tmpdir": "/var/lib/juju/tmp-storage",
-		"storage-port":   8040,
+		"bootstrap-user":    "",
+		"storage-listen-ip": "",
+		"storage-dir":       "/var/lib/juju/storage",
+		"storage-tmpdir":    "/var/lib/juju/tmp-storage",
+		"storage-port":      8040,
 	}
 )
 
@@ -62,8 +61,8 @@ func (c *environConfig) storageTmpdir() string {
 	return c.attrs["storage-tmpdir"].(string)
 }
 
-func (c *environConfig) storageIPAddress() string {
-	return c.attrs["storage-ip"].(string)
+func (c *environConfig) storageListenIPAddress() string {
+	return c.attrs["storage-listen-ip"].(string)
 }
 
 func (c *environConfig) storagePort() int {
@@ -79,5 +78,5 @@ func (c *environConfig) storageAddr() string {
 // storageListenAddr returns an address for the bootstrap
 // machine to listen on for its localstorage.
 func (c *environConfig) storageListenAddr() string {
-	return fmt.Sprintf("%s:%d", c.storageIPAddress(), c.storagePort())
+	return fmt.Sprintf("%s:%d", c.storageListenIPAddress(), c.storagePort())
 }
