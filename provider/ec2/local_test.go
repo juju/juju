@@ -255,7 +255,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
-	err = env.Destroy(append(insts, inst1))
+	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	_, err = provider.LoadState(env.Storage())
