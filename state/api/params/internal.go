@@ -337,9 +337,10 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life  Life
-	Jobs  []MachineJob
-	Error *Error
+	Life          Life
+	Jobs          []MachineJob
+	ContainerType instance.ContainerType
+	Error         *Error
 }
 
 // AgentVersionResult holds the version and possibly error for a given

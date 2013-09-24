@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -54,24 +55,29 @@ const (
 	flockExclusive flockmode = "-x"
 )
 
-// UseDefaultTmpDir may be passed into NewSSHStorage
-// for the tmpdir argument, to signify that the default
-// value should be used. See NewSSHStorage for more.
-const UseDefaultTmpDir = ""
-
 // NewSSHStorage creates a new SSHStorage, connected to the
 // specified host, managing state under the specified remote path.
 //
-// A temporary directory may be specified, in which case it should
-// be a directory on the same filesystem as the storage directory
-// to ensure atomic writes. If left unspecified, tmpdir will be
-// assigned a value of storagedir+".tmp".
-//
-// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
-// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
-// already exist, and will never be removed.
+// A temporary directory must be specified, and should be located on the
+// same filesystem as the storage directory to ensure atomic writes.
+// The temporary directory will be created when NewSSHStorage is invoked
+// if it doesn't already exist; it will never be removed. NewSSHStorage
+// will attempt to reassign ownership to the login user, and will return
+// an error if it cannot do so.
 func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
-	script := fmt.Sprintf("install -d -g $SUDO_GID -o $SUDO_UID %s", utils.ShQuote(storagedir))
+	if storagedir == "" {
+		return nil, errors.New("storagedir must be specified and non-empty")
+	}
+	if tmpdir == "" {
+		return nil, errors.New("tmpdir must be specified and non-empty")
+	}
+
+	script := fmt.Sprintf(
+		"install -d -g $SUDO_GID -o $SUDO_UID %s %s",
+		utils.ShQuote(storagedir),
+		utils.ShQuote(tmpdir),
+	)
+
 	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
 	cmd.Stdin = os.Stdin
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -134,16 +140,21 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (str
 		s.remotepath,
 		utils.ShQuote(command),
 	)
+	var encoded string
 	if input != nil {
-		command = fmt.Sprintf("line | base64 -d | (%s)", command)
+		encoded = base64.StdEncoding.EncodeToString(input)
+		command = fmt.Sprintf(
+			"head -q -c %d | base64 -d | (%s)",
+			len(encoded),
+			command,
+		)
 	}
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
 	if _, err := s.stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
 	if input != nil {
-		encoded := base64.StdEncoding.EncodeToString(input)
-		if _, err := s.stdin.Write([]byte(encoded + "\n")); err != nil {
+		if _, err := s.stdin.Write([]byte(encoded)); err != nil {
 			return "", fmt.Errorf("failed to write input: %v", err)
 		}
 	}
@@ -253,12 +264,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 		return err
 	}
 	path = utils.ShQuote(path)
-
-	tmpdir := s.tmpdir
-	if tmpdir == UseDefaultTmpDir {
-		tmpdir = s.remotepath + "/.tmp"
-	}
-	tmpdir = utils.ShQuote(tmpdir)
+	tmpdir := utils.ShQuote(s.tmpdir)
 
 	// Write to a temporary file ($TMPFILE), then mv atomically.
 	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
@@ -266,16 +272,6 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
 		tmpdir, command, path,
 	)
-
-	// If UseDefaultTmpDir is passed, then create the
-	// temporary directory, and remove it afterwards.
-	// Otherwise, the temporary directory is expected
-	// to already exist, and is never removed.
-	if s.tmpdir == UseDefaultTmpDir {
-		installTmpdir := fmt.Sprintf("install -d %s", tmpdir)
-		removeTmpdir := fmt.Sprintf("rm -fr %s", tmpdir)
-		command = fmt.Sprintf("%s && (%s); rc=$?; %s; exit $rc", installTmpdir, command, removeTmpdir)
-	}
 
 	_, err = s.run(flockExclusive, command+"\n", buf)
 	return err

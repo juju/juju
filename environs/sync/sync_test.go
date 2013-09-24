@@ -78,12 +78,20 @@ environments:
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
+	// Populate the old tools location which will interfere with the uploads
+	// if the new tools locations are not correctly set up.
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	for _, vers := range v180all {
+		envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), vers)
+	}
+
 	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	// Populate both with the public tools.
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
 		putBinary(c, s.localStorage, vers)
 	}
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 
 	// Switch tools location.
 	s.origLocation = sync.DefaultToolsLocation
@@ -183,6 +191,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
+			envtools.SetToolPrefix(envtools.NewToolPrefix)
 			targetTools, err := envtools.FindTools(
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
@@ -277,7 +286,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	seriesToUpload := "precise"
-	if seriesToUpload == version.CurrentSeries() {
+	if seriesToUpload == version.Current.Series {
 		seriesToUpload = "raring"
 	}
 	t, err := sync.Upload(s.env.Storage(), nil, "quantal", seriesToUpload)
@@ -288,12 +297,12 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, gc.HasLen, 3)
-	expectSeries := []string{"quantal", seriesToUpload, version.CurrentSeries()}
+	expectSeries := []string{"quantal", seriesToUpload, version.Current.Series}
 	sort.Strings(expectSeries)
 	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
 	for _, t := range list {
 		c.Logf("checking %s", t.URL)
-		c.Assert(t.Version.Number, gc.Equals, version.CurrentNumber())
+		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}

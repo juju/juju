@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package configstore
 
 import (
 	"errors"
@@ -28,8 +28,8 @@ type APICredentials struct {
 	Password string
 }
 
-// ConfigStorage stores environment configuration data.
-type ConfigStorage interface {
+// Storage stores environment configuration data.
+type Storage interface {
 	// ReadInfo reads information associated with
 	// the environment with the given name.
 	// If there is no such information, it will

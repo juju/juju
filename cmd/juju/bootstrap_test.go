@@ -249,7 +249,7 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.1-ping-hostarch",
 		"1.2.3.1-pong-hostarch",
 	},
-	err: `invalid series "ping"`,
+	err: `no matching tools available`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-hostarch",
@@ -354,7 +354,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	otherSeries := "precise"
-	if otherSeries == version.CurrentSeries() {
+	if otherSeries == version.Current.Series {
 		otherSeries = "raring"
 	}
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
@@ -369,7 +369,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(urls, gc.HasLen, 2)
 	expectedVers := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.CurrentSeries(), version.CurrentArch())),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
 	}
 	for _, vers := range expectedVers {
 		c.Logf("seeking: " + vers.String())

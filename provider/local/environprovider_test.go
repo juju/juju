@@ -10,11 +10,9 @@ import (
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type baseProviderSuite struct {
-	testbase.LoggingSuite
 	lxc.TestSuite
 	home    *testing.FakeHome
 	restore func()

@@ -6,7 +6,7 @@ package configstore_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -15,20 +15,20 @@ import (
 // The NewStore field must be set up to return a ConfigStorage
 // instance of the type to be tested.
 type interfaceSuite struct {
-	NewStore func(c *gc.C) environs.ConfigStorage
+	NewStore func(c *gc.C) configstore.Storage
 }
 
 func (s *interfaceSuite) TestCreate(c *gc.C) {
 	store := s.NewStore(c)
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{})
-	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{})
+	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
+	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
 	c.Assert(info.Initialized(), jc.IsFalse)
 
 	// Check that we can't create it twice.
 	info, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.Equals, environs.ErrEnvironInfoAlreadyExists)
+	c.Assert(err, gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 	c.Assert(info, gc.IsNil)
 
 	// Check that we can read it again.
@@ -43,14 +43,14 @@ func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
 
-	expectEndpoint := environs.APIEndpoint{
+	expectEndpoint := configstore.APIEndpoint{
 		Addresses: []string{"example.com"},
 		CACert:    "a cert",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
 
-	expectCreds := environs.APICredentials{
+	expectCreds := configstore.APICredentials{
 		User:     "foobie",
 		Password: "bletch",
 	}
@@ -66,13 +66,13 @@ func (s *interfaceSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Set it up with some actual data and write it out.
-	expectCreds := environs.APICredentials{
+	expectCreds := configstore.APICredentials{
 		User:     "foobie",
 		Password: "bletch",
 	}
 	info.SetAPICredentials(expectCreds)
 
-	expectEndpoint := environs.APIEndpoint{
+	expectEndpoint := configstore.APIEndpoint{
 		Addresses: []string{"example.com"},
 		CACert:    "a cert",
 	}
@@ -122,12 +122,12 @@ func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
 
-	info.SetAPICredentials(environs.APICredentials{User: "foo"})
-	info.SetAPIEndpoint(environs.APIEndpoint{CACert: "blah"})
+	info.SetAPICredentials(configstore.APICredentials{User: "foo"})
+	info.SetAPIEndpoint(configstore.APIEndpoint{CACert: "blah"})
 
 	info1, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info1.Initialized(), jc.IsFalse)
-	c.Assert(info1.APICredentials(), gc.DeepEquals, environs.APICredentials{})
-	c.Assert(info1.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{})
+	c.Assert(info1.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
+	c.Assert(info1.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
 }

@@ -126,7 +126,6 @@ func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
-	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
@@ -138,7 +137,6 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-	config.SetJujuHome(s.oldJujuHome)
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -218,6 +216,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, gc.IsNil)
 	osenv.SetHome(home)
+	s.oldJujuHome = config.SetJujuHome(filepath.Join(home, ".juju"))
+	err = os.Mkdir(config.JujuHome(), 0777)
+	c.Assert(err, gc.IsNil)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
@@ -287,6 +288,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	s.Conn = nil
 	s.State = nil
 	osenv.SetHome(s.oldHome)
+	config.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }

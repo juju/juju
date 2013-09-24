@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -56,8 +57,7 @@ type configTest struct {
 	envVars       map[string]string
 	region        string
 	controlBucket string
-	publicBucket  string
-	pbucketURL    string
+	toolsURL      string
 	useFloatingIP bool
 	username      string
 	password      string
@@ -150,9 +150,10 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
 	}
-	if t.pbucketURL != "" {
-		c.Assert(ecfg.publicBucketURL(), gc.Equals, t.pbucketURL)
-		c.Assert(ecfg.publicBucket(), gc.Equals, t.publicBucket)
+	if t.toolsURL != "" {
+		toolsURL, ok := ecfg.ToolsURL()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(toolsURL, gc.Equals, t.toolsURL)
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
@@ -365,20 +366,24 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL",
+		summary: "public bucket URL sets tools URL",
 		config: attrs{
-			"public-bucket":     "juju-dist-non-default",
 			"public-bucket-url": "http://some/url",
 		},
-		publicBucket: "juju-dist-non-default",
-		pbucketURL:   "http://some/url",
+		toolsURL: "http://some/url/juju-dist/tools",
 	}, {
-		summary: "public bucket URL with default bucket",
+		summary: "public bucket URL with tools URL",
 		config: attrs{
 			"public-bucket-url": "http://some/url",
+			"tools-url":         "http://tools/url",
 		},
-		publicBucket: "juju-dist",
-		pbucketURL:   "http://some/url",
+		toolsURL: "http://tools/url",
+	}, {
+		summary: "HP Cloud config sets tools URL",
+		config: attrs{
+			"auth-url": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0",
+		},
+		toolsURL: "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{
@@ -486,12 +491,13 @@ func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
 	for attr, value := range map[string]string{
 		"default-image-id":      "foo",
 		"default-instance-type": "bar",
+		"public-bucket-url":     "somewhere",
 	} {
 		s.setupLogger(c)
 		s.setupEnv(c, attr, value)
 		s.resetLogger(c)
 		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated and ignored.*`, attr, value)
+		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
 		c.Assert(stripped, gc.Matches, expected)
 	}
 }
