@@ -143,6 +143,9 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 }
 
 func (t *LiveTests) Destroy(c *gc.C) {
+	if t.Env == nil {
+		return
+	}
 	err := environs.Destroy(t.Env, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = false
