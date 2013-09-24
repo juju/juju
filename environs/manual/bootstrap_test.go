@@ -73,6 +73,7 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 	c.Assert(err, gc.IsNil)
 	return BootstrapArgs{
 		Host:          hostname,
+		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
 		MachineId:     "0",
 		PossibleTools: toolsList,
@@ -120,6 +121,12 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	// removed from storage.
 	_, err = provider.LoadState(s.env.storage)
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotBootstrapped)
+}
+
+func (s *bootstrapSuite) TestBootstrapEmptyDataDir(c *gc.C) {
+	args := s.getArgs(c)
+	args.DataDir = ""
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "data-dir argument is empty")
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyHost(c *gc.C) {

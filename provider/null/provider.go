@@ -93,16 +93,14 @@ func (_ nullProvider) BoilerplateConfig() string {
         ## set bootstrap-host to the host where the bootstrap machine agent
         ## should be provisioned.
         bootstrap-host:
+        ## set the login user to bootstrap the machine as. If left blank,
+        ## juju will connect to the bootstrap machine as the current user.
         # bootstrap-user:
+        ## set the IP address for the bootstrap machine to listen on for
+        ## storage requests. If left blank, storage will be served on all
+        ## network interfaces.
         # storage-listen-ip:
         # storage-port: 8040
-        # storage-dir: /var/lib/juju/storage
-        #
-        ## set storage-tmpdir to a temporary directory where files will
-        ## be created before moving into storage. To ensure that no partial
-        ## files are created in storage, situate this is outside of the
-        ## storage directory, but on the same filesystem.
-        # storage-tmpdir: /var/lib/juju/tmp-storage
 `
 }
 

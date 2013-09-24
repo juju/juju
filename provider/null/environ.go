@@ -6,6 +6,7 @@ package null
 import (
 	"errors"
 	"fmt"
+	"path"
 	"sync"
 
 	"launchpad.net/juju-core/constraints"
@@ -21,6 +22,20 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
+)
+
+const (
+	// TODO(axw) make this configurable?
+	dataDir = "/var/lib/juju"
+
+	// storageSubdir is the subdirectory of
+	// dataDir in which storage will be located.
+	storageSubdir = "storage"
+
+	// storageTmpSubdir is the subdirectory of
+	// dataDir in which temporary storage will
+	// be located.
+	storageTmpSubdir = "storage-tmp"
 )
 
 type nullEnviron struct {
@@ -63,6 +78,7 @@ func (e *nullEnviron) Name() string {
 func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List, machineID string) error {
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Host:          e.envConfig().sshHost(),
+		DataDir:       dataDir,
 		Environ:       e,
 		MachineId:     machineID,
 		PossibleTools: possibleTools,
@@ -110,7 +126,9 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 // Implements environs/bootstrap.BootstrapStorage.
 func (e *nullEnviron) BootstrapStorage() (storage.Storage, error) {
 	cfg := e.envConfig()
-	return sshstorage.NewSSHStorage(cfg.sshHost(), cfg.storageDir(), cfg.storageTmpdir())
+	storageDir := e.StorageDir()
+	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
+	return sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
 }
 
 func (e *nullEnviron) Storage() storage.Storage {
@@ -149,7 +167,7 @@ func (e *nullEnviron) StorageAddr() string {
 }
 
 func (e *nullEnviron) StorageDir() string {
-	return e.envConfig().storageDir()
+	return path.Join(dataDir, storageSubdir)
 }
 
 func (e *nullEnviron) SharedStorageAddr() string {
