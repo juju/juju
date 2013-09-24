@@ -50,9 +50,6 @@ type LiveTests struct {
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
 
-	// Env holds the currently opened environment.
-	Env environs.Environ
-
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
 	Attempt utils.AttemptStrategy
@@ -65,8 +62,22 @@ type LiveTests struct {
 	// a provisioning agent.
 	HasProvisioner bool
 
+	// Env holds the currently opened environment.
+	// This is set by PrepareOnce and BootstrapOnce.
+	Env environs.Environ
+
+	// ConfigStore holds the configuration storage
+	// used when preparing the environment.
+	// This is initialized by SetUpSuite.
+	ConfigStore configstore.Storage
+
 	prepared     bool
 	bootstrapped bool
+}
+
+func (t *LiveTests) SetUpSuite(c *gc.C) {
+	t.LoggingSuite.SetUpSuite(c)
+	t.ConfigStore = configstore.NewMem()
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -107,7 +118,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg)
+	e, err := environs.Prepare(cfg, t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -134,6 +145,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 func (t *LiveTests) Destroy(c *gc.C) {
 	err := t.Env.Destroy(nil)
 	c.Assert(err, gc.IsNil)
+	if info, err := t.ConfigStore.ReadInfo(t.Env.Name()); err == nil {
+		err := info.Destroy()
+		c.Assert(err, gc.IsNil)
+	}
 	t.bootstrapped = false
 	t.prepared = false
 	t.Env = nil

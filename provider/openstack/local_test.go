@@ -281,7 +281,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 		"use-floating-ip": false,
 	}))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)

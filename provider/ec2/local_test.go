@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -408,7 +409,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	t.env = env
 }
