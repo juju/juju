@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -187,8 +188,11 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// Write the tools file.
 	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on

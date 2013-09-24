@@ -5,7 +5,10 @@ package tools
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,7 +20,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-const urlFile = "downloaded-url.txt"
+const toolsFile = "downloaded-tools.txt"
 
 // SharedToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
@@ -38,7 +41,25 @@ func ToolsDir(dataDir, agentName string) string {
 // within dataDir. If a valid tools directory already exists,
 // UnpackTools returns without error.
 func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
-	zr, err := gzip.NewReader(r)
+	buf := &bytes.Buffer{}
+	gzipBytes, err := io.Copy(buf, r)
+	if err != nil {
+		return err
+	}
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When we can ensure all tools records have valid sizes and checksums recorded,
+	// we can remove these test short circuits.
+	if tools.Size > 0 && tools.Size != gzipBytes {
+		return fmt.Errorf("tarball size mismatch, expected %d, got %d", tools.Size, gzipBytes)
+	}
+	sha256hash := sha256.New()
+	sha256hash.Write(buf.Bytes())
+	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
+	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
+		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
+	}
+
+	zr, err := gzip.NewReader(bytes.NewReader(buf.Bytes()))
 	if err != nil {
 		return err
 	}
@@ -77,7 +98,11 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 			return fmt.Errorf("tar extract %q failed: %v", name, err)
 		}
 	}
-	err = ioutil.WriteFile(path.Join(dir, urlFile), []byte(tools.URL), 0644)
+	toolsMetadataData, err := json.Marshal(tools)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), 0644)
 	if err != nil {
 		return err
 	}
@@ -112,24 +137,20 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 	return err
 }
 
-// ReadTools checks that the tools for the given version exist
-// in the dataDir directory, and returns a Tools instance describing them.
+// ReadTools checks that the tools information for the given version exist
+// in the dataDir directory, and returns a Tools instance.
+// The tools information is json encoded in a text file named by the toolsFile constant.
 func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
-	urlData, err := ioutil.ReadFile(path.Join(dir, urlFile))
+	toolsData, err := ioutil.ReadFile(path.Join(dir, toolsFile))
 	if err != nil {
-		return nil, fmt.Errorf("cannot read URL in tools directory: %v", err)
+		return nil, fmt.Errorf("cannot read tools metadata in tools directory: %v", err)
 	}
-	url := strings.TrimSpace(string(urlData))
-	if len(url) == 0 {
-		return nil, fmt.Errorf("empty URL in tools directory %q", dir)
+	var tools coretools.Tools
+	if err := json.Unmarshal(toolsData, &tools); err != nil {
+		return nil, fmt.Errorf("invalid tools metadata in tools directory %q: %v", dir, err)
 	}
-	// TODO(rog): do more verification here too, such as checking
-	// for the existence of certain files.
-	return &coretools.Tools{
-		URL:     url,
-		Version: vers,
-	}, nil
+	return &tools, nil
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink

@@ -195,6 +195,9 @@ func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
 	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
+	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
+		return fmt.Errorf("empty size or checksum")
+	}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,

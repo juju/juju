@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"time"
@@ -47,8 +48,8 @@ func NewTarFile(name string, mode os.FileMode, contents string) *TarFile {
 	}
 }
 
-// TarGz returns the given files in gzipped tar-archive format.
-func TarGz(files ...*TarFile) []byte {
+// TarGz returns the given files in gzipped tar-archive format, along with the tarball size and sha256 checksum.
+func TarGz(files ...*TarFile) (data []byte, size int64, checksum string) {
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)
 	tarw := tar.NewWriter(gzw)
@@ -71,5 +72,10 @@ func TarGz(files ...*TarFile) []byte {
 	if err != nil {
 		panic(err)
 	}
-	return buf.Bytes()
+	data = buf.Bytes()
+	size = int64(len(data))
+	sha256hash := sha256.New()
+	sha256hash.Write(data)
+	checksum = fmt.Sprintf("%x", sha256hash.Sum(nil))
+	return data, size, checksum
 }

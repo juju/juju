@@ -5,6 +5,7 @@ package tools_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -41,7 +42,7 @@ func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 		[]string{"tools", "version"})
 }
 
-const urlFile = "downloaded-url.txt"
+const toolsFile = "downloaded-tools.txt"
 
 // gzyesses holds the result of running:
 // yes | head -17000 | gzip
@@ -57,26 +58,26 @@ var gzyesses = []byte{
 	0x8d, 0xd0, 0x84, 0x00, 0x00,
 }
 
-var unpackToolsBadDataTests = []struct {
-	data []byte
-	err  string
-}{
-	{
-		testing.TarGz(testing.NewTarFile("bar", os.ModeDir, "")),
-		"bad file type.*",
-	}, {
-		testing.TarGz(testing.NewTarFile("../../etc/passwd", 0755, "")),
-		"bad name.*",
-	}, {
-		testing.TarGz(testing.NewTarFile(`\ini.sys`, 0755, "")),
-		"bad name.*",
-	}, {
-		[]byte("x"),
-		"unexpected EOF",
-	}, {
-		gzyesses,
-		"archive/tar: invalid tar header",
-	},
+type badDataTest struct {
+	data     []byte
+	size     int64
+	checksum string
+	err      string
+}
+
+func initBadDataTest(name string, mode os.FileMode, contents string, err string) badDataTest {
+	var result badDataTest
+	result.data, result.size, result.checksum = testing.TarGz(testing.NewTarFile(name, mode, contents))
+	result.err = err
+	return result
+}
+
+var unpackToolsBadDataTests = []badDataTest{
+	initBadDataTest("bar", os.ModeDir, "", "bad file type.*"),
+	initBadDataTest("../../etc/passwd", 0755, "", "bad name.*"),
+	initBadDataTest(`\ini.sys`, 0755, "", "bad name.*"),
+	badDataTest{[]byte("x"), 1, "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
+	badDataTest{gzyesses, 69, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
 }
 
 func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
@@ -85,11 +86,41 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 		testTools := &coretest.Tools{
 			URL:     "http://foo/bar",
 			Version: version.MustParseBinary("1.2.3-foo-bar"),
+			Size:    test.size,
+			SHA256:  test.checksum,
 		}
 		err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
 		c.Assert(err, gc.ErrorMatches, test.err)
 		assertDirNames(c, t.toolsDir(), []string{})
 	}
+}
+
+func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
+	data, size, _ := testing.TarGz(testing.NewTarFile("tools", 0755, "some data"))
+	testTools := &coretest.Tools{
+		URL:     "http://foo/bar",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    size,
+		SHA256:  "1234",
+	}
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
+	c.Assert(err, gc.ErrorMatches, "tarball sha256 mismatch, expected 1234, got .*")
+	_, err = os.Stat(t.toolsDir())
+	c.Assert(err, gc.FitsTypeOf, &os.PathError{})
+}
+
+func (t *ToolsSuite) TestUnpackToolsBadSize(c *gc.C) {
+	data, _, checksum := testing.TarGz(testing.NewTarFile("tools", 0755, "some data"))
+	testTools := &coretest.Tools{
+		URL:     "http://foo/bar",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    1,
+		SHA256:  checksum,
+	}
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
+	c.Assert(err, gc.ErrorMatches, "tarball size mismatch, expected 1, got .*")
+	_, err = os.Stat(t.toolsDir())
+	c.Assert(err, gc.FitsTypeOf, &os.PathError{})
 }
 
 func (t *ToolsSuite) toolsDir() string {
@@ -101,27 +132,33 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		testing.NewTarFile("bar", 0755, "bar contents"),
 		testing.NewTarFile("foo", 0755, "foo contents"),
 	}
+	data, size, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    size,
+		SHA256:  checksum,
 	}
 
-	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
 	c.Assert(err, gc.IsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
 	t.assertToolsContents(c, testTools, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
-	tools2 := &coretest.Tools{
-		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
-	}
 	files2 := []*testing.TarFile{
 		testing.NewTarFile("bar", 0755, "bar2 contents"),
 		testing.NewTarFile("x", 0755, "x contents"),
 	}
-	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
+	data2, size2, checksum2 := testing.TarGz(files2...)
+	tools2 := &coretest.Tools{
+		URL:     "http://arble",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    size2,
+		SHA256:  checksum2,
+	}
+	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
 	c.Assert(err, gc.IsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
 	t.assertToolsContents(c, testTools, files)
@@ -131,18 +168,18 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
 	testTools, err := agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot read URL in tools directory: .*")
+	c.Assert(err, gc.ErrorMatches, "cannot read tools metadata in tools directory: .*")
 
 	dir := agenttools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
+	err = ioutil.WriteFile(filepath.Join(dir, toolsFile), []byte(" \t\n"), 0644)
 	c.Assert(err, gc.IsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "empty URL in tools directory.*")
+	c.Assert(err, gc.ErrorMatches, "invalid tools metadata in tools directory .*")
 }
 
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
@@ -150,11 +187,14 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("jujuc", 0755, "juju executable"),
 		testing.NewTarFile("jujud", 0755, "jujuc executable"),
 	}
+	data, size, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar1",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    size,
+		SHA256:  checksum,
 	}
-	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
 	c.Assert(err, gc.IsNil)
 
 	gotTools, err := agenttools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
@@ -162,18 +202,21 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", toolsFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
 		testing.NewTarFile("foo", 0755, "foo content"),
 		testing.NewTarFile("bar", 0755, "bar content"),
 	}
+	data2, size2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://foo/bar2",
 		Version: version.MustParseBinary("1.2.4-foo-bar"),
+		Size:    size2,
+		SHA256:  checksum2,
 	}
-	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
+	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
 	c.Assert(err, gc.IsNil)
 
 	gotTools, err = agenttools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
@@ -181,7 +224,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", toolsFile})
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
@@ -196,10 +239,12 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, fil
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
 	}
-	wantNames = append(wantNames, urlFile)
+	wantNames = append(wantNames, toolsFile)
 	dir := agenttools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
-	assertFileContents(c, dir, urlFile, testTools.URL, 0200)
+	expectedURLFileContents, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	assertFileContents(c, dir, toolsFile, string(expectedURLFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}

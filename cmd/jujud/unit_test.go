@@ -132,7 +132,7 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	unit, _, currentTools := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	s.testUpgrade(c, a, currentTools)
+	s.testUpgrade(c, a, unit.Tag(), currentTools)
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {

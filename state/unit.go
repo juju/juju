@@ -179,6 +179,9 @@ func (u *Unit) SetAgentTools(t *tools.Tools) (err error) {
 	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
+	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
+		return fmt.Errorf("empty size or checksum")
+	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,

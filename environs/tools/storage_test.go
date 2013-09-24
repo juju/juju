@@ -95,6 +95,11 @@ func (s *StorageSuite) assertReadList(c *gc.C) {
 		list, err := envtools.ReadList(store, t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
+			// Legacy tools retrieval doesn't set the Size of SHA256, so blank out those attributes.
+			for _, tool := range t.list {
+				tool.Size = 0
+				tool.SHA256 = ""
+			}
 			c.Assert(list, gc.DeepEquals, t.list)
 		} else {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
