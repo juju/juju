@@ -213,7 +213,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
-	c.Logf("JujuConnSuite.setUpConn, root %q", s.RootDir)
 	s.oldHome = osenv.Home()
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
@@ -227,7 +226,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
 
-	c.Logf("writing sample config to %q", config.JujuHomePath("environments.yaml"))
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
 	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
