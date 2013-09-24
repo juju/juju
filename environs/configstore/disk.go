@@ -6,7 +6,6 @@ package configstore
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 
