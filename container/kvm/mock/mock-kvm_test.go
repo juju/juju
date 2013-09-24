@@ -142,3 +142,20 @@ func (*MockSuite) TestEvents(c *gc.C) {
 	c.Assert(<-listener, gc.Equals, mock.Event{mock.Stopped, "second"})
 	c.Assert(<-listener, gc.Equals, mock.Event{mock.Stopped, "first"})
 }
+
+func (*MockSuite) TestEventsGoToAllListeners(c *gc.C) {
+	factory := mock.MockFactory()
+	first := make(chan mock.Event, 5)
+	factory.AddListener(first)
+	second := make(chan mock.Event, 5)
+	factory.AddListener(second)
+
+	container := factory.New("container")
+	container.Start()
+	container.Stop()
+
+	c.Assert(<-first, gc.Equals, mock.Event{mock.Started, "container"})
+	c.Assert(<-second, gc.Equals, mock.Event{mock.Started, "container"})
+	c.Assert(<-first, gc.Equals, mock.Event{mock.Stopped, "container"})
+	c.Assert(<-second, gc.Equals, mock.Event{mock.Stopped, "container"})
+}
