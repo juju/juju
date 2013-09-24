@@ -75,8 +75,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 }
 
 func (s *environSuite) TestLocalStorageConfig(c *gc.C) {
-	c.Assert(s.env.cfg.storageDir(), gc.Equals, "/var/lib/juju/storage")
-	c.Assert(s.env.StorageDir(), gc.Equals, s.env.cfg.storageDir())
+	c.Assert(s.env.StorageDir(), gc.Equals, "/var/lib/juju/storage")
 	c.Assert(s.env.cfg.storageListenAddr(), gc.Equals, ":8040")
 	c.Assert(s.env.StorageAddr(), gc.Equals, s.env.cfg.storageListenAddr())
 	c.Assert(s.env.SharedStorageAddr(), gc.Equals, "")

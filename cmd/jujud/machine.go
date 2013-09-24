@@ -240,6 +240,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	if (providerType == provider.Local || providerType == provider.Null) && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
+			// TODO(axw) 2013-09-24 bug #1229507
+			// Make another job to enable storage.
+			// There's nothing special about this.
 			return localstorage.NewWorker(agentConfig), nil
 		})
 	}
@@ -251,6 +254,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, agentConfig), nil
 			})
+			// TODO(axw) 2013-09-24 bug #1229506
+			// Make another job to enable the firewaller. Not all environments
+			// are capable of managing ports at a global level.
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
 			})

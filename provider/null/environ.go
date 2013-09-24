@@ -45,8 +45,6 @@ type nullEnviron struct {
 
 var errNoStartInstance = errors.New("null provider cannot start instances")
 var errNoStopInstance = errors.New("null provider cannot stop instances")
-var errNoOpenPorts = errors.New("null provider cannot open ports")
-var errNoClosePorts = errors.New("null provider cannot close ports")
 
 func (*nullEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	return nil, nil, errNoStartInstance
@@ -147,11 +145,11 @@ func (e *nullEnviron) Destroy(insts []instance.Instance) error {
 }
 
 func (e *nullEnviron) OpenPorts(ports []instance.Port) error {
-	return errNoOpenPorts
+	return nil
 }
 
 func (e *nullEnviron) ClosePorts(ports []instance.Port) error {
-	return errNoClosePorts
+	return nil
 }
 
 func (e *nullEnviron) Ports() ([]instance.Port, error) {

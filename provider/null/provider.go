@@ -63,7 +63,6 @@ func (p nullProvider) validate(cfg, old *config.Config) (*environConfig, error) 
 			"bootstrap-user",
 			"bootstrap-host",
 			"storage-listen-ip",
-			"storage-dir",
 		} {
 			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
 				return nil, err

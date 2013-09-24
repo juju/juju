@@ -56,11 +56,11 @@ func (i nullBootstrapInstance) WaitDNSName() (string, error) {
 }
 
 func (_ nullBootstrapInstance) OpenPorts(machineId string, ports []instance.Port) error {
-	return errNoOpenPorts
+	return nil
 }
 
 func (_ nullBootstrapInstance) ClosePorts(machineId string, ports []instance.Port) error {
-	return errNoClosePorts
+	return nil
 }
 
 func (_ nullBootstrapInstance) Ports(machineId string) ([]instance.Port, error) {
