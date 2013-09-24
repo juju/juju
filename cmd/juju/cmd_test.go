@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
@@ -232,8 +233,10 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		_, err = store.ReadInfo(env.Name())
 		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-		_, err := environs.NewFromName(env.Name())
-		c.Assert(err, gc.ErrorMatches, "not found")
+		env, err = environs.NewFromName(env.Name())
+		c.Assert(err, gc.IsNil)
+
+		c.Assert(func() { env.Instances([]instance.Id{"invalid"}) }, gc.PanicMatches, `environment.*is not prepared`)
 	}
 		
 	// "--yes" passed: no confirmation request.
