@@ -143,7 +143,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Check(info2, gc.DeepEquals, info)
 	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
 
-	err = e2.Destroy(nil)
+	err = e2.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	// Prepare again because Destroy invalidates old environments.

@@ -254,7 +254,7 @@ func (s *ConnSuite) TearDownTest(c *gc.C) {
 	}
 	err := s.conn.State.SetAdminMongoPassword("")
 	c.Assert(err, gc.IsNil)
-	err = s.conn.Environ.Destroy(nil)
+	err = s.conn.Environ.Destroy()
 	c.Check(err, gc.IsNil)
 	s.conn.Close()
 	s.conn = nil

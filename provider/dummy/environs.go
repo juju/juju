@@ -582,7 +582,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy([]instance.Instance) error {
+func (e *environ) Destroy() error {
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err

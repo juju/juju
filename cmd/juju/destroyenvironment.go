@@ -61,7 +61,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	// destroy manually provisioned machines, or otherwise
 	// block destroy-environment until all manually provisioned
 	// machines have been manually "destroyed".
-	if err := environ.Destroy(nil); err != nil {
+	if err := environ.Destroy(); err != nil {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
