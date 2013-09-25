@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test:"),
+			Source:        simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      "image-ids",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
@@ -419,10 +419,10 @@ var getMirrorTests = []struct {
 }, {
 	// invalid content id
 	contentId: "invalid",
-	err:       `mirror metadata for "invalid".* not found`,
+	err:       `mirror data for "invalid".* not found`,
 }}
 
-func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
+func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 	for i, t := range getMirrorTests {
 		c.Logf("test %d", i)
 		if t.region == "" {
@@ -435,7 +435,7 @@ func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
 			t.contentId = "com.ubuntu.juju:released:tools"
 		}
 		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
-		mirrorInfo, err := simplestreams.GetMaybeSignedMirror(
+		mirrorInfo, err := simplestreams.GetMirrorMetadata(
 			[]simplestreams.DataSource{s.Source}, s.IndexPath(), false, t.contentId, cloud)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)

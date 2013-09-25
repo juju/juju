@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 )
 
@@ -33,18 +32,18 @@ func (info *memInfo) clone() *memInfo {
 
 // NewMem returns a ConfigStorage implementation that
 // stores configuration in memory.
-func NewMem() environs.ConfigStorage {
+func NewMem() Storage {
 	return &memStore{
 		envs: make(map[string]*memInfo),
 	}
 }
 
-// CreateInfo implements environs.ConfigStorage.CreateInfo.
-func (m *memStore) CreateInfo(envName string) (environs.EnvironInfo, error) {
+// CreateInfo implements Storage.CreateInfo.
+func (m *memStore) CreateInfo(envName string) (EnvironInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.envs[envName] != nil {
-		return nil, environs.ErrEnvironInfoAlreadyExists
+		return nil, ErrEnvironInfoAlreadyExists
 	}
 	info := &memInfo{
 		store: m,
@@ -54,8 +53,8 @@ func (m *memStore) CreateInfo(envName string) (environs.EnvironInfo, error) {
 	return info, nil
 }
 
-// ReadInfo implements environs.ConfigStorage.ReadInfo.
-func (m *memStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
+// ReadInfo implements Storage.ReadInfo.
+func (m *memStore) ReadInfo(envName string) (EnvironInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	info := m.envs[envName]
@@ -65,7 +64,7 @@ func (m *memStore) ReadInfo(envName string) (environs.EnvironInfo, error) {
 	return nil, errors.NotFoundf("environment %q", envName)
 }
 
-// Write implements environs.EnvironInfo.Write.
+// Write implements EnvironInfo.Write.
 func (info *memInfo) Write() error {
 	m := info.store
 	m.mu.Lock()
@@ -75,7 +74,7 @@ func (info *memInfo) Write() error {
 	return nil
 }
 
-// Destroy implements environs.EnvironInfo.Destroy.
+// Destroy implements EnvironInfo.Destroy.
 func (info *memInfo) Destroy() error {
 	m := info.store
 	m.mu.Lock()

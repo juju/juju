@@ -450,7 +450,11 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
-	return client.NewClient(cred, authMode, nil)
+	newClient := client.NewClient
+	if !ecfg.SSLHostnameVerification() && cred.URL[:8] == "https://" {
+		newClient = client.NewNonValidatingClient
+	}
+	return newClient(cred, authMode, nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -501,7 +505,12 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
+		verify := simplestreams.VerifySSLHostnames
+		if !e.Config().SSLHostnameVerification() {
+			verify = simplestreams.NoVerifySSLHostnames
+		}
+		source := simplestreams.NewURLDataSource(productStreamsURL, verify)
+		e.imageSources = append(e.imageSources, source)
 	}
 	return e.imageSources, nil
 }
@@ -520,13 +529,35 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
+	verify := simplestreams.VerifySSLHostnames
+	if !e.Config().SSLHostnameVerification() {
+		verify = simplestreams.NoVerifySSLHostnames
+	}
 	// Add the simplestreams source off the control bucket.
 	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
+		source := simplestreams.NewURLDataSource(toolsURL, verify)
+		e.toolsSources = append(e.toolsSources, source)
 	}
+
+	// See if the cloud is one we support and hence know the correct tools-url for.
+	ecfg := e.ecfg()
+	toolsURL, toolsURLFound := GetCertifiedToolsURL(ecfg.authURL())
+	if toolsURLFound {
+		logger.Debugf("certified cloud tools-url set to %s", toolsURL)
+		// A certified tools url should always use a valid SSL cert
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames))
+	}
+
+	// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
+	if deprecatedPublicBucketURL, ok := ecfg.attrs["public-bucket-url"]; ok && deprecatedPublicBucketURL != "" && !toolsURLFound {
+		toolsURL = fmt.Sprintf("%v/juju-dist/tools", deprecatedPublicBucketURL)
+		logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, verify))
+	}
+
 	return e.toolsSources, nil
 }
 
@@ -769,27 +800,15 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Destroy(ensureInsts []instance.Instance) error {
+func (e *environ) Destroy() error {
 	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[instance.Id]bool)
 	var ids []instance.Id
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := instance.Id(inst.(*openstackInstance).Id())
-		if !found[id] {
-			ids = append(ids, id)
-			found[id] = true
-		}
 	}
 	err = e.terminateInstances(ids)
 	if err != nil {
@@ -926,15 +945,8 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-// setUpGroups creates the security groups for the new machine, and
-// returns them.
-//
-// Instances are tagged with a group so they can be distinguished from
-// other instances that might be running on the same OpenStack account.
-// In addition, a specific machine security group is created for each
-// machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
+	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
@@ -946,6 +958,12 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 				IPProtocol: "tcp",
 				FromPort:   statePort,
 				ToPort:     statePort,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   apiPort,
+				ToPort:     apiPort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -964,6 +982,21 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 				ToPort:     -1,
 			},
 		})
+}
+
+// setUpGroups creates the security groups for the new machine, and
+// returns them.
+//
+// Instances are tagged with a group so they can be distinguished from
+// other instances that might be running on the same OpenStack account.
+// In addition, a specific machine security group is created for each
+// machine, so that its firewall rules can be configured per machine.
+//
+// Note: ideally we'd have a better way to determine group membership so that 2
+// people that happen to share an openstack account and name their environment
+// "openstack" don't end up destroying each other's machines.
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
 	if err != nil {
 		return nil, err
 	}
@@ -992,6 +1025,10 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	group, err := novaClient.SecurityGroupByName(name)
 	if err == nil {
 		// Group exists, so assume it is correctly set up and return it.
+		// TODO(jam): 2013-09-18 http://pad.lv/121795
+		// We really should verify the group is set up correctly,
+		// because deleting and re-creating environments can get us bad
+		// groups (especially if they were set up under Python)
 		return *group, nil
 	}
 	// Doesn't exist, so try and create it.
@@ -1012,6 +1049,13 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	group.Rules = make([]nova.SecurityGroupRule, len(rules))
 	for i, rule := range rules {
 		rule.ParentGroupId = group.Id
+		if rule.Cidr == "" {
+			// http://pad.lv/1226996 Rules that don't have a CIDR
+			// are meant to apply only to this group. If you don't
+			// supply CIDR or GroupId then openstack assumes you
+			// mean CIDR=0.0.0.0/0
+			rule.GroupId = &group.Id
+		}
 		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err

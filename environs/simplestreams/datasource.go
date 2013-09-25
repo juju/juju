@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // A DataSource retrieves simplestreams metadata.
@@ -26,14 +27,36 @@ type DataSource interface {
 	SetAllowRetry(allow bool)
 }
 
+// SSLHostnameVerification is used as a switch for when a given provider might
+// use self-signed credentials and we should not try to verify the hostname on
+// the TLS/SSL certificates
+type SSLHostnameVerification bool
+
+const (
+	// VerifySSLHostnames ensures we verify the hostname on the certificate
+	// matches the host we are connecting and is signed
+	VerifySSLHostnames = SSLHostnameVerification(true)
+	// NoVerifySSLHostnames informs us to skip verifying the hostname
+	// matches a valid certificate
+	NoVerifySSLHostnames = SSLHostnameVerification(false)
+)
+
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
-	baseURL string
+	baseURL              string
+	hostnameVerification SSLHostnameVerification
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(baseURL string) DataSource {
-	return &urlDataSource{baseURL}
+func NewURLDataSource(baseURL string, verify SSLHostnameVerification) DataSource {
+	return &urlDataSource{
+		baseURL:              baseURL,
+		hostnameVerification: verify,
+	}
+}
+
+func (u *urlDataSource) GoString() string {
+	return fmt.Sprintf("urlDataSource(%q)", u.baseURL)
 }
 
 // urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
@@ -51,8 +74,13 @@ func urlJoin(baseURL, relpath string) string {
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
-	resp, err := urlClient.Get(dataURL)
+	client := urlClient
+	if !h.hostnameVerification {
+		client = utils.GetNonValidatingHTTPClient()
+	}
+	resp, err := client.Get(dataURL)
 	if err != nil {
+		logger.Debugf("Got error requesting %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	if resp.StatusCode == http.StatusNotFound {

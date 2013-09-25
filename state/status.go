@@ -20,6 +20,7 @@ import (
 type statusDoc struct {
 	Status     params.Status
 	StatusInfo string
+	StatusData params.StatusData
 }
 
 // validateSet returns an error if the statusDoc does not represent a sane
@@ -35,6 +36,9 @@ func (doc statusDoc) validateSet() error {
 		if doc.StatusInfo == "" {
 			return fmt.Errorf("cannot set status %q without info", doc.Status)
 		}
+	}
+	if doc.StatusData != nil && doc.Status != params.StatusError {
+		return fmt.Errorf("cannot set status data when status is %q", doc.Status)
 	}
 	return nil
 }

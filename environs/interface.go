@@ -146,15 +146,13 @@ type Environ interface {
 	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
-	// rest of the environment. A list of instances known to
-	// be part of the environment can be given with insts.
-	// This is because recently started machines might not
-	// yet be visible in the environment, so this method
-	// can wait until they are.
+	// rest of the environment. Note that on some providers,
+	// very recently started instances may not be destroyed
+	// because they are not yet visible.
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid
-	Destroy(insts []instance.Instance) error
+	Destroy() error
 
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the

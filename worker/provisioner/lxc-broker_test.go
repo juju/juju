@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,14 +28,12 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type lxcSuite struct {
-	testbase.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }
@@ -47,18 +46,7 @@ type lxcBrokerSuite struct {
 
 var _ = gc.Suite(&lxcBrokerSuite{})
 
-func (s *lxcSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
-}
-
-func (s *lxcSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *lxcSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	go func() {
@@ -72,7 +60,6 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
 	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
@@ -201,8 +188,11 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// Write the tools file.
 	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on

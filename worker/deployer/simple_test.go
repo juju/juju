@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
@@ -153,8 +155,11 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	jujudPath := filepath.Join(toolsDir, "jujud")
 	err = ioutil.WriteFile(jujudPath, []byte(fakeJujud), 0755)
 	c.Assert(err, gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err = ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, gc.IsNil)
 	fix.binDir = c.MkDir()
 	fix.origPath = os.Getenv("PATH")

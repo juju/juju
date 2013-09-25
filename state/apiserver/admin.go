@@ -90,9 +90,7 @@ func (a *srvAdmin) Login(c params.Creds) error {
 		return err
 	}
 
-	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
-		return err
-	}
+	a.root.rpcConn.Serve(newRoot, serverError)
 	return nil
 }
 
