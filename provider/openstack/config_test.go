@@ -374,24 +374,12 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL sets tools URL",
-		config: attrs{
-			"public-bucket-url": "http://some/url",
-		},
-		toolsURL: "http://some/url/juju-dist/tools",
-	}, {
 		summary: "public bucket URL with tools URL",
 		config: attrs{
 			"public-bucket-url": "http://some/url",
 			"tools-url":         "http://tools/url",
 		},
 		toolsURL: "http://tools/url",
-	}, {
-		summary: "HP Cloud config sets tools URL",
-		config: attrs{
-			"auth-url": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0",
-		},
-		toolsURL: "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{

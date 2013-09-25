@@ -511,12 +511,12 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(env)), jc.IsTrue)
-	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
 	// The image-metadata-url ends with "/juju-dist-test/".
-	c.Check(strings.HasSuffix(urls[2], "/juju-dist-test/"), jc.IsTrue)
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)), jc.IsTrue)
+	// The product-streams URL ends with "/imagemetadata".
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
@@ -531,14 +531,65 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
-	c.Assert(err, gc.IsNil)
-	// Check that the URL from keystone parses.
-	_, err = url.Parse(urls[1])
-	c.Assert(err, gc.IsNil)
 	// The tools-url ends with "/juju-dist-test/tools/".
-	c.Check(strings.HasSuffix(urls[2], "/juju-dist-test/tools/"), jc.IsTrue)
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestGetToolsMetadataSourcesHPCloud(c *gc.C) {
+	restore := openstack.PatchCertifiedURL(
+		"https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/", s.TestConfig["auth-url"].(string))
+	defer restore()
+	env := s.Open(c)
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The tools-url ends with "/juju-dist-test/tools/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
+	c.Check(err, gc.IsNil)
+	// Check the certified HP Cloud tools URL.
+	c.Assert(urls[3], gc.Equals, "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools/")
+}
+
+func (s *localServerSuite) TestGetToolsMetadataSourcesWithDeprecatedPublicBucket(c *gc.C) {
+	cfg := s.TestConfig.Merge(map[string]interface{}{
+		"public-bucket-url": "http://foo",
+	})
+	env, err := environs.NewFromAttrs(cfg)
+	c.Assert(err, gc.IsNil)
+
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The tools-url ends with "/juju-dist-test/tools/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
+	c.Check(err, gc.IsNil)
+	// Check the tools URL derived from the public bucket.
+	c.Assert(urls[3], gc.Equals, "http://foo/juju-dist/tools/")
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
@@ -800,17 +851,26 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the private bucket
-	contentReader, url, err := sources[0].Fetch(private)
+	// Read from the Config entry's image-metadata-url
+	contentReader, url, err := sources[0].Fetch(custom)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, custom)
+	c.Check(url[:8], gc.Equals, "https://")
+
+	// Read from the private bucket
+	contentReader, url, err = sources[1].Fetch(private)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(content), gc.Equals, private)
 	c.Check(url[:8], gc.Equals, "https://")
 
 	// Check the entry we got from keystone
-	contentReader, url, err = sources[1].Fetch(metadata)
+	contentReader, url, err = sources[2].Fetch(metadata)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
@@ -821,15 +881,6 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	metaURL, err := metadataStorage.URL(metadata)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, metaURL)
-
-	// Read from the Config entry's image-metadata-url
-	contentReader, url, err = sources[2].Fetch(custom)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, custom)
-	c.Check(url[:8], gc.Equals, "https://")
 
 }
 
@@ -870,11 +921,20 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the private bucket
-	contentReader, url, err := sources[0].Fetch(private)
+	// Read from the Config entry's tools-url
+	contentReader, url, err := sources[0].Fetch(custom)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err := ioutil.ReadAll(contentReader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, custom)
+	c.Check(url[:8], gc.Equals, "https://")
+
+	// Read from the private bucket
+	contentReader, url, err = sources[1].Fetch(private)
+	c.Assert(err, gc.IsNil)
+	defer contentReader.Close()
+	content, err = ioutil.ReadAll(contentReader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(content), gc.Equals, private)
 	//c.Check(url[:8], gc.Equals, "https://")
@@ -882,7 +942,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 	// Check the entry we got from keystone
 	// Now fetch the data, and verify the contents.
-	contentReader, url, err = sources[1].Fetch(keystoneContainer + "/" + keystone)
+	contentReader, url, err = sources[2].Fetch(keystoneContainer + "/" + keystone)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)
@@ -892,15 +952,6 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	keystoneURL, err := keystoneStorage.URL(keystone)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, keystoneURL)
-
-	// Read from the Config entry's tools-url
-	contentReader, url, err = sources[2].Fetch(custom)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, custom)
-	c.Check(url[:8], gc.Equals, "https://")
 
 	// We *don't* test Fetch for sources[3] because it points to
 	// juju.canonical.com
