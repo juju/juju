@@ -450,9 +450,9 @@ type TestItem struct {
 
 func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
-		return simplestreams.DefaultIndexPath + simplestreams.SignedSuffix
+		return simplestreams.DefaultIndexPath + ".sjson"
 	}
-	return simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
+	return simplestreams.UnsignedIndex
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {

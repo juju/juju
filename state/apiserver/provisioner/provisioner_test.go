@@ -275,11 +275,11 @@ func (s *provisionerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah")
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusStopped, "foo")
+	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really")
+	err = s.machines[2].SetStatus(params.StatusError, "not really", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -425,11 +425,11 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah")
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusStopped, "foo")
+	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really")
+	err = s.machines[2].SetStatus(params.StatusError, "not really", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{

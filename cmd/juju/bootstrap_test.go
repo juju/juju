@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -95,7 +96,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 
 	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	err := <-errc
-	c.Assert(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
+	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, test.err)
 }
 
@@ -249,7 +250,7 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.1-ping-hostarch",
 		"1.2.3.1-pong-hostarch",
 	},
-	err: `invalid series "ping"`,
+	err: `no matching tools available`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-hostarch",
@@ -354,7 +355,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	otherSeries := "precise"
-	if otherSeries == version.CurrentSeries() {
+	if otherSeries == version.Current.Series {
 		otherSeries = "raring"
 	}
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
@@ -369,7 +370,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(urls, gc.HasLen, 2)
 	expectedVers := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.CurrentSeries(), version.CurrentArch())),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
 	}
 	for _, vers := range expectedVers {
 		c.Logf("seeking: " + vers.String())
@@ -448,7 +449,9 @@ func createToolsSource(c *gc.C) string {
 func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	fake := coretesting.MakeFakeHome(c, envConfig)
 	dummy.Reset()
-	env, err := environs.PrepareFromName("peckham")
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	env, err := environs.PrepareFromName("peckham", store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

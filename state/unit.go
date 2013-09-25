@@ -176,8 +176,8 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 // SetAgentTools sets the tools that the agent is currently running.
 func (u *Unit) SetAgentTools(t *tools.Tools) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
-	if t.Version.Series == "" || t.Version.Arch == "" {
-		return fmt.Errorf("empty series or arch")
+	if err = checkToolsValidity(t); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -499,11 +499,13 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 	return
 }
 
-// SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string) error {
+// SetStatus sets the status of the unit. The optional values
+// allow to pass additional helpful status data.
+func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err

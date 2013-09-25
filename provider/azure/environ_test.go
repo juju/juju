@@ -822,7 +822,7 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 
-	err = env.Destroy([]instance.Instance{})
+	err = env.Destroy()
 	c.Check(err, gc.NotNil)
 
 	files, err := storage.List(env.Storage(), "")
@@ -843,9 +843,8 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
 	responses = append(responses, cleanupResponses...)
 	gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err = env.Destroy(instances)
+	err = env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	files, err := storage.List(env.Storage(), "")
@@ -877,9 +876,8 @@ func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C)
 	}
 	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err = env.Destroy(instances)
+	err = env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 4)
@@ -929,10 +927,8 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
 	service1Name := prefix + "service1"
-	service2Name := prefix + "service2"
 	service1, service1Desc := makeAzureService(service1Name)
-	service2, service2Desc := makeAzureService(service2Name)
-	services := []*gwacl.HostedService{service1, service2}
+	services := []*gwacl.HostedService{service1}
 	// The call to AllInstances() will return only one service (service1).
 	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
 	destroyResponses := buildDestroyAzureServiceResponses(c, services)
@@ -941,11 +937,7 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	// Call Destroy with service1 and service2.
-	instances := convertToInstances(
-		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc},
-		env)
-	err := env.Destroy(instances)
+	err := env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	// One request to get the list of all the environment's instances.
@@ -956,8 +948,6 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	c.Check((*requests)[0].Method, gc.Equals, "GET")
 	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
 func (*environSuite) TestGetInstance(c *gc.C) {

@@ -265,11 +265,20 @@ func MgoReset() {
 	}
 }
 
+// isUnauthorized is a copy of the same function in state/open.go.
 func isUnauthorized(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Some unauthorized access errors have no error code,
+	// just a simple error string.
+	if err.Error() == "auth fails" {
+		return true
+	}
 	if err, ok := err.(*mgo.QueryError); ok {
-		if err.Code == 10057 || err.Message == "need to login" {
-			return true
-		}
+		return err.Code == 10057 ||
+			err.Message == "need to login" ||
+			err.Message == "unauthorized"
 	}
 	return false
 }
