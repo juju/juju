@@ -9,18 +9,44 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type storageSuite struct{}
 
 var _ = gc.Suite(&storageSuite{})
+
+func (s *storageSuite) TestClientTLS(c *gc.C) {
+	caCertPEM := []byte(coretesting.CACert)
+	caKeyPEM := []byte(coretesting.CAKey)
+
+	listener, _, storageDir := startServerTLS(c, caCertPEM, caKeyPEM)
+	defer listener.Close()
+	stor, err := httpstorage.ClientTLS(listener.Addr().String(), caCertPEM, caKeyPEM)
+	c.Assert(err, gc.IsNil)
+
+	data := []byte("hello")
+	err = ioutil.WriteFile(filepath.Join(storageDir, "filename"), data, 0644)
+	c.Assert(err, gc.IsNil)
+	names, err := storage.List(stor, "filename")
+	c.Assert(err, gc.IsNil)
+	c.Assert(names, gc.DeepEquals, []string{"filename"})
+	checkFileHasContents(c, stor, "filename", data)
+
+	// Now try Put, Remove and RemoveAll.
+	checkPutFile(c, stor, "filenamethesecond", data)
+	checkFileHasContents(c, stor, "filenamethesecond", data)
+	c.Assert(stor.Remove("filenamethesecond"), gc.IsNil)
+	c.Assert(stor.RemoveAll(), gc.IsNil)
+}
 
 func (s *storageSuite) TestList(c *gc.C) {
 	listener, _, _ := startServer(c)
@@ -54,6 +80,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 	storage2 := httpstorage.Client(listener.Addr().String())
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name))
+		checkFileURLHasContents(c, storage2, name, []byte(name))
 	}
 
 	// remove the first file and check that the others remain.
@@ -124,13 +151,15 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, gc.IsNil)
 	c.Check(data, gc.DeepEquals, contents)
+}
 
+func checkFileURLHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte) {
 	url, err := stor.URL(name)
 	c.Assert(err, gc.IsNil)
 
 	resp, err := http.Get(url)
 	c.Assert(err, gc.IsNil)
-	data, err = ioutil.ReadAll(resp.Body)
+	data, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK, gc.Commentf("error response: %s", data))

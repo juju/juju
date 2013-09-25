@@ -34,6 +34,8 @@ func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
 		Version: version.MustParseBinary(vers),
 		URL:     url,
+		Size:    10,
+		SHA256:  "1234",
 	}
 }
 
@@ -45,6 +47,8 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 
 	err = obj.SetAgentTools(&tools.Tools{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty series or arch", agent))
+	err = obj.SetAgentTools(&tools.Tools{URL: "foo", Version: version.Current})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty size or checksum", agent))
 	t2 := newTools("7.8.9-foo-bar", "http://arble.tgz")
 	err = obj.SetAgentTools(t2)
 	c.Assert(err, gc.IsNil)

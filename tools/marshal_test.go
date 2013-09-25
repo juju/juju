@@ -20,6 +20,8 @@ func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
 		Version: version.MustParseBinary(vers),
 		URL:     url,
+		Size:    10,
+		SHA256:  "1234",
 	}
 }
 
@@ -32,6 +34,8 @@ func (s *marshalSuite) TestMarshalUnmarshal(c *gc.C) {
 	want := bson.M{
 		"version": testTools.Version.String(),
 		"url":     testTools.URL,
+		"size":    testTools.Size,
+		"sha256":  testTools.SHA256,
 	}
 	got := bson.M{}
 	err = bson.Unmarshal(data, &got)

@@ -8,15 +8,21 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 var _ = gc.Suite(&datasourceSuite{})
 
@@ -36,7 +42,7 @@ environments:
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
 	s.home = testing.MakeFakeHome(c, existingEnv, "existing")
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.stor = environ.Storage()
 	s.baseURL, err = s.stor.URL("")

@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -51,7 +52,7 @@ func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *gc.C) {
 	ioutil.WriteFile(keyPath, []byte(testing.CACert), 0600)
 
 	// Need to create the environment after the cert has been written.
-	env, err := environs.PrepareFromName(envName)
+	env, err := environs.PrepareFromName(envName, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	writeCalled := false
@@ -65,7 +66,7 @@ func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *gc.C) {
 
 func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
-	env, err := environs.PrepareFromName(testing.SampleEnvName)
+	env, err := environs.PrepareFromName(testing.SampleEnvName, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
@@ -79,7 +80,7 @@ func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *gc.C) {
 
 func (*EnvironsCertSuite) TestEnsureCertificate(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig).Restore()
-	env, err := environs.PrepareFromName(testing.SampleEnvName)
+	env, err := environs.PrepareFromName(testing.SampleEnvName, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {

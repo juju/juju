@@ -381,25 +381,11 @@ func (env *maasEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
+func (environ *maasEnviron) Destroy() error {
 	logger.Debugf("destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	found := make(map[instance.Id]bool)
-	for _, inst := range insts {
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := inst.Id()
-		if !found[id] {
-			insts = append(insts, inst)
-			found[id] = true
-		}
 	}
 	err = environ.StopInstances(insts)
 	if err != nil {
