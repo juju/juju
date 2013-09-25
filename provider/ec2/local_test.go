@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -255,7 +256,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
-	err = env.Destroy(append(insts, inst1))
+	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	_, err = provider.LoadState(env.Storage())
@@ -408,7 +409,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	t.env = env
 }

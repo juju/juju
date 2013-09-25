@@ -338,7 +338,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	msg := fmt.Sprintf("hook failed: %q", u.CurrentHookName())
+	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())
 	if err = u.unit.SetStatus(params.StatusError, msg, nil); err != nil {
 		return nil, err
 	}

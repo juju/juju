@@ -83,8 +83,11 @@ mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
-wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' \| tar xz -C \$bin
-echo -n 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' > \$bin/downloaded-url\.txt
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' \| tee \$bin/tools\.tar\.gz \| sha256sum > \$bin/juju1\.2\.3-precise-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
+printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
@@ -147,8 +150,11 @@ mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
 mkdir -p \$bin
-wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' \| tar xz -C \$bin
-echo -n 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' > \$bin/downloaded-url\.txt
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' \| tee \$bin/tools\.tar\.gz \| sha256sum > \$bin/juju1\.2\.3-raring-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
+printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
@@ -206,8 +212,11 @@ mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
-wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
-echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tee \$bin/tools\.tar\.gz \| sha256sum > \$bin/juju1\.2\.3-linux-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
+printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-99-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
@@ -249,8 +258,11 @@ mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
-wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tar xz -C \$bin
-echo -n 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' > \$bin/downloaded-url\.txt
+wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz' \| tee \$bin/tools\.tar\.gz \| sha256sum > \$bin/juju1\.2\.3-linux-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
+printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-2-lxc-1-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-2-lxc-1.log\\n\$InputFileTag juju-machine-2-lxc-1:\\n\$InputFileStateFile machine-2-lxc-1\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
@@ -270,6 +282,8 @@ func newSimpleTools(vers string) *tools.Tools {
 	return &tools.Tools{
 		URL:     "http://foo.com/tools/juju" + vers + ".tgz",
 		Version: version.MustParseBinary(vers),
+		Size:    10,
+		SHA256:  "1234",
 	}
 }
 

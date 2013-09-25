@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
@@ -36,6 +37,11 @@ type Tests struct {
 	testbase.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
+
+	// ConfigStore holds the configuration storage
+	// used when preparing the environment.
+	// This is initialized by SetUpTest.
+	ConfigStore configstore.Storage
 }
 
 // Open opens an instance of the testing environment.
@@ -46,10 +52,11 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 	return e
 }
 
+// Prepare prepares an instance of the testing environment.
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg)
+	e, err := environs.Prepare(cfg, t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -58,6 +65,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 func (t *Tests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.ToolsFixture.SetUpTest(c)
+	t.ConfigStore = configstore.NewMem()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -136,7 +144,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Check(info2, gc.DeepEquals, info)
 	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
 
-	err = e2.Destroy(nil)
+	err = environs.Destroy(e2, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
 	// Prepare again because Destroy invalidates old environments.

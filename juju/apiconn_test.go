@@ -45,7 +45,7 @@ func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)

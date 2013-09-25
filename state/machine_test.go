@@ -432,6 +432,8 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	err = m0.SetAgentTools(&tools.Tools{
 		URL:     "foo",
 		Version: version.MustParseBinary("0.0.3-series-arch"),
+		Size:    10,
+		SHA256:  "1234",
 	})
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
@@ -595,6 +597,8 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	err = machine.SetAgentTools(&tools.Tools{
 		URL:     "foo",
 		Version: version.MustParseBinary("0.0.3-series-arch"),
+		Size:    10,
+		SHA256:  "1234",
 	})
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()

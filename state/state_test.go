@@ -1087,7 +1087,9 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 			Series: "gutsy",
 			Arch:   "ppc",
 		},
-		URL: "http://canonical.com/",
+		URL:    "http://canonical.com/",
+		Size:   10,
+		SHA256: "1234",
 	}
 	err = machine.SetAgentTools(tools)
 	c.Assert(err, gc.IsNil)

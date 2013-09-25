@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -95,7 +96,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 
 	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	err := <-errc
-	c.Assert(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
+	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, test.err)
 }
 
@@ -448,7 +449,9 @@ func createToolsSource(c *gc.C) string {
 func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	fake := coretesting.MakeFakeHome(c, envConfig)
 	dummy.Reset()
-	env, err := environs.PrepareFromName("peckham")
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	env, err := environs.PrepareFromName("peckham", store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

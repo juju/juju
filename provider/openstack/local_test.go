@@ -281,7 +281,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 		"use-floating-ip": false,
 	}))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -482,10 +482,10 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst1, _, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	_, _, err = provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 
-	err = env.Destroy(append(insts, inst1))
+	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	_, err = provider.LoadState(env.Storage())

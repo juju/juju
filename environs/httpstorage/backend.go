@@ -4,12 +4,17 @@
 package httpstorage
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/storage"
 )
 
@@ -19,6 +24,7 @@ import (
 // storageBackend provides HTTP access to a storage object.
 type storageBackend struct {
 	backend storage.Storage
+	tls     bool
 }
 
 // ServeHTTP handles the HTTP requests to the container.
@@ -37,6 +43,13 @@ func (s *storageBackend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(w, "method "+req.Method+" is not supported", http.StatusMethodNotAllowed)
 	}
+}
+
+// authorised checks that either the storage does not require authorisation,
+// or the user has negotiated TLS with a valid certificate. Authentication
+// implies authorisation.
+func (s *storageBackend) authorised(req *http.Request) bool {
+	return !s.tls || len(req.TLS.PeerCertificates) > 0
 }
 
 // handleGet returns a storage file to the client.
@@ -72,6 +85,10 @@ func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
 
 // handlePut stores data from the client in the storage.
 func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
+	if !s.authorised(req) {
+		http.Error(w, "unauthorised access", http.StatusUnauthorized)
+		return
+	}
 	if req.ContentLength < 0 {
 		http.Error(w, "missing or invalid Content-Length header", http.StatusInternalServerError)
 		return
@@ -86,6 +103,10 @@ func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 
 // handleDelete removes a file from the storage.
 func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) {
+	if !s.authorised(req) {
+		http.Error(w, "unauthorised access", http.StatusUnauthorized)
+		return
+	}
 	err := s.backend.Remove(req.URL.Path[1:])
 	if err != nil {
 		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
@@ -98,10 +119,49 @@ func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) 
 // requests to the given storage implementation. It returns the network
 // listener. This can then be attached to with Client.
 func Serve(addr string, stor storage.Storage) (net.Listener, error) {
-	backend := &storageBackend{backend: stor}
+	return serve(addr, stor, nil)
+}
+
+// ServeTLS runs a storage server on the given network address, relaying
+// requests to the given storage implementation. The server runs a TLS
+// listener, and verifies client certificates (if given) against the
+// specified CA certificate. A client certificate is only required for
+// PUT and DELETE methods.
+//
+// This method returns the network listener, which can then be attached
+// to with ClientTLS.
+func ServeTLS(addr string, stor storage.Storage, caCertPEM, caKeyPEM []byte, hostnames []string) (net.Listener, error) {
+	expiry := time.Now().UTC().AddDate(10, 0, 0)
+	certPEM, keyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hostnames)
+	if err != nil {
+		return nil, err
+	}
+	serverCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+	caCerts := x509.NewCertPool()
+	if !caCerts.AppendCertsFromPEM(caCertPEM) {
+		return nil, errors.New("error adding CA certificate to pool")
+	}
+	config := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    caCerts,
+	}
+	return serve(addr, stor, config)
+}
+
+func serve(addr string, stor storage.Storage, tlsConfig *tls.Config) (net.Listener, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start listener: %v", err)
+	}
+	backend := &storageBackend{backend: stor}
+	if tlsConfig != nil {
+		listener = tls.NewListener(listener, tlsConfig)
+		backend.tls = true
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/", backend)

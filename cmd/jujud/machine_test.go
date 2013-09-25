@@ -322,7 +322,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 func (s *MachineSuite) TestUpgrade(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	s.testUpgrade(c, a, currentTools)
+	s.testUpgrade(c, a, m.Tag(), currentTools)
 }
 
 var fastDialOpts = api.DialOpts{

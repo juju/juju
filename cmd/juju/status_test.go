@@ -260,7 +260,9 @@ var statusTests = []testCase{
 				Series: "gutsy",
 				Arch:   "ppc",
 			},
-			URL: "http://canonical.com/",
+			URL:    "http://canonical.com/",
+			Size:   10,
+			SHA256: "1234",
 		}},
 		expect{
 			"simulate the MA setting the version",

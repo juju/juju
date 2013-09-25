@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -49,9 +50,6 @@ type LiveTests struct {
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
 
-	// Env holds the currently opened environment.
-	Env environs.Environ
-
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
 	Attempt utils.AttemptStrategy
@@ -64,8 +62,22 @@ type LiveTests struct {
 	// a provisioning agent.
 	HasProvisioner bool
 
+	// Env holds the currently opened environment.
+	// This is set by PrepareOnce and BootstrapOnce.
+	Env environs.Environ
+
+	// ConfigStore holds the configuration storage
+	// used when preparing the environment.
+	// This is initialized by SetUpSuite.
+	ConfigStore configstore.Storage
+
 	prepared     bool
 	bootstrapped bool
+}
+
+func (t *LiveTests) SetUpSuite(c *gc.C) {
+	t.LoggingSuite.SetUpSuite(c)
+	t.ConfigStore = configstore.NewMem()
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -106,7 +118,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg)
+	e, err := environs.Prepare(cfg, t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -131,7 +143,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 }
 
 func (t *LiveTests) Destroy(c *gc.C) {
-	err := t.Env.Destroy(nil)
+	if t.Env == nil {
+		return
+	}
+	err := environs.Destroy(t.Env, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -354,7 +369,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	c.Logf("destroy env")
 	env := t.Env
 	t.Destroy(c)
-	env.Destroy(nil) // Again, should work fine and do nothing.
+	env.Destroy() // Again, should work fine and do nothing.
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
@@ -858,27 +873,22 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		other.Series = "precise"
 	}
 
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{"default-series": other.Series})
-	c.Assert(err, gc.IsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, gc.IsNil)
-
 	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg)
+	dummyenv, err := environs.Prepare(dummyCfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	defer dummyenv.Destroy(nil)
+	defer dummyenv.Destroy()
 
-	// BUG: We destroy the environment, then write to its storage.
-	// This is bogus, strictly speaking, but it works on
-	// existing providers for the time being and means
-	// this test does not fail when the environment is
-	// already bootstrapped.
 	t.Destroy(c)
+
+	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, t.ConfigStore)
+	c.Assert(err, gc.IsNil)
+	defer environs.Destroy(env, t.ConfigStore)
 
 	currentName := envtools.StorageName(current)
 	otherName := envtools.StorageName(other)
@@ -898,7 +908,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	defer env.Destroy(nil)
 
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)

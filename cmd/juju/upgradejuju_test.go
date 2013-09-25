@@ -4,7 +4,12 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"io"
 	"io/ioutil"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -14,6 +19,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -368,9 +374,35 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			data, err := ioutil.ReadAll(r)
 			r.Close()
 			c.Check(err, gc.IsNil)
-			c.Check(string(data), gc.Equals, uploaded)
+			checkToolsContent(c, data, "jujud contents "+uploaded)
 		}
 	}
+}
+
+func checkToolsContent(c *gc.C, data []byte, uploaded string) {
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	c.Check(err, gc.IsNil)
+	defer zr.Close()
+	tr := tar.NewReader(zr)
+	found := false
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		c.Check(err, gc.IsNil)
+		if strings.ContainsAny(hdr.Name, "/\\") {
+			c.Fail()
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			c.Fail()
+		}
+		content, err := ioutil.ReadAll(tr)
+		c.Check(err, gc.IsNil)
+		c.Check(string(content), gc.Equals, uploaded)
+		found = true
+	}
+	c.Check(found, jc.IsTrue)
 }
 
 // JujuConnSuite very helpfully uploads some default
