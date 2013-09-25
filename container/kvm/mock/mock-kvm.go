@@ -6,7 +6,7 @@ package mock
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/container/kvm"
+	"launchpad.net/juju-core/container"
 )
 
 // This file provides a mock implementation of the kvm interfaces
@@ -37,7 +37,7 @@ type Event struct {
 }
 
 type ContainerFactory interface {
-	kvm.ContainerFactory
+	container.ContainerFactory
 
 	AddListener(chan<- Event)
 	RemoveListener(chan<- Event)
@@ -45,13 +45,13 @@ type ContainerFactory interface {
 }
 
 type mockFactory struct {
-	instances map[string]kvm.Container
+	instances map[string]container.Container
 	listeners []chan<- Event
 }
 
 func MockFactory() ContainerFactory {
 	return &mockFactory{
-		instances: make(map[string]kvm.Container),
+		instances: make(map[string]container.Container),
 	}
 }
 
@@ -98,7 +98,7 @@ func (mock *mockFactory) String() string {
 	return fmt.Sprintf("<Mock KVM Factory>")
 }
 
-func (mock *mockFactory) New(name string) kvm.Container {
+func (mock *mockFactory) New(name string) container.Container {
 	container, ok := mock.instances[name]
 	if ok {
 		return container
@@ -111,7 +111,7 @@ func (mock *mockFactory) New(name string) kvm.Container {
 	return container
 }
 
-func (mock *mockFactory) List() (result []kvm.Container, err error) {
+func (mock *mockFactory) List() (result []container.Container, err error) {
 	for _, container := range mock.instances {
 		result = append(result, container)
 	}

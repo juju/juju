@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package kvm
+package container
 
 // Container represents a kvm container instance and provides
 // operations to create, maintain and destroy the container.

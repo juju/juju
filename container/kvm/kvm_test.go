@@ -12,12 +12,16 @@ import (
 )
 
 type KVMSuite struct {
-	testbase.LoggingSuite
+	kvm.TestSuite
 }
 
 var _ = gc.Suite(&KVMSuite{})
 
-func (*KVMSuite) TestIsKVMSupported(c *gc.C) {
-	c.Check(kvm.IsKVMSupported(), jc.IsTrue)
-	c.Fail()
+// TODO: work out how to test the actual kvm implementations.
+
+func (*KVMSuite) TestListInitiallyEmpty(c *gc.C) {
+	manager := kvm.NewContainerManager("test")
+	containers, err := manager.ListContainers()
+	c.Assert(err, gc.IsNil)
+	c.Assert(containers, gc.HasLen, 0)
 }
