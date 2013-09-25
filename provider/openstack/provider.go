@@ -783,27 +783,15 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Destroy(ensureInsts []instance.Instance) error {
+func (e *environ) Destroy() error {
 	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[instance.Id]bool)
 	var ids []instance.Id
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := instance.Id(inst.(*openstackInstance).Id())
-		if !found[id] {
-			ids = append(ids, id)
-			found[id] = true
-		}
 	}
 	err = e.terminateInstances(ids)
 	if err != nil {

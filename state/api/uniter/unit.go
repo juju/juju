@@ -55,11 +55,11 @@ func (u *Unit) Refresh() error {
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string) error {
+func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.SetEntityStatus{
-			{Tag: u.tag, Status: status, Info: info},
+			{Tag: u.tag, Status: status, Info: info, Data: data},
 		},
 	}
 	err := u.st.caller.Call("Uniter", "", "SetStatus", args, &result)

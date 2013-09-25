@@ -11,8 +11,15 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 )
+
+// Default returns disk-based environment config storage
+// rooted at JujuHome.
+func Default() (Storage, error) {
+	return NewDisk(config.JujuHome())
+}
 
 type diskStore struct {
 	dir string
@@ -27,10 +34,9 @@ type environInfo struct {
 	CACert       string   `yaml:"ca-cert"`
 }
 
-// NewDisk returns a ConfigStorage implementation that
-// stores configuration in the given directory.
-// The parent of the directory must already exist;
-// the directory itself is created on demand.
+// NewDisk returns a ConfigStorage implementation that stores
+// configuration in the given directory. The parent of the directory
+// must already exist; the directory itself is created on demand.
 func NewDisk(dir string) (Storage, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err

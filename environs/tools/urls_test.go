@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
@@ -38,7 +39,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	env, err = environs.Prepare(env.Config())
+	env, err = environs.Prepare(env.Config(), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env
 }

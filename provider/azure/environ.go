@@ -677,27 +677,13 @@ func (env *azureEnviron) PublicStorage() storage.StorageReader {
 }
 
 // Destroy is specified in the Environ interface.
-func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
+func (env *azureEnviron) Destroy() error {
 	logger.Debugf("destroying environment %q", env.name)
 
 	// Stop all instances.
 	insts, err := env.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	found := make(map[instance.Id]bool)
-	for _, inst := range insts {
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := inst.Id()
-		if !found[id] {
-			insts = append(insts, inst)
-			found[id] = true
-		}
 	}
 	err = env.StopInstances(insts)
 	if err != nil {
