@@ -77,18 +77,18 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 		return nil, err
 	}
 	info, err := store.CreateInfo(config.Name())
-	if err != nil {
-		if err == configstore.ErrEnvironInfoAlreadyExists {
-			logger.Infof("environment info already exists; using New not Prepare")
-			info, err := store.ReadInfo(config.Name())
-			if err != nil {
-				return nil, fmt.Errorf("error reading environment info %q: %v", err)
-			}
-			if !info.Initialized() {
-				return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", config.Name())
-			}
-			return New(config)
+	if err == configstore.ErrEnvironInfoAlreadyExists {
+		logger.Infof("environment info already exists; using New not Prepare")
+		info, err := store.ReadInfo(config.Name())
+		if err != nil {
+			return nil, fmt.Errorf("error reading environment info %q: %v", err)
 		}
+		if !info.Initialized() {
+			return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", config.Name())
+		}
+		return New(config)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
 	}
 	env, err := p.Prepare(config)
@@ -98,6 +98,14 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 		}
 		return nil, err
 	}
+	oldAttrs := config.AllAttrs()
+	newAttrs := make(map[string]interface{})
+	for name, newAttr := range env.Config().AllAttrs() {
+		if _, ok := oldAttrs[name]; !ok {
+			newAttrs[name] = newAttr
+		}
+	}
+	
 	// TODO(rog) 2013-09-19 add newly created attributes to info.
 	err = info.Write()
 	if err != nil {
