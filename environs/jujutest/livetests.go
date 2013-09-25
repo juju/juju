@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -49,9 +50,6 @@ type LiveTests struct {
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
 
-	// Env holds the currently opened environment.
-	Env environs.Environ
-
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
 	Attempt utils.AttemptStrategy
@@ -64,18 +62,22 @@ type LiveTests struct {
 	// a provisioning agent.
 	HasProvisioner bool
 
+	// Env holds the currently opened environment.
+	// This is set by PrepareOnce and BootstrapOnce.
+	Env environs.Environ
+
+	// ConfigStore holds the configuration storage
+	// used when preparing the environment.
+	// This is initialized by SetUpSuite.
+	ConfigStore configstore.Storage
+
+	prepared     bool
 	bootstrapped bool
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
-	e, err := environs.Prepare(cfg)
-	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
-	c.Assert(e, gc.NotNil)
-	t.Env = e
-	c.Logf("environment configuration: %#v", publicAttrs(e))
+	t.ConfigStore = configstore.NewMem()
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -98,9 +100,7 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env != nil {
-		err := t.Env.Destroy(nil)
-		c.Check(err, gc.IsNil)
-		t.Env = nil
+		t.Destroy(c)
 	}
 	t.LoggingSuite.TearDownSuite(c)
 }
@@ -110,10 +110,26 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+// PrepareOnce ensures that the environment is
+// available and prepared. It sets t.Env appropriately.
+func (t *LiveTests) PrepareOnce(c *gc.C) {
+	if t.prepared {
+		return
+	}
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	c.Assert(err, gc.IsNil)
+	e, err := environs.Prepare(cfg, t.ConfigStore)
+	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
+	c.Assert(e, gc.NotNil)
+	t.Env = e
+	t.prepared = true
+}
+
 func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	if t.bootstrapped {
 		return
 	}
+	t.PrepareOnce(c)
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
@@ -127,14 +143,21 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 }
 
 func (t *LiveTests) Destroy(c *gc.C) {
-	err := t.Env.Destroy(nil)
+	if t.Env == nil {
+		return
+	}
+	err := environs.Destroy(t.Env, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = false
+	t.prepared = false
+	t.Env = nil
 }
 
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
+	t.PrepareOnce(c)
+
 	inst, _ := testing.StartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
@@ -186,6 +209,8 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 }
 
 func (t *LiveTests) TestPorts(c *gc.C) {
+	t.PrepareOnce(c)
+
 	inst1, _ := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances([]instance.Instance{inst1})
@@ -272,6 +297,8 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 }
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
+	t.PrepareOnce(c)
+
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
@@ -340,8 +367,9 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
+	env := t.Env
 	t.Destroy(c)
-	t.Destroy(c) // Again, should work fine and do nothing.
+	env.Destroy() // Again, should work fine and do nothing.
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
@@ -758,6 +786,7 @@ var contents = []byte("hello\n")
 var contents2 = []byte("goodbye\n\n")
 
 func (t *LiveTests) TestFile(c *gc.C) {
+	t.PrepareOnce(c)
 	name := fmt.Sprint("testfile", time.Now().UnixNano())
 	stor := t.Env.Storage()
 
@@ -806,6 +835,7 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate envtools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
+	t.PrepareOnce(c)
 	inst, _, err := provider.StartInstance(
 		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
 		testing.FakeAPIInfo("4"))
@@ -819,6 +849,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
+	t.PrepareOnce(c)
 	inst, _, err := provider.StartInstance(
 		t.Env, "4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"),
 		testing.FakeAPIInfo("4"))
@@ -842,26 +873,22 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		other.Series = "precise"
 	}
 
-	cfg := t.Env.Config()
-	cfg, err := cfg.Apply(map[string]interface{}{"default-series": other.Series})
-	c.Assert(err, gc.IsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, gc.IsNil)
-
 	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg)
+	dummyenv, err := environs.Prepare(dummyCfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	defer dummyenv.Destroy(nil)
+	defer dummyenv.Destroy()
 
-	// BUG: We destroy the environment, then write to its storage.
-	// This is bogus, strictly speaking, but it works on
-	// existing providers for the time being and means
-	// this test does not fail when the environment is
-	// already bootstrapped.
 	t.Destroy(c)
+
+	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, t.ConfigStore)
+	c.Assert(err, gc.IsNil)
+	defer environs.Destroy(env, t.ConfigStore)
 
 	currentName := envtools.StorageName(current)
 	otherName := envtools.StorageName(other)
@@ -881,7 +908,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	defer env.Destroy(nil)
 
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
