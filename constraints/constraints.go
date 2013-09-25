@@ -45,7 +45,9 @@ type Value struct {
 	// disk might be requested.
 	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"root-disk,omitempty"`
 
-	// Tags, if not empty, indicates tags that the machine must have applied to it
+	// Tags, if not nil, indicates tags that the machine must have applied to it.
+	// An empty list is treated the same as a nil (unspecified) list, except an
+	// empty list will override any default tags, where a nil list will not.
 	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
@@ -55,9 +57,10 @@ func IsEmpty(v *Value) bool {
 		v.Arch == nil &&
 			v.Container == nil &&
 			v.CpuCores == nil &&
+			v.CpuPower == nil &&
 			v.Mem == nil &&
 			v.RootDisk == nil &&
-			len(v.Tags) == 0
+			v.Tags == nil
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -89,7 +92,7 @@ func (v Value) String() string {
 		}
 		strs = append(strs, "root-disk="+s)
 	}
-	if len(v.Tags) > 0 {
+	if v.Tags != nil {
 		s := strings.Join(v.Tags, ",")
 		strs = append(strs, "tags="+s)
 	}
@@ -117,7 +120,7 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	if v.RootDisk != nil {
 		v1.RootDisk = v.RootDisk
 	}
-	if len(v.Tags) > 0 {
+	if v.Tags != nil {
 		v1.Tags = v.Tags
 	}
 	return v1
@@ -353,11 +356,10 @@ func parseSize(str string) (*uint64, error) {
 
 // parseTags returns the tags in the value s
 func parseTags(s string) []string {
-	tags := strings.Split(s, ",")
-	if len(tags) == 0 {
-		return nil
+	if s == "" {
+		return []string{}
 	}
-	return tags
+	return strings.Split(s, ",")
 }
 
 var mbSuffixes = map[string]float64{

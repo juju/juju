@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestPackage(t *testing.T) {
@@ -257,6 +258,9 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "multiple tags",
 		args:    []string{"tags=foo,bar"},
+	}, {
+		summary: "no tags",
+		args:    []string{"tags="},
 	},
 
 	// Everything at once.
@@ -285,9 +289,36 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 	}
 }
 
-func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
+func (s *ConstraintsSuite) TestParseMissingTags(c *gc.C) {
 	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
 	c.Check(con.Tags, gc.IsNil)
+}
+
+func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
+	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G tags=")
+	c.Assert(con.Tags, gc.Not(gc.IsNil))
+	c.Check(con.Tags, gc.HasLen, 0)
+}
+
+func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
+	con := constraints.MustParse("arch=amd64")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("")
+	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	con = constraints.MustParse("tags=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("mem=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("arch=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("root-disk=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("cpu-power=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("cpu-cores=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("container=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 }
 
 func uint64p(i uint64) *uint64 {
@@ -428,6 +459,24 @@ var withFallbacksTests = []struct {
 		fallbacks: "cpu-power=200",
 		final:     "cpu-power=200",
 	}, {
+		desc:    "tags with empty fallback",
+		initial: "tags=foo,bar",
+		final:   "tags=foo,bar",
+	}, {
+		desc:      "tags with ignored fallback",
+		initial:   "tags=foo,bar",
+		fallbacks: "tags=baz",
+		final:     "tags=foo,bar",
+	}, {
+		desc:      "tags from fallback",
+		fallbacks: "tags=foo,bar",
+		final:     "tags=foo,bar",
+	}, {
+		desc:      "tags inital empty",
+		initial:   "tags=",
+		fallbacks: "tags=foo,bar",
+		final:     "tags=",
+	}, {
 		desc:    "mem with empty fallback",
 		initial: "mem=4G",
 		final:   "mem=4G",
@@ -468,7 +517,7 @@ var withFallbacksTests = []struct {
 
 func (s *ConstraintsSuite) TestWithFallbacks(c *gc.C) {
 	for i, t := range withFallbacksTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, t.desc)
 		initial := constraints.MustParse(t.initial)
 		fallbacks := constraints.MustParse(t.fallbacks)
 		final := constraints.MustParse(t.final)
