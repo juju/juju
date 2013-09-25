@@ -50,11 +50,21 @@ type EnvironInfo interface {
 	// that have been created but not written.
 	Initialized() bool
 
+	// ExtraConfig returns any configuration attributes
+	// associated with an environment that
+	// are stored outside the regular configuration.
+	ExtraConfig() map[string]interface{}
+
 	// APIEndpoint returns the current API endpoint information.
 	APIEndpoint() APIEndpoint
 
 	// APICredentials returns the current API credentials.
 	APICredentials() APICredentials
+
+	// SetExtraConfig sets the extra configuration attributes.
+	// This method may only be called on an EnvironInfo
+	// obtained using ConfigStorage.CreateInfo.
+	SetExtraConfig(map[string]interface{})
 
 	// SetAPIEndpoint sets the API endpoint information
 	// currently associated with the environment.
