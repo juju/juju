@@ -16,8 +16,6 @@ type SimpleMessage struct {
 	Message string
 }
 
-const NoLevel = loggo.Level(0xFFFFFFFF)
-
 func logToSimpleMessages(log []loggo.TestLogValues) []SimpleMessage {
 	out := make([]SimpleMessage, len(log))
 	for i, val := range log {
@@ -31,21 +29,6 @@ type logMatches struct {
 	*gc.CheckerInfo
 }
 
-// compareOne line of log output, return the empty string if it matches, a message otherwise
-func compareOne(lineNum int, obtained, expected SimpleMessage) string {
-	// We use -1 to indicate we don't have an expected log level
-	if expected.Level != NoLevel {
-		if obtained.Level != expected.Level {
-			return fmt.Sprintf("on line %d got log level %d expected %d", lineNum, obtained.Level, expected.Level)
-		}
-	}
-	re := regexp.MustCompile(expected.Message)
-	if !re.MatchString(obtained.Message) {
-		return fmt.Sprintf("on line %d\ngot %q\nexpected regex: %q", lineNum, obtained.Message, expected.Message)
-	}
-	return ""
-}
-
 func (checker *logMatches) Check(params []interface{}, names []string) (result bool, error string) {
 	var obtained []SimpleMessage
 	switch params[0].(type) {
@@ -55,12 +38,14 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 		return false, "Obtained value must be of type []loggo.TestLogValues or SimpleMessage"
 	}
 	var expected []SimpleMessage
+	checkLogLevel := true
 	switch params[1].(type) {
 	case []SimpleMessage:
 		expected = params[1].([]SimpleMessage)
 	case []string:
+		checkLogLevel = false
 		for _, message := range params[1].([]string) {
-			expected = append(expected, SimpleMessage{Level: NoLevel, Message: message})
+			expected = append(expected, SimpleMessage{Message: message})
 		}
 	default:
 		return false, "Expected value must be of type []string or []SimpleMessage"
@@ -70,13 +55,38 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 		case lineNum == len(obtained) && lineNum == len(expected):
 			return true, ""
 		case lineNum == len(obtained):
-			return false, fmt.Sprintf("too few log messages found (expected %q at line %d)", expected[lineNum].Message, lineNum)
+			names[0] = fmt.Sprintf("too few log messages found, <missing line %d>", lineNum)
+			params[0] = nil
+			names[1] = "expected regex"
+			params[1] = expected[lineNum].Message
+			return false, ""
 		case lineNum == len(expected):
-			return false, fmt.Sprintf("too many log messages found (got %q at line %d)", obtained[lineNum].Message, lineNum)
+			names[0] = "too many log messages found, got"
+			params[0] = obtained[lineNum].Message
+			names[1] = fmt.Sprintf("<no expected line %d>", lineNum)
+			params[1] = nil
+			return false, ""
 		}
-		mismatchMessage := compareOne(lineNum, obtained[lineNum], expected[lineNum])
-		if mismatchMessage != "" {
-			return false, mismatchMessage
+		if checkLogLevel {
+			obtainedLevel := obtained[lineNum].Level
+			expectedLevel := expected[lineNum].Level
+			if obtainedLevel != expectedLevel {
+				names[0] = fmt.Sprintf("line %d obtained level", lineNum)
+				params[0] = obtainedLevel
+				names[1] = fmt.Sprintf("line %d expected level", lineNum)
+				params[1] = expectedLevel
+				return false, ""
+			}
+		}
+		expectedRegex := expected[lineNum].Message
+		obtainedMessage := obtained[lineNum].Message
+		re := regexp.MustCompile(expectedRegex)
+		if !re.MatchString(obtainedMessage) {
+			names[0] = fmt.Sprintf("line %d obtained message", lineNum)
+			params[0] = obtainedMessage
+			names[1] = fmt.Sprintf("line %d expected regex", lineNum)
+			params[1] = expectedRegex
+			return false, ""
 		}
 	}
 	return true, ""
