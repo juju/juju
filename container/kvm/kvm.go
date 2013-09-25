@@ -16,7 +16,11 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-var logger = loggo.GetLogger("juju.container.kvm")
+var (
+	logger = loggo.GetLogger("juju.container.kvm")
+
+	factory ContainerFatory = &containerFactory{}
+)
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 type ManagerConfig struct {
