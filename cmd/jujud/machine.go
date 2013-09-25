@@ -189,7 +189,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	// At this stage, since we don't embed lxc containers, just start an lxc
+	// At this stage, since we don't embed LXC containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
 	// have an LXC provisioner when we have a normally provisioned machine
@@ -197,6 +197,10 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
+	//
+	// TODO(dimitern) 2013-09-25 bug #1230289
+	// Create jobs for container types, rather than
+	// using the provider and container type like this.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local && entity.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)

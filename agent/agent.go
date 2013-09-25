@@ -87,6 +87,12 @@ type Config interface {
 	// api connections.
 	PasswordHash() string
 
+	// StateAddresses returns all known state server addresses.
+	StateAddresses() []string
+
+	// APIAddresses returns all known API server addresses.
+	APIAddresses() []string
+
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
@@ -303,6 +309,16 @@ func (c *configInternal) SetValue(key, value string) {
 	} else {
 		c.values[key] = value
 	}
+}
+
+func (c *configInternal) StateAddresses() []string {
+	addresses := c.stateDetails.addresses
+	return addresses
+}
+
+func (c *configInternal) APIAddresses() []string {
+	addresses := c.apiDetails.addresses
+	return addresses
 }
 
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {

@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
-	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -84,6 +83,7 @@ func (p *Provisioner) loop() error {
 	if err != nil {
 		return err
 	}
+	environConfigChanges := environWatcher.Changes()
 	defer func() {
 		if environWatcher != nil {
 			watcher.Stop(environWatcher, &p.tomb)
@@ -100,9 +100,10 @@ func (p *Provisioner) loop() error {
 		// changes to the environment configuration.
 		watcher.Stop(environWatcher, &p.tomb)
 		environWatcher = nil
+		environConfigChanges = nil
 	}
 
-	auth, err := NewSimpleAuthenticator(p.environ)
+	auth, err := NewAgentConfigAuthenticator(p.agentConfig)
 	if err != nil {
 		return err
 	}
@@ -120,49 +121,34 @@ func (p *Provisioner) loop() error {
 	if err != nil {
 		return err
 	}
-	provisionerTask := NewProvisionerTask(
+	task := NewProvisionerTask(
 		p.machineTag,
 		p.st,
 		machineWatcher,
 		instanceBroker,
 		auth)
-	defer watcher.Stop(provisionerTask, &p.tomb)
+	defer watcher.Stop(task, &p.tomb)
 
-	return p.mainLoop(environWatcher, provisionerTask)
-}
-
-func (p *Provisioner) mainLoop(environWatcher apiwatcher.NotifyWatcher, provisionerTask ProvisionerTask) error {
-	if environWatcher != nil {
-		for {
-			select {
-			case <-p.tomb.Dying():
-				return tomb.ErrDying
-			case <-provisionerTask.Dying():
-				err := provisionerTask.Err()
-				logger.Errorf("%s provisioner died: %v", p.st, err)
-				return err
-			case _, ok := <-environWatcher.Changes():
-				if !ok {
-					return watcher.MustErr(environWatcher)
-				}
-				config, err := p.st.EnvironConfig()
-				if err != nil {
-					logger.Errorf("cannot load environment configuration: %v", err)
-					return err
-				}
-				if err := p.setConfig(config); err != nil {
-					logger.Errorf("loaded invalid environment configuration: %v", err)
-				}
-			}
-		}
-	} else {
+	for {
 		select {
 		case <-p.tomb.Dying():
 			return tomb.ErrDying
-		case <-provisionerTask.Dying():
-			err := provisionerTask.Err()
-			logger.Errorf("%s provisioner died: %v", p.st, err)
+		case <-task.Dying():
+			err := task.Err()
+			logger.Errorf("%s provisioner died: %v", p.pt, err)
 			return err
+		case _, ok := <-environConfigChanges:
+			if !ok {
+				return watcher.MustErr(environWatcher)
+			}
+			config, err := p.st.EnvironConfig()
+			if err != nil {
+				logger.Errorf("cannot load environment configuration: %v", err)
+				return err
+			}
+			if err := p.setConfig(config); err != nil {
+				logger.Errorf("loaded invalid environment configuration: %v", err)
+			}
 		}
 	}
 }
