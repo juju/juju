@@ -499,11 +499,13 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 	return
 }
 
-// SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string) error {
+// SetStatus sets the status of the unit. The optional values
+// allow to pass additional helpful status data.
+func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err
