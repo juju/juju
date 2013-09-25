@@ -6,20 +6,25 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path"
-	"strings"
+	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
+	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/upgrader"
+	"net/http"
 )
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
@@ -87,18 +92,63 @@ func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	}
 }
 
+// CheckTools ensures the obtained and expected tools are equal, allowing for the fact that
+// the obtained tools may not have size and checksum set.
+func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
+	c.Assert(obtained.Version, gc.Equals, expected.Version)
+	c.Assert(obtained.URL, gc.Equals, expected.URL)
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When tools are located using the legacy code (prior to simplestreams),
+	// the size and checksum information is not known.
+	if obtained.Size > 0 {
+		c.Assert(obtained.Size, gc.Equals, expected.Size)
+		c.Assert(obtained.SHA256, gc.Equals, expected.SHA256)
+	}
+}
+
+// CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
+// the error's tools attributes may not have size and checksum set.
+func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When tools are located using the legacy code (prior to simplestreams),
+	// the size and checksum information is not known.
+	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
+	err := obtained.(*upgrader.UpgradeReadyError)
+	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
+	c.Assert(err.DataDir, gc.Equals, expected.DataDir)
+	CheckTools(c, err.OldTools, expected.OldTools)
+	CheckTools(c, err.NewTools, expected.NewTools)
+}
+
+// PrimeTools sets up the current version of the tools to vers and
+// makes sure that they're available in the dataDir.
+func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Binary) *coretools.Tools {
+	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
+	c.Assert(err, gc.IsNil)
+	version.Current = vers
+	agentTools := UploadFakeToolsVersion(c, stor, vers)
+	resp, err := http.Get(agentTools.URL)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
+	c.Assert(err, gc.IsNil)
+	return agentTools
+}
+
 func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretools.Tools, error) {
-	data := vers.String()
-	name := envtools.StorageName(vers)
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
-	if err := stor.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
+	tgz, checksum := coretesting.TarGz(
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
+	size := int64(len(tgz))
+	name := envtools.StorageName(vers)
+	if err := stor.Put(name, bytes.NewReader(tgz), size); err != nil {
 		return nil, err
 	}
 	url, err := stor.URL(name)
 	if err != nil {
 		return nil, err
 	}
-	return &coretools.Tools{Version: vers, URL: url}, nil
+	return &coretools.Tools{URL: url, Version: vers, Size: size, SHA256: checksum}, nil
 }
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
