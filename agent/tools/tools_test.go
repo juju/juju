@@ -60,14 +60,13 @@ var gzyesses = []byte{
 
 type badDataTest struct {
 	data     []byte
-	size     int64
 	checksum string
 	err      string
 }
 
 func initBadDataTest(name string, mode os.FileMode, contents string, err string) badDataTest {
 	var result badDataTest
-	result.data, result.size, result.checksum = testing.TarGz(testing.NewTarFile(name, mode, contents))
+	result.data, result.checksum = testing.TarGz(testing.NewTarFile(name, mode, contents))
 	result.err = err
 	return result
 }
@@ -76,8 +75,8 @@ var unpackToolsBadDataTests = []badDataTest{
 	initBadDataTest("bar", os.ModeDir, "", "bad file type.*"),
 	initBadDataTest("../../etc/passwd", 0755, "", "bad name.*"),
 	initBadDataTest(`\ini.sys`, 0755, "", "bad name.*"),
-	badDataTest{[]byte("x"), 1, "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
-	badDataTest{gzyesses, 69, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
+	badDataTest{[]byte("x"), "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
+	badDataTest{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
 }
 
 func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
@@ -86,7 +85,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 		testTools := &coretest.Tools{
 			URL:     "http://foo/bar",
 			Version: version.MustParseBinary("1.2.3-foo-bar"),
-			Size:    test.size,
+			Size:    int64(len(test.data)),
 			SHA256:  test.checksum,
 		}
 		err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
@@ -96,29 +95,15 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 }
 
 func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
-	data, size, _ := testing.TarGz(testing.NewTarFile("tools", 0755, "some data"))
+	data, _ := testing.TarGz(testing.NewTarFile("tools", 0755, "some data"))
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    size,
+		Size:    int64(len(data)),
 		SHA256:  "1234",
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "tarball sha256 mismatch, expected 1234, got .*")
-	_, err = os.Stat(t.toolsDir())
-	c.Assert(err, gc.FitsTypeOf, &os.PathError{})
-}
-
-func (t *ToolsSuite) TestUnpackToolsBadSize(c *gc.C) {
-	data, _, checksum := testing.TarGz(testing.NewTarFile("tools", 0755, "some data"))
-	testTools := &coretest.Tools{
-		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    1,
-		SHA256:  checksum,
-	}
-	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, gc.ErrorMatches, "tarball size mismatch, expected 1, got .*")
 	_, err = os.Stat(t.toolsDir())
 	c.Assert(err, gc.FitsTypeOf, &os.PathError{})
 }
@@ -132,11 +117,11 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		testing.NewTarFile("bar", 0755, "bar contents"),
 		testing.NewTarFile("foo", 0755, "foo contents"),
 	}
-	data, size, checksum := testing.TarGz(files...)
+	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    size,
+		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
 
@@ -151,11 +136,11 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		testing.NewTarFile("bar", 0755, "bar2 contents"),
 		testing.NewTarFile("x", 0755, "x contents"),
 	}
-	data2, size2, checksum2 := testing.TarGz(files2...)
+	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://arble",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    size2,
+		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
@@ -187,11 +172,11 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("jujuc", 0755, "juju executable"),
 		testing.NewTarFile("jujud", 0755, "jujuc executable"),
 	}
-	data, size, checksum := testing.TarGz(files...)
+	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar1",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    size,
+		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
@@ -209,11 +194,11 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("foo", 0755, "foo content"),
 		testing.NewTarFile("bar", 0755, "bar content"),
 	}
-	data2, size2, checksum2 := testing.TarGz(files2...)
+	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://foo/bar2",
 		Version: version.MustParseBinary("1.2.4-foo-bar"),
-		Size:    size2,
+		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))

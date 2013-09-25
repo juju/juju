@@ -176,11 +176,8 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 // SetAgentTools sets the tools that the agent is currently running.
 func (u *Unit) SetAgentTools(t *tools.Tools) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
-	if t.Version.Series == "" || t.Version.Arch == "" {
-		return fmt.Errorf("empty series or arch")
-	}
-	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
-		return fmt.Errorf("empty size or checksum")
+	if err = checkToolsValidity(t); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,

@@ -137,10 +137,11 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Bina
 
 func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretools.Tools, error) {
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
-	tgz, size, checksum := coretesting.TarGz(
+	tgz, checksum := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
+	size := int64(len(tgz))
 	name := envtools.StorageName(vers)
-	if err := stor.Put(name, bytes.NewReader(tgz), int64(len(tgz))); err != nil {
+	if err := stor.Put(name, bytes.NewReader(tgz), size); err != nil {
 		return nil, err
 	}
 	url, err := stor.URL(name)

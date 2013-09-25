@@ -149,12 +149,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget --no-verbose -O - %s | tee $bin/tools.tar.gz | sha256sum > $bin/juju%s.sha256",
-			shquote(cfg.Tools.URL), cfg.Tools.Version.String()),
+			shquote(cfg.Tools.URL), cfg.Tools.Version),
+		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
+			cfg.Tools.SHA256, cfg.Tools.Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
-		fmt.Sprintf(`grep "%s  -" $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
-			cfg.Tools.SHA256, cfg.Tools.Version.String()),
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", cfg.Tools.Version.String()),
-		fmt.Sprintf("echo -n %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", cfg.Tools.Version),
+		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
 
 	if err := cfg.addLogging(c); err != nil {

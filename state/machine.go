@@ -189,14 +189,22 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// SetAgentTools sets the tools that the agent is currently running.
-func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
+// checkToolsValidity checks whether the given tools are suitable for passing to SetAgentTools.
+func checkToolsValidity(t *tools.Tools) error {
 	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
 	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
 		return fmt.Errorf("empty size or checksum")
+	}
+	return nil
+}
+
+// SetAgentTools sets the tools that the agent is currently running.
+func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
+	if err = checkToolsValidity(t); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,

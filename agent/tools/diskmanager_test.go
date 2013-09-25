@@ -44,11 +44,11 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 		coretesting.NewTarFile("bar", 0755, "bar contents"),
 		coretesting.NewTarFile("foo", 0755, "foo contents"),
 	}
-	gzfile, size, checksum := coretesting.TarGz(files...)
+	gzfile, checksum := coretesting.TarGz(files...)
 	t1 := &coretools.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    size,
+		Size:    int64(len(gzfile)),
 		SHA256:  checksum,
 	}
 
@@ -63,11 +63,11 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 		coretesting.NewTarFile("bar", 0755, "bar2 contents"),
 		coretesting.NewTarFile("x", 0755, "x contents"),
 	}
-	gzfile2, size2, checksum2 := coretesting.TarGz(files2...)
+	gzfile2, checksum2 := coretesting.TarGz(files2...)
 	t2 := &coretools.Tools{
 		URL:     "http://arble",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
-		Size:    size2,
+		Size:    int64(len(gzfile2)),
 		SHA256:  checksum2,
 	}
 	err = s.manager.UnpackTools(t2, bytes.NewReader(gzfile2))

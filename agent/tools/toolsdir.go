@@ -5,7 +5,6 @@ package tools
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
@@ -41,29 +40,29 @@ func ToolsDir(dataDir, agentName string) string {
 // within dataDir. If a valid tools directory already exists,
 // UnpackTools returns without error.
 func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error) {
-	buf := &bytes.Buffer{}
-	gzipBytes, err := io.Copy(buf, r)
-	if err != nil {
-		return err
-	}
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When we can ensure all tools records have valid sizes and checksums recorded,
-	// we can remove these test short circuits.
-	if tools.Size > 0 && tools.Size != gzipBytes {
-		return fmt.Errorf("tarball size mismatch, expected %d, got %d", tools.Size, gzipBytes)
-	}
+	// Unpack the gzip file and compute the checksum.
 	sha256hash := sha256.New()
-	sha256hash.Write(buf.Bytes())
-	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
-	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
-		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
-	}
-
-	zr, err := gzip.NewReader(bytes.NewReader(buf.Bytes()))
+	zr, err := gzip.NewReader(io.TeeReader(r, sha256hash))
 	if err != nil {
 		return err
 	}
 	defer zr.Close()
+	f, err := ioutil.TempFile(os.TempDir(), "tools-tar")
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, zr)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When we can ensure all tools records have valid checksums recorded,
+	// we can remove this test short circuit.
+	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
+	if tools.SHA256 != "" && tools.SHA256 != gzipSHA256 {
+		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
+	}
 
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
@@ -78,7 +77,12 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	}
 	defer removeAll(dir)
 
-	tr := tar.NewReader(zr)
+	// Checksum matches, now reset the file and untar it.
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	tr := tar.NewReader(f)
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -137,9 +141,9 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 	return err
 }
 
-// ReadTools checks that the tools information for the given version exist
+// ReadTools checks that the tools information for the given version exists
 // in the dataDir directory, and returns a Tools instance.
-// The tools information is json encoded in a text file named by the toolsFile constant.
+// The tools information is json encoded in a text file, "downloaded-tools.txt".
 func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
 	toolsData, err := ioutil.ReadFile(path.Join(dir, toolsFile))
