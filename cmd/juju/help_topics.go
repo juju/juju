@@ -46,7 +46,7 @@ SSH authorized/public key not found.
 First configure your environment local environment, if you've not set up Juju
 before do a:
 
-    juju init -w
+    juju init
 
 This will write out an example config file that will work. Then you need to
 tell Juju to use the local provider and then bootstrap:

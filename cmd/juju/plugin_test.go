@@ -146,7 +146,7 @@ something useful
 
 func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	output := badrun(c, 0, "help", "foo")
-	expectedHelp := "error: unknown command or topic for foo\n"
+	expectedHelp := "ERROR unknown command or topic for foo\n"
 	c.Assert(output, gc.Matches, expectedHelp)
 }
 

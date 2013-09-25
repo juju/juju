@@ -278,6 +278,7 @@ type SetEntityStatus struct {
 	Tag    string
 	Status Status
 	Info   string
+	Data   StatusData
 }
 
 // SetStatus holds the parameters for making a SetStatus call.

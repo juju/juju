@@ -13,10 +13,10 @@ var logger = loggo.GetLogger("juju.tools")
 
 // Tools represents the location and version of a tools tarball.
 type Tools struct {
-	Version version.Binary
-	URL     string
-	SHA256  string
-	Size    int64
+	Version version.Binary `json:"version"`
+	URL     string         `json:"url"`
+	SHA256  string         `json:"sha256,omitempty"`
+	Size    int64          `json:"size"`
 }
 
 // HasTools instances can be asked for a tools list.

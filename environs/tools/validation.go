@@ -28,7 +28,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) 
 		return nil, fmt.Errorf("required parameter sources not specified")
 	}
 	if params.Version == "" && params.Major == 0 {
-		params.Version = version.CurrentNumber().String()
+		params.Version = version.Current.Number.String()
 	}
 	var toolsConstraint *ToolsConstraint
 	if params.Version == "" {

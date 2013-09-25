@@ -128,7 +128,8 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		c.Logf("test %d", i)
 		stor := ebsStorage
 		spec, err := findInstanceSpec(
-			[]simplestreams.DataSource{simplestreams.NewURLDataSource("test:")}, &instances.InstanceConstraint{
+			[]simplestreams.DataSource{simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames)},
+			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
 				Arches:      t.arches,
@@ -167,7 +168,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
-			[]simplestreams.DataSource{simplestreams.NewURLDataSource("test:")}, &instances.InstanceConstraint{
+			[]simplestreams.DataSource{simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames)}, &instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
 				Arches:      t.arches,

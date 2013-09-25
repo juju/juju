@@ -38,11 +38,11 @@ func (m *Machine) Refresh() error {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string) error {
+func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.SetEntityStatus{
-			{Tag: m.tag, Status: status, Info: info},
+			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
 	err := m.st.caller.Call("Machiner", "", "SetStatus", args, &result)

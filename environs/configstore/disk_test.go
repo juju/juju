@@ -11,7 +11,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -26,17 +25,29 @@ type diskInterfaceSuite struct {
 
 func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
-	s.NewStore = func(c *gc.C) environs.ConfigStorage {
+	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)
 		c.Assert(err, gc.IsNil)
 		return store
 	}
 }
 
+// storePath returns the path to the environment info
+// for the named environment in the given directory.
+// If envName is empty, it returns the path
+// to the info files' containing directory.
+func storePath(dir string, envName string) string {
+	path := filepath.Join(dir, "environments")
+	if envName != "" {
+		path = filepath.Join(path, envName+".yaml")
+	}
+	return path
+}
+
 func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 	s.NewStore = nil
 	// Check that no stray temp files have been left behind
-	entries, err := ioutil.ReadDir(s.dir)
+	entries, err := ioutil.ReadDir(storePath(s.dir, ""))
 	c.Assert(err, gc.IsNil)
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".yaml") {
@@ -51,13 +62,11 @@ type diskStoreSuite struct{}
 
 func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 	dir := c.MkDir()
-	store, err := configstore.NewDisk(filepath.Join(dir, "foo", "bar"))
-	if false {
-		c.Assert(err, jc.Satisfies, os.IsNotExist)
-	}
+	store, err := configstore.NewDisk(filepath.Join(dir, "foo"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	c.Assert(store, gc.IsNil)
 
-	store, err = configstore.NewDisk(filepath.Join(dir, "foo"))
+	store, err = configstore.NewDisk(filepath.Join(dir))
 	c.Assert(err, gc.IsNil)
 	c.Assert(store, gc.NotNil)
 }
@@ -75,18 +84,20 @@ var sampleInfo = `
 
 func (*diskStoreSuite) TestRead(c *gc.C) {
 	dir := c.MkDir()
-	err := ioutil.WriteFile(filepath.Join(dir, "someenv.yaml"), []byte(sampleInfo), 0666)
+	err := os.Mkdir(storePath(dir, ""), 0700)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(storePath(dir, "someenv"), []byte(sampleInfo), 0666)
 	c.Assert(err, gc.IsNil)
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 	info, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
-	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{
+	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{
 		User:     "rog",
 		Password: "guessit",
 	})
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{
+	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{
 		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
@@ -109,16 +120,16 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 	// Create some new environment info.
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, environs.APIEndpoint{})
-	c.Assert(info.APICredentials(), gc.DeepEquals, environs.APICredentials{})
+	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
+	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
 	c.Assert(info.Initialized(), jc.IsFalse)
-	data, err := ioutil.ReadFile(filepath.Join(dir, "someenv.yaml"))
+	data, err := ioutil.ReadFile(storePath(dir, "someenv"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.HasLen, 0)
 
 	// Check that we can't create it twice.
 	info, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.Equals, environs.ErrEnvironInfoAlreadyExists)
+	c.Assert(err, gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 	c.Assert(info, gc.IsNil)
 
 	// Check that we can read it again.
@@ -136,14 +147,14 @@ func (*diskStoreSuite) TestWriteTempFileFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Make the directory non-writable
-	err = os.Chmod(dir, 0555)
+	err = os.Chmod(storePath(dir, ""), 0555)
 	c.Assert(err, gc.IsNil)
 
 	err = info.Write()
 	c.Assert(err, gc.ErrorMatches, "cannot create temporary file: .*")
 
 	// Make the directory writable again so that gocheck can clean it up.
-	err = os.Chmod(dir, 0777)
+	err = os.Chmod(storePath(dir, ""), 0777)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -156,7 +167,7 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Replace the file by an directory which can't be renamed over.
-	path := filepath.Join(dir, "someenv.yaml")
+	path := storePath(dir, "someenv")
 	err = os.Remove(path)
 	c.Assert(err, gc.IsNil)
 	err = os.Mkdir(path, 0777)
@@ -174,13 +185,13 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
 
-	_, err = os.Stat(filepath.Join(dir, "someenv.yaml"))
+	_, err = os.Stat(storePath(dir, "someenv"))
 	c.Assert(err, gc.IsNil)
 
 	err = info.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	_, err = os.Stat(filepath.Join(dir, "someenv.yaml"))
+	_, err = os.Stat(storePath(dir, "someenv"))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = info.Destroy()
