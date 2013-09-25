@@ -5,11 +5,17 @@ package simplestreams_test
 
 import (
 	"bytes"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
+	"code.google.com/p/go.crypto/openpgp"
+	"code.google.com/p/go.crypto/openpgp/clearsign"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 )
@@ -17,6 +23,7 @@ import (
 func Test(t *testing.T) {
 	registerSimpleStreamsTests()
 	gc.Suite(&signingSuite{})
+	gc.Suite(&signedAndUnsignedSuite{})
 	gc.Suite(&jsonSuite{})
 	gc.TestingT(t)
 }
@@ -419,10 +426,10 @@ var getMirrorTests = []struct {
 }, {
 	// invalid content id
 	contentId: "invalid",
-	err:       `mirror metadata for "invalid".* not found`,
+	err:       `mirror data for "invalid".* not found`,
 }}
 
-func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
+func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 	for i, t := range getMirrorTests {
 		c.Logf("test %d", i)
 		if t.region == "" {
@@ -435,7 +442,7 @@ func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
 			t.contentId = "com.ubuntu.juju:released:tools"
 		}
 		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
-		mirrorInfo, err := simplestreams.GetMaybeSignedMirror(
+		mirrorInfo, err := simplestreams.GetMirrorMetadata(
 			[]simplestreams.DataSource{s.Source}, s.IndexPath(), false, t.contentId, cloud)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
