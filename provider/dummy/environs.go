@@ -422,12 +422,12 @@ func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) 
 	return p.Open(cfg)
 }
 
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
+	return map[string]string{
 		"secret": ecfg.secret(),
 	}, nil
 }

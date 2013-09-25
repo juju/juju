@@ -34,7 +34,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	secretAttrs, err := suite.environ.Provider().SecretAttrs(config)
 	c.Assert(err, gc.IsNil)
 
-	expectedAttrs := map[string]interface{}{"maas-oauth": oauth}
+	expectedAttrs := map[string]string{"maas-oauth": oauth}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }
 

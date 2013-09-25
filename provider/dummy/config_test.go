@@ -22,7 +22,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
-	expected := map[string]interface{}{
+	expected := map[string]string{
 		"secret": "pork",
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)

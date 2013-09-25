@@ -99,7 +99,7 @@ func (t configTest) check(c *gc.C) {
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"access-key": t.accessKey,
 			"secret-key": t.secretKey,
 		}

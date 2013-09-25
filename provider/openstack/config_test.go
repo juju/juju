@@ -140,7 +140,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.password(), gc.Equals, t.password)
 		c.Assert(ecfg.tenantName(), gc.Equals, t.tenantName)
 		c.Assert(ecfg.authURL(), gc.Equals, t.authURL)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"username":    t.username,
 			"password":    t.password,
 			"tenant-name": t.tenantName,

@@ -233,8 +233,8 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	m := make(map[string]string)
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
