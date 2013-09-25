@@ -450,7 +450,11 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
-	return client.NewClient(cred, authMode, nil)
+	newClient := client.NewClient
+	if !ecfg.SSLHostnameVerification() && cred.URL[:8] == "https://" {
+		newClient = client.NewNonValidatingClient
+	}
+	return newClient(cred, authMode, nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -501,7 +505,12 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
+		verify := simplestreams.VerifySSLHostnames
+		if !e.Config().SSLHostnameVerification() {
+			verify = simplestreams.NoVerifySSLHostnames
+		}
+		source := simplestreams.NewURLDataSource(productStreamsURL, verify)
+		e.imageSources = append(e.imageSources, source)
 	}
 	return e.imageSources, nil
 }
@@ -520,12 +529,17 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
+	verify := simplestreams.VerifySSLHostnames
+	if !e.Config().SSLHostnameVerification() {
+		verify = simplestreams.NoVerifySSLHostnames
+	}
 	// Add the simplestreams source off the control bucket.
 	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
+		source := simplestreams.NewURLDataSource(toolsURL, verify)
+		e.toolsSources = append(e.toolsSources, source)
 	}
 
 	// See if the cloud is one we support and hence know the correct tools-url for.
@@ -533,14 +547,15 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	toolsURL, toolsURLFound := GetCertifiedToolsURL(ecfg.authURL())
 	if toolsURLFound {
 		logger.Debugf("certified cloud tools-url set to %s", toolsURL)
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
+		// A certified tools url should always use a valid SSL cert
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames))
 	}
 
 	// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
 	if deprecatedPublicBucketURL, ok := ecfg.attrs["public-bucket-url"]; ok && deprecatedPublicBucketURL != "" && !toolsURLFound {
 		toolsURL = fmt.Sprintf("%v/juju-dist/tools", deprecatedPublicBucketURL)
 		logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, verify))
 	}
 
 	return e.toolsSources, nil
@@ -1010,6 +1025,10 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	group, err := novaClient.SecurityGroupByName(name)
 	if err == nil {
 		// Group exists, so assume it is correctly set up and return it.
+		// TODO(jam): 2013-09-18 http://pad.lv/121795
+		// We really should verify the group is set up correctly,
+		// because deleting and re-creating environments can get us bad
+		// groups (especially if they were set up under Python)
 		return *group, nil
 	}
 	// Doesn't exist, so try and create it.

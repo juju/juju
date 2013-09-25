@@ -60,7 +60,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	versions, err := ValidateToolsMetadata(params)
@@ -79,7 +79,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	versions, err := ValidateToolsMetadata(params)
@@ -98,7 +98,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	versions, err := ValidateToolsMetadata(params)
@@ -116,7 +116,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Series:        "precise",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	_, err := ValidateToolsMetadata(params)

@@ -497,6 +497,7 @@ func getMaybeSignedMirror(source DataSource, baseIndexPath string, requireSigned
 func fetchData(source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
+		logger.Debugf("fetchData failed for %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	defer rc.Close()

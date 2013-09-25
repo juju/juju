@@ -897,7 +897,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
 	sources[0] = storage.NewStorageSimpleStreamsDataSource(env.Storage(), "")
 	for i, url := range baseURLs {
-		sources[i+1] = simplestreams.NewURLDataSource(url)
+		sources[i+1] = simplestreams.NewURLDataSource(url, simplestreams.VerifySSLHostnames)
 	}
 	return sources, nil
 }
