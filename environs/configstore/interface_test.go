@@ -144,3 +144,17 @@ func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 	c.Assert(info1.Initialized(), jc.IsTrue)
 	c.Assert(info1.ExtraConfig(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
+
+func (s *interfaceSuite) TestSetExtraConfigPanicsWhenNotCreated(c *gc.C) {
+	store := s.NewStore(c)
+
+	info, err := store.CreateInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	info.SetExtraConfig(map[string]interface{}{"foo": "bar"})
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+
+	info, err = store.ReadInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	c.Assert(func() { info.SetExtraConfig(nil) }, gc.PanicMatches, "extra config set on environment info that has not just been created")
+}

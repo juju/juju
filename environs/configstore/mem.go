@@ -32,6 +32,7 @@ func (info *memInfo) clone() *memInfo {
 		newAttrs[name] = attr
 	}
 	info1.Config = newAttrs
+	info1.created = false
 	return &info1
 }
 
