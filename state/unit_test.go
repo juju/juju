@@ -315,11 +315,12 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 
 	// Regular status setting with data.
 	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
-		"hook-kind":   "relation-joined",
-		"relation-id": 4711,
-		"remote-unit": "unit-mysql-0",
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
 	})
 	c.Assert(err, gc.IsNil)
+
 	status, info, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
@@ -327,9 +328,11 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 
 	data, err := state.UnitStatusData(s.unit)
 	c.Assert(err, gc.IsNil)
-	c.Assert(data["hook-kind"], gc.Equals, "relation-joined")
-	c.Assert(data["relation-id"], gc.Equals, 4711)
-	c.Assert(data["remote-unit"], gc.Equals, "unit-mysql-0")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
@@ -346,6 +349,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 		"group":         "group",
 	})
 	c.Assert(err, gc.IsNil)
+
 	status, info, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
@@ -353,10 +357,55 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 
 	data, err := state.UnitStatusData(s.unit)
 	c.Assert(err, gc.IsNil)
-	c.Assert(data[`{name: "Joe"}`], gc.Equals, "$where")
-	c.Assert(data["eval"], gc.Equals, `eval(function(foo) { return foo; }, "bar")`)
-	c.Assert(data["mapReduce"], gc.Equals, "mapReduce")
-	c.Assert(data["group"], gc.Equals, "group")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		`{name: "Joe"}`: "$where",
+		"eval":          `eval(function(foo) { return foo; }, "bar")`,
+		"mapReduce":     "mapReduce",
+		"group":         "group",
+	})
+}
+
+func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
+	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, err = s.unit.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Status setting and changing data afterwards.
+	data := params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	}
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", data)
+	c.Assert(err, gc.IsNil)
+	data["4th-key"] = 4.0
+
+	status, info, err := s.unit.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "test-hook failed")
+
+	data, err = state.UnitStatusData(s.unit)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
+
+	// Set status data to nil, so an empty map will be returned.
+	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+
+	status, info, err = s.unit.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(info, gc.Equals, "")
+
+	data, err = state.UnitStatusData(s.unit)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.HasLen, 0)
 }
 
 func (s *UnitSuite) TestUnitCharm(c *gc.C) {

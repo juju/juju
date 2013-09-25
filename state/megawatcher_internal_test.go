@@ -662,9 +662,9 @@ var allWatcherChangedTests = []struct {
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
-				"hook-kind":   "relation-joined",
-				"relation-id": 4711,
-				"remote-unit": "unit-mysql-0",
+				"1st-key": "one",
+				"2nd-key": 2,
+				"3rd-key": true,
 			})
 			c.Assert(err, gc.IsNil)
 		},
@@ -678,9 +678,9 @@ var allWatcherChangedTests = []struct {
 				Status:     params.StatusError,
 				StatusInfo: "hook error",
 				StatusData: params.StatusData{
-					"hook-kind":   "relation-joined",
-					"relation-id": 4711,
-					"remote-unit": "unit-mysql-0",
+					"1st-key": "one",
+					"2nd-key": 2,
+					"3rd-key": true,
 				},
 			},
 		},

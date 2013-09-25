@@ -382,8 +382,8 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	return nil
 }
 
-// CurrentHookName returns the current full hook name.
-func (u *Uniter) CurrentHookName() string {
+// currentHookName returns the current full hook name.
+func (u *Uniter) currentHookName() string {
 	hookInfo := u.s.Hook
 	hookName := string(hookInfo.Kind)
 	if hookInfo.Kind.IsRelation() {
