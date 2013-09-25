@@ -199,7 +199,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	// check.
 	//
 	// TODO(dimitern) 2013-09-25 bug #1230289
-	// Create jobs for container types, rather than
+	// Create jobs for container providers, rather than
 	// using the provider and container type like this.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local && entity.ContainerType() != instance.LXC {

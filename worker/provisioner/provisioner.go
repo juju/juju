@@ -37,7 +37,6 @@ var (
 type Provisioner struct {
 	pt          ProvisionerType
 	st          *apiprovisioner.State
-	machineTag  string // Which machine runs the provisioner.
 	machine     *apiprovisioner.Machine
 	environ     environs.Environ
 	agentConfig agent.Config
@@ -67,10 +66,9 @@ func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig ag
 	p := &Provisioner{
 		pt:          pt,
 		st:          st,
-		machineTag:  agentConfig.Tag(),
 		agentConfig: agentConfig,
 	}
-	logger.Tracef("Starting %s provisioner for %q", p.pt, p.machineTag)
+	logger.Tracef("Starting %s provisioner for %q", p.pt, p.agentConfig.Tag())
 	go func() {
 		defer p.tomb.Done()
 		p.tomb.Kill(p.loop())
@@ -84,11 +82,7 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 	environConfigChanges := environWatcher.Changes()
-	defer func() {
-		if environWatcher != nil {
-			watcher.Stop(environWatcher, &p.tomb)
-		}
-	}()
+	defer watcher.Stop(environWatcher, &p.tomb)
 
 	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
@@ -98,8 +92,10 @@ func (p *Provisioner) loop() error {
 	if p.pt != ENVIRON {
 		// Only the environment provisioner cares about
 		// changes to the environment configuration.
-		watcher.Stop(environWatcher, &p.tomb)
-		environWatcher = nil
+		if err := environWatcher.Stop(); err != nil {
+			return err
+		}
+		// Don't wait for changes on the channel below.
 		environConfigChanges = nil
 	}
 
@@ -122,7 +118,7 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 	task := NewProvisionerTask(
-		p.machineTag,
+		p.agentConfig.Tag(),
 		p.st,
 		machineWatcher,
 		instanceBroker,
@@ -156,8 +152,8 @@ func (p *Provisioner) loop() error {
 func (p *Provisioner) getMachine() (*apiprovisioner.Machine, error) {
 	if p.machine == nil {
 		var err error
-		if p.machine, err = p.st.Machine(p.machineTag); err != nil {
-			logger.Errorf("%s is not in state", p.machineTag)
+		if p.machine, err = p.st.Machine(p.agentConfig.Tag()); err != nil {
+			logger.Errorf("%s is not in state", p.agentConfig.Tag())
 			return nil, err
 		}
 	}

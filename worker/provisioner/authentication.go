@@ -38,6 +38,8 @@ func NewEnvironAuthenticator(environ environs.Environ) (AuthenticationProvider, 
 // NewAgentConfigAuthenticator gets the state and api info once from
 // the agent configuration.
 func NewAgentConfigAuthenticator(agentConfig agent.Config) (AuthenticationProvider, error) {
+	// TODO(dimitern) Take these from the API, like the deployer does,
+	// so we'll always have up-to-date addresses.
 	stateInfo := &state.Info{
 		Addrs:  agentConfig.StateAddresses(),
 		CACert: agentConfig.CACert(),

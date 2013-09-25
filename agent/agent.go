@@ -312,12 +312,14 @@ func (c *configInternal) SetValue(key, value string) {
 }
 
 func (c *configInternal) StateAddresses() []string {
-	addresses := c.stateDetails.addresses
+	addresses := make([]string, len(c.stateDetails.addresses))
+	copy(addresses, c.stateDetails.addresses)
 	return addresses
 }
 
 func (c *configInternal) APIAddresses() []string {
-	addresses := c.apiDetails.addresses
+	addresses := make([]string, len(c.apiDetails.addresses))
+	copy(addresses, c.apiDetails.addresses)
 	return addresses
 }
 
