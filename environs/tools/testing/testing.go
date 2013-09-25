@@ -57,10 +57,10 @@ func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
 		ValueTemplate: tools.ToolsMetadata{},
 	}
 
-	source := simplestreams.NewURLDataSource("file://" + metadataDir + "/tools")
+	source := simplestreams.NewURLDataSource("file://"+metadataDir+"/tools", simplestreams.VerifySSLHostnames)
 
 	const requireSigned = false
-	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
+	indexPath := simplestreams.UnsignedIndex
 	indexRef, err := simplestreams.GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)

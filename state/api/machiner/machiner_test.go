@@ -61,7 +61,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = machine.SetStatus(params.StatusStarted, "blah")
+	err = machine.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, err = s.machine.Status()
@@ -128,7 +128,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = machine.SetStatus(params.StatusStarted, "not really")
+	err = machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

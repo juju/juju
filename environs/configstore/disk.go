@@ -28,10 +28,12 @@ type diskStore struct {
 type environInfo struct {
 	path         string
 	initialized  bool
+	created      bool
 	User         string
 	Password     string
-	StateServers []string `yaml:"state-servers"`
-	CACert       string   `yaml:"ca-cert"`
+	StateServers []string               `yaml:"state-servers"`
+	CACert       string                 `yaml:"ca-cert"`
+	Config       map[string]interface{} `yaml:",omitempty"`
 }
 
 // NewDisk returns a ConfigStorage implementation that stores
@@ -73,7 +75,8 @@ func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
 	}
 	file.Close()
 	return &environInfo{
-		path: path,
+		created: true,
+		path:    path,
 	}, nil
 }
 
@@ -104,6 +107,11 @@ func (info *environInfo) Initialized() bool {
 	return info.initialized
 }
 
+// ExtraConfig implements EnvironInfo.ExtraConfig.
+func (info *environInfo) ExtraConfig() map[string]interface{} {
+	return info.Config
+}
+
 // APICredentials implements EnvironInfo.APICredentials.
 func (info *environInfo) APICredentials() APICredentials {
 	return APICredentials{
@@ -118,6 +126,14 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 		Addresses: info.StateServers,
 		CACert:    info.CACert,
 	}
+}
+
+// SetExtraConfig implements EnvironInfo.SetExtraConfig.
+func (info *environInfo) SetExtraConfig(attrs map[string]interface{}) {
+	if !info.created {
+		panic("extra config set on environment info that has not just been created")
+	}
+	info.Config = attrs
 }
 
 // SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.

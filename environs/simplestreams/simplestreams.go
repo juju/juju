@@ -308,7 +308,8 @@ func (metadata *IndexMetadata) String() string {
 
 // hasCloud tells you whether an IndexMetadata has the given cloud in its
 // Clouds list. If IndexMetadata has no clouds defined, then hasCloud
-// returns true regardless.
+// returns true regardless so that the corresponding product records
+// are searched.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
 		if metadataCloud == cloud {
@@ -372,9 +373,10 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 }
 
 const (
+	UnsignedIndex    = "streams/v1/index.json"
 	DefaultIndexPath = "streams/v1/index"
-	SignedSuffix     = ".sjson"
-	UnsignedSuffix   = ".json"
+	signedSuffix     = ".sjson"
+	unsignedSuffix   = ".json"
 )
 
 type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
@@ -389,68 +391,100 @@ type ValueParams struct {
 	ValueTemplate interface{}
 }
 
-// GetMaybeSignedMetadata returns metadata records matching the specified constraint.
-func GetMaybeSignedMetadata(sources []DataSource, indexPath string, cons LookupConstraint, requireSigned bool, params ValueParams) ([]interface{}, error) {
-	var items []interface{}
+// GetMetadata returns metadata records matching the specified constraint,looking in each source for signed metadata.
+// If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
+// Each source is tried in turn until at least one signed (or unsigned) match is found.
+func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstraint, onlySigned bool, params ValueParams) (items []interface{}, err error) {
 	for _, source := range sources {
-		indexURL, err := source.URL(indexPath)
-		if err != nil {
-			// Some providers return an error if asked for the URL of a non-existent file.
-			// So the best we can do is use the relative path for the URL when logging messages.
-			indexURL = indexPath
+		items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, true, params)
+		// If no items are found using signed metadata, check unsigned.
+		if err != nil && len(items) == 0 && !onlySigned {
+			items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
 		}
-		indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
-		if err != nil {
-			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q: %v", indexURL, err)
-				continue
-			}
-			return nil, err
-		}
-		logger.Debugf("read metadata index at %q", indexURL)
-		items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", requireSigned)
-		if err != nil {
-			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
-				continue
-			}
-			if _, ok := err.(*noMatchingProductsError); ok {
-				logger.Debugf("%v", err)
-				break
-			}
-			return nil, err
-		}
-		if len(items) > 0 {
+		if err == nil {
 			break
 		}
 	}
-	return items, nil
+	return items, err
 }
 
-// GetMaybeSignedMirror returns a mirror info struct matching the specified content and cloud.
-func GetMaybeSignedMirror(sources []DataSource, indexPath string, requireSigned bool, contentId string, cloudSpec CloudSpec) (*MirrorInfo, error) {
-	var mirrorInfo *MirrorInfo
+// getMaybeSignedMetadata returns metadata records matching the specified constraint.
+func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons LookupConstraint, signed bool, params ValueParams) ([]interface{}, error) {
+	indexPath := baseIndexPath + unsignedSuffix
+	if signed {
+		indexPath = baseIndexPath + signedSuffix
+	}
+	var items []interface{}
+	indexURL, err := source.URL(indexPath)
+	if err != nil {
+		// Some providers return an error if asked for the URL of a non-existent file.
+		// So the best we can do is use the relative path for the URL when logging messages.
+		indexURL = indexPath
+	}
+	indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", signed, params)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			logger.Debugf("cannot load index %q: %v", indexURL, err)
+		}
+		return nil, err
+	}
+	logger.Debugf("read metadata index at %q", indexURL)
+	items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", signed)
+	if err != nil {
+		if errors.IsNotFoundError(err) {
+			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
+			return nil, err
+		}
+		if _, ok := err.(*noMatchingProductsError); ok {
+			logger.Debugf("%v", err)
+			// No matching products is not considered an error which will allow another source to be
+			// searched, so return err = nil here.
+			return items, nil
+		}
+	}
+	return items, err
+}
+
+// GetMirrorMetadata returns a mirror info struct matching the specified content and cloud,looking in each source for
+// signed metadata.
+// If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
+// Each source is tried in turn until at least one signed (or unsigned) match is found.
+func GetMirrorMetadata(sources []DataSource, baseIndexPath string, onlySigned bool, contentId string,
+	cloudSpec CloudSpec) (mirrorInfo *MirrorInfo, err error) {
+
 	for _, source := range sources {
-		mirrorRefs, dataURL, err := GetMirrorRefsWithFormat(source, indexPath, "index:1.0", requireSigned)
-		if err != nil {
-			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q: %v", dataURL, err)
-				continue
-			}
-			return nil, err
+		mirrorInfo, err = getMaybeSignedMirror(source, baseIndexPath, true, contentId, cloudSpec)
+		// If no mirrors are found using signed metadata, check unsigned.
+		if err != nil && !onlySigned {
+			mirrorInfo, err = getMaybeSignedMirror(source, baseIndexPath, false, contentId, cloudSpec)
 		}
-		mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
-		if err != nil {
-			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", dataURL, err)
-				continue
-			}
-			return nil, err
+		if err == nil {
+			break
 		}
-		mirrorInfo, err = mirrorRef.getMirrorInfo(source, contentId, cloudSpec, "mirrors:1.0", requireSigned)
-		if err != nil {
-			return nil, err
+	}
+	return mirrorInfo, err
+}
+
+// getMaybeSignedMirror returns a mirror info struct matching the specified content and cloud.
+func getMaybeSignedMirror(source DataSource, baseIndexPath string, requireSigned bool, contentId string, cloudSpec CloudSpec) (*MirrorInfo, error) {
+	var mirrorInfo *MirrorInfo
+	mirrorRefs, dataURL, err := GetMirrorRefsWithFormat(source, baseIndexPath, "index:1.0", requireSigned)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			logger.Debugf("cannot load index %q: %v", dataURL, err)
 		}
+		return nil, err
+	}
+	mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
+	if err != nil {
+		if errors.IsNotFoundError(err) {
+			logger.Debugf("skipping index because of error getting latest metadata %q: %v", dataURL, err)
+		}
+		return nil, err
+	}
+	mirrorInfo, err = mirrorRef.getMirrorInfo(source, contentId, cloudSpec, "mirrors:1.0", requireSigned)
+	if err != nil {
+		return nil, err
 	}
 	if mirrorInfo == nil {
 		return nil, errors.NotFoundf("mirror metadata for %q and cloud %v", contentId, cloudSpec)
@@ -463,6 +497,7 @@ func GetMaybeSignedMirror(sources []DataSource, indexPath string, requireSigned 
 func fetchData(source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
+		logger.Debugf("fetchData failed for %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	defer rc.Close()

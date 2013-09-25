@@ -50,6 +50,8 @@ func NewFindTools(sources []simplestreams.DataSource, cloudSpec simplestreams.Cl
 		list[i] = &coretools.Tools{
 			Version: binary,
 			URL:     metadata.FullPath,
+			Size:    metadata.Size,
+			SHA256:  metadata.SHA256,
 		}
 	}
 	if filter.Series != "" {
