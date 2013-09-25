@@ -147,7 +147,7 @@ func (s *SimpleStreamsToolsSuite) generateMetadata(c *gc.C, verses ...version.Bi
 	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)
 	objects := []metadataFile{
-		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{simplestreams.UnsignedIndex, index},
 		{envtools.ProductMetadataPath, products},
 	}
 	return objects

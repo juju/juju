@@ -123,10 +123,7 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 		FilterFunc:    appendMatchingTools,
 		ValueTemplate: ToolsMetadata{},
 	}
-	items, err := simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.SignedSuffix, cons, true, params)
-	if (err != nil || len(items) == 0) && !onlySigned {
-		items, err = simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
-	}
+	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +259,7 @@ func generateMetadata(toolsList coretools.List, fetch bool) ([]MetadataFile, err
 		return nil, err
 	}
 	objects := []MetadataFile{
-		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{simplestreams.UnsignedIndex, index},
 		{ProductMetadataPath, products},
 	}
 	return objects, nil
