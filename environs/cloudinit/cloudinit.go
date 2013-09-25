@@ -5,6 +5,7 @@ package cloudinit
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
@@ -144,17 +145,26 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	var untarCmd string
+	var copyCmd string
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
-		untarCmd = fmt.Sprintf("tar xz -C $bin -f %s", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
+		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		untarCmd = fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL))
+		copyCmd = fmt.Sprintf("wget --no-verbose -O $bin/tools.tar.gz %s", shquote(cfg.Tools.URL))
+	}
+	toolsJson, err := json.Marshal(cfg.Tools)
+	if err != nil {
+		return nil, err
 	}
 	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		untarCmd,
-		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
+		copyCmd,
+		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", cfg.Tools.Version),
+		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
+			cfg.Tools.SHA256, cfg.Tools.Version),
+		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", cfg.Tools.Version),
+		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
 
 	if err := cfg.addLogging(c); err != nil {
@@ -168,7 +178,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
 	machineTag := names.MachineTag(cfg.MachineId)
-	_, err := cfg.addAgentInfo(c, machineTag)
+	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return nil, err
 	}

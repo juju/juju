@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
 )
 
@@ -114,9 +115,18 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 	return certPEM, keyPEM, nil
 }
 
-// NewServer generates a certificate/key pair suitable for use by a
-// server for an environment with the given name.
-func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (certPEM, keyPEM []byte, err error) {
+// NewServer generates a certificate/key pair suitable for use by a server.
+func NewServer(caCertPEM, caKeyPEM []byte, expiry time.Time, hostnames []string) (certPEM, keyPEM []byte, err error) {
+	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, nil)
+}
+
+// NewClient generates a certificate/key pair suitable for client authentication.
+func NewClient(caCertPEM, caKeyPEM []byte, expiry time.Time) (certPEM, keyPEM []byte, err error) {
+	return newLeaf(caCertPEM, caKeyPEM, expiry, nil, []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth})
+}
+
+// newLeaf generates a certificate/key pair suitable for use by a leaf node.
+func newLeaf(caCertPEM, caKeyPEM []byte, expiry time.Time, hostnames []string, extKeyUsage []x509.ExtKeyUsage) (certPEM, keyPEM []byte, err error) {
 	tlsCert, err := tls.X509KeyPair(caCertPEM, caKeyPEM)
 	if err != nil {
 		return nil, nil, err
@@ -153,6 +163,14 @@ func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (ce
 
 		SubjectKeyId: bigIntHash(key.N),
 		KeyUsage:     x509.KeyUsageDataEncipherment,
+		ExtKeyUsage:  extKeyUsage,
+	}
+	for _, hostname := range hostnames {
+		if ip := net.ParseIP(hostname); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			template.DNSNames = append(template.DNSNames, hostname)
+		}
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
 	if err != nil {
