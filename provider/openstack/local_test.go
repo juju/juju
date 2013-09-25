@@ -503,12 +503,12 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(env)), jc.IsTrue)
-	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
 	// The image-metadata-url ends with "/juju-dist-test/".
-	c.Check(strings.HasSuffix(urls[2], "/juju-dist-test/"), jc.IsTrue)
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)), jc.IsTrue)
+	// The product-streams URL ends with "/imagemetadata".
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
@@ -523,14 +523,65 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
-	c.Assert(err, gc.IsNil)
-	// Check that the URL from keystone parses.
-	_, err = url.Parse(urls[1])
-	c.Assert(err, gc.IsNil)
 	// The tools-url ends with "/juju-dist-test/tools/".
-	c.Check(strings.HasSuffix(urls[2], "/juju-dist-test/tools/"), jc.IsTrue)
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestGetToolsMetadataSourcesHPCloud(c *gc.C) {
+	restore := openstack.PatchCertifiedURL(
+		"https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/", s.TestConfig["auth-url"].(string))
+	defer restore()
+	env := s.Open(c)
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The tools-url ends with "/juju-dist-test/tools/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
+	c.Check(err, gc.IsNil)
+	// Check the certified HP Cloud tools URL.
+	c.Assert(urls[3], gc.Equals, "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools/")
+}
+
+func (s *localServerSuite) TestGetToolsMetadataSourcesWithDeprecatedPublicBucket(c *gc.C) {
+	cfg := s.TestConfig.Merge(map[string]interface{}{
+		"public-bucket-url": "http://foo",
+	})
+	env, err := environs.NewFromAttrs(cfg)
+	c.Assert(err, gc.IsNil)
+
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 4)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The tools-url ends with "/juju-dist-test/tools/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	// Check that the URL from keystone parses.
+	_, err = url.Parse(urls[2])
+	c.Check(err, gc.IsNil)
+	// Check the tools URL derived from the public bucket.
+	c.Assert(urls[3], gc.Equals, "http://foo/juju-dist/tools/")
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
