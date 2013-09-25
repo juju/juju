@@ -5,17 +5,11 @@ package simplestreams_test
 
 import (
 	"bytes"
-	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 
-	"code.google.com/p/go.crypto/openpgp"
-	"code.google.com/p/go.crypto/openpgp/clearsign"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 )
@@ -23,7 +17,6 @@ import (
 func Test(t *testing.T) {
 	registerSimpleStreamsTests()
 	gc.Suite(&signingSuite{})
-	gc.Suite(&signedAndUnsignedSuite{})
 	gc.Suite(&jsonSuite{})
 	gc.TestingT(t)
 }
