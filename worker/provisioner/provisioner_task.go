@@ -343,7 +343,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
 		logger.Errorf("cannot start instance for machine %q: %v", machine, err)
-		if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+		if err1 := machine.SetStatus(params.StatusError, err.Error()); err1 != nil {
 			// Something is wrong with this machine, better report it back.
 			logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
 			return err1
