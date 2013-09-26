@@ -356,7 +356,6 @@ func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
 var getMirrorTests = []struct {
 	region    string
 	endpoint  string
-	contentId string
 	err       string
 	mirrorURL string
 	path      string
@@ -376,18 +375,15 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 	for i, t := range getMirrorTests {
 		c.Logf("test %d", i)
 		if t.region == "" {
-			t.region = "us-east-1"
+			t.region = "us-east-2"
 		}
 		if t.endpoint == "" {
-			t.endpoint = "https://ec2.us-east-1.amazonaws.com"
-		}
-		if t.contentId == "" {
-			t.contentId = "com.ubuntu.juju:released:tools"
+			t.endpoint = "https://ec2.us-east-2.amazonaws.com"
 		}
 		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
 		params := simplestreams.ValueParams{
-			DataType:        s.DataType,
-			MirrorContentId: t.contentId,
+			DataType:        "content-download",
+			MirrorContentId: "com.ubuntu.juju:released:tools",
 		}
 		indexRef, err := simplestreams.GetIndexWithFormat(
 			s.Source, s.IndexPath(), sstesting.Index_v1, s.RequireSigned, cloud, params)

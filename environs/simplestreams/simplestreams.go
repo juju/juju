@@ -17,7 +17,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	//	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -604,7 +603,7 @@ func (mirrorRefs *MirrorRefs) getMirrorReference(datatype, contentId string, clo
 	}
 	// Restrict by cloud spec and datatype.
 	hasRightCloud := func(mirrorRef *MirrorReference) bool {
-		return mirrorRef.hasCloud(cloud) //&& mirrorRef.DataType == datatype
+		return mirrorRef.hasCloud(cloud) && mirrorRef.DataType == datatype
 	}
 	matchingCandidates := candidates.filter(hasRightCloud)
 	if len(matchingCandidates) == 0 {

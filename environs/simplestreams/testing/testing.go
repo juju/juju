@@ -81,16 +81,16 @@ var imageData = map[string]string{
              {
               "datatype": "content-download",
               "path": "streams/v1/tools_metadata:public-mirrors.json",
-		      "clouds": [
-			   {
-			    "region": "us-east-1",
-			    "endpoint": "https://ec2.us-east-1.amazonaws.com"
-			   },
-			   {
-				"region": "us-west-2",
-				"endpoint": "https://ec2.us-west-2.amazonaws.com"
-			   }
-		      ],
+              "clouds": [
+               {
+                "region": "us-east-2",
+                "endpoint": "https://ec2.us-east-2.amazonaws.com"
+               },
+               {
+                "region": "us-west-2",
+                "endpoint": "https://ec2.us-west-2.amazonaws.com"
+               }
+              ],
               "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
               "format": "mirrors:1.0"
              },
@@ -260,8 +260,8 @@ var imageData = map[string]string{
         "format": "products:1.0",
         "clouds": [
           {
-            "endpoint": "https://ec2.us-east-1.amazonaws.com",
-            "region": "us-east-1"
+            "endpoint": "https://ec2.us-east-2.amazonaws.com",
+            "region": "us-east-2"
           }
         ]
       },
