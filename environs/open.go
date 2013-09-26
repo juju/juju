@@ -98,14 +98,7 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 		}
 		return nil, err
 	}
-//	oldAttrs := config.AllAttrs()
-//	newAttrs := make(map[string]interface{})
-//	for name, newAttr := range env.Config().AllAttrs() {
-//		if _, ok := oldAttrs[name]; !ok {
-//			newAttrs[name] = newAttr
-//		}
-//	}
-	info.SetExtraConfig(env.Config().AllAttrs())
+	info.SetBootstrapConfig(env.Config().AllAttrs())
 	if err := info.Write(); err != nil {
 		return nil, fmt.Errorf("cannot create environment info %q: %v", err)
 	}

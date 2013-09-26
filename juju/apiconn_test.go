@@ -367,6 +367,7 @@ type environInfo struct {
 	configstore.EnvironInfo // panic on methods we don't care about
 	creds                   configstore.APICredentials
 	endpoint                configstore.APIEndpoint
+	bootstrapConfig map[string]interface{}
 	err                     error
 }
 
@@ -392,4 +393,8 @@ func (info *environInfo) APICredentials() configstore.APICredentials {
 
 func (info *environInfo) APIEndpoint() configstore.APIEndpoint {
 	return info.endpoint
+}
+
+func (info *environInfo) BootstrapConfig() map[string]interface{} {
+	return info.bootstrapConfig
 }
