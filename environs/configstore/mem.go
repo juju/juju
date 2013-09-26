@@ -27,6 +27,12 @@ func (info *memInfo) clone() *memInfo {
 	// Note that none of the Set* methods ever set fields inside
 	// references, which makes this OK to do.
 	info1 := *info
+	newAttrs := make(map[string]interface{})
+	for name, attr := range info.Config {
+		newAttrs[name] = attr
+	}
+	info1.Config = newAttrs
+	info1.created = false
 	return &info1
 }
 
@@ -49,6 +55,7 @@ func (m *memStore) CreateInfo(envName string) (EnvironInfo, error) {
 		store: m,
 		name:  envName,
 	}
+	info.created = true
 	m.envs[envName] = info.clone()
 	return info, nil
 }

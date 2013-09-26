@@ -11,26 +11,38 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 )
+
+// Default returns disk-based environment config storage
+// rooted at JujuHome.
+func Default() (Storage, error) {
+	return NewDisk(config.JujuHome())
+}
 
 type diskStore struct {
 	dir string
 }
 
 type environInfo struct {
-	path         string
-	initialized  bool
+	path string
+	// initialized signifies whether the info has been written.
+	initialized bool
+
+	// created signifies whether the info was returned from
+	// a CreateInfo call.
+	created      bool
 	User         string
 	Password     string
-	StateServers []string `yaml:"state-servers"`
-	CACert       string   `yaml:"ca-cert"`
+	StateServers []string               `yaml:"state-servers"`
+	CACert       string                 `yaml:"ca-cert"`
+	Config       map[string]interface{} `yaml:"bootstrap-config,omitempty"`
 }
 
-// NewDisk returns a ConfigStorage implementation that
-// stores configuration in the given directory.
-// The parent of the directory must already exist;
-// the directory itself is created on demand.
+// NewDisk returns a ConfigStorage implementation that stores
+// configuration in the given directory. The parent of the directory
+// must already exist; the directory itself is created on demand.
 func NewDisk(dir string) (Storage, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err
@@ -67,7 +79,8 @@ func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
 	}
 	file.Close()
 	return &environInfo{
-		path: path,
+		created: true,
+		path:    path,
 	}, nil
 }
 
@@ -98,6 +111,11 @@ func (info *environInfo) Initialized() bool {
 	return info.initialized
 }
 
+// BootstrapConfig implements EnvironInfo.BootstrapConfig.
+func (info *environInfo) BootstrapConfig() map[string]interface{} {
+	return info.Config
+}
+
 // APICredentials implements EnvironInfo.APICredentials.
 func (info *environInfo) APICredentials() APICredentials {
 	return APICredentials{
@@ -112,6 +130,14 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 		Addresses: info.StateServers,
 		CACert:    info.CACert,
 	}
+}
+
+// SetExtraConfig implements EnvironInfo.SetBootstrapConfig.
+func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
+	if !info.created {
+		panic("bootstrap config set on environment info that has not just been created")
+	}
+	info.Config = attrs
 }
 
 // SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.

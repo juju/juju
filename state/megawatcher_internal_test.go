@@ -155,7 +155,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetStatus(params.StatusError, m.Tag())
+		err = m.SetStatus(params.StatusError, m.Tag(), nil)
 		c.Assert(err, gc.IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
@@ -262,7 +262,7 @@ var allWatcherChangedTests = []struct {
 		setUp: func(c *gc.C, st *State) {
 			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, gc.IsNil)
-			err = m.SetStatus(params.StatusError, "failure")
+			err = m.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -339,7 +339,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusError, "failure")
+			err = u.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -636,7 +636,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusStarted, "")
+			err = u.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -645,8 +645,43 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.UnitInfo{
-				Name:   "wordpress/0",
-				Status: params.StatusStarted,
+				Name:       "wordpress/0",
+				Status:     params.StatusStarted,
+				StatusData: params.StatusData{},
+			},
+		},
+	}, {
+		about: "status is changed with additional status data",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:   "wordpress/0",
+			Status: params.StatusStarted,
+		}},
+		setUp: func(c *gc.C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, gc.IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
+				"1st-key": "one",
+				"2nd-key": 2,
+				"3rd-key": true,
+			})
+			c.Assert(err, gc.IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Status:     params.StatusError,
+				StatusInfo: "hook error",
+				StatusData: params.StatusData{
+					"1st-key": "one",
+					"2nd-key": 2,
+					"3rd-key": true,
+				},
 			},
 		},
 	},
@@ -685,7 +720,7 @@ var allWatcherChangedTests = []struct {
 		setUp: func(c *gc.C, st *State) {
 			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, gc.IsNil)
-			err = m.SetStatus(params.StatusStarted, "")
+			err = m.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -694,8 +729,9 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.MachineInfo{
-				Id:     "0",
-				Status: params.StatusStarted,
+				Id:         "0",
+				Status:     params.StatusStarted,
+				StatusData: params.StatusData{},
 			},
 		},
 	},

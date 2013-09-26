@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
@@ -20,9 +21,9 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	expected := map[string]interface{}{
+	expected := map[string]string{
 		"secret": "pork",
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)
@@ -72,7 +73,7 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 
-		env, err := environs.Prepare(cfg)
+		env, err := environs.Prepare(cfg, configstore.NewMem())
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue

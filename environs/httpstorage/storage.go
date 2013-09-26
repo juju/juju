@@ -4,29 +4,64 @@
 package httpstorage
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
 // storage implements the storage.Storage interface.
 type localStorage struct {
 	baseURL string
+	client  *http.Client
 }
 
-// Client returns a storage object that will talk to the storage server
-// at the given network address (see Serve)
+// Client returns a storage object that will talk to the
+// storage server at the given network address (see Serve)
 func Client(addr string) storage.Storage {
 	return &localStorage{
 		baseURL: fmt.Sprintf("http://%s/", addr),
+		client:  http.DefaultClient,
 	}
+}
+
+// ClientTLS returns a storage object that will talk to the
+// storage server at the given network address (see Serve),
+// using TLS. The client will generate a client certificate,
+// signed with the given CA certificate/key, to authenticate.
+func ClientTLS(addr string, caCertPEM, caKeyPEM []byte) (storage.Storage, error) {
+	caCerts := x509.NewCertPool()
+	if !caCerts.AppendCertsFromPEM(caCertPEM) {
+		return nil, errors.New("error adding CA certificate to pool")
+	}
+	expiry := time.Now().UTC().AddDate(10, 0, 0)
+	clientCertPEM, clientKeyPEM, err := cert.NewClient(caCertPEM, caKeyPEM, expiry)
+	clientCert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &localStorage{
+		baseURL: fmt.Sprintf("https://%s/", addr),
+		client: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					Certificates: []tls.Certificate{clientCert},
+					RootCAs:      caCerts,
+				},
+			},
+		},
+	}, nil
 }
 
 // Get opens the given storage file and returns a ReadCloser
@@ -38,12 +73,12 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Get(url)
+	resp, err := s.client.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.NotFoundf("file %q", name)
+		return nil, coreerrors.NotFoundf("file %q", name)
 	}
 	return resp.Body, nil
 }
@@ -58,7 +93,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Get(url + "*")
+	resp, err := s.client.Get(url + "*")
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +153,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.ContentLength = length
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -140,7 +175,7 @@ func (s *localStorage) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}

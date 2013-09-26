@@ -102,9 +102,9 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah")
+	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo")
+	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{

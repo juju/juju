@@ -5,6 +5,7 @@ package tools_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -43,27 +44,33 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 		coretesting.NewTarFile("bar", 0755, "bar contents"),
 		coretesting.NewTarFile("foo", 0755, "foo contents"),
 	}
+	gzfile, checksum := coretesting.TarGz(files...)
 	t1 := &coretools.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    int64(len(gzfile)),
+		SHA256:  checksum,
 	}
 
-	err := s.manager.UnpackTools(t1, bytes.NewReader(coretesting.TarGz(files...)))
+	err := s.manager.UnpackTools(t1, bytes.NewReader(gzfile))
 	c.Assert(err, gc.IsNil)
 	assertDirNames(c, s.toolsDir(), []string{"1.2.3-foo-bar"})
 	s.assertToolsContents(c, t1, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
-	t2 := &coretools.Tools{
-		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
-	}
 	files2 := []*coretesting.TarFile{
 		coretesting.NewTarFile("bar", 0755, "bar2 contents"),
 		coretesting.NewTarFile("x", 0755, "x contents"),
 	}
-	err = s.manager.UnpackTools(t2, bytes.NewReader(coretesting.TarGz(files2...)))
+	gzfile2, checksum2 := coretesting.TarGz(files2...)
+	t2 := &coretools.Tools{
+		URL:     "http://arble",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Size:    int64(len(gzfile2)),
+		SHA256:  checksum2,
+	}
+	err = s.manager.UnpackTools(t2, bytes.NewReader(gzfile2))
 	c.Assert(err, gc.IsNil)
 	assertDirNames(c, s.toolsDir(), []string{"1.2.3-foo-bar"})
 	s.assertToolsContents(c, t1, files)
@@ -82,10 +89,12 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
 	}
-	wantNames = append(wantNames, urlFile)
+	wantNames = append(wantNames, toolsFile)
 	dir := s.manager.(*agenttools.DiskManager).SharedToolsDir(t.Version)
 	assertDirNames(c, dir, wantNames)
-	assertFileContents(c, dir, urlFile, t.URL, 0200)
+	expectedFileContents, err := json.Marshal(t)
+	c.Assert(err, gc.IsNil)
+	assertFileContents(c, dir, toolsFile, string(expectedFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}

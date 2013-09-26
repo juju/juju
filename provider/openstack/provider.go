@@ -107,7 +107,7 @@ hpcloud:
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
-  # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
+  auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
 
 `[1:]
 }
@@ -140,8 +140,8 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
-func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
+func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	m := make(map[string]string)
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -529,18 +529,35 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
+	verify := simplestreams.VerifySSLHostnames
+	if !e.Config().SSLHostnameVerification() {
+		verify = simplestreams.NoVerifySSLHostnames
+	}
 	// Add the simplestreams source off the control bucket.
 	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		verify := simplestreams.VerifySSLHostnames
-		if !e.Config().SSLHostnameVerification() {
-			verify = simplestreams.NoVerifySSLHostnames
-		}
 		source := simplestreams.NewURLDataSource(toolsURL, verify)
 		e.toolsSources = append(e.toolsSources, source)
 	}
+
+	// See if the cloud is one we support and hence know the correct tools-url for.
+	ecfg := e.ecfg()
+	toolsURL, toolsURLFound := GetCertifiedToolsURL(ecfg.authURL())
+	if toolsURLFound {
+		logger.Debugf("certified cloud tools-url set to %s", toolsURL)
+		// A certified tools url should always use a valid SSL cert
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames))
+	}
+
+	// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
+	if deprecatedPublicBucketURL, ok := ecfg.attrs["public-bucket-url"]; ok && deprecatedPublicBucketURL != "" && !toolsURLFound {
+		toolsURL = fmt.Sprintf("%v/juju-dist/tools", deprecatedPublicBucketURL)
+		logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
+		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, verify))
+	}
+
 	return e.toolsSources, nil
 }
 
@@ -783,27 +800,15 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Destroy(ensureInsts []instance.Instance) error {
+func (e *environ) Destroy() error {
 	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[instance.Id]bool)
 	var ids []instance.Id
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := instance.Id(inst.(*openstackInstance).Id())
-		if !found[id] {
-			ids = append(ids, id)
-			found[id] = true
-		}
 	}
 	err = e.terminateInstances(ids)
 	if err != nil {

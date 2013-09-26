@@ -334,7 +334,7 @@ func (env *localEnviron) PublicStorage() storage.StorageReader {
 }
 
 // Destroy is specified in the Environ interface.
-func (env *localEnviron) Destroy(insts []instance.Instance) error {
+func (env *localEnviron) Destroy() error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("destroying a local environment must be done as root")
 	}

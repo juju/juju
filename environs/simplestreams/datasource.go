@@ -27,10 +27,17 @@ type DataSource interface {
 	SetAllowRetry(allow bool)
 }
 
+// SSLHostnameVerification is used as a switch for when a given provider might
+// use self-signed credentials and we should not try to verify the hostname on
+// the TLS/SSL certificates
 type SSLHostnameVerification bool
 
 const (
-	VerifySSLHostnames   = SSLHostnameVerification(true)
+	// VerifySSLHostnames ensures we verify the hostname on the certificate
+	// matches the host we are connecting and is signed
+	VerifySSLHostnames = SSLHostnameVerification(true)
+	// NoVerifySSLHostnames informs us to skip verifying the hostname
+	// matches a valid certificate
 	NoVerifySSLHostnames = SSLHostnameVerification(false)
 )
 
