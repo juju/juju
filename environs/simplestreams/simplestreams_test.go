@@ -335,47 +335,6 @@ func (s *simplestreamsSuite) TestDealiasing(c *gc.C) {
 	c.Check(ti.Endpoint, gc.Equals, "https://ec2.us-west-3.amazonaws.com")
 }
 
-func (s *simplestreamsSuite) TestGetMirror(c *gc.C) {
-	mirrorRefs, url, err := s.getMirrorRefs(sstesting.Index_v1)
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "test:/streams/v1/index.json")
-	c.Assert(mirrorRefs.Format, gc.Equals, sstesting.Index_v1)
-	c.Assert(len(mirrorRefs.Mirrors) > 0, gc.Equals, true)
-}
-
-func (s *simplestreamsSuite) getMirrorRefs(format string) (*simplestreams.MirrorRefs, string, error) {
-	return simplestreams.GetMirrorRefsWithFormat(s.Source, s.IndexPath(), format, s.RequireSigned)
-}
-
-func (s *simplestreamsSuite) TestGetMirrorRefsWrongFormat(c *gc.C) {
-	_, _, err := s.getMirrorRefs("bad")
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *simplestreamsSuite) TestGetMirrorRef(c *gc.C) {
-	mirrorRefs, url, err := s.getMirrorRefs(sstesting.Index_v1)
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "test:/streams/v1/index.json")
-	cloud := simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"}
-	mirrorRef, err := mirrorRefs.GetMirrorReference("com.ubuntu.juju:released:tools", cloud)
-	c.Assert(err, gc.IsNil)
-	c.Assert(mirrorRef.Format, gc.Equals, sstesting.Mirror_v1)
-	c.Assert(mirrorRef.Path, gc.Equals, "streams/v1/tools_metadata:public-mirrors.json")
-	c.Assert(mirrorRef.DataType, gc.Equals, "content-download")
-}
-
-func (s *simplestreamsSuite) TestGetMirrorRefDefaultCloud(c *gc.C) {
-	mirrorRefs, url, err := s.getMirrorRefs(sstesting.Index_v1)
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "test:/streams/v1/index.json")
-	cloud := simplestreams.CloudSpec{"some-region", "https://some-endpoint.com"}
-	mirrorRef, err := mirrorRefs.GetMirrorReference("com.ubuntu.juju:released:tools", cloud)
-	c.Assert(err, gc.IsNil)
-	c.Assert(mirrorRef.Format, gc.Equals, sstesting.Mirror_v1)
-	c.Assert(mirrorRef.Path, gc.Equals, "streams/v1/tools_metadata:more-mirrors.json")
-	c.Assert(mirrorRef.DataType, gc.Equals, "content-download")
-}
-
 func (s *simplestreamsSuite) TestSeriesVersion(c *gc.C) {
 	cleanup := simplestreams.SetSeriesVersions(make(map[string]string))
 	defer cleanup()
@@ -397,7 +356,6 @@ func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
 var getMirrorTests = []struct {
 	region    string
 	endpoint  string
-	contentId string
 	err       string
 	mirrorURL string
 	path      string
@@ -411,32 +369,27 @@ var getMirrorTests = []struct {
 	endpoint:  "https://some-endpoint.com",
 	mirrorURL: "http://big-mirror/",
 	path:      "big:download.json",
-}, {
-	// cloud spec in mirror file but missing from index
-	region:   "us-west-1",
-	endpoint: "https://ec2.us-west-1.amazonaws.com",
-	err:      `mirror info with cloud {us-west-1 https://ec2.us-west-1.amazonaws.com} not found`,
-}, {
-	// invalid content id
-	contentId: "invalid",
-	err:       `mirror data for "invalid".* not found`,
 }}
 
 func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 	for i, t := range getMirrorTests {
 		c.Logf("test %d", i)
 		if t.region == "" {
-			t.region = "us-east-1"
+			t.region = "us-east-2"
 		}
 		if t.endpoint == "" {
-			t.endpoint = "https://ec2.us-east-1.amazonaws.com"
-		}
-		if t.contentId == "" {
-			t.contentId = "com.ubuntu.juju:released:tools"
+			t.endpoint = "https://ec2.us-east-2.amazonaws.com"
 		}
 		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
-		mirrorInfo, err := simplestreams.GetMirrorMetadata(
-			[]simplestreams.DataSource{s.Source}, s.IndexPath(), false, t.contentId, cloud)
+		params := simplestreams.ValueParams{
+			DataType:        "content-download",
+			MirrorContentId: "com.ubuntu.juju:released:tools",
+		}
+		indexRef, err := simplestreams.GetIndexWithFormat(
+			s.Source, s.IndexPath(), sstesting.Index_v1, s.RequireSigned, cloud, params)
+		if !c.Check(err, gc.IsNil) {
+			continue
+		}
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
@@ -444,8 +397,12 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
-		c.Check(mirrorInfo.MirrorURL, gc.Equals, t.mirrorURL)
-		c.Check(mirrorInfo.Path, gc.Equals, t.path)
+		mirrorURL, err := indexRef.Source.URL("")
+		if !c.Check(err, gc.IsNil) {
+			continue
+		}
+		c.Check(mirrorURL, gc.Equals, t.mirrorURL)
+		c.Check(indexRef.MirroredProductsPath, gc.Equals, t.path)
 	}
 }
 

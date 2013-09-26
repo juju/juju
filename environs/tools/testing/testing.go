@@ -61,7 +61,8 @@ func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
 
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex
-	indexRef, err := simplestreams.GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
+	indexRef, err := simplestreams.GetIndexWithFormat(
+		source, indexPath, "index:1.0", requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 
