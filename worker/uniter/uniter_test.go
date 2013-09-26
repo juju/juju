@@ -300,6 +300,10 @@ var installHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
+			data: params.StatusData{
+				"hook":        "install",
+				"relation-id": 0,
+			},
 		},
 		waitHooks{"fail-install"},
 		fixHook{"install"},
@@ -338,6 +342,10 @@ var startHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
+			data: params.StatusData{
+				"hook":        "start",
+				"relation-id": 0,
+			},
 		},
 		waitHooks{"fail-start"},
 		verifyWaiting{},
@@ -365,22 +373,34 @@ var multipleErrorsTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
+			data: params.StatusData{
+				"hook":        "install",
+				"relation-id": 0,
+			},
 		},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
+			data: params.StatusData{
+				"hook":        "config-changed",
+				"relation-id": 0,
+			},
 		},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
+			data: params.StatusData{
+				"hook":        "start",
+				"relation-id": 0,
+			},
 		},
 	),
 }
 
 func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
-	s.runUniterTests(c, startHookTests)
+	s.runUniterTests(c, multipleErrorsTests)
 }
 
 var configChangedHookTests = []uniterTest{
@@ -411,6 +431,10 @@ var configChangedHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
+			data: params.StatusData{
+				"hook":        "config-changed",
+				"relation-id": 0,
+			},
 		},
 		waitHooks{"fail-config-changed"},
 		verifyWaiting{},
@@ -573,7 +597,11 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook":        "upgrade-charm",
+				"relation-id": 0,
+			},
+			charm: 1,
 		},
 		waitHooks{"fail-upgrade-charm"},
 		verifyCharm{revision: 1},
@@ -594,7 +622,11 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook":        "upgrade-charm",
+				"relation-id": 0,
+			},
+			charm: 1,
 		},
 		waitHooks{"fail-upgrade-charm"},
 		verifyCharm{revision: 1},
@@ -604,7 +636,11 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook":        "upgrade-charm",
+				"relation-id": 0,
+			},
+			charm: 1,
 		},
 		waitHooks{"fail-upgrade-charm"},
 		verifyWaiting{},
@@ -656,6 +692,10 @@ var errorUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
+			data: params.StatusData{
+				"hook":        "start",
+				"relation-id": 0,
+			},
 		},
 		waitHooks{},
 		verifyCharm{},
@@ -682,7 +722,11 @@ var errorUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook":        "start",
+				"relation-id": 0,
+			},
+			charm: 1,
 		},
 		// ...because the uniter *will* complete a started deployment even if
 		// we stop it from outside. So, by stopping and starting, we can be
@@ -1290,6 +1334,7 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 type waitUnit struct {
 	status   params.Status
 	info     string
+	data     params.StatusData
 	charm    int
 	resolved state.ResolvedMode
 }
@@ -1318,7 +1363,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, err := ctx.unit.Status()
+			status, info, data, err := ctx.unit.FullStatus()
 			c.Assert(err, gc.IsNil)
 			if status != s.status {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
@@ -1327,6 +1372,19 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 			if info != s.info {
 				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
 				continue
+			}
+			if s.data != nil {
+				if len(data) != len(s.data) {
+					c.Logf("want %d unit status data value(s), got %d; still waiting", len(s.data), len(data))
+					continue
+				}
+				for key, value := range s.data {
+					if data[key] != value {
+						c.Logf("want unit status data value %q for key %q, got %q; still waiting",
+							value, key, data[key])
+						continue
+					}
+				}
 			}
 			return
 		case <-timeout:

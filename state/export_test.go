@@ -192,13 +192,3 @@ func MachineStatusData(m *Machine) (params.StatusData, error) {
 	}
 	return doc.StatusData, nil
 }
-
-// StatusData returns the additional status data of a unit.
-// Outside the tests it is returned by a watcher.
-func UnitStatusData(u *Unit) (params.StatusData, error) {
-	doc, err := getStatus(u.st, u.globalKey())
-	if err != nil {
-		return nil, err
-	}
-	return doc.StatusData, nil
-}

@@ -499,6 +499,19 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 	return
 }
 
+// FullStatus returns the full status of the unit including the data. It
+// will later be renamed and replace the original Status.
+func (u *Unit) FullStatus() (status params.Status, info string, data params.StatusData, err error) {
+	doc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
+		return "", "", params.StatusData{}, err
+	}
+	status = doc.Status
+	info = doc.StatusInfo
+	data = doc.StatusData
+	return
+}
+
 // SetStatus sets the status of the unit. The optional values
 // allow to pass additional helpful status data.
 func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {

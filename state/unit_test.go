@@ -321,13 +321,10 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	status, info, err := s.unit.Status()
+	status, info, data, err := s.unit.FullStatus()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-
-	data, err := state.UnitStatusData(s.unit)
-	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.DeepEquals, params.StatusData{
 		"1st-key": "one",
 		"2nd-key": 2,
@@ -350,13 +347,10 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	status, info, err := s.unit.Status()
+	status, info, data, err := s.unit.FullStatus()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
-
-	data, err := state.UnitStatusData(s.unit)
-	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.DeepEquals, params.StatusData{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
@@ -381,13 +375,10 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	data["4th-key"] = 4.0
 
-	status, info, err := s.unit.Status()
+	status, info, data, err := s.unit.FullStatus()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-
-	data, err = state.UnitStatusData(s.unit)
-	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.DeepEquals, params.StatusData{
 		"1st-key": "one",
 		"2nd-key": 2,
@@ -398,13 +389,10 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err = s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 
-	status, info, err = s.unit.Status()
+	status, info, data, err = s.unit.FullStatus()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
-
-	data, err = state.UnitStatusData(s.unit)
-	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.HasLen, 0)
 }
 
