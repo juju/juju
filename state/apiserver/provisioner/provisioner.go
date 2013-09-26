@@ -7,11 +7,9 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
@@ -24,6 +22,7 @@ type ProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
+	*common.Addresser
 
 	st          *state.State
 	resources   *common.Resources
@@ -71,6 +70,7 @@ func NewProvisionerAPI(
 		DeadEnsurer:     common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
+		Addresser:       common.NewAddresser(st),
 		st:              st,
 		resources:       resources,
 		authorizer:      authorizer,
@@ -286,65 +286,4 @@ func (p *ProvisionerAPI) WatchEnvironMachines() (params.StringsWatchResult, erro
 		return result, fmt.Errorf("cannot obtain initial environment machines: %v", err)
 	}
 	return result, nil
-}
-
-// getEnvironStateInfo returns the state and API connection
-// information from the state and the environment.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (p *ProvisionerAPI) getEnvironStateInfo() (*state.Info, *api.Info, error) {
-	cfg, err := p.st.EnvironConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	return env.StateInfo()
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (p *ProvisionerAPI) StateAddresses() (params.StringsResult, error) {
-	stateInfo, _, err := p.getEnvironStateInfo()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: stateInfo.Addrs,
-	}, nil
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (p *ProvisionerAPI) APIAddresses() (params.StringsResult, error) {
-	_, apiInfo, err := p.getEnvironStateInfo()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: apiInfo.Addrs,
-	}, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (p *ProvisionerAPI) CACert() params.BytesResult {
-	return params.BytesResult{
-		Result: p.st.CACert(),
-	}
 }
