@@ -99,7 +99,7 @@ func (p *Provisioner) loop() error {
 		environConfigChanges = nil
 	}
 
-	auth, err := NewAgentConfigAuthenticator(p.agentConfig)
+	auth, err := NewAPIAuthenticator(p.st)
 	if err != nil {
 		return err
 	}
