@@ -80,6 +80,9 @@ var sampleInfo = `
   ca-cert: 'first line
 
     second line'
+  bootstrap-config:
+    secret: blah
+    arble: bletch
 `[1:]
 
 func (*diskStoreSuite) TestRead(c *gc.C) {
@@ -100,6 +103,10 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{
 		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
+	})
+	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
+		"secret": "blah",
+		"arble":  "bletch",
 	})
 }
 

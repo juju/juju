@@ -292,3 +292,27 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
 }
+
+// ImageMetadataStorage returns a Storage object pointing where the goose
+// infrastructure sets up its keystone entry for image metadata
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
+	env := e.(*environ)
+	return &openstackstorage{
+		containerName: "imagemetadata",
+		swift:         swift.New(env.client),
+	}
+}
+
+// CreateCustomStorage creates a swift container and returns the Storage object
+// so you can put data into it.
+func CreateCustomStorage(e environs.Environ, containerName string) storage.Storage {
+	env := e.(*environ)
+	swiftClient := swift.New(env.client)
+	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
+		panic(err)
+	}
+	return &openstackstorage{
+		containerName: containerName,
+		swift:         swiftClient,
+	}
+}

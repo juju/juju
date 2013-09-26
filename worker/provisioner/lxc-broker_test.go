@@ -166,8 +166,8 @@ func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
 type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
-	machineId string
-	events    chan mock.Event
+	parentMachineId string
+	events          chan mock.Event
 }
 
 var _ = gc.Suite(&lxcProvisionerSuite{})
@@ -199,7 +199,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// to be in state, in order to get the watcher.
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.machineId = m.Id()
+	s.parentMachineId = m.Id()
+	s.APILogin(c, m)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
@@ -238,9 +239,9 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
-	machineTag := names.MachineTag(s.machineId)
-	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, agentConfig)
+	parentMachineTag := names.MachineTag(s.parentMachineId)
+	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
+	return provisioner.NewProvisioner(provisioner.LXC, s.provisioner, agentConfig)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -261,7 +262,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	params := state.AddMachineParams{
-		ParentId:      s.machineId,
+		ParentId:      s.parentMachineId,
 		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
@@ -276,7 +277,6 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	defer stop(c, p)
 
 	container := s.addContainer(c)
-
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.

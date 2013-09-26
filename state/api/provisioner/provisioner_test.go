@@ -337,3 +337,26 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
+
+func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
+	stateAddresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	addresses, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.DeepEquals, stateAddresses)
+}
+
+func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	addresses, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
+}
+
+func (s *provisionerSuite) TestCACert(c *gc.C) {
+	caCert, err := s.provisioner.CACert()
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
+}

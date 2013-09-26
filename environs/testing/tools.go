@@ -72,7 +72,7 @@ func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 		path string
 		data []byte
 	}{
-		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{simplestreams.UnsignedIndex, index},
 		{envtools.ProductMetadataPath, products},
 	}
 	for _, object := range objects {
@@ -84,7 +84,7 @@ func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 
 // RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
-	files := []string{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, envtools.ProductMetadataPath}
+	files := []string{simplestreams.UnsignedIndex, envtools.ProductMetadataPath}
 	for _, file := range files {
 		toolspath := path.Join("tools", file)
 		err := stor.Remove(toolspath)

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 
 	"launchpad.net/goyaml"
 
@@ -31,6 +32,9 @@ import (
 // hardware characteristics). It is a transient file, only used as the node
 // is bootstrapping.
 const BootstrapStateURLFile = "/tmp/provider-state-url"
+
+// fileSchemePrefix is the prefix for file:// URLs.
+const fileSchemePrefix = "file://"
 
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
@@ -141,6 +145,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
+	var copyCmd string
+	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
+		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
+	} else {
+		copyCmd = fmt.Sprintf("wget --no-verbose -O $bin/tools.tar.gz %s", shquote(cfg.Tools.URL))
+	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {
 		return nil, err
@@ -148,8 +158,8 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget --no-verbose -O - %s | tee $bin/tools.tar.gz | sha256sum > $bin/juju%s.sha256",
-			shquote(cfg.Tools.URL), cfg.Tools.Version),
+		copyCmd,
+		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", cfg.Tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			cfg.Tools.SHA256, cfg.Tools.Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
@@ -174,6 +184,9 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 
 	if cfg.StateServer {
+		// disable the default mongodb installed by the mongodb-server package.
+		c.AddBootCmd(`echo ENABLE_MONGODB="no" > /etc/default/mongodb`)
+
 		if cfg.NeedMongoPPA() {
 			c.AddAptSource("ppa:juju/stable", "1024R/C8068B11")
 		}

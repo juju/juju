@@ -156,8 +156,8 @@ func (prov azureEnvironProvider) BoilerplateConfig() string {
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	secretAttrs := make(map[string]interface{})
+func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	secretAttrs := make(map[string]string)
 	azureCfg, err := prov.newConfig(cfg)
 	if err != nil {
 		return nil, err

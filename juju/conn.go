@@ -147,13 +147,15 @@ func (c *Conn) updateSecrets() error {
 		return err
 	}
 	attrs := cfg.AllAttrs()
-	for k := range secrets {
+	for k, v := range secrets {
 		if _, exists := attrs[k]; exists {
 			// Environment already has secrets. Won't send again.
 			return nil
+		} else {
+			attrs[k] = v
 		}
 	}
-	cfg, err = cfg.Apply(secrets)
+	cfg, err = config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return err
 	}
