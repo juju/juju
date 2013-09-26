@@ -90,6 +90,8 @@ func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 }
 
 func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
+	// When the config values get serialized through JSON, the integers
+	// get coerced to float64 values.  The parsing needs to handle this.
 	values := minimalConfigValues()
 	values["storage-port"] = float64(8040)
 	testConfig, err := config.New(config.NoDefaults, values)
