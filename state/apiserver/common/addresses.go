@@ -18,9 +18,9 @@ type EnvironConfigAndCertGetter interface {
 	CACert() []byte
 }
 
-// PasswordChanger implements a common set of methods for getting
-// state and API addresses, as well as the CA certificated, used to
-// connect to them.
+// Addresser implements a common set of methods for getting state and
+// API server addresses, and the CA certificate used to authenticate
+// them.
 type Addresser struct {
 	st EnvironConfigAndCertGetter
 }
