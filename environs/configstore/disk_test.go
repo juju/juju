@@ -80,7 +80,7 @@ var sampleInfo = `
   ca-cert: 'first line
 
     second line'
-  config:
+  bootstrap-config:
     secret: blah
     arble: bletch
 `[1:]
@@ -104,7 +104,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
-	c.Assert(info.ExtraConfig(), gc.DeepEquals, map[string]interface{}{
+	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
 		"secret": "blah",
 		"arble":  "bletch",
 	})
