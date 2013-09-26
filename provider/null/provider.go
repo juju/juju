@@ -85,8 +85,7 @@ func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 }
 
 func (_ nullProvider) BoilerplateConfig() string {
-	return `
-    "null":
+	return `"null":
         type: "null"
         admin-secret: {{rand}}
         ## set bootstrap-host to the host where the bootstrap machine agent
@@ -100,6 +99,7 @@ func (_ nullProvider) BoilerplateConfig() string {
         ## network interfaces.
         # storage-listen-ip:
         # storage-port: 8040
+
 `
 }
 
