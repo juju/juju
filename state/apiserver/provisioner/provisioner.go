@@ -152,8 +152,8 @@ func (p *ProvisionerAPI) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 }
 
 // EnvironConfig returns the current environment's configuration.
-func (p *ProvisionerAPI) EnvironConfig() (params.ConfigResult, error) {
-	result := params.ConfigResult{}
+func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
+	result := params.EnvironConfigResult{}
 	config, err := p.st.EnvironConfig()
 	if err != nil {
 		return result, err

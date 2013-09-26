@@ -421,7 +421,7 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	result, err := s.provisioner.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Config, gc.DeepEquals, params.Config(envConfig.AllAttrs()))
+	c.Assert(result.Config, gc.DeepEquals, params.EnvironConfig(envConfig.AllAttrs()))
 
 	// Now test it with a non-environment manager and make sure
 	// the secret attributes are masked.

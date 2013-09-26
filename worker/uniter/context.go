@@ -275,7 +275,7 @@ func (l *hookLogger) stop() {
 }
 
 // SettingsMap is a map from unit name to relation settings.
-type SettingsMap map[string]params.Settings
+type SettingsMap map[string]params.RelationSettings
 
 // ContextRelation is the implementation of jujuc.ContextRelation.
 type ContextRelation struct {
@@ -367,7 +367,7 @@ func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	return ctx.settings, nil
 }
 
-func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings, err error) {
+func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationSettings, err error) {
 	settings, member := ctx.members[unit]
 	if settings == nil {
 		if settings = ctx.cache[unit]; settings == nil {
