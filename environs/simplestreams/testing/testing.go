@@ -85,6 +85,10 @@ var imageData = map[string]string{
 			   {
 			    "region": "us-east-1",
 			    "endpoint": "https://ec2.us-east-1.amazonaws.com"
+			   },
+			   {
+				"region": "us-west-2",
+				"endpoint": "https://ec2.us-west-2.amazonaws.com"
 			   }
 		      ],
               "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
@@ -219,6 +223,33 @@ var imageData = map[string]string{
  }
 }
 `,
+	"/streams/v1/mirrored-tools-metadata.json": `
+{
+ "content_id": "com.ubuntu.juju:tools",
+ "datatype": "content-download",
+ "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
+ "format": "products:1.0",
+ "products": {
+  "com.ubuntu.juju:12.04:amd64": {
+   "arch": "amd64",
+   "release": "precise",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130preciseamd64": {
+       "version": "1.13.0",
+       "size": 2973595,
+       "path": "mirrored-path/juju-1.13.0-precise-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+`,
 	"/streams/v1/tools_metadata:public-mirrors.json": `
 {
   "mirrors": {
@@ -231,6 +262,17 @@ var imageData = map[string]string{
           {
             "endpoint": "https://ec2.us-east-1.amazonaws.com",
             "region": "us-east-1"
+          }
+        ]
+      },
+      {
+        "mirror": "test:/",
+        "path": "streams/v1/mirrored-tools-metadata.json",
+        "format": "products:1.0",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-west-2.amazonaws.com",
+            "region": "us-west-2"
           }
         ]
       },
@@ -468,7 +510,8 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(s.Source, s.IndexPath(), format, s.RequireSigned, params)
+	return simplestreams.GetIndexWithFormat(
+		s.Source, s.IndexPath(), format, s.RequireSigned, s.ValidConstraint.Params().CloudSpec, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {

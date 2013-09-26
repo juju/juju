@@ -30,6 +30,7 @@ func init() {
 
 const (
 	ContentDownload = "content-download"
+	MirrorContentId = "com.ubuntu.juju:released:tools"
 )
 
 // This needs to be a var so we can override it for testing.
@@ -119,9 +120,10 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 	sources = excludeDefaultSource(sources)
 
 	params := simplestreams.ValueParams{
-		DataType:      ContentDownload,
-		FilterFunc:    appendMatchingTools,
-		ValueTemplate: ToolsMetadata{},
+		DataType:        ContentDownload,
+		FilterFunc:      appendMatchingTools,
+		MirrorContentId: MirrorContentId,
+		ValueTemplate:   ToolsMetadata{},
 	}
 	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
