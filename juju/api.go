@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api"
 )
 
@@ -122,10 +121,8 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 	defer close(stop)
 
 	info, err := store.ReadInfo(envName)
-	if err != nil {
-		if !errors.IsNotFoundError(err) {
-			return nil, err
-		}
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
 	}
 	var infoResult <-chan apiOpenResult
 	if info != nil {
@@ -221,13 +218,6 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	resultc := make(chan apiOpenResult)
 	var cfg *config.Config
 	var err error
-	if info != nil {
-		log.Infof("info not nil; %#v\n", info)
-		done := make(chan struct{})
-		go func() { info.BootstrapConfig(); done <- struct{}{} }()
-		<-done
-		log.Infof("called bootstrapconfig")
-	}
 	if info != nil && len(info.BootstrapConfig()) > 0 {
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 	} else if envs != nil {
