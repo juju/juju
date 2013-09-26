@@ -103,8 +103,8 @@ func (_ nullProvider) BoilerplateConfig() string {
 `
 }
 
-func (_ nullProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
+func (_ nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	return make(map[string]string), nil
 }
 
 func (_ nullProvider) PublicAddress() (string, error) {

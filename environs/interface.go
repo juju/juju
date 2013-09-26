@@ -46,8 +46,9 @@ type EnvironProvider interface {
 	BoilerplateConfig() string
 
 	// SecretAttrs filters the supplied configuration returning only values
-	// which are considered sensitive.
-	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
+	// which are considered sensitive. All of the values of these secret
+	// attributes need to be strings.
+	SecretAttrs(cfg *config.Config) (map[string]string, error)
 
 	// PublicAddress returns this machine's public host name.
 	PublicAddress() (string, error)

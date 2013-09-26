@@ -184,6 +184,9 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 
 	if cfg.StateServer {
+		// disable the default mongodb installed by the mongodb-server package.
+		c.AddBootCmd(`echo ENABLE_MONGODB="no" > /etc/default/mongodb`)
+
 		if cfg.NeedMongoPPA() {
 			c.AddAptSource("ppa:juju/stable", "1024R/C8068B11")
 		}

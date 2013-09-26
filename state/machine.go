@@ -713,10 +713,11 @@ func (m *Machine) Status() (status params.Status, info string, err error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string) error {
+func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err

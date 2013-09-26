@@ -50,24 +50,26 @@ var _ = gc.Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary       string
-	config        map[string]interface{}
-	change        map[string]interface{}
-	expect        map[string]interface{}
-	envVars       map[string]string
-	region        string
-	controlBucket string
-	toolsURL      string
-	useFloatingIP bool
-	username      string
-	password      string
-	tenantName    string
-	authMode      string
-	authURL       string
-	accessKey     string
-	secretKey     string
-	firewallMode  string
-	err           string
+	summary                 string
+	config                  map[string]interface{}
+	change                  map[string]interface{}
+	expect                  map[string]interface{}
+	envVars                 map[string]string
+	region                  string
+	controlBucket           string
+	toolsURL                string
+	useFloatingIP           bool
+	username                string
+	password                string
+	tenantName              string
+	authMode                string
+	authURL                 string
+	accessKey               string
+	secretKey               string
+	firewallMode            string
+	err                     string
+	sslHostnameVerification bool
+	sslHostnameSet          bool
 }
 
 type attrs map[string]interface{}
@@ -140,7 +142,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.password(), gc.Equals, t.password)
 		c.Assert(ecfg.tenantName(), gc.Equals, t.tenantName)
 		c.Assert(ecfg.authURL(), gc.Equals, t.authURL)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"username":    t.username,
 			"password":    t.password,
 			"tenant-name": t.tenantName,
@@ -159,6 +161,12 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
+	// Default should be true
+	expectedHostnameVerification := true
+	if t.sslHostnameSet {
+		expectedHostnameVerification = t.sslHostnameVerification
+	}
+	c.Assert(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, gc.Equals, true)
@@ -366,24 +374,12 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL sets tools URL",
-		config: attrs{
-			"public-bucket-url": "http://some/url",
-		},
-		toolsURL: "http://some/url/juju-dist/tools",
-	}, {
 		summary: "public bucket URL with tools URL",
 		config: attrs{
 			"public-bucket-url": "http://some/url",
 			"tools-url":         "http://tools/url",
 		},
 		toolsURL: "http://tools/url",
-	}, {
-		summary: "HP Cloud config sets tools URL",
-		config: attrs{
-			"auth-url": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0",
-		},
-		toolsURL: "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{
@@ -419,6 +415,18 @@ var configTests = []configTest{
 		expect: attrs{
 			"future": "hammerstein",
 		},
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": false,
+		},
+		sslHostnameVerification: false,
+		sslHostnameSet:          true,
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": true,
+		},
+		sslHostnameVerification: true,
+		sslHostnameSet:          true,
 	},
 }
 

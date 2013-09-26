@@ -251,11 +251,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		newInfo := *info
 		newInfo.Status = s.Status
 		newInfo.StatusInfo = s.StatusInfo
+		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
 		newInfo.Status = s.Status
 		newInfo.StatusInfo = s.StatusInfo
+		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	default:
 		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
