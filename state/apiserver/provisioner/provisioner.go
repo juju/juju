@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -157,7 +158,25 @@ func (p *ProvisionerAPI) EnvironConfig() (params.ConfigResult, error) {
 	if err != nil {
 		return result, err
 	}
-	result.Config = config.AllAttrs()
+	allAttrs := config.AllAttrs()
+	if !p.authorizer.AuthEnvironManager() {
+		// Mask out any secrets in the environment configuration
+		// with values of the same type, so it'll pass validation.
+		//
+		// TODO(dimitern) 201309-26 bug #1231384
+		// This needs to change so we won't return anything to
+		// entities other than the environment manager, but the
+		// provisioner code should be refactored first.
+		env, err := environs.New(config)
+		if err != nil {
+			return result, err
+		}
+		secretAttrs, err := env.Provider().SecretAttrs(config)
+		for k := range secretAttrs {
+			allAttrs[k] = "not available"
+		}
+	}
+	result.Config = allAttrs
 	return result, nil
 }
 

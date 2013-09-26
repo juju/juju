@@ -422,6 +422,23 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Config, gc.DeepEquals, params.Config(envConfig.AllAttrs()))
+
+	// Now test it with a non-environment manager and make sure
+	// the secret attributes are masked.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.Manager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
+		anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	// We need to see the secret attributes masked out, and for
+	// the dummy provider it's only one: "secret".
+	expectedConfig := envConfig.AllAttrs()
+	expectedConfig["secret"] = "not available"
+	result, err = aProvisioner.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *provisionerSuite) TestStatus(c *gc.C) {
