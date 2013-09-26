@@ -89,6 +89,18 @@ func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
 
+func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
+	values := minimalConfigValues()
+	values["storage-port"] = float64(8040)
+	testConfig, err := config.New(config.NoDefaults, values)
+	c.Assert(err, gc.IsNil)
+
+	valid, err := local.Provider.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+	unknownAttrs := valid.UnknownAttrs()
+	c.Assert(unknownAttrs["storage-port"], gc.Equals, int(8040))
+}
+
 func (s *configSuite) TestNamespace(c *gc.C) {
 	testConfig := minimalConfig(c)
 	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
