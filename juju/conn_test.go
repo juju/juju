@@ -72,8 +72,11 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot connect without admin-secret")
 }
 
-func bootstrapEnv(c *gc.C, envName string) {
-	env, err := environs.PrepareFromName(envName, configstore.NewMem())
+func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
+	if store == nil {
+		store = configstore.NewMem()
+	}
+	env, err := environs.PrepareFromName(envName, store)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -81,7 +84,7 @@ func bootstrapEnv(c *gc.C, envName string) {
 
 func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "")
+	bootstrapEnv(c, "", nil)
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, _ := juju.NewConnFromName("")
 	conn.Close()
@@ -91,7 +94,7 @@ func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 
 func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "")
+	bootstrapEnv(c, "", nil)
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
@@ -102,7 +105,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", so make sure we get what we ask for.
 	const envName = "erewhemos-2"
-	bootstrapEnv(c, envName)
+	bootstrapEnv(c, envName, nil)
 	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
