@@ -42,6 +42,12 @@ func StartInstance(broker environs.InstanceBroker, machineId, machineNonce strin
 	} else {
 		panic(fmt.Errorf("broker of type %T does not provide any tools", broker))
 	}
+	// TODO(jam): 2013-09-26 http://pad.lv/1231313
+	// We should really have a test that StartInstance notices
+	// SSLHostnameVerification and passes the right value to
+	// environs.NewMachineConfig. But right now, that requires having an
+	// environ, and the final call is actually to StartInstance, which is
+	// very heavyweight
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo, disableSSLHostnameVerification)
 	return broker.StartInstance(cons, possibleTools, machineConfig)
 }
