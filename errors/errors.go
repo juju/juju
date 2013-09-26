@@ -83,7 +83,7 @@ func Unauthorizedf(format string, args ...interface{}) error {
 // NewUnauthorizedError returns an error which wraps err and satisfies
 // IsUnauthorized().
 func NewUnauthorizedError(err error, msg string) error {
-	return unauthorizedError{&errorWrapper{Msg: msg}}
+	return unauthorizedError{&errorWrapper{Err: err, Msg: msg}}
 }
 
 // notBootstrappedError indicates that the environment can't be used because it
