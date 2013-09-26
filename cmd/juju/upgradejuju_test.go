@@ -4,16 +4,22 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"io"
 	"io/ioutil"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -285,16 +291,16 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(storage environs.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
 	}
-	t := envtesting.MustUploadFakeToolsVersion(storage, vers)
+	t := envtesting.MustUploadFakeToolsVersion(stor, vers)
 	for _, series := range series {
 		if series != version.Current.Series {
 			vers.Series = series
-			envtesting.MustUploadFakeToolsVersion(storage, vers)
+			envtesting.MustUploadFakeToolsVersion(stor, vers)
 		}
 	}
 	return t, nil
@@ -340,8 +346,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 		for _, v := range test.public {
 			vers := version.MustParseBinary(v)
-			storage := s.Conn.Environ.PublicStorage().(environs.Storage)
-			envtesting.MustUploadFakeToolsVersion(storage, vers)
+			stor := s.Conn.Environ.PublicStorage().(storage.Storage)
+			envtesting.MustUploadFakeToolsVersion(stor, vers)
 		}
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
@@ -361,16 +367,42 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := s.Conn.Environ.Storage().Get(envtools.StorageName(vers))
+			r, err := storage.Get(s.Conn.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}
 			data, err := ioutil.ReadAll(r)
 			r.Close()
 			c.Check(err, gc.IsNil)
-			c.Check(string(data), gc.Equals, uploaded)
+			checkToolsContent(c, data, "jujud contents "+uploaded)
 		}
 	}
+}
+
+func checkToolsContent(c *gc.C, data []byte, uploaded string) {
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	c.Check(err, gc.IsNil)
+	defer zr.Close()
+	tr := tar.NewReader(zr)
+	found := false
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		c.Check(err, gc.IsNil)
+		if strings.ContainsAny(hdr.Name, "/\\") {
+			c.Fail()
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			c.Fail()
+		}
+		content, err := ioutil.ReadAll(tr)
+		c.Check(err, gc.IsNil)
+		c.Check(string(content), gc.Equals, uploaded)
+		found = true
+	}
+	c.Check(found, jc.IsTrue)
 }
 
 // JujuConnSuite very helpfully uploads some default
@@ -380,7 +412,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(environs.Storage))
+	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.Storage))
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{

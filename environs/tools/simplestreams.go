@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
@@ -30,6 +30,7 @@ func init() {
 
 const (
 	ContentDownload = "content-download"
+	MirrorContentId = "com.ubuntu.juju:released:tools"
 )
 
 // This needs to be a var so we can override it for testing.
@@ -119,14 +120,12 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 	sources = excludeDefaultSource(sources)
 
 	params := simplestreams.ValueParams{
-		DataType:      ContentDownload,
-		FilterFunc:    appendMatchingTools,
-		ValueTemplate: ToolsMetadata{},
+		DataType:        ContentDownload,
+		FilterFunc:      appendMatchingTools,
+		MirrorContentId: MirrorContentId,
+		ValueTemplate:   ToolsMetadata{},
 	}
-	items, err := simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.SignedSuffix, cons, true, params)
-	if (err != nil || len(items) == 0) && !onlySigned {
-		items, err = simplestreams.GetMaybeSignedMetadata(sources, indexPath+simplestreams.UnsignedSuffix, cons, false, params)
-	}
+	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
 		return nil, err
 	}
@@ -183,10 +182,10 @@ type MetadataFile struct {
 	Data []byte
 }
 
-func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore environs.Storage) error {
+func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore storage.Storage) error {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	// The metadata from toolsList is already present, the existing data is overwritten.
-	dataSource := environs.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
+	dataSource := storage.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
 	if err != nil {
 		return err
@@ -262,7 +261,7 @@ func generateMetadata(toolsList coretools.List, fetch bool) ([]MetadataFile, err
 		return nil, err
 	}
 	objects := []MetadataFile{
-		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{simplestreams.UnsignedIndex, index},
 		{ProductMetadataPath, products},
 	}
 	return objects, nil

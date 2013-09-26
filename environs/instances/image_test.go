@@ -11,11 +11,11 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type imageSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 func Test(t *testing.T) {
@@ -23,14 +23,6 @@ func Test(t *testing.T) {
 }
 
 var _ = gc.Suite(&imageSuite{})
-
-func (s *imageSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-}
-
-func (s *imageSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
-}
 
 var jsonImagesContent = `
 {
@@ -203,7 +195,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			Arches:    t.arches,
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
-			[]byte(jsonImagesContent), simplestreams.NewURLDataSource("some-url"), cons)
+			[]byte(jsonImagesContent), simplestreams.NewURLDataSource("some-url", simplestreams.VerifySSLHostnames), cons)
 		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {

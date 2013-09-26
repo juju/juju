@@ -113,7 +113,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 		}
 	}
 	if c.exactVersion == "current" {
-		c.exactVersion = version.CurrentNumber().String()
+		c.exactVersion = version.Current.Number.String()
 	}
 	if c.partVersion != "" {
 		var err error
@@ -178,7 +178,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + c.metadataDir)}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+c.metadataDir, simplestreams.VerifySSLHostnames)}
 	}
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{

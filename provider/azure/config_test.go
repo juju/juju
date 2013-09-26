@@ -11,10 +11,11 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type configSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&configSuite{})
@@ -214,7 +215,7 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	secretAttrs, err := provider.SecretAttrs(config)
 	c.Assert(err, gc.IsNil)
 
-	expectedAttrs := map[string]interface{}{
+	expectedAttrs := map[string]string{
 		"management-certificate": certificate,
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)

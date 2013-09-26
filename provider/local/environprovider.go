@@ -32,7 +32,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	if _, ok := cfg.AgentVersion(); !ok {
 		newCfg, err := cfg.Apply(map[string]interface{}{
-			"agent-version": version.CurrentNumber().String(),
+			"agent-version": version.Current.Number.String(),
 		})
 		if err != nil {
 			return nil, err
@@ -124,7 +124,7 @@ local:
 }
 
 // SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs
 	return nil, nil
 }

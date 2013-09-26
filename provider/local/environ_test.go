@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
@@ -84,7 +85,10 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
 	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return true })
 	s.Tests.SetUpTest(c)
-	s.dbServiceName = "juju-db-" + local.ConfigNamespace(s.Env.Config())
+
+	cfg, err := config.New(config.NoDefaults, s.TestConfig)
+	c.Assert(err, gc.IsNil)
+	s.dbServiceName = "juju-db-" + local.ConfigNamespace(cfg)
 }
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {

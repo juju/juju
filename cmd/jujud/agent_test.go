@@ -4,12 +4,8 @@
 package main
 
 import (
-	"bytes"
 	stderrors "errors"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -17,12 +13,13 @@ import (
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
-	envtools "launchpad.net/juju-core/environs/tools"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -32,7 +29,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var errorImportanceTests = []error{
@@ -192,7 +189,7 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 // given entity name.  It returns the agent's configuration and the current
 // tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
-	tools := s.primeTools(c, version.Current)
+	tools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, tools)
@@ -217,7 +214,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 // given entity name.  It returns the agent's configuration and the current
 // tools.
 func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
-	agentTools := s.primeTools(c, version.Current)
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
@@ -264,33 +261,6 @@ func (s *agentSuite) proposeVersion(c *gc.C, vers version.Number) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Tools {
-	tgz := coretesting.TarGz(
-		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
-	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
-	c.Assert(err, gc.IsNil)
-	url, err := s.Conn.Environ.Storage().URL(envtools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	return &coretools.Tools{URL: url, Version: vers}
-}
-
-// primeTools sets up the current version of the tools to vers and
-// makes sure that they're available JujuConnSuite's DataDir.
-func (s *agentSuite) primeTools(c *gc.C, vers version.Binary) *coretools.Tools {
-	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
-	c.Assert(err, gc.IsNil)
-	version.Current = vers
-	tools := s.uploadTools(c, vers)
-	resp, err := http.Get(tools.URL)
-	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-	err = agenttools.UnpackTools(s.DataDir(), tools, resp.Body)
-	c.Assert(err, gc.IsNil)
-	return tools
-}
-
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, gc.IsNil)
@@ -316,16 +286,18 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	assertOpen(conf)
 }
 
-func (s *agentSuite) testUpgrade(c *gc.C, agent runner, currentTools *coretools.Tools) {
+func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := s.uploadTools(c, newVers)
+	newTools := envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), newVers)
 	s.proposeVersion(c, newVers.Number)
 	err := runWithTimeout(agent)
-	c.Assert(err, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
-	ug := err.(*upgrader.UpgradeReadyError)
-	c.Assert(ug.NewTools, gc.DeepEquals, newTools)
-	c.Assert(ug.OldTools, gc.DeepEquals, currentTools)
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: tag,
+		OldTools:  currentTools,
+		NewTools:  newTools,
+		DataDir:   s.DataDir(),
+	})
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.Config {

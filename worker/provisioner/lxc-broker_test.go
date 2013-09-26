@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -32,7 +34,6 @@ import (
 )
 
 type lxcSuite struct {
-	coretesting.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }
@@ -45,18 +46,7 @@ type lxcBrokerSuite struct {
 
 var _ = gc.Suite(&lxcBrokerSuite{})
 
-func (s *lxcSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
-}
-
-func (s *lxcSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *lxcSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	go func() {
@@ -70,7 +60,6 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
 	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
@@ -163,7 +152,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 func (s *lxcBrokerSuite) assertInstances(c *gc.C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
 	c.Assert(err, gc.IsNil)
-	coretesting.MatchInstances(c, results, inst...)
+	instancetest.MatchInstances(c, results, inst...)
 }
 
 func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {
@@ -177,8 +166,8 @@ func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
 type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
-	machineId string
-	events    chan mock.Event
+	parentMachineId string
+	events          chan mock.Event
 }
 
 var _ = gc.Suite(&lxcProvisionerSuite{})
@@ -199,15 +188,19 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// Write the tools file.
 	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.machineId = m.Id()
+	s.parentMachineId = m.Id()
+	s.APILogin(c, m)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
@@ -246,9 +239,9 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
-	machineTag := names.MachineTag(s.machineId)
-	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, agentConfig)
+	parentMachineTag := names.MachineTag(s.parentMachineId)
+	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
+	return provisioner.NewProvisioner(provisioner.LXC, s.provisioner, agentConfig)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -269,7 +262,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	params := state.AddMachineParams{
-		ParentId:      s.machineId,
+		ParentId:      s.parentMachineId,
 		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
@@ -284,7 +277,6 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	defer stop(c, p)
 
 	container := s.addContainer(c)
-
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.

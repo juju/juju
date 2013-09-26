@@ -9,12 +9,11 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
@@ -34,23 +33,23 @@ type Watcher interface {
 }
 
 type MachineGetter interface {
-	Machine(id string) (*state.Machine, error)
+	Machine(tag string) (*apiprovisioner.Machine, error)
 }
 
 func NewProvisionerTask(
-	machineId string,
+	machineTag string,
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker environs.InstanceBroker,
 	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineId:      machineId,
+		machineTag:     machineTag,
 		machineGetter:  machineGetter,
 		machineWatcher: watcher,
 		broker:         broker,
 		auth:           auth,
-		machines:       make(map[string]*state.Machine),
+		machines:       make(map[string]*apiprovisioner.Machine),
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -60,7 +59,7 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineId      string
+	machineTag     string
 	machineGetter  MachineGetter
 	machineWatcher Watcher
 	broker         environs.InstanceBroker
@@ -70,7 +69,7 @@ type provisionerTask struct {
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
-	machines map[string]*state.Machine
+	machines map[string]*apiprovisioner.Machine
 }
 
 // Kill implements worker.Worker.Kill.
@@ -97,7 +96,7 @@ func (task *provisionerTask) Err() error {
 }
 
 func (task *provisionerTask) loop() error {
-	logger.Infof("Starting up provisioner task %s", task.machineId)
+	logger.Infof("Starting up provisioner task %s", task.machineTag)
 	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
 	// When the watcher is started, it will have the initial changes be all
@@ -106,7 +105,7 @@ func (task *provisionerTask) loop() error {
 	for {
 		select {
 		case <-task.tomb.Dying():
-			logger.Infof("Shutting down provisioner task %s", task.machineId)
+			logger.Infof("Shutting down provisioner task %s", task.machineTag)
 			return tomb.ErrDying
 		case ids, ok := <-task.machineWatcher.Changes():
 			if !ok {
@@ -173,9 +172,10 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	// change list.
 	// TODO(thumper): update for API server later to get all machines in one go.
 	for _, id := range ids {
-		machine, err := task.machineGetter.Machine(id)
+		machineTag := names.MachineTag(id)
+		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
-		case errors.IsNotFoundError(err):
+		case params.IsCodeNotFound(err):
 			logger.Debugf("machine %q not found in state", id)
 			delete(task.machines, id)
 		case err == nil:
@@ -189,7 +189,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and retuns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state.Machine, err error) {
+func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
@@ -197,10 +197,10 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 			continue
 		}
 		switch machine.Life() {
-		case state.Dying:
+		case params.Dying:
 			if _, err := machine.InstanceId(); err == nil {
 				continue
-			} else if !state.IsNotProvisionedError(err) {
+			} else if !params.IsCodeNotProvisioned(err) {
 				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
 				return nil, nil, err
 			}
@@ -210,7 +210,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 				return nil, nil, err
 			}
 			fallthrough
-		case state.Dead:
+		case params.Dead:
 			dead = append(dead, machine)
 			logger.Infof("removing dead machine %q", machine)
 			if err := machine.Remove(); err != nil {
@@ -222,7 +222,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 			continue
 		}
 		if instId, err := machine.InstanceId(); err != nil {
-			if !state.IsNotProvisionedError(err) {
+			if !params.IsCodeNotProvisioned(err) {
 				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
 				continue
 			}
@@ -256,7 +256,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	for _, m := range task.machines {
 		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
-		} else if !state.IsNotProvisionedError(err) {
+		} else if !params.IsCodeNotProvisioned(err) {
 			return nil, err
 		}
 	}
@@ -276,7 +276,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 // instancesForMachines returns a list of instance.Instance that represent
 // the list of machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []instance.Instance {
+func (task *provisionerTask) instancesForMachines(machines []*apiprovisioner.Machine) []instance.Instance {
 	var instances []instance.Instance
 	for _, machine := range machines {
 		instId, err := machine.InstanceId()
@@ -305,7 +305,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	return nil
 }
 
-func (task *provisionerTask) startMachines(machines []*state.Machine) error {
+func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
 		if err := task.startMachine(m); err != nil {
 			return fmt.Errorf("cannot start machine %v: %v", m, err)
@@ -314,7 +314,7 @@ func (task *provisionerTask) startMachines(machines []*state.Machine) error {
 	return nil
 }
 
-func (task *provisionerTask) startMachine(machine *state.Machine) error {
+func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
 		logger.Errorf("failed to setup authentication: %v", err)
@@ -332,8 +332,12 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	// Generated nonce has the format: "machine-#:UUID". The first
 	// part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
-	nonce := fmt.Sprintf("%s:%s", names.MachineTag(task.machineId), uuid.String())
-	inst, metadata, err := provider.StartInstance(task.broker, machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
+	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
+	series, err := machine.Series()
+	if err != nil {
+		return err
+	}
+	inst, metadata, err := provider.StartInstance(task.broker, machine.Id(), nonce, series, cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an

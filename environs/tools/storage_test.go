@@ -8,17 +8,18 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 type StorageSuite struct {
 	env environs.Environ
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	dataDir string
 }
 
@@ -28,7 +29,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg)
+	s.env, err = environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.dataDir = c.MkDir()
 }
@@ -95,6 +96,11 @@ func (s *StorageSuite) assertReadList(c *gc.C) {
 		list, err := envtools.ReadList(store, t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
+			// Legacy tools retrieval doesn't set the Size of SHA256, so blank out those attributes.
+			for _, tool := range t.list {
+				tool.Size = 0
+				tool.SHA256 = ""
+			}
 			c.Assert(list, gc.DeepEquals, t.list)
 		} else {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)

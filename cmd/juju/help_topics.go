@@ -46,7 +46,7 @@ SSH authorized/public key not found.
 First configure your environment local environment, if you've not set up Juju
 before do a:
 
-    juju init -w
+    juju init
 
 This will write out an example config file that will work. Then you need to
 tell Juju to use the local provider and then bootstrap:
@@ -212,7 +212,6 @@ The essential configuration sections for HP Cloud look like this:
         username: "xxxyour-hpcloud-usernamexxx"
         password: "xxxpasswordxxx"
         region: az-1.region-a.geo-1
-        public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
 
 Please refer to the question on Ask Ubuntu [1] for details on how to get
 the relevant information to finish configuring your hpcloud environment.

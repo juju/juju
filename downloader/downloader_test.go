@@ -14,10 +14,11 @@ import (
 
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.HTTPSuite
 }
 

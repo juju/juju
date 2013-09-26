@@ -6,6 +6,7 @@ package manual
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	"launchpad.net/loggo"
@@ -71,10 +72,22 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	if at := strings.Index(sshHostWithoutUser, "@"); at != -1 {
 		sshHostWithoutUser = sshHostWithoutUser[at+1:]
 	}
+	if ip := net.ParseIP(sshHostWithoutUser); ip != nil {
+		// Do a reverse-lookup on the IP. The IP may not have
+		// a DNS entry, so just log a warning if this fails.
+		names, err := net.LookupAddr(ip.String())
+		if err != nil {
+			logger.Infof("failed to resolve %v: %v", ip, err)
+		} else {
+			logger.Infof("resolved %v to %v", ip, names)
+			sshHostWithoutUser = names[0]
+		}
+	}
 	addrs, err := instance.HostAddresses(sshHostWithoutUser)
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("addresses for %v: %v", sshHostWithoutUser, addrs)
 
 	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
@@ -89,6 +102,14 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
 		return nil, err
+	}
+
+	tools := args.Tools
+	if tools == nil {
+		tools, err = findInstanceTools(env, series, *hc.Arch)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Generate a unique nonce for the machine.
@@ -124,16 +145,15 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 
 	// Finally, provision the machine agent.
 	err = provisionMachineAgent(provisionMachineAgentArgs{
-		host:      args.Host,
-		dataDir:   args.DataDir,
-		env:       env,
-		machine:   m,
-		nonce:     nonce,
-		stateInfo: stateInfo,
-		apiInfo:   apiInfo,
-		series:    series,
-		arch:      *hc.Arch,
-		tools:     args.Tools,
+		host:          args.Host,
+		dataDir:       args.DataDir,
+		environConfig: env.Config(),
+		machineId:     m.Id(),
+		bootstrap:     false,
+		nonce:         nonce,
+		stateInfo:     stateInfo,
+		apiInfo:       apiInfo,
+		tools:         tools,
 	})
 	if err != nil {
 		return m, err
@@ -178,7 +198,7 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 }
 
 func setupAuthentication(env environs.Environ, m *state.Machine) (*state.Info, *api.Info, error) {
-	auth, err := provisioner.NewSimpleAuthenticator(env)
+	auth, err := provisioner.NewEnvironAuthenticator(env)
 	if err != nil {
 		return nil, nil, err
 	}

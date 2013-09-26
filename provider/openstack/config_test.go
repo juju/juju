@@ -15,10 +15,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedVars   map[string]string
 	oldJujuHome *testing.FakeHome
 }
@@ -48,25 +50,26 @@ var _ = gc.Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary       string
-	config        map[string]interface{}
-	change        map[string]interface{}
-	expect        map[string]interface{}
-	envVars       map[string]string
-	region        string
-	controlBucket string
-	publicBucket  string
-	pbucketURL    string
-	useFloatingIP bool
-	username      string
-	password      string
-	tenantName    string
-	authMode      string
-	authURL       string
-	accessKey     string
-	secretKey     string
-	firewallMode  string
-	err           string
+	summary                 string
+	config                  map[string]interface{}
+	change                  map[string]interface{}
+	expect                  map[string]interface{}
+	envVars                 map[string]string
+	region                  string
+	controlBucket           string
+	toolsURL                string
+	useFloatingIP           bool
+	username                string
+	password                string
+	tenantName              string
+	authMode                string
+	authURL                 string
+	accessKey               string
+	secretKey               string
+	firewallMode            string
+	err                     string
+	sslHostnameVerification bool
+	sslHostnameSet          bool
 }
 
 type attrs map[string]interface{}
@@ -139,7 +142,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.password(), gc.Equals, t.password)
 		c.Assert(ecfg.tenantName(), gc.Equals, t.tenantName)
 		c.Assert(ecfg.authURL(), gc.Equals, t.authURL)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"username":    t.username,
 			"password":    t.password,
 			"tenant-name": t.tenantName,
@@ -149,14 +152,21 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
 	}
-	if t.pbucketURL != "" {
-		c.Assert(ecfg.publicBucketURL(), gc.Equals, t.pbucketURL)
-		c.Assert(ecfg.publicBucket(), gc.Equals, t.publicBucket)
+	if t.toolsURL != "" {
+		toolsURL, ok := ecfg.ToolsURL()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(toolsURL, gc.Equals, t.toolsURL)
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
+	// Default should be true
+	expectedHostnameVerification := true
+	if t.sslHostnameSet {
+		expectedHostnameVerification = t.sslHostnameVerification
+	}
+	c.Assert(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, gc.Equals, true)
@@ -364,20 +374,12 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL",
-		config: attrs{
-			"public-bucket":     "juju-dist-non-default",
-			"public-bucket-url": "http://some/url",
-		},
-		publicBucket: "juju-dist-non-default",
-		pbucketURL:   "http://some/url",
-	}, {
-		summary: "public bucket URL with default bucket",
+		summary: "public bucket URL with tools URL",
 		config: attrs{
 			"public-bucket-url": "http://some/url",
+			"tools-url":         "http://tools/url",
 		},
-		publicBucket: "juju-dist",
-		pbucketURL:   "http://some/url",
+		toolsURL: "http://tools/url",
 	}, {
 		summary: "admin-secret given",
 		config: attrs{
@@ -413,6 +415,18 @@ var configTests = []configTest{
 		expect: attrs{
 			"future": "hammerstein",
 		},
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": false,
+		},
+		sslHostnameVerification: false,
+		sslHostnameSet:          true,
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": true,
+		},
+		sslHostnameVerification: true,
+		sslHostnameSet:          true,
 	},
 }
 
@@ -485,12 +499,13 @@ func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
 	for attr, value := range map[string]string{
 		"default-image-id":      "foo",
 		"default-instance-type": "bar",
+		"public-bucket-url":     "somewhere",
 	} {
 		s.setupLogger(c)
 		s.setupEnv(c, attr, value)
 		s.resetLogger(c)
 		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated and ignored.*`, attr, value)
+		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
 		c.Assert(stripped, gc.Matches, expected)
 	}
 }

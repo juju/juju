@@ -4,16 +4,27 @@
 package testing
 
 import (
-	"strings"
+	"bytes"
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
+	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/upgrader"
+	"net/http"
 )
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
@@ -32,30 +43,124 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*coretools.Tools, error) {
-	data := vers.String()
-	name := envtools.StorageName(vers)
+// GenerateFakeToolsMetadata puts fake tools metadata into the supplied storage,
+// containing a record for tools with a binary version matching version.Current;
+// if version.Current's series is different to config.DefaultSeries, matching fake
+// metadata will be included for that series.
+// This is useful for tests that are kinda casual about specifying their environment.
+func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
+	toolsVersion := version.Current
+	versions := []version.Binary{toolsVersion}
+	if toolsVersion.Series != config.DefaultSeries {
+		toolsVersion.Series = config.DefaultSeries
+		versions = append(versions, toolsVersion)
+	}
+
+	var metadata = make([]*envtools.ToolsMetadata, len(versions))
+	for i, vers := range versions {
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		metadata[i] = &envtools.ToolsMetadata{
+			Release: vers.Series,
+			Version: vers.Number.String(),
+			Arch:    vers.Arch,
+			Path:    basePath,
+		}
+	}
+	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
+	c.Assert(err, gc.IsNil)
+	objects := []struct {
+		path string
+		data []byte
+	}{
+		{simplestreams.UnsignedIndex, index},
+		{envtools.ProductMetadataPath, products},
+	}
+	for _, object := range objects {
+		path := path.Join("tools", object.path)
+		err = stor.Put(path, bytes.NewReader(object.data), int64(len(object.data)))
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+// RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
+func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
+	files := []string{simplestreams.UnsignedIndex, envtools.ProductMetadataPath}
+	for _, file := range files {
+		toolspath := path.Join("tools", file)
+		err := stor.Remove(toolspath)
+		c.Check(err, gc.IsNil)
+	}
+}
+
+// CheckTools ensures the obtained and expected tools are equal, allowing for the fact that
+// the obtained tools may not have size and checksum set.
+func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
+	c.Assert(obtained.Version, gc.Equals, expected.Version)
+	c.Assert(obtained.URL, gc.Equals, expected.URL)
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When tools are located using the legacy code (prior to simplestreams),
+	// the size and checksum information is not known.
+	if obtained.Size > 0 {
+		c.Assert(obtained.Size, gc.Equals, expected.Size)
+		c.Assert(obtained.SHA256, gc.Equals, expected.SHA256)
+	}
+}
+
+// CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
+// the error's tools attributes may not have size and checksum set.
+func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
+	// TODO(wallyworld) - 2013-09-24 bug=1229512
+	// When tools are located using the legacy code (prior to simplestreams),
+	// the size and checksum information is not known.
+	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
+	err := obtained.(*upgrader.UpgradeReadyError)
+	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
+	c.Assert(err.DataDir, gc.Equals, expected.DataDir)
+	CheckTools(c, err.OldTools, expected.OldTools)
+	CheckTools(c, err.NewTools, expected.NewTools)
+}
+
+// PrimeTools sets up the current version of the tools to vers and
+// makes sure that they're available in the dataDir.
+func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Binary) *coretools.Tools {
+	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
+	c.Assert(err, gc.IsNil)
+	version.Current = vers
+	agentTools := UploadFakeToolsVersion(c, stor, vers)
+	resp, err := http.Get(agentTools.URL)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
+	c.Assert(err, gc.IsNil)
+	return agentTools
+}
+
+func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretools.Tools, error) {
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
-	if err := storage.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
+	tgz, checksum := coretesting.TarGz(
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
+	size := int64(len(tgz))
+	name := envtools.StorageName(vers)
+	if err := stor.Put(name, bytes.NewReader(tgz), size); err != nil {
 		return nil, err
 	}
-	url, err := storage.URL(name)
+	url, err := stor.URL(name)
 	if err != nil {
 		return nil, err
 	}
-	return &coretools.Tools{Version: vers, URL: url}, nil
+	return &coretools.Tools{URL: url, Version: vers, Size: size, SHA256: checksum}, nil
 }
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *gc.C, storage environs.Storage, vers version.Binary) *coretools.Tools {
+func UploadFakeToolsVersion(c *gc.C, storage storage.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	c.Assert(err, gc.IsNil)
 	return t
 }
 
 // MustUploadFakeToolsVersion acts as UploadFakeToolsVersion, but panics on failure.
-func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *coretools.Tools {
+func MustUploadFakeToolsVersion(storage storage.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	if err != nil {
 		panic(err)
@@ -63,7 +168,7 @@ func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *
 	return t
 }
 
-func uploadFakeTools(storage environs.Storage) error {
+func uploadFakeTools(storage storage.Storage) error {
 	toolsVersion := version.Current
 	if _, err := uploadFakeToolsVersion(storage, toolsVersion); err != nil {
 		return err
@@ -81,38 +186,38 @@ func uploadFakeTools(storage environs.Storage) error {
 // to config.DefaultSeries, matching fake tools will be uploaded for that series.
 // This is useful for tests that are kinda casual about specifying their
 // environment.
-func UploadFakeTools(c *gc.C, storage environs.Storage) {
+func UploadFakeTools(c *gc.C, storage storage.Storage) {
 	c.Assert(uploadFakeTools(storage), gc.IsNil)
 }
 
 // MustUploadFakeTools acts as UploadFakeTools, but panics on failure.
-func MustUploadFakeTools(storage environs.Storage) {
+func MustUploadFakeTools(storage storage.Storage) {
 	if err := uploadFakeTools(storage); err != nil {
 		panic(err)
 	}
 }
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
-func RemoveFakeTools(c *gc.C, storage environs.Storage) {
+func RemoveFakeTools(c *gc.C, stor storage.Storage) {
 	toolsVersion := version.Current
 	name := envtools.StorageName(toolsVersion)
-	err := storage.Remove(name)
+	err := stor.Remove(name)
 	c.Check(err, gc.IsNil)
 	if version.Current.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
 		name := envtools.StorageName(toolsVersion)
-		err := storage.Remove(name)
+		err := stor.Remove(name)
 		c.Check(err, gc.IsNil)
 	}
 }
 
 // RemoveTools deletes all tools from the supplied storage.
-func RemoveTools(c *gc.C, storage environs.Storage) {
-	names, err := storage.List("tools/juju-")
+func RemoveTools(c *gc.C, stor storage.Storage) {
+	names, err := storage.List(stor, "tools/juju-")
 	c.Assert(err, gc.IsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
-		err = storage.Remove(name)
+		err = stor.Remove(name)
 		c.Check(err, gc.IsNil)
 	}
 }
@@ -122,7 +227,7 @@ func RemoveAllTools(c *gc.C, env environs.Environ) {
 	c.Logf("clearing private storage")
 	RemoveTools(c, env.Storage())
 	c.Logf("clearing public storage")
-	RemoveTools(c, env.PublicStorage().(environs.Storage))
+	RemoveTools(c, env.PublicStorage().(storage.Storage))
 }
 
 var (

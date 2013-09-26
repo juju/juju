@@ -15,10 +15,11 @@ import (
 
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type PluginSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	oldPath string
 	home    *testing.FakeHome
 }
@@ -145,7 +146,7 @@ something useful
 
 func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	output := badrun(c, 0, "help", "foo")
-	expectedHelp := "error: unknown command or topic for foo\n"
+	expectedHelp := "ERROR unknown command or topic for foo\n"
 	c.Assert(output, gc.Matches, expectedHelp)
 }
 

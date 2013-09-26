@@ -13,17 +13,28 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
+func TestPackage(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
+}
+
 func init() {
 	gc.Suite(&jujutest.LiveTests{
 		TestConfig:     dummy.SampleConfig(),
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
-	gc.Suite(&jujutest.Tests{
-		TestConfig: dummy.SampleConfig(),
+	gc.Suite(&suite{
+		Tests: jujutest.Tests{
+			TestConfig: dummy.SampleConfig(),
+		},
 	})
 }
 
-func TestSuite(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+type suite struct {
+	jujutest.Tests
+}
+
+func (s *suite) TearDownTest(c *gc.C) {
+	s.Tests.TearDownTest(c)
+	dummy.Reset()
 }

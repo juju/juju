@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -27,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -36,7 +38,7 @@ func Test(t *stdtesting.T) {
 }
 
 type NewConnSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 
@@ -56,7 +58,7 @@ func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -71,9 +73,9 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 }
 
 func bootstrapEnv(c *gc.C, envName string) {
-	environ, err := environs.PrepareFromName(envName)
+	env, err := environs.PrepareFromName(envName, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(environ, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -114,7 +116,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -149,7 +151,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -184,7 +186,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -222,7 +224,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 }
 
 type ConnSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn
@@ -237,7 +239,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	environ, err := environs.Prepare(cfg)
+	environ, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -252,7 +254,7 @@ func (s *ConnSuite) TearDownTest(c *gc.C) {
 	}
 	err := s.conn.State.SetAdminMongoPassword("")
 	c.Assert(err, gc.IsNil)
-	err = s.conn.Environ.Destroy(nil)
+	err = s.conn.Environ.Destroy()
 	c.Check(err, gc.IsNil)
 	s.conn.Close()
 	s.conn = nil

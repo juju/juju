@@ -90,9 +90,7 @@ func (a *srvAdmin) Login(c params.Creds) error {
 		return err
 	}
 
-	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
-		return err
-	}
+	a.root.rpcConn.Serve(newRoot, serverError)
 	return nil
 }
 
@@ -120,7 +118,7 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 	machine, ok := entity.(*state.Machine)
 	if ok {
 		if !machine.CheckProvisioned(c.Nonce) {
-			return nil, common.ErrNotProvisioned
+			return nil, state.NotProvisionedError(machine.Id())
 		}
 	}
 	setAgentAliver, ok := entity.(interface {

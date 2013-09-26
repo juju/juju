@@ -147,13 +147,15 @@ func (c *Conn) updateSecrets() error {
 		return err
 	}
 	attrs := cfg.AllAttrs()
-	for k := range secrets {
+	for k, v := range secrets {
 		if _, exists := attrs[k]; exists {
 			// Environment already has secrets. Won't send again.
 			return nil
+		} else {
+			attrs[k] = v
 		}
 	}
-	cfg, err = cfg.Apply(secrets)
+	cfg, err = config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return err
 	}
@@ -289,12 +291,12 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
-	storage := conn.Environ.Storage()
+	stor := conn.Environ.Storage()
 	log.Infof("writing charm to storage [%d bytes]", size)
-	if err := storage.Put(name, f, size); err != nil {
+	if err := stor.Put(name, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	ustr, err := storage.URL(name)
+	ustr, err := stor.URL(name)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
 	}

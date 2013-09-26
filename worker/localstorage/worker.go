@@ -1,15 +1,19 @@
-package storage
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package localstorage
 
 import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/worker"
 )
 
-var logger = loggo.GetLogger("juju.local.storage")
+var logger = loggo.GetLogger("juju.worker.localstorage")
 
 type storageWorker struct {
 	config agent.Config
@@ -40,7 +44,12 @@ func (s *storageWorker) waitForDeath() error {
 	storageAddr := s.config.Value(agent.StorageAddr)
 	logger.Infof("serving %s on %s", storageDir, storageAddr)
 
-	storageListener, err := localstorage.Serve(storageAddr, storageDir)
+	storage, err := filestorage.NewFileStorageWriter(storageDir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		logger.Errorf("error with local storage: %v", err)
+		return err
+	}
+	storageListener, err := httpstorage.Serve(storageAddr, storage)
 	if err != nil {
 		logger.Errorf("error with local storage: %v", err)
 		return err
@@ -49,14 +58,22 @@ func (s *storageWorker) waitForDeath() error {
 
 	sharedStorageDir := s.config.Value(agent.SharedStorageDir)
 	sharedStorageAddr := s.config.Value(agent.SharedStorageAddr)
-	logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
-
-	sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)
-	if err != nil {
-		logger.Errorf("error with local storage: %v", err)
-		return err
+	if sharedStorageAddr != "" && sharedStorageDir != "" {
+		logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
+		sharedStorage, err := filestorage.NewFileStorageWriter(sharedStorageDir, filestorage.UseDefaultTmpDir)
+		if err != nil {
+			logger.Errorf("error with local storage: %v", err)
+			return err
+		}
+		sharedStorageListener, err := httpstorage.Serve(sharedStorageAddr, sharedStorage)
+		if err != nil {
+			logger.Errorf("error with local storage: %v", err)
+			return err
+		}
+		defer sharedStorageListener.Close()
+	} else {
+		logger.Infof("no shared storage: dir=%q addr=%q", sharedStorageDir, sharedStorageAddr)
 	}
-	defer sharedStorageListener.Close()
 
 	logger.Infof("storage routines started, awaiting death")
 

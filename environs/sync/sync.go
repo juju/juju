@@ -15,8 +15,8 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2/httpstorage"
 	coretools "launchpad.net/juju-core/tools"
@@ -31,7 +31,7 @@ var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
 	// Target holds the destination for the tool synchronization
-	Target environs.Storage
+	Target storage.Storage
 
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
@@ -96,6 +96,12 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
+	// When we read the contents of the target bucket, we don't want to have the ReadList() method
+	// below look for tools in the old location, since the old location is no longer used and if it
+	// finds tools there, it will incorrectly think they exist in the target. For completeness, the
+	// default tools prefix is restored at the end.
+	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
+	defer restore()
 	targetStorage := syncContext.Target
 	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
@@ -128,7 +134,7 @@ func SyncTools(syncContext *SyncContext) error {
 }
 
 // selectSourceStorage returns a storage reader based on the source setting.
-func selectSourceStorage(syncContext *SyncContext) (environs.StorageReader, error) {
+func selectSourceStorage(syncContext *SyncContext) (storage.StorageReader, error) {
 	if syncContext.Source == "" {
 		return httpstorage.NewHTTPStorageReader(DefaultToolsLocation), nil
 	}
@@ -136,7 +142,7 @@ func selectSourceStorage(syncContext *SyncContext) (environs.StorageReader, erro
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs.Storage) error {
+func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest storage.Storage) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if syncContext.DryRun {
@@ -150,7 +156,7 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest environs
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *coretools.Tools, dest environs.Storage) error {
+func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	reset := envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 	defer reset()
 	envtools.SetToolPrefix(envtools.NewToolPrefix)
@@ -200,7 +206,7 @@ func copyFile(dest, source string) error {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
+func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -259,7 +265,7 @@ func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries .
 	}
 	syncContext := &SyncContext{
 		Source:       baseToolsDir,
-		Target:       storage,
+		Target:       stor,
 		AllVersions:  true,
 		Dev:          true,
 		MajorVersion: toolsVersion.Major,
@@ -269,7 +275,7 @@ func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries .
 	if err != nil {
 		return nil, err
 	}
-	url, err := storage.URL(name)
+	url, err := stor.URL(name)
 	if err != nil {
 		return nil, err
 	}

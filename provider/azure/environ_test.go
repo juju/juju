@@ -23,8 +23,9 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -54,12 +55,10 @@ func makeEnviron(c *gc.C) *azureEnviron {
 // setDummyStorage injects the local provider's fake storage implementation
 // into the given environment, so that tests can manipulate storage as if it
 // were real.
-// Returns a cleanup function that must be called when done with the storage.
-func setDummyStorage(c *gc.C, env *azureEnviron) func() {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
-	c.Assert(err, gc.IsNil)
-	env.storage = localstorage.Client(listener.Addr().String())
-	return func() { listener.Close() }
+func (s *environSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
+	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
+	env.storage = storage
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
@@ -290,21 +289,21 @@ func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 
 func (*environSuite) TestGetStorageContextCreatesStorageContext(c *gc.C) {
 	env := makeEnviron(c)
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage.Account, gc.Equals, env.ecfg.storageAccountName())
-	c.Check(storage.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
+	c.Assert(stor, gc.NotNil)
+	c.Check(stor.Account, gc.Equals, env.ecfg.storageAccountName())
+	c.Check(stor.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
 }
 
 func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *gc.C) {
 	env := makeEnviron(c)
 	env.storageAccountKey = "my-key"
 
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(storage.Key, gc.Equals, "my-key")
+	c.Check(stor.Key, gc.Equals, "my-key")
 }
 
 func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc.C) {
@@ -317,10 +316,10 @@ func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
 
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(storage.Key, gc.Equals, keysInAzure.Primary)
+	c.Check(stor.Key, gc.Equals, keysInAzure.Primary)
 	c.Check(env.storageAccountKey, gc.Equals, keysInAzure.Primary)
 }
 
@@ -392,11 +391,11 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 
 func (*environSuite) TestGetPublicStorageContext(c *gc.C) {
 	env := makeEnviron(c)
-	storage, err := env.getPublicStorageContext()
+	stor, err := env.getPublicStorageContext()
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(storage.Key, gc.Equals, "")
+	c.Assert(stor, gc.NotNil)
+	c.Check(stor.Account, gc.Equals, env.ecfg.publicStorageAccountName())
+	c.Check(stor.Key, gc.Equals, "")
 }
 
 func (*environSuite) TestSetConfigValidates(c *gc.C) {
@@ -478,22 +477,20 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (*environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	_, _, err := env.StateInfo()
 	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
-func (*environSuite) TestStateInfo(c *gc.C) {
+func (s *environSuite) TestStateInfo(c *gc.C) {
 	instanceID := "my-instance"
 	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
 		ServiceName: instanceID,
 	}})
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	err := provider.SaveState(
 		env.Storage(),
 		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
@@ -714,15 +711,12 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 	return service1, service1Desc
 }
 
-func setServiceDeletionConcurrency(nbGoroutines int) func() {
-	oldMaxConcurrentDeletes := maxConcurrentDeletes
-	maxConcurrentDeletes = nbGoroutines
-	return func() { maxConcurrentDeletes = oldMaxConcurrentDeletes }
+func (s *environSuite) setServiceDeletionConcurrency(nbGoroutines int) {
+	s.PatchValue(&maxConcurrentDeletes, nbGoroutines)
 }
 
-func (*environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
+func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
+	s.setServiceDeletionConcurrency(3)
 	service1Name := "service1"
 	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
@@ -748,9 +742,8 @@ func (*environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
-func (*environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
+func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
+	s.setServiceDeletionConcurrency(3)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
 	}
@@ -776,9 +769,8 @@ func (*environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	assertOneRequestMatches(c, *requests, "DELETE", ".*")
 }
 
-func (*environSuite) TestStopInstancesWithLimitedConcurrency(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
+func (s *environSuite) TestStopInstancesWithLimitedConcurrency(c *gc.C) {
+	s.setServiceDeletionConcurrency(3)
 	services := []*gwacl.HostedService{}
 	serviceDescs := []gwacl.HostedServiceDescriptor{}
 	for i := 0; i < 10; i++ {
@@ -797,9 +789,8 @@ func (*environSuite) TestStopInstancesWithLimitedConcurrency(c *gc.C) {
 	c.Check(len(*requests), gc.Equals, len(services)*2)
 }
 
-func (*environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
+func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
+	s.setServiceDeletionConcurrency(3)
 	env := makeEnviron(c)
 	instances := []instance.Instance{}
 
@@ -827,10 +818,9 @@ func getVnetAndAffinityGroupCleanupResponses(c *gc.C) []gwacl.DispatcherResponse
 	return cleanupResponses
 }
 
-func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
+func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	// Populate storage.
 	err := provider.SaveState(
 		env.Storage(),
@@ -841,18 +831,17 @@ func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 
-	err = env.Destroy([]instance.Instance{})
+	err = env.Destroy()
 	c.Check(err, gc.NotNil)
 
-	files, err := env.Storage().List("")
+	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 1)
 }
 
-func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
+func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	// Populate storage.
 	err := provider.SaveState(
 		env.Storage(),
@@ -863,20 +852,18 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
 	responses = append(responses, cleanupResponses...)
 	gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err = env.Destroy(instances)
+	err = env.Destroy()
 	c.Check(err, gc.IsNil)
 
-	files, err := env.Storage().List("")
+	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 }
 
-func (*environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
+func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)
 	// Prepare a configuration with a single virtual network.
@@ -898,9 +885,8 @@ func (*environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
 	}
 	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err = env.Destroy(instances)
+	err = env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 4)
@@ -942,20 +928,16 @@ func assertOneRequestMatches(c *gc.C, requests []*gwacl.X509Request, method stri
 	c.Error(fmt.Sprintf("none of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
 }
 
-func (*environSuite) TestDestroyStopsAllInstances(c *gc.C) {
-	cleanup1 := setServiceDeletionConcurrency(3)
-	defer cleanup1()
+func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
+	s.setServiceDeletionConcurrency(3)
 	env := makeEnviron(c)
-	cleanup2 := setDummyStorage(c, env)
-	defer cleanup2()
+	s.setDummyStorage(c, env)
 
 	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
 	service1Name := prefix + "service1"
-	service2Name := prefix + "service2"
 	service1, service1Desc := makeAzureService(service1Name)
-	service2, service2Desc := makeAzureService(service2Name)
-	services := []*gwacl.HostedService{service1, service2}
+	services := []*gwacl.HostedService{service1}
 	// The call to AllInstances() will return only one service (service1).
 	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
 	destroyResponses := buildDestroyAzureServiceResponses(c, services)
@@ -964,11 +946,7 @@ func (*environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	// Call Destroy with service1 and service2.
-	instances := convertToInstances(
-		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc},
-		env)
-	err := env.Destroy(instances)
+	err := env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	// One request to get the list of all the environment's instances.
@@ -979,8 +957,6 @@ func (*environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	c.Check((*requests)[0].Method, gc.Equals, "GET")
 	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
 func (*environSuite) TestGetInstance(c *gc.C) {
@@ -1309,10 +1285,9 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (*environSuite) TestGetImageMetadataSources(c *gc.C) {
+func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
 	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
@@ -1329,10 +1304,9 @@ func (*environSuite) TestGetImageMetadataSources(c *gc.C) {
 	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
-func (*environSuite) TestGetToolsMetadataSources(c *gc.C) {
+func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
 	env.Storage().Put("tools/filename", bytes.NewReader(data), int64(len(data)))

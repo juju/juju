@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -51,7 +52,7 @@ type maasEnviron struct {
 
 	ecfgUnlocked       *maasEnvironConfig
 	maasClientUnlocked *gomaasapi.MAASObject
-	storageUnlocked    environs.Storage
+	storageUnlocked    storage.Storage
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -369,37 +370,23 @@ func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 // Storage is defined by the Environ interface.
-func (env *maasEnviron) Storage() environs.Storage {
+func (env *maasEnviron) Storage() storage.Storage {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.storageUnlocked
 }
 
 // PublicStorage is defined by the Environ interface.
-func (env *maasEnviron) PublicStorage() environs.StorageReader {
+func (env *maasEnviron) PublicStorage() storage.StorageReader {
 	// MAAS does not have a shared storage.
 	return environs.EmptyStorage
 }
 
-func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
+func (environ *maasEnviron) Destroy() error {
 	logger.Debugf("destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	found := make(map[instance.Id]bool)
-	for _, inst := range insts {
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := inst.Id()
-		if !found[id] {
-			insts = append(insts, inst)
-			found[id] = true
-		}
 	}
 	err = environ.StopInstances(insts)
 	if err != nil {
@@ -432,11 +419,11 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *maasEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }

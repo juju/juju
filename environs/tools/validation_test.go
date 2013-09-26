@@ -9,10 +9,11 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ValidateSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	home *coretesting.FakeHome
 }
 
@@ -59,7 +60,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	versions, err := ValidateToolsMetadata(params)
@@ -78,7 +79,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	versions, err := ValidateToolsMetadata(params)
@@ -97,7 +98,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	versions, err := ValidateToolsMetadata(params)
@@ -115,7 +116,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Series:        "precise",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + metadataDir)},
+			Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
 		},
 	}
 	_, err := ValidateToolsMetadata(params)

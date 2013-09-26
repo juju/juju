@@ -4,9 +4,7 @@
 package upgrader_test
 
 import (
-	"bytes"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -16,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -55,38 +54,6 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-// primeTools sets up the current version of the tools to vers and
-// makes sure that they're available JujuConnSuite's DataDir.
-func (s *UpgraderSuite) primeTools(c *gc.C, vers version.Binary) *coretools.Tools {
-	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
-	c.Assert(err, gc.IsNil)
-	version.Current = vers
-	agentTools := s.uploadTools(c, vers)
-	resp, err := http.Get(agentTools.URL)
-	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-	err = agenttools.UnpackTools(s.DataDir(), agentTools, resp.Body)
-	c.Assert(err, gc.IsNil)
-	return agentTools
-}
-
-// uploadTools uploads fake tools with the given version number
-// to the dummy environment's storage and returns a tools
-// value describing them.
-func (s *UpgraderSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Tools {
-	// TODO(rog) make UploadFakeToolsVersion in environs/testing
-	// sufficient for this use case.
-	tgz := coretesting.TarGz(
-		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
-	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
-	c.Assert(err, gc.IsNil)
-	url, err := s.Conn.Environ.Storage().URL(envtools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	return &coretools.Tools{URL: url, Version: vers}
-}
-
 type mockConfig struct {
 	agent.Config
 	tag     string
@@ -114,7 +81,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-foo-bar")
 	err := statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
-	agentTools := s.primeTools(c, vers)
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
 
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
@@ -124,12 +91,12 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, gc.IsNil)
-	c.Assert(gotTools, gc.DeepEquals, agentTools)
+	envtesting.CheckTools(c, gotTools, agentTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-foo-bar")
-	s.primeTools(c, vers)
+	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, gc.IsNil)
 
@@ -147,8 +114,10 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
-	oldTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
-	newTools := s.uploadTools(c, version.MustParseBinary("5.4.5-foo-bar"))
+	oldTools := envtesting.PrimeTools(
+		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
+	newTools := envtesting.UploadFakeToolsVersion(
+		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-foo-bar"))
 
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -160,7 +129,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 
 	u := s.makeUpgrader()
 	err = u.Stop()
-	c.Assert(err, gc.DeepEquals, &upgrader.UpgradeReadyError{
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag(),
 		OldTools:  oldTools,
 		NewTools:  newTools,
@@ -168,12 +137,14 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, gc.IsNil)
-	c.Assert(foundTools, gc.DeepEquals, newTools)
+	envtesting.CheckTools(c, foundTools, newTools)
 }
 
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
-	oldTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
-	newTools := s.uploadTools(c, version.MustParseBinary("5.4.5-foo-bar"))
+	oldTools := envtesting.PrimeTools(
+		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
+	newTools := envtesting.UploadFakeToolsVersion(
+		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-foo-bar"))
 
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -198,7 +169,9 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	// Make it upgrade to some newer tools that can be
 	// downloaded ok; it should stop retrying, download
 	// the newer tools and exit.
-	newerTools := s.uploadTools(c, version.MustParseBinary("5.4.6-foo-bar"))
+	newerTools := envtesting.UploadFakeToolsVersion(
+		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.6-foo-bar"))
+
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
@@ -209,7 +182,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	}()
 	select {
 	case err := <-done:
-		c.Assert(err, gc.DeepEquals, &upgrader.UpgradeReadyError{
+		envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 			AgentName: s.machine.Tag(),
 			OldTools:  oldTools,
 			NewTools:  newerTools,
@@ -224,7 +197,8 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	oldTools := &coretools.Tools{
 		Version: version.MustParseBinary("1.2.3-arble-bletch"),
 	}
-	newTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
+	newTools := envtesting.PrimeTools(
+		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",
 		OldTools:  oldTools,

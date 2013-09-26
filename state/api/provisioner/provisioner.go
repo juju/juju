@@ -1,0 +1,103 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package provisioner
+
+import (
+	"fmt"
+
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
+)
+
+// State provides access to the Machiner API facade.
+type State struct {
+	caller common.Caller
+}
+
+// NewState creates a new client-side Machiner facade.
+func NewState(caller common.Caller) *State {
+	return &State{caller}
+}
+
+// machineLife requests the lifecycle of the given machine from the server.
+func (st *State) machineLife(tag string) (params.Life, error) {
+	var result params.LifeResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
+	}
+	err := st.caller.Call("Provisioner", "", "Life", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if len(result.Results) != 1 {
+		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return "", err
+	}
+	return result.Results[0].Life, nil
+}
+
+// Machine provides access to methods of a state.Machine through the facade.
+func (st *State) Machine(tag string) (*Machine, error) {
+	life, err := st.machineLife(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &Machine{
+		tag:  tag,
+		life: life,
+		st:   st,
+	}, nil
+}
+
+// WatchForEnvironConfigChanges return a NotifyWatcher waiting for the
+// environment configuration to change.
+func (st *State) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := st.caller.Call("Provisioner", "", "WatchForEnvironConfigChanges", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(st.caller, result)
+	return w, nil
+}
+
+// EnvironConfig returns the current environment configuration.
+func (st *State) EnvironConfig() (*config.Config, error) {
+	var result params.ConfigResult
+	err := st.caller.Call("Provisioner", "", "EnvironConfig", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	conf, err := config.New(config.NoDefaults, result.Config)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
+}
+
+// WatchEnvironMachines returns a StringsWatcher that notifies of
+// changes to the lifecycles of the machines (but not containers) in
+// the current environment.
+func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	err := st.caller.Call("Provisioner", "", "WatchEnvironMachines", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(st.caller, result)
+	return w, nil
+}

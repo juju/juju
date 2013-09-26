@@ -18,12 +18,13 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	savedHome, savedAccessKey, savedSecretKey string
 }
 
@@ -98,7 +99,7 @@ func (t configTest) check(c *gc.C) {
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"access-key": t.accessKey,
 			"secret-key": t.secretKey,
 		}
@@ -121,8 +122,8 @@ func (t configTest) check(c *gc.C) {
 
 	// check storage buckets are configured correctly
 	env := e.(*environ)
-	c.Assert(env.Storage().(*storage).bucket.Region.Name, gc.Equals, ecfg.region())
-	c.Assert(env.PublicStorage().(*storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
+	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
+	c.Assert(env.PublicStorage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
 }
 
 var configTests = []configTest{

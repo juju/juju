@@ -189,11 +189,22 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
+// checkToolsValidity checks whether the given tools are suitable for passing to SetAgentTools.
+func checkToolsValidity(t *tools.Tools) error {
+	if t.Version.Series == "" || t.Version.Arch == "" {
+		return fmt.Errorf("empty series or arch")
+	}
+	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
+		return fmt.Errorf("empty size or checksum")
+	}
+	return nil
+}
+
 // SetAgentTools sets the tools that the agent is currently running.
 func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
-	if t.Version.Series == "" || t.Version.Arch == "" {
-		return fmt.Errorf("empty series or arch")
+	if err = checkToolsValidity(t); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
@@ -490,8 +501,8 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// InstanceId returns the provider specific instance id for this machine
-// and whether it has been set.
+// InstanceId returns the provider specific instance id for this
+// machine, or a NotProvisionedError, if not set.
 func (m *Machine) InstanceId() (instance.Id, error) {
 	// SCHEMACHANGE
 	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
@@ -501,7 +512,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	}
 	instData, err := getInstanceData(m.st, m.Id())
 	if (err == nil && instData.InstanceId == "") || (err != nil && errors.IsNotFoundError(err)) {
-		err = &NotProvisionedError{m.Id()}
+		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
 		return "", err
@@ -586,17 +597,23 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// NotProvisionedError records an error when a machine is not provisioned.
-type NotProvisionedError struct {
+// notProvisionedError records an error when a machine is not provisioned.
+type notProvisionedError struct {
 	machineId string
 }
 
-// IsNotProvisionedError returns true if err is a NotProvisionedError.
+func NotProvisionedError(machineId string) error {
+	return &notProvisionedError{machineId}
+}
+
+func (e *notProvisionedError) Error() string {
+	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
+}
+
+// IsNotProvisionedError returns true if err is a notProvisionedError.
 func IsNotProvisionedError(err error) bool {
-	if _, ok := err.(*NotProvisionedError); ok {
-		return true
-	}
-	return false
+	_, ok := err.(*notProvisionedError)
+	return ok
 }
 
 // Addresses returns any hostnames and ips associated with a machine
@@ -628,10 +645,6 @@ func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 	}
 	m.doc.Addresses = stateAddresses
 	return nil
-}
-
-func (e *NotProvisionedError) Error() string {
-	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
@@ -700,10 +713,11 @@ func (m *Machine) Status() (status params.Status, info string, err error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string) error {
+func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err

@@ -62,8 +62,8 @@ func (maasEnvironProvider) BoilerplateConfig() string {
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	secretAttrs := make(map[string]interface{})
+func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	secretAttrs := make(map[string]string)
 	maasCfg, err := prov.newConfig(cfg)
 	if err != nil {
 		return nil, err

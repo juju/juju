@@ -13,7 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var imageData = map[string]string{
@@ -81,12 +81,16 @@ var imageData = map[string]string{
              {
               "datatype": "content-download",
               "path": "streams/v1/tools_metadata:public-mirrors.json",
-		      "clouds": [
-			   {
-			    "region": "us-east-1",
-			    "endpoint": "https://ec2.us-east-1.amazonaws.com"
-			   }
-		      ],
+              "clouds": [
+               {
+                "region": "us-east-2",
+                "endpoint": "https://ec2.us-east-2.amazonaws.com"
+               },
+               {
+                "region": "us-west-2",
+                "endpoint": "https://ec2.us-west-2.amazonaws.com"
+               }
+              ],
               "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
               "format": "mirrors:1.0"
              },
@@ -219,6 +223,33 @@ var imageData = map[string]string{
  }
 }
 `,
+	"/streams/v1/mirrored-tools-metadata.json": `
+{
+ "content_id": "com.ubuntu.juju:tools",
+ "datatype": "content-download",
+ "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
+ "format": "products:1.0",
+ "products": {
+  "com.ubuntu.juju:12.04:amd64": {
+   "arch": "amd64",
+   "release": "precise",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130preciseamd64": {
+       "version": "1.13.0",
+       "size": 2973595,
+       "path": "mirrored-path/juju-1.13.0-precise-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+`,
 	"/streams/v1/tools_metadata:public-mirrors.json": `
 {
   "mirrors": {
@@ -229,8 +260,19 @@ var imageData = map[string]string{
         "format": "products:1.0",
         "clouds": [
           {
-            "endpoint": "https://ec2.us-east-1.amazonaws.com",
-            "region": "us-east-1"
+            "endpoint": "https://ec2.us-east-2.amazonaws.com",
+            "region": "us-east-2"
+          }
+        ]
+      },
+      {
+        "mirror": "test:/",
+        "path": "streams/v1/mirrored-tools-metadata.json",
+        "format": "products:1.0",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-west-2.amazonaws.com",
+            "region": "us-west-2"
           }
         ]
       },
@@ -392,7 +434,7 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURL
 }
 
 type LocalLiveSimplestreamsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	Source          simplestreams.DataSource
 	RequireSigned   bool
 	DataType        string
@@ -450,9 +492,9 @@ type TestItem struct {
 
 func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
-		return simplestreams.DefaultIndexPath + simplestreams.SignedSuffix
+		return simplestreams.DefaultIndexPath + ".sjson"
 	}
-	return simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
+	return simplestreams.UnsignedIndex
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
@@ -468,7 +510,8 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(s.Source, s.IndexPath(), format, s.RequireSigned, params)
+	return simplestreams.GetIndexWithFormat(
+		s.Source, s.IndexPath(), format, s.RequireSigned, s.ValidConstraint.Params().CloudSpec, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {

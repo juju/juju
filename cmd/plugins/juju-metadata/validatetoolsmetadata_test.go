@@ -183,7 +183,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
-	s.makeLocalMetadata(c, version.CurrentNumber().String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, version.Current.Number.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
@@ -228,7 +228,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
-	s.makeLocalMetadata(c, version.CurrentNumber().String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, version.Current.Number.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(

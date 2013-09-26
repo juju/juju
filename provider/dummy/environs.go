@@ -38,6 +38,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -159,8 +160,8 @@ type environState struct {
 	globalPorts   map[instance.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
-	storage       *storage
-	publicStorage *storage
+	storage       *dummystorage
+	publicStorage *dummystorage
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
@@ -178,10 +179,10 @@ var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
-// storage holds the storage for an environState.
+// dummystorage holds the storage for an environState.
 // There are two instances for each environState
 // instance, one for public files and one for private.
-type storage struct {
+type dummystorage struct {
 	path     string // path prefix in http space.
 	state    *environState
 	files    map[string][]byte
@@ -369,14 +370,22 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	return cfg.Apply(validated)
 }
 
-func (e *environ) state() *environState {
+func (e *environ) maybeState() (*environState, bool) {
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if state := p.state[e.name]; state != nil {
+		return state, true
+	}
+	return nil, false
+}
+
+func (e *environ) state() *environState {
+	if state, ok := e.maybeState(); !ok {
+		panic(fmt.Errorf("environment %q is not prepared", e.name))
+	} else {
 		return state
 	}
-	panic(fmt.Errorf("environment %q is not prepared", e.name))
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -421,12 +430,12 @@ func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) 
 	return p.Open(cfg)
 }
 
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
+	return map[string]string{
 		"secret": ecfg.secret(),
 	}, nil
 }
@@ -473,12 +482,12 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{environs.NewStorageSimpleStreamsDataSource(e.Storage(), environs.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
@@ -573,12 +582,20 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy([]instance.Instance) error {
+func (e *environ) Destroy() error {
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	estate := e.state()
+	estate, ok := e.maybeState()
+	if !ok {
+		return nil
+	}
+	p := &providerInstance
+	p.mu.Lock()
+	delete(p.state, e.name)
+	p.mu.Unlock()
+
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.ops <- OpDestroy{Env: estate.name}

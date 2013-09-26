@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
@@ -18,7 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -62,34 +63,33 @@ var (
 	StorageAttempt = &storageAttempt
 )
 
-func SetFakeToolsStorage(useFake bool) {
-	if useFake {
-		tools.SetToolPrefix("tools_test/juju-")
-	} else {
-		tools.SetToolPrefix(tools.DefaultToolPrefix)
-	}
-}
-
-// WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
-// It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
+// MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
+func MetadataStorage(e environs.Environ) storage.Storage {
 	ecfg := e.(*environ).ecfg()
 	authModeCfg := AuthMode(ecfg.authMode())
-	writablePublicStorage := &storage{
-		containerName: ecfg.publicBucket(),
+	container := "juju-dist-test"
+	metadataStorage := &openstackstorage{
+		containerName: container,
 		swift:         swift.New(e.(*environ).authClient(ecfg, authModeCfg)),
 	}
 
 	// Ensure the container exists.
-	err := writablePublicStorage.makeContainer(ecfg.publicBucket(), swift.PublicRead)
+	err := metadataStorage.makeContainer(container, swift.PublicRead)
 	if err != nil {
-		panic(fmt.Errorf("cannot create writable public container: %v", err))
+		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}
-	return writablePublicStorage
+	return metadataStorage
 }
 
 func InstanceAddress(addresses map[string][]nova.IPAddress) string {
 	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
+}
+
+func PatchCertifiedURL(auth_url, fake_url string) func() {
+	toolsURLs[fake_url+"/"] = toolsURLs[auth_url]
+	return func() {
+		delete(toolsURLs, fake_url+"/")
+	}
 }
 
 var publicBucketIndexData = `
@@ -225,14 +225,35 @@ func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	WritablePublicStorage(e).Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
-	WritablePublicStorage(e).Put(
+	stor := MetadataStorage(e)
+	stor.Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
+	stor.Put(
 		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
-	WritablePublicStorage(e).Remove(simplestreams.DefaultIndexPath + ".json")
-	WritablePublicStorage(e).Remove(productMetadatafile)
+	stor := MetadataStorage(e)
+	stor.Remove(simplestreams.DefaultIndexPath + ".json")
+	stor.Remove(productMetadatafile)
+}
+
+// DiscardSecurityGroup cleans up a security group, it is not an error to
+// delete something that doesn't exist.
+func DiscardSecurityGroup(e environs.Environ, name string) error {
+	env := e.(*environ)
+	novaClient := env.nova()
+	group, err := novaClient.SecurityGroupByName(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Group already deleted, done
+			return nil
+		}
+	}
+	err = novaClient.DeleteSecurityGroup(group.Id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
@@ -260,10 +281,38 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
+func SetUpGlobalGroup(e environs.Environ, name string, statePort, apiPort int) (nova.SecurityGroup, error) {
+	return e.(*environ).setUpGlobalGroup(name, statePort, apiPort)
+}
+
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	return e.(*environ).ensureGroup(name, rules)
 }
 
 func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
+}
+
+// ImageMetadataStorage returns a Storage object pointing where the goose
+// infrastructure sets up its keystone entry for image metadata
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
+	env := e.(*environ)
+	return &openstackstorage{
+		containerName: "imagemetadata",
+		swift:         swift.New(env.client),
+	}
+}
+
+// CreateCustomStorage creates a swift container and returns the Storage object
+// so you can put data into it.
+func CreateCustomStorage(e environs.Environ, containerName string) storage.Storage {
+	env := e.(*environ)
+	swiftClient := swift.New(env.client)
+	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
+		panic(err)
+	}
+	return &openstackstorage{
+		containerName: containerName,
+		swift:         swiftClient,
+	}
 }

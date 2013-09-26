@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -168,7 +169,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		return nil, errUpToDate
 	}
 	client := version.Current.Number
-	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{})
+	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
 			return nil, err
@@ -206,7 +207,7 @@ type upgradeVersions struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string) error {
+func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) error {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// version.Current matches whatever source happens to be built. The
 	// ideal would be:
