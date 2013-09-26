@@ -69,9 +69,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	c.Assert(s.env.Destroy(nil), gc.IsNil)
-	ids := make([]instance.Instance, 1)
-	c.Assert(s.env.Destroy(ids), gc.ErrorMatches, "null provider cannot destroy instances.*")
+	c.Assert(s.env.Destroy(), gc.ErrorMatches, "null provider destruction is not implemented yet")
 }
 
 func (s *environSuite) TestLocalStorageConfig(c *gc.C) {

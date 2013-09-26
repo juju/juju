@@ -256,7 +256,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 			// TODO(axw) 2013-09-24 bug #1229506
 			// Make another job to enable the firewaller. Not all environments
-			// are capable of managing ports at a global level.
+			// are capable of managing ports centrally.
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
 			})

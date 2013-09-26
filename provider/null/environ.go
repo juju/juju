@@ -5,7 +5,6 @@ package null
 
 import (
 	"errors"
-	"fmt"
 	"path"
 	"sync"
 
@@ -137,11 +136,8 @@ func (e *nullEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (e *nullEnviron) Destroy(insts []instance.Instance) error {
-	if len(insts) > 0 {
-		return fmt.Errorf("null provider cannot destroy instances: %v", insts)
-	}
-	return nil
+func (e *nullEnviron) Destroy() error {
+	return errors.New("null provider destruction is not implemented yet")
 }
 
 func (e *nullEnviron) OpenPorts(ports []instance.Port) error {
