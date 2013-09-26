@@ -123,7 +123,7 @@ func (call *Call) done() {
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		log.Errorf("rpc: discarding Call reply due to insufficient Done chan capacity")
+		logger.Errorf("discarding Call reply due to insufficient Done chan capacity")
 	}
 }
 
