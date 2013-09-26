@@ -238,31 +238,71 @@ func (s *MgoSuite) SetUpTest(c *gc.C) {
 func MgoReset() {
 	session := MgoDial()
 	defer session.Close()
-	dbnames, err := session.DatabaseNames()
-	if isUnauthorized(err) {
-		// If we've got an unauthorized access error, we're
-		// locked out of the database.  We restart it to regain
-		// access.  This should only happen when tests fail.
-		destroyMgoServer()
+
+	dbnames, ok := resetAdminPasswordAndFetchDBNames(session)
+	if ok {
+		log.Infof("MgoReset successfully reset admin password")
+	} else {
+		// We restart it to regain access.  This should only
+		// happen when tests fail.
 		log.Noticef("testing: restarting MongoDB server after unauthorized access")
+		destroyMgoServer()
 		if err := startMgoServer(); err != nil {
 			panic(err)
 		}
 		return
 	}
-	if err != nil {
-		panic(err)
-	}
 	for _, name := range dbnames {
 		switch name {
 		case "admin", "local", "config":
 		default:
-			err = session.DB(name).DropDatabase()
-			if err != nil {
+			if err := session.DB(name).DropDatabase(); err != nil {
 				panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 			}
 		}
 	}
+}
+
+// resetAdminPasswordAndFetchDBNames logs into the database with a
+// plausible password and returns all the database's
+// db names.
+// We need to try several passwords because we don't
+// what state the mongo server is in when MgoReset is
+// called. If the test has set a custom password, we're
+// out of luck, but if they are using DefaultStatePassword,
+// we can succeed.
+func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
+	// First try with no password
+	dbnames, err := session.DatabaseNames()
+	if err == nil {
+		return dbnames, true
+	}
+	if !isUnauthorized(err) {
+		panic(err)
+	}
+	// Then try the two most likely passwords in turn.
+	for _, password := range []string{
+		DefaultMongoPassword,
+		utils.PasswordHash(DefaultMongoPassword),
+	} {
+		admin := session.DB("admin")
+		if err := admin.Login("admin", password); err != nil {
+			log.Infof("failed to log in with password %q", password)
+			continue
+		}
+		dbnames, err := session.DatabaseNames()
+		if err == nil {
+			if err := admin.RemoveUser("admin"); err != nil {
+				panic(err)
+			}
+			return dbnames, true
+		}
+		if !isUnauthorized(err) {
+			panic(err)
+		}
+		log.Infof("unauthorized access when getting database names; password %q", password)
+	}
+	return nil, false
 }
 
 // isUnauthorized is a copy of the same function in state/open.go.
