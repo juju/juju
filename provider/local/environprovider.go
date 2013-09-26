@@ -65,6 +65,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
+		logger.Errorf("failed to validate unknown attrs: %v", err)
 		return nil, err
 	}
 	localConfig := newEnvironConfig(cfg, validated)
