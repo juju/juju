@@ -13,7 +13,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
+//	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -30,81 +30,38 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// toolsTestHelper defines tools manipulation functions which are implemented differently for
-// legacy and simplestreams tools tests.
-type toolsTestHelper interface {
-	reset(c *gc.C, attrs map[string]interface{})
-	uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string
-	uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string
-	removeTools(c *gc.C)
-}
-
-type ToolsSuite struct {
-	toolsTestHelper
+type SimpleStreamsToolsSuite struct {
 	env environs.Environ
 	testbase.LoggingSuite
 	envtesting.ToolsFixture
 	origCurrentVersion version.Binary
-}
-
-type LegacyToolsSuite struct {
-	ToolsSuite
-}
-
-type SimpleStreamsToolsSuite struct {
-	ToolsSuite
 	customToolsDir string
 	publicToolsDir string
 }
 
-var _ toolsTestHelper = (*LegacyToolsSuite)(nil)
-var _ toolsTestHelper = (*SimpleStreamsToolsSuite)(nil)
-
 func setupToolsTests() {
-	gc.Suite(&LegacyToolsSuite{})
 	gc.Suite(&SimpleStreamsToolsSuite{})
 }
 
-func (s *LegacyToolsSuite) removeTools(c *gc.C) {
-	envtesting.RemoveAllTools(c, s.env)
-}
-
-func (s *LegacyToolsSuite) uploadVersions(c *gc.C, storage storage.Storage, verses ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
-	for _, vers := range verses {
-		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
-	}
-	return uploaded
-}
-
-func (s *LegacyToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return s.uploadVersions(c, s.env.Storage(), verses...)
-}
-
-func (s *LegacyToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	stor := s.env.PublicStorage().(storage.Storage)
-	return s.uploadVersions(c, stor, verses...)
-}
-
-func (s *LegacyToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
-	s.resetEnv(c, attrs)
-}
-
-func (s *LegacyToolsSuite) SetUpSuite(c *gc.C) {
-	s.toolsTestHelper = s
-}
-
 func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
-	s.ToolsSuite.SetUpSuite(c)
-	s.toolsTestHelper = s
+	s.LoggingSuite.SetUpSuite(c)
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
-	envtools.UseLegacyFallback = false
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.DefaultBaseURL = "file://" + s.publicToolsDir
+	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.origCurrentVersion = version.Current
+	s.reset(c, nil)
+}
+
+func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	version.Current = s.origCurrentVersion
+	s.ToolsFixture.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
@@ -202,21 +159,7 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 	return s.uploadVersions(c, s.publicToolsDir, verses...)
 }
 
-func (s *ToolsSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.ToolsFixture.SetUpTest(c)
-	s.origCurrentVersion = version.Current
-	s.reset(c, nil)
-}
-
-func (s *ToolsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	version.Current = s.origCurrentVersion
-	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-}
-
-func (s *ToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
+func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
@@ -278,7 +221,7 @@ var findToolsTests = []struct {
 	expect: envtesting.V1all,
 }}
 
-func (s *ToolsSuite) TestFindTools(c *gc.C) {
+func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 	for i, test := range findToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.reset(c, nil)
@@ -318,34 +261,29 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 	c.Assert(actual.URLs(), gc.DeepEquals, expect)
 }
 
-func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
-	defer loggo.RemoveWriter("filter-tester")
-	_, err := envtools.FindTools(
-		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	// This is slightly overly prescriptive, but feel free to change or add
-	// messages. This still helps to ensure that all log messages are
-	// properly formed.
-	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
-		{loggo.DEBUG, "no architecture specified when finding tools, looking for any"},
-		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
-		{loggo.DEBUG, `fetchData failed for "http://.*/index.sjson": file ".*/index.sjson" not found not found`},
-		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
-		{loggo.DEBUG, `fetchData failed for "http://.*/index.json": file ".*/index.json" not found not found`},
-		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
-		{loggo.WARNING, `no tools found using simplestreams metadata, using legacy fallback`},
-		{loggo.DEBUG, "reading v1.* tools"},
-		{loggo.DEBUG, "reading v1.* tools"},
-		{loggo.DEBUG, "reading v1.* tools"},
-		{loggo.DEBUG, "reading v1.* tools"},
-	})
-}
+//func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
+//	tw := &loggo.TestWriter{}
+//	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
+//	defer loggo.RemoveWriter("filter-tester")
+//	_, err := envtools.FindTools(
+//		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
+//	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+//	// This is slightly overly prescriptive, but feel free to change or add
+//	// messages. This still helps to ensure that all log messages are
+//	// properly formed.
+//	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
+//		{loggo.INFO, "reading tools with major version 1"},
+//		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
+//		{loggo.DEBUG, "no architecture specified when finding tools, looking for any"},
+//		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
+//		{loggo.DEBUG, `fetchData failed for ".*/index.sjson": file ".*/index.sjson" not found not found`},
+//		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+//		{loggo.DEBUG, `fetchData failed for ".*/index.json": file ".*/index.json" not found not found`},
+//		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
+//	})
+//}
 
-func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
+func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
 	for i, test := range envtesting.BootstrapToolsTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		attrs := map[string]interface{}{
@@ -444,7 +382,7 @@ var findInstanceToolsTests = []struct {
 	expect:       []version.Binary{envtesting.V110q32},
 }}
 
-func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
+func (s *SimpleStreamsToolsSuite) TestFindInstanceTools(c *gc.C) {
 	for i, test := range findInstanceToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.reset(c, map[string]interface{}{
@@ -509,7 +447,7 @@ var findExactToolsTests = []struct {
 	err:    coretools.ErrNoMatches,
 }}
 
-func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
+func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 	for i, test := range findExactToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.reset(c, nil)

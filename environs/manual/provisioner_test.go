@@ -53,7 +53,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	binVersion := version.Binary{number, series, arch}
-	envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), binVersion)
+	envtesting.UploadFakeToolsVersions(c, s.Conn.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)

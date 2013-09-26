@@ -306,7 +306,7 @@ func stringp(val string) *string {
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	stor := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
@@ -321,7 +321,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	stor := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}

@@ -104,10 +104,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		}
 	}()
 
-	// Set the new tools prefix so StorageName returns the right thing.
-	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer restore()
-
 	// Get a file:// scheme tools URL for the tools, which will have been
 	// copied to the remote machine's storage directory.
 	tools := *possibleTools[0]

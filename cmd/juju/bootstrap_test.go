@@ -150,7 +150,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	if uploadCount == 0 {
 		usefulVersion := version.Current
 		usefulVersion.Series = env.Config().DefaultSeries()
-		envtesting.UploadFakeToolsVersion(c, env.Storage(), usefulVersion)
+		envtesting.UploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
 	// Run command and check for uploads.
@@ -315,7 +315,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Now check that there are no tools available.
 	_, err := envtools.FindTools(
 		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
-	c.Assert(err, gc.ErrorMatches, "no tools available")
+	c.Assert(err, gc.ErrorMatches, "invalid URL.*")
 
 	// Bootstrap the environment with the valid source. This time
 	// the bootstrapping has to show no error, because the tools

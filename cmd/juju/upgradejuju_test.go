@@ -170,7 +170,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.0.0-foo-bar",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "no tools available",
+	expectErr:      "invalid URL.*",
 }, {
 	about:          "specified version, no matching major version",
 	private:        []string{"4.2.0-foo-bar"},
@@ -296,14 +296,16 @@ func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series 
 	if forceVersion != nil {
 		vers.Number = *forceVersion
 	}
-	t := envtesting.MustUploadFakeToolsVersion(stor, vers)
+	versions := []version.Binary{vers}
 	for _, series := range series {
 		if series != version.Current.Series {
-			vers.Series = series
-			envtesting.MustUploadFakeToolsVersion(stor, vers)
+			newVers := vers
+			newVers.Series = series
+			versions = append(versions, newVers)
 		}
 	}
-	return t, nil
+	agentTools := envtesting.MustUploadFakeToolsVersions(stor, versions...)
+	return agentTools[0], nil
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -340,15 +342,18 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		err = s.State.SetEnvironConfig(cfg)
 		c.Assert(err, gc.IsNil)
-		for _, v := range test.private {
-			vers := version.MustParseBinary(v)
-			envtesting.MustUploadFakeToolsVersion(s.Conn.Environ.Storage(), vers)
+		versions := make([]version.Binary, len(test.private))
+		for i, v := range test.private {
+			versions[i] = version.MustParseBinary(v)
+
 		}
-		for _, v := range test.public {
-			vers := version.MustParseBinary(v)
-			stor := s.Conn.Environ.PublicStorage().(storage.Storage)
-			envtesting.MustUploadFakeToolsVersion(stor, vers)
+		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+		versions = make([]version.Binary, len(test.public))
+		for i, v := range test.public {
+			versions[i] = version.MustParseBinary(v)
 		}
+		stor := s.Conn.Environ.PublicStorage().(storage.Storage)
+		envtesting.MustUploadFakeToolsVersions(stor, versions...)
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -430,8 +435,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer reset()
 	tools, err := envtools.FindInstanceTools(s.Conn.Environ, vers.Number, vers.Series, &vers.Arch)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(tools), gc.Equals, 1)

@@ -42,17 +42,7 @@ func (s *StorageSuite) TearDownTest(c *gc.C) {
 func (s *StorageSuite) TestStorageName(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
 	path := envtools.StorageName(vers)
-	c.Assert(path, gc.Equals, "tools/juju-1.2.3-precise-amd64.tgz")
-}
-
-func (s *StorageSuite) TestSetToolPrefix(c *gc.C) {
-	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	reset := envtools.SetToolPrefix("test_prefix/juju-")
-	path := envtools.StorageName(vers)
-	c.Assert(path, gc.Equals, "test_prefix/juju-1.2.3-precise-amd64.tgz")
-	reset()
-	path = envtools.StorageName(vers)
-	c.Assert(path, gc.Equals, "tools/juju-1.2.3-precise-amd64.tgz")
+	c.Assert(path, gc.Equals, "tools/releases/juju-1.2.3-precise-amd64.tgz")
 }
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
@@ -61,19 +51,17 @@ func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
-func (s *StorageSuite) assertReadList(c *gc.C) {
-	defer func() {
-		envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	}()
+func (s *StorageSuite) TestReadList(c *gc.C) {
 	store := s.env.Storage()
 	v001 := version.MustParseBinary("0.0.1-precise-amd64")
-	t001 := envtesting.UploadFakeToolsVersion(c, store, v001)
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
-	t100 := envtesting.UploadFakeToolsVersion(c, store, v100)
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
-	t101 := envtesting.UploadFakeToolsVersion(c, store, v101)
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
-	t111 := envtesting.UploadFakeToolsVersion(c, store, v111)
+	agentTools := envtesting.UploadFakeToolsVersions(c, store, v001, v100, v101, v111)
+	t001 := agentTools[0]
+	t100 := agentTools[1]
+	t101 := agentTools[2]
+	t111 := agentTools[3]
 
 	for i, t := range []struct {
 		majorVersion,
@@ -96,7 +84,7 @@ func (s *StorageSuite) assertReadList(c *gc.C) {
 		list, err := envtools.ReadList(store, t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
-			// Legacy tools retrieval doesn't set the Size of SHA256, so blank out those attributes.
+			// ReadList doesn't set the Size of SHA256, so blank out those attributes.
 			for _, tool := range t.list {
 				tool.Size = 0
 				tool.SHA256 = ""
@@ -106,16 +94,6 @@ func (s *StorageSuite) assertReadList(c *gc.C) {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 		}
 	}
-}
-
-func (s *StorageSuite) TestReadListLegacyLocation(c *gc.C) {
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	s.assertReadList(c)
-}
-
-func (s *StorageSuite) TestReadList(c *gc.C) {
-	envtools.SetToolPrefix(envtools.NewToolPrefix)
-	s.assertReadList(c)
 }
 
 var setenvTests = []struct {
