@@ -58,7 +58,7 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: `+DefaultMongoPassword+`
+        admin-secret: ` + DefaultMongoPassword + `
 `
 
 const SingleEnvConfig = EnvDefault + SingleEnvConfigNoDefault
@@ -69,12 +69,12 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: `+DefaultMongoPassword+`
+        admin-secret: ` + DefaultMongoPassword + `
     erewhemos-2:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: `+DefaultMongoPassword+`
+        admin-secret: ` + DefaultMongoPassword + `
 `
 
 const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
