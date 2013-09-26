@@ -5,8 +5,6 @@ package rpc
 
 import (
 	"errors"
-
-	"launchpad.net/juju-core/log"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
