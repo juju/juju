@@ -125,14 +125,14 @@ func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 	info.SetAPICredentials(configstore.APICredentials{User: "foo"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{CACert: "blah"})
 	attrs := map[string]interface{}{"foo": "bar"}
-	info.SetExtraConfig(attrs)
+	info.SetBootstrapConfig(attrs)
 
 	info1, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info1.Initialized(), jc.IsFalse)
 	c.Assert(info1.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
 	c.Assert(info1.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
-	c.Assert(info1.ExtraConfig(), gc.HasLen, 0)
+	c.Assert(info1.BootstrapConfig(), gc.HasLen, 0)
 
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
@@ -142,19 +142,19 @@ func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 	info1, err = store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info1.Initialized(), jc.IsTrue)
-	c.Assert(info1.ExtraConfig(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(info1.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
-func (s *interfaceSuite) TestSetExtraConfigPanicsWhenNotCreated(c *gc.C) {
+func (s *interfaceSuite) TestSetBootstrapConfigPanicsWhenNotCreated(c *gc.C) {
 	store := s.NewStore(c)
 
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
-	info.SetExtraConfig(map[string]interface{}{"foo": "bar"})
+	info.SetBootstrapConfig(map[string]interface{}{"foo": "bar"})
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
 
 	info, err = store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
-	c.Assert(func() { info.SetExtraConfig(nil) }, gc.PanicMatches, "extra config set on environment info that has not just been created")
+	c.Assert(func() { info.SetBootstrapConfig(nil) }, gc.PanicMatches, "bootstrap config set on environment info that has not just been created")
 }

@@ -26,14 +26,18 @@ type diskStore struct {
 }
 
 type environInfo struct {
-	path         string
-	initialized  bool
+	path string
+	// initialized signifies whether the info has been written.
+	initialized bool
+
+	// created signifies whether the info was returned from
+	// a CreateInfo call.
 	created      bool
 	User         string
 	Password     string
 	StateServers []string               `yaml:"state-servers"`
 	CACert       string                 `yaml:"ca-cert"`
-	Config       map[string]interface{} `yaml:",omitempty"`
+	Config       map[string]interface{} `yaml:"bootstrap-config,omitempty"`
 }
 
 // NewDisk returns a ConfigStorage implementation that stores
@@ -107,8 +111,8 @@ func (info *environInfo) Initialized() bool {
 	return info.initialized
 }
 
-// ExtraConfig implements EnvironInfo.ExtraConfig.
-func (info *environInfo) ExtraConfig() map[string]interface{} {
+// BootstrapConfig implements EnvironInfo.BootstrapConfig.
+func (info *environInfo) BootstrapConfig() map[string]interface{} {
 	return info.Config
 }
 
@@ -128,10 +132,10 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 	}
 }
 
-// SetExtraConfig implements EnvironInfo.SetExtraConfig.
-func (info *environInfo) SetExtraConfig(attrs map[string]interface{}) {
+// SetExtraConfig implements EnvironInfo.SetBootstrapConfig.
+func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	if !info.created {
-		panic("extra config set on environment info that has not just been created")
+		panic("bootstrap config set on environment info that has not just been created")
 	}
 	info.Config = attrs
 }
