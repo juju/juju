@@ -10,10 +10,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/apiserver/common"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type commonSuite struct{}
