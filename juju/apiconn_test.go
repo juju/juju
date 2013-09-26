@@ -5,6 +5,7 @@ package juju_test
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -91,8 +92,7 @@ func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 
 func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
-	// The default environment is "erewhemos", make sure we get the other one.
-	const envName = "erewhemos-2"
+	envName := coretesting.SampleCertName + "-2"
 	bootstrapEnv(c, envName, nil)
 	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, gc.IsNil)
@@ -320,16 +320,6 @@ func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 	c.Check(st, gc.IsNil)
 }
 
-//func (*NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
-//	defer coretesting.MakeSampleHome(c).Restore()
-//	bootstrapEnv(c, coretesting.SampleEnvName)
-//	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-//		endpoint: configstore.APIEndpoint{
-//			Addresses: []string{"infoapi.com"},
-//		},
-//	})
-//}
-
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
 func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
@@ -338,6 +328,63 @@ func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
+}
+
+func (*NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.BootstrapConfig(), gc.NotNil)
+	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
+
+	err = os.Remove(config.JujuHomePath("environments.yaml"))
+	c.Assert(err, gc.IsNil)
+
+	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)
+	c.Check(err, gc.IsNil)
+	st.Close()
+}
+
+func (*NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
+	// We want to make sure that the code is using the bootstrap
+	// config rather than information from environments.yaml,
+	// even when there is an entry in environments.yaml
+	// We can do that by changing the info bootstrap config
+	// so it has a different environment name.
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	c.Assert(err, gc.IsNil)
+
+	envName2 := coretesting.SampleCertName + "-2"
+	info2, err := store.CreateInfo(envName2)
+	c.Assert(err, gc.IsNil)
+	info2.SetBootstrapConfig(info.BootstrapConfig())
+	err = info2.Write()
+	c.Assert(err, gc.IsNil)
+
+	// Now we have info for envName2 which will actually
+	// cause a connection to the originally bootstrapped
+	// state.
+	st, err := juju.NewAPIFromName(envName2, store)
+	c.Check(err, gc.IsNil)
+	st.Close()
+
+	// Sanity check that connecting to the envName2
+	// but with no info fails.
+	// Currently this panics with an "environment not prepared" error.
+	// Disable for now until an upcoming branch fixes it.
+	//	err = info2.Destroy()
+	//	c.Assert(err, gc.IsNil)
+	//	st, err = juju.NewAPIFromName(envName2, store)
+	//	if err == nil {
+	//		st.Close()
+	//	}
+	//	c.Assert(err, gc.ErrorMatches, "fooobie")
 }
 
 func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {

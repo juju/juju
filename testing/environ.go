@@ -223,5 +223,5 @@ func MakeSampleHome(c *gc.C) *FakeHome {
 }
 
 func MakeMultipleEnvHome(c *gc.C) *FakeHome {
-	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
+	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, SampleCertName + "-2")
 }
