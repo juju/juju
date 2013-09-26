@@ -244,9 +244,10 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (t *localServerSuite) TestPrecheck(c *gc.C) {
+func (s *localServerSuite) TestPrecheck(c *gc.C) {
 	var cons constraints.Value
-	prechecker, ok := t.Env.(environs.Prechecker)
+	env := s.Prepare(c)
+	prechecker, ok := env.(environs.Prechecker)
 	c.Assert(ok, jc.IsTrue)
 	err := prechecker.PrecheckInstance("precise", cons)
 	c.Check(err, gc.IsNil)

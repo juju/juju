@@ -94,7 +94,7 @@ func (*environSuite) TestPrecheck(c *gc.C) {
 	var cons constraints.Value
 	err := env.PrecheckInstance("saucy", cons)
 	c.Check(err, gc.IsNil)
-	err = env.PrecheckContainer(instance.LXC)
+	err = env.PrecheckContainer("saucy", instance.LXC)
 	c.Check(err, gc.ErrorMatches, "azure provider does not support containers")
 }
 
