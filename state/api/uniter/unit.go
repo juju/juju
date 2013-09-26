@@ -140,7 +140,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return map[string]interface{}(result.Settings), nil
+	return charm.Settings(result.Settings), nil
 }
 
 // ServiceName returns the service name.

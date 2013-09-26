@@ -1116,6 +1116,31 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"other":        "things",
+		"invalid-bool": false,
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag(), Unit: "unit-wordpress-0"},
+	}}
+	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
+	result, err := s.uniter.ReadSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Error: &params.Error{Message: expectErr}},
+		},
+	})
+}
+
 func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
@@ -1187,6 +1212,33 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 			{Settings: params.RelationSettings{
 				"other": "things",
 			}},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"other":        "things",
+		"invalid-bool": false,
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "unit-mysql-0",
+	}}}
+	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
+	result, err := s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }

@@ -6,6 +6,8 @@
 package uniter
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -791,14 +793,17 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 	return result, nil
 }
 
-func convertRelationSettings(settings map[string]interface{}) params.RelationSettings {
+func convertRelationSettings(settings map[string]interface{}) (params.RelationSettings, error) {
 	result := make(params.RelationSettings)
 	for k, v := range settings {
 		// All relation settings should be strings.
-		sval, _ := v.(string)
+		sval, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected relation setting %q: expected string, got %T", k, v)
+		}
 		result[k] = sval
 	}
-	return result
+	return result, nil
 }
 
 // ReadSettings returns the local settings of each given set of
@@ -817,7 +822,7 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.RelationSett
 			var settings *state.Settings
 			settings, err = relUnit.Settings()
 			if err == nil {
-				result.Results[i].Settings = convertRelationSettings(settings.Map())
+				result.Results[i].Settings, err = convertRelationSettings(settings.Map())
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -862,7 +867,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Re
 				var settings map[string]interface{}
 				settings, err = relUnit.ReadSettings(remoteUnit)
 				if err == nil {
-					result.Results[i].Settings = convertRelationSettings(settings)
+					result.Results[i].Settings, err = convertRelationSettings(settings)
 				}
 			}
 		}
