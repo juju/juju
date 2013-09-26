@@ -107,7 +107,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 			continue
 		}
 		if container.IsRunning() {
-			// result = append(result, &kvmInstance{container, name})
+			result = append(result, &kvmInstance{container, name})
 		}
 	}
 	return
