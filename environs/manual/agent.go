@@ -68,10 +68,14 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	// and prerequisite packages out of. Rather than generating a cloud-config,
 	// we'll just generate a shell script.
 	var mcfg *cloudinit.MachineConfig
+	// TODO(jam): 2013-09-26 http://pad.lv/1231313
+	// We should have a test about what the right value of
+	// disableSSLHostnameVerification should be
+	disableSSLHostnameVerification := false
 	if args.bootstrap {
-		mcfg = environs.NewBootstrapMachineConfig(args.machineId, args.nonce)
+		mcfg = environs.NewBootstrapMachineConfig(args.machineId, args.nonce, disableSSLHostnameVerification)
 	} else {
-		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo)
+		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo, disableSSLHostnameVerification)
 	}
 	if args.dataDir != "" {
 		mcfg.DataDir = args.dataDir
