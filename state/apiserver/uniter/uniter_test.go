@@ -808,10 +808,10 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ConfigSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.ConfigSettingsResults{
+		Results: []params.ConfigSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{"blog-title": "My Title"}},
+			{Settings: params.ConfigSettings{"blog-title": "My Title"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -1097,10 +1097,10 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{
+			{Settings: params.RelationSettings{
 				"some": "settings",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1146,8 +1146,8 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: &params.Error{Message: expectErr}},
@@ -1182,9 +1182,9 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}}}
 	result, err = s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Settings: params.RelationSettings{
 				"other": "things",
 			}},
 		},
@@ -1202,7 +1202,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	err = relUnit.EnterScope(settings)
 	s.assertInScope(c, relUnit, true)
 
-	newSettings := params.Settings{
+	newSettings := params.RelationSettings{
 		"some":  "different",
 		"other": "",
 	}

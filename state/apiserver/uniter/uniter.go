@@ -489,13 +489,13 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 
 // ConfigSettings returns the complete set of service charm config
 // settings available to each given unit.
-func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults, error) {
-	result := params.SettingsResults{
-		Results: make([]params.SettingsResult, len(args.Entities)),
+func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {
+	result := params.ConfigSettingsResults{
+		Results: make([]params.ConfigSettingsResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.SettingsResults{}, err
+		return params.ConfigSettingsResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -506,7 +506,7 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
 				if err == nil {
-					result.Results[i].Settings = convertSettings(settings)
+					result.Results[i].Settings = params.ConfigSettings(settings)
 				}
 			}
 		}
@@ -791,8 +791,8 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 	return result, nil
 }
 
-func convertSettings(settings map[string]interface{}) params.Settings {
-	result := make(params.Settings)
+func convertRelationSettings(settings map[string]interface{}) params.RelationSettings {
+	result := make(params.RelationSettings)
 	for k, v := range settings {
 		// All relation settings should be strings.
 		sval, _ := v.(string)
@@ -803,13 +803,13 @@ func convertSettings(settings map[string]interface{}) params.Settings {
 
 // ReadSettings returns the local settings of each given set of
 // relation/unit.
-func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResults, error) {
-	result := params.SettingsResults{
-		Results: make([]params.SettingsResult, len(args.RelationUnits)),
+func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.RelationSettingsResults, error) {
+	result := params.RelationSettingsResults{
+		Results: make([]params.RelationSettingsResult, len(args.RelationUnits)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.SettingsResults{}, err
+		return params.RelationSettingsResults{}, err
 	}
 	for i, arg := range args.RelationUnits {
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
@@ -817,7 +817,7 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			var settings *state.Settings
 			settings, err = relUnit.Settings()
 			if err == nil {
-				result.Results[i].Settings = convertSettings(settings.Map())
+				result.Results[i].Settings = convertRelationSettings(settings.Map())
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -845,13 +845,13 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 
 // ReadRemoteSettings returns the remote settings of each given set of
 // relation/local unit/remote unit.
-func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
-	result := params.SettingsResults{
-		Results: make([]params.SettingsResult, len(args.RelationUnitPairs)),
+func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.RelationSettingsResults, error) {
+	result := params.RelationSettingsResults{
+		Results: make([]params.RelationSettingsResult, len(args.RelationUnitPairs)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.SettingsResults{}, err
+		return params.RelationSettingsResults{}, err
 	}
 	for i, arg := range args.RelationUnitPairs {
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.LocalUnit)
@@ -862,7 +862,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 				var settings map[string]interface{}
 				settings, err = relUnit.ReadSettings(remoteUnit)
 				if err == nil {
-					result.Results[i].Settings = convertSettings(settings)
+					result.Results[i].Settings = convertRelationSettings(settings)
 				}
 			}
 		}

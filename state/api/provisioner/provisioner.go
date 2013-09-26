@@ -71,7 +71,7 @@ func (st *State) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
 
 // EnvironConfig returns the current environment configuration.
 func (st *State) EnvironConfig() (*config.Config, error) {
-	var result params.ConfigResult
+	var result params.EnvironConfigResult
 	err := st.caller.Call("Provisioner", "", "EnvironConfig", nil, &result)
 	if err != nil {
 		return nil, err

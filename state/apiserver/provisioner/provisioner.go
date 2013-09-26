@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -151,8 +152,8 @@ func (p *ProvisionerAPI) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 }
 
 // EnvironConfig returns the current environment's configuration.
-func (p *ProvisionerAPI) EnvironConfig() (params.ConfigResult, error) {
-	result := params.ConfigResult{}
+func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
+	result := params.EnvironConfigResult{}
 	config, err := p.st.EnvironConfig()
 	if err != nil {
 		return result, err
