@@ -70,6 +70,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	return env, nil
 }
 
+// Name is specified in the Environ interface.
 func (env *maasEnviron) Name() string {
 	return env.name
 }

@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -95,6 +96,18 @@ func (env *localEnviron) ensureCertOwner() error {
 		}
 	}
 	return nil
+}
+
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the local
+	// provider can do nested containers.
+	return coreerrors.NewContainersUnsupported(nil, "local provider does not support nested containers")
 }
 
 // Bootstrap is specified in the Environ interface.

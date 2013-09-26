@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -305,6 +306,18 @@ func (e *environ) s3() *s3.S3 {
 	s3 := e.s3Unlocked
 	e.ecfgMutex.Unlock()
 	return s3
+}
+
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the ec2
+	// provider manages container addressibility.
+	return coreerrors.NewContainersUnsupported(nil, "ec2 provider does not support containers")
 }
 
 func (e *environ) Name() string {

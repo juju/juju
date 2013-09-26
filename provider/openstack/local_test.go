@@ -244,6 +244,17 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+func (s *localServerSuite) TestPrecheck(c *gc.C) {
+	var cons constraints.Value
+	env := s.Prepare(c)
+	prechecker, ok := env.(environs.Prechecker)
+	c.Assert(ok, jc.IsTrue)
+	err := prechecker.PrecheckInstance("precise", cons)
+	c.Check(err, gc.IsNil)
+	err = prechecker.PrecheckContainer("precise", instance.LXC)
+	c.Check(err, gc.ErrorMatches, "openstack provider does not support containers")
+}
+
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
