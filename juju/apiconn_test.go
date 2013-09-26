@@ -367,7 +367,7 @@ type environInfo struct {
 	configstore.EnvironInfo // panic on methods we don't care about
 	creds                   configstore.APICredentials
 	endpoint                configstore.APIEndpoint
-	bootstrapConfig map[string]interface{}
+	bootstrapConfig         map[string]interface{}
 	err                     error
 }
 

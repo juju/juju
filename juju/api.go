@@ -224,7 +224,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	if info != nil {
 		log.Infof("info not nil; %#v\n", info)
 		done := make(chan struct{})
-		go func() {info.BootstrapConfig(); done <- struct{}{}}()
+		go func() { info.BootstrapConfig(); done <- struct{}{} }()
 		<-done
 		log.Infof("called bootstrapconfig")
 	}
