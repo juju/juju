@@ -62,7 +62,7 @@ func SampleConfig() testing.Attrs {
 		"name":                      "only",
 		"authorized-keys":           "my-keys",
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              "fish",
+		"admin-secret":              testing.DefaultMongoPassword,
 		"ca-cert":                   testing.CACert,
 		"ca-private-key":            testing.CAKey,
 		"ssl-hostname-verification": true,
