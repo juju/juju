@@ -6,11 +6,11 @@ package worker
 import (
 	"errors"
 
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 )
@@ -18,6 +18,8 @@ import (
 var ErrTerminateAgent = errors.New("agent should be terminated")
 
 var loadedInvalid = func() {}
+
+var logger = loggo.GetLogger("juju.worker")
 
 // EnvironConfigGetter interface defines a way to read the environment
 // configuration.
@@ -45,7 +47,7 @@ func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-
 			if err == nil {
 				return environ, nil
 			}
-			log.Errorf("worker: loaded invalid environment configuration: %v", err)
+			logger.Errorf("loaded invalid environment configuration: %v", err)
 			loadedInvalid()
 		}
 	}
