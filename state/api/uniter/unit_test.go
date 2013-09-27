@@ -60,10 +60,6 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
-
-	err = s.apiUnit.SetStatus(params.StatusStarted, "blah", nil)
-	c.Assert(err, gc.IsNil)
-
 }
 
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
