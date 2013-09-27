@@ -281,6 +281,13 @@ type testMachine struct {
 	refresh         func() error
 }
 
+func (m *testMachine) Id() string {
+	if m.id == "" {
+		panic("Id called but not set")
+	}
+	return m.id
+}
+
 func (m *testMachine) Addresses() []instance.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()

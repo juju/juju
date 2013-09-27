@@ -2,18 +2,22 @@ package addresspublisher
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.addresspublisher")
+
+var (
+	longPoll  = 10 * time.Second
+	shortPoll = 500 * time.Millisecond
+)
 
 //func NewAddressPublisher() worker.Worker {
 //	p := &publisher{
@@ -26,15 +30,16 @@ var logger = loggo.GetLogger("juju.worker.addresspublisher")
 //	}()
 //}
 
-type publisher struct {
-	st   *state.State
-	tomb tomb.Tomb
-
-	mu      sync.Mutex
-	environ environs.Environ
-}
+//type publisher struct {
+//	st   *state.State
+//	tomb tomb.Tomb
+//
+//	mu      sync.Mutex
+//	environ environs.Environ
+//}
 
 type machine interface {
+	Id() string
 	Addresses() []instance.Address
 	InstanceId() (instance.Id, error)
 	SetAddresses([]instance.Address) error
@@ -57,49 +62,83 @@ type machineAddress struct {
 
 var _ machine = (*state.Machine)(nil)
 
-//func (p *publisher) loop() error {
-//	w := p.st.WatchEnvironMachines()
-//	machines := make(map[string] chan struct{})
-//	machineDead := make(chan string)
-////	publishFunc := func(addrs []
-////	publisherc := make(chan machineAddress)
-////	go publisher(publisherc)
-//	defer func() {
-//		w.Stop()
-//		for len(machines) > 0 {
-//			delete(machines, <-machineDead)
-//		}
-////		close(publisherc)
-//	}()
-//	for {
-//		select {
-//		case ids, ok  := <-w.Changes():
-//			if !ok {
-//				return watcher.MustErr(w)
-//			}
-//			for _, id := range ids {
-//				c := machines[id]
-//				if c == nil {
-//					// We don't know about the machine - start
-//					// a goroutine to deal with it.
-//					c = make(chan struct{})
-//					machines[id] = c
-//					go machine(id, c, machineDead)
-//				}
-//				c <- struct{}{}
-//			}
-//		case id := <-machineDead:
-//			delete(machines, id)
-//		case <-tomb.Dying():
-//			return nil
-//		}
-//	}
-//}
+type machinesWatcher interface {
+	Changes() <-chan []string
+	Err() error
+	Stop() error
+}
 
-var (
-	longPoll  = 10 * time.Second
-	shortPoll = 500 * time.Millisecond
-)
+type publisherContext interface {
+	newMachineContext(id string) machineContext
+	getMachine(id string) (machine, error)
+	dying() <-chan struct{}
+}
+
+type publisher struct {
+	ctxt publisherContext
+	machines map[string] chan struct{}
+	machineDead chan machine
+	publisherc chan machineAddress
+}
+
+// watchMachinesLoop watches for changes provided by the given
+// machinesWatcher and starts machine goroutines to deal
+// with them, using the provided newMachineContext
+// function to create the appropriate context for each new machine id.
+func watchMachinesLoop(ctxt publisherContext, w machinesWatcher) error {
+	p := &publisher{
+		ctxt: ctxt,
+		machines: make(map[string] chan struct{}),
+		machineDead: make(chan machine),
+		publisherc: make(chan machineAddress),
+	}
+	go publisherLoop(p.publisherc)
+	defer func() {
+		w.Stop()
+		for len(p.machines) > 0 {
+			delete(p.machines, (<-p.machineDead).Id())
+		}
+		close(p.publisherc)
+	}()
+	for {
+		select {
+		case ids, ok  := <-w.Changes():
+			if !ok {
+				return watcher.MustErr(w)
+			}
+			if err := p.startMachines(ids); err != nil {
+				return err
+			}
+		case m := <-p.machineDead:
+			delete(p.machines, m.Id())
+		case <-p.ctxt.dying():
+			return nil
+		}
+	}
+}
+
+func (p *publisher) startMachines(ids []string) error {
+	for _, id := range ids {
+		if c := p.machines[id]; c == nil {
+			// We don't know about the machine - start
+			// a goroutine to deal with it.
+			m, err := p.ctxt.getMachine(id)
+			if errors.IsNotFoundError(err) {
+				logger.Warningf("watcher gave notification of non-existent machine %q", id)
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			c = make(chan struct{})
+			p.machines[id] = c
+			go runMachine(p.ctxt.newMachineContext(id), m, c, p.machineDead, p.publisherc)
+		} else {
+			c <- struct{}{}
+		}
+	}
+	return nil
+}
 
 // runMachine processes the address publishing for a given machine.
 // We assume that the machine is alive when this is first called.
@@ -122,7 +161,6 @@ func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died ch
 }
 
 func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, publisherc chan<- machineAddress) error {
-
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
@@ -182,7 +220,11 @@ func addressesEqual(a0, a1 []instance.Address) bool {
 	return true
 }
 
-//
+func publisherLoop(c <-chan machineAddress) {
+	for _ = range c {
+	}
+}
+
 //func publisher(c <-chan machineAddress, publish func(addresses []string)) {
 //	addresses := set.NewStrings()
 //	stateServers := make(map[machine] machineAddress)
