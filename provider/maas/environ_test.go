@@ -292,7 +292,6 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	envtesting.RemoveTools(c, env.Storage())
 	instance, _, err = provider.StartInstance(env, "2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no tools available")
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
@@ -450,7 +449,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Check(err, gc.FitsTypeOf, errors.NotFoundf(""))
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
