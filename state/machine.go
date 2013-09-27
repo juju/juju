@@ -702,13 +702,14 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.Status, info string, err error) {
+func (m *Machine) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	status = doc.Status
 	info = doc.StatusInfo
+	data = doc.StatusData
 	return
 }
 
