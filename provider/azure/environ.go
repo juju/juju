@@ -917,7 +917,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
+	// Add the simplestreams source off the control bucket and public location.
 	sources := []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath),
 		simplestreams.NewURLDataSource(

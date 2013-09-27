@@ -51,7 +51,7 @@ func NewDisk(dir string) (Storage, error) {
 }
 
 func (d *diskStore) envPath(envName string) string {
-	return filepath.Join(d.dir, "environments", envName+".yaml")
+	return filepath.Join(d.dir, "environments", envName+".jenv")
 }
 
 func (d *diskStore) mkEnvironmentsDir() error {
