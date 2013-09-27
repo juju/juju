@@ -273,7 +273,7 @@ var configTests = []configTest{
 			"authorized-keys": "my-keys",
 			"development":     "true",
 		},
-		err: "development: expected bool, got \"true\"",
+		err: `development: expected bool, got string\("true"\)`,
 	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
@@ -386,7 +386,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"ssl-hostname-verification": "yes please",
 		},
-		err: `ssl-hostname-verification: expected bool, got "yes please"`,
+		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
@@ -403,7 +403,7 @@ var configTests = []configTest{
 			"name":       "my-name",
 			"state-port": "illegal",
 		},
-		err: `state-port: expected number, got "illegal"`,
+		err: `state-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Explicit API port",
 		useDefaults: config.UseDefaults,
@@ -420,7 +420,7 @@ var configTests = []configTest{
 			"name":     "my-name",
 			"api-port": "illegal",
 		},
-		err: `api-port: expected number, got "illegal"`,
+		err: `api-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
@@ -910,7 +910,7 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	// Invalid field: failure.
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
-	c.Assert(err, gc.ErrorMatches, `known: expected int, got "this"`)
+	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
 }
 
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
