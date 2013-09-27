@@ -260,7 +260,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 		return err
 	}
 	buf := make([]byte, length)
-	if _, err := r.Read(buf); err != nil {
+	if _, err := io.ReadFull(r, buf); err != nil {
 		return err
 	}
 	path = utils.ShQuote(path)

@@ -24,7 +24,6 @@ const BootstrapInstanceId = instance.Id(manualInstancePrefix)
 // manages its own local storage.
 type LocalStorageEnviron interface {
 	environs.Environ
-	environs.BootstrapStorager
 	localstorage.LocalStorageConfig
 }
 
@@ -65,11 +64,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	bootstrapStorage, err := args.Environ.BootstrapStorage()
-	if err != nil {
-		return err
-	}
-
+	bootstrapStorage := args.Environ.Storage()
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
 	if err != nil {
 		return fmt.Errorf("error detecting hardware characteristics: %v", err)

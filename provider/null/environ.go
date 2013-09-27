@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sshstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
@@ -38,8 +39,9 @@ const (
 )
 
 type nullEnviron struct {
-	cfg      *environConfig
-	cfgmutex sync.Mutex
+	cfg              *environConfig
+	cfgmutex         sync.Mutex
+	bootstrapStorage *sshstorage.SSHStorage
 }
 
 var errNoStartInstance = errors.New("null provider cannot start instances")
@@ -120,15 +122,42 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	return instances, err
 }
 
-// Implements environs/bootstrap.BootstrapStorage.
-func (e *nullEnviron) BootstrapStorage() (storage.Storage, error) {
+// Implements environs.BootstrapStorager.
+func (e *nullEnviron) EnableBootstrapStorage(enable bool) (wasEnabled bool, err error) {
+	if !enable {
+		if e.bootstrapStorage != nil {
+			e.bootstrapStorage.Close()
+			e.bootstrapStorage = nil
+			return true, nil
+		}
+		return false, errors.New("bootstrap storage already disabled")
+	} else if e.bootstrapStorage != nil {
+		return true, errors.New("bootstrap storage already enabled")
+	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	return sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	storage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	if err != nil {
+		return false, err
+	}
+	e.bootstrapStorage = storage
+	return false, nil
+}
+
+// GetToolsSources returns a list of sources which are
+// used to search for simplestreams tools metadata.
+func (e *nullEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off private storage.
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+	}, nil
 }
 
 func (e *nullEnviron) Storage() storage.Storage {
+	if e.bootstrapStorage != nil {
+		return e.bootstrapStorage
+	}
 	return httpstorage.Client(e.envConfig().storageAddr())
 }
 

@@ -4,11 +4,15 @@
 package null
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -78,4 +82,15 @@ func (s *environSuite) TestLocalStorageConfig(c *gc.C) {
 	c.Assert(s.env.StorageAddr(), gc.Equals, s.env.cfg.storageListenAddr())
 	c.Assert(s.env.SharedStorageAddr(), gc.Equals, "")
 	c.Assert(s.env.SharedStorageDir(), gc.Equals, "")
+}
+
+// localEnviron implements SupportsCustomSources.
+func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
+	c.Assert(s.env, gc.Implements, new(tools.SupportsCustomSources))
+	sources, err := tools.GetMetadataSources(s.env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	url, err := sources[0].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
 }

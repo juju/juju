@@ -141,6 +141,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 	if err != nil {
 		return err
 	}
+
 	// Here we wrap up the reader.  For some freaky unexplainable reason, the
 	// http library will call Close on the reader if it has a Close method
 	// available.  Since we sometimes reuse the reader, especially when
