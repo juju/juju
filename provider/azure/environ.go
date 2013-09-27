@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -147,7 +146,7 @@ func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) err
 func (*azureEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.
-	return coreerrors.NewContainersUnsupported(nil, "azure provider does not support containers")
+	return environs.NewContainersUnsupported("azure provider does not support containers")
 }
 
 // Name is specified in the Environ interface.

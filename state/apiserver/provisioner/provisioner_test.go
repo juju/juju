@@ -46,7 +46,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// for the tests.
 	s.machines = nil
 	for i := 0; i < 3; i++ {
-		machine, err := s.State.AddMachine("series", state.JobHostUnits)
+		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -151,7 +151,7 @@ func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	constraints := state.AddMachineParams{
 		ParentId:      s.machines[0].Id(),
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	var containers []*state.Machine
@@ -501,7 +501,7 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	machineParams := state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=123", "mem=8G"),
 	}

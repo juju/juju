@@ -35,7 +35,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit.Series(), gc.Equals, "series")
+	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 }
 
 func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
@@ -170,7 +170,7 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -209,7 +209,7 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -512,7 +512,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -530,7 +530,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -706,7 +706,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Add a new machine, assign the units to it
 	// and set its password.
-	m, err := st.AddMachine("series", state.JobHostUnits)
+	m, err := st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	unit, err := st.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)

@@ -34,10 +34,10 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
 	c.Assert(dummy.Revision(), gc.Equals, 1)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/series-dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/quantal-dummy-1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
-	c.Assert(dummy.BundleSha256(), gc.Equals, "series-dummy-1-sha256")
+	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
 	meta := dummy.Meta()
 	c.Assert(meta.Name, gc.Equals, "dummy")
 	config := dummy.Config()
@@ -99,7 +99,7 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		revision := chd.Revision()
 
 		ch := s.AddTestingCharm(c, name)
-		assertCustomCharm(c, ch, "series", meta, config, revision)
+		assertCustomCharm(c, ch, "quantal", meta, config, revision)
 
 		ch = s.AddSeriesCharm(c, name, "anotherseries")
 		assertCustomCharm(c, ch, "anotherseries", meta, config, revision)
@@ -123,7 +123,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 		meta := chd.Meta()
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
-		assertCustomCharm(c, ch, "series", meta, config, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }
 
@@ -141,6 +141,6 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
-		assertCustomCharm(c, ch, "series", meta, config, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }

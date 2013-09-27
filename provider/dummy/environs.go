@@ -39,7 +39,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
@@ -269,8 +268,6 @@ func newState(name string, ops chan<- Operation) *environState {
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
 	s.listen()
-	// TODO(fwereade): get rid of these.
-	envtesting.MustUploadFakeTools(s.publicStorage)
 	return s
 }
 
@@ -487,7 +484,13 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+	private := storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)
+	publicURL, err := e.PublicStorage().URL(storage.BaseToolsPath)
+	if err != nil {
+		return nil, err
+	}
+	return []simplestreams.DataSource{
+		private, simplestreams.NewURLDataSource(publicURL, simplestreams.VerifySSLHostnames)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {

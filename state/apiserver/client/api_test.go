@@ -207,7 +207,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, "machine-0")
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
@@ -237,7 +237,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Tag(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 		if i == 1 {

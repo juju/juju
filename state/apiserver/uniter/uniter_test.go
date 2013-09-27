@@ -51,9 +51,9 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.wordpress, err = s.State.AddService("wordpress", s.wpCharm)
 	c.Assert(err, gc.IsNil)
@@ -678,9 +678,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
-		{Tag: "unit-mysql-0", CharmURL: "cs:series/service-42"},
+		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/service-42"},
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
-		{Tag: "unit-foo-42", CharmURL: "cs:series/foo-321"},
+		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
 	}}
 	result, err := s.uniter.SetCharmURL(args)
 	c.Assert(err, gc.IsNil)

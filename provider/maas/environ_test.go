@@ -292,7 +292,6 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	envtesting.RemoveTools(c, env.Storage())
 	instance, _, err = provider.StartInstance(env, "2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no tools available")
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
@@ -306,7 +305,7 @@ func stringp(val string) *string {
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	stor := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
@@ -321,7 +320,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	stor := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
@@ -410,7 +409,7 @@ func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 
 	_, _, err := env.StateInfo()
 
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *environSuite) TestDestroy(c *gc.C) {
@@ -450,7 +449,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

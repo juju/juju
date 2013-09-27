@@ -112,7 +112,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		URL:     "http://foo.com/tools/releases/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())

@@ -48,7 +48,7 @@ var marshalTestCases = []struct {
 		Entity: &params.ServiceInfo{
 			Name:        "Benji",
 			Exposed:     true,
-			CharmURL:    "cs:series/name",
+			CharmURL:    "cs:quantal/name",
 			Life:        params.Life(state.Dying.String()),
 			MinUnits:    42,
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
@@ -58,7 +58,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{

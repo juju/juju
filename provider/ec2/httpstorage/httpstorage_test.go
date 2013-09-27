@@ -43,13 +43,13 @@ func (s *storageSuite) TearDownTest(c *gc.C) {
 
 func (s *storageSuite) TestHTTPStorage(c *gc.C) {
 	sr := httpstorage.NewHTTPStorageReader(s.storage.Location())
-	list, err := storage.List(sr, "tools/juju-")
+	list, err := storage.List(sr, "tools/releases/juju-")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(list), gc.Equals, 6)
 
 	url, err := sr.URL(list[0])
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Matches, "http://127.0.0.1:.*/tools/juju-1.0.0-precise-amd64.tgz")
+	c.Assert(url, gc.Matches, "http://127.0.0.1:.*/tools/releases/juju-1.0.0-precise-amd64.tgz")
 
 	rc, err := storage.Get(sr, list[0])
 	c.Assert(err, gc.IsNil)
