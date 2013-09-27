@@ -16,6 +16,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2/httpstorage"
@@ -240,6 +241,10 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		return nil, err
 	}
 	for _, series := range fakeSeries {
+		_, err := simplestreams.SeriesVersion(series)
+		if err != nil {
+			return nil, err
+		}
 		if series != toolsVersion.Series {
 			fakeVersion := toolsVersion
 			fakeVersion.Series = series

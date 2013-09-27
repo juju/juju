@@ -116,7 +116,7 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	oldTools := envtesting.PrimeTools(
 		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
-	newTools := envtesting.UploadFakeToolsVersions(
+	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-foo-bar"))[0]
 
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
@@ -143,7 +143,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	oldTools := envtesting.PrimeTools(
 		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
-	newTools := envtesting.UploadFakeToolsVersions(
+	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-foo-bar"))[0]
 
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
@@ -169,7 +169,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	// Make it upgrade to some newer tools that can be
 	// downloaded ok; it should stop retrying, download
 	// the newer tools and exit.
-	newerTools := envtesting.UploadFakeToolsVersions(
+	newerTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.6-foo-bar"))[0]
 
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)

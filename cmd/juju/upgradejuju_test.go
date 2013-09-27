@@ -304,7 +304,10 @@ func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series 
 			versions = append(versions, newVers)
 		}
 	}
-	agentTools := envtesting.MustUploadFakeToolsVersions(stor, versions...)
+	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
+	if err != nil {
+		return nil, err
+	}
 	return agentTools[0], nil
 }
 

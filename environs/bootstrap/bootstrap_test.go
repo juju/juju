@@ -14,15 +14,15 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	envtools "launchpad.net/juju-core/environs/tools"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 func Test(t *stdtesting.T) {
@@ -85,7 +85,7 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 func uploadTools(c *gc.C, env environs.Environ) {
 	usefulVersion := version.Current
 	usefulVersion.Series = env.Config().DefaultSeries()
-	envtesting.UploadFakeToolsVersions(c, env.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
@@ -158,7 +158,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		envtesting.RemoveAllTools(c, env)
 
 		version.Current = test.CliVersion
-		envtesting.UploadFakeToolsVersions(c, env.Storage(), test.Available...)
+		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), test.Available...)
 
 		cons := constraints.Value{}
 		if test.Arch != "" {

@@ -57,7 +57,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
-	agentTools := envtesting.UploadFakeToolsVersions(c, store, v001, v100, v101, v111)
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, store, v001, v100, v101, v111)
 	t001 := agentTools[0]
 	t100 := agentTools[1]
 	t101 := agentTools[2]

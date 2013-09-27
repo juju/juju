@@ -150,7 +150,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	if uploadCount == 0 {
 		usefulVersion := version.Current
 		usefulVersion.Series = env.Config().DefaultSeries()
-		envtesting.UploadFakeToolsVersions(c, env.Storage(), usefulVersion)
+		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
 	// Run command and check for uploads.
@@ -180,6 +180,12 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 	if !c.Check(<-errc, gc.IsNil) {
 		return
+	}
+	if len(test.uploads) > 0 {
+		indexFile := (<-opc).(dummy.OpPutFile)
+		c.Check(indexFile.FileName, gc.Equals, "tools/streams/v1/index.json")
+		productFile := (<-opc).(dummy.OpPutFile)
+		c.Check(productFile.FileName, gc.Equals, "tools/streams/v1/com.ubuntu.juju:released:tools.json")
 	}
 	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
@@ -226,38 +232,33 @@ var bootstrapTests = []bootstrapTest{{
 	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
 }, {
 	info:    "--upload-tools picks all reasonable series",
-	version: "1.2.3-saucy-hostarch",
+	version: "1.2.3-saucy-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.1-saucy-hostarch",   // from version.Current
-		"1.2.3.1-raring-hostarch",  // from env.Config().DefaultSeries()
-		"1.2.3.1-precise-hostarch", // from environs/config.DefaultSeries
+		"1.2.3.1-saucy-amd64",   // from version.Current
+		"1.2.3.1-raring-amd64",  // from env.Config().DefaultSeries()
+		"1.2.3.1-precise-amd64", // from environs/config.DefaultSeries
 	},
 }, {
 	info:    "--upload-tools only uploads each file once",
-	version: "1.2.3-precise-hostarch",
+	version: "1.2.3-precise-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.1-raring-hostarch",
-		"1.2.3.1-precise-hostarch",
+		"1.2.3.1-raring-amd64",
+		"1.2.3.1-precise-amd64",
 	},
 }, {
 	info:    "--upload-tools rejects invalid series",
-	version: "1.2.3-saucy-hostarch",
+	version: "1.2.3-saucy-amd64",
 	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
-	uploads: []string{
-		"1.2.3.1-saucy-hostarch",
-		"1.2.3.1-ping-hostarch",
-		"1.2.3.1-pong-hostarch",
-	},
-	err: `no matching tools available`,
+	err:     `invalid series "ping"`,
 }, {
 	info:    "--upload-tools always bumps build number",
-	version: "1.2.3.4-raring-hostarch",
+	version: "1.2.3.4-raring-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.5-raring-hostarch",
-		"1.2.3.5-precise-hostarch",
+		"1.2.3.5-raring-amd64",
+		"1.2.3.5-precise-amd64",
 	},
 }}
 

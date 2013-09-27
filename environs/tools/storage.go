@@ -15,8 +15,8 @@ import (
 var ErrNoTools = errors.New("no tools available")
 
 const (
-	toolPrefix     = "tools/releases/juju-"
-	toolSuffix        = ".tgz"
+	toolPrefix = "tools/releases/juju-"
+	toolSuffix = ".tgz"
 )
 
 // StorageName returns the name that is used to store and retrieve the

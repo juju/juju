@@ -135,7 +135,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Bina
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
 	c.Assert(err, gc.IsNil)
 	version.Current = vers
-	agentTools := UploadFakeToolsVersions(c, stor, vers)[0]
+	agentTools := AssertUploadFakeToolsVersions(c, stor, vers)[0]
 	err = generateFakeToolsMetadata(stor, vers)
 	c.Assert(err, gc.IsNil)
 	resp, err := http.Get(agentTools.URL)
@@ -163,7 +163,7 @@ func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretoo
 }
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
-func uploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) ([]*coretools.Tools, error) {
+func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) ([]*coretools.Tools, error) {
 	var agentTools []*coretools.Tools = make([]*coretools.Tools, len(versions))
 	for i, version := range versions {
 		t, err := uploadFakeToolsVersion(stor, version)
@@ -179,9 +179,9 @@ func uploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 	return agentTools, nil
 }
 
-// UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
-func UploadFakeToolsVersions(c *gc.C, stor storage.Storage, versions ...version.Binary) []*coretools.Tools {
-	agentTools, err := uploadFakeToolsVersions(stor, versions...)
+// AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
+func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, versions ...version.Binary) []*coretools.Tools {
+	agentTools, err := UploadFakeToolsVersions(stor, versions...)
 	c.Assert(err, gc.IsNil)
 	return agentTools
 }
@@ -210,7 +210,7 @@ func uploadFakeTools(stor storage.Storage) error {
 		toolsVersion.Series = config.DefaultSeries
 		versions = append(versions, toolsVersion)
 	}
-	if _, err := uploadFakeToolsVersions(stor, versions...); err != nil {
+	if _, err := UploadFakeToolsVersions(stor, versions...); err != nil {
 		return err
 	}
 	return nil

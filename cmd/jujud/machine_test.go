@@ -260,7 +260,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "series" // to match the charm created below
-	envtesting.UploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)

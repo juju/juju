@@ -289,7 +289,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := envtesting.UploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)[0]
+	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)[0]
 	s.proposeVersion(c, newVers.Number)
 	err := runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
