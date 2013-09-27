@@ -118,7 +118,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	// Since the script failed, the state file should have been
 	// removed from storage.
 	_, err = provider.LoadState(s.env.storage)
-	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyDataDir(c *gc.C) {

@@ -4,8 +4,6 @@
 package environs
 
 import (
-	"errors"
-
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
@@ -57,13 +55,7 @@ type EnvironProvider interface {
 	PrivateAddress() (string, error)
 }
 
-var (
-	ErrNoInstances      = errors.New("no instances found")
-	ErrPartialInstances = errors.New("only some instances were found")
-	ErrNotBootstrapped  = errors.New("environment is not bootstrapped")
-)
-
-// EnvironStorage implements storage access for an environment.
+// EnvironStorage implements storage access for an environment
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage

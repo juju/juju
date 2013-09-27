@@ -36,13 +36,9 @@ func (s *errorSatisfier) String() string {
 func (*errorsSuite) TestNotFoundError(c *gc.C) {
 	isNotFoundError := &errorSatisfier{errors.IsNotFoundError}
 	isUnauthorizedError := &errorSatisfier{errors.IsUnauthorizedError}
-	isNotBootstrapped := &errorSatisfier{errors.IsNotBootstrapped}
-	isContainersUnsupported := &errorSatisfier{errors.IsContainersUnsupported}
 	satisfiers := []*errorSatisfier{
 		isNotFoundError,
 		isUnauthorizedError,
-		isNotBootstrapped,
-		isContainersUnsupported,
 	}
 
 	// make some errors, and record the errorSatsifier
@@ -80,14 +76,6 @@ func (*errorsSuite) TestNotFoundError(c *gc.C) {
 		errors.NewUnauthorizedError(stderrors.New("hoo"), "woo"),
 		"woo: hoo",
 		isUnauthorizedError,
-	}, {
-		errors.NewNotBootstrappedError(stderrors.New("hoo"), "woo"),
-		"woo: hoo",
-		isNotBootstrapped,
-	}, {
-		errors.NewContainersUnsupported(stderrors.New("hoo"), "woo"),
-		"woo: hoo",
-		isContainersUnsupported,
 	}}
 
 	for i, t := range errorTests {
