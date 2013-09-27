@@ -301,8 +301,7 @@ var installHookTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
 			data: params.StatusData{
-				"hook":        "install",
-				"relation-id": 0,
+				"hook": "install",
 			},
 		},
 		waitHooks{"fail-install"},
@@ -343,8 +342,7 @@ var startHookTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: params.StatusData{
-				"hook":        "start",
-				"relation-id": 0,
+				"hook": "start",
 			},
 		},
 		waitHooks{"fail-start"},
@@ -374,8 +372,7 @@ var multipleErrorsTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
 			data: params.StatusData{
-				"hook":        "install",
-				"relation-id": 0,
+				"hook": "install",
 			},
 		},
 		resolveError{state.ResolvedNoHooks},
@@ -383,8 +380,7 @@ var multipleErrorsTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
 			data: params.StatusData{
-				"hook":        "config-changed",
-				"relation-id": 0,
+				"hook": "config-changed",
 			},
 		},
 		resolveError{state.ResolvedNoHooks},
@@ -392,8 +388,7 @@ var multipleErrorsTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: params.StatusData{
-				"hook":        "start",
-				"relation-id": 0,
+				"hook": "start",
 			},
 		},
 	),
@@ -432,8 +427,7 @@ var configChangedHookTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
 			data: params.StatusData{
-				"hook":        "config-changed",
-				"relation-id": 0,
+				"hook": "config-changed",
 			},
 		},
 		waitHooks{"fail-config-changed"},
@@ -598,8 +592,7 @@ var steadyUpgradeTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
 			data: params.StatusData{
-				"hook":        "upgrade-charm",
-				"relation-id": 0,
+				"hook": "upgrade-charm",
 			},
 			charm: 1,
 		},
@@ -623,8 +616,7 @@ var steadyUpgradeTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
 			data: params.StatusData{
-				"hook":        "upgrade-charm",
-				"relation-id": 0,
+				"hook": "upgrade-charm",
 			},
 			charm: 1,
 		},
@@ -637,8 +629,7 @@ var steadyUpgradeTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
 			data: params.StatusData{
-				"hook":        "upgrade-charm",
-				"relation-id": 0,
+				"hook": "upgrade-charm",
 			},
 			charm: 1,
 		},
@@ -693,8 +684,7 @@ var errorUpgradeTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: params.StatusData{
-				"hook":        "start",
-				"relation-id": 0,
+				"hook": "start",
 			},
 		},
 		waitHooks{},
@@ -723,8 +713,7 @@ var errorUpgradeTests = []uniterTest{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: params.StatusData{
-				"hook":        "start",
-				"relation-id": 0,
+				"hook": "start",
 			},
 			charm: 1,
 		},
@@ -935,6 +924,66 @@ var relationsTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 	s.runUniterTests(c, relationsTests)
+}
+
+var relationsErrorTests = []uniterTest{
+	ut(
+		"hook error during join of a relation",
+		startupRelationError{"db-relation-joined"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-joined"`,
+			data: params.StatusData{
+				"hook":        "db-relation-joined",
+				"relation-id": 0,
+				"remote-unit": "mysql/0",
+			},
+		},
+	), ut(
+		"hook error during change of a relation",
+		startupRelationError{"db-relation-changed"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-changed"`,
+			data: params.StatusData{
+				"hook":        "db-relation-changed",
+				"relation-id": 0,
+				"remote-unit": "mysql/0",
+			},
+		},
+	), ut(
+		"hook error after a unit departed",
+		startupRelationError{"db-relation-departed"},
+		waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
+		removeRelationUnit{"mysql/0"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-departed"`,
+			data: params.StatusData{
+				"hook":        "db-relation-departed",
+				"relation-id": 0,
+				"remote-unit": "mysql/0",
+			},
+		},
+	),
+	ut(
+		"hook error after a relation died",
+		startupRelationError{"db-relation-broken"},
+		waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
+		relationDying,
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-broken"`,
+			data: params.StatusData{
+				"hook":        "db-relation-broken",
+				"relation-id": 0,
+			},
+		},
+	),
+}
+
+func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
+	s.runUniterTests(c, relationsErrorTests)
 }
 
 var subordinatesTests = []uniterTest{
@@ -1320,6 +1369,21 @@ func (s quickStartRelation) step(c *gc.C, ctx *context) {
 	step(c, ctx, addRelationUnit{})
 	step(c, ctx, waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"})
 	step(c, ctx, verifyRunning{})
+}
+
+type startupRelationError struct {
+	badHook string
+}
+
+func (s startupRelationError) step(c *gc.C, ctx *context) {
+	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
+	step(c, ctx, serveCharm{})
+	step(c, ctx, createUniter{})
+	step(c, ctx, waitUnit{status: params.StatusStarted})
+	step(c, ctx, waitHooks{"install", "config-changed", "start"})
+	step(c, ctx, verifyCharm{})
+	step(c, ctx, addRelation{})
+	step(c, ctx, addRelationUnit{})
 }
 
 type resolveError struct {
