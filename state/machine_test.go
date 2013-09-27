@@ -928,7 +928,7 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()
 		c.Assert(err1, gc.IsNil)
-		c.Assert(mcons, gc.DeepEquals, constraints.Value{})
+		c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 		return err
 	})
 

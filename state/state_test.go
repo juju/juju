@@ -199,8 +199,6 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
-var emptyCons = constraints.Value{}
-
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {
 	mc, err := m.Containers()
 	c.Assert(err, gc.IsNil)
@@ -222,7 +220,7 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcons, gc.DeepEquals, emptyCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 
 	m, err = s.State.Machine("0")
@@ -254,7 +252,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcons, gc.DeepEquals, emptyCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
 
@@ -346,6 +344,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	arch := "amd64"
 	mem := uint64(1024)
 	disk := uint64(1024)
+	tags := []string{"foo", "bar"}
 	params := &state.AddMachineParams{
 		Series:      "quantal",
 		Constraints: cons,
@@ -355,6 +354,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 			Arch:     &arch,
 			Mem:      &mem,
 			RootDisk: &disk,
+			Tags:     &tags,
 		},
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
@@ -400,7 +400,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcons, gc.DeepEquals, emptyCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0"})
 
@@ -730,10 +730,9 @@ func (s *StateSuite) TestEnvironConfig(c *gc.C) {
 
 func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	// Environ constraints start out empty (for now).
-	cons0 := emptyCons
-	cons1, err := s.State.EnvironConstraints()
+	cons, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons1, gc.DeepEquals, cons0)
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Environ constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(1024)}
@@ -742,7 +741,6 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	cons3, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
-	c.Assert(cons3, gc.Not(gc.Equals), cons2)
 
 	// Environ constraints are completely overwritten when re-set.
 	cons4 := constraints.Value{CpuPower: uint64p(250)}
@@ -751,7 +749,6 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	cons5, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
-	c.Assert(cons5, gc.Not(gc.Equals), cons4)
 }
 
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {

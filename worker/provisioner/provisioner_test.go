@@ -176,6 +176,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 					RootDisk: cons.RootDisk,
 					CpuCores: cons.CpuCores,
 					CpuPower: cons.CpuPower,
+					Tags:     cons.Tags,
 				})
 				st.Close()
 				return

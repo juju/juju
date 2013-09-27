@@ -653,6 +653,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 			RootDisk: cons.RootDisk,
 			CpuCores: cons.CpuCores,
 			CpuPower: cons.CpuPower,
+			Tags:     cons.Tags,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {

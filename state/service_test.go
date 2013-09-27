@@ -1132,10 +1132,9 @@ func uint64p(val uint64) *uint64 {
 
 func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	// Constraints are initially empty (for now).
-	cons0 := constraints.Value{}
-	cons1, err := s.mysql.Constraints()
+	cons, err := s.mysql.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons1, gc.DeepEquals, cons0)
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
@@ -1167,7 +1166,7 @@ func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons6, gc.DeepEquals, cons0)
+	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {
@@ -1181,7 +1180,7 @@ func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: not found or not alive`)
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(scons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
 	// Removed (== Dead, for a service).
 	err = unit.EnsureDead()

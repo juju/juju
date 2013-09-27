@@ -267,6 +267,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		}
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		// tags not currently supported on openstack
 	}
 	return hc
 }
