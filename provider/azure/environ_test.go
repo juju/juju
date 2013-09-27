@@ -27,7 +27,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/testing"
@@ -481,7 +480,7 @@ func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	_, _, err := env.StateInfo()
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *environSuite) TestStateInfo(c *gc.C) {

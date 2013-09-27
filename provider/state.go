@@ -80,7 +80,7 @@ func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(stor, StateFile)
 	if err != nil {
 		if coreerrors.IsNotFoundError(err) {
-			return nil, coreerrors.NewNotBootstrappedError(err, "environment is not bootstrapped")
+			return nil, environs.ErrNotBootstrapped
 		}
 		return nil, err
 	}

@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -102,7 +101,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if !errors.IsNotBootstrapped(err) {
+	if err != environs.ErrNotBootstrapped {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 

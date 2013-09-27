@@ -12,11 +12,9 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type bootstrapSuite struct {
@@ -120,7 +118,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	// Since the script failed, the state file should have been
 	// removed from storage.
 	_, err = provider.LoadState(s.env.storage)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyDataDir(c *gc.C) {

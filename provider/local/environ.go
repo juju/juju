@@ -26,7 +26,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -119,7 +118,7 @@ func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) err
 func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.
-	return coreerrors.NewContainersUnsupported(nil, "local provider does not support nested containers")
+	return environs.NewContainersUnsupported("local provider does not support nested containers")
 }
 
 // Bootstrap is specified in the Environ interface.
