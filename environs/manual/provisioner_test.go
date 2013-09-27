@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -46,7 +47,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		series: series, arch: arch, skipProvisionAgent: true,
 	}.install(c).Restore()
 	m, err := ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "no tools available")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(m, gc.IsNil)
 
 	cfg := s.Conn.Environ.Config()
