@@ -73,12 +73,12 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 		Jobs:       jobs,
 	})
 	c.Assert(err, gc.IsNil)
-	err = m.SetMongoPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
 	tag := names.MachineTag(m.Id())
 	if m.IsStateServer() {
+		err = m.SetMongoPassword(initialMachinePassword)
+		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)
 	} else {
 		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword)
@@ -330,28 +330,16 @@ var fastDialOpts = api.DialOpts{
 	RetryDelay: testing.ShortWait,
 }
 
-func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test func(agent.Config, *state.State)) {
-	stm, conf, _ := s.primeAgent(c, job)
-	a := s.newAgent(c, stm)
-	defer a.Stop()
+// TODO(dimitern) Once the firewaller uses the API, we can
+// remove the state connection for JobManageEnviron, and
+// set it to false in the test below as well.
+var stateJobs = map[state.MachineJob]bool{
+	state.JobManageState:   true,
+	state.JobManageEnviron: true,
+	state.JobHostUnits:     false,
+}
 
-	agentStates := make(chan *state.State, 1000)
-	undo := sendOpenedStates(agentStates)
-	defer undo()
-
-	done := make(chan error)
-	go func() {
-		done <- a.Run(nil)
-	}()
-
-	select {
-	case agentState := <-agentStates:
-		c.Assert(agentState, gc.NotNil)
-		test(conf, agentState)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("state not opened")
-	}
-
+func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageState {
 		// When shutting down, the API server can be shut down before
@@ -375,13 +363,77 @@ func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test fu
 	}
 }
 
+func (s *MachineSuite) assertJobWithAPI(
+	c *gc.C,
+	job state.MachineJob,
+	test func(agent.Config, *api.State, *MachineAgent),
+) {
+	stm, conf, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+
+	// All state jobs currently also run an APIWorker, so no
+	// need to check for that here, like in assertJobWithState.
+
+	agentAPIs := make(chan *api.State, 1000)
+	undo := sendOpenedAPIs(agentAPIs)
+	defer undo()
+
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+
+	select {
+	case agentAPI := <-agentAPIs:
+		c.Assert(agentAPI, gc.NotNil)
+		test(conf, agentAPI, a)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("API not opened")
+	}
+
+	s.waitStopped(c, job, a, done)
+}
+
+func (s *MachineSuite) assertJobWithState(
+	c *gc.C,
+	job state.MachineJob,
+	test func(agent.Config, *state.State, *MachineAgent),
+) {
+	if !stateJobs[job] {
+		c.Fatalf("%v does not use state")
+	}
+	stm, conf, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+
+	agentStates := make(chan *state.State, 1000)
+	undo := sendOpenedStates(agentStates)
+	defer undo()
+
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+
+	select {
+	case agentState := <-agentStates:
+		c.Assert(agentState, gc.NotNil)
+		test(conf, agentState, a)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("state not opened")
+	}
+
+	s.waitStopped(c, job, a, done)
+}
+
 // TODO(jam): 2013-09-02 http://pad.lv/1219661
 // This test has been failing regularly on the Bot. Until someone fixes it so
 // it doesn't crash, it isn't worth having as we can't tell when someone
 // actually breaks something.
 func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State, _ *MachineAgent) {
 		st, _, err := conf.OpenAPI(fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
@@ -392,7 +444,7 @@ func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State, _ *MachineAgent) {
 		// Create a service and unit, and destroy the service.
 		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 		c.Assert(err, gc.IsNil)
@@ -430,7 +482,7 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State, _ *MachineAgent) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
@@ -469,6 +521,7 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	for {
 		select {
 		case op := <-opc:
+			c.Logf("got operation %v (%T)", op, op)
 			for _, k := range kinds {
 				if reflect.TypeOf(op) == reflect.TypeOf(k) {
 					return op
@@ -484,4 +537,16 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
+}
+
+func (s *MachineSuite) TestOpenStateFailsForTheCorrectJobs(c *gc.C) {
+	for job, shouldPass := range stateJobs {
+		c.Logf("test job %s: shouldPass=%v", job, shouldPass)
+		s.assertJobWithAPI(c, job, func(_ agent.Config, _ *api.State, a *MachineAgent) {
+			// We're not using the conf from primeAgent, because once we
+			// connect to the API initially, it's changed and that instance
+			// doesn't have the updated password.
+			s.tryOpenState(c, a.Tag(), a.Conf.config.Password(), shouldPass)
+		})
+	}
 }

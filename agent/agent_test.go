@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type suite struct {
@@ -245,7 +246,7 @@ func (*suite) TestGenerateNewPassword(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		// Show that the password is saved.
 		reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
-		c.Assert(conf.PasswordHash(), gc.Equals, reread.PasswordHash())
+		c.Assert(utils.PasswordHash(conf.Password()), gc.Equals, utils.PasswordHash(reread.Password()))
 	}
 }
 

@@ -44,8 +44,6 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools
 	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword(initialUnitPassword)
-	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(initialUnitPassword)
 	c.Assert(err, gc.IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
@@ -180,4 +178,19 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+}
+
+func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
+	// Start a unit agent and make sure it doesn't set a mongo password
+	// we can use to connect to state with.
+	unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	waitForUnitStarted(s.State, unit, c)
+
+	// We're not using the conf from primeAgent, because once we
+	// connect to the API initially, it's changed and that instance
+	// doesn't have the updated password.
+	s.tryOpenState(c, unit.Tag(), a.Conf.config.Password(), false)
 }

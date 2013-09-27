@@ -83,9 +83,9 @@ type Config interface {
 	// new password string is returned.
 	GenerateNewPassword() (string, error)
 
-	// PasswordHash returns a hash of the password that is stored for state and
-	// api connections.
-	PasswordHash() string
+	// Password returns the password that is stored for state and api
+	// connections.
+	Password() string
 
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
@@ -129,6 +129,7 @@ type configInternal struct {
 	stateDetails    *connectionDetails
 	apiDetails      *connectionDetails
 	oldPassword     string
+	newPassword     string
 	stateServerCert []byte
 	stateServerKey  []byte
 	apiPort         int
@@ -352,14 +353,15 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) PasswordHash() string {
-	var password string
-	if c.stateDetails == nil {
-		password = c.apiDetails.password
-	} else {
-		password = c.stateDetails.password
+func (c *configInternal) Password() string {
+	if c.newPassword != "" {
+		return c.newPassword
+	} else if c.apiDetails != nil {
+		return c.apiDetails.password
+	} else if c.stateDetails != nil {
+		return c.stateDetails.password
 	}
-	return utils.PasswordHash(password)
+	return c.oldPassword
 }
 
 func (c *configInternal) GenerateNewPassword() (string, error) {
@@ -420,6 +422,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 	if info.Password != "" {
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {
+			c.newPassword = c.apiDetails.password
 			return st, "", nil
 		}
 		if !params.IsCodeUnauthorized(err) {
@@ -443,6 +446,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 		st.Close()
 		return nil, "", err
 	}
+	c.newPassword = password
 	return st, password, nil
 }
 

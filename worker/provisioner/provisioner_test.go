@@ -154,18 +154,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Constraints, gc.DeepEquals, cons)
 
-				// Check we can connect to the state with
-				// the machine's entity name and password.
-				info := s.StateInfo(c)
-				info.Tag = m.Tag()
-				c.Assert(o.Info.Password, gc.Not(gc.HasLen), 0)
-				info.Password = o.Info.Password
-				c.Assert(o.Info, gc.DeepEquals, info)
-				// Check we can connect to the state with
-				// the machine's entity name and password.
-				st, err := state.Open(o.Info, state.DefaultDialOpts())
-				c.Assert(err, gc.IsNil)
-
 				// All provisioned machines in this test suite have their hardware characteristics
 				// attributes set to the same values as the constraints due to the dummy environment being used.
 				hc, err := m.HardwareCharacteristics()
@@ -177,7 +165,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 					CpuCores: cons.CpuCores,
 					CpuPower: cons.CpuPower,
 				})
-				st.Close()
 				return
 			default:
 				c.Logf("ignoring unexpected operation %#v", o)

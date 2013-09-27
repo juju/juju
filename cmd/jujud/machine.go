@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
@@ -112,19 +113,19 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
-	// that need a state connection Unless we're bootstrapping, we
+	// that need a state connection. Unless we're bootstrapping, we
 	// need to connect to the API server to find out if we need to
 	// call this, so we make the APIWorker call it when necessary if
-	// the machine requires it.  Note that ensureStateWorker can be
+	// the machine requires it. Note that ensureStateWorker can be
 	// called many times - StartWorker does nothing if there is
 	// already a worker started with the given name.
 	ensureStateWorker := func() {
 		a.runner.StartWorker("state", a.StateWorker)
 	}
+	// We might be bootstrapping, and the API server is not
+	// running yet. If so, make sure we run a state worker instead
+	// and bail out.
 	if a.MachineId == bootstrapMachineId {
-		// If we're bootstrapping, we don't have an API
-		// server to connect to, so start the state worker regardless.
-
 		// TODO(rog) When we have HA, we only want to do this
 		// when we really are bootstrapping - once other
 		// instances of the API server have been started, we
@@ -145,12 +146,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-var stateJobs = map[params.MachineJob]bool{
-	params.JobHostUnits:     true,
-	params.JobManageEnviron: true,
-	params.JobManageState:   true,
-}
-
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 //
@@ -159,25 +154,22 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	agentConfig := a.Conf.config
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
-		// There was an error connecting to the API,
-		// https://launchpad.net/bugs/1199915 means that we may just
-		// not have an API password set. So force a state connection at
-		// this point.
-		// TODO(jam): Once we can reliably trust that we have API
-		//            passwords set, and we no longer need state
-		//            connections (and possibly agents will be blocked
-		//            from connecting directly to state) we can remove
-		//            this. Currently needed because 1.10 does not set
-		//            the API password and 1.11 requires it
-		ensureStateWorker()
 		return nil, err
 	}
-	needsStateWorker := false
+	reportOpenedAPI(st)
+	// Only start a state worker, if we have JobManageState and
+	// JobManageEnviron.
+	// Other jobs cause the agent not to set a mongo password,
+	// so they cannot connect to state.
+	//
+	// TODO(dimitern) Once the firewaller uses the API, remove
+	// JobManageEnviron from the condition below.
 	for _, job := range entity.Jobs() {
-		needsStateWorker = needsStateWorker || stateJobs[job]
-	}
-	if needsStateWorker {
-		ensureStateWorker()
+		if job == params.JobManageState ||
+			job == params.JobManageEnviron {
+			ensureStateWorker()
+			break
+		}
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
@@ -343,4 +335,18 @@ func sendOpenedStates(dst chan<- *state.State) (undo func()) {
 	var original chan<- *state.State
 	original, stateReporter = stateReporter, dst
 	return func() { stateReporter = original }
+}
+
+var apiReporter chan<- *api.State
+
+func reportOpenedAPI(st *api.State) {
+	select {
+	case apiReporter <- st:
+	default:
+	}
+}
+func sendOpenedAPIs(dst chan<- *api.State) (undo func()) {
+	var original chan<- *api.State
+	original, apiReporter = apiReporter, dst
+	return func() { apiReporter = original }
 }

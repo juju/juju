@@ -286,6 +286,22 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	assertOpen(conf)
 }
 
+func (s *agentSuite) tryOpenState(c *gc.C, tag, entityPassword string, shouldPass bool) {
+	st, err := state.Open(&state.Info{
+		Addrs:    []string{coretesting.MgoAddr},
+		CACert:   []byte(coretesting.CACert),
+		Password: entityPassword,
+		Tag:      tag,
+	}, state.DefaultDialOpts())
+	if !shouldPass {
+		expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
+		c.Assert(err, gc.ErrorMatches, expectErr)
+	} else {
+		c.Assert(err, gc.IsNil)
+		st.Close()
+	}
+}
+
 func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
