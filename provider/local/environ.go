@@ -23,7 +23,9 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	envtools "launchpad.net/juju-core/environs/tools"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
@@ -54,6 +56,9 @@ var upstartScriptLocation = "/etc/init"
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 
+// localEnviron implements SupportsCustomSources.
+var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
+
 type localEnviron struct {
 	localMutex            sync.Mutex
 	config                *environConfig
@@ -61,6 +66,13 @@ type localEnviron struct {
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
 	containerManager      lxc.ContainerManager
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // Name is specified in the Environ interface.

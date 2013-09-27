@@ -1003,6 +1003,10 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+	// Add the simplestreams source off the control bucket and public location.
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+		simplestreams.NewURLDataSource(
+			"https://juju-dist.s3.amazonaws.com/tools", simplestreams.VerifySSLHostnames)}
+	return sources, nil
 }

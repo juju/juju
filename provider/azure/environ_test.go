@@ -1313,6 +1313,9 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 1)
+	c.Assert(len(sources), gc.Equals, 2)
 	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "https://jujutools.blob.core.windows.net/juju-tools/tools/")
 }
