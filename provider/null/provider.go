@@ -100,11 +100,18 @@ func (_ nullProvider) BoilerplateConfig() string {
         ## network interfaces.
         # storage-listen-ip:
         # storage-port: 8040
+        storage-auth-key: {{rand}}
 `
 }
 
-func (_ nullProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	return make(map[string]interface{}), nil
+func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+	envConfig, err := p.validate(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	attrs := make(map[string]interface{})
+	attrs["storage-auth-key"] = envConfig.storageAuthKey()
+	return attrs, nil
 }
 
 func (_ nullProvider) PublicAddress() (string, error) {

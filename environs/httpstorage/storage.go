@@ -11,11 +11,11 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
-	"time"
+	"sync"
 
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
@@ -23,45 +23,58 @@ import (
 
 // storage implements the storage.Storage interface.
 type localStorage struct {
-	baseURL string
-	client  *http.Client
+	addr   string
+	client *http.Client
+
+	authkey           string
+	httpsBaseURL      string
+	httpsBaseURLError error
+	httpsBaseURLOnce  sync.Once
 }
 
 // Client returns a storage object that will talk to the
 // storage server at the given network address (see Serve)
 func Client(addr string) storage.Storage {
 	return &localStorage{
-		baseURL: fmt.Sprintf("http://%s/", addr),
-		client:  http.DefaultClient,
+		addr:   addr,
+		client: http.DefaultClient,
 	}
 }
 
 // ClientTLS returns a storage object that will talk to the
 // storage server at the given network address (see Serve),
-// using TLS. The client will generate a client certificate,
-// signed with the given CA certificate/key, to authenticate.
-func ClientTLS(addr string, caCertPEM, caKeyPEM []byte) (storage.Storage, error) {
+// using TLS. The client is given an authentication key,
+// which the server will verify for Put and Remove* operations.
+func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, error) {
 	caCerts := x509.NewCertPool()
-	if !caCerts.AppendCertsFromPEM(caCertPEM) {
-		return nil, errors.New("error adding CA certificate to pool")
-	}
-	expiry := time.Now().UTC().AddDate(10, 0, 0)
-	clientCertPEM, clientKeyPEM, err := cert.NewClient(caCertPEM, caKeyPEM, expiry)
-	clientCert, err := tls.X509KeyPair(clientCertPEM, clientKeyPEM)
-	if err != nil {
-		return nil, err
+	if caCertPEM != nil {
+		if !caCerts.AppendCertsFromPEM(caCertPEM) {
+			return nil, errors.New("error adding CA certificate to pool")
+		}
 	}
 	return &localStorage{
-		baseURL: fmt.Sprintf("https://%s/", addr),
+		addr:    addr,
+		authkey: authkey,
 		client: &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					Certificates: []tls.Certificate{clientCert},
-					RootCAs:      caCerts,
-				},
+				TLSClientConfig: &tls.Config{RootCAs: caCerts},
 			},
 		},
 	}, nil
+}
+
+func (s *localStorage) getHTTPSBaseURL() (string, error) {
+	url, _ := s.URL("/") // never fails
+	resp, err := s.client.Head(url)
+	if err != nil {
+		return "", err
+	}
+	resp.Body.Close()
+	httpsURL, err := resp.Location()
+	if err != nil {
+		return "", err
+	}
+	return httpsURL.String(), nil
 }
 
 // Get opens the given storage file and returns a ReadCloser
@@ -119,9 +132,25 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-// URL returns an URL that can be used to access the given storage file.
+// URL returns a URL that can be used to access the given storage file.
 func (s *localStorage) URL(name string) (string, error) {
-	return s.baseURL + name, nil
+	return fmt.Sprintf("http://%s/%s", s.addr, name), nil
+}
+
+// modURL returns a URL that can be used to modify the given storage file.
+func (s *localStorage) modURL(name string) (string, error) {
+	if s.client == http.DefaultClient {
+		return s.URL(name)
+	}
+	s.httpsBaseURLOnce.Do(func() {
+		s.httpsBaseURL, s.httpsBaseURLError = s.getHTTPSBaseURL()
+	})
+	if s.httpsBaseURLError != nil {
+		return "", s.httpsBaseURLError
+	}
+	v := url.Values{}
+	v.Set("authkey", s.authkey)
+	return fmt.Sprintf("%s%s?%s", s.httpsBaseURL, name, v.Encode()), nil
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
@@ -137,7 +166,7 @@ func (s *localStorage) ShouldRetry(err error) bool {
 // Put reads from r and writes to the given storage file.
 // The length must be set to the total length of the file.
 func (s *localStorage) Put(name string, r io.Reader, length int64) error {
-	url, err := s.URL(name)
+	url, err := s.modURL(name)
 	if err != nil {
 		return err
 	}
@@ -167,7 +196,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 // storage. It should not return an error if the file does
 // not exist.
 func (s *localStorage) Remove(name string) error {
-	url, err := s.URL(name)
+	url, err := s.modURL(name)
 	if err != nil {
 		return err
 	}

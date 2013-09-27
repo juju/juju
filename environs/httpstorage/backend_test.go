@@ -25,6 +25,8 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
+const testAuthkey = "jabberwocky"
+
 func TestLocal(t *stdtesting.T) {
 	gc.TestingT(t)
 }
@@ -50,14 +52,16 @@ func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 // startServerTLS starts a new TLS-based local storage server
 // using a temporary directory and returns the listener,
 // a base URL for the server and the directory path.
-func startServerTLS(c *gc.C, caCertPEM, caKeyPEM []byte) (listener net.Listener, url, dataDir string) {
+func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
 	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	hostnames := []string{"127.0.0.1"}
-	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames)
+	caCertPEM := []byte(coretesting.CACert)
+	caKeyPEM := []byte(coretesting.CAKey)
+	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, testAuthkey)
 	c.Assert(err, gc.IsNil)
-	return listener, fmt.Sprintf("https://%s/", listener.Addr()), dataDir
+	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }
 
 type testCase struct {
@@ -373,12 +377,10 @@ func createTestData(c *gc.C, dataDir string) {
 }
 
 func (b *backendSuite) tlsServerAndClient(c *gc.C) (client *http.Client, url, dataDir string) {
-	caCertPEM := []byte(coretesting.CACert)
-	caKeyPEM := []byte(coretesting.CAKey)
-	listener, url, dataDir := startServerTLS(c, caCertPEM, caKeyPEM)
+	listener, url, dataDir := startServerTLS(c)
 	b.AddCleanup(func(*gc.C) { listener.Close() })
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM(caCertPEM), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	client = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{RootCAs: caCerts},

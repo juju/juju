@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -116,11 +115,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
 
 	// Add the local storage configuration.
-	agentEnv := map[string]string{
-		agent.StorageAddr:       args.Environ.StorageAddr(),
-		agent.StorageDir:        storageDir,
-		agent.SharedStorageAddr: args.Environ.SharedStorageAddr(),
-		agent.SharedStorageDir:  args.Environ.SharedStorageDir(),
+	agentEnv, err := localstorage.StoreConfig(args.Environ)
+	if err != nil {
+		return err
 	}
 
 	// Finally, provision the machine agent.

@@ -68,12 +68,6 @@ func (s *environSuite) TestInstances(c *gc.C) {
 	c.Assert(instances[0], gc.IsNil)
 }
 
-func (s *environSuite) TestDestroy(c *gc.C) {
-	c.Assert(s.env.Destroy(nil), gc.IsNil)
-	ids := make([]instance.Instance, 1)
-	c.Assert(s.env.Destroy(ids), gc.ErrorMatches, "null provider cannot destroy instances.*")
-}
-
 func (s *environSuite) TestLocalStorageConfig(c *gc.C) {
 	c.Assert(s.env.StorageDir(), gc.Equals, "/var/lib/juju/storage")
 	c.Assert(s.env.cfg.storageListenAddr(), gc.Equals, ":8040")

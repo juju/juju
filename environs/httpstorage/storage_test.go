@@ -25,12 +25,9 @@ type storageSuite struct{}
 var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) TestClientTLS(c *gc.C) {
-	caCertPEM := []byte(coretesting.CACert)
-	caKeyPEM := []byte(coretesting.CAKey)
-
-	listener, _, storageDir := startServerTLS(c, caCertPEM, caKeyPEM)
+	listener, _, storageDir := startServerTLS(c)
 	defer listener.Close()
-	stor, err := httpstorage.ClientTLS(listener.Addr().String(), caCertPEM, caKeyPEM)
+	stor, err := httpstorage.ClientTLS(listener.Addr().String(), []byte(coretesting.CACert), testAuthkey)
 	c.Assert(err, gc.IsNil)
 
 	data := []byte("hello")
@@ -41,11 +38,35 @@ func (s *storageSuite) TestClientTLS(c *gc.C) {
 	c.Assert(names, gc.DeepEquals, []string{"filename"})
 	checkFileHasContents(c, stor, "filename", data)
 
-	// Now try Put, Remove and RemoveAll.
+	// Put, Remove and RemoveAll should all succeed.
 	checkPutFile(c, stor, "filenamethesecond", data)
 	checkFileHasContents(c, stor, "filenamethesecond", data)
 	c.Assert(stor.Remove("filenamethesecond"), gc.IsNil)
 	c.Assert(stor.RemoveAll(), gc.IsNil)
+}
+
+func (s *storageSuite) TestClientTLSInvalidAuth(c *gc.C) {
+	listener, _, storageDir := startServerTLS(c)
+	defer listener.Close()
+	const invalidAuthkey = testAuthkey + "!"
+	stor, err := httpstorage.ClientTLS(listener.Addr().String(), []byte(coretesting.CACert), invalidAuthkey)
+	c.Assert(err, gc.IsNil)
+
+	// Get and List should succeed.
+	data := []byte("hello")
+	err = ioutil.WriteFile(filepath.Join(storageDir, "filename"), data, 0644)
+	c.Assert(err, gc.IsNil)
+	names, err := storage.List(stor, "filename")
+	c.Assert(err, gc.IsNil)
+	c.Assert(names, gc.DeepEquals, []string{"filename"})
+	checkFileHasContents(c, stor, "filename", data)
+
+	// Put, Remove and RemoveAll should all fail.
+	const authErrorPattern = ".*401 Unauthorized"
+	err = putFile(c, stor, "filenamethesecond", data)
+	c.Assert(err, gc.ErrorMatches, authErrorPattern)
+	c.Assert(stor.Remove("filenamethesecond"), gc.ErrorMatches, authErrorPattern)
+	c.Assert(stor.RemoveAll(), gc.ErrorMatches, authErrorPattern)
 }
 
 func (s *storageSuite) TestList(c *gc.C) {
@@ -80,7 +101,6 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 	storage2 := httpstorage.Client(listener.Addr().String())
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name))
-		checkFileURLHasContents(c, storage2, name, []byte(name))
 	}
 
 	// remove the first file and check that the others remain.
@@ -128,12 +148,17 @@ func (r *readerWithClose) Close() error {
 	return nil
 }
 
-func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
+func putFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) error {
 	c.Logf("check putting file %s ...", name)
 	reader := &readerWithClose{bytes.NewBuffer(contents), false}
 	err := stor.Put(name, reader, int64(len(contents)))
-	c.Assert(err, gc.IsNil)
 	c.Assert(reader.closeCalled, jc.IsFalse)
+	return err
+}
+
+func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
+	err := putFile(c, stor, name, contents)
+	c.Assert(err, gc.IsNil)
 }
 
 func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string) {
@@ -147,19 +172,15 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 	c.Assert(err, gc.IsNil)
 	c.Check(r, gc.NotNil)
 	defer r.Close()
-
 	data, err := ioutil.ReadAll(r)
 	c.Check(err, gc.IsNil)
 	c.Check(data, gc.DeepEquals, contents)
-}
 
-func checkFileURLHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte) {
 	url, err := stor.URL(name)
 	c.Assert(err, gc.IsNil)
-
 	resp, err := http.Get(url)
 	c.Assert(err, gc.IsNil)
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err = ioutil.ReadAll(resp.Body)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK, gc.Commentf("error response: %s", data))
