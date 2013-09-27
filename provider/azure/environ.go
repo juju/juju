@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -135,6 +136,18 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	}
 
 	return key, nil
+}
+
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*azureEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the azure
+	// provider manages container addressibility.
+	return coreerrors.NewContainersUnsupported(nil, "azure provider does not support containers")
 }
 
 // Name is specified in the Environ interface.
@@ -905,7 +918,11 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}, nil
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath),
+		simplestreams.NewURLDataSource(
+			"https://jujutools.blob.core.windows.net/juju-tools/tools", simplestreams.VerifySSLHostnames)}
+	return sources, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

@@ -23,7 +23,10 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -53,6 +56,9 @@ var upstartScriptLocation = "/etc/init"
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 
+// localEnviron implements SupportsCustomSources.
+var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
+
 type localEnviron struct {
 	localMutex            sync.Mutex
 	config                *environConfig
@@ -60,6 +66,13 @@ type localEnviron struct {
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
 	containerManager      lxc.ContainerManager
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // Name is specified in the Environ interface.
@@ -95,6 +108,18 @@ func (env *localEnviron) ensureCertOwner() error {
 		}
 	}
 	return nil
+}
+
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the local
+	// provider can do nested containers.
+	return coreerrors.NewContainersUnsupported(nil, "local provider does not support nested containers")
 }
 
 // Bootstrap is specified in the Environ interface.

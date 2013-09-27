@@ -21,8 +21,8 @@ var (
 	configFields = schema.Fields{
 		"root-dir":            schema.String(),
 		"bootstrap-ip":        schema.String(),
-		"storage-port":        schema.Int(),
-		"shared-storage-port": schema.Int(),
+		"storage-port":        schema.ForceInt(),
+		"shared-storage-port": schema.ForceInt(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
@@ -102,11 +102,11 @@ func (c *environConfig) bootstrapIPAddress() string {
 }
 
 func (c *environConfig) storagePort() int {
-	return int(c.attrs["storage-port"].(int64))
+	return c.attrs["storage-port"].(int)
 }
 
 func (c *environConfig) sharedStoragePort() int {
-	return int(c.attrs["shared-storage-port"].(int64))
+	return c.attrs["shared-storage-port"].(int)
 }
 
 func (c *environConfig) storageAddr() string {
