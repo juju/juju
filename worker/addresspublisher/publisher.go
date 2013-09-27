@@ -44,6 +44,17 @@ type machine interface {
 	Life() state.Life
 }
 
+type machineContext interface {
+	killAll(err error)
+	addresses(id instance.Id) ([]instance.Address, error)
+	dying() <-chan struct{}
+}
+
+type machineAddress struct {
+	machine   machine
+	addresses []instance.Address
+}
+
 var _ machine = (*state.Machine)(nil)
 
 //func (p *publisher) loop() error {
@@ -85,16 +96,10 @@ var _ machine = (*state.Machine)(nil)
 //	}
 //}
 
-const (
+var (
 	longPoll  = 10 * time.Second
 	shortPoll = 500 * time.Millisecond
 )
-
-type machineContext interface {
-	killAll(err error)
-	instance(id instance.Id) (instance.Instance, error)
-	dying() <-chan struct{}
-}
 
 func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died chan<- machine, publisherc chan<- machineAddress) {
 	defer func() {
@@ -127,17 +132,11 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, publis
 		if err != nil {
 			return fmt.Errorf("cannot get machine's instance id: %v", err)
 		}
-		inst, err := ctxt.instance(instId)
+		newAddrs, err := ctxt.addresses(instId)
 		if err != nil {
-			logger.Warningf("cannot get instance for %q: %v", instId, err)
+			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
 			continue
 		}
-		newAddrs, err := inst.Addresses()
-		if err != nil {
-			logger.Warningf("cannot get addresses for instance: %v", err)
-			continue
-		}
-
 		if !addressesEqual(m.Addresses(), newAddrs) {
 			if err := m.SetAddresses(newAddrs); err != nil {
 				return fmt.Errorf("cannot set addresses on %q: %v", m, err)
@@ -174,11 +173,6 @@ func addressesEqual(a0, a1 []instance.Address) bool {
 		}
 	}
 	return true
-}
-
-type machineAddress struct {
-	machine   machine
-	addresses []instance.Address
 }
 
 //
