@@ -71,7 +71,7 @@ func (st *State) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
 
 // EnvironConfig returns the current environment configuration.
 func (st *State) EnvironConfig() (*config.Config, error) {
-	var result params.ConfigResult
+	var result params.EnvironConfigResult
 	err := st.caller.Call("Provisioner", "", "EnvironConfig", nil, &result)
 	if err != nil {
 		return nil, err
@@ -100,4 +100,34 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 	}
 	w := watcher.NewStringsWatcher(st.caller, result)
 	return w, nil
+}
+
+// StateAddresses returns the list of addresses used to connect to the state.
+func (st *State) StateAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Provisioner", "", "StateAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Provisioner", "", "APIAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (st *State) CACert() ([]byte, error) {
+	var result params.BytesResult
+	err := st.caller.Call("Provisioner", "", "CACert", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
 }

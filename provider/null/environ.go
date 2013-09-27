@@ -155,7 +155,7 @@ func (e *nullEnviron) PublicStorage() storage.StorageReader {
 }
 
 func (e *nullEnviron) Destroy() error {
-	return nil
+	return errors.New("null provider destruction is not implemented yet")
 }
 
 func (e *nullEnviron) OpenPorts(ports []instance.Port) error {

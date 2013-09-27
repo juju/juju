@@ -206,7 +206,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetStatus(params.StatusStarted, "")
+	err = u0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = u0.Destroy()
 	c.Assert(err, gc.IsNil)

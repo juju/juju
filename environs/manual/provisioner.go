@@ -198,7 +198,7 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 }
 
 func setupAuthentication(env environs.Environ, m *state.Machine) (*state.Info, *api.Info, error) {
-	auth, err := provisioner.NewSimpleAuthenticator(env)
+	auth, err := provisioner.NewEnvironAuthenticator(env)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -85,8 +85,7 @@ func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 }
 
 func (_ nullProvider) BoilerplateConfig() string {
-	return `
-    "null":
+	return `"null":
         type: "null"
         admin-secret: {{rand}}
         ## set bootstrap-host to the host where the bootstrap machine agent
@@ -101,15 +100,16 @@ func (_ nullProvider) BoilerplateConfig() string {
         # storage-listen-ip:
         # storage-port: 8040
         storage-auth-key: {{rand}}
+
 `
 }
 
-func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	attrs := make(map[string]interface{})
+	attrs := make(map[string]string)
 	attrs["storage-auth-key"] = envConfig.storageAuthKey()
 	return attrs, nil
 }

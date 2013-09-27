@@ -102,9 +102,9 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah")
+	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo")
+	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -808,10 +808,10 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ConfigSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.ConfigSettingsResults{
+		Results: []params.ConfigSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{"blog-title": "My Title"}},
+			{Settings: params.ConfigSettings{"blog-title": "My Title"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -1097,10 +1097,10 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{
+			{Settings: params.RelationSettings{
 				"some": "settings",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1112,6 +1112,31 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"other":        "things",
+		"invalid-bool": false,
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag(), Unit: "unit-wordpress-0"},
+	}}
+	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
+	result, err := s.uniter.ReadSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }
@@ -1146,8 +1171,8 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: &params.Error{Message: expectErr}},
@@ -1182,11 +1207,38 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}}}
 	result, err = s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Settings: params.RelationSettings{
 				"other": "things",
 			}},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"other":        "things",
+		"invalid-bool": false,
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "unit-mysql-0",
+	}}}
+	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
+	result, err := s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }
@@ -1202,7 +1254,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	err = relUnit.EnterScope(settings)
 	s.assertInScope(c, relUnit, true)
 
-	newSettings := params.Settings{
+	newSettings := params.RelationSettings{
 		"some":  "different",
 		"other": "",
 	}

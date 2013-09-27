@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -151,6 +152,27 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	t.bootstrapped = false
 	t.prepared = false
 	t.Env = nil
+}
+
+func (t *LiveTests) TestPrechecker(c *gc.C) {
+	// Providers may implement Prechecker. If they do, then they should
+	// return nil for empty constraints (excluding the null provider).
+	prechecker, ok := t.Env.(environs.Prechecker)
+	if !ok {
+		return
+	}
+
+	const series = "precise"
+	var cons constraints.Value
+	c.Check(prechecker.PrecheckInstance(series, cons), gc.IsNil)
+
+	err := prechecker.PrecheckContainer(series, instance.LXC)
+	// If err is nil, that is fine, some providers support containers.
+	if err != nil {
+		// But for ones that don't, they should have a standard error format.
+		c.Check(err, gc.ErrorMatches, ".*provider does not support containers")
+		c.Check(err, jc.Satisfies, coreerrors.IsContainersUnsupported)
+	}
 }
 
 // TestStartStop is similar to Tests.TestStartStop except

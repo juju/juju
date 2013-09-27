@@ -78,6 +78,7 @@ var cloudinitTests = []cloudinitTest{
 		},
 		setEnvConfig: true,
 		expectScripts: `
+echo ENABLE_MONGODB="no" > /etc/default/mongodb
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -146,6 +147,7 @@ start jujud-machine-0
 		},
 		setEnvConfig: true,
 		expectScripts: `
+echo ENABLE_MONGODB="no" > /etc/default/mongodb
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -442,6 +444,11 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 
 func getScripts(x map[interface{}]interface{}) []string {
 	var scripts []string
+	if bootcmds, ok := x["bootcmd"]; ok {
+		for _, s := range bootcmds.([]interface{}) {
+			scripts = append(scripts, s.(string))
+		}
+	}
 	for _, s := range x["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}

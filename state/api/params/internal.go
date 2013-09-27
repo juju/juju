@@ -105,28 +105,43 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
-// Settings holds charm config options names and values.
-type Settings map[string]string
+// RelationSettings holds relation settings names and values.
+type RelationSettings map[string]string
 
-// SettingsResult holds a charm settings map or an error.
-type SettingsResult struct {
+// RelationSettingsResult holds a relation settings map or an error.
+type RelationSettingsResult struct {
 	Error    *Error
-	Settings Settings
+	Settings RelationSettings
 }
 
-// SettingsResults holds the result of an API calls that returns
-// settings for multiple entities.
-type SettingsResults struct {
-	Results []SettingsResult
+// RelationSettingsResults holds the result of an API calls that
+// returns settings for multiple relations.
+type RelationSettingsResults struct {
+	Results []RelationSettingsResult
 }
 
-// Config holds configuration with string keys and arbitrary values.
-type Config map[string]interface{}
+// ConfigSettings holds unit, service or cham configuration settings
+// with string keys and arbitrary values.
+type ConfigSettings map[string]interface{}
 
-// ConfigResult holds a configuration map or an error.
-type ConfigResult struct {
+// ConfigSettingsResult holds a configuration map or an error.
+type ConfigSettingsResult struct {
+	Error    *Error
+	Settings ConfigSettings
+}
+
+// ConfigSettingsResults holds multiple configuration maps or errors.
+type ConfigSettingsResults struct {
+	Results []ConfigSettingsResult
+}
+
+// EnvironConfig holds an environment configuration.
+type EnvironConfig map[string]interface{}
+
+// EnvironConfigResult holds environment configuration or an error.
+type EnvironConfigResult struct {
 	Error  *Error
-	Config Config
+	Config EnvironConfig
 }
 
 // RelationUnit holds a relation and a unit tag.
@@ -164,7 +179,7 @@ type RelationUnitPairs struct {
 type RelationUnitSettings struct {
 	Relation string
 	Unit     string
-	Settings Settings
+	Settings RelationSettings
 }
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
@@ -278,6 +293,7 @@ type SetEntityStatus struct {
 	Tag    string
 	Status Status
 	Info   string
+	Data   StatusData
 }
 
 // SetStatus holds the parameters for making a SetStatus call.

@@ -34,6 +34,11 @@ func (m *Machine) Id() string {
 	return machineId
 }
 
+// String returns the machine as a string.
+func (m *Machine) String() string {
+	return m.Id()
+}
+
 // Life returns the machine's lifecycle value.
 func (m *Machine) Life() params.Life {
 	return m.life

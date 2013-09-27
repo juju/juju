@@ -46,7 +46,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	mr.machine = m
 
 	// Mark the machine as started and log it.
-	if err := m.SetStatus(params.StatusStarted, ""); err != nil {
+	if err := m.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, fmt.Errorf("%s failed to set status started: %v", mr.tag, err)
 	}
 	logger.Infof("%q started", mr.tag)
@@ -64,7 +64,7 @@ func (mr *Machiner) Handle() error {
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.tag, mr.machine.Life())
-	if err := mr.machine.SetStatus(params.StatusStopped, ""); err != nil {
+	if err := mr.machine.SetStatus(params.StatusStopped, "", nil); err != nil {
 		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
 	}
 

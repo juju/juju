@@ -190,6 +190,17 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
+func (t *localServerSuite) TestPrecheck(c *gc.C) {
+	env := t.Prepare(c)
+	prechecker, ok := env.(environs.Prechecker)
+	c.Assert(ok, jc.IsTrue)
+	var cons constraints.Value
+	err := prechecker.PrecheckInstance("precise", cons)
+	c.Check(err, gc.IsNil)
+	err = prechecker.PrecheckContainer("precise", instance.LXC)
+	c.Check(err, gc.ErrorMatches, "ec2 provider does not support containers")
+}
+
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())

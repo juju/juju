@@ -275,10 +275,10 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Check that the changes to the local settings nodes have been discarded.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, params.Settings{"relation-name": "db0"})
+	c.Assert(node0.Map(), gc.DeepEquals, params.RelationSettings{"relation-name": "db0"})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, params.Settings{"relation-name": "db1"})
+	c.Assert(node1.Map(), gc.DeepEquals, params.RelationSettings{"relation-name": "db1"})
 
 	// Check that the changes have been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
@@ -303,13 +303,13 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Check that the changes to the local settings nodes are still there.
 	node0, err = s.relctxs[0].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(node0.Map(), gc.DeepEquals, params.RelationSettings{
 		"relation-name": "db0",
 		"baz":           "3",
 	})
 	node1, err = s.relctxs[1].Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(node1.Map(), gc.DeepEquals, params.RelationSettings{
 		"relation-name": "db1",
 		"qux":           "4",
 	})
@@ -383,13 +383,13 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 		"u/4": {"qux": "4"},
 	})
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/2", "u/4"})
-	assertSettings := func(unit string, expect params.Settings) {
+	assertSettings := func(unit string, expect params.RelationSettings) {
 		actual, err := ctx.ReadSettings(unit)
 		c.Assert(err, gc.IsNil)
 		c.Assert(actual, gc.DeepEquals, expect)
 	}
-	assertSettings("u/2", params.Settings{"baz": "2"})
-	assertSettings("u/4", params.Settings{"qux": "4"})
+	assertSettings("u/2", params.RelationSettings{"baz": "2"})
+	assertSettings("u/4", params.RelationSettings{"qux": "4"})
 
 	// Send a second update; check that members are only added, not removed.
 	ctx.UpdateMembers(uniter.SettingsMap{
@@ -400,10 +400,10 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1", "u/2", "u/3", "u/4"})
 
 	// Check that all settings remain cached.
-	assertSettings("u/1", params.Settings{"foo": "1"})
-	assertSettings("u/2", params.Settings{"abc": "2"})
-	assertSettings("u/3", params.Settings{"bar": "3"})
-	assertSettings("u/4", params.Settings{"qux": "4"})
+	assertSettings("u/1", params.RelationSettings{"foo": "1"})
+	assertSettings("u/2", params.RelationSettings{"abc": "2"})
+	assertSettings("u/3", params.RelationSettings{"bar": "3"})
+	assertSettings("u/4", params.RelationSettings{"qux": "4"})
 
 	// Delete a member, and check that it is no longer a member...
 	ctx.DeleteMember("u/2")
@@ -454,7 +454,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 	ctx.UpdateMembers(uniter.SettingsMap{"u/1": {"entirely": "different"}})
 	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m, gc.DeepEquals, params.Settings{"entirely": "different"})
+	c.Assert(m, gc.DeepEquals, params.RelationSettings{"entirely": "different"})
 }
 
 func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
@@ -700,7 +700,7 @@ func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
 	return context
 }
 
-func convertSettings(settings params.Settings) map[string]interface{} {
+func convertSettings(settings params.RelationSettings) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range settings {
 		result[k] = v
@@ -708,8 +708,8 @@ func convertSettings(settings params.Settings) map[string]interface{} {
 	return result
 }
 
-func convertMap(settingsMap map[string]interface{}) params.Settings {
-	result := make(params.Settings)
+func convertMap(settingsMap map[string]interface{}) params.RelationSettings {
+	result := make(params.RelationSettings)
 	for k, v := range settingsMap {
 		result[k] = v.(string)
 	}

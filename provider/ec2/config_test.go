@@ -99,7 +99,7 @@ func (t configTest) check(c *gc.C) {
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"access-key": t.accessKey,
 			"secret-key": t.secretKey,
 		}
@@ -161,22 +161,22 @@ var configTests = []configTest{
 		config: attrs{
 			"region": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		config: attrs{
 			"access-key": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		config: attrs{
 			"secret-key": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		config: attrs{
 			"control-bucket": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		change: attrs{
 			"control-bucket": "new-x",
@@ -186,7 +186,7 @@ var configTests = []configTest{
 		config: attrs{
 			"public-bucket": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		// check that the public-bucket defaults to juju-dist
 		config:  attrs{},
