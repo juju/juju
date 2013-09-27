@@ -39,7 +39,7 @@ func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
 func storePath(dir string, envName string) string {
 	path := filepath.Join(dir, "environments")
 	if envName != "" {
-		path = filepath.Join(path, envName+".yaml")
+		path = filepath.Join(path, envName+".jenv")
 	}
 	return path
 }
@@ -50,7 +50,7 @@ func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 	entries, err := ioutil.ReadDir(storePath(s.dir, ""))
 	c.Assert(err, gc.IsNil)
 	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".yaml") {
+		if !strings.HasSuffix(entry.Name(), ".jenv") {
 			c.Errorf("found possible stray temp file %q", entry.Name())
 		}
 	}
