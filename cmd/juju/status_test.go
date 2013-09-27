@@ -96,35 +96,35 @@ var (
 		"agent-state": "started",
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainers = M{
@@ -137,21 +137,21 @@ var (
 						"agent-state": "started",
 						"dns-name":    "dummyenv-3.dns",
 						"instance-id": "dummyenv-3",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"dns-name":    "dummyenv-2.dns",
 				"instance-id": "dummyenv-2",
-				"series":      "series",
+				"series":      "quantal",
 			},
 			"1/lxc/1": M{
 				"instance-id": "pending",
-				"series":      "series",
+				"series":      "quantal",
 			},
 		},
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainersScoped = M{
@@ -161,12 +161,12 @@ var (
 				"agent-state": "started",
 				"dns-name":    "dummyenv-2.dns",
 				"instance-id": "dummyenv-2",
-				"series":      "series",
+				"series":      "quantal",
 			},
 		},
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
@@ -217,7 +217,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{},
@@ -234,7 +234,7 @@ var statusTests = []testCase{
 						"agent-state": "pending",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
-						"series":      "series",
+						"series":      "quantal",
 						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -274,7 +274,7 @@ var statusTests = []testCase{
 						"instance-id":   "dummyenv-0",
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
-						"series":        "series",
+						"series":        "quantal",
 						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -295,7 +295,7 @@ var statusTests = []testCase{
 						"agent-state": "started",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
-						"series":      "series",
+						"series":      "quantal",
 						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
 					},
 				},
@@ -312,7 +312,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{},
@@ -329,7 +329,7 @@ var statusTests = []testCase{
 						"instance-state": "missing",
 						"instance-id":    "i-missing",
 						"agent-state":    "pending",
-						"series":         "series",
+						"series":         "quantal",
 						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -468,7 +468,7 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-3",
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
-						"series":           "series",
+						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
@@ -476,13 +476,13 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-4",
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
-						"series":           "series",
+						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
 						"life":        "dead",
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{
@@ -670,7 +670,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{
@@ -1236,7 +1236,7 @@ type addMachine struct {
 
 func (am addMachine) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	}
@@ -1255,7 +1255,7 @@ func (ac addContainer) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
 		ParentId:      ac.parentId,
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineWithConstraints(params)
