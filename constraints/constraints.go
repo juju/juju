@@ -212,40 +212,28 @@ func (v *Value) setRaw(raw string) error {
 	return nil
 }
 
-// SetYAML is required to unmarshall a constraints.Value object
-// to ensure the container attribute is correctly handled when it is empty.
-// Because ContainerType is an alias for string, Go's reflect logic used in the
-// YAML decode determines that *string and *ContainerType are not assignable so
-// the container value of "" in the YAML is ignored.
+// GetYAML exists just to prevent us from trying to serialize into YAML.
+// TODO(nate): CONSTRAINTS_YAML Due to bugs in goyaml dealing with slices, we can't reliably
+// serialize into yaml, so we're not even going to try.  This panic
+// prevents serialization through goyaml. Search for CONSTRAINTS_YAML in the code
+// to find the spots you need to fix when we are able to support yaml again.
+// bugs:
+// https://bugs.launchpad.net/goyaml/+bug/1231941
+// https://bugs.launchpad.net/goyaml/+bug/1231527
+func (v Value) GetYAML() (tag string, value interface{}) {
+	panic("Constraints cannot currently be serialized to YAML!")
+}
+
+// SetYAML exists just to prevent us from trying to serialize into YAML.
+// TODO(nate): CONSTRAINTS_YAML Due to bugs in goyaml dealing with slices, we can't reliably
+// serialize into yaml, so we're not even going to try.  This panic
+// prevents serialization through goyaml. Search for CONSTRAINTS_YAML in the code
+// to find the spots you need to fix when we are able to support yaml again.
+// bugs:
+// https://bugs.launchpad.net/goyaml/+bug/1231941
+// https://bugs.launchpad.net/goyaml/+bug/1231527
 func (v *Value) SetYAML(tag string, value interface{}) bool {
-	values := value.(map[interface{}]interface{})
-	for k, val := range values {
-		vstr := fmt.Sprintf("%v", val)
-		var err error
-		switch k {
-		case "arch":
-			v.Arch = &vstr
-		case "container":
-			ctype := instance.ContainerType(vstr)
-			v.Container = &ctype
-		case "cpu-cores":
-			v.CpuCores, err = parseUint64(vstr)
-		case "cpu-power":
-			v.CpuPower, err = parseUint64(vstr)
-		case "mem":
-			v.Mem, err = parseUint64(vstr)
-		case "root-disk":
-			v.RootDisk, err = parseUint64(vstr)
-		case "tags":
-			v.Tags = parseTags(vstr)
-		default:
-			return false
-		}
-		if err != nil {
-			return false
-		}
-	}
-	return true
+	panic("Constraints cannot currently be serialized to YAML!")
 }
 
 func (v *Value) setContainer(str string) error {
@@ -354,7 +342,7 @@ func parseSize(str string) (*uint64, error) {
 	return &value, nil
 }
 
-// parseTags returns the tags in the value s
+// parseTags returns the tags in the value s.  We expect the tags to be comma delimited strings.
 func parseTags(s string) []string {
 	if s == "" {
 		return []string{}

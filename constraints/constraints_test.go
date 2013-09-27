@@ -284,8 +284,8 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 			continue
 		}
 		cons1, err := constraints.Parse(cons0.String())
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons1, gc.DeepEquals, cons0)
+		c.Check(err, gc.IsNil)
+		c.Check(cons1, gc.DeepEquals, cons0)
 	}
 }
 
@@ -301,7 +301,9 @@ func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
-	con := constraints.MustParse("arch=amd64")
+	con := constraints.Value{}
+	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	con = constraints.MustParse("arch=amd64")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("")
 	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
@@ -334,73 +336,92 @@ func ctypep(ctype string) *instance.ContainerType {
 	return &res
 }
 
-var constraintsRoundtripTests = []constraints.Value{
-	{},
-	{Arch: strp("")},
-	{Arch: strp("amd64")},
-	{Container: ctypep("")},
-	{Container: ctypep("lxc")},
-	{CpuCores: uint64p(0)},
-	{CpuCores: uint64p(128)},
-	{CpuPower: uint64p(0)},
-	{CpuPower: uint64p(250)},
-	{Mem: uint64p(0)},
-	{Mem: uint64p(98765)},
-	{RootDisk: uint64p(0)},
-	{RootDisk: uint64p(109876)},
-	{
+type roundTrip struct {
+	Name  string
+	Value constraints.Value
+}
+
+var constraintsRoundtripTests = []roundTrip{
+	{"empty", constraints.Value{}},
+	{"Arch1", constraints.Value{Arch: strp("")}},
+	{"Arch2", constraints.Value{Arch: strp("amd64")}},
+	{"Container1", constraints.Value{Container: ctypep("")}},
+	{"Container2", constraints.Value{Container: ctypep("lxc")}},
+	{"Container3", constraints.Value{Container: nil}},
+	{"CpuCores1", constraints.Value{CpuCores: nil}},
+	{"CpuCores2", constraints.Value{CpuCores: uint64p(0)}},
+	{"CpuCores3", constraints.Value{CpuCores: uint64p(128)}},
+	{"CpuPower1", constraints.Value{CpuPower: nil}},
+	{"CpuPower2", constraints.Value{CpuPower: uint64p(0)}},
+	{"CpuPower3", constraints.Value{CpuPower: uint64p(250)}},
+	{"Mem1", constraints.Value{Mem: nil}},
+	{"Mem2", constraints.Value{Mem: uint64p(0)}},
+	{"Mem3", constraints.Value{Mem: uint64p(98765)}},
+	{"RootDisk1", constraints.Value{RootDisk: nil}},
+	{"RootDisk2", constraints.Value{RootDisk: uint64p(0)}},
+	{"RootDisk2", constraints.Value{RootDisk: uint64p(109876)}},
+	{"Tags1", constraints.Value{Tags: nil}},
+	// this one we know will fail... we have to use omitempty, but we can't specify "omitnullbutnotempty"
+	// {"Tags2", constraints.Value{Tags: []string{}}},
+	{"Tags3", constraints.Value{Tags: []string{"foo", "bar"}}},
+	{"All", constraints.Value{
 		Arch:      strp("i386"),
 		Container: ctypep("lxc"),
 		CpuCores:  uint64p(4096),
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
 		RootDisk:  uint64p(24000000000),
-	},
+		Tags:      []string{"foo", "bar"},
+	}},
 }
 
 func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
 		var cons constraints.Value
 		val := constraints.ConstraintsValue{&cons}
-		err := val.Set(t.String())
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+		err := val.Set(t.Value.String())
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
 func (s *ConstraintsSuite) TestRoundtripString(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
-		cons, err := constraints.Parse(t.String())
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
+		cons, err := constraints.Parse(t.Value.String())
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
 func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
-		data, err := json.Marshal(t)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
+		data, err := json.Marshal(t.Value)
 		c.Assert(err, gc.IsNil)
 		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
 func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
-		data, err := goyaml.Marshal(t)
-		c.Assert(err, gc.IsNil)
-		c.Logf("%s", data)
-		var cons constraints.Value
-		err = goyaml.Unmarshal(data, &cons)
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
-	}
+	// TODO(nate): CONSTRAINTS_YAML Add support for yaml serialiation
+	//
+	// we don't currently support serialization through yaml
+	// due to bugs in goyaml.  These tests just ensure that
+	// serialization will always fail. I'd prefer if serialization
+	// actually panicked, but goyaml recovers all panics and
+	// returns them as errors. sigh
+	v := constraints.Value{Tags: []string{"foo", "bar"}}
+
+	_, err := goyaml.Marshal(v)
+	c.Check(err, gc.Not(gc.IsNil))
+
+	err = goyaml.Unmarshal([]byte("foo"), &v)
+	c.Check(err, gc.Not(gc.IsNil))
 }
 
 var withFallbacksTests = []struct {
@@ -521,7 +542,7 @@ func (s *ConstraintsSuite) TestWithFallbacks(c *gc.C) {
 		initial := constraints.MustParse(t.initial)
 		fallbacks := constraints.MustParse(t.fallbacks)
 		final := constraints.MustParse(t.final)
-		c.Assert(initial.WithFallbacks(fallbacks), gc.DeepEquals, final)
+		c.Check(initial.WithFallbacks(fallbacks), gc.DeepEquals, final)
 	}
 }
 
@@ -544,6 +565,6 @@ func (s *ConstraintsSuite) TestHasContainer(c *gc.C) {
 	for i, t := range hasContainerTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.constraints)
-		c.Assert(cons.HasContainer(), gc.Equals, t.hasContainer)
+		c.Check(cons.HasContainer(), gc.Equals, t.hasContainer)
 	}
 }
