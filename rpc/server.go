@@ -9,9 +9,12 @@ import (
 	"reflect"
 	"sync"
 
-	"launchpad.net/juju-core/log"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/rpc/rpcreflect"
 )
+
+var logger = loggo.GetLogger("juju.rpc")
 
 // A Codec implements reading and writing of messages in an RPC
 // session.  The RPC code calls WriteMessage to write a message to the
@@ -231,7 +234,7 @@ func (conn *Conn) Close() error {
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
-		log.Infof("rpc: error closing codec: %v", err)
+		logger.Infof("error closing codec: %v", err)
 	}
 	<-conn.dead
 	return conn.inputLoopError
@@ -412,6 +415,6 @@ func (conn *Conn) runRequest(reqId uint64, objId string, req request, arg reflec
 		err = conn.codec.WriteMessage(hdr, rvi)
 	}
 	if err != nil {
-		log.Errorf("rpc: error writing response: %v", err)
+		logger.Errorf("error writing response: %v", err)
 	}
 }
