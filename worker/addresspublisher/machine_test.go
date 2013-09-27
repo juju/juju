@@ -20,15 +20,15 @@ func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-var _ = gc.Suite(&publisherSuite{})
+var _ = gc.Suite(&machineSuite{})
 
-type publisherSuite struct {
+type machineSuite struct {
 	testbase.LoggingSuite
 }
 
 var testAddrs = []instance.Address{instance.NewAddress("127.0.0.1")}
 
-func (*publisherSuite) TestSetsAddressInitially(c *gc.C) {
+func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 	ctxt := &testMachineContext{
 		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
 		dyingc:       make(chan struct{}),
@@ -53,13 +53,13 @@ func (*publisherSuite) TestSetsAddressInitially(c *gc.C) {
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
 }
 
-func (*publisherSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
+func (*machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	defer testbase.PatchValue(&shortPoll, 1*time.Millisecond).Restore()
 	defer testbase.PatchValue(&longPoll, coretesting.LongWait).Restore()
 	testPollInterval(c, nil)
 }
 
-func (*publisherSuite) TestLongPollIntervalWhenHasAddress(c *gc.C) {
+func (*machineSuite) TestLongPollIntervalWhenHasAddress(c *gc.C) {
 	defer testbase.PatchValue(&shortPoll, coretesting.LongWait).Restore()
 	defer testbase.PatchValue(&longPoll, 1*time.Millisecond).Restore()
 	testPollInterval(c, testAddrs)
@@ -105,7 +105,7 @@ loop:
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
-func (*publisherSuite) TestChangedRefreshes(c *gc.C) {
+func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	ctxt := &testMachineContext{
 		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
 		dyingc:       make(chan struct{}),
@@ -171,7 +171,7 @@ var terminatingErrorsTests = []struct {
 	},
 }}
 
-func (*publisherSuite) TestTerminatingErrors(c *gc.C) {
+func (*machineSuite) TestTerminatingErrors(c *gc.C) {
 	for i, test := range terminatingErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
 		testTerminatingErrors(c, test.mutate)
