@@ -403,7 +403,7 @@ func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstrai
 		if err != nil && len(items) == 0 && !onlySigned {
 			items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
 		}
-		if err == nil && len(items) > 0 {
+		if err == nil {
 			break
 		}
 	}

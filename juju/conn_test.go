@@ -284,7 +284,7 @@ func (s *ConnSuite) TestNewConnFromState(c *gc.C) {
 }
 
 func (s *ConnSuite) TestPutCharmBasic(c *gc.C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
@@ -297,7 +297,7 @@ func (s *ConnSuite) TestPutCharmBasic(c *gc.C) {
 
 func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	// Bundle the riak charm into a charm repo directory.
-	dir := filepath.Join(s.repo.Path, "series")
+	dir := filepath.Join(s.repo.Path, "quantal")
 	err := os.Mkdir(dir, 0777)
 	c.Assert(err, gc.IsNil)
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
@@ -311,12 +311,12 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	// test putting that.
 	curl := &charm.URL{
 		Schema:   "local",
-		Series:   "series",
+		Series:   "quantal",
 		Name:     "riak",
 		Revision: -1,
 	}
 	_, err = s.conn.PutCharm(curl, s.repo, true)
-	c.Assert(err, gc.ErrorMatches, `cannot increment revision of charm "local:series/riak-7": not a directory`)
+	c.Assert(err, gc.ErrorMatches, `cannot increment revision of charm "local:quantal/riak-7": not a directory`)
 
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
@@ -330,7 +330,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 
 func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 	repo := &charm.LocalRepository{c.MkDir()}
-	curl := coretesting.Charms.ClonedURL(repo.Path, "series", "riak")
+	curl := coretesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
 
 	// Put charm for the first time.
 	sch, err := s.conn.PutCharm(curl, repo, false)
@@ -370,7 +370,7 @@ func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 }
 
 func (s *ConnSuite) TestAddUnits(c *gc.C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "series", "riak")
+	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
 	svc, err := s.conn.State.AddService("testriak", sch)
@@ -424,7 +424,7 @@ func (s *DeployLocalSuite) TearDownSuite(c *gc.C) {
 
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	curl := charm.MustParseURL("local:series/dummy")
+	curl := charm.MustParseURL("local:quantal/dummy")
 	charm, err := s.Conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
 	s.charm = charm
@@ -500,7 +500,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	_, err = s.Conn.DeployService(juju.DeployServiceParams{
@@ -513,7 +513,7 @@ func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *gc.C
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
@@ -532,7 +532,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	cons := constraints.MustParse("mem=2G")

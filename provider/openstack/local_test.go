@@ -230,7 +230,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.GenerateFakeToolsMetadata(c, s.metadataStorage)
+	envtesting.UploadFakeTools(c, s.metadataStorage)
 	openstack.UseTestImageData(env, s.cred)
 }
 
@@ -815,7 +815,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	url, err := metadataStorage.URL("")
 	c.Assert(err, gc.IsNil)
 	c.Logf("Generating fake tools for: %v", url)
-	envtesting.GenerateFakeToolsMetadata(c, metadataStorage)
+	envtesting.UploadFakeToolsVersions(c, metadataStorage)
 	defer envtesting.RemoveFakeTools(c, metadataStorage)
 	openstack.UseTestImageData(s.env, s.cred)
 	defer openstack.RemoveTestImageData(s.env)

@@ -43,20 +43,18 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-// GenerateFakeToolsMetadata puts fake tools metadata into the supplied storage,
-// containing a record for tools with a binary version matching version.Current;
-// if version.Current's series is different to config.DefaultSeries, matching fake
-// metadata will be included for that series.
-// This is useful for tests that are kinda casual about specifying their environment.
-func generateFakeToolsMetadata(stor storage.Storage, versions ...version.Binary) error {
-	var metadata = make([]*envtools.ToolsMetadata, len(versions))
-	for i, vers := range versions {
-		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+func generateFakeToolsMetadata(stor storage.Storage, agentTools []*coretools.Tools) error {
+	var metadata = make([]*envtools.ToolsMetadata, len(agentTools))
+	for i, toolsRec := range agentTools {
+		basePath := fmt.Sprintf("releases/juju-%s.tgz", toolsRec.Version.String())
 		metadata[i] = &envtools.ToolsMetadata{
-			Release: vers.Series,
-			Version: vers.Number.String(),
-			Arch:    vers.Arch,
-			Path:    basePath,
+			Release:  toolsRec.Version.Series,
+			Version:  toolsRec.Version.Number.String(),
+			Arch:     toolsRec.Version.Arch,
+			FileType: ".tgz",
+			Path:     basePath,
+			Size:     toolsRec.Size,
+			SHA256:   toolsRec.SHA256,
 		}
 	}
 	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
@@ -78,17 +76,6 @@ func generateFakeToolsMetadata(stor storage.Storage, versions ...version.Binary)
 		}
 	}
 	return nil
-}
-
-func GenerateFakeToolsMetadata(c *gc.C, stor storage.Storage) {
-	vers := version.Current
-	versions := []version.Binary{vers}
-	if vers.Series != config.DefaultSeries {
-		vers.Series = config.DefaultSeries
-		versions = append(versions, vers)
-	}
-	err := generateFakeToolsMetadata(stor, versions...)
-	c.Assert(err, gc.IsNil)
 }
 
 // RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
@@ -135,8 +122,9 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Bina
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
 	c.Assert(err, gc.IsNil)
 	version.Current = vers
-	agentTools := AssertUploadFakeToolsVersions(c, stor, vers)[0]
-	err = generateFakeToolsMetadata(stor, vers)
+	allTools := AssertUploadFakeToolsVersions(c, stor, vers)
+	err = generateFakeToolsMetadata(stor, allTools)
+	agentTools := allTools[0]
 	c.Assert(err, gc.IsNil)
 	resp, err := http.Get(agentTools.URL)
 	c.Assert(err, gc.IsNil)
@@ -172,7 +160,7 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 		}
 		agentTools[i] = t
 	}
-	err := generateFakeToolsMetadata(stor, versions...)
+	err := generateFakeToolsMetadata(stor, agentTools)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +184,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 		}
 		agentTools[i] = t
 	}
-	err := generateFakeToolsMetadata(stor, versions...)
+	err := generateFakeToolsMetadata(stor, agentTools)
 	if err != nil {
 		panic(err)
 	}
@@ -249,7 +237,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage) {
 
 // RemoveTools deletes all tools from the supplied storage.
 func RemoveTools(c *gc.C, stor storage.Storage) {
-	names, err := storage.List(stor, "tools/juju-")
+	names, err := storage.List(stor, "tools/releases/juju-")
 	c.Assert(err, gc.IsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {

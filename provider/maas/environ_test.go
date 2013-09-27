@@ -450,7 +450,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
+	c.Check(err, gc.FitsTypeOf, errors.NotFoundf(""))
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

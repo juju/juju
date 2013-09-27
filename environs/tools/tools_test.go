@@ -271,16 +271,20 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
-//	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
-//		{loggo.INFO, "reading tools with major version 1"},
-//		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
-//		{loggo.DEBUG, "no architecture specified when finding tools, looking for any"},
-//		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
-//		{loggo.DEBUG, `fetchData failed for ".*/index.sjson": file ".*/index.sjson" not found not found`},
-//		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
-//		{loggo.DEBUG, `fetchData failed for ".*/index.json": file ".*/index.json" not found not found`},
-//		{loggo.DEBUG, `cannot load index .*: invalid URL .* not found`},
-//	})
+	messages := []jc.SimpleMessage{
+		{loggo.INFO, "reading tools with major version 1"},
+		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
+		{loggo.DEBUG, "no architecture specified when finding tools, looking for any"},
+		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
+	}
+	sources, err := envtools.GetMetadataSources(s.env)
+	c.Assert(err, gc.IsNil)
+	for i := 0; i < 2*len(sources); i++ {
+		messages = append(messages,
+			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},
+			jc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
+	}
+	c.Check(tw.Log, jc.LogMatches, messages)
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {

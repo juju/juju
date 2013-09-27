@@ -404,7 +404,7 @@ func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	root := c.MkDir()
 	s.repo = &charm.LocalRepository{root}
-	s.seriesPath = filepath.Join(root, "series")
+	s.seriesPath = filepath.Join(root, "quantal")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), gc.IsNil)
 }
 
@@ -423,7 +423,7 @@ func (s *LocalRepoSuite) checkNotFoundErr(c *gc.C, err error, charmURL *charm.UR
 
 func (s *LocalRepoSuite) TestMissingCharm(c *gc.C) {
 	for i, str := range []string{
-		"local:series/zebra", "local:badseries/zebra",
+		"local:quantal/zebra", "local:badseries/zebra",
 	} {
 		c.Logf("test %d: %s", i, str)
 		charmURL := charm.MustParseURL(str)
@@ -436,19 +436,19 @@ func (s *LocalRepoSuite) TestMissingCharm(c *gc.C) {
 
 func (s *LocalRepoSuite) TestMissingRepo(c *gc.C) {
 	c.Assert(os.RemoveAll(s.repo.Path), gc.IsNil)
-	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
+	_, err := s.repo.Latest(charm.MustParseURL("local:quantal/zebra"))
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
-	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
+	_, err = s.repo.Get(charm.MustParseURL("local:quantal/zebra"))
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
 	c.Assert(ioutil.WriteFile(s.repo.Path, nil, 0666), gc.IsNil)
-	_, err = s.repo.Latest(charm.MustParseURL("local:series/zebra"))
+	_, err = s.repo.Latest(charm.MustParseURL("local:quantal/zebra"))
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
-	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
+	_, err = s.repo.Get(charm.MustParseURL("local:quantal/zebra"))
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
 }
 
 func (s *LocalRepoSuite) TestMultipleVersions(c *gc.C) {
-	charmURL := charm.MustParseURL("local:series/upgrade")
+	charmURL := charm.MustParseURL("local:quantal/upgrade")
 	s.addDir("upgrade1")
 	rev, err := s.repo.Latest(charmURL)
 	c.Assert(err, gc.IsNil)
@@ -482,7 +482,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *gc.C) {
 }
 
 func (s *LocalRepoSuite) TestBundle(c *gc.C) {
-	charmURL := charm.MustParseURL("local:series/dummy")
+	charmURL := charm.MustParseURL("local:quantal/dummy")
 	s.addBundle("dummy")
 
 	rev, err := s.repo.Latest(charmURL)
@@ -503,7 +503,7 @@ func (s *LocalRepoSuite) TestLogsErrors(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(samplePath, "metadata.yaml"), gibberish, 0666)
 	c.Assert(err, gc.IsNil)
 
-	charmURL := charm.MustParseURL("local:series/dummy")
+	charmURL := charm.MustParseURL("local:quantal/dummy")
 	s.addDir("dummy")
 	ch, err := s.repo.Get(charmURL)
 	c.Assert(err, gc.IsNil)
@@ -526,7 +526,7 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	renameSibling(c, s.addDir("dummy"), ".dummy")
 	renameSibling(c, s.addBundle("dummy"), "dummy.notacharm")
-	charmURL := charm.MustParseURL("local:series/dummy")
+	charmURL := charm.MustParseURL("local:quantal/dummy")
 
 	_, err = s.repo.Get(charmURL)
 	s.checkNotFoundErr(c, err, charmURL)
@@ -540,7 +540,7 @@ func (s *LocalRepoSuite) TestFindsSymlinks(c *gc.C) {
 	linkPath := filepath.Join(s.seriesPath, "dummy")
 	err := os.Symlink(realPath, linkPath)
 	c.Assert(err, gc.IsNil)
-	ch, err := s.repo.Get(charm.MustParseURL("local:series/dummy"))
+	ch, err := s.repo.Get(charm.MustParseURL("local:quantal/dummy"))
 	c.Assert(err, gc.IsNil)
 	checkDummy(c, ch, linkPath)
 }

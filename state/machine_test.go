@@ -30,7 +30,7 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -48,7 +48,7 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
@@ -70,7 +70,7 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 	}
 	for _, test := range tests {
 		params := state.AddMachineParams{
-			Series: "series",
+			Series: "quantal",
 			Jobs:   test.jobs,
 		}
 		m, err := s.State.AddMachineWithConstraints(&params)
@@ -81,7 +81,7 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
@@ -94,7 +94,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	_, err := s.State.AddMachineWithConstraints(&params)
@@ -133,7 +133,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 
 	// A machine that has never had units assigned can advance lifecycle.
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -211,9 +211,9 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyMachines(c *gc.C) {
 	m0 := s.machine
-	m1, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("series", state.JobHostUnits)
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	sch := s.AddTestingCharm(c, "wordpress")
@@ -306,7 +306,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -322,7 +322,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -344,7 +344,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -424,7 +424,7 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
-	m0, err := s.State.AddMachine("series", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
@@ -468,9 +468,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine("series", state.JobHostUnits)
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	m3, err := s.State.AddMachine("series", state.JobHostUnits)
+	m3, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -542,7 +542,7 @@ func sortedUnitNames(units []*state.Unit) []string {
 }
 
 func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Service, *state.Unit) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Clean(), gc.Equals, true)
 
@@ -875,7 +875,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	// A newly-created machine gets a copy of the environment constraints.
 	err := s.State.SetEnvironConstraints(econs1)
 	c.Assert(err, gc.IsNil)
-	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	mcons1, err := machine1.Constraints()
 	c.Assert(err, gc.IsNil)
@@ -884,7 +884,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	// Change environment constraints and add a new machine.
 	err = s.State.SetEnvironConstraints(econs2)
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	mcons2, err := machine2.Constraints()
 	c.Assert(err, gc.IsNil)
@@ -897,7 +897,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetConstraints(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Constraints can be set...
@@ -1050,7 +1050,7 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 

@@ -297,7 +297,7 @@ func (s *FirewallerSuite) TestStartWithState(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestStartWithPartialState(c *gc.C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	inst := s.startInstance(c, m)
 
@@ -324,7 +324,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestStartWithUnexposedService(c *gc.C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	inst := s.startInstance(c, m)
 
@@ -601,7 +601,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	// Change configuration.
 	s.setGlobalMode(c)
 
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.startInstance(c, m)
 

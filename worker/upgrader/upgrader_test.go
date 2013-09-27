@@ -78,7 +78,7 @@ func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-foo-bar")
+	vers := version.MustParseBinary("5.4.3-precise-amd64")
 	err := statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
 	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
@@ -95,7 +95,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-foo-bar")
+	vers := version.MustParseBinary("5.4.3-precise-amd64")
 	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, gc.IsNil)
@@ -115,9 +115,9 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	oldTools := envtesting.PrimeTools(
-		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
+		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-foo-bar"))[0]
+		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
 
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -142,9 +142,9 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	oldTools := envtesting.PrimeTools(
-		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
+		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-foo-bar"))[0]
+		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))[0]
 
 	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -170,7 +170,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	// downloaded ok; it should stop retrying, download
 	// the newer tools and exit.
 	newerTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.6-foo-bar"))[0]
+		c, s.Conn.Environ.Storage(), version.MustParseBinary("5.4.6-precise-amd64"))[0]
 
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -195,10 +195,10 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 
 func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	oldTools := &coretools.Tools{
-		Version: version.MustParseBinary("1.2.3-arble-bletch"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 	}
 	newTools := envtesting.PrimeTools(
-		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-foo-bar"))
+		c, s.Conn.Environ.Storage(), s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",
 		OldTools:  oldTools,

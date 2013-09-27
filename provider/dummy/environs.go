@@ -39,7 +39,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
@@ -269,8 +268,6 @@ func newState(name string, ops chan<- Operation) *environState {
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
 	s.listen()
-	// TODO(fwereade): get rid of these.
-	envtesting.MustUploadFakeTools(s.storage)
 	return s
 }
 
