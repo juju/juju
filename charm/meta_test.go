@@ -311,7 +311,7 @@ func (s *MetaSuite) TestIfaceExpander(c *gc.C) {
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
-	c.Assert(err, gc.ErrorMatches, "<path>: expected map, got 42")
+	c.Assert(err, gc.ErrorMatches, "<path>: expected map, got int(42)")
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": nil}, path)
 	c.Assert(err, gc.ErrorMatches, "<path>.optional: expected bool, got nothing")

@@ -219,7 +219,7 @@ var configTests = []configTest{
 		config: attrs{
 			"region": 666,
 		},
-		err: ".*expected string, got 666",
+		err: ".*expected string, got int(666)",
 	}, {
 		summary: "missing region in environment",
 		envVars: map[string]string{
@@ -232,7 +232,7 @@ var configTests = []configTest{
 		config: attrs{
 			"username": 666,
 		},
-		err: ".*expected string, got 666",
+		err: ".*expected string, got int(666)",
 	}, {
 		summary: "missing username in environment",
 		err:     "required environment variable not set for credentials attribute: User",
@@ -245,7 +245,7 @@ var configTests = []configTest{
 		config: attrs{
 			"password": 666,
 		},
-		err: ".*expected string, got 666",
+		err: ".*expected string, got int(666)",
 	}, {
 		summary: "missing password in environment",
 		err:     "required environment variable not set for credentials attribute: Secrets",
@@ -258,7 +258,7 @@ var configTests = []configTest{
 		config: attrs{
 			"tenant-name": 666,
 		},
-		err: ".*expected string, got 666",
+		err: ".*expected string, got int(666)",
 	}, {
 		summary: "missing tenant in environment",
 		err:     "required environment variable not set for credentials attribute: TenantName",
@@ -271,7 +271,7 @@ var configTests = []configTest{
 		config: attrs{
 			"auth-url": 666,
 		},
-		err: ".*expected string, got 666",
+		err: ".*expected string, got int(666)",
 	}, {
 		summary: "missing auth-url in environment",
 		err:     "required environment variable not set for credentials attribute: URL",
@@ -325,7 +325,7 @@ var configTests = []configTest{
 		config: attrs{
 			"control-bucket": 666,
 		},
-		err: ".*expected string, got 666",
+		err: ".*expected string, got int(666)",
 	}, {
 		summary: "changing control-bucket",
 		change: attrs{
