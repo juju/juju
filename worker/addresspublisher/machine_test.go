@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -15,10 +14,6 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 var _ = gc.Suite(&machineSuite{})
 

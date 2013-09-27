@@ -69,32 +69,38 @@ type machinesWatcher interface {
 }
 
 type publisherContext interface {
-	newMachineContext(id string) machineContext
+	newMachineContext() machineContext
 	getMachine(id string) (machine, error)
 	dying() <-chan struct{}
 }
 
 type publisher struct {
-	ctxt publisherContext
-	machines map[string] chan struct{}
+	ctxt        publisherContext
+	machines    map[string]chan struct{}
 	machineDead chan machine
-	publisherc chan machineAddress
+	publisherc  chan machineAddress
 }
 
 // watchMachinesLoop watches for changes provided by the given
 // machinesWatcher and starts machine goroutines to deal
 // with them, using the provided newMachineContext
 // function to create the appropriate context for each new machine id.
-func watchMachinesLoop(ctxt publisherContext, w machinesWatcher) error {
+func watchMachinesLoop(ctxt publisherContext, w machinesWatcher) (err error) {
 	p := &publisher{
-		ctxt: ctxt,
-		machines: make(map[string] chan struct{}),
+		ctxt:        ctxt,
+		machines:    make(map[string]chan struct{}),
 		machineDead: make(chan machine),
-		publisherc: make(chan machineAddress),
+		publisherc:  make(chan machineAddress),
 	}
 	go publisherLoop(p.publisherc)
 	defer func() {
-		w.Stop()
+		if stopErr := w.Stop(); stopErr != nil {
+			if err == nil {
+				err = fmt.Errorf("error stopping watcher: %v", stopErr)
+			} else {
+				logger.Warningf("ignoring error when stopping watcher: %v", stopErr)
+			}
+		}
 		for len(p.machines) > 0 {
 			delete(p.machines, (<-p.machineDead).Id())
 		}
@@ -102,7 +108,7 @@ func watchMachinesLoop(ctxt publisherContext, w machinesWatcher) error {
 	}()
 	for {
 		select {
-		case ids, ok  := <-w.Changes():
+		case ids, ok := <-w.Changes():
 			if !ok {
 				return watcher.MustErr(w)
 			}
@@ -132,7 +138,7 @@ func (p *publisher) startMachines(ids []string) error {
 			}
 			c = make(chan struct{})
 			p.machines[id] = c
-			go runMachine(p.ctxt.newMachineContext(id), m, c, p.machineDead, p.publisherc)
+			go runMachine(p.ctxt.newMachineContext(), m, c, p.machineDead, p.publisherc)
 		} else {
 			c <- struct{}{}
 		}
