@@ -271,24 +271,31 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err = s.unit.SetStatus(params.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, _, err := s.unit.Status()
+	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
 	err = s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, _, err = s.unit.Status()
+	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", nil)
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+		"foo": "bar",
+	})
 	c.Assert(err, gc.IsNil)
-	status, info, _, err = s.unit.Status()
+	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"foo": "bar",
+	})
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {

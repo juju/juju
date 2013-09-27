@@ -343,9 +343,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	data := params.StatusData{"hook": u.currentHookName()}
 	if u.s.Hook.Kind.IsRelation() {
 		data["relation-id"] = u.s.Hook.RelationId
-	}
-	if u.s.Hook.RemoteUnit != "" {
-		data["remote-unit"] = u.s.Hook.RemoteUnit
+		if u.s.Hook.RemoteUnit != "" {
+			data["remote-unit"] = u.s.Hook.RemoteUnit
+		}
 	}
 	if err = u.unit.SetStatus(params.StatusError, msg, data); err != nil {
 		return nil, err

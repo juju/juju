@@ -492,7 +492,7 @@ func (u *Unit) Refresh() error {
 func (u *Unit) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", params.StatusData{}, err
+		return "", "", nil, err
 	}
 	status = doc.Status
 	info = doc.StatusInfo

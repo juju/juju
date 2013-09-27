@@ -950,24 +950,31 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err = s.machine.SetStatus(params.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, _, err := s.machine.Status()
+	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
 	err = s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, _, err = s.machine.Status()
+	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", nil)
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+		"foo": "bar",
+	})
 	c.Assert(err, gc.IsNil)
-	status, info, _, err = s.machine.Status()
+	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"foo": "bar",
+	})
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
@@ -976,20 +983,22 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStopped, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, _, err := s.machine.Status()
+	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
-	status, info, _, err = s.machine.Status()
+	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)

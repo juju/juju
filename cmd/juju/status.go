@@ -504,6 +504,7 @@ func processAgent(entity stateAgent) (life string, version string, status params
 	if t, err := entity.AgentTools(); err == nil {
 		version = t.Version.Number.String()
 	}
+	// TODO(mue) StatusData may be useful here too.
 	status, info, _, err = entity.Status()
 	if err != nil {
 		return
