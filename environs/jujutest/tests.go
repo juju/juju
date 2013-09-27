@@ -126,6 +126,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
+	envtesting.UploadFakeTools(c, e.Storage())
 	err := bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -137,6 +138,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
+	envtesting.UploadFakeTools(c, e2.Storage())
 	err = bootstrap.Bootstrap(e2, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
@@ -149,6 +151,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
+	envtesting.UploadFakeTools(c, e3.Storage())
 
 	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)

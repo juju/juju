@@ -276,6 +276,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := env.Config().DefaultSeries()
@@ -293,6 +294,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := env.Config().DefaultSeries()
@@ -312,6 +314,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := env.Config().DefaultSeries()

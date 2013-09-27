@@ -138,6 +138,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
@@ -179,6 +180,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.PrepareOnce(c)
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.StartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
@@ -232,6 +234,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.PrepareOnce(c)
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
@@ -320,6 +323,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	t.PrepareOnce(c)
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
 	oldConfig := t.Env.Config()
@@ -858,6 +862,7 @@ attempt:
 // appropriate envtools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
 	t.PrepareOnce(c)
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 	inst, _, err := provider.StartInstance(
 		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
 		testing.FakeAPIInfo("4"))
@@ -872,6 +877,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	t.PrepareOnce(c)
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 	inst, _, err := provider.StartInstance(
 		t.Env, "4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"),
 		testing.FakeAPIInfo("4"))
