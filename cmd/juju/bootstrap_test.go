@@ -271,7 +271,7 @@ func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	// Change the tools location to be the test location and also
 	// the version and ensure their later restoring.
 	origVersion := version.Current
-	version.Current.Number = version.MustParse("1.2.3")
+	version.Current.Number = version.MustParse("1.2.0")
 	defer func() { version.Current = origVersion }()
 
 	// Create home with dummy provider and remove all
@@ -297,7 +297,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 
 	// Change the version and ensure its later restoring.
 	origVersion := version.Current
-	version.Current.Number = version.MustParse("1.2.3")
+	version.Current.Number = version.MustParse("1.2.0")
 	defer func() {
 		version.Current = origVersion
 	}()
@@ -316,7 +316,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Now check that there are no tools available.
 	_, err := envtools.FindTools(
 		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
-	c.Assert(err, gc.ErrorMatches, "invalid URL.*")
+	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
 
 	// Bootstrap the environment with the valid source. This time
 	// the bootstrapping has to show no error, because the tools
