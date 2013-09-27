@@ -39,7 +39,7 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
-		// TODO(nate): CONSTRAINTS_YAML: re-add yaml as a format when 
+		// TODO(nate): CONSTRAINTS_YAML: re-add yaml as a format when
 		// we can properly handle yaml serialization
 		// see constraints/constrains.go
 		// "yaml":        cmd.FormatYaml,
