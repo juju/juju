@@ -61,7 +61,7 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		privateStorageURL, "config-tools-url/", "https://juju.canonical.com/tools/"})
+		"config-tools-url/", privateStorageURL, "https://juju.canonical.com/tools/"})
 	haveExpectedSources := false
 	for _, source := range sources {
 		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {

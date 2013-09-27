@@ -65,6 +65,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
+		logger.Errorf("failed to validate unknown attrs: %v", err)
 		return nil, err
 	}
 	localConfig := newEnvironConfig(cfg, validated)
@@ -124,7 +125,7 @@ local:
 }
 
 // SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs
 	return nil, nil
 }

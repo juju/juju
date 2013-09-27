@@ -77,12 +77,12 @@ type ContextRelation interface {
 	UnitNames() []string
 
 	// ReadSettings returns the settings of any remote unit in the relation.
-	ReadSettings(unit string) (params.Settings, error)
+	ReadSettings(unit string) (params.RelationSettings, error)
 }
 
 // Settings is implemented by types that manipulate unit settings.
 type Settings interface {
-	Map() params.Settings
+	Map() params.RelationSettings
 	Set(string, string)
 	Delete(string)
 }

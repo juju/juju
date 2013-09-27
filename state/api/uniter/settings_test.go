@@ -34,7 +34,7 @@ func (s *settingsSuite) TestNewSettingsAndMap(c *gc.C) {
 	c.Assert(theMap, gc.HasLen, 0)
 
 	// And also accepts a populated map, and returns a converted map.
-	rawSettings := params.Settings{
+	rawSettings := params.RelationSettings{
 		"some":  "settings",
 		"other": "stuff",
 	}
@@ -47,15 +47,15 @@ func (s *settingsSuite) TestSet(c *gc.C) {
 	settings := uniter.NewSettings(s.uniter, "blah", "foo", nil)
 
 	settings.Set("foo", "bar")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "bar",
 	})
 	settings.Set("foo", "qaz")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 	})
 	settings.Set("bar", "Cheers")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 		"bar": "Cheers",
 	})
@@ -67,27 +67,27 @@ func (s *settingsSuite) TestDelete(c *gc.C) {
 	settings.Set("foo", "qaz")
 	settings.Set("abc", "tink")
 	settings.Set("bar", "tonk")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 		"abc": "tink",
 		"bar": "tonk",
 	})
 	settings.Delete("abc")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 		"bar": "tonk",
 	})
 	settings.Delete("bar")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 	})
 	settings.Set("abc", "123")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 		"abc": "123",
 	})
 	settings.Delete("missing")
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo": "qaz",
 		"abc": "123",
 	})
@@ -112,7 +112,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	settings, err := apiRelUnit.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"some":  "stuff",
 		"other": "things",
 	})
@@ -126,7 +126,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	settings, err = apiRelUnit.Settings()
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings.Map(), gc.DeepEquals, params.Settings{
+	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo":   "qaz",
 		"other": "days",
 	})

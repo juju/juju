@@ -8,9 +8,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"launchpad.net/juju-core/log"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/rpc"
 )
+
+var logger = loggo.GetLogger("juju.rpc.jsoncodec")
 
 // JSONConn sends and receives messages to an underlying connection
 // in JSON format.
@@ -101,10 +104,10 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		var m json.RawMessage
 		err = c.conn.Receive(&m)
 		if err == nil {
-			log.Debugf("rpc/jsoncodec: <- %s", m)
+			logger.Debugf("<- %s", m)
 			err = json.Unmarshal(m, &c.msg)
 		} else {
-			log.Debugf("rpc/jsoncodec: <- error: %v (closing %v)", err, c.isClosing())
+			logger.Debugf("<- error: %v (closing %v)", err, c.isClosing())
 		}
 	} else {
 		err = c.conn.Receive(&c.msg)
@@ -163,10 +166,10 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	if c.isLogging() {
 		data, err := json.Marshal(r)
 		if err != nil {
-			log.Debugf("rpc/jsoncodec: -> marshal error: %v", err)
+			logger.Debugf("-> marshal error: %v", err)
 			return err
 		}
-		log.Debugf("rpc/jsoncodec: -> %s", data)
+		logger.Debugf("-> %s", data)
 	}
 	return c.conn.Send(r)
 }

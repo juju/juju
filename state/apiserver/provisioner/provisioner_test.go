@@ -275,11 +275,11 @@ func (s *provisionerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah")
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusStopped, "foo")
+	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really")
+	err = s.machines[2].SetStatus(params.StatusError, "not really", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -421,15 +421,32 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	result, err := s.provisioner.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Config, gc.DeepEquals, params.Config(envConfig.AllAttrs()))
+	c.Assert(result.Config, gc.DeepEquals, params.EnvironConfig(envConfig.AllAttrs()))
+
+	// Now test it with a non-environment manager and make sure
+	// the secret attributes are masked.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.Manager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
+		anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	// We need to see the secret attributes masked out, and for
+	// the dummy provider it's only one: "secret".
+	expectedConfig := envConfig.AllAttrs()
+	expectedConfig["secret"] = "not available"
+	result, err = aProvisioner.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *provisionerSuite) TestStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah")
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusStopped, "foo")
+	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really")
+	err = s.machines[2].SetStatus(params.StatusError, "not really", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -620,4 +637,32 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	result, err = aProvisioner.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
+func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	result, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiInfo.Addrs,
+	})
+}
+
+func (s *provisionerSuite) TestCACert(c *gc.C) {
+	result := s.provisioner.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
+	})
 }

@@ -587,6 +587,7 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	checker := schema.FieldMap(fields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
+		logger.Errorf("coersion failed attributes: %#v, checker: %#v, %v", attrs, checker, err)
 		return nil, err
 	}
 	result := coerced.(map[string]interface{})
@@ -610,5 +611,6 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	if !hasCAKey {
 		return nil, nil, fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	return cert.NewServer(cfg.Name(), caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
+	var noHostnames []string
+	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }

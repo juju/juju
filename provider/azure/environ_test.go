@@ -88,6 +88,15 @@ func (*environSuite) TestName(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, env.name)
 }
 
+func (*environSuite) TestPrecheck(c *gc.C) {
+	env := azureEnviron{name: "foo"}
+	var cons constraints.Value
+	err := env.PrecheckInstance("saucy", cons)
+	c.Check(err, gc.IsNil)
+	err = env.PrecheckContainer("saucy", instance.LXC)
+	c.Check(err, gc.ErrorMatches, "azure provider does not support containers")
+}
+
 func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 	cfg := new(config.Config)
 	ecfg := azureEnvironConfig{Config: cfg}
@@ -1303,6 +1312,9 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 1)
+	c.Assert(len(sources), gc.Equals, 2)
 	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "https://jujutools.blob.core.windows.net/juju-tools/tools/")
 }

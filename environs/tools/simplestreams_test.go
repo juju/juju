@@ -68,7 +68,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test:"),
+			Source:        simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
 			ValidConstraint: tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
@@ -85,7 +85,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource(baseURL),
+		Source:          simplestreams.NewURLDataSource(baseURL, simplestreams.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		ValidConstraint: validToolsConstraint,
@@ -248,6 +248,31 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		}
 		c.Check(tools, gc.DeepEquals, t.tools)
 	}
+}
+
+func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, 13, false, simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-west-2", "https://ec2.us-west-2.amazonaws.com"},
+		Series:    []string{"precise"},
+		Arches:    []string{"amd64"},
+	})
+	toolsMetadata, err := tools.Fetch(
+		[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(toolsMetadata), gc.Equals, 1)
+
+	expectedMetadata := &tools.ToolsMetadata{
+		Release:  "precise",
+		Version:  "1.13.0",
+		Arch:     "amd64",
+		Size:     2973595,
+		Path:     "mirrored-path/juju-1.13.0-precise-amd64.tgz",
+		FullPath: "test:/mirrored-path/juju-1.13.0-precise-amd64.tgz",
+		FileType: "tar.gz",
+		SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
+	}
+	c.Assert(err, gc.IsNil)
+	c.Assert(toolsMetadata[0], gc.DeepEquals, expectedMetadata)
 }
 
 func assertMetadataMatches(c *gc.C, toolList coretools.List, metadata []*tools.ToolsMetadata) {

@@ -360,7 +360,7 @@ func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, gc.IsNil)
-	err = u.SetStatus(params.StatusError, "gaaah")
+	err = u.SetStatus(params.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", false)

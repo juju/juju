@@ -102,33 +102,39 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		return nil, err
 	}
 
-	// Try to connect to the API concurrently using two
-	// different possible sources of truth for the API endpoint.
-	// Our preference is for the API endpoint cached in the
-	// API info, because we know that without needing to
-	// access any remote provider. However, the addresses
-	// stored there may no longer be current (and the network
-	// connection may take a very long time to time out)
-	// so we also try to connect using information found
-	// from the provider config. If we have some local
-	// information, we only start to make that connection
-	// after some suitable delay, so that in the hopefully
-	// usual case, we will make the connection to the API
-	// and never hit the provider.
+	// Try to connect to the API concurrently using two different
+	// possible sources of truth for the API endpoint. Our
+	// preference is for the API endpoint cached in the API info,
+	// because we know that without needing to access any remote
+	// provider. However, the addresses stored there may no longer
+	// be current (and the network connection may take a very long
+	// time to time out) so we also try to connect using information
+	// found from the provider. We only start to make that
+	// connection after some suitable delay, so that in the
+	// hopefully usual case, we will make the connection to the API
+	// and never hit the provider. By preference we use provider
+	// attributes from the config store, but for backward
+	// compatibility reasons, we fall back to information from
+	// ReadEnvirons if that does not exist.
 
 	stop := make(chan struct{})
 	defer close(stop)
 
-	infoResult := apiInfoConnect(store, envName, stop)
-
-	var cfgResult <-chan apiOpenResult
-	if envs != nil {
-		delay := providerConnectDelay
-		if infoResult == nil {
-			delay = 0
-		}
-		cfgResult = apiConfigConnect(envs, envName, stop, delay)
+	info, err := store.ReadInfo(envName)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
 	}
+	var infoResult <-chan apiOpenResult
+	if info != nil {
+		infoResult = apiInfoConnect(store, info, stop)
+	}
+	delay := providerConnectDelay
+	if infoResult == nil {
+		// There's no environment info, so no need to
+		// wait for the info connection.
+		delay = 0
+	}
+	cfgResult := apiConfigConnect(info, envs, envName, stop, delay)
 
 	if infoResult == nil && cfgResult == nil {
 		return nil, errors.NotFoundf("environment %q", envName)
@@ -173,16 +179,8 @@ type apiOpenResult struct {
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(store configstore.Storage, envName string, stop <-chan struct{}) <-chan apiOpenResult {
+func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, stop <-chan struct{}) <-chan apiOpenResult {
 	resultc := make(chan apiOpenResult)
-	info, err := store.ReadInfo(envName)
-	if err != nil {
-		if errors.IsNotFoundError(err) {
-			return nil
-		}
-		go sendAPIOpenResult(resultc, stop, nil, err)
-		return resultc
-	}
 	endpoint := info.APIEndpoint()
 	if info == nil || len(endpoint.Addresses) == 0 {
 		return nil
@@ -215,12 +213,21 @@ func sendAPIOpenResult(resultc chan apiOpenResult, stop <-chan struct{}, st *api
 // and tries to use an Environ constructed from that to connect to
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
-func apiConfigConnect(envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) <-chan apiOpenResult {
-	cfg, err := envs.Config(envName)
-	if errors.IsNotFoundError(err) {
+// It returns nil if there was no configuration information found.
+func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) <-chan apiOpenResult {
+	resultc := make(chan apiOpenResult)
+	var cfg *config.Config
+	var err error
+	if info != nil && len(info.BootstrapConfig()) > 0 {
+		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
+	} else if envs != nil {
+		cfg, err = envs.Config(envName)
+		if errors.IsNotFoundError(err) {
+			return nil
+		}
+	} else {
 		return nil
 	}
-	resultc := make(chan apiOpenResult)
 	connect := func() (*api.State, error) {
 		if err != nil {
 			return nil, err

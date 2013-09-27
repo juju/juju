@@ -15,12 +15,12 @@ type Settings struct {
 	st          *State
 	relationTag string
 	unitTag     string
-	settings    params.Settings
+	settings    params.RelationSettings
 }
 
-func newSettings(st *State, relationTag, unitTag string, settings params.Settings) *Settings {
+func newSettings(st *State, relationTag, unitTag string, settings params.RelationSettings) *Settings {
 	if settings == nil {
-		settings = make(params.Settings)
+		settings = make(params.RelationSettings)
 	}
 	return &Settings{
 		st:          st,
@@ -36,8 +36,8 @@ func newSettings(st *State, relationTag, unitTag string, settings params.Setting
 // not return map[string]interface{}, but since all values are
 // expected to be strings anyway, we need to fix the uniter code
 // accordingly when migrating to the API.
-func (s *Settings) Map() params.Settings {
-	settingsCopy := make(params.Settings)
+func (s *Settings) Map() params.RelationSettings {
+	settingsCopy := make(params.RelationSettings)
 	for k, v := range s.settings {
 		if v != "" {
 			// Skip deleted keys.
@@ -75,7 +75,7 @@ func (s *Settings) Delete(key string) {
 // without overwritting.
 func (s *Settings) Write() error {
 	// First make a copy of the map, including deleted keys.
-	settingsCopy := make(params.Settings)
+	settingsCopy := make(params.RelationSettings)
 	for k, v := range s.settings {
 		settingsCopy[k] = v
 	}

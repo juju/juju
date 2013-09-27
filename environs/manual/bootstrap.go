@@ -30,13 +30,11 @@ type LocalStorageEnviron interface {
 
 type BootstrapArgs struct {
 	Host          string
+	DataDir       string
 	Environ       LocalStorageEnviron
 	MachineId     string
 	PossibleTools tools.List
 }
-
-// TODO(axw) make this configurable?
-const dataDir = "/var/lib/juju"
 
 func errMachineIdInvalid(machineId string) error {
 	return fmt.Errorf("%q is not a valid machine ID", machineId)
@@ -51,6 +49,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 	if args.Environ == nil {
 		return errors.New("environ argument is nil")
+	}
+	if args.DataDir == "" {
+		return errors.New("data-dir argument is empty")
 	}
 	if !names.IsMachine(args.MachineId) {
 		return errMachineIdInvalid(args.MachineId)
@@ -103,6 +104,10 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		}
 	}()
 
+	// Set the new tools prefix so StorageName returns the right thing.
+	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
+	defer restore()
+
 	// Get a file:// scheme tools URL for the tools, which will have been
 	// copied to the remote machine's storage directory.
 	tools := *possibleTools[0]
@@ -122,7 +127,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, provider.StateFile)
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:          args.Host,
-		dataDir:       dataDir,
+		dataDir:       args.DataDir,
 		environConfig: args.Environ.Config(),
 		stateFileURL:  stateFileURL,
 		machineId:     args.MachineId,

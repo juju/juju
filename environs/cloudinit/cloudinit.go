@@ -5,8 +5,10 @@ package cloudinit
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 
 	"launchpad.net/goyaml"
 
@@ -30,6 +32,9 @@ import (
 // hardware characteristics). It is a transient file, only used as the node
 // is bootstrapping.
 const BootstrapStateURLFile = "/tmp/provider-state-url"
+
+// fileSchemePrefix is the prefix for file:// URLs.
+const fileSchemePrefix = "file://"
 
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
@@ -140,11 +145,26 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
+	var copyCmd string
+	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
+		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
+	} else {
+		copyCmd = fmt.Sprintf("wget --no-verbose -O $bin/tools.tar.gz %s", shquote(cfg.Tools.URL))
+	}
+	toolsJson, err := json.Marshal(cfg.Tools)
+	if err != nil {
+		return nil, err
+	}
 	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
-		fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
-		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
+		copyCmd,
+		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", cfg.Tools.Version),
+		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
+			cfg.Tools.SHA256, cfg.Tools.Version),
+		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", cfg.Tools.Version),
+		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
 
 	if err := cfg.addLogging(c); err != nil {
@@ -158,12 +178,15 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
 	machineTag := names.MachineTag(cfg.MachineId)
-	_, err := cfg.addAgentInfo(c, machineTag)
+	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return nil, err
 	}
 
 	if cfg.StateServer {
+		// disable the default mongodb installed by the mongodb-server package.
+		c.AddBootCmd(`echo ENABLE_MONGODB="no" > /etc/default/mongodb`)
+
 		if cfg.NeedMongoPPA() {
 			c.AddAptSource("ppa:juju/stable", "1024R/C8068B11")
 		}

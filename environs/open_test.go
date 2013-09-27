@@ -131,6 +131,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	info, err := store.ReadInfo("erewhemos")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
+	c.Assert(info.BootstrapConfig(), gc.DeepEquals, env.Config().AllAttrs())
 
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, store)
