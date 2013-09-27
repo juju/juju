@@ -1,9 +1,10 @@
 package addresspublisher
 
 import (
+	"errors"
 	"fmt"
-	stdtesting "testing"
 	"sync"
+	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -52,39 +53,6 @@ func (*publisherSuite) TestSetsAddressInitially(c *gc.C) {
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
 }
 
-// assertPublishedAddresses asserts that exactly the given events are
-// received from publisherc.
-func assertPublishedAddresses(c *gc.C, publisherc <-chan machineAddress, m *testMachine, events [][]instance.Address) {
-	var gotEvents [][]instance.Address
-	timeout := time.After(coretesting.LongWait)
-loop:
-	for i := 0; ; i++ {
-		select {
-		case addr := <-publisherc:
-			c.Assert(addr.machine, gc.Equals, m)
-			gotEvents = append(gotEvents, addr.addresses)
-		case <-timeout:
-			break loop
-		}
-		if i == len(events) -1 {
-			// We've seen all the events we need to see - don't
-			// wait for much longer to check for the rest.
-			timeout = time.After(coretesting.ShortWait)
-		}
-	}
-	c.Assert(gotEvents, gc.DeepEquals, events)
-}
-	
-func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machine) {
-	close(dying)
-	select {
-	case diedm := <-died:
-		c.Assert(diedm, gc.Equals, m)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("publisher did not die after dying channel was closed")
-	}
-}
-
 func (*publisherSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	defer testbase.PatchValue(&shortPoll, 1*time.Millisecond).Restore()
 	defer testbase.PatchValue(&longPoll, coretesting.LongWait).Restore()
@@ -113,7 +81,7 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 	m := &testMachine{
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
-		addresses: addrs,
+		addresses:  addrs,
 		life:       state.Alive,
 	}
 	died := make(chan machine)
@@ -145,12 +113,12 @@ func (*publisherSuite) TestChangedRefreshes(c *gc.C) {
 	refreshc := make(chan struct{})
 	m := &testMachine{
 		instanceId: "i1234",
-		refresh:    func() error {
+		refresh: func() error {
 			refreshc <- struct{}{}
 			return nil
 		},
 		addresses: testAddrs,
-		life:       state.Dead,
+		life:      state.Dead,
 	}
 	died := make(chan machine)
 	publisherc := make(chan machineAddress, 100)
@@ -166,18 +134,110 @@ func (*publisherSuite) TestChangedRefreshes(c *gc.C) {
 	// refresh, and publish the fact that it no longer has
 	// an address.
 	changed <- struct{}{}
-	
-	select{
+
+	select {
 	case <-refreshc:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for refresh")
 	}
-	
+
 	assertPublishedAddresses(c, publisherc, m, [][]instance.Address{nil})
 	select {
 	case <-died:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("expected death after life set to dying")
+	}
+}
+
+var terminatingErrorsTests = []struct {
+	about  string
+	mutate func(m *testMachine, err error)
+}{{
+	about: "set addresses",
+	mutate: func(m *testMachine, err error) {
+		m.setAddressesErr = err
+	},
+}, {
+	about: "refresh",
+	mutate: func(m *testMachine, err error) {
+		m.refresh = func() error {
+			return err
+		}
+	},
+}, {
+	about: "instance id",
+	mutate: func(m *testMachine, err error) {
+		m.instanceIdErr = err
+	},
+}}
+
+func (*publisherSuite) TestTerminatingErrors(c *gc.C) {
+	for i, test := range terminatingErrorsTests {
+		c.Logf("test %d: %s", i, test.about)
+		testTerminatingErrors(c, test.mutate)
+	}
+}
+
+// testTerminatingErrors checks that when a testMachine is
+// changed with the given mutate function, the machine goroutine
+// will die having called its context's killAll function with the
+// given error.  The test is cunningly structured so that it in the normal course
+// of things it will go through all possible places that can return an error.
+func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
+	ctxt := &testMachineContext{
+		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
+		dyingc:       make(chan struct{}),
+	}
+	expectErr := errors.New("a very unusual error")
+	m := &testMachine{
+		instanceId: "i1234",
+		refresh:    func() error { return nil },
+		life:       state.Alive,
+	}
+	mutate(m, expectErr)
+	died := make(chan machine)
+	publisherc := make(chan machineAddress, 100)
+	changed := make(chan struct{}, 1)
+	go runMachine(ctxt, m, changed, died, publisherc)
+	changed <- struct{}{}
+	select {
+	case <-died:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for machine to die")
+	}
+	c.Assert(ctxt.killAllErr, gc.ErrorMatches, ".*"+expectErr.Error())
+}
+
+// assertPublishedAddresses asserts that exactly the given events are
+// received from publisherc.
+func assertPublishedAddresses(c *gc.C, publisherc <-chan machineAddress, m *testMachine, events [][]instance.Address) {
+	var gotEvents [][]instance.Address
+	timeout := time.After(coretesting.LongWait)
+loop:
+	for i := 0; ; i++ {
+		select {
+		case addr := <-publisherc:
+			c.Assert(addr.machine, gc.Equals, m)
+			gotEvents = append(gotEvents, addr.addresses)
+		case <-timeout:
+			break loop
+		}
+		if i == len(events)-1 {
+			// We've seen all the events we need to see - don't
+			// wait for much longer to check for the rest.
+			timeout = time.After(coretesting.ShortWait)
+		}
+	}
+	c.Assert(gotEvents, gc.DeepEquals, events)
+}
+
+func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machine) {
+	close(dying)
+	select {
+	case diedm := <-died:
+		c.Assert(diedm, gc.Equals, m)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("publisher did not die after dying channel was closed")
 	}
 }
 
@@ -210,13 +270,15 @@ func (ctxt *testMachineContext) dying() <-chan struct{} {
 }
 
 type testMachine struct {
-	mu sync.Mutex
-	life       state.Life
-	addresses  []instance.Address
-	instanceId instance.Id
-	jobs       []state.MachineJob
-	id         string
-	refresh    func() error
+	mu              sync.Mutex
+	life            state.Life
+	addresses       []instance.Address
+	setAddressesErr error
+	instanceId      instance.Id
+	instanceIdErr   error
+	jobs            []state.MachineJob
+	id              string
+	refresh         func() error
 }
 
 func (m *testMachine) Addresses() []instance.Address {
@@ -226,10 +288,13 @@ func (m *testMachine) Addresses() []instance.Address {
 }
 
 func (m *testMachine) InstanceId() (instance.Id, error) {
-	return m.instanceId, nil
+	return m.instanceId, m.instanceIdErr
 }
 
 func (m *testMachine) SetAddresses(addrs []instance.Address) error {
+	if m.setAddressesErr != nil {
+		return m.setAddressesErr
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.addresses = append(m.addresses[:0], addrs...)
