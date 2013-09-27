@@ -10,14 +10,13 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -103,7 +102,7 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 	stor := suite.makeDummyStorage(c)
 	_, err := provider.LoadState(stor)
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {

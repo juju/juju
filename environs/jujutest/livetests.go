@@ -23,7 +23,6 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -170,8 +169,8 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	// If err is nil, that is fine, some providers support containers.
 	if err != nil {
 		// But for ones that don't, they should have a standard error format.
-		c.Check(err, gc.ErrorMatches, ".*provider does not support containers")
-		c.Check(err, jc.Satisfies, coreerrors.IsContainersUnsupported)
+		c.Check(err, gc.ErrorMatches, ".*provider does not support .*containers")
+		c.Check(err, jc.Satisfies, environs.IsContainersUnsupportedError)
 	}
 }
 
