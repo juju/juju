@@ -14,6 +14,7 @@ import (
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -189,10 +190,13 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 // given entity name.  It returns the agent's configuration and the current
 // tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
-	tools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
+	stor := s.Conn.Environ.Storage()
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.Current)
+	err := envtools.WriteMetadata(coretools.List{agentTools}, true, stor)
+	c.Assert(err, gc.IsNil)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
-	c.Assert(tools1, gc.DeepEquals, tools)
+	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.StateInfo(c)
 	apiInfo := s.APIInfo(c)
@@ -207,7 +211,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 			CACert:         stateInfo.CACert,
 		})
 	c.Assert(conf.Write(), gc.IsNil)
-	return conf, tools
+	return conf, agentTools
 }
 
 // primeStateAgent writes the configuration file and tools for an agent with the
@@ -289,7 +293,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), newVers)
+	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)[0]
 	s.proposeVersion(c, newVers.Number)
 	err := runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{

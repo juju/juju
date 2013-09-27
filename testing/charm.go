@@ -31,7 +31,7 @@ type Repo struct {
 }
 
 // Charms represents the specific charm repository stored in this package and
-// used by the Juju unit tests. The series name is "series".
+// used by the Juju unit tests. The series name is "quantal".
 var Charms *Repo
 
 func clone(dst, src string) string {
@@ -42,7 +42,7 @@ func clone(dst, src string) string {
 // DirPath returns the path to a charm directory with the given name in the
 // default series
 func (r *Repo) DirPath(name string) string {
-	return filepath.Join(r.Path, "series", name)
+	return filepath.Join(r.Path, "quantal", name)
 }
 
 // Dir returns the actual charm.Dir named name.

@@ -45,246 +45,214 @@ var upgradeJujuTests = []struct {
 	expectUploaded []string
 }{{
 	about:          "unwanted extra argument",
-	currentVersion: "1.0.0-foo-bar",
+	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "invalid --version value",
-	currentVersion: "1.0.0-foo-bar",
+	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"--version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "major version upgrade to incompatible version",
-	currentVersion: "2.0.0-foo-bar",
+	currentVersion: "2.0.0-quantal-amd64",
 	args:           []string{"--version", "5.2.0"},
 	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
 	about:          "major version downgrade to incompatible version",
-	currentVersion: "4.2.0-foo-bar",
+	currentVersion: "4.2.0-quantal-amd64",
 	args:           []string{"--version", "3.2.0"},
 	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
 	about:          "invalid --series",
-	currentVersion: "4.2.0-foo-bar",
+	currentVersion: "4.2.0-quantal-amd64",
 	args:           []string{"--series", "precise&quantal"},
 	expectInitErr:  `invalid value "precise&quantal" for flag --series: .*`,
 }, {
 	about:          "--series without --upload-tools",
-	currentVersion: "4.2.0-foo-bar",
+	currentVersion: "4.2.0-quantal-amd64",
 	args:           []string{"--series", "precise,quantal"},
 	expectInitErr:  "--series requires --upload-tools",
 }, {
 	about:          "--upload-tools with inappropriate version 1",
-	currentVersion: "4.2.0-foo-bar",
+	currentVersion: "4.2.0-quantal-amd64",
 	args:           []string{"--upload-tools", "--version", "3.1.0"},
 	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
 	about:          "--upload-tools with inappropriate version 2",
-	currentVersion: "3.2.7-foo-bar",
+	currentVersion: "3.2.7-quantal-amd64",
 	args:           []string{"--upload-tools", "--version", "3.1.0.4"},
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
 	about:          "latest release from private storage",
-	private:        []string{"2.0.0-foo-bar", "2.0.2-foo-bletch", "2.0.3-foo-bar"},
-	public:         []string{"2.0.0-foo-bar", "2.0.4-foo-bar", "2.0.5-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
+	private:        []string{"2.0.0-quantal-amd64", "2.0.2-quantal-i386", "2.0.3-quantal-amd64"},
+	public:         []string{"2.0.0-quantal-amd64", "2.0.4-quantal-amd64", "2.0.5-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.3",
 }, {
 	about:          "latest dev from private storage (because client is dev)",
-	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar", "3.0.1-foo-bar"},
-	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
-	currentVersion: "2.1.0-foo-bar",
+	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
+	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
+	currentVersion: "2.1.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.3.0",
 }, {
 	about:          "latest dev from private storage (because agent is dev)",
-	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar", "3.0.1-foo-bar"},
-	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
+	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
+	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.1.0",
 	expectVersion:  "2.3.0",
 }, {
 	about:          "latest dev from private storage (because --dev flag)",
-	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar"},
-	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
+	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64"},
+	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
 	args:           []string{"--dev"},
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.3.0",
 }, {
 	about:          "latest dev from private storage (because dev env setting)",
-	private:        []string{"2.0.0-foo-bar", "2.2.0-foo-bar", "2.3.0-foo-bar"},
-	public:         []string{"2.0.0-foo-bar", "2.4.0-foo-bar", "2.5.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
-	development:    true,
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.3.0",
-}, {
-	about:          "latest release from public storage",
-	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.2.0",
-}, {
-	about:          "latest dev from public storage (because client is dev)",
-	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
-	currentVersion: "2.1.0-foo-bar",
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.3.0",
-}, {
-	about:          "latest dev from public storage (because agent is dev)",
-	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
-	agentVersion:   "2.1.0",
-	expectVersion:  "2.3.0",
-}, {
-	about:          "latest dev from public storage (because --dev flag)",
-	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
-	args:           []string{"--dev"},
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.3.0",
-}, {
-	about:          "latest dev from public storage (because dev env setting)",
-	public:         []string{"2.0.0-foo-bar", "2.2.0-arble-bletch", "2.3.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
+	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64"},
+	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
 	development:    true,
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.3.0",
 }, {
 	about:          "specified version",
-	public:         []string{"2.3.0-foo-bar"},
-	currentVersion: "2.0.0-foo-bar",
+	private:        []string{"2.3.0-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--version", "2.3.0"},
 	expectVersion:  "2.3.0",
 }, {
 	about:          "specified version missing, but already set",
-	currentVersion: "3.0.0-foo-bar",
+	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.0.0"},
 	expectVersion:  "3.0.0",
 }, {
 	about:          "specified version, no tools",
-	currentVersion: "3.0.0-foo-bar",
+	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "no tools available",
+	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching major version",
-	private:        []string{"4.2.0-foo-bar"},
-	currentVersion: "3.0.0-foo-bar",
+	private:        []string{"4.2.0-quantal-amd64"},
+	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching minor version",
-	private:        []string{"3.4.0-foo-bar"},
-	currentVersion: "3.0.0-foo-bar",
+	private:        []string{"3.4.0-quantal-amd64"},
+	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching patch version",
-	private:        []string{"3.2.5-foo-bar"},
-	currentVersion: "3.0.0-foo-bar",
+	private:        []string{"3.2.5-quantal-amd64"},
+	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching build version",
-	private:        []string{"3.2.0.2-foo-bar"},
-	currentVersion: "3.0.0-foo-bar",
+	private:        []string{"3.2.0.2-quantal-amd64"},
+	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "major version downgrade to incompatible version",
-	private:        []string{"3.2.0-foo-bar"},
-	currentVersion: "3.2.0-foo-bar",
+	private:        []string{"3.2.0-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "cannot change major version from 4 to 3",
 }, {
 	about:          "major version upgrade to compatible version",
-	private:        []string{"3.2.0-foo-bar"},
-	currentVersion: "3.2.0-foo-bar",
+	private:        []string{"3.2.0-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "2.8.2",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "major version upgrades are not supported yet",
 }, {
 	about:          "nothing available 1",
-	currentVersion: "2.0.0-foo-bar",
+	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
 	about:          "nothing available 2",
-	currentVersion: "2.0.0-foo-bar",
-	public:         []string{"3.2.0-foo-bar"},
+	currentVersion: "2.0.0-quantal-amd64",
+	public:         []string{"3.2.0-quantal-amd64"},
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
 	about:          "nothing available 3",
-	currentVersion: "2.0.0-foo-bar",
-	private:        []string{"3.2.0-foo-bar"},
-	public:         []string{"2.4.0-foo-bar"},
+	currentVersion: "2.0.0-quantal-amd64",
+	private:        []string{"3.2.0-quantal-amd64"},
+	public:         []string{"3.4.0-quantal-amd64"},
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
 	about:          "upload with default series",
-	currentVersion: "2.2.0-foo-bar",
+	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.2.0.1",
-	expectUploaded: []string{"2.2.0.1-foo-bar", "2.2.0.1-precise-bar", "2.2.0.1-raring-bar"},
+	expectUploaded: []string{"2.2.0.1-quantal-amd64", "2.2.0.1-precise-amd64", "2.2.0.1-raring-amd64"},
 }, {
 	about:          "upload with explicit version",
-	currentVersion: "2.2.0-foo-bar",
+	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-foo-bar", "2.7.3.1-precise-bar", "2.7.3.1-raring-bar"},
+	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-precise-amd64", "2.7.3.1-raring-amd64"},
 }, {
 	about:          "upload with explicit series",
-	currentVersion: "2.2.0-foo-bar",
+	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--upload-tools", "--series", "plonk"},
+	args:           []string{"--upload-tools", "--series", "raring"},
 	expectVersion:  "2.2.0.1",
-	expectUploaded: []string{"2.2.0.1-foo-bar", "2.2.0.1-plonk-bar"},
+	expectUploaded: []string{"2.2.0.1-quantal-amd64", "2.2.0.1-raring-amd64"},
 }, {
 	about:          "upload dev version, currently on release version",
-	currentVersion: "2.1.0-foo-bar",
+	currentVersion: "2.1.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.1.0.1",
-	expectUploaded: []string{"2.1.0.1-foo-bar", "2.1.0.1-precise-bar", "2.1.0.1-raring-bar"},
+	expectUploaded: []string{"2.1.0.1-quantal-amd64", "2.1.0.1-precise-amd64", "2.1.0.1-raring-amd64"},
 }, {
 	about:          "upload bumps version when necessary",
-	private:        []string{"2.4.6-foo-bar", "2.4.8-foo-bar"},
-	public:         []string{"2.4.6.4-foo-bar"}, //ignored
-	currentVersion: "2.4.6-foo-bar",
+	private:        []string{"2.4.6-quantal-amd64", "2.4.8-quantal-amd64"},
+	public:         []string{"2.4.6.4-quantal-amd64"}, //ignored
+	currentVersion: "2.4.6-quantal-amd64",
 	agentVersion:   "2.4.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.4.6.1",
-	expectUploaded: []string{"2.4.6.1-foo-bar", "2.4.6.1-precise-bar", "2.4.6.1-raring-bar"},
+	expectUploaded: []string{"2.4.6.1-quantal-amd64", "2.4.6.1-precise-amd64", "2.4.6.1-raring-amd64"},
 }, {
 	about:          "upload re-bumps version when necessary",
-	private:        []string{"2.4.6-foo-bar", "2.4.6.2-flim-flam", "2.4.8-foo-bar"},
-	public:         []string{"2.4.6.10-foo-bar"}, //ignored
-	currentVersion: "2.4.6-foo-bar",
+	private:        []string{"2.4.6-quantal-amd64", "2.4.6.2-saucy-i386", "2.4.8-quantal-amd64"},
+	public:         []string{"2.4.6.10-quantal-amd64"}, //ignored
+	currentVersion: "2.4.6-quantal-amd64",
 	agentVersion:   "2.4.6.2",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.4.6.3",
-	expectUploaded: []string{"2.4.6.3-foo-bar", "2.4.6.3-precise-bar", "2.4.6.3-raring-bar"},
+	expectUploaded: []string{"2.4.6.3-quantal-amd64", "2.4.6.3-precise-amd64", "2.4.6.3-raring-amd64"},
 }, {
 	about:          "upload with explicit version bumps when necessary",
-	currentVersion: "2.2.0-foo-bar",
-	private:        []string{"2.7.3.1-foo-bar"},
+	currentVersion: "2.2.0-quantal-amd64",
+	private:        []string{"2.7.3.1-quantal-amd64"},
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
-	expectUploaded: []string{"2.7.3.2-foo-bar", "2.7.3.2-precise-bar", "2.7.3.2-raring-bar"},
+	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-precise-amd64", "2.7.3.2-raring-amd64"},
 }}
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
@@ -296,14 +264,19 @@ func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series 
 	if forceVersion != nil {
 		vers.Number = *forceVersion
 	}
-	t := envtesting.MustUploadFakeToolsVersion(stor, vers)
+	versions := []version.Binary{vers}
 	for _, series := range series {
 		if series != version.Current.Series {
-			vers.Series = series
-			envtesting.MustUploadFakeToolsVersion(stor, vers)
+			newVers := vers
+			newVers.Series = series
+			versions = append(versions, newVers)
 		}
 	}
-	return t, nil
+	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
+	if err != nil {
+		return nil, err
+	}
+	return agentTools[0], nil
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -340,15 +313,18 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		err = s.State.SetEnvironConfig(cfg)
 		c.Assert(err, gc.IsNil)
-		for _, v := range test.private {
-			vers := version.MustParseBinary(v)
-			envtesting.MustUploadFakeToolsVersion(s.Conn.Environ.Storage(), vers)
+		versions := make([]version.Binary, len(test.private))
+		for i, v := range test.private {
+			versions[i] = version.MustParseBinary(v)
+
 		}
-		for _, v := range test.public {
-			vers := version.MustParseBinary(v)
-			stor := s.Conn.Environ.PublicStorage().(storage.Storage)
-			envtesting.MustUploadFakeToolsVersion(stor, vers)
+		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+		versions = make([]version.Binary, len(test.public))
+		for i, v := range test.public {
+			versions[i] = version.MustParseBinary(v)
 		}
+		stor := s.Conn.Environ.PublicStorage().(storage.Storage)
+		envtesting.MustUploadFakeToolsVersions(stor, versions...)
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -430,8 +406,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer reset()
 	tools, err := envtools.FindInstanceTools(s.Conn.Environ, vers.Number, vers.Series, &vers.Arch)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(tools), gc.Equals, 1)

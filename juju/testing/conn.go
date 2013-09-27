@@ -199,7 +199,7 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 // and then uses that to open the API. The returned *api.State should not be
 // closed by the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
@@ -244,6 +244,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+
+	envtesting.MustUploadFakeTools(environ.Storage())
 	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -321,7 +323,7 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
+	curl := charm.MustParseURL("local:quantal/" + ident)
 	repo, err := charm.InferRepository(curl, testing.Charms.Path)
 	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)

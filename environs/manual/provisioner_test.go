@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -46,14 +47,14 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		series: series, arch: arch, skipProvisionAgent: true,
 	}.install(c).Restore()
 	m, err := ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "no tools available")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(m, gc.IsNil)
 
 	cfg := s.Conn.Environ.Config()
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	binVersion := version.Binary{number, series, arch}
-	envtesting.UploadFakeToolsVersion(c, s.Conn.Environ.Storage(), binVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)

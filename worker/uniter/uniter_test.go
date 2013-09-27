@@ -264,7 +264,7 @@ var bootstrapTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -272,7 +272,7 @@ var bootstrapTests = []uniterTest{
 			coretesting.Server.Response(404, nil, nil)
 		}},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/wordpress-0: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
 	),
 }
 
@@ -957,7 +957,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
-	curl, err := charm.ParseURL("cs:series/logging")
+	curl, err := charm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
@@ -1695,7 +1695,7 @@ var subordinateDying = custom{func(c *gc.C, ctx *context) {
 }}
 
 func curl(revision int) *charm.URL {
-	return charm.MustParseURL("cs:series/wordpress").WithRevision(revision)
+	return charm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
 }
 
 func appendHook(c *gc.C, charm, name, data string) {
