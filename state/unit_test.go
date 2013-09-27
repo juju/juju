@@ -271,21 +271,21 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err = s.unit.SetStatus(params.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, err := s.unit.Status()
+	status, info, _, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
 	err = s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err = s.unit.Status()
+	status, info, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
 	err = s.unit.SetStatus(params.StatusError, "test-hook failed", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err = s.unit.Status()
+	status, info, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
@@ -296,21 +296,21 @@ func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
-	_, _, err = s.unit.Status()
+	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
-	_, _, err = s.unit.Status()
+	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	err := s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	_, _, err = s.unit.Status()
+	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
@@ -321,7 +321,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	status, info, data, err := s.unit.FullStatus()
+	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
@@ -335,7 +335,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	err := s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	_, _, err = s.unit.Status()
+	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
@@ -347,7 +347,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	status, info, data, err := s.unit.FullStatus()
+	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
@@ -362,7 +362,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err := s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	_, _, err = s.unit.Status()
+	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting and changing data afterwards.
@@ -375,7 +375,7 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	data["4th-key"] = 4.0
 
-	status, info, data, err := s.unit.FullStatus()
+	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
@@ -389,7 +389,7 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err = s.unit.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 
-	status, info, data, err = s.unit.FullStatus()
+	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")

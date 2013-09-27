@@ -488,20 +488,8 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// Status returns the status of the unit's agent.
-func (u *Unit) Status() (status params.Status, info string, err error) {
-	doc, err := getStatus(u.st, u.globalKey())
-	if err != nil {
-		return "", "", err
-	}
-	status = doc.Status
-	info = doc.StatusInfo
-	return
-}
-
-// FullStatus returns the full status of the unit including the data. It
-// will later be renamed and replace the original Status.
-func (u *Unit) FullStatus() (status params.Status, info string, data params.StatusData, err error) {
+// Status returns the status of the unit.
+func (u *Unit) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", params.StatusData{}, err
@@ -1233,7 +1221,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
-	status, _, err := u.Status()
+	status, _, _, err := u.Status()
 	if err != nil {
 		return err
 	}

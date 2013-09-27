@@ -374,7 +374,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, err := m.Status()
+		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
 		if status == params.StatusPending {
 			time.Sleep(coretesting.ShortWait)

@@ -950,21 +950,21 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err = s.machine.SetStatus(params.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, err := s.machine.Status()
+	status, info, _, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
 	err = s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err = s.machine.Status()
+	status, info, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 
 	err = s.machine.SetStatus(params.StatusError, "provisioning failed", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err = s.machine.Status()
+	status, info, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
@@ -976,7 +976,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStopped, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err := s.machine.Status()
+	status, info, _, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "")
@@ -986,7 +986,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
-	status, info, err = s.machine.Status()
+	status, info, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "")
@@ -995,37 +995,38 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
-	_, _, err = s.machine.Status()
+	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	err := s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	_, _, err = s.machine.Status()
+	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
 	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
-		"reason":  "unknown",
-		"retries": 5,
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
 	})
 	c.Assert(err, gc.IsNil)
-	status, info, err := s.machine.Status()
+	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-
-	data, err := state.MachineStatusData(s.machine)
-	c.Assert(err, gc.IsNil)
-	c.Assert(data["reason"], gc.Equals, "unknown")
-	c.Assert(data["retries"], gc.Equals, 5)
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
 }
 
 func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	err := s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	_, _, err = s.machine.Status()
+	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
@@ -1036,17 +1037,53 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 		"group":         "group",
 	})
 	c.Assert(err, gc.IsNil)
-	status, info, err := s.machine.Status()
+	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		`{name: "Joe"}`: "$where",
+		"eval":          `eval(function(foo) { return foo; }, "bar")`,
+		"mapReduce":     "mapReduce",
+		"group":         "group",
+	})
+}
 
-	data, err := state.MachineStatusData(s.machine)
+func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(data[`{name: "Joe"}`], gc.Equals, "$where")
-	c.Assert(data["eval"], gc.Equals, `eval(function(foo) { return foo; }, "bar")`)
-	c.Assert(data["mapReduce"], gc.Equals, "mapReduce")
-	c.Assert(data["group"], gc.Equals, "group")
+	_, _, _, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Status setting and changing data afterwards.
+	data := params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	}
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", data)
+	c.Assert(err, gc.IsNil)
+	data["4th-key"] = 4.0
+
+	status, info, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "provisioning failed")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
+
+	// Set status data to nil, so an empty map will be returned.
+	err = s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+
+	status, info, data, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 }
 
 func (s *MachineSuite) TestSetAddresses(c *gc.C) {

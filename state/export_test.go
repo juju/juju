@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -181,14 +180,4 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 
 func ParseTag(st *State, tag string) (string, string, error) {
 	return st.parseTag(tag)
-}
-
-// StatusData returns the additional status data of a machine.
-// Outside the tests it is returned by a watcher.
-func MachineStatusData(m *Machine) (params.StatusData, error) {
-	doc, err := getStatus(m.st, m.globalKey())
-	if err != nil {
-		return nil, err
-	}
-	return doc.StatusData, nil
 }

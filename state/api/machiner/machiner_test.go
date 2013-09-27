@@ -56,7 +56,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	machine, err := s.machiner.Machine("machine-0")
 	c.Assert(err, gc.IsNil)
 
-	status, info, err := s.machine.Status()
+	status, info, _, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
@@ -64,7 +64,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	err = machine.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
-	status, info, err = s.machine.Status()
+	status, info, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")

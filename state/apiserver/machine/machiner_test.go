@@ -72,12 +72,12 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify machine 0 - no change.
-	status, info, err := s.machine0.Status()
+	status, info, _, err := s.machine0.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	// ...machine 1 is fine though.
-	status, info, err = s.machine1.Status()
+	status, info, _, err = s.machine1.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "not really")

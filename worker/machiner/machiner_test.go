@@ -63,7 +63,7 @@ func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatu
 		case <-timeout:
 			c.Fatalf("timeout while waiting for machine status to change")
 		case <-time.After(10 * time.Millisecond):
-			status, _, err := m.Status()
+			status, _, _, err := m.Status()
 			c.Assert(err, gc.IsNil)
 			if status != expectStatus {
 				c.Logf("machine %q status is %s, still waiting", m, status)
@@ -106,7 +106,7 @@ func (s *MachinerSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
-	status, info, err := s.machine.Status()
+	status, info, _, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")

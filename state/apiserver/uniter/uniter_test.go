@@ -124,12 +124,12 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, err := s.mysqlUnit.Status()
+	status, info, _, err := s.mysqlUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, err = s.wordpressUnit.Status()
+	status, info, _, err = s.wordpressUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foobar")

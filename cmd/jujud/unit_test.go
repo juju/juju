@@ -102,7 +102,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(testing.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, gc.IsNil)
-			st, info, err := unit.Status()
+			st, info, _, err := unit.Status()
 			c.Assert(err, gc.IsNil)
 			switch st {
 			case params.StatusPending, params.StatusInstalled:

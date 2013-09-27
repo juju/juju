@@ -351,7 +351,7 @@ func (s *provisionerSuite) assertLife(c *gc.C, index int, expectLife state.Life)
 }
 
 func (s *provisionerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string) {
-	status, info, err := s.machines[index].Status()
+	status, info, _, err := s.machines[index].Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, expectStatus)
 	c.Assert(info, gc.Equals, expectInfo)
