@@ -297,7 +297,7 @@ func (s *ConstraintsSuite) TestParseMissingTags(c *gc.C) {
 func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
 	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G tags=")
 	c.Assert(con.Tags, gc.Not(gc.IsNil))
-	c.Check(con.Tags, gc.HasLen, 0)
+	c.Check(*con.Tags, gc.HasLen, 0)
 }
 
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
@@ -361,9 +361,8 @@ var constraintsRoundtripTests = []roundTrip{
 	{"RootDisk2", constraints.Value{RootDisk: uint64p(0)}},
 	{"RootDisk2", constraints.Value{RootDisk: uint64p(109876)}},
 	{"Tags1", constraints.Value{Tags: nil}},
-	// this one we know will fail... we have to use omitempty, but we can't specify "omitnullbutnotempty"
-	// {"Tags2", constraints.Value{Tags: []string{}}},
-	{"Tags3", constraints.Value{Tags: []string{"foo", "bar"}}},
+	{"Tags2", constraints.Value{Tags: &[]string{}}},
+	{"Tags3", constraints.Value{Tags: &[]string{"foo", "bar"}}},
 	{"All", constraints.Value{
 		Arch:      strp("i386"),
 		Container: ctypep("lxc"),
@@ -371,7 +370,7 @@ var constraintsRoundtripTests = []roundTrip{
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
 		RootDisk:  uint64p(24000000000),
-		Tags:      []string{"foo", "bar"},
+		Tags:      &[]string{"foo", "bar"},
 	}},
 }
 
@@ -408,20 +407,15 @@ func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
-	// TODO(nate): CONSTRAINTS_YAML Add support for yaml serialiation
-	//
-	// we don't currently support serialization through yaml
-	// due to bugs in goyaml.  These tests just ensure that
-	// serialization will always fail. I'd prefer if serialization
-	// actually panicked, but goyaml recovers all panics and
-	// returns them as errors. sigh
-	v := constraints.Value{Tags: []string{"foo", "bar"}}
-
-	_, err := goyaml.Marshal(v)
-	c.Check(err, gc.Not(gc.IsNil))
-
-	err = goyaml.Unmarshal([]byte("foo"), &v)
-	c.Check(err, gc.Not(gc.IsNil))
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
+		data, err := goyaml.Marshal(t.Value)
+		c.Assert(err, gc.IsNil)
+		var cons constraints.Value
+		err = goyaml.Unmarshal(data, &cons)
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
+	}
 }
 
 var withFallbacksTests = []struct {

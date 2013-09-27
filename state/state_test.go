@@ -354,7 +354,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 			Arch:     &arch,
 			Mem:      &mem,
 			RootDisk: &disk,
-			Tags:     tags,
+			Tags:     &tags,
 		},
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}

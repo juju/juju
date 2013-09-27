@@ -122,7 +122,7 @@ type instanceData struct {
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
-	Tags       []string    `bson:"tags,omitempty"`
+	Tags       *[]string   `bson:"tags,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
 }
 

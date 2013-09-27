@@ -22,7 +22,7 @@ type constraintsDoc struct {
 	Mem       *uint64
 	RootDisk  *uint64
 	Container *instance.ContainerType
-	Tags      []string ",omitempty"
+	Tags      *[]string ",omitempty"
 }
 
 func (doc constraintsDoc) value() constraints.Value {

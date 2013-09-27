@@ -68,12 +68,12 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string  `yaml:"arch,omitempty"`
-	Mem      *uint64  `yaml:"mem,omitempty"`
-	RootDisk *uint64  `yaml:"rootdisk,omitempty"`
-	CpuCores *uint64  `yaml:"cpucores,omitempty"`
-	CpuPower *uint64  `yaml:"cpupower,omitempty"`
-	Tags     []string `yaml:"tags,omitempty"`
+	Arch     *string   `yaml:"arch,omitempty"`
+	Mem      *uint64   `yaml:"mem,omitempty"`
+	RootDisk *uint64   `yaml:"rootdisk,omitempty"`
+	CpuCores *uint64   `yaml:"cpucores,omitempty"`
+	CpuPower *uint64   `yaml:"cpupower,omitempty"`
+	Tags     *[]string `yaml:"tags,omitempty"`
 }
 
 func uintStr(i uint64) string {
@@ -100,8 +100,8 @@ func (hc HardwareCharacteristics) String() string {
 	if hc.RootDisk != nil {
 		strs = append(strs, fmt.Sprintf("root-disk=%dM", *hc.RootDisk))
 	}
-	if len(hc.Tags) > 0 {
-		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(hc.Tags, ",")))
+	if hc.Tags != nil && len(*hc.Tags) > 0 {
+		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
 	}
 	return strings.Join(strs, " ")
 }
@@ -212,7 +212,7 @@ func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
 }
 
 func (hc *HardwareCharacteristics) setTags(str string) (err error) {
-	if len(hc.Tags) > 0 {
+	if hc.Tags != nil {
 		return fmt.Errorf("already set")
 	}
 	hc.Tags = parseTags(str)
@@ -220,12 +220,12 @@ func (hc *HardwareCharacteristics) setTags(str string) (err error) {
 }
 
 // parseTags returns the tags in the value s
-func parseTags(s string) []string {
-	tags := strings.Split(s, ",")
-	if len(tags) == 0 {
-		return nil
+func parseTags(s string) *[]string {
+	if s == "" {
+		return &[]string{}
 	}
-	return tags
+	tags := strings.Split(s, ",")
+	return &tags
 }
 
 func parseUint64(str string) (*uint64, error) {

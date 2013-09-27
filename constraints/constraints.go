@@ -48,7 +48,7 @@ type Value struct {
 	// Tags, if not nil, indicates tags that the machine must have applied to it.
 	// An empty list is treated the same as a nil (unspecified) list, except an
 	// empty list will override any default tags, where a nil list will not.
-	Tags []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
 // IsEmpty returns if the given constraints value has no constraints set
@@ -93,7 +93,7 @@ func (v Value) String() string {
 		strs = append(strs, "root-disk="+s)
 	}
 	if v.Tags != nil {
-		s := strings.Join(v.Tags, ",")
+		s := strings.Join(*v.Tags, ",")
 		strs = append(strs, "tags="+s)
 	}
 	return strings.Join(strs, " ")
@@ -212,28 +212,43 @@ func (v *Value) setRaw(raw string) error {
 	return nil
 }
 
-// GetYAML exists just to prevent us from trying to serialize into YAML.
-// TODO(nate): CONSTRAINTS_YAML Due to bugs in goyaml dealing with slices, we can't reliably
-// serialize into yaml, so we're not even going to try.  This panic
-// prevents serialization through goyaml. Search for CONSTRAINTS_YAML in the code
-// to find the spots you need to fix when we are able to support yaml again.
-// bugs:
-// https://bugs.launchpad.net/goyaml/+bug/1231941
-// https://bugs.launchpad.net/goyaml/+bug/1231527
-func (v Value) GetYAML() (tag string, value interface{}) {
-	panic("Constraints cannot currently be serialized to YAML!")
-}
-
-// SetYAML exists just to prevent us from trying to serialize into YAML.
-// TODO(nate): CONSTRAINTS_YAML Due to bugs in goyaml dealing with slices, we can't reliably
-// serialize into yaml, so we're not even going to try.  This panic
-// prevents serialization through goyaml. Search for CONSTRAINTS_YAML in the code
-// to find the spots you need to fix when we are able to support yaml again.
-// bugs:
-// https://bugs.launchpad.net/goyaml/+bug/1231941
-// https://bugs.launchpad.net/goyaml/+bug/1231527
+// SetYAML is required to unmarshall a constraints.Value object
+// to ensure the container attribute is correctly handled when it is empty.
+// Because ContainerType is an alias for string, Go's reflect logic used in the
+// YAML decode determines that *string and *ContainerType are not assignable so
+// the container value of "" in the YAML is ignored.
 func (v *Value) SetYAML(tag string, value interface{}) bool {
-	panic("Constraints cannot currently be serialized to YAML!")
+	values, ok := value.(map[interface{}]interface{})
+	if !ok {
+		return false
+	}
+	for k, val := range values {
+		vstr := fmt.Sprintf("%v", val)
+		var err error
+		switch k {
+		case "arch":
+			v.Arch = &vstr
+		case "container":
+			ctype := instance.ContainerType(vstr)
+			v.Container = &ctype
+		case "cpu-cores":
+			v.CpuCores, err = parseUint64(vstr)
+		case "cpu-power":
+			v.CpuPower, err = parseUint64(vstr)
+		case "mem":
+			v.Mem, err = parseUint64(vstr)
+		case "root-disk":
+			v.RootDisk, err = parseUint64(vstr)
+		case "tags":
+			v.Tags, err = parseYamlTags(val)
+		default:
+			return false
+		}
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (v *Value) setContainer(str string) error {
@@ -305,7 +320,7 @@ func (v *Value) setRootDisk(str string) (err error) {
 }
 
 func (v *Value) setTags(str string) error {
-	if len(v.Tags) > 0 {
+	if v.Tags != nil {
 		return fmt.Errorf("already set")
 	}
 	v.Tags = parseTags(str)
@@ -343,11 +358,28 @@ func parseSize(str string) (*uint64, error) {
 }
 
 // parseTags returns the tags in the value s.  We expect the tags to be comma delimited strings.
-func parseTags(s string) []string {
+func parseTags(s string) *[]string {
 	if s == "" {
-		return []string{}
+		return &[]string{}
 	}
-	return strings.Split(s, ",")
+	t := strings.Split(s, ",")
+	return &t
+}
+
+func parseYamlTags(val interface{}) (*[]string, error) {
+	ifcs, ok := val.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected type passed to tags: %T", val)
+	}
+	tags := make([]string, len(ifcs))
+	for n, ifc := range ifcs {
+		s, ok := ifc.(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected type passed as a tag: %T", ifc)
+		}
+		tags[n] = s
+	}
+	return &tags, nil
 }
 
 var mbSuffixes = map[string]float64{
