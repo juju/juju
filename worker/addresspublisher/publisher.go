@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-var logger = loggo.GetLogger("juju.worker.addresspublished")
+var logger = loggo.GetLogger("juju.worker.addresspublisher")
 
 //func NewAddressPublisher() worker.Worker {
 //	p := &publisher{
@@ -101,6 +101,8 @@ var (
 	shortPoll = 500 * time.Millisecond
 )
 
+// runMachine processes the address publishing for a given machine.
+// We assume that the machine is alive when this is first called.
 func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died chan<- machine, publisherc chan<- machineAddress) {
 	defer func() {
 		// We can't just send on the died channel because the
@@ -120,6 +122,7 @@ func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died ch
 }
 
 func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, publisherc chan<- machineAddress) error {
+
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
@@ -135,9 +138,7 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, publis
 		newAddrs, err := ctxt.addresses(instId)
 		if err != nil {
 			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
-			continue
-		}
-		if !addressesEqual(m.Addresses(), newAddrs) {
+		} else if !addressesEqual(m.Addresses(), newAddrs) {
 			if err := m.SetAddresses(newAddrs); err != nil {
 				return fmt.Errorf("cannot set addresses on %q: %v", m, err)
 			}
@@ -155,6 +156,12 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, publis
 			if err := m.Refresh(); err != nil {
 				return err
 			}
+			// In practice the only event that will trigger
+			// a change is the life state changing to dying or dead,
+			// in which case we return. The logic will still work
+			// if a change is triggered for some other reason,
+			// but we don't mind an extra address check in that case,
+			// seeing as it's unlikely.
 			if m.Life() == state.Dying || m.Life() == state.Dead {
 				publisherc <- machineAddress{machine: m}
 				return nil
