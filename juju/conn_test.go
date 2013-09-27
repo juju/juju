@@ -60,6 +60,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -78,6 +79,7 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	}
 	env, err := environs.PrepareFromName(envName, store)
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
@@ -121,6 +123,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	info, _, err := env.StateInfo()
@@ -156,6 +159,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -191,6 +195,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -244,6 +249,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	environ, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, environ.Storage())
 	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	s.conn, err = juju.NewConn(environ)

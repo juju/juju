@@ -14,6 +14,7 @@ import (
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -210,7 +211,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 			CACert:         stateInfo.CACert,
 		})
 	c.Assert(conf.Write(), gc.IsNil)
-	return conf, tools
+	return conf, agentTools
 }
 
 // primeStateAgent writes the configuration file and tools for an agent with the

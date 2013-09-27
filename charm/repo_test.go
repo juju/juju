@@ -509,9 +509,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Revision(), gc.Equals, 1)
 	c.Assert(c.GetTestLog(), gc.Matches, `
-.* WARNING juju charm: failed to load charm at ".*/series/blah": .*
-.* WARNING juju charm: failed to load charm at ".*/series/blah.charm": .*
-.* WARNING juju charm: failed to load charm at ".*/series/upgrade2": .*
+.* WARNING juju charm: failed to load charm at ".*/quantal/blah": .*
+.* WARNING juju charm: failed to load charm at ".*/quantal/blah.charm": .*
+.* WARNING juju charm: failed to load charm at ".*/quantal/upgrade2": .*
 `[1:])
 }
 
