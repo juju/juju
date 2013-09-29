@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sshstorage"
 	"launchpad.net/juju-core/environs/storage"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -39,10 +40,14 @@ const (
 )
 
 type nullEnviron struct {
-	cfg              *environConfig
-	cfgmutex         sync.Mutex
-	bootstrapStorage *sshstorage.SSHStorage
+	cfg                   *environConfig
+	cfgmutex              sync.Mutex
+	bootstrapStorage      *sshstorage.SSHStorage
+	bootstrapStorageMutex sync.Mutex
 }
+
+var _ environs.BootstrapStorager = (*nullEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*nullEnviron)(nil)
 
 var errNoStartInstance = errors.New("null provider cannot start instances")
 var errNoStopInstance = errors.New("null provider cannot stop instances")
@@ -123,26 +128,21 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 }
 
 // Implements environs.BootstrapStorager.
-func (e *nullEnviron) EnableBootstrapStorage(enable bool) (wasEnabled bool, err error) {
-	if !enable {
-		if e.bootstrapStorage != nil {
-			e.bootstrapStorage.Close()
-			e.bootstrapStorage = nil
-			return true, nil
-		}
-		return false, errors.New("bootstrap storage already disabled")
-	} else if e.bootstrapStorage != nil {
-		return true, errors.New("bootstrap storage already enabled")
+func (e *nullEnviron) EnableBootstrapStorage() error {
+	e.bootstrapStorageMutex.Lock()
+	defer e.bootstrapStorageMutex.Unlock()
+	if e.bootstrapStorage != nil {
+		return nil
 	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	storage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	bootstrapStorage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
 	if err != nil {
-		return false, err
+		return err
 	}
-	e.bootstrapStorage = storage
-	return false, nil
+	e.bootstrapStorage = bootstrapStorage
+	return nil
 }
 
 // GetToolsSources returns a list of sources which are
@@ -155,6 +155,8 @@ func (e *nullEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *nullEnviron) Storage() storage.Storage {
+	e.bootstrapStorageMutex.Lock()
+	defer e.bootstrapStorageMutex.Unlock()
 	if e.bootstrapStorage != nil {
 		return e.bootstrapStorage
 	}

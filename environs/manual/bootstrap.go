@@ -64,7 +64,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	bootstrapStorage := args.Environ.Storage()
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
 	if err != nil {
 		return fmt.Errorf("error detecting hardware characteristics: %v", err)
@@ -82,6 +81,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 
 	// Store the state file. If provisioning fails, we'll remove the file.
 	logger.Infof("Saving bootstrap state file to bootstrap storage")
+	bootstrapStorage := args.Environ.Storage()
 	err = provider.SaveState(
 		bootstrapStorage,
 		&provider.BootstrapState{

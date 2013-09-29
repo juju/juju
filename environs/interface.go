@@ -77,10 +77,10 @@ type EnvironStorage interface {
 // This is useful for environments where the storage is managed by the
 // machine agent once bootstrapped.
 type BootstrapStorager interface {
-	// EnableBootstrapStorage enables or disables bootstrap storage,
-	// depending on the flag, and returns the previous state and an
-	// error if enablement failed.
-	EnableBootstrapStorage(enable bool) (wasEnabled bool, err error)
+	// EnableBootstrapStorage enables bootstrap storage, returning an
+	// error if enablement failed. If nil is returned, then calling
+	// this again will have no effect and will return nil.
+	EnableBootstrapStorage() error
 }
 
 // ConfigGetter implements access to an environments configuration.
