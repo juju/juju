@@ -41,6 +41,9 @@ func (s *UpstartSuite) TearDownTest(c *gc.C) {
 
 var checkargs = `
 #!/bin/bash
+if [ "$1" == "--system" ]; then
+  shift
+fi
 if [ "$1" != "some-service" ]; then
   exit 255
 fi
