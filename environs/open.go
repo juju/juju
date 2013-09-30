@@ -19,10 +19,25 @@ var InvalidEnvironmentError = fmt.Errorf("environment is not a juju-core environ
 // given name from the default environments file. If the name is blank,
 // the default environment will be used. If the configuration is not
 // found, an errors.NotFoundError is returned.
-func ConfigForName(name string) (*config.Config, error) {
+// If the given store contains an entry for the environment
+// and it has associated bootstrap config, that configuration
+// will be returned.
+func ConfigForName(name string, store configstore.Storage) (*config.Config, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
 		return nil, err
+	}
+	if name == "" {
+		name = envs.Default
+	}
+	if name != "" {
+		info, err := store.ReadInfo(name)
+		if err == nil && len(info.BootstrapConfig()) > 0 {
+			return config.New(config.NoDefaults, info.BootstrapConfig())
+		}
+		if !errors.IsNotFoundError(err) {
+			return nil, fmt.Errorf("cannot read environment info for %q: %v", name, err)
+		}
 	}
 	return envs.Config(name)
 }
@@ -30,8 +45,11 @@ func ConfigForName(name string) (*config.Config, error) {
 // NewFromName opens the environment with the given
 // name from the default environments file. If the
 // name is blank, the default environment will be used.
-func NewFromName(name string) (Environ, error) {
-	cfg, err := ConfigForName(name)
+// If the given store contains an entry for the environment
+// and it has associated bootstrap config, that configuration
+// will be returned.
+func NewFromName(name string, store configstore.Storage) (Environ, error) {
+	cfg, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}
@@ -41,9 +59,10 @@ func NewFromName(name string) (Environ, error) {
 // PrepareFromName is the same as NewFromName except
 // that the environment is is prepared as well as opened,
 // and environment information is created using the
-// given store.
+// given store. If the environment is already prepared,
+// it behaves like NewFromName.
 func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
-	cfg, err := ConfigForName(name)
+	cfg, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +71,7 @@ func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
 
 // NewFromAttrs returns a new environment based on the provided configuration
 // attributes.
+// TODO(rog) remove this function - it's almost always wrong to use it.
 func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {

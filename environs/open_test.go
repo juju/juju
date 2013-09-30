@@ -51,7 +51,7 @@ func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 
 func (OpenSuite) TestNewFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	e, err := environs.NewFromName("erewhemos")
+	e, err := environs.NewFromName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Name(), gc.Equals, "erewhemos")
 	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment .* is not prepared")
@@ -60,14 +60,14 @@ func (OpenSuite) TestNewFromName(c *gc.C) {
 func (OpenSuite) TestNewFromNameNoDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 
-	e, err := environs.NewFromName("")
+	e, err := environs.NewFromName("", configstore.NewMem())
 	c.Assert(err, gc.ErrorMatches, "no default environment found")
 	c.Assert(e, gc.IsNil)
 }
 
 func (OpenSuite) TestNewFromNameDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
-	e, err := environs.NewFromName("")
+	e, err := environs.NewFromName("", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Name(), gc.Equals, "erewhemos")
 }
@@ -83,20 +83,20 @@ func (OpenSuite) TestPrepareFromName(c *gc.C) {
 
 func (OpenSuite) TestConfigForName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	cfg, err := environs.ConfigForName("erewhemos")
+	cfg, err := environs.ConfigForName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
 }
 
 func (OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	_, err := environs.ConfigForName("")
+	_, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.ErrorMatches, "no default environment found")
 }
 
 func (OpenSuite) TestConfigForNameDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
-	cfg, err := environs.ConfigForName("")
+	cfg, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
 }
