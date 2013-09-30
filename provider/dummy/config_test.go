@@ -32,7 +32,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	defer env.Destroy()
-	expected := map[string]interface{}{
+	expected := map[string]string{
 		"secret": "pork",
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)
@@ -67,7 +67,7 @@ var firewallModeTests = []struct {
 	},
 }
 
-func (*ConfigSuite) TestFirewallMode(c *gc.C) {
+func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 	for i, test := range firewallModeTests {
 		c.Logf("test %d: %s", i, test.configFirewallMode)
 		attrs := dummy.SampleConfig()
@@ -92,5 +92,7 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 
 		firewallMode := env.Config().FirewallMode()
 		c.Assert(firewallMode, gc.Equals, test.firewallMode)
+
+		s.TearDownTest(c)
 	}
 }
