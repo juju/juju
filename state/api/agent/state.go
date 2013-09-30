@@ -76,6 +76,20 @@ func (m *Entity) Jobs() []params.MachineJob {
 	return m.doc.Jobs
 }
 
+// ShouldAccessState returns true if the entity should have a state
+// connection.
+//
+// TODO(dimitern) Once the firewaller uses the API, we need to change
+// this to return true only for JobManageState.
+func (m *Entity) ShouldAccessState() bool {
+	for _, job := range m.doc.Jobs {
+		if job == params.JobManageState || job == params.JobManageEnviron {
+			return true
+		}
+	}
+	return false
+}
+
 // ContainerType returns the type of container hosting this entity.
 // If the entity is not a machine, it returns an empty string.
 func (m *Entity) ContainerType() instance.ContainerType {

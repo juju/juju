@@ -79,6 +79,26 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestMachineShouldAccessState(c *gc.C) {
+	tests := []struct {
+		shouldAccessState bool
+		jobs              []state.MachineJob
+	}{
+		{false, []state.MachineJob{state.JobHostUnits}},
+		{true, []state.MachineJob{state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobManageState}},
+	}
+	for _, test := range tests {
+		params := state.AddMachineParams{
+			Series: "series",
+			Jobs:   test.jobs,
+		}
+		m, err := s.State.AddMachineWithConstraints(&params)
+		c.Assert(err, gc.IsNil)
+		c.Assert(m.ShouldAccessState(), gc.Equals, test.shouldAccessState)
+	}
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)

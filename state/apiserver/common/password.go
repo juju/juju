@@ -68,8 +68,8 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 }
 
 func (pc *PasswordChanger) setPassword(tag, password string) error {
-	type jobsGetter interface {
-		Jobs() []state.MachineJob
+	type shouldAccessStateGetter interface {
+		ShouldAccessState() bool
 	}
 	var err error
 	entity0, err := pc.st.FindEntity(tag)
@@ -80,15 +80,9 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	if !ok {
 		return NotSupportedError(tag, "authentication")
 	}
-	if entity, ok := entity0.(jobsGetter); ok {
-		for _, job := range entity.Jobs() {
-			// TODO(dimitern) Once the firewaller uses the API,
-			// remove JobManageEnviron from the condition below.
-			if job == state.JobManageState ||
-				job == state.JobManageEnviron {
-				err = pc.setMongoPassword(entity0, password)
-				break
-			}
+	if entity, ok := entity0.(shouldAccessStateGetter); ok {
+		if entity.ShouldAccessState() {
+			err = pc.setMongoPassword(entity0, password)
 		}
 	}
 	if err == nil {

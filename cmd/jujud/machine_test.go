@@ -546,7 +546,11 @@ func (s *MachineSuite) TestOpenStateFailsForTheCorrectJobs(c *gc.C) {
 			// We're not using the conf from primeAgent, because once we
 			// connect to the API initially, it's changed and that instance
 			// doesn't have the updated password.
-			s.tryOpenState(c, a.Tag(), a.Conf.config.Password(), shouldPass)
+			if shouldPass {
+				s.assertCanOpenState(c, a.Tag(), a.Conf.config.Password())
+			} else {
+				s.assertCannotOpenState(c, a.Tag(), a.Conf.config.Password())
+			}
 		})
 	}
 }

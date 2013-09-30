@@ -192,5 +192,5 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	// We're not using the conf from primeAgent, because once we
 	// connect to the API initially, it's changed and that instance
 	// doesn't have the updated password.
-	s.tryOpenState(c, unit.Tag(), a.Conf.config.Password(), false)
+	s.assertCannotOpenState(c, unit.Tag(), a.Conf.config.Password())
 }

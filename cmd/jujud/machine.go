@@ -123,8 +123,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		a.runner.StartWorker("state", a.StateWorker)
 	}
 	// We might be bootstrapping, and the API server is not
-	// running yet. If so, make sure we run a state worker instead
-	// and bail out.
+	// running yet. If so, make sure we run a state worker instead.
 	if a.MachineId == bootstrapMachineId {
 		// TODO(rog) When we have HA, we only want to do this
 		// when we really are bootstrapping - once other
@@ -157,19 +156,8 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return nil, err
 	}
 	reportOpenedAPI(st)
-	// Only start a state worker, if we have JobManageState and
-	// JobManageEnviron.
-	// Other jobs cause the agent not to set a mongo password,
-	// so they cannot connect to state.
-	//
-	// TODO(dimitern) Once the firewaller uses the API, remove
-	// JobManageEnviron from the condition below.
-	for _, job := range entity.Jobs() {
-		if job == params.JobManageState ||
-			job == params.JobManageEnviron {
-			ensureStateWorker()
-			break
-		}
+	if entity.ShouldAccessState() {
+		ensureStateWorker()
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {

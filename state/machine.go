@@ -179,6 +179,20 @@ func (m *Machine) IsStateServer() bool {
 	return false
 }
 
+// ShouldAccessState returns true if the machine should have a state
+// connection.
+//
+// TODO(dimitern) Once the firewaller uses the API, we need to change
+// this to return true only for JobManageState.
+func (m *Machine) ShouldAccessState() bool {
+	for _, job := range m.doc.Jobs {
+		if job == JobManageState || job == JobManageEnviron {
+			return true
+		}
+	}
+	return false
+}
+
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies IsNotFound if the tools have not yet been set.
 func (m *Machine) AgentTools() (*tools.Tools, error) {
