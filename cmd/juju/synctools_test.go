@@ -22,7 +22,7 @@ import (
 type syncToolsSuite struct {
 	testbase.LoggingSuite
 	home         *coretesting.FakeHome
-	configStore configstore.Storage
+	configStore  configstore.Storage
 	localStorage string
 
 	origSyncTools func(*sync.SyncContext) error

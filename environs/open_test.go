@@ -8,9 +8,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -157,7 +157,7 @@ func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 		testing.Attrs{
 			"state-server": false,
 			"name":         "erewhemos",
-			"ca-cert": string(testing.CACert),
+			"ca-cert":      string(testing.CACert),
 		},
 	))
 	c.Assert(err, gc.IsNil)
@@ -169,9 +169,9 @@ func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 func (OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
-			"ca-cert": string(testing.CACert),
+			"state-server":   false,
+			"name":           "erewhemos",
+			"ca-cert":        string(testing.CACert),
 			"ca-private-key": string(testing.CAKey),
 		},
 	))
@@ -185,7 +185,6 @@ func (OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	c.Assert(string(cfgCertPEM), gc.DeepEquals, testing.CACert)
 	c.Assert(string(cfgKeyPEM), gc.DeepEquals, testing.CAKey)
 }
-
 
 func (OpenSuite) TestDestroy(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
