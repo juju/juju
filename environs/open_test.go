@@ -150,6 +150,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Name(), gc.Equals, "erewhemos")
 	c.Assert(env.Storage(), gc.NotNil)
+	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
 }
 
 func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
