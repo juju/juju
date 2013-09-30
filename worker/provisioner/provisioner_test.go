@@ -176,6 +176,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 					RootDisk: cons.RootDisk,
 					CpuCores: cons.CpuCores,
 					CpuPower: cons.CpuPower,
+					Tags:     cons.Tags,
 				})
 				st.Close()
 				return
@@ -306,7 +307,7 @@ func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 
 	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	s.APILogin(c, machine)
@@ -374,7 +375,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, err := m.Status()
+		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
 		if status == params.StatusPending {
 			time.Sleep(coretesting.ShortWait)

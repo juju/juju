@@ -22,6 +22,7 @@ type InstanceType struct {
 	// These attributes are not supported by all clouds.
 	VType    *string // The type of virtualisation used by the hypervisor, must match the image.
 	CpuPower *uint64
+	Tags     []string
 }
 
 func CpuPower(power uint64) *uint64 {
@@ -49,6 +50,9 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 		return nothing, false
 	}
 	if cons.RootDisk != nil && itype.RootDisk < *cons.RootDisk {
+		return nothing, false
+	}
+	if cons.Tags != nil && len(*cons.Tags) > 0 && !tagsMatch(*cons.Tags, itype.Tags) {
 		return nothing, false
 	}
 	return itype, true
@@ -128,6 +132,21 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, cons)
 }
 
+// tagsMatch returns if the tags in wanted all exist in have.
+// Note that duplicates of tags are disregarded in both lists
+func tagsMatch(wanted, have []string) bool {
+	machineTags := map[string]struct{}{}
+	for _, tag := range have {
+		machineTags[tag] = struct{}{}
+	}
+	for _, tag := range wanted {
+		if _, ok := machineTags[tag]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // byCost is used to sort a slice of instance types by Cost.
 type byCost []InstanceType
 
@@ -152,6 +171,7 @@ func (bc byCost) Less(i, j int) bool {
 	if inst0.RootDisk != inst1.RootDisk {
 		return inst0.RootDisk < inst1.RootDisk
 	}
+	// we intentionally don't compare tags, since we can't know how tags compare against each other
 	return false
 }
 

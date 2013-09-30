@@ -16,6 +16,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2/httpstorage"
@@ -96,12 +97,6 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
-	// When we read the contents of the target bucket, we don't want to have the ReadList() method
-	// below look for tools in the old location, since the old location is no longer used and if it
-	// finds tools there, it will incorrectly think they exist in the target. For completeness, the
-	// default tools prefix is restored at the end.
-	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer restore()
 	targetStorage := syncContext.Target
 	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
@@ -157,9 +152,6 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest storage.
 
 // copyOneToolsPackage copies one tool from the source to the target.
 func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
-	reset := envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	defer reset()
-	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	resp, err := http.Get(tool.URL)
@@ -236,8 +228,6 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 	}
 	defer os.RemoveAll(baseToolsDir)
 	putTools := func(vers version.Binary) (string, error) {
-		reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
-		defer reset()
 		name := envtools.StorageName(vers)
 		err = copyFile(filepath.Join(baseToolsDir, name), f.Name())
 		if err != nil {
@@ -251,6 +241,10 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		return nil, err
 	}
 	for _, series := range fakeSeries {
+		_, err := simplestreams.SeriesVersion(series)
+		if err != nil {
+			return nil, err
+		}
 		if series != toolsVersion.Series {
 			fakeVersion := toolsVersion
 			fakeVersion.Series = series

@@ -102,7 +102,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(testing.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, gc.IsNil)
-			st, info, err := unit.Status()
+			st, info, data, err := unit.Status()
 			c.Assert(err, gc.IsNil)
 			switch st {
 			case params.StatusPending, params.StatusInstalled:
@@ -115,7 +115,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
-				c.Fatalf("unexpected status %s %s", st, info)
+				c.Fatalf("unexpected status %s %s %v", st, info, data)
 			}
 		}
 	}

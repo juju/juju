@@ -40,7 +40,7 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	ch, _, err := service.Charm()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "local:series/dummy-1")
+	c.Assert(ch.URL().String(), gc.Equals, "local:quantal/dummy-1")
 
 	// Empty string will be returned as nil.
 	options := map[string]string{
@@ -179,7 +179,7 @@ var clientCharmInfoTests = []struct {
 }{
 	{
 		about: "retrieves charm info",
-		url:   "local:series/wordpress-3",
+		url:   "local:quantal/wordpress-3",
 	},
 	{
 		about: "invalid URL",
@@ -262,7 +262,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	environment, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -851,7 +851,7 @@ func (s *clientSuite) TestNoRelation(c *gc.C) {
 func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetProvisioned("i-0", state.BootstrapNonce, nil)
 	c.Assert(err, gc.IsNil)

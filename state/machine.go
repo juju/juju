@@ -122,6 +122,7 @@ type instanceData struct {
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
+	Tags       *[]string   `bson:"tags,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
 }
 
@@ -137,6 +138,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	hc.RootDisk = instData.RootDisk
 	hc.CpuCores = instData.CpuCores
 	hc.CpuPower = instData.CpuPower
+	hc.Tags = instData.Tags
 	return hc, nil
 }
 
@@ -562,6 +564,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		RootDisk:   characteristics.RootDisk,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
+		Tags:       characteristics.Tags,
 	}
 	// SCHEMACHANGE
 	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
@@ -702,13 +705,14 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.Status, info string, err error) {
+func (m *Machine) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	status = doc.Status
 	info = doc.StatusInfo
+	data = doc.StatusData
 	return
 }
 

@@ -47,6 +47,8 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 

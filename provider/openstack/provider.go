@@ -107,7 +107,7 @@ hpcloud:
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
-  auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
+  auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
 `[1:]
 }
@@ -267,6 +267,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		}
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		// tags not currently supported on openstack
 	}
 	return hc
 }

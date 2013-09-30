@@ -168,6 +168,7 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 		Cost:     roleSize.Cost,
 		VType:    &vtype,
 		CpuPower: &cpuPower,
+		// tags are not currently supported by azure
 	}
 }
 

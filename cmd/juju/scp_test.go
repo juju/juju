@@ -51,7 +51,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	m := s.makeMachines(3, c)
 	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, gc.IsNil)

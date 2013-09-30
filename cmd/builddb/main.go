@@ -58,7 +58,7 @@ func build() error {
 
 	logger.Infof("Waiting for unit to reach %q status...", params.StatusStarted)
 	unit := units[0]
-	last, info, err := unit.Status()
+	last, info, _, err := unit.Status()
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func build() error {
 		if err := unit.Refresh(); err != nil {
 			return err
 		}
-		status, info, err := unit.Status()
+		status, info, _, err := unit.Status()
 		if err != nil {
 			return err
 		}

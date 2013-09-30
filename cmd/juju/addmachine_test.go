@@ -14,6 +14,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type AddMachineSuite struct {
@@ -36,8 +37,7 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(m.Series(), gc.DeepEquals, "precise")
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	expectedCons := constraints.Value{}
-	c.Assert(mcons, gc.DeepEquals, expectedCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {

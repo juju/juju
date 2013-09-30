@@ -75,7 +75,6 @@ func registerAmazonTests() {
 type LiveTests struct {
 	testbase.LoggingSuite
 	jujutest.LiveTests
-	writablePublicStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
@@ -84,14 +83,10 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	e, err := environs.NewFromAttrs(t.TestConfig)
 	c.Assert(err, gc.IsNil)
 
-	// Environ.PublicStorage() is read only.
-	// For testing, we create a specific storage instance which is authorised to write to
-	// the public storage bucket so that we can upload files for testing.
-	t.writablePublicStorage = ec2.WritablePublicStorage(e)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.UploadFakeTools(c, t.writablePublicStorage)
+	envtesting.UploadFakeTools(c, e.Storage())
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -100,8 +95,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := t.writablePublicStorage.RemoveAll()
-	c.Assert(err, gc.IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }

@@ -292,7 +292,6 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	envtesting.RemoveTools(c, env.Storage())
 	instance, _, err = provider.StartInstance(env, "2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "no tools available")
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
@@ -306,7 +305,7 @@ func stringp(val string) *string {
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	stor := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
@@ -321,7 +320,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	stor := NewStorage(suite.environ)
-	fakeTools := envtesting.MustUploadFakeToolsVersion(stor, version.Current)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
@@ -348,7 +347,8 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 		{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
 		// RootDisk is ignored.
 		{constraints.Value{RootDisk: uint64p(8192)}, url.Values{}},
-		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192)}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}}},
+		{constraints.Value{Tags: &[]string{"foo", "bar"}}, url.Values{"tags": {"foo,bar"}}},
+		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192), Tags: &[]string{"foo", "bar"}}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}, "tags": {"foo,bar"}}},
 	}
 	for _, test := range testValues {
 		c.Check(convertConstraints(test.constraints), gc.DeepEquals, test.expectedResult)
@@ -450,7 +450,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

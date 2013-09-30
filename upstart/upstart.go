@@ -54,7 +54,7 @@ func (s *Service) Start() error {
 	if s.Running() {
 		return nil
 	}
-	return runCommand("start", s.Name)
+	return runCommand("start", "--system", s.Name)
 }
 
 func runCommand(args ...string) error {
@@ -74,7 +74,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	return runCommand("stop", s.Name)
+	return runCommand("stop", "--system", s.Name)
 }
 
 // StopAndRemove stops the service and then deletes the service
