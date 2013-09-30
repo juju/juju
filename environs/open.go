@@ -107,7 +107,7 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 		logger.Infof("environment info already exists; using New not Prepare")
 		info, err := store.ReadInfo(config.Name())
 		if err != nil {
-			return nil, fmt.Errorf("error reading environment info %q: %v", confug.Name, err)
+			return nil, fmt.Errorf("error reading environment info %q: %v", config.Name(), err)
 		}
 		if !info.Initialized() {
 			return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", config.Name())
