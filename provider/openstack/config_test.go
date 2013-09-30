@@ -448,9 +448,7 @@ func (s *ConfigSuite) setupEnvCredentials() {
 
 type ConfigDeprecationSuite struct {
 	ConfigSuite
-	writer    *testWriter
-	oldWriter loggo.Writer
-	oldLevel  loggo.Level
+	writer *testWriter
 }
 
 var _ = gc.Suite(&ConfigDeprecationSuite{})
