@@ -98,6 +98,7 @@ func New(config *config.Config) (Environ, error) {
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
 func Prepare(config *config.Config, store configstore.Storage) (Environ, error) {
+	log.Infof("Prepare with attrs: %#v", config.AllAttrs())
 	p, err := Provider(config.Type())
 	if err != nil {
 		return nil, err
