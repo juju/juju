@@ -20,6 +20,11 @@ type ConfigSuite struct {
 	testbase.LoggingSuite
 }
 
+func (s *ConfigSuite) TearDownTest(c *gc.C) {
+	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
+}
+
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -32,7 +37,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)
 	c.Assert(err, gc.IsNil)
-	c.Assert(expected, gc.DeepEquals, actual)
+	c.Assert(actual, gc.DeepEquals, expected)
 }
 
 var firewallModeTests = []struct {
@@ -76,12 +81,13 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-
+		c.Logf("calling environs.Prepare")
 		env, err := environs.Prepare(cfg, configstore.NewMem())
-		if err != nil {
+		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
+		c.Assert(err, gc.IsNil)
 		defer env.Destroy()
 
 		firewallMode := env.Config().FirewallMode()

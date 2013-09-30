@@ -323,7 +323,7 @@ var configFields = schema.Fields{
 	"state-server": schema.Bool(),
 	"broken":       schema.String(),
 	"secret":       schema.String(),
-	"state-id":     schema.Int(),
+	"state-id":     schema.ForceInt(),
 }
 var configDefaults = schema.Defaults{
 	"broken":   "",
@@ -349,7 +349,7 @@ func (c *environConfig) secret() string {
 }
 
 func (c *environConfig) stateId() int {
-	id, _ := c.attrs["state-id"].(int64)
+	id, _ := c.attrs["state-id"].(int)
 	return int(id)
 }
 
@@ -412,8 +412,10 @@ func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) 
 	log.Infof("Prepare called by %s", debug.Callers(1, 30))
 	cfg, err := p.prepare(cfg)
 	if err != nil {
+		log.Infof("prepare returned %v", err)
 		return nil, err
 	}
+	log.Infof("prepare worked ok")
 	return p.Open(cfg)
 }
 
