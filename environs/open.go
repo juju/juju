@@ -97,32 +97,38 @@ func New(config *config.Config) (Environ, error) {
 
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
-func Prepare(config *config.Config, store configstore.Storage) (Environ, error) {
-	log.Infof("Prepare with attrs: %#v", config.AllAttrs())
-	p, err := Provider(config.Type())
+func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
+	p, err := Provider(cfg.Type())
 	if err != nil {
 		return nil, err
 	}
-	info, err := store.CreateInfo(config.Name())
+	info, err := store.CreateInfo(cfg.Name())
 	if err == configstore.ErrEnvironInfoAlreadyExists {
 		logger.Infof("environment info already exists; using New not Prepare")
-		info, err := store.ReadInfo(config.Name())
+		info, err := store.ReadInfo(cfg.Name())
 		if err != nil {
-			return nil, fmt.Errorf("error reading environment info %q: %v", config.Name(), err)
+			return nil, fmt.Errorf("error reading environment info %q: %v", cfg.Name(), err)
 		}
 		if !info.Initialized() {
-			return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", config.Name())
+			return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", cfg.Name())
 		}
-		return New(config)
+		if len(info.BootstrapConfig()) == 0 {
+			return nil, fmt.Errorf("found environment info but no bootstrap config")
+		}
+		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse bootstrap config: %v", err)
+		}
+		return New(cfg)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
+		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
 	}
-	config, err = ensureCertificate(config)
+	cfg, err = ensureCertificate(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
 	}
-	env, err := p.Prepare(config)
+	env, err := p.Prepare(cfg)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
 			logger.Warningf("cannot destroy newly created environment info: %v", err)
