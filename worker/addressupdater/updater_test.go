@@ -1,4 +1,4 @@
-package addresspublisher
+package addressupdater
 
 import (
 	"errors"
@@ -16,13 +16,13 @@ func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-var _ = gc.Suite(&publisherSuite{})
+var _ = gc.Suite(&updaterSuite{})
 
-type publisherSuite struct {
+type updaterSuite struct {
 	testbase.LoggingSuite
 }
 
-func (*publisherSuite) TestStopsWatcher(c *gc.C) {
+func (*updaterSuite) TestStopsWatcher(c *gc.C) {
 	ctxt := &testPublisherContext{
 		dyingc: make(chan struct{}),
 	}

@@ -1,4 +1,4 @@
-package addresspublisher
+package addressupdater
 
 import (
 	"errors"
@@ -34,15 +34,15 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 		life:       state.Alive,
 	}
 	died := make(chan machine)
-	publisherc := make(chan machineAddress, 100)
+	updaterc := make(chan machineAddress, 100)
 	// Change the poll intervals to be short, so that we know
 	// that we've polled (probably) at least a few times while we're
-	// waiting for anything to be sent on publisherc.
+	// waiting for anything to be sent on updaterc.
 	defer testbase.PatchValue(&shortPoll, coretesting.ShortWait/10).Restore()
 	defer testbase.PatchValue(&longPoll, coretesting.ShortWait/10).Restore()
 
-	go runMachine(ctxt, m, nil, died, publisherc)
-	assertPublishedAddresses(c, publisherc, m, [][]instance.Address{testAddrs})
+	go runMachine(ctxt, m, nil, died, updaterc)
+	assertPublishedAddresses(c, updaterc, m, [][]instance.Address{testAddrs})
 
 	killMachineLoop(c, m, ctxt.dyingc, died)
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
@@ -80,9 +80,9 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 		life:       state.Alive,
 	}
 	died := make(chan machine)
-	publisherc := make(chan machineAddress, 100)
+	updaterc := make(chan machineAddress, 100)
 
-	go runMachine(ctxt, m, nil, died, publisherc)
+	go runMachine(ctxt, m, nil, died, updaterc)
 
 	timeout := time.After(coretesting.ShortWait)
 	count := 0
@@ -116,9 +116,9 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 		life:      state.Dead,
 	}
 	died := make(chan machine)
-	publisherc := make(chan machineAddress, 100)
+	updaterc := make(chan machineAddress, 100)
 	changed := make(chan struct{})
-	go runMachine(ctxt, m, changed, died, publisherc)
+	go runMachine(ctxt, m, changed, died, updaterc)
 	select {
 	case <-died:
 		c.Fatalf("machine died prematurely")
@@ -136,7 +136,7 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 		c.Fatalf("timed out waiting for refresh")
 	}
 
-	assertPublishedAddresses(c, publisherc, m, [][]instance.Address{nil})
+	assertPublishedAddresses(c, updaterc, m, [][]instance.Address{nil})
 	select {
 	case <-died:
 	case <-time.After(coretesting.LongWait):
@@ -191,9 +191,9 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	}
 	mutate(m, expectErr)
 	died := make(chan machine)
-	publisherc := make(chan machineAddress, 100)
+	updaterc := make(chan machineAddress, 100)
 	changed := make(chan struct{}, 1)
-	go runMachine(ctxt, m, changed, died, publisherc)
+	go runMachine(ctxt, m, changed, died, updaterc)
 	changed <- struct{}{}
 	select {
 	case <-died:
@@ -204,14 +204,14 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 }
 
 // assertPublishedAddresses asserts that exactly the given events are
-// received from publisherc.
-func assertPublishedAddresses(c *gc.C, publisherc <-chan machineAddress, m *testMachine, events [][]instance.Address) {
+// received from updaterc.
+func assertPublishedAddresses(c *gc.C, updaterc <-chan machineAddress, m *testMachine, events [][]instance.Address) {
 	var gotEvents [][]instance.Address
 	timeout := time.After(coretesting.LongWait)
 loop:
 	for i := 0; ; i++ {
 		select {
-		case addr := <-publisherc:
+		case addr := <-updaterc:
 			c.Assert(addr.machine, gc.Equals, m)
 			gotEvents = append(gotEvents, addr.addresses)
 		case <-timeout:
@@ -232,7 +232,7 @@ func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machin
 	case diedm := <-died:
 		c.Assert(diedm, gc.Equals, m)
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("publisher did not die after dying channel was closed")
+		c.Fatalf("updater did not die after dying channel was closed")
 	}
 }
 
