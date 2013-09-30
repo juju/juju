@@ -21,7 +21,8 @@ import (
 // IsSameStorage returns whether the storage instances are the same.
 // Both storages must have been created through the dummy provider.
 func IsSameStorage(s1, s2 storage.Storage) bool {
-	return s1.(*dummystorage) == s2.(*dummystorage)
+	localS1, localS2 := s1.(*dummyStorage), s2.(*dummyStorage)
+	return localS1.env == localS2.env && localS1.public == localS2.public
 }
 
 func (e *environ) Storage() storage.Storage {
