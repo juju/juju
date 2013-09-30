@@ -18,6 +18,12 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// IsSameStorage returns whether the storage instances are the same.
+// Both storages must have been created through the dummy provider.
+func IsSameStorage(s1, s2 storage.Storage) bool {
+	return s1.(*dummystorage) == s2.(*dummystorage)
+}
+
 func (e *environ) Storage() storage.Storage {
 	return e.state().storage
 }

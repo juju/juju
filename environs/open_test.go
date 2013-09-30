@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -120,7 +121,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 			"state-server": false,
 			"name":         "erewhemos",
 		},
-	))
+	).Delete("ca-cert", "ca-private-key"))
 	c.Assert(err, gc.IsNil)
 	store := configstore.NewMem()
 	env, err := environs.Prepare(cfg, store)
@@ -134,12 +135,57 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(info.Initialized(), jc.IsTrue)
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, env.Config().AllAttrs())
 
+	// Check that the CA cert was generated.
+	cfgCertPEM, cfgCertOK := env.Config().CACert()
+	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	c.Assert(cfgCertOK, gc.Equals, true)
+	c.Assert(cfgKeyOK, gc.Equals, true)
+	// Check the common name of the generated cert
+	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
+
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Name(), gc.Equals, "erewhemos")
 	c.Assert(env.Storage(), gc.NotNil)
 }
+
+func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Delete("ca-cert", "ca-private-key").Merge(
+		testing.Attrs{
+			"state-server": false,
+			"name":         "erewhemos",
+			"ca-cert": string(testing.CACert),
+		},
+	))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
+	c.Assert(env, gc.IsNil)
+}
+
+func (OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
+		testing.Attrs{
+			"state-server": false,
+			"name":         "erewhemos",
+			"ca-cert": string(testing.CACert),
+			"ca-private-key": string(testing.CAKey),
+		},
+	))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	cfgCertPEM, cfgCertOK := env.Config().CACert()
+	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	c.Assert(cfgCertOK, gc.Equals, true)
+	c.Assert(cfgKeyOK, gc.Equals, true)
+	c.Assert(string(cfgCertPEM), gc.DeepEquals, testing.CACert)
+	c.Assert(string(cfgKeyPEM), gc.DeepEquals, testing.CAKey)
+}
+
 
 func (OpenSuite) TestDestroy(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(

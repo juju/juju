@@ -6,7 +6,9 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
+	"time"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
@@ -33,10 +35,14 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, erro
 	if name != "" {
 		info, err := store.ReadInfo(name)
 		if err == nil && len(info.BootstrapConfig()) > 0 {
+			logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
 			return config.New(config.NoDefaults, info.BootstrapConfig())
 		}
-		if !errors.IsNotFoundError(err) {
+		if err != nil && !errors.IsNotFoundError(err) {
 			return nil, fmt.Errorf("cannot read environment info for %q: %v", name, err)
+		}
+		if err == nil {
+			logger.Debugf("ConfigForName found info but no bootstrap config")
 		}
 	}
 	return envs.Config(name)
@@ -111,6 +117,10 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", config.Name(), err)
 	}
+	config, err = ensureCertificate(config)
+	if err != nil {
+		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
+	}
 	env, err := p.Prepare(config)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
@@ -123,6 +133,29 @@ func Prepare(config *config.Config, store configstore.Storage) (Environ, error) 
 		return nil, fmt.Errorf("cannot create environment info %q: %v", err)
 	}
 	return env, nil
+}
+
+// ensureCertificate generates a new CA certificate and
+// attaches it to the given environment configuration,
+// unless the configuration already has one.
+func ensureCertificate(cfg *config.Config) (*config.Config, error) {
+	_, hasCACert := cfg.CACert()
+	_, hasCAKey := cfg.CAPrivateKey()
+	if hasCACert && hasCAKey {
+		return cfg, nil
+	}
+	if hasCACert && !hasCAKey {
+		return nil, fmt.Errorf("environment configuration with a certificate but no CA private key")
+	}
+
+	caCert, caKey, err := cert.NewCA(cfg.Name(), time.Now().UTC().AddDate(10, 0, 0))
+	if err != nil {
+		return nil, err
+	}
+	return cfg.Apply(map[string]interface{} {
+		"ca-cert": string(caCert),
+		"ca-private-key": string(caKey),
+	})
 }
 
 // Destroy destroys the environment and, if successful,
