@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
@@ -119,7 +120,11 @@ func NewConnFromState(st *state.State) (*Conn, error) {
 // NewConnFromName returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
 func NewConnFromName(environName string) (*Conn, error) {
-	environ, err := environs.NewFromName(environName)
+	store, err := configstore.NewDisk(config.JujuHome())
+	if err != nil {
+		return nil, err
+	}
+	environ, err := environs.NewFromName(environName, store)
 	if err != nil {
 		return nil, err
 	}

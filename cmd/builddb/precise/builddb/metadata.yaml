@@ -1,4 +1,0 @@
-name: builddb
-summary: Abusive charm that builds MongoDB from source
-description: |
-        Abusive charm that builds MongoDB from source.
