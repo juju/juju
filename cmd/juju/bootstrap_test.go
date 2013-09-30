@@ -82,6 +82,7 @@ func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
 func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
+	defer createToolsStore(c)()
 
 	var findToolsRetryValues []bool
 
