@@ -41,7 +41,15 @@ will be displayed.
 
 Wildcards ('*') may be specified in service/unit names to match any sequence
 of characters. For example, 'nova-*' will match any service whose name begins
-with 'nova-': 'nova-compute', 'nova-volume', etc.`[1:]
+with 'nova-': 'nova-compute', 'nova-volume', etc.
+
+Note that if juju bootstrap was recently called, juju status will wait to return
+until after the state server has finished starting up.  The time required varies
+across providers, but could be up to several minutes.
+
+See Also:
+   juju bootstrap
+`
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{

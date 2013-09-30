@@ -23,11 +23,23 @@ import (
 const sshHostPrefix = "ssh:"
 
 var addMachineDoc = `
+<container> can be one of lxc or kvm.
+
 Machines are created in a clean state and ready to have units deployed.
 
-This command also supports configuring existing machines via SSH. The
-target machine must be able to communicate with the API servers, and
-be able to access the environment storage.`[1:]
+This command also supports manual provisioning of existing machines via SSH. The
+target machine must be able to communicate with the API servers, and be able to
+access the environment storage.
+
+
+Examples:
+   juju add-machine lxc                  (starts a new machine with an lxc container)
+   juju add-machine kvm:4                (starts a new kvm container on machine 4)
+   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
+
+See Also:
+   juju help constraints
+`
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
