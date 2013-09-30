@@ -78,7 +78,7 @@ type updater struct {
 	ctxt        updaterContext
 	machines    map[string]chan struct{}
 	machineDead chan machine
-	updaterc  chan machineAddress
+	publisherc  chan machineAddress
 }
 
 // watchMachinesLoop watches for changes provided by the given
@@ -90,9 +90,9 @@ func watchMachinesLoop(ctxt updaterContext, w machinesWatcher) (err error) {
 		ctxt:        ctxt,
 		machines:    make(map[string]chan struct{}),
 		machineDead: make(chan machine),
-		updaterc:  make(chan machineAddress),
+		publisherc:  make(chan machineAddress),
 	}
-	go updaterLoop(p.updaterc)
+	go publisherLoop(p.publisherc)
 	defer func() {
 		if stopErr := w.Stop(); stopErr != nil {
 			if err == nil {
@@ -104,7 +104,7 @@ func watchMachinesLoop(ctxt updaterContext, w machinesWatcher) (err error) {
 		for len(p.machines) > 0 {
 			delete(p.machines, (<-p.machineDead).Id())
 		}
-		close(p.updaterc)
+		close(p.publisherc)
 	}()
 	for {
 		select {
@@ -138,7 +138,7 @@ func (p *updater) startMachines(ids []string) error {
 			}
 			c = make(chan struct{})
 			p.machines[id] = c
-			go runMachine(p.ctxt.newMachineContext(), m, c, p.machineDead, p.updaterc)
+			go runMachine(p.ctxt.newMachineContext(), m, c, p.machineDead, p.publisherc)
 		} else {
 			c <- struct{}{}
 		}
@@ -148,7 +148,7 @@ func (p *updater) startMachines(ids []string) error {
 
 // runMachine processes the address publishing for a given machine.
 // We assume that the machine is alive when this is first called.
-func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died chan<- machine, updaterc chan<- machineAddress) {
+func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died chan<- machine, publisherc chan<- machineAddress) {
 	defer func() {
 		// We can't just send on the died channel because the
 		// central loop might be trying to write to us on the
@@ -161,12 +161,12 @@ func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died ch
 			}
 		}
 	}()
-	if err := machineLoop(ctxt, m, changed, updaterc); err != nil {
+	if err := machineLoop(ctxt, m, changed, publisherc); err != nil {
 		ctxt.killAll(err)
 	}
 }
 
-func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, updaterc chan<- machineAddress) error {
+func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, publisherc chan<- machineAddress) error {
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
@@ -187,7 +187,7 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, update
 				return fmt.Errorf("cannot set addresses on %q: %v", m, err)
 			}
 			pollInterval = longPoll
-			updaterc <- machineAddress{
+			publisherc <- machineAddress{
 				machine:   m,
 				addresses: newAddrs,
 			}
@@ -207,7 +207,7 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}, update
 			// but we don't mind an extra address check in that case,
 			// seeing as it's unlikely.
 			if m.Life() == state.Dying || m.Life() == state.Dead {
-				updaterc <- machineAddress{machine: m}
+				publisherc <- machineAddress{machine: m}
 				return nil
 			}
 		}
@@ -226,7 +226,7 @@ func addressesEqual(a0, a1 []instance.Address) bool {
 	return true
 }
 
-func updaterLoop(c <-chan machineAddress) {
+func publisherLoop(c <-chan machineAddress) {
 	for _ = range c {
 	}
 }

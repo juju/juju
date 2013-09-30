@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -64,10 +65,14 @@ func (*machineSuite) TestLongPollIntervalWhenHasAddress(c *gc.C) {
 // are set to addrs, it will poll frequently (given the poll intervals set
 // up outside this function).
 func testPollInterval(c *gc.C, addrs []instance.Address) {
-	polledAddresses := make(chan instance.Id)
+	count := int32(0)
 	getAddresses := func(id instance.Id) ([]instance.Address, error) {
-		polledAddresses <- id
-		return addrs, fmt.Errorf("no instance addresses available")
+		c.Check(id, gc.Equals, instance.Id("i1234"))
+		atomic.AddInt32(&count, 1)
+		if addrs == nil {
+			return nil, fmt.Errorf("no instance addresses available")
+		}
+		return addrs, nil
 	}
 	ctxt := &testMachineContext{
 		getAddresses: getAddresses,
@@ -84,18 +89,7 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 
 	go runMachine(ctxt, m, nil, died, updaterc)
 
-	timeout := time.After(coretesting.ShortWait)
-	count := 0
-loop:
-	for {
-		select {
-		case id := <-polledAddresses:
-			c.Assert(id, gc.Equals, instance.Id("i1234"))
-			count++
-		case <-timeout:
-			break loop
-		}
-	}
+	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, ctxt.dyingc, died)
 	c.Assert(count, jc.GreaterThan, 2)
 }
