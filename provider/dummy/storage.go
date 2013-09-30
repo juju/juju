@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
@@ -60,14 +61,14 @@ func newStorageServer(state *environState, path string) *storageServer {
 
 // Poison causes all fetches of the given path to
 // return the given error.
-func Poison(ss storage.Storage, path string, err error) {
+func Poison(ss storage.Storage, path string, poisonErr error) {
 	s := ss.(*dummyStorage)
 	srv, err := s.server()
 	if err != nil {
 		panic("cannot poison destroyed storage")
 	}
 	srv.state.mu.Lock()
-	srv.poisoned[path] = err
+	srv.poisoned[path] = poisonErr
 	srv.state.mu.Unlock()
 }
 
@@ -98,6 +99,7 @@ func (s *storageServer) dataWithDelay(path string) (data []byte, err error) {
 	time.Sleep(delay)
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()
+	log.Infof("data for path %q; poison: %v", path, s.poisoned)
 	if err := s.poisoned[path]; err != nil {
 		return nil, err
 	}
