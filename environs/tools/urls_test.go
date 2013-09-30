@@ -6,6 +6,7 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
@@ -28,6 +29,7 @@ func (s *URLsSuite) SetUpTest(c *gc.C) {
 
 func (s *URLsSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	dummy.Reset()
 }
 
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
@@ -37,9 +39,9 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			"tools-url": toolsMetadataURL,
 		})
 	}
-	env, err := environs.NewFromAttrs(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err = environs.Prepare(env.Config(), configstore.NewMem())
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env
 }
