@@ -23,7 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -78,12 +78,12 @@ func (env *maasEnviron) Name() string {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	return common.Bootstrap(env, cons, possibleTools, machineID)
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
