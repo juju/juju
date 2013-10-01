@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package common
 
 import (
 	"fmt"
@@ -10,41 +10,16 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	coretools "launchpad.net/juju-core/tools"
 )
 
-var logger = loggo.GetLogger("juju.provider")
+var logger = loggo.GetLogger("juju.provider.common")
 
-// StartInstance uses the supplied broker to start a machine instance.
-func StartInstance(broker environs.InstanceBroker, machineId, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
-	var err error
-	var possibleTools coretools.List
-	if env, ok := broker.(environs.Environ); ok {
-		agentVersion, ok := env.Config().AgentVersion()
-		if !ok {
-			return nil, nil, fmt.Errorf("no agent version set in environment configuration")
-		}
-		possibleTools, err = tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else if hasTools, ok := broker.(coretools.HasTools); ok {
-		possibleTools = hasTools.Tools()
-	} else {
-		panic(fmt.Errorf("broker of type %T does not provide any tools", broker))
-	}
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return broker.StartInstance(cons, possibleTools, machineConfig)
-}
-
-// StartBootstrapInstance starts the bootstrap instance for the environment.
-func StartBootstrapInstance(env environs.Environ, cons constraints.Value, possibleTools coretools.List, machineID string) error {
+// Bootstrap is a common implementation of the Bootstrap method defined on
+// environs.Environ; we strongly recommend that this implementation be used
+// when writing a new provider.
+func Bootstrap(env environs.Environ, cons constraints.Value, possibleTools coretools.List, machineID string) error {
 
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
