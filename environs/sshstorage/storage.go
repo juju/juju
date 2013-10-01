@@ -137,7 +137,7 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (str
 	command = fmt.Sprintf(
 		"SHELL=/bin/bash flock %s %s -c %s",
 		flockmode,
-		s.remotepath,
+		utils.ShQuote(s.remotepath),
 		utils.ShQuote(command),
 	)
 	var encoded string
