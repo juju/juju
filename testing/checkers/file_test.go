@@ -6,6 +6,7 @@ package checkers_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -95,4 +96,30 @@ func (s *FileSuite) TestDoesNotExistWithNumber(c *gc.C) {
 	result, message := jc.DoesNotExist.Check([]interface{}{42}, nil)
 	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, "obtained value is not a string and has no .String(), int:42")
+}
+
+func (s *FileSuite) TestIsSymlink(c *gc.C) {
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, gc.IsNil)
+	c.Log(file.Name())
+	c.Log(filepath.Dir(file.Name()))
+	symlinkPath := filepath.Join(filepath.Dir(file.Name()), "a-symlink")
+	err = os.Symlink(file.Name(), symlinkPath)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(symlinkPath, jc.IsSymlink)
+}
+
+func (s *FileSuite) TestIsSymlinkWithFile(c *gc.C) {
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, gc.IsNil)
+	result, message := jc.IsSymlink.Check([]interface{}{file.Name()}, nil)
+	c.Assert(result, jc.IsFalse)
+	c.Assert(message, jc.Contains, " is not a symlink")
+}
+
+func (s *FileSuite) TestIsSymlinkWithDir(c *gc.C) {
+	result, message := jc.IsSymlink.Check([]interface{}{c.MkDir()}, nil)
+	c.Assert(result, jc.IsFalse)
+	c.Assert(message, jc.Contains, " is not a symlink")
 }
