@@ -3,7 +3,7 @@
 
 package agent
 
-func PasswordHash(config Config) string {
+func Password(config Config) string {
 	confInternal := config.(*configInternal)
-	return confInternal.passwordHash()
+	return confInternal.password()
 }

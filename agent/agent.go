@@ -348,9 +348,9 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-// passwordHash returns the hash of the current password, used to
-// connect to state or API. Used for testing.
-func (c *configInternal) passwordHash() string {
+// password returns the current password, used to connect to state or
+// API. Used for testing.
+func (c *configInternal) password() string {
 	var password string
 	if c.stateDetails == nil {
 		password = c.apiDetails.password
@@ -446,7 +446,6 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 
 // OpenState tries to open the state using the given Conf.
 func (c *configInternal) OpenState() (*state.State, error) {
-	var err error
 	info := state.Info{
 		Addrs:    c.stateDetails.addresses,
 		Password: c.stateDetails.password,
@@ -454,8 +453,7 @@ func (c *configInternal) OpenState() (*state.State, error) {
 		Tag:      c.tag,
 	}
 	if info.Password != "" {
-		var st *state.State
-		st, err = state.Open(&info, state.DefaultDialOpts())
+		st, err := state.Open(&info, state.DefaultDialOpts())
 		if err == nil {
 			return st, nil
 		}
