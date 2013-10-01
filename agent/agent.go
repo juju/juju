@@ -83,10 +83,6 @@ type Config interface {
 	// new password string is returned.
 	GenerateNewPassword() (string, error)
 
-	// Password returns the password that is stored for state and api
-	// connections.
-	Password() string
-
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
@@ -352,7 +348,9 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) Password() string {
+// passwordHash returns the hash of the current password, used to
+// connect to state or API. Used for testing.
+func (c *configInternal) passwordHash() string {
 	var password string
 	if c.stateDetails == nil {
 		password = c.apiDetails.password
