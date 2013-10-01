@@ -9,7 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -77,14 +77,14 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *gc.C) {
-	c.Assert(provider.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
-	c.Assert(provider.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(common.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(common.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
 
 	cleanup := PatchAttemptStrategies()
 	defer cleanup()
 
-	c.Check(provider.LongAttempt, gc.DeepEquals, impatientAttempt)
-	c.Check(provider.ShortAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(common.LongAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(common.ShortAttempt, gc.DeepEquals, impatientAttempt)
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {

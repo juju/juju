@@ -9,7 +9,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 )
 
 type maasInstance struct {
@@ -97,7 +97,7 @@ func (mi *maasInstance) DNSName() (string, error) {
 }
 
 func (mi *maasInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(mi)
+	return common.WaitDNSName(mi)
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
