@@ -152,7 +152,7 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
 	if input != nil {
 		// here-document must start on the outer-most command.
-		command = fmt.Sprintf("(%s) << EOF", command)
+		command = fmt.Sprintf("(%s) << '@EOF'", command)
 	}
 	if _, err := stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
@@ -169,7 +169,7 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		if err := encoder.Close(); err != nil {
 			return "", fmt.Errorf("failed to flush encoder: %v", err)
 		}
-		if _, err := stdin.Write([]byte("\nEOF\n")); err != nil {
+		if _, err := stdin.Write([]byte("\n@EOF\n")); err != nil {
 			return "", fmt.Errorf("failed to terminate input: %v", err)
 		}
 		if err := stdin.(*bufio.Writer).Flush(); err != nil {
