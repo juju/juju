@@ -114,6 +114,32 @@ var DoesNotExist gc.Checker = &doesNotExistChecker{
 func (checker *doesNotExistChecker) Check(params []interface{}, names []string) (result bool, error string) {
 	path, isString := stringOrStringer(params[0])
 	if isString {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return true, ""
+		} else if err != nil {
+			return false, fmt.Sprintf("other stat error: %v", err)
+		}
+		return false, fmt.Sprintf("%s exists", path)
+	}
+
+	value := reflect.ValueOf(params[0])
+	return false, fmt.Sprintf("obtained value is not a string and has no .String(), %s:%#v", value.Kind(), params[0])
+}
+
+// SymlinkDoesNotExist checker makes sure the path specified doesn't exist.
+
+type symlinkDoesNotExistChecker struct {
+	*gc.CheckerInfo
+}
+
+var SymlinkDoesNotExist gc.Checker = &symlinkDoesNotExistChecker{
+	&gc.CheckerInfo{Name: "SymlinkDoesNotExist", Params: []string{"obtained"}},
+}
+
+func (checker *symlinkDoesNotExistChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	path, isString := stringOrStringer(params[0])
+	if isString {
 		_, err := os.Lstat(path)
 		if os.IsNotExist(err) {
 			return true, ""

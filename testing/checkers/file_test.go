@@ -92,8 +92,49 @@ func (s *FileSuite) TestDoesNotExistWithPath(c *gc.C) {
 	c.Assert(message, gc.Equals, dir+" exists")
 }
 
+func (s *FileSuite) TestDoesNotExistWithSymlink(c *gc.C) {
+	dir := c.MkDir()
+	deadPath := filepath.Join(dir, "dead")
+	symlinkPath := filepath.Join(dir, "a-symlink")
+	err := os.Symlink(deadPath, symlinkPath)
+	c.Assert(err, gc.IsNil)
+	// A valid symlink pointing to something that doesn't exist passes.
+	// Use SymlinkDoesNotExist to check for the non-existence of the link itself.
+	c.Assert(symlinkPath, jc.DoesNotExist)
+}
+
 func (s *FileSuite) TestDoesNotExistWithNumber(c *gc.C) {
 	result, message := jc.DoesNotExist.Check([]interface{}{42}, nil)
+	c.Assert(result, jc.IsFalse)
+	c.Assert(message, gc.Equals, "obtained value is not a string and has no .String(), int:42")
+}
+
+func (s *FileSuite) TestSymlinkDoesNotExist(c *gc.C) {
+	absentDir := filepath.Join(c.MkDir(), "foo")
+	c.Assert(absentDir, jc.SymlinkDoesNotExist)
+}
+
+func (s *FileSuite) TestSymlinkDoesNotExistWithPath(c *gc.C) {
+	dir := c.MkDir()
+	result, message := jc.SymlinkDoesNotExist.Check([]interface{}{dir}, nil)
+	c.Assert(result, jc.IsFalse)
+	c.Assert(message, gc.Equals, dir+" exists")
+}
+
+func (s *FileSuite) TestSymlinkDoesNotExistWithSymlink(c *gc.C) {
+	dir := c.MkDir()
+	deadPath := filepath.Join(dir, "dead")
+	symlinkPath := filepath.Join(dir, "a-symlink")
+	err := os.Symlink(deadPath, symlinkPath)
+	c.Assert(err, gc.IsNil)
+
+	result, message := jc.SymlinkDoesNotExist.Check([]interface{}{symlinkPath}, nil)
+	c.Assert(result, jc.IsFalse)
+	c.Assert(message, gc.Equals, symlinkPath+" exists")
+}
+
+func (s *FileSuite) TestSymlinkDoesNotExistWithNumber(c *gc.C) {
+	result, message := jc.SymlinkDoesNotExist.Check([]interface{}{42}, nil)
 	c.Assert(result, jc.IsFalse)
 	c.Assert(message, gc.Equals, "obtained value is not a string and has no .String(), int:42")
 }
