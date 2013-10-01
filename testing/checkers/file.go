@@ -114,7 +114,7 @@ var DoesNotExist gc.Checker = &doesNotExistChecker{
 func (checker *doesNotExistChecker) Check(params []interface{}, names []string) (result bool, error string) {
 	path, isString := stringOrStringer(params[0])
 	if isString {
-		_, err := os.Stat(path)
+		_, err := os.Lstat(path)
 		if os.IsNotExist(err) {
 			return true, ""
 		} else if err != nil {
