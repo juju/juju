@@ -6,4 +6,5 @@ package lxc
 var (
 	NetworkConfigTemplate = networkConfigTemplate
 	GenerateNetworkConfig = generateNetworkConfig
+	RestartSymlink        = restartSymlink
 )
