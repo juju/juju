@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -324,7 +325,7 @@ var configFields = schema.Fields{
 	"state-server": schema.Bool(),
 	"broken":       schema.String(),
 	"secret":       schema.String(),
-	"state-id":     schema.ForceInt(),
+	"state-id":     schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"broken":   "",
@@ -350,8 +351,15 @@ func (c *environConfig) secret() string {
 }
 
 func (c *environConfig) stateId() int {
-	id, _ := c.attrs["state-id"].(int)
-	return int(id)
+	idStr, ok := c.attrs["state-id"].(string)
+	if !ok {
+		return noStateId
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		panic(fmt.Errorf("unexpected state-id %q (should have pre-checked)", idStr))
+	}
+	return id
 }
 
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -370,6 +378,11 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
+	}
+	if idStr, ok := validated["state-id"].(string); ok {
+		if _, err := strconv.Atoi(idStr); err != nil {
+			return nil, fmt.Errorf("invalid state-id %q", idStr)
+		}
 	}
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(validated)
@@ -448,7 +461,7 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	// Add the state id to the configuration we use to
 	// in the returned environment.
 	return cfg.Apply(map[string]interface{}{
-		"state-id": state.id,
+		"state-id": fmt.Sprint(state.id),
 	})
 }
 
