@@ -28,6 +28,14 @@ func (s *LogMatchesSuite) TestMatchSimpleMessage(c *gc.C) {
 		{loggo.INFO, "12345"},
 	})
 	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
+		{loggo.INFO, "foo .*"},
+	})
+	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
+		{loggo.INFO, "foo .*"},
+		{loggo.INFO, "12345"},
+		{loggo.INFO, "bar"},
+	})
+	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
 		{loggo.INFO, "foo bar"},
 		{loggo.DEBUG, "12345"},
 	})
@@ -54,9 +62,21 @@ func (s *LogMatchesSuite) TestFromLogMatches(c *gc.C) {
 	logger.Debugf("bar")
 	logger.Tracef("hidden")
 	c.Check(tw.Log, jc.LogMatches, []string{"foo", "bar"})
+	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.INFO, "foo"},
+		{loggo.DEBUG, "bar"},
+	})
 	c.Check(tw.Log, gc.Not(jc.LogMatches), []string{"foo", "bad"})
 	c.Check(tw.Log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
 		{loggo.INFO, "foo"},
 		{loggo.INFO, "bar"},
+	})
+	c.Check(tw.Log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
+		{loggo.INFO, "foo"},
+	})
+	c.Check(tw.Log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
+		{loggo.INFO, "foo"},
+		{loggo.DEBUG, "bar"},
+		{loggo.DEBUG, "bazinga"},
 	})
 }

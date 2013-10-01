@@ -4,6 +4,7 @@
 package checkers
 
 import (
+	"fmt"
 	"regexp"
 
 	gc "launchpad.net/gocheck"
@@ -36,41 +37,59 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 	default:
 		return false, "Obtained value must be of type []loggo.TestLogValues or SimpleMessage"
 	}
+	var expected []SimpleMessage
+	checkLogLevel := true
 	switch params[1].(type) {
 	case []SimpleMessage:
-		expected := params[1].([]SimpleMessage)
-		if len(obtained) != len(expected) {
-			return false, ""
-		}
-		for i := 0; i < len(obtained); i++ {
-			if obtained[i].Level != expected[i].Level {
-				return false, ""
-			}
-			re := regexp.MustCompile(expected[i].Message)
-			if !re.MatchString(obtained[i].Message) {
-				return false, ""
-			}
-		}
-		return true, ""
+		expected = params[1].([]SimpleMessage)
 	case []string:
-		asString := make([]string, len(obtained))
-		for i, val := range obtained {
-			asString[i] = val.Message
+		checkLogLevel = false
+		for _, message := range params[1].([]string) {
+			expected = append(expected, SimpleMessage{Message: message})
 		}
-		expected := params[1].([]string)
-		if len(obtained) != len(expected) {
-			return false, ""
-		}
-		for i := 0; i < len(obtained); i++ {
-			re := regexp.MustCompile(expected[i])
-			if !re.MatchString(obtained[i].Message) {
-				return false, ""
-			}
-		}
-		return true, ""
 	default:
 		return false, "Expected value must be of type []string or []SimpleMessage"
 	}
+	for lineNum := 0; ; lineNum++ {
+		switch {
+		case lineNum == len(obtained) && lineNum == len(expected):
+			return true, ""
+		case lineNum == len(obtained):
+			names[0] = fmt.Sprintf("too few log messages found, <missing line %d>", lineNum)
+			params[0] = nil
+			names[1] = "expected regex"
+			params[1] = expected[lineNum].Message
+			return false, ""
+		case lineNum == len(expected):
+			names[0] = "too many log messages found, got"
+			params[0] = obtained[lineNum].Message
+			names[1] = fmt.Sprintf("<no expected line %d>", lineNum)
+			params[1] = nil
+			return false, ""
+		}
+		if checkLogLevel {
+			obtainedLevel := obtained[lineNum].Level
+			expectedLevel := expected[lineNum].Level
+			if obtainedLevel != expectedLevel {
+				names[0] = fmt.Sprintf("line %d obtained level", lineNum)
+				params[0] = obtainedLevel
+				names[1] = fmt.Sprintf("line %d expected level", lineNum)
+				params[1] = expectedLevel
+				return false, ""
+			}
+		}
+		expectedRegex := expected[lineNum].Message
+		obtainedMessage := obtained[lineNum].Message
+		re := regexp.MustCompile(expectedRegex)
+		if !re.MatchString(obtainedMessage) {
+			names[0] = fmt.Sprintf("line %d obtained message", lineNum)
+			params[0] = obtainedMessage
+			names[1] = fmt.Sprintf("line %d expected regex", lineNum)
+			params[1] = expectedRegex
+			return false, ""
+		}
+	}
+	return true, ""
 }
 
 // LogMatches checks whether a given TestLogValues actually contains the log
