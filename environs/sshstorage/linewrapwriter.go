@@ -40,11 +40,11 @@ func (w *lineWrapWriter) Write(buf []byte) (int, error) {
 		n, err := w.out.Write(buf[0:w.remain])
 		w.remain -= n
 		total += n
-		if err != nil || w.remain > 0 {
+		if err != nil {
 			return total, err
 		}
 		if _, err := w.out.Write([]byte("\n")); err != nil {
-			return n, err
+			return total, err
 		}
 		w.remain = w.max
 		buf = buf[n:]
