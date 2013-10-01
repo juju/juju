@@ -6,8 +6,8 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/storage"

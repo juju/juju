@@ -235,7 +235,7 @@ func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr
 	c.Assert(err, gc.IsNil)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses: []string{addr},
-		CACert: "certificated",
+		CACert:    "certificated",
 	})
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
