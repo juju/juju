@@ -129,10 +129,10 @@ func (s *SSHStorage) Close() error {
 
 func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface{}) (string, error) {
 	command = fmt.Sprintf(command, args...)
-	return s.run(flockmode, command, nil)
+	return s.run(flockmode, command, nil, 0)
 }
 
-func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (string, error) {
+func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, inputlen int64) (string, error) {
 	const rcPrefix = "JUJU-RC: "
 	command = fmt.Sprintf(
 		"SHELL=/bin/bash flock %s %s -c %s",
@@ -140,22 +140,23 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input []byte) (str
 		s.remotepath,
 		utils.ShQuote(command),
 	)
-	var encoded string
 	if input != nil {
-		encoded = base64.StdEncoding.EncodeToString(input)
-		command = fmt.Sprintf(
-			"head -q -c %d | base64 -d | (%s)",
-			len(encoded),
-			command,
-		)
+		command = fmt.Sprintf("head -q -n 1 | base64 -d | (%s)", command)
 	}
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
 	if _, err := s.stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
 	if input != nil {
-		if _, err := s.stdin.Write([]byte(encoded)); err != nil {
+		encoder := base64.NewEncoder(base64.StdEncoding, s.stdin)
+		if _, err := io.CopyN(encoder, input, inputlen); err != nil {
 			return "", fmt.Errorf("failed to write input: %v", err)
+		}
+		if err := encoder.Close(); err != nil {
+			return "", fmt.Errorf("failed to flush input: %v", err)
+		}
+		if _, err := s.stdin.Write([]byte("\n")); err != nil {
+			return "", fmt.Errorf("failed to terminate input: %v", err)
 		}
 	}
 	var output []string
@@ -259,21 +260,17 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	if err != nil {
 		return err
 	}
-	buf := make([]byte, length)
-	if _, err := r.Read(buf); err != nil {
-		return err
-	}
 	path = utils.ShQuote(path)
 	tmpdir := utils.ShQuote(s.tmpdir)
 
 	// Write to a temporary file ($TMPFILE), then mv atomically.
 	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
 	command = fmt.Sprintf(
-		"export TMPDIR=%s && TMPFILE=`mktemp` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
+		"TMPFILE=`mktemp --tmpdir=%s` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
 		tmpdir, command, path,
 	)
 
-	_, err = s.run(flockExclusive, command+"\n", buf)
+	_, err = s.run(flockExclusive, command+"\n", r, length)
 	return err
 }
 
