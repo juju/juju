@@ -245,7 +245,7 @@ func (*suite) TestGenerateNewPassword(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		// Show that the password is saved.
 		reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
-		c.Assert(conf.PasswordHash(), gc.Equals, reread.PasswordHash())
+		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
 	}
 }
 
