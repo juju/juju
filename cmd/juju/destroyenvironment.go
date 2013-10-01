@@ -43,10 +43,6 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
 	}
-	_, err = store.ReadInfo(environ.Name())
-	if err != nil {
-		return fmt.Errorf("cannot read environment information: %v", err)
-	}
 	if !c.assumeYes {
 		var answer string
 		fmt.Fprintf(ctx.Stdout, destroyEnvMsg[1:], environ.Name(), environ.Config().Type())

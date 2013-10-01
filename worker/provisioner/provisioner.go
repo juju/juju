@@ -194,8 +194,15 @@ func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
 	dataDir := p.agentConfig.DataDir()
 	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
-		logger.Errorf("cannot read agent tools from %q", dataDir)
-		return nil, err
+		// TODO(dimitern) 2013-10-01 bug #
+		// This is temporary fix to enable upgrades from 1.14 to
+		// 1.15 and later. Once we're at 1.17 (or whatever 1.15+2
+		// is), return an error here, if the tools cannot be read.
+		currentTools := &coretools.Tools{
+			Version: version.Current,
+		}
+		logger.Warningf("cannot read agent tools from %q: using current tools (%v)", dataDir, currentTools.Version)
+		return currentTools, nil
 	}
 	return tools, nil
 }
