@@ -120,7 +120,7 @@ func NewConnFromState(st *state.State) (*Conn, error) {
 // NewConnFromName returns a Conn pointing at the environName environment, or the
 // default environment if not specified.
 func NewConnFromName(environName string) (*Conn, error) {
-	store, err := configstore.NewDisk(config.JujuHome())
+	store, err := configstore.Default()
 	if err != nil {
 		return nil, err
 	}
