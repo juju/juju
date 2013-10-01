@@ -23,18 +23,30 @@ import (
 const sshHostPrefix = "ssh:"
 
 var addMachineDoc = `
-<container> can be one of lxc or kvm.
+
+If no container is specified, a new machine will be
+provisioned.  If a container is specified, a new machine will be provisioned
+with that container.
+
+To add a container to an existing machine, use the <container>:<machinenumber>
+format.
+
+When adding a new machine, you may specify constraints for the machine to be
+provisioned.  Constraints cannot be combined with deploying a container to an
+existing machine.
+
+Currently, the only supported container type is lxc.
 
 Machines are created in a clean state and ready to have units deployed.
 
 This command also supports manual provisioning of existing machines via SSH. The
-target machine must be able to communicate with the API servers, and be able to
+target machine must be able to communicate with the API server, and be able to
 access the environment storage.
 
-
 Examples:
+   juju add-machine                      (starts a new machine)
    juju add-machine lxc                  (starts a new machine with an lxc container)
-   juju add-machine kvm:4                (starts a new kvm container on machine 4)
+   juju add-machine lxc:4                (starts a new lxc container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
 
 See Also:

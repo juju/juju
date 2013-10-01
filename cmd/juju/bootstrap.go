@@ -40,10 +40,10 @@ constraints on the environment for all future machines, exactly as if the
 constraints were set with juju set-constraints.
 
 Because bootstrap starts a machine in the cloud environment asynchronously, the
-command  will likely return before the state server is fully running.  Time for
+command will likely return before the state server is fully running.  Time for
 bootstrap to be complete varies across cloud providers from a small number of
-seconds to  several minutes.  Until bootstrap is complete, most other commands
-will not  function properly.
+seconds to several minutes.  Most other commands are synchronous and will wait
+until bootstrap is finished to complete.
 
 See Also:
    juju help switch

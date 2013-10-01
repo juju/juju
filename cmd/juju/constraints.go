@@ -40,7 +40,7 @@ precedence.
 Examples:
 
    set-constraints mem=8G               (all new machines in the environment must have at least 8GB of RAM)
-   set-constraints mysql root-disk=99G  (all new machines provisioned for mysql must have at least 99GB of disk space)
+   set-constraints wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
 
 See Also:
    juju help constraints

@@ -231,9 +231,9 @@ References:
 `
 
 const helpConstraints = `  
-Constraints constraint the possible instances that may be started by juju
+Constraints constrain the possible instances that may be started by juju
 commands. They are usually passed as a flag to commands that provision a new
-machine (such as bootstrap, deploy, add-machine, and add-unit).
+machine (such as bootstrap, deploy, and add-machine).
 
 Each constraint defines a minimum acceptable value for a characteristic of a
 machine.  Juju will provision the least expensive machine that fulfills all the
@@ -249,12 +249,11 @@ Constraint defaults can be set on an environment or on specific services by
 using the set-constraints command (see juju help set-constraints).  Constraints
 set on the environment or on a service can be viewed by using the get-
 constraints command.  In addition, you can specify constraints when executing a
-command by using the --constraints flag.
+command by using the --constraints flag (for commands that support it).
 
-Constraints specified on the environment, service, and using --constraints will
-be combined to determine the full list of constraints on the machine(s) to be
-provisioned by the command.  Constraints specified with --constraints will
-override service-specific constraints, which override environment-specific
+Constraints specified on the environment and service will be combined to
+determine the full list of constraints on the machine(s) to be provisioned by
+the command.  Service-specific constraints will override environment-specific
 constraints, which override the juju default constraints.
 
 Constraints are specified as key value pairs separated by an equals sign, with

@@ -60,8 +60,8 @@ Examples:
    juju deploy mysql --to 23       (Deploy to machine 23)
    juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
    juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
-
-   juju deploy mysql -n 5 --constraints -n 5 mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
+   
+   juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
 See Also:
    juju help constraints
