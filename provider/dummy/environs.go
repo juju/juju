@@ -44,6 +44,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
