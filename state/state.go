@@ -689,6 +689,17 @@ func (st *State) AllServices() (services []*Service, err error) {
 	return services, nil
 }
 
+// GetServiceOwner returns the owner of the named service
+func (st *State) GetServiceOwner(name string) string {
+	svc, err := st.Service(name)
+	if err != nil {
+		panic(err)
+		return ""
+	}
+
+	return svc.GetOwnerTag()
+}
+
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they

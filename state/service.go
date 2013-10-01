@@ -603,6 +603,11 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 	return name, ops, nil
 }
 
+// GetOwnerTag returns the owner of this service
+func (s *Service) GetOwnerTag() string {
+	return "user-admin"
+}
+
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	defer utils.ErrorContextf(&err, "cannot add unit to service %q", s)

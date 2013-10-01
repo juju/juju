@@ -126,6 +126,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		Name:     svc.Name,
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
+		OwnerTag: st.GetServiceOwner(svc.Name),
 		Life:     params.Life(svc.Life.String()),
 		MinUnits: svc.MinUnits,
 	}

@@ -58,7 +58,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
