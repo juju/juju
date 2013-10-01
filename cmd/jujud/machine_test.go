@@ -330,15 +330,6 @@ var fastDialOpts = api.DialOpts{
 	RetryDelay: testing.ShortWait,
 }
 
-// TODO(dimitern) Once the firewaller uses the API, we can
-// remove the state connection for JobManageEnviron, and
-// set it to false in the test below as well.
-var stateJobs = map[state.MachineJob]bool{
-	state.JobManageState:   true,
-	state.JobManageEnviron: true,
-	state.JobHostUnits:     false,
-}
-
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageState {
@@ -400,7 +391,8 @@ func (s *MachineSuite) assertJobWithState(
 	job state.MachineJob,
 	test func(agent.Config, *state.State),
 ) {
-	if !stateJobs[job] {
+	paramsJob := job.ToParams()
+	if !paramsJob.NeedsState() {
 		c.Fatalf("%v does not use state")
 	}
 	stm, conf, _ := s.primeAgent(c, job)
@@ -521,7 +513,6 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	for {
 		select {
 		case op := <-opc:
-			c.Logf("got operation %v (%T)", op, op)
 			for _, k := range kinds {
 				if reflect.TypeOf(op) == reflect.TypeOf(k) {
 					return op
@@ -534,23 +525,25 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
+func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+		s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+	})
 }
 
-func (s *MachineSuite) TestOpenStateFailsForTheCorrectJobs(c *gc.C) {
-	for job, shouldPass := range stateJobs {
-		c.Logf("test job %s: shouldPass=%v", job, shouldPass)
-		s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
-			// We're not using the conf from primeAgent, because once we
-			// connect to the API initially, it's changed and that instance
-			// doesn't have the updated password.
-			if shouldPass {
-				s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
-			} else {
-				s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
-			}
-		})
-	}
+func (s *MachineSuite) TestOpenStateWorksForJobManageState(c *gc.C) {
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
+	})
+}
+
+// TODO(dimitern) Once firewaller uses the API and no longer connects
+// to state, change this test to use assertCannotOpenState, like the
+// one for JobHostUnits.
+func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
+	})
 }

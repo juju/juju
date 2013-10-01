@@ -156,8 +156,11 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return nil, err
 	}
 	reportOpenedAPI(st)
-	if entity.ShouldAccessState() {
-		ensureStateWorker()
+	for _, job := range entity.Jobs() {
+		if job.NeedsState() {
+			ensureStateWorker()
+			break
+		}
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {

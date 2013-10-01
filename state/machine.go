@@ -45,6 +45,11 @@ var jobNames = map[MachineJob]params.MachineJob{
 	JobManageState:   params.JobManageState,
 }
 
+// AllJobs returns all supported machine jobs.
+func AllJobs() []MachineJob {
+	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+}
+
 // ToParams returns the job as params.MachineJob.
 func (job MachineJob) ToParams() params.MachineJob {
 	if paramsJob, ok := jobNames[job]; ok {

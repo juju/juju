@@ -4,6 +4,11 @@
 package agent
 
 func Password(config Config) string {
-	confInternal := config.(*configInternal)
-	return confInternal.password()
+	c := config.(*configInternal)
+	if c.stateDetails == nil {
+		return c.apiDetails.password
+	} else {
+		return c.stateDetails.password
+	}
+	return ""
 }

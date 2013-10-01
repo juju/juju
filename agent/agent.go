@@ -348,18 +348,6 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-// password returns the current password, used to connect to state or
-// API. Used for testing.
-func (c *configInternal) password() string {
-	var password string
-	if c.stateDetails == nil {
-		password = c.apiDetails.password
-	} else {
-		password = c.stateDetails.password
-	}
-	return password
-}
-
 func (c *configInternal) GenerateNewPassword() (string, error) {
 	newPassword, err := utils.RandomPassword()
 	if err != nil {
