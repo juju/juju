@@ -39,18 +39,27 @@ const (
 	JobManageState
 )
 
-var jobNames = []params.MachineJob{
+var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
 	JobManageState:   params.JobManageState,
 }
 
-func (job MachineJob) String() string {
-	j := int(job)
-	if j <= 0 || j >= len(jobNames) {
-		return fmt.Sprintf("<unknown job %d>", j)
+// AllJobs returns all supported machine jobs.
+func AllJobs() []MachineJob {
+	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+}
+
+// ToParams returns the job as params.MachineJob.
+func (job MachineJob) ToParams() params.MachineJob {
+	if paramsJob, ok := jobNames[job]; ok {
+		return paramsJob
 	}
-	return string(jobNames[j])
+	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+}
+
+func (job MachineJob) String() string {
+	return string(job.ToParams())
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.

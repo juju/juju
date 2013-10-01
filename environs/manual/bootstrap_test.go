@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 )
 
 type bootstrapSuite struct {
@@ -86,7 +86,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
-	bootstrapState, err := provider.LoadState(s.env.storage)
+	bootstrapState, err := common.LoadState(s.env.storage)
 	c.Assert(err, gc.IsNil)
 	c.Assert(
 		bootstrapState.StateInstances,
@@ -117,7 +117,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 
 	// Since the script failed, the state file should have been
 	// removed from storage.
-	_, err = provider.LoadState(s.env.storage)
+	_, err = common.LoadState(s.env.storage)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 

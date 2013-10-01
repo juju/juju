@@ -81,11 +81,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 		environ = &bootstrapStorageEnviron{environ, bootstrapStorage}
 	}
-	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
-	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
-	if err != nil {
-		return err
-	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unecessary upload.

@@ -21,7 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -267,13 +267,13 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	err = common.Bootstrap(env, cons, possibleTools, machineID)
 	return err
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.

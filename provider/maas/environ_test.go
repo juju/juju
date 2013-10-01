@@ -24,8 +24,9 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/common"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -55,7 +56,7 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"name":        suite.environ.Name(),
 		"type":        "maas",
 		"maas-oauth":  "a:b:c",
@@ -73,7 +74,7 @@ func (suite *environSuite) makeEnviron() *maasEnviron {
 }
 
 func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
-	suite.testMAASObject.TestServer.NewFile(provider.StateFile, []byte("test file content"))
+	suite.testMAASObject.TestServer.NewFile(common.StateFile, []byte("test file content"))
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
@@ -244,7 +245,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that the state holds the id of the bootstrap machine.
-	stateData, err := provider.LoadState(env.Storage())
+	stateData, err := common.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -254,15 +255,8 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	stateInfo.Tag = "machine-1"
-	stateInfo.Password = "password"
-	apiInfo.Tag = "machine-1"
-	series := version.Current.Series
-	nonce := "12345"
 	// TODO(wallyworld) - test instance metadata
-	instance, _, err := provider.StartInstance(env, "1", nonce, series, constraints.Value{}, stateInfo, apiInfo)
+	instance, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
 	c.Check(instance, gc.NotNil)
 
@@ -290,7 +284,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, _, err = provider.StartInstance(env, "2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
+	instance, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
@@ -390,9 +384,9 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	testInstance := &maasInstance{&node, suite.environ}
-	err := provider.SaveState(
+	err := common.SaveState(
 		env.Storage(),
-		&provider.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
+		&common.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

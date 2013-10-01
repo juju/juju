@@ -113,7 +113,7 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 	return ch
 }
 
-// MockCharmStore implements charm.Respository and is used to isolate tests
+// MockCharmStore implements charm.Repository and is used to isolate tests
 // that would otherwise need to hit the real charm store.
 type MockCharmStore struct {
 	charms map[string]map[int]*charm.Bundle

@@ -189,7 +189,6 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 		}
 	}
 	return st, entity, nil
-
 }
 
 // agentDone processes the error returned by
