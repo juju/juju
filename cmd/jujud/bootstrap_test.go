@@ -230,7 +230,6 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// and that the in-mongo password also verifies correctly.
 	machineConf1, err := agent.ReadConf(machineConf.DataDir(), "machine-0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineConf1.PasswordHash(), gc.Not(gc.Equals), testPasswordHash())
 
 	st, err = machineConf1.OpenState()
 	c.Assert(err, gc.IsNil)
