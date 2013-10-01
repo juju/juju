@@ -43,7 +43,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -819,7 +819,7 @@ func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

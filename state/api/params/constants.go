@@ -23,6 +23,14 @@ const (
 	JobManageState   MachineJob = "JobManageState"
 )
 
+// NeedsState returns true if the job requires a state connection.
+//
+// TODO(dimitern) Once the firewaller uses the API, we need to change
+// this to return true only for JobManageState.
+func (job MachineJob) NeedsState() bool {
+	return job == JobManageState || job == JobManageEnviron
+}
+
 // ResolvedMode describes the way state transition errors
 // are resolved.
 type ResolvedMode string

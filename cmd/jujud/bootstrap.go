@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 )
 
@@ -96,7 +96,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read provider-state-url file: %v", err)
 	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := provider.LoadStateFromURL(stateInfoURL)
+	bsState, err := common.LoadStateFromURL(stateInfoURL)
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}
