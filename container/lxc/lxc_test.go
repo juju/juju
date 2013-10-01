@@ -202,6 +202,13 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	instancetest.MatchInstances(c, result, bar1, bar2)
 }
 
+func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	instance := StartContainer(c, manager, "1/lxc/0")
+	autostartLink := lxc.RestartSymlink(string(instance.Id()))
+	c.Assert(autostartLink, jc.IsSymlink)
+}
+
 type NetworkSuite struct {
 	testbase.LoggingSuite
 }
