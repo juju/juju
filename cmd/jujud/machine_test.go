@@ -366,7 +366,7 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 func (s *MachineSuite) assertJobWithAPI(
 	c *gc.C,
 	job state.MachineJob,
-	test func(agent.Config, *api.State, *MachineAgent),
+	test func(agent.Config, *api.State),
 ) {
 	stm, conf, _ := s.primeAgent(c, job)
 	a := s.newAgent(c, stm)
@@ -387,7 +387,7 @@ func (s *MachineSuite) assertJobWithAPI(
 	select {
 	case agentAPI := <-agentAPIs:
 		c.Assert(agentAPI, gc.NotNil)
-		test(conf, agentAPI, a)
+		test(conf, agentAPI)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("API not opened")
 	}
@@ -398,7 +398,7 @@ func (s *MachineSuite) assertJobWithAPI(
 func (s *MachineSuite) assertJobWithState(
 	c *gc.C,
 	job state.MachineJob,
-	test func(agent.Config, *state.State, *MachineAgent),
+	test func(agent.Config, *state.State),
 ) {
 	if !stateJobs[job] {
 		c.Fatalf("%v does not use state")
@@ -419,7 +419,7 @@ func (s *MachineSuite) assertJobWithState(
 	select {
 	case agentState := <-agentStates:
 		c.Assert(agentState, gc.NotNil)
-		test(conf, agentState, a)
+		test(conf, agentState)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("state not opened")
 	}
@@ -433,7 +433,7 @@ func (s *MachineSuite) assertJobWithState(
 // actually breaks something.
 func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State, _ *MachineAgent) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		st, _, err := conf.OpenAPI(fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
@@ -444,7 +444,7 @@ func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State, _ *MachineAgent) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
 		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 		c.Assert(err, gc.IsNil)
@@ -482,7 +482,7 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State, _ *MachineAgent) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
@@ -542,14 +542,14 @@ func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
 func (s *MachineSuite) TestOpenStateFailsForTheCorrectJobs(c *gc.C) {
 	for job, shouldPass := range stateJobs {
 		c.Logf("test job %s: shouldPass=%v", job, shouldPass)
-		s.assertJobWithAPI(c, job, func(_ agent.Config, _ *api.State, a *MachineAgent) {
+		s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 			// We're not using the conf from primeAgent, because once we
 			// connect to the API initially, it's changed and that instance
 			// doesn't have the updated password.
 			if shouldPass {
-				s.assertCanOpenState(c, a.Tag(), a.Conf.config.Password())
+				s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
 			} else {
-				s.assertCannotOpenState(c, a.Tag(), a.Conf.config.Password())
+				s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
 			}
 		})
 	}

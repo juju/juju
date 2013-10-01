@@ -183,14 +183,11 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	// Start a unit agent and make sure it doesn't set a mongo password
 	// we can use to connect to state with.
-	unit, _, _ := s.primeAgent(c)
+	unit, conf, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	waitForUnitStarted(s.State, unit, c)
 
-	// We're not using the conf from primeAgent, because once we
-	// connect to the API initially, it's changed and that instance
-	// doesn't have the updated password.
-	s.assertCannotOpenState(c, unit.Tag(), a.Conf.config.Password())
+	s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }

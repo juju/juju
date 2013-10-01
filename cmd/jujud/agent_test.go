@@ -286,22 +286,26 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	assertOpen(conf)
 }
 
-func (s *agentSuite) assertCanOpenState(c *gc.C, tag, entityPassword string) {
+func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
+	config, err := agent.ReadConf(dataDir, tag)
+	c.Assert(err, gc.IsNil)
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{coretesting.MgoAddr},
 		CACert:   []byte(coretesting.CACert),
-		Password: entityPassword,
+		Password: config.Password(),
 		Tag:      tag,
 	}, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	st.Close()
 }
 
-func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, entityPassword string) {
-	_, err := state.Open(&state.Info{
+func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
+	config, err := agent.ReadConf(dataDir, tag)
+	c.Assert(err, gc.IsNil)
+	_, err = state.Open(&state.Info{
 		Addrs:    []string{coretesting.MgoAddr},
 		CACert:   []byte(coretesting.CACert),
-		Password: entityPassword,
+		Password: config.Password(),
 		Tag:      tag,
 	}, state.DefaultDialOpts())
 	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)

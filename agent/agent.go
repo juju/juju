@@ -129,7 +129,6 @@ type configInternal struct {
 	stateDetails    *connectionDetails
 	apiDetails      *connectionDetails
 	oldPassword     string
-	newPassword     string
 	stateServerCert []byte
 	stateServerKey  []byte
 	apiPort         int
@@ -354,14 +353,13 @@ func checkAddrs(addrs []string, what string) error {
 }
 
 func (c *configInternal) Password() string {
-	if c.newPassword != "" {
-		return c.newPassword
-	} else if c.apiDetails != nil {
-		return c.apiDetails.password
-	} else if c.stateDetails != nil {
-		return c.stateDetails.password
+	var password string
+	if c.stateDetails == nil {
+		password = c.apiDetails.password
+	} else {
+		password = c.stateDetails.password
 	}
-	return c.oldPassword
+	return password
 }
 
 func (c *configInternal) GenerateNewPassword() (string, error) {
@@ -422,7 +420,6 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 	if info.Password != "" {
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {
-			c.newPassword = c.apiDetails.password
 			return st, "", nil
 		}
 		if !params.IsCodeUnauthorized(err) {
@@ -446,12 +443,12 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 		st.Close()
 		return nil, "", err
 	}
-	c.newPassword = password
 	return st, password, nil
 }
 
 // OpenState tries to open the state using the given Conf.
 func (c *configInternal) OpenState() (*state.State, error) {
+	var err error
 	info := state.Info{
 		Addrs:    c.stateDetails.addresses,
 		Password: c.stateDetails.password,
@@ -459,7 +456,8 @@ func (c *configInternal) OpenState() (*state.State, error) {
 		Tag:      c.tag,
 	}
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialOpts())
+		var st *state.State
+		st, err = state.Open(&info, state.DefaultDialOpts())
 		if err == nil {
 			return st, nil
 		}
