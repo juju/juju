@@ -32,7 +32,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -342,7 +342,7 @@ func (inst *openstackInstance) DNSName() (string, error) {
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
@@ -432,11 +432,11 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 	if err != nil {
 		return err
 	}
-	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 func (e *environ) Config() *config.Config {
@@ -615,7 +615,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
-	for a := provider.LongAttempt.Start(); a.Next(); {
+	for a := common.LongAttempt.Start(); a.Next(); {
 		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil
