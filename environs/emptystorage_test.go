@@ -81,7 +81,6 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 func (s *verifyStorageSuite) TestVerifyStorageFails(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
-	log.Infof("logging working?")
 	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	stor := environ.Storage()

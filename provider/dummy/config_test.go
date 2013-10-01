@@ -81,7 +81,6 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-		c.Logf("calling environs.Prepare")
 		env, err := environs.Prepare(cfg, configstore.NewMem())
 		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)

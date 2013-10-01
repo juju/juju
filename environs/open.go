@@ -121,7 +121,6 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 		}
 		return New(cfg)
 	}
-	logger.Infof("creating new info")
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
 	}

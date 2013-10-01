@@ -25,7 +25,6 @@ package dummy
 import (
 	"errors"
 	"fmt"
-	"local/runtime/debug"
 	"net"
 	"net/http"
 	"os"
@@ -171,7 +170,6 @@ type environState struct {
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
-	callers       []byte
 }
 
 // environ represents a client's connection to a given environment's
@@ -423,13 +421,10 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	log.Infof("Prepare called by %s", debug.Callers(1, 30))
 	cfg, err := p.prepare(cfg)
 	if err != nil {
-		log.Infof("prepare returned %v", err)
 		return nil, err
 	}
-	log.Infof("prepare worked ok")
 	return p.Open(cfg)
 }
 
@@ -450,11 +445,10 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	// so create it and set its state identifier accordingly.
 	if ecfg.stateServer() && len(p.state) != 0 {
 		for _, old := range p.state {
-			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q; previously created by %s", old.name, name, old.callers))
+			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
 		}
 	}
 	state := newState(name, p.ops)
-	state.callers = debug.Callers(2, 30)
 	p.maxStateId++
 	state.id = p.maxStateId
 	p.state[state.id] = state
