@@ -39,18 +39,22 @@ const (
 	JobManageState
 )
 
-var jobNames = []params.MachineJob{
+var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
 	JobManageState:   params.JobManageState,
 }
 
-func (job MachineJob) String() string {
-	j := int(job)
-	if j <= 0 || j >= len(jobNames) {
-		return fmt.Sprintf("<unknown job %d>", j)
+// ToParams returns the job as params.MachineJob.
+func (job MachineJob) ToParams() params.MachineJob {
+	if paramsJob, ok := jobNames[job]; ok {
+		return paramsJob
 	}
-	return string(jobNames[j])
+	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+}
+
+func (job MachineJob) String() string {
+	return string(job.ToParams())
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -173,20 +177,6 @@ func (m *Machine) Jobs() []MachineJob {
 func (m *Machine) IsStateServer() bool {
 	for _, job := range m.doc.Jobs {
 		if job == JobManageState {
-			return true
-		}
-	}
-	return false
-}
-
-// ShouldAccessState returns true if the machine should have a state
-// connection.
-//
-// TODO(dimitern) Once the firewaller uses the API, we need to change
-// this to return true only for JobManageState.
-func (m *Machine) ShouldAccessState() bool {
-	for _, job := range m.doc.Jobs {
-		if job == JobManageState || job == JobManageEnviron {
 			return true
 		}
 	}

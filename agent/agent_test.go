@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/utils"
 )
 
 type suite struct {

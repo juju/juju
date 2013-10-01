@@ -68,8 +68,8 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 }
 
 func (pc *PasswordChanger) setPassword(tag, password string) error {
-	type shouldAccessStateGetter interface {
-		ShouldAccessState() bool
+	type jobsGetter interface {
+		Jobs() []state.MachineJob
 	}
 	var err error
 	entity0, err := pc.st.FindEntity(tag)
@@ -80,9 +80,13 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	if !ok {
 		return NotSupportedError(tag, "authentication")
 	}
-	if entity, ok := entity0.(shouldAccessStateGetter); ok {
-		if entity.ShouldAccessState() {
-			err = pc.setMongoPassword(entity0, password)
+	if entity, ok := entity0.(jobsGetter); ok {
+		for _, job := range entity.Jobs() {
+			paramsJob := job.ToParams()
+			if paramsJob.NeedsState() {
+				err = pc.setMongoPassword(entity0, password)
+				break
+			}
 		}
 	}
 	if err == nil {
