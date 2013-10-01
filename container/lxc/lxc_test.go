@@ -215,7 +215,7 @@ func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
-	c.Assert(autostartLink, jc.DoesNotExist)
+	c.Assert(autostartLink, jc.SymlinkDoesNotExist)
 }
 
 type NetworkSuite struct {
