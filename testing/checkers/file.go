@@ -71,7 +71,7 @@ func (checker *isDirectoryChecker) Check(params []interface{}, names []string) (
 	return false, fmt.Sprintf("obtained value is not a string and has no .String(), %s:%#v", value.Kind(), params[0])
 }
 
-// IsDirectory checker
+// IsSymlink checker
 
 type isSymlinkChecker struct {
 	*gc.CheckerInfo
