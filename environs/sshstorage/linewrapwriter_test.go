@@ -1,31 +1,30 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils_test
+package sshstorage_test
 
 import (
 	"bytes"
-	//"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/environs/sshstorage"
 )
 
 type wrapWriterSuite struct{}
 
 var _ = gc.Suite(&wrapWriterSuite{})
 
-func (*wrapWriterSuite) TestWrapWriterBadLength(c *gc.C) {
+func (*wrapWriterSuite) TestLineWrapWriterBadLength(c *gc.C) {
 	var buf bytes.Buffer
-	w, err := utils.NewWrapWriter(&buf, 0)
+	w, err := sshstorage.NewLineWrapWriter(&buf, 0)
 	c.Assert(err, gc.ErrorMatches, "line length 0 <= 0")
 	c.Assert(w, gc.IsNil)
-	w, err = utils.NewWrapWriter(&buf, -1)
+	w, err = sshstorage.NewLineWrapWriter(&buf, -1)
 	c.Assert(err, gc.ErrorMatches, "line length -1 <= 0")
 }
 
-func (*wrapWriterSuite) TestWrapWriter(c *gc.C) {
+func (*wrapWriterSuite) TestLineWrapWriter(c *gc.C) {
 	type test struct {
 		input      string
 		lineLength int
@@ -48,7 +47,7 @@ func (*wrapWriterSuite) TestWrapWriter(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %q, line length %d", i, t.input, t.lineLength)
 		var buf bytes.Buffer
-		w, err := utils.NewWrapWriter(&buf, t.lineLength)
+		w, err := sshstorage.NewLineWrapWriter(&buf, t.lineLength)
 		c.Assert(err, gc.IsNil)
 		c.Assert(w, gc.NotNil)
 		n, err := w.Write([]byte(t.input))

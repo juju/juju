@@ -144,7 +144,9 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		s.remotepath,
 		utils.ShQuote(command),
 	)
+	var stdin io.Writer = s.stdin
 	if input != nil {
+		stdin = bufio.NewWriter(s.stdin)
 		command = fmt.Sprintf("base64 -d | (%s)", command)
 	}
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
@@ -152,11 +154,11 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		// here-document must start on the outer-most command.
 		command = fmt.Sprintf("(%s) << EOF", command)
 	}
-	if _, err := s.stdin.Write([]byte(command + "\n")); err != nil {
+	if _, err := stdin.Write([]byte(command + "\n")); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
 	if input != nil {
-		wrapper, err := utils.NewWrapWriter(s.stdin, base64LineLength)
+		wrapper, err := newLineWrapWriter(stdin, base64LineLength)
 		if err != nil {
 			return "", fmt.Errorf("failed to create split writer: %v", err)
 		}
@@ -165,10 +167,13 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 			return "", fmt.Errorf("failed to write input: %v", err)
 		}
 		if err := encoder.Close(); err != nil {
-			return "", fmt.Errorf("failed to flush input: %v", err)
+			return "", fmt.Errorf("failed to flush encoder: %v", err)
 		}
-		if _, err := s.stdin.Write([]byte("\nEOF\n")); err != nil {
+		if _, err := stdin.Write([]byte("\nEOF\n")); err != nil {
 			return "", fmt.Errorf("failed to terminate input: %v", err)
+		}
+		if err := stdin.(*bufio.Writer).Flush(); err != nil {
+			return "", fmt.Errorf("failed to flush input: %v", err)
 		}
 	}
 	var output []string
