@@ -24,7 +24,6 @@ import (
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -84,13 +83,13 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-
-	series := "series"
-	nonce := "fake-nonce"
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
-	lxc, _, err := provider.StartInstance(s.broker, machineId, nonce, series, cons, stateInfo, apiInfo)
+	possibleTools := s.broker.(coretools.HasTools).Tools()
+	lxc, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
 	c.Assert(err, gc.IsNil)
 	return lxc
 }

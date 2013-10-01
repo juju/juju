@@ -26,7 +26,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -166,7 +166,7 @@ func (inst *ec2Instance) DNSName() (string, error) {
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -341,11 +341,11 @@ func (e *environ) PublicStorage() storage.StorageReader {
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.

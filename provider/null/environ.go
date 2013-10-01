@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/sshstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -83,7 +83,7 @@ func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List, m
 }
 
 func (e *nullEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 func (e *nullEnviron) SetConfig(cfg *config.Config) error {

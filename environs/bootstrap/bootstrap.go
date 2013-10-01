@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
@@ -101,7 +101,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 	// state in a file. This verification should probably
 	// be moved into provider and called by the providers themselves.
 	stor := env.Storage()
-	_, err := provider.LoadState(stor)
+	_, err := common.LoadState(stor)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
