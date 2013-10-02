@@ -481,6 +481,8 @@ func (e *environ) addGroupFilter(filter *ec2.Filter) error {
 	if len(resp.Groups) != 1 {
 		return fmt.Errorf("expected one security group named %v, got %q", groupName, resp.Groups)
 	}
+	// EC2 should support filtering with and without the 'instance.'
+	// prefix, but only the form with seems to work with default VPC.
 	filter.Add("instance.group-id", resp.Groups[0].Id)
 	return nil
 }
