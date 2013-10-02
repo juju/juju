@@ -864,7 +864,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineConfig := environs.NewMachineConfig(machineId, "", stateInfo, apiInfo)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.Current)
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
 	inst, _, err := t.Env.StartInstance(constraints.Value{}, possibleTools, machineConfig)
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
