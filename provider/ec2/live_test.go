@@ -252,6 +252,21 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+
+	// Check that listing those instances finds them using the groups
+	inst_ids := []instance.Id{inst0.Id(), inst1.Id()}
+	ids_from_insts := func (insts []instance.Instance) (ids []instance.Id) {
+		for _, inst := range insts {
+			ids = append(ids, inst.Id())
+		}
+		return ids
+	}
+	insts, err := t.Env.Instances(inst_ids)
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst_ids, jc.SameContents, ids_from_insts(insts))
+	all_insts, err := t.Env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst_ids, jc.SameContents, ids_from_insts(all_insts))
 }
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
