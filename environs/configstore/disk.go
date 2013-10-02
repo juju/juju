@@ -74,7 +74,7 @@ func ensurePathOwnedByUser(path string) error {
 
 func (d *diskStore) mkEnvironmentsDir() error {
 	path := filepath.Join(d.dir, "environments")
-	logger.Debug("Making %v", path)
+	logger.Debugf("Making %v", path)
 	err := os.Mkdir(path, 0700)
 	if os.IsExist(err) {
 		return nil
@@ -201,7 +201,7 @@ func (info *environInfo) Write() error {
 		return fmt.Errorf("cannot rename new environment info file: %v", err)
 	}
 	if err := ensurePathOwnedByUser(info.path); err != nil {
-		return nil, err
+		return err
 	}
 	info.initialized = true
 	return nil
