@@ -198,13 +198,16 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 // on the machine if they've changed.
 func checkMachineAddresses(context machineContext, m machine) error {
 	instId, err := m.InstanceId()
-	if err != nil {
+	if err != nil && !state.IsNotProvisionedError(err) {
 		return fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
-	newAddrs, err := context.addresses(instId)
-	if err != nil {
-		logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
-		return nil
+	var newAddrs []instance.Address
+	if err == nil {
+		newAddrs, err = context.addresses(instId)
+		if err != nil {
+			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
+			return nil
+		}
 	}
 	if addressesEqual(m.Addresses(), newAddrs) {
 		return nil

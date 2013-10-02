@@ -7,8 +7,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -53,7 +53,7 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	// when it unblocks.
 	waitRefresh := make(chan struct{})
 	m := &testMachine{
-		id: "99",
+		id:         "99",
 		instanceId: "i1234",
 		life:       state.Alive,
 		refresh: func() error {
