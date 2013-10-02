@@ -83,16 +83,6 @@ type Config interface {
 	// new password string is returned.
 	GenerateNewPassword() (string, error)
 
-	// PasswordHash returns a hash of the password that is stored for state and
-	// api connections.
-	PasswordHash() string
-
-	// StateAddresses returns all known state server addresses.
-	StateAddresses() []string
-
-	// APIAddresses returns all known API server addresses.
-	APIAddresses() []string
-
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
@@ -311,18 +301,6 @@ func (c *configInternal) SetValue(key, value string) {
 	}
 }
 
-func (c *configInternal) StateAddresses() []string {
-	addresses := make([]string, len(c.stateDetails.addresses))
-	copy(addresses, c.stateDetails.addresses)
-	return addresses
-}
-
-func (c *configInternal) APIAddresses() []string {
-	addresses := make([]string, len(c.apiDetails.addresses))
-	copy(addresses, c.apiDetails.addresses)
-	return addresses
-}
-
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 	return c.apiPort, c.stateServerCert, c.stateServerKey
 }
@@ -368,16 +346,6 @@ func checkAddrs(addrs []string, what string) error {
 		}
 	}
 	return nil
-}
-
-func (c *configInternal) PasswordHash() string {
-	var password string
-	if c.stateDetails == nil {
-		password = c.apiDetails.password
-	} else {
-		password = c.stateDetails.password
-	}
-	return utils.PasswordHash(password)
 }
 
 func (c *configInternal) GenerateNewPassword() (string, error) {

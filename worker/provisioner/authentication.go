@@ -6,10 +6,10 @@ package provisioner
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -35,18 +35,28 @@ func NewEnvironAuthenticator(environ environs.Environ) (AuthenticationProvider, 
 	return &simpleAuth{stateInfo, apiInfo}, nil
 }
 
-// NewAgentConfigAuthenticator gets the state and api info once from
-// the agent configuration.
-func NewAgentConfigAuthenticator(agentConfig agent.Config) (AuthenticationProvider, error) {
-	// TODO(dimitern) Take these from the API, like the deployer does,
-	// so we'll always have up-to-date addresses.
+// NewAPIAuthenticator gets the state and api info once from the
+// provisioner API.
+func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, error) {
+	stateAddresses, err := st.StateAddresses()
+	if err != nil {
+		return nil, err
+	}
+	apiAddresses, err := st.APIAddresses()
+	if err != nil {
+		return nil, err
+	}
+	caCert, err := st.CACert()
+	if err != nil {
+		return nil, err
+	}
 	stateInfo := &state.Info{
-		Addrs:  agentConfig.StateAddresses(),
-		CACert: agentConfig.CACert(),
+		Addrs:  stateAddresses,
+		CACert: caCert,
 	}
 	apiInfo := &api.Info{
-		Addrs:  agentConfig.APIAddresses(),
-		CACert: agentConfig.CACert(),
+		Addrs:  apiAddresses,
+		CACert: caCert,
 	}
 	return &simpleAuth{stateInfo, apiInfo}, nil
 }

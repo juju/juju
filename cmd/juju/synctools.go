@@ -56,8 +56,8 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
-	f.StringVar(&c.source, "source", "", "chose a location on the file system as source")
-	f.StringVar(&c.destination, "destination", "", "chose a location on the file system as destination")
+	f.StringVar(&c.source, "source", "", "local source directory")
+	f.StringVar(&c.destination, "destination", "", "local destination directory")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
 	// location, rather than only copying from us-east-1

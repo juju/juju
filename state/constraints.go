@@ -22,6 +22,7 @@ type constraintsDoc struct {
 	Mem       *uint64
 	RootDisk  *uint64
 	Container *instance.ContainerType
+	Tags      *[]string ",omitempty"
 }
 
 func (doc constraintsDoc) value() constraints.Value {
@@ -32,6 +33,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		Mem:       doc.Mem,
 		RootDisk:  doc.RootDisk,
 		Container: doc.Container,
+		Tags:      doc.Tags,
 	}
 }
 
@@ -43,6 +45,7 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 		Mem:       cons.Mem,
 		RootDisk:  cons.RootDisk,
 		Container: cons.Container,
+		Tags:      cons.Tags,
 	}
 }
 

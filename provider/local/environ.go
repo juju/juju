@@ -23,11 +23,13 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -53,6 +55,9 @@ var upstartScriptLocation = "/etc/init"
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 
+// localEnviron implements SupportsCustomSources.
+var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
+
 type localEnviron struct {
 	localMutex            sync.Mutex
 	config                *environConfig
@@ -60,6 +65,13 @@ type localEnviron struct {
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
 	containerManager      lxc.ContainerManager
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // Name is specified in the Environ interface.
@@ -83,7 +95,7 @@ func (env *localEnviron) ensureCertOwner() error {
 		config.JujuHomePath(env.name + "-private-key.pem"),
 	}
 
-	uid, gid, err := sudoCallerIds()
+	uid, gid, err := utils.SudoCallerIds()
 	if err != nil {
 		return err
 	}
@@ -95,6 +107,18 @@ func (env *localEnviron) ensureCertOwner() error {
 		}
 	}
 	return nil
+}
+
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the local
+	// provider can do nested containers.
+	return environs.NewContainersUnsupported("local provider does not support nested containers")
 }
 
 // Bootstrap is specified in the Environ interface.
@@ -121,7 +145,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
 	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := provider.SaveState(env.Storage(), &provider.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+	if err := common.SaveState(env.Storage(), &common.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -147,7 +171,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 // StateInfo is specified in the Environ interface.
 func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.

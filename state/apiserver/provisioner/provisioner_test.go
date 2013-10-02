@@ -46,7 +46,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// for the tests.
 	s.machines = nil
 	for i := 0; i < 3; i++ {
-		machine, err := s.State.AddMachine("series", state.JobHostUnits)
+		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -151,7 +151,7 @@ func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	constraints := state.AddMachineParams{
 		ParentId:      s.machines[0].Id(),
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	var containers []*state.Machine
@@ -351,7 +351,7 @@ func (s *provisionerSuite) assertLife(c *gc.C, index int, expectLife state.Life)
 }
 
 func (s *provisionerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string) {
-	status, info, err := s.machines[index].Status()
+	status, info, _, err := s.machines[index].Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, expectStatus)
 	c.Assert(info, gc.Equals, expectInfo)
@@ -421,7 +421,24 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	result, err := s.provisioner.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Config, gc.DeepEquals, params.Config(envConfig.AllAttrs()))
+	c.Assert(result.Config, gc.DeepEquals, params.EnvironConfig(envConfig.AllAttrs()))
+
+	// Now test it with a non-environment manager and make sure
+	// the secret attributes are masked.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.Manager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
+		anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	// We need to see the secret attributes masked out, and for
+	// the dummy provider it's only one: "secret".
+	expectedConfig := envConfig.AllAttrs()
+	expectedConfig["secret"] = "not available"
+	result, err = aProvisioner.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *provisionerSuite) TestStatus(c *gc.C) {
@@ -484,7 +501,7 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	machineParams := state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=123", "mem=8G"),
 	}
@@ -620,4 +637,32 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	result, err = aProvisioner.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
+}
+
+func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	result, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiInfo.Addrs,
+	})
+}
+
+func (s *provisionerSuite) TestCACert(c *gc.C) {
+	result := s.provisioner.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
+	})
 }

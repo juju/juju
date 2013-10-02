@@ -32,7 +32,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -107,7 +107,7 @@ hpcloud:
   # Globally unique swift bucket name
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
-  auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
+  auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
 `[1:]
 }
@@ -267,6 +267,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		}
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		// tags not currently supported on openstack
 	}
 	return hc
 }
@@ -341,7 +342,7 @@ func (inst *openstackInstance) DNSName() (string, error) {
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
@@ -395,6 +396,18 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*environ) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*environ) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the openstack
+	// provider manages container addressibility.
+	return environs.NewContainersUnsupported("openstack provider does not support containers")
+}
+
 func (e *environ) Name() string {
 	return e.name
 }
@@ -419,11 +432,11 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 	if err != nil {
 		return err
 	}
-	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 func (e *environ) Config() *config.Config {
@@ -602,7 +615,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
-	for a := provider.LongAttempt.Start(); a.Next(); {
+	for a := common.LongAttempt.Start(); a.Next(); {
 		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil

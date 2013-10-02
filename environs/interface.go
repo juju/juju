@@ -4,8 +4,6 @@
 package environs
 
 import (
-	"errors"
-
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
@@ -57,10 +55,7 @@ type EnvironProvider interface {
 	PrivateAddress() (string, error)
 }
 
-var ErrNoInstances = errors.New("no instances found")
-var ErrPartialInstances = errors.New("only some instances were found")
-
-// EnvironStorage implements storage access for an environment.
+// EnvironStorage implements storage access for an environment
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
@@ -69,15 +64,18 @@ type EnvironStorage interface {
 	PublicStorage() storage.StorageReader
 }
 
-// BootstrapStorager is an interface that returns a environs.Storage that may
-// be used before the bootstrap machine agent has been provisioned.
+// BootstrapStorager is an interface through which an Environ may be
+// instructed to use a special "bootstrap storage". Bootstrap storage
+// is one that may be used before the bootstrap machine agent has been
+// provisioned.
 //
-// This is useful for environments where the storage is managed by the machine
-// agent once bootstrapped.
+// This is useful for environments where the storage is managed by the
+// machine agent once bootstrapped.
 type BootstrapStorager interface {
-	// BootstrapStorager returns an environs.Storage that may be used while
-	// bootstrapping a machine.
-	BootstrapStorage() (storage.Storage, error)
+	// EnableBootstrapStorage enables bootstrap storage, returning an
+	// error if enablement failed. If nil is returned, then calling
+	// this again will have no effect and will return nil.
+	EnableBootstrapStorage() error
 }
 
 // ConfigGetter implements access to an environments configuration.
@@ -86,6 +84,28 @@ type ConfigGetter interface {
 	// Note that this is not necessarily current; the canonical location
 	// for the configuration data is stored in the state.
 	Config() *config.Config
+}
+
+// Prechecker is an optional interface that an Environ may implement,
+// in order to support pre-flight checking of instance/container creation.
+//
+// Prechecker's methods are best effort, and not guaranteed to eliminate
+// all invalid parameters. If a precheck method returns nil, it is not
+// guaranteed that the constraints are valid; if a non-nil error is
+// returned, then the constraints are definitely invalid.
+type Prechecker interface {
+	// PrecheckInstance performs a preflight check on the specified
+	// series and constraints, ensuring that they are possibly valid for
+	// creating an instance in this environment.
+	PrecheckInstance(series string, cons constraints.Value) error
+
+	// PrecheckContainer performs a preflight check on the container type,
+	// ensuring that the environment is possibly capable of creating a
+	// container of the specified type and series.
+	//
+	// The container type must be a valid ContainerType as specified
+	// in the instance package, and != instance.NONE.
+	PrecheckContainer(series string, kind instance.ContainerType) error
 }
 
 // An Environ represents a juju environment as specified

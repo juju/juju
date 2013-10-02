@@ -39,7 +39,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
 
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -83,7 +83,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 		c.Assert(err, gc.ErrorMatches, `machine \d+ is not provisioned`)
 	}
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -114,7 +114,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st.Close()
 
 	// Now add another machine, intentionally unprovisioned.
-	stm1, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm1.SetPassword("password")
 	c.Assert(err, gc.IsNil)
@@ -129,7 +129,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// Create a new machine to verify "agent alive" behavior.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)

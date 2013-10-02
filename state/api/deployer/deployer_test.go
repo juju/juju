@@ -139,7 +139,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 
 	// Try getting a unit we're not responsible for.
 	// First create a new machine and deploy another unit there.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	principal1, err := s.service0.AddUnit()
 	c.Assert(err, gc.IsNil)

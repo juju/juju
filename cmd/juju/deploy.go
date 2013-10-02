@@ -126,8 +126,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	numUnits := c.NumUnits
 	if ch.Meta().Subordinate {
-		empty := constraints.Value{}
-		if c.Constraints != empty {
+		if !constraints.IsEmpty(&c.Constraints) {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
 		if numUnits == 1 && c.ToMachineSpec == "" {

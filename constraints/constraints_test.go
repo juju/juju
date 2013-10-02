@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestPackage(t *testing.T) {
@@ -250,13 +251,25 @@ var parseConstraintsTests = []struct {
 		err:     `bad "root-disk" constraint: already set`,
 	},
 
+	// tags
+	{
+		summary: "single tag",
+		args:    []string{"tags=foo"},
+	}, {
+		summary: "multiple tags",
+		args:    []string{"tags=foo,bar"},
+	}, {
+		summary: "no tags",
+		args:    []string{"tags="},
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
+		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc tags=foo,bar"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
+		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc", "tags=foo,bar"},
 	},
 }
 
@@ -271,9 +284,43 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 			continue
 		}
 		cons1, err := constraints.Parse(cons0.String())
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons1, gc.DeepEquals, cons0)
+		c.Check(err, gc.IsNil)
+		c.Check(cons1, gc.DeepEquals, cons0)
 	}
+}
+
+func (s *ConstraintsSuite) TestParseMissingTags(c *gc.C) {
+	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	c.Check(con.Tags, gc.IsNil)
+}
+
+func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
+	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G tags=")
+	c.Assert(con.Tags, gc.Not(gc.IsNil))
+	c.Check(*con.Tags, gc.HasLen, 0)
+}
+
+func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
+	con := constraints.Value{}
+	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	con = constraints.MustParse("arch=amd64")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("")
+	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
+	con = constraints.MustParse("tags=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("mem=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("arch=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("root-disk=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("cpu-power=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("cpu-cores=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("container=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 }
 
 func uint64p(i uint64) *uint64 {
@@ -289,72 +336,85 @@ func ctypep(ctype string) *instance.ContainerType {
 	return &res
 }
 
-var constraintsRoundtripTests = []constraints.Value{
-	{},
-	{Arch: strp("")},
-	{Arch: strp("amd64")},
-	{Container: ctypep("")},
-	{Container: ctypep("lxc")},
-	{CpuCores: uint64p(0)},
-	{CpuCores: uint64p(128)},
-	{CpuPower: uint64p(0)},
-	{CpuPower: uint64p(250)},
-	{Mem: uint64p(0)},
-	{Mem: uint64p(98765)},
-	{RootDisk: uint64p(0)},
-	{RootDisk: uint64p(109876)},
-	{
+type roundTrip struct {
+	Name  string
+	Value constraints.Value
+}
+
+var constraintsRoundtripTests = []roundTrip{
+	{"empty", constraints.Value{}},
+	{"Arch1", constraints.Value{Arch: strp("")}},
+	{"Arch2", constraints.Value{Arch: strp("amd64")}},
+	{"Container1", constraints.Value{Container: ctypep("")}},
+	{"Container2", constraints.Value{Container: ctypep("lxc")}},
+	{"Container3", constraints.Value{Container: nil}},
+	{"CpuCores1", constraints.Value{CpuCores: nil}},
+	{"CpuCores2", constraints.Value{CpuCores: uint64p(0)}},
+	{"CpuCores3", constraints.Value{CpuCores: uint64p(128)}},
+	{"CpuPower1", constraints.Value{CpuPower: nil}},
+	{"CpuPower2", constraints.Value{CpuPower: uint64p(0)}},
+	{"CpuPower3", constraints.Value{CpuPower: uint64p(250)}},
+	{"Mem1", constraints.Value{Mem: nil}},
+	{"Mem2", constraints.Value{Mem: uint64p(0)}},
+	{"Mem3", constraints.Value{Mem: uint64p(98765)}},
+	{"RootDisk1", constraints.Value{RootDisk: nil}},
+	{"RootDisk2", constraints.Value{RootDisk: uint64p(0)}},
+	{"RootDisk2", constraints.Value{RootDisk: uint64p(109876)}},
+	{"Tags1", constraints.Value{Tags: nil}},
+	{"Tags2", constraints.Value{Tags: &[]string{}}},
+	{"Tags3", constraints.Value{Tags: &[]string{"foo", "bar"}}},
+	{"All", constraints.Value{
 		Arch:      strp("i386"),
 		Container: ctypep("lxc"),
 		CpuCores:  uint64p(4096),
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
 		RootDisk:  uint64p(24000000000),
-	},
+		Tags:      &[]string{"foo", "bar"},
+	}},
 }
 
 func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
 		var cons constraints.Value
 		val := constraints.ConstraintsValue{&cons}
-		err := val.Set(t.String())
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+		err := val.Set(t.Value.String())
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
 func (s *ConstraintsSuite) TestRoundtripString(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
-		cons, err := constraints.Parse(t.String())
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
+		cons, err := constraints.Parse(t.Value.String())
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
 func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
-		data, err := json.Marshal(t)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
+		data, err := json.Marshal(t.Value)
 		c.Assert(err, gc.IsNil)
 		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
 func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
-	for i, t := range constraintsRoundtripTests {
-		c.Logf("test %d", i)
-		data, err := goyaml.Marshal(t)
+	for _, t := range constraintsRoundtripTests {
+		c.Logf("test %s", t.Name)
+		data, err := goyaml.Marshal(t.Value)
 		c.Assert(err, gc.IsNil)
-		c.Logf("%s", data)
 		var cons constraints.Value
 		err = goyaml.Unmarshal(data, &cons)
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, t)
+		c.Check(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, t.Value)
 	}
 }
 
@@ -414,6 +474,24 @@ var withFallbacksTests = []struct {
 		fallbacks: "cpu-power=200",
 		final:     "cpu-power=200",
 	}, {
+		desc:    "tags with empty fallback",
+		initial: "tags=foo,bar",
+		final:   "tags=foo,bar",
+	}, {
+		desc:      "tags with ignored fallback",
+		initial:   "tags=foo,bar",
+		fallbacks: "tags=baz",
+		final:     "tags=foo,bar",
+	}, {
+		desc:      "tags from fallback",
+		fallbacks: "tags=foo,bar",
+		final:     "tags=foo,bar",
+	}, {
+		desc:      "tags inital empty",
+		initial:   "tags=",
+		fallbacks: "tags=foo,bar",
+		final:     "tags=",
+	}, {
 		desc:    "mem with empty fallback",
 		initial: "mem=4G",
 		final:   "mem=4G",
@@ -454,11 +532,11 @@ var withFallbacksTests = []struct {
 
 func (s *ConstraintsSuite) TestWithFallbacks(c *gc.C) {
 	for i, t := range withFallbacksTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, t.desc)
 		initial := constraints.MustParse(t.initial)
 		fallbacks := constraints.MustParse(t.fallbacks)
 		final := constraints.MustParse(t.final)
-		c.Assert(initial.WithFallbacks(fallbacks), gc.DeepEquals, final)
+		c.Check(initial.WithFallbacks(fallbacks), gc.DeepEquals, final)
 	}
 }
 
@@ -481,6 +559,6 @@ func (s *ConstraintsSuite) TestHasContainer(c *gc.C) {
 	for i, t := range hasContainerTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.constraints)
-		c.Assert(cons.HasContainer(), gc.Equals, t.hasContainer)
+		c.Check(cons.HasContainer(), gc.Equals, t.hasContainer)
 	}
 }

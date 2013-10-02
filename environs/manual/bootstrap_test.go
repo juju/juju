@@ -12,11 +12,9 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/provider/common"
 )
 
 type bootstrapSuite struct {
@@ -35,8 +33,8 @@ type localStorageEnviron struct {
 	sharedStorageDir  string
 }
 
-func (e *localStorageEnviron) BootstrapStorage() (storage.Storage, error) {
-	return e.storage, nil
+func (e *localStorageEnviron) Storage() storage.Storage {
+	return e.storage
 }
 
 func (e *localStorageEnviron) StorageAddr() string {
@@ -73,6 +71,7 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 	c.Assert(err, gc.IsNil)
 	return BootstrapArgs{
 		Host:          hostname,
+		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
 		MachineId:     "0",
 		PossibleTools: toolsList,
@@ -87,7 +86,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
-	bootstrapState, err := provider.LoadState(s.env.storage)
+	bootstrapState, err := common.LoadState(s.env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(
 		bootstrapState.StateInstances,
@@ -118,8 +117,14 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 
 	// Since the script failed, the state file should have been
 	// removed from storage.
-	_, err = provider.LoadState(s.env.storage)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotBootstrapped)
+	_, err = common.LoadState(s.env.Storage())
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+func (s *bootstrapSuite) TestBootstrapEmptyDataDir(c *gc.C) {
+	args := s.getArgs(c)
+	args.DataDir = ""
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "data-dir argument is empty")
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyHost(c *gc.C) {
