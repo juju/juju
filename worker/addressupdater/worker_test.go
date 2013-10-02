@@ -40,8 +40,8 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// Most functionality is already tested in detail - we
 	// just need to test that things are wired together
 	// correctly.
-	defer testbase.PatchValue(addressupdater.ShortPoll, 10*time.Millisecond).Restore()
-	defer testbase.PatchValue(addressupdater.LongPoll, 10*time.Millisecond).Restore()
+	defer testbase.PatchValue(&addressupdater.ShortPoll, 10*time.Millisecond).Restore()
+	defer testbase.PatchValue(&addressupdater.LongPoll, 10*time.Millisecond).Restore()
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w := addressupdater.NewWorker(s.State)
