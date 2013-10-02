@@ -10,11 +10,14 @@ import (
 	"path/filepath"
 
 	"launchpad.net/goyaml"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.environs.configstore")
 
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
@@ -61,6 +64,7 @@ func ensurePathOwnedByUser(path string) error {
 		return err
 	}
 	if uid != 0 {
+		logger.Debugf("Making %v owned by %d:%d", path, uid, gid)
 		if err := os.Chown(path, uid, gid); err != nil {
 			return err
 		}
@@ -70,6 +74,7 @@ func ensurePathOwnedByUser(path string) error {
 
 func (d *diskStore) mkEnvironmentsDir() error {
 	path := filepath.Join(d.dir, "environments")
+	logger.Debug("Making %v", path)
 	err := os.Mkdir(path, 0700)
 	if os.IsExist(err) {
 		return nil
@@ -194,6 +199,9 @@ func (info *environInfo) Write() error {
 	if err := os.Rename(tmpFile.Name(), info.path); err != nil {
 		os.Remove(tmpFile.Name())
 		return fmt.Errorf("cannot rename new environment info file: %v", err)
+	}
+	if err := ensurePathOwnedByUser(info.path); err != nil {
+		return nil, err
 	}
 	info.initialized = true
 	return nil
