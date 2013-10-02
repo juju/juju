@@ -93,6 +93,10 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 // confirm that the environment isn't already running, and that the storage
 // works.
 func verifyBootstrapInit(env environs.Environ) error {
+	// TODO(rog) this feels like a layering violation - providers
+	// should not necessarily be required to store their bootstrap
+	// state in a file. This verification should probably
+	// be moved into provider and called by the providers themselves.
 	stor := env.Storage()
 	_, err := common.LoadState(stor)
 	if err == nil {

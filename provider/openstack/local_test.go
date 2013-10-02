@@ -225,7 +225,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	})
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	env := s.Open(c)
+	env := s.Prepare(c)
 	s.metadataStorage = openstack.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances

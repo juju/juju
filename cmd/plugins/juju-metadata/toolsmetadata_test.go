@@ -20,7 +20,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
-	_ "launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -42,6 +42,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
 	loggo.ResetLoggers()
 	s.home.Restore()
 }
