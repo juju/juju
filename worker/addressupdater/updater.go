@@ -43,7 +43,6 @@ type machine interface {
 	Addresses() []instance.Address
 	InstanceId() (instance.Id, error)
 	SetAddresses([]instance.Address) error
-	Jobs() []state.MachineJob
 	String() string
 	Refresh() error
 	Life() state.Life
