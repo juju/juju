@@ -382,17 +382,23 @@ type AgentToolsResults struct {
 	Results []AgentToolsResult
 }
 
-// SetAgent specifies tools to be set for an agent with the
-// given tag.
-type SetAgentTools struct {
+// SetAgentVersion specifies the tools version to be set for an agent
+// with the given tag. Only the Version field is used, the others are
+// ignored.
+//
+// DEPRECATE(v1.18) Use Version version.Binary instead of Tools
+// *tools.Tools here.
+type SetAgentVersion struct {
 	Tag   string
 	Tools *tools.Tools
 }
 
-// SetAgentsTools specifies what tools are being run for
+// SetAgentsVersion specifies what tools are being run for
 // multiple agents.
-type SetAgentsTools struct {
-	AgentTools []SetAgentTools
+//
+// DEPRECATE(v1.18) Use AgentVersions instead of AgentTools here.
+type SetAgentsVersion struct {
+	AgentTools []SetAgentVersion
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

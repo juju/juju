@@ -40,13 +40,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	tg := common.NewToolsGetter(s.State, getCanRead)
 	c.Assert(tg, gc.NotNil)
 
-	machine0Tools := &tools.Tools{
-		Version: version.Current,
-		URL:     "http://example.com/tools",
-		Size:    4321,
-		SHA256:  "fake",
-	}
-	err := s.machine0.SetAgentTools(machine0Tools)
+	err := s.machine0.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{
@@ -59,7 +53,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Tools, gc.NotNil)
-	c.Assert(result.Results[0].Tools.Version, gc.DeepEquals, machine0Tools.Version)
+	c.Assert(result.Results[0].Tools.Version, gc.DeepEquals, version.Current)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
 }

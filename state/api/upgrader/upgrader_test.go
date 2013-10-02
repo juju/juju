@@ -89,7 +89,7 @@ func (s *upgraderSuite) TestTools(c *gc.C) {
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
 	curTools.Version.Minor++
-	s.rawMachine.SetAgentTools(curTools)
+	s.rawMachine.SetAgentVersion(cur)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
 	stateTools, err := s.st.Tools(s.rawMachine.Tag())
@@ -126,7 +126,7 @@ func (s *upgraderSuite) TestDesiredVersion(c *gc.C) {
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
 	curTools.Version.Minor++
-	s.rawMachine.SetAgentTools(curTools)
+	s.rawMachine.SetAgentVersion(cur)
 	// Upgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
 	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag())

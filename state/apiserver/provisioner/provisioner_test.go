@@ -21,7 +21,6 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -701,10 +700,7 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
 	// having to pass it in again
-	err := s.machines[0].SetAgentTools(&tools.Tools{
-		URL:     "",
-		Version: version.Current,
-	})
+	err := s.machines[0].SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}

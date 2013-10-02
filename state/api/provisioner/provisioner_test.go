@@ -374,7 +374,7 @@ func (s *provisionerSuite) TestTools(c *gc.C) {
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
 	curTools.Version.Minor++
-	s.machine.SetAgentTools(curTools)
+	s.machine.SetAgentVersion(cur)
 	// Provisioner.Tools returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
 	stateTools, err := s.provisioner.Tools(s.machine.Tag())

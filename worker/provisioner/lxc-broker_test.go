@@ -188,7 +188,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
-	err = m.SetAgentTools(&coretools.Tools{Version: version.Current})
+	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)

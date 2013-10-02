@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
-	agenttools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -105,18 +104,20 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.AgentVersionR
 }
 
 // SetTools updates the recorded tools version for the agents.
-func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults, error) {
+//
+// DEPRECATE(v1.18) Rename this to SetVersion.
+func (u *UpgraderAPI) SetTools(args params.SetAgentsVersion) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}
 	for i, agentTools := range args.AgentTools {
-		err := u.setOneAgentTools(agentTools.Tag, agentTools.Tools)
+		err := u.setOneAgentVersion(agentTools.Tag, agentTools.Tools.Version)
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }
 
-func (u *UpgraderAPI) setOneAgentTools(tag string, tools *agenttools.Tools) error {
+func (u *UpgraderAPI) setOneAgentVersion(tag string, vers version.Binary) error {
 	if !u.authorizer.AuthOwner(tag) {
 		return common.ErrPerm
 	}
@@ -124,7 +125,7 @@ func (u *UpgraderAPI) setOneAgentTools(tag string, tools *agenttools.Tools) erro
 	if err != nil {
 		return err
 	}
-	return entity.SetAgentTools(tools)
+	return entity.SetAgentVersion(vers)
 }
 
 func (u *UpgraderAPI) findEntity(tag string) (state.AgentTooler, error) {
