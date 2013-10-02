@@ -49,18 +49,11 @@ func (c *OwnerGetCommand) Init(args []string) error {
 
 func (c *OwnerGetCommand) Run(ctx *cmd.Context) error {
 	value, ok := "", false
-	value = "user-name"
-	ok = true
-	//value, ok = c.ctx.()
-	/*
-		if c.Key == "private-address" {
-			value, ok = c.ctx.PrivateAddress()
-		} else {
-			value, ok = c.ctx.PublicAddress()
-		}
-	*/
+	if c.Key == "tag" {
+		value, ok = c.ctx.OwnerTag()
+	}
 	if !ok {
-		//return fmt.Errorf("%s not set", c.Key)
+		return fmt.Errorf("%s not set", c.Key)
 	}
 	return c.out.Write(ctx, value)
 }

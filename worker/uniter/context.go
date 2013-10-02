@@ -142,6 +142,10 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
+func (ctx *HookContext) OwnerTag() (string, bool) {
+	return "user-name", true
+}
+
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
