@@ -290,6 +290,22 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	assertOpen(conf)
 }
 
+func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
+	config, err := agent.ReadConf(dataDir, tag)
+	c.Assert(err, gc.IsNil)
+	st, err := config.OpenState()
+	c.Assert(err, gc.IsNil)
+	st.Close()
+}
+
+func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
+	config, err := agent.ReadConf(dataDir, tag)
+	c.Assert(err, gc.IsNil)
+	_, err = config.OpenState()
+	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+}
+
 func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
 	newVers := version.Current
 	newVers.Patch++

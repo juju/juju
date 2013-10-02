@@ -123,7 +123,7 @@ func (s *FirewallerSuite) setGlobalMode(c *gc.C) {
 
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc := testing.StartInstance(c, s.Conn.Environ, m.Id())
+	inst, hc := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 	return inst

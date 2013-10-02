@@ -8,9 +8,13 @@ import (
 	"os/exec"
 
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type AptSuite struct{}
+type AptSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&AptSuite{})
 
