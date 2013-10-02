@@ -73,7 +73,6 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 		Host:          hostname,
 		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
-		MachineId:     "0",
 		PossibleTools: toolsList,
 	}
 }
@@ -137,21 +136,6 @@ func (s *bootstrapSuite) TestBootstrapNilEnviron(c *gc.C) {
 	args := s.getArgs(c)
 	args.Environ = nil
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "environ argument is nil")
-}
-
-func (s *bootstrapSuite) TestBootstrapInvalidMachineId(c *gc.C) {
-	args := s.getArgs(c)
-	args.MachineId = ""
-	c.Assert(Bootstrap(args), gc.ErrorMatches, `"" is not a valid machine ID`)
-	args.MachineId = "bahhumbug"
-	c.Assert(Bootstrap(args), gc.ErrorMatches, `"bahhumbug" is not a valid machine ID`)
-}
-
-func (s *bootstrapSuite) TestBootstrapAlternativeMachineId(c *gc.C) {
-	args := s.getArgs(c)
-	args.MachineId = "1"
-	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
-	c.Assert(Bootstrap(args), gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
