@@ -243,7 +243,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil

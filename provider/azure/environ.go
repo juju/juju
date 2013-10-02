@@ -245,7 +245,7 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) (err error) {
+func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
@@ -267,7 +267,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = common.Bootstrap(env, cons, possibleTools, machineID)
+	err = common.Bootstrap(env, cons, possibleTools)
 	return err
 }
 
