@@ -4,8 +4,10 @@
 package configstore_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -151,8 +153,10 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 
 func (s *diskStoreSuite) TestCreatePermissions(c *gc.C) {
 	// Even though it doesn't test the actual chown, it does test the code path.
-	s.PatchEnvironment("SUDO_UID", "1000")
-	s.PatchEnvironment("SUDO_GID", "1000")
+	user, err := user.Current()
+	c.Assert(err, gc.IsNil)
+	s.PatchEnvironment("SUDO_UID", user.Uid)
+	s.PatchEnvironment("SUDO_GID", user.Gid)
 
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
@@ -165,8 +169,8 @@ func (s *diskStoreSuite) TestCreatePermissions(c *gc.C) {
 	checkPath := func(path string) {
 		stat, err := os.Stat(path)
 		c.Assert(err, gc.IsNil)
-		c.Assert(stat.Sys().(*syscall.Stat_t).Uid, gc.Equals, uint32(1000))
-		c.Assert(stat.Sys().(*syscall.Stat_t).Gid, gc.Equals, uint32(1000))
+		c.Assert(fmt.Sprint(stat.Sys().(*syscall.Stat_t).Uid), gc.Equals, user.Uid)
+		c.Assert(fmt.Sprint(stat.Sys().(*syscall.Stat_t).Gid), gc.Equals, user.Gid)
 	}
 	checkPath(storePath(dir, ""))
 	checkPath(storePath(dir, "someenv"))
