@@ -460,6 +460,28 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 	return e.terminateInstances(ids)
 }
 
+// lookupGroupInfoByName returns information on the security group
+// with the given name including rules and other details.
+func (e *environ) lookupGroupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
+	// Non-default VPC does not support name-based group lookups, can
+	// use a filter by group name instead when support is needed.
+	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
+	resp, err := e.ec2().SecurityGroups(limitToGroups, nil)
+	if err != nil {
+		return ec2.SecurityGroupInfo{}, err
+	}
+	if len(resp.Groups) != 1 {
+		return ec2.SecurityGroupInfo{}, fmt.Errorf("expected one security group named %v, got %q", groupName, resp.Groups)
+	}
+	return resp.Groups[0], nil
+}
+
+// lookupGroupByName returns the security group with the given name.
+func (e *environ) lookupGroupByName(groupName string) (ec2.SecurityGroup, error) {
+	groupInfo, err := e.lookupGroupInfoByName(groupName)
+	return groupInfo.SecurityGroup, err
+}
+
 // addGroupFilter sets a limit an instance filter so only those machines
 // with the juju environment wide security group associated will be listed.
 //
@@ -471,19 +493,13 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 // matching instances.
 func (e *environ) addGroupFilter(filter *ec2.Filter) error {
 	groupName := e.jujuGroupName()
-	// Non-default VPC does not support name-based group lookups, can
-	// use a filter by group name instead when support is needed.
-	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
-	resp, err := e.ec2().SecurityGroups(limitToGroups, nil)
+	group, err := e.lookupGroupByName(groupName)
 	if err != nil {
 		return err
 	}
-	if len(resp.Groups) != 1 {
-		return fmt.Errorf("expected one security group named %v, got %q", groupName, resp.Groups)
-	}
 	// EC2 should support filtering with and without the 'instance.'
 	// prefix, but only the form with seems to work with default VPC.
-	filter.Add("instance.group-id", resp.Groups[0].Id)
+	filter.Add("instance.group-id", group.Id)
 	return nil
 }
 
@@ -616,9 +632,12 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
+	g, err := e.lookupGroupByName(name)
+	if err != nil {
+		return err
+	}
 	ipPerms := portsToIPPerms(ports)
-	g := ec2.SecurityGroup{Name: name}
-	_, err := e.ec2().AuthorizeSecurityGroup(g, ipPerms)
+	_, err = e.ec2().AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
 		if len(ports) == 1 {
 			return nil
@@ -648,8 +667,11 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	// Revoke permissions for anyone to access the given ports.
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
-	g := ec2.SecurityGroup{Name: name}
-	_, err := e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	g, err := e.lookupGroupByName(name)
+	if err != nil {
+		return err
+	}
+	_, err = e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
@@ -657,15 +679,11 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 }
 
 func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
-	g := ec2.SecurityGroup{Name: name}
-	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
+	group, err := e.lookupGroupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Groups) != 1 {
-		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
-	}
-	for _, p := range resp.Groups[0].IPPerms {
+	for _, p := range group.IPPerms {
 		if len(p.SourceIPs) != 1 {
 			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
