@@ -46,8 +46,12 @@ type Tests struct {
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C) environs.Environ {
-	e, err := environs.NewFromAttrs(t.TestConfig)
-	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
+	info, err := t.ConfigStore.ReadInfo(t.TestConfig["name"].(string))
+	c.Assert(err, gc.IsNil)
+	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+	c.Assert(err, gc.IsNil)
+	e, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
 	return e
 }

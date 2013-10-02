@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -173,23 +174,24 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// SetAgentTools sets the tools that the agent is currently running.
-func (u *Unit) SetAgentTools(t *tools.Tools) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
-	if err = checkToolsValidity(t); err != nil {
+// SetAgentVersion sets the version of juju that the agent is
+// currently running.
+func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set agent version for unit %q", u)
+	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
+	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", t}}}},
+		Update: D{{"$set", D{{"tools", tools}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
-	tools := *t
-	u.doc.Tools = &tools
+	u.doc.Tools = tools
 	return nil
 }
 

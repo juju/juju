@@ -55,10 +55,11 @@ func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 // the obtained tools may not have size and checksum set.
 func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 	c.Assert(obtained.Version, gc.Equals, expected.Version)
-	c.Assert(obtained.URL, gc.Equals, expected.URL)
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When tools are located using the legacy code (prior to simplestreams),
-	// the size and checksum information is not known.
+	// TODO(dimitern) 2013-10-02 bug #1234217
+	// Are these used at at all? If not we should drop them.
+	if obtained.URL != "" {
+		c.Assert(obtained.URL, gc.Equals, expected.URL)
+	}
 	if obtained.Size > 0 {
 		c.Assert(obtained.Size, gc.Equals, expected.Size)
 		c.Assert(obtained.SHA256, gc.Equals, expected.SHA256)
@@ -68,9 +69,6 @@ func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 // CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
 // the error's tools attributes may not have size and checksum set.
 func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When tools are located using the legacy code (prior to simplestreams),
-	// the size and checksum information is not known.
 	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
 	err := obtained.(*upgrader.UpgradeReadyError)
 	c.Assert(err.AgentName, gc.Equals, expected.AgentName)

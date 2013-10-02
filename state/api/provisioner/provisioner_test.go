@@ -20,6 +20,8 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -359,4 +361,24 @@ func (s *provisionerSuite) TestCACert(c *gc.C) {
 	caCert, err := s.provisioner.CACert()
 	c.Assert(err, gc.IsNil)
 	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
+}
+
+func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
+	tools, err := s.provisioner.Tools("42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(tools, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestTools(c *gc.C) {
+	cur := version.Current
+	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools.Version.Minor++
+	s.machine.SetAgentVersion(cur)
+	// Provisioner.Tools returns the *desired* set of tools, not the
+	// currently running set. We want to be upgraded to cur.Version
+	stateTools, err := s.provisioner.Tools(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateTools.Version, gc.Equals, cur)
+	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
 }

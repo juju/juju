@@ -151,9 +151,9 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
 		}
-		env, err := environs.NewFromAttrs(attrs)
+		cfg, err := config.New(config.NoDefaults, attrs)
 		c.Assert(err, gc.IsNil)
-		env, err = environs.Prepare(env.Config(), configstore.NewMem())
+		env, err := environs.Prepare(cfg, configstore.NewMem())
 		c.Assert(err, gc.IsNil)
 		envtesting.RemoveAllTools(c, env)
 

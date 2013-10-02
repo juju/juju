@@ -330,7 +330,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	env := t.Open(c)
+	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
@@ -344,7 +344,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := t.Open(c)
+	env := t.Prepare(c)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
@@ -360,7 +360,7 @@ func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
-	env := t.Open(c)
+	env := t.Prepare(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
