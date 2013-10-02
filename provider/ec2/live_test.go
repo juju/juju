@@ -161,7 +161,6 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// but with different permissions, to check that it's deleted
 	// and recreated correctly.
 	oldJujuGroup := createGroup(c, ec2conn, groups[0].Name, "old juju group")
-	defer ec2conn.DeleteSecurityGroup(oldJujuGroup)
 
 	// Add two permissions: one is required and should be left alone;
 	// the other is not and should be deleted.
@@ -189,7 +188,6 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
-	defer ec2conn.DeleteSecurityGroup(oldMachineGroup)
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]instance.Instance{inst1})
