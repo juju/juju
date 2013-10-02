@@ -2,6 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package testing
+
 import (
 	gc "launchpad.net/gocheck"
 

@@ -861,7 +861,7 @@ type dummyInstance struct {
 	series       string
 	firewallMode string
 
-	mu sync.Mutex
+	mu        sync.Mutex
 	addresses []instance.Address
 }
 
