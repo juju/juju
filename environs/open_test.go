@@ -106,12 +106,15 @@ func (OpenSuite) TestNew(c *gc.C) {
 }
 
 func (OpenSuite) TestPrepare(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
-		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
-		},
-	).Delete("ca-cert", "ca-private-key"))
+	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
+		"state-server": false,
+		"name":         "erewhemos",
+	}).Delete(
+		"ca-cert",
+		"ca-private-key",
+		"admin-secret",
+	)
+	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
 	store := configstore.NewMem()
 	env, err := environs.Prepare(cfg, store)
@@ -126,11 +129,17 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, env.Config().AllAttrs())
 	c.Logf("bootstrap config: %#v", info.BootstrapConfig())
 
+	// Check that an admin-secret was chosen.
+	adminSecret := env.Config().AdminSecret()
+	c.Assert(adminSecret, gc.HasLen, 32)
+	c.Assert(adminSecret, gc.Matches, "^[0-9a-f]*$")
+
 	// Check that the CA cert was generated.
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
 	c.Assert(cfgCertOK, gc.Equals, true)
 	c.Assert(cfgKeyOK, gc.Equals, true)
+
 	// Check the common name of the generated cert
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
 	c.Assert(err, gc.IsNil)
@@ -142,6 +151,31 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(env.Name(), gc.Equals, "erewhemos")
 	c.Assert(env.Storage(), gc.NotNil)
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
+}
+
+func (OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
+	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
+		"state-server": false,
+		"name":         "erewhemos",
+	}).Delete(
+		"admin-secret",
+	)
+	cfg, err := config.New(config.NoDefaults, baselineAttrs)
+	c.Assert(err, gc.IsNil)
+
+	env0, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	adminSecret0 := env0.Config().AdminSecret()
+	c.Assert(adminSecret0, gc.HasLen, 32)
+	c.Assert(adminSecret0, gc.Matches, "^[0-9a-f]*$")
+
+	env1, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	adminSecret1 := env1.Config().AdminSecret()
+	c.Assert(adminSecret1, gc.HasLen, 32)
+	c.Assert(adminSecret1, gc.Matches, "^[0-9a-f]*$")
+
+	c.Assert(adminSecret1, gc.Not(gc.Equals), adminSecret0)
 }
 
 func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
