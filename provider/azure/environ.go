@@ -901,9 +901,9 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
 //
-// XXX Due to datasource fallback issues, the default daily stream has been removed.
-//     This var now only serves as an injection point for tests. See also:
-//         https://bugs.launchpad.net/juju-core/+bug/1233924
+// Note: Due to datasource fallback issues, the default daily stream has been removed.
+//       This var now only serves as an injection point for tests. See also:
+//           https://bugs.launchpad.net/juju-core/+bug/1233924
 var baseURLs = []string{}
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
