@@ -13,9 +13,17 @@ import (
 	"path"
 	"regexp"
 	"text/template"
+	"time"
+
+	"launchpad.net/juju-core/utils"
 )
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
+
+var InstallStartRetryAttempts = utils.AttemptStrategy{
+	Total: 1 * time.Second,
+	Delay: 250 * time.Millisecond,
+}
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
@@ -181,7 +189,14 @@ func (c *Conf) Install() error {
 	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
 		return err
 	}
-	return c.Start()
+	// On slower disks, upstart may take a short time to realise
+	// that there is a service there.
+	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+		if err = c.Start(); err == nil {
+			break
+		}
+	}
+	return err
 }
 
 // InstallCommands returns shell commands to install and start the service.
