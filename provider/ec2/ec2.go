@@ -460,6 +460,31 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 	return e.terminateInstances(ids)
 }
 
+// addGroupFilter sets a limit an instance filter so only those machines
+// with the juju environment wide security group associated will be listed.
+//
+// An EC2 API call is required to resolve the group name to an id, as VPC
+// enabled accounts do not support name based filtering.
+// TODO: Detect classic accounts and just filter by name for those.
+//
+// Callers must handle InvalidGroup.NotFound errors to mean the same as no
+// matching instances.
+func (e *environ) addGroupFilter(filter *ec2.Filter) error {
+	groupName := e.jujuGroupName()
+	// Non-default VPC does not support name-based group lookups, can
+	// use a filter by group name instead when support is needed.
+	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
+	resp, err := e.ec2().SecurityGroups(limitToGroups, nil)
+	if err != nil {
+		return err
+	}
+	if len(resp.Groups) != 1 {
+		return fmt.Errorf("expected one security group named %v, got %q", groupName, resp.Groups)
+	}
+	filter.Add("instance.group-id", resp.Groups[0].Id)
+	return nil
+}
+
 // gatherInstances tries to get information on each instance
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
@@ -476,7 +501,13 @@ func (e *environ) gatherInstances(ids []instance.Id, insts []instance.Instance) 
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.jujuGroupName())
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return environs.ErrPartialInstances
+		}
+		return err
+	}
 	filter.Add("instance-id", need...)
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
@@ -539,7 +570,13 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.jujuGroupName())
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, nil
+		}
+		return nil, err
+	}
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return nil, err
