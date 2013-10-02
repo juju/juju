@@ -14,9 +14,12 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type EmptyStorageSuite struct{}
+type EmptyStorageSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&EmptyStorageSuite{})
 
@@ -38,7 +41,9 @@ func (s *EmptyStorageSuite) TestList(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-type verifyStorageSuite struct{}
+type verifyStorageSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&verifyStorageSuite{})
 
@@ -52,6 +57,7 @@ environments:
 
 func (s *verifyStorageSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {

@@ -122,7 +122,7 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}

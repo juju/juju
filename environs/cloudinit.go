@@ -42,10 +42,10 @@ func NewMachineConfig(machineID, machineNonce string,
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 // stateInfoURL is the storage URL for the environment's state file.
-func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
-	// state.Info and the api.Info.
-	mcfg := NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	// state.Info and the api.Info. The machine id must *always* be "0".
+	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	return mcfg

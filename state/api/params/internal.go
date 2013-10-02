@@ -359,40 +359,47 @@ type AgentGetEntitiesResult struct {
 	Error         *Error
 }
 
-// AgentVersionResult holds the version and possibly error for a given
-// DesiredVersion request
-type AgentVersionResult struct {
+// VersionResult holds the version and possibly error for a given
+// DesiredVersion() API call.
+type VersionResult struct {
 	Version *version.Number
 	Error   *Error
 }
 
-// AgentVersionResults is a list of versions for the requested entities
-type AgentVersionResults struct {
-	Results []AgentVersionResult
+// VersionResults is a list of versions for the requested entities.
+type VersionResults struct {
+	Results []VersionResult
 }
 
-// AgentToolsResult holds the tools and possibly error for a given AgentTools request
-type AgentToolsResult struct {
+// ToolsResult holds the tools and possibly error for a given
+// Tools() API call.
+type ToolsResult struct {
 	Tools *tools.Tools
 	Error *Error
 }
 
-// AgentToolsResults is a list of tools for various requested agents.
-type AgentToolsResults struct {
-	Results []AgentToolsResult
+// ToolsResults is a list of tools for various requested agents.
+type ToolsResults struct {
+	Results []ToolsResult
 }
 
-// SetAgent specifies tools to be set for an agent with the
-// given tag.
-type SetAgentTools struct {
+// Version holds a specific binary version.
+type Version struct {
+	Version version.Binary
+}
+
+// EntityVersion specifies the tools version to be set for an entity
+// with the given tag.
+// version.Binary directly.
+type EntityVersion struct {
 	Tag   string
-	Tools *tools.Tools
+	Tools *Version
 }
 
-// SetAgentsTools specifies what tools are being run for
-// multiple agents.
-type SetAgentsTools struct {
-	AgentTools []SetAgentTools
+// EntitiesVersion specifies what tools are being run for
+// multiple entities.
+type EntitiesVersion struct {
+	AgentTools []EntityVersion
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/tools"
@@ -30,7 +29,6 @@ type BootstrapArgs struct {
 	Host          string
 	DataDir       string
 	Environ       LocalStorageEnviron
-	MachineId     string
 	PossibleTools tools.List
 }
 
@@ -50,9 +48,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 	if args.DataDir == "" {
 		return errors.New("data-dir argument is empty")
-	}
-	if !names.IsMachine(args.MachineId) {
-		return errMachineIdInvalid(args.MachineId)
 	}
 
 	provisioned, err := checkProvisioned(args.Host)
@@ -118,7 +113,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		dataDir:       args.DataDir,
 		environConfig: args.Environ.Config(),
 		stateFileURL:  stateFileURL,
-		machineId:     args.MachineId,
 		bootstrap:     true,
 		nonce:         state.BootstrapNonce,
 		tools:         &tools,

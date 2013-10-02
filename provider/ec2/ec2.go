@@ -340,8 +340,8 @@ func (e *environ) PublicStorage() storage.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return common.Bootstrap(e, cons, possibleTools, machineID)
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+	return common.Bootstrap(e, cons, possibleTools)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -556,21 +556,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy() error {
-	logger.Infof("destroying environment %q", e.name)
-	insts, err := e.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	var ids []instance.Id
-	for _, inst := range insts {
-		ids = append(ids, inst.Id())
-	}
-	err = e.terminateInstances(ids)
-	if err != nil {
-		return err
-	}
-
-	return e.Storage().RemoveAll()
+	return common.Destroy(e)
 }
 
 func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {

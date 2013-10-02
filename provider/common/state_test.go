@@ -26,15 +26,18 @@ type StateSuite struct {
 
 var _ = gc.Suite(&StateSuite{})
 
-// makeDummyStorage creates a local storage.
-func (suite *StateSuite) makeDummyStorage(c *gc.C) storage.Storage {
+type cleaner interface {
+	AddCleanup(testbase.CleanupFunc)
+}
+
+func newStorage(suite cleaner, c *gc.C) storage.Storage {
 	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
 	return stor
 }
 
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 
 	url, err := common.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
@@ -51,7 +54,7 @@ func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 	arch := "amd64"
 	state := common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
@@ -82,7 +85,7 @@ func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) common.B
 }
 
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
+	storage := newStorage(suite, c)
 	state := suite.setUpSavedState(c, storage)
 	storedState, err := common.LoadState(storage)
 	c.Assert(err, gc.IsNil)
@@ -90,7 +93,7 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 	state := suite.setUpSavedState(c, stor)
 	url, err := stor.URL(common.StateFile)
 	c.Assert(err, gc.IsNil)
@@ -100,13 +103,13 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 	_, err := common.LoadState(stor)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
+	storage := newStorage(suite, c)
 	arch := "amd64"
 	state := common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},

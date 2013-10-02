@@ -69,7 +69,7 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	// we'll just generate a shell script.
 	var mcfg *cloudinit.MachineConfig
 	if args.bootstrap {
-		mcfg = environs.NewBootstrapMachineConfig(args.machineId, args.stateFileURL)
+		mcfg = environs.NewBootstrapMachineConfig(args.stateFileURL)
 	} else {
 		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo)
 	}

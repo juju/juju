@@ -24,7 +24,6 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -449,7 +448,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-foo-bar"))
 		c.Assert(err, gc.IsNil)
 		err = m.Destroy()
 		c.Assert(err, gc.IsNil)
@@ -463,7 +462,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(string(instId), gc.Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, gc.IsNil)
-		c.Check(tools, gc.DeepEquals, newTools("7.8.9-foo-bar", "http://arble.tgz"))
+		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-foo-bar"))
 		c.Assert(m.Life(), gc.Equals, state.Dying)
 	}
 }
@@ -1078,17 +1077,8 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Alter the machine: not reported.
-	tools := &tools.Tools{
-		Version: version.Binary{
-			Number: version.MustParse("1.2.3"),
-			Series: "gutsy",
-			Arch:   "ppc",
-		},
-		URL:    "http://canonical.com/",
-		Size:   10,
-		SHA256: "1234",
-	}
-	err = machine.SetAgentTools(tools)
+	vers := version.MustParseBinary("1.2.3-gutsy-ppc")
+	err = machine.SetAgentVersion(vers)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 }

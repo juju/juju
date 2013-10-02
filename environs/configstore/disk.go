@@ -191,8 +191,11 @@ func (info *environInfo) Write() error {
 	if err != nil {
 		return fmt.Errorf("cannot create temporary file: %v", err)
 	}
-	defer tmpFile.Close()
 	_, err = tmpFile.Write(data)
+	// N.B. We need to close the file before renaming it
+	// otherwise it will fail under Windows with a file-in-use
+	// error.
+	tmpFile.Close()
 	if err != nil {
 		return fmt.Errorf("cannot write temporary file: %v", err)
 	}
