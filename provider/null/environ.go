@@ -5,8 +5,11 @@ package null
 
 import (
 	"errors"
+	"net"
 	"path"
 	"sync"
+
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -23,6 +26,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/worker/localstorage"
 )
 
 const (
@@ -38,6 +42,8 @@ const (
 	// be located.
 	storageTmpSubdir = "storage-tmp"
 )
+
+var logger = loggo.GetLogger("juju.provider.null")
 
 type nullEnviron struct {
 	cfg                   *environConfig
@@ -160,7 +166,20 @@ func (e *nullEnviron) Storage() storage.Storage {
 	if e.bootstrapStorage != nil {
 		return e.bootstrapStorage
 	}
-	return httpstorage.Client(e.envConfig().storageAddr())
+	caCertPEM, caKeyPEM := e.StorageCACert(), e.StorageCAKey()
+	if caCertPEM != nil && caKeyPEM != nil {
+		authkey := e.StorageAuthKey()
+		storage, err := httpstorage.ClientTLS(e.envConfig().storageAddr(), caCertPEM, authkey)
+		if err != nil {
+			// Should be impossible, since ca-cert will always be validated.
+			logger.Errorf("initialising HTTPS storage failed: %v", err)
+		} else {
+			return storage
+		}
+	} else {
+		logger.Errorf("missing CA cert or private key")
+	}
+	return nil
 }
 
 func (e *nullEnviron) PublicStorage() storage.StorageReader {
@@ -202,3 +221,34 @@ func (e *nullEnviron) SharedStorageAddr() string {
 func (e *nullEnviron) SharedStorageDir() string {
 	return ""
 }
+
+func (e *nullEnviron) StorageCACert() []byte {
+	if bytes, ok := e.envConfig().CACert(); ok {
+		return bytes
+	}
+	return nil
+}
+
+func (e *nullEnviron) StorageCAKey() []byte {
+	if bytes, ok := e.envConfig().CAPrivateKey(); ok {
+		return bytes
+	}
+	return nil
+}
+
+func (e *nullEnviron) StorageHostnames() []string {
+	cfg := e.envConfig()
+	hostnames := []string{cfg.bootstrapHost()}
+	if ip := net.ParseIP(cfg.storageListenIPAddress()); ip != nil {
+		if !ip.IsUnspecified() {
+			hostnames = append(hostnames, ip.String())
+		}
+	}
+	return hostnames
+}
+
+func (e *nullEnviron) StorageAuthKey() string {
+	return e.envConfig().storageAuthKey()
+}
+
+var _ localstorage.LocalTLSStorageConfig = (*nullEnviron)(nil)
