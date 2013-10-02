@@ -19,8 +19,8 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -67,7 +67,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
 func (s *CloudInitSuite) TestFinishMachineConfigNoSSLVerification(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"authorized-keys": "we-are-the-keys",
+		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
