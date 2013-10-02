@@ -228,7 +228,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "bad environment",
 	args: []string{"-e", "brokenenv"},
-	err:  `environment configuration has no admin-secret`,
+	err:  `dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
