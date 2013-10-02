@@ -82,6 +82,11 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	}
 }
 
+// TODO(rog)
+// - check that the environment observer is actually hooked up.
+// - check that the environment observer is stopped.
+// - check that the errors propagate correctly.
+
 func machinesSatisfy(c *gc.C, machines []*state.Machine, f func(i int, m *state.Machine) bool) bool {
 	for i, m := range machines {
 		err := m.Refresh()
