@@ -141,13 +141,14 @@ func (e *nullEnviron) Storage() storage.Storage {
 		storage, err := httpstorage.ClientTLS(e.envConfig().storageAddr(), caCertPEM, authkey)
 		if err != nil {
 			// Should be impossible, since ca-cert will always be validated.
-			logger.Warningf("initialising HTTPS storage failed, falling back to HTTP: %v", err)
+			logger.Errorf("initialising HTTPS storage failed: %v", err)
 		} else {
 			return storage
 		}
+	} else {
+		logger.Errorf("missing CA cert or private key")
 	}
-	// No cert/key, or ClientTLS failed: just use HTTP storage.
-	return httpstorage.Client(e.envConfig().storageAddr())
+	return nil
 }
 
 func (e *nullEnviron) PublicStorage() storage.StorageReader {

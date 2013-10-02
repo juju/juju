@@ -134,6 +134,24 @@ var getTests = []testCase{
 	},
 }
 
+func (s *backendSuite) TestHead(c *gc.C) {
+	// HEAD is unsupported for non-authenticating servers.
+	listener, url, _ := startServer(c)
+	defer listener.Close()
+	resp, err := http.Head(url)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+
+	// HEAD on an authenticating server will return the HTTPS counterpart URL.
+	client, url, _ := s.tlsServerAndClient(c)
+	resp, err = client.Head(url + "arbitrary")
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	location, err := resp.Location()
+	c.Assert(err, gc.IsNil)
+    c.Assert(location.String(), gc.Matches, "https://127.0.0.1:[0-9]{5}/arbitrary")
+}
+
 func (s *backendSuite) TestGet(c *gc.C) {
 	// Test retrieving a file from a storage.
 	listener, url, dataDir := startServer(c)
