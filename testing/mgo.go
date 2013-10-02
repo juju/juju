@@ -264,13 +264,11 @@ func MgoReset() {
 }
 
 // resetAdminPasswordAndFetchDBNames logs into the database with a
-// plausible password and returns all the database's
-// db names.
-// We need to try several passwords because we don't
-// what state the mongo server is in when MgoReset is
-// called. If the test has set a custom password, we're
-// out of luck, but if they are using DefaultStatePassword,
-// we can succeed.
+// plausible password and returns all the database's db names. We need
+// to try several passwords because we don't know what state the mongo
+// server is in when MgoReset is called. If the test has set a custom
+// password, we're out of luck, but if they are using
+// DefaultStatePassword, we can succeed.
 func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
 	// First try with no password
 	dbnames, err := session.DatabaseNames()
