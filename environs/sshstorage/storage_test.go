@@ -13,7 +13,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -30,10 +29,6 @@ type storageSuite struct {
 }
 
 var _ = gc.Suite(&storageSuite{})
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
 	cmd := exec.Command("bash", "-c", command)
