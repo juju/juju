@@ -99,7 +99,7 @@ func (u *Upgrader) Stop() error {
 
 func (u *Upgrader) loop() error {
 	currentTools := &coretools.Tools{Version: version.Current}
-	err := u.st.SetTools(u.tag, currentTools)
+	err := u.st.SetVersion(u.tag, currentTools.Version)
 	if err != nil {
 		return err
 	}

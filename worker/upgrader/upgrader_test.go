@@ -95,7 +95,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	envtesting.CheckTools(c, gotTools, agentTools)
 }
 
-func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-precise-amd64")
 	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))

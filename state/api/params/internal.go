@@ -384,16 +384,12 @@ type ToolsResults struct {
 }
 
 // Version holds a specific binary version.
-//
-// DEPRECATE(v1.18) Remove this and use version.Binary directly.
 type Version struct {
 	Version version.Binary
 }
 
 // EntityVersion specifies the tools version to be set for an entity
 // with the given tag.
-//
-// DEPRECATE(v1.18) Rename Tools field to Version and make it use
 // version.Binary directly.
 type EntityVersion struct {
 	Tag   string
@@ -402,8 +398,6 @@ type EntityVersion struct {
 
 // EntitiesVersion specifies what tools are being run for
 // multiple entities.
-//
-// DEPRECATE(v1.18) Use Versions/Entities instead of AgentTools here.
 type EntitiesVersion struct {
 	AgentTools []EntityVersion
 }

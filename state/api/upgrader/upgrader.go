@@ -24,18 +24,15 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-// SetTools sets the tools associated with the entity
-// with the given tag, which must be the tag
-// of the entity that the upgrader is running
-// on behalf of.
-//
-// DEPRECATE(v1.18) Rename this to SetVersion.
-func (st *State) SetTools(tag string, tools *tools.Tools) error {
+// SetVersion sets the tools version associated with the entity with
+// the given tag, which must be the tag of the entity that the
+// upgrader is running on behalf of.
+func (st *State) SetVersion(tag string, v version.Binary) error {
 	var results params.ErrorResults
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag:   tag,
-			Tools: &params.Version{tools.Version},
+			Tools: &params.Version{v},
 		}},
 	}
 	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)

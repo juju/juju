@@ -57,20 +57,18 @@ func (s *upgraderSuite) TestNew(c *gc.C) {
 	c.Assert(upgrader, gc.NotNil)
 }
 
-func (s *upgraderSuite) TestSetToolsWrongMachine(c *gc.C) {
-	err := s.st.SetTools("42", &tools.Tools{
-		Version: version.Current,
-	})
+func (s *upgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
+	err := s.st.SetVersion("42", version.Current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *upgraderSuite) TestSetTools(c *gc.C) {
+func (s *upgraderSuite) TestSetVersion(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(agentTools, gc.IsNil)
-	err = s.st.SetTools(s.rawMachine.Tag(), &tools.Tools{Version: cur})
+	err = s.st.SetVersion(s.rawMachine.Tag(), cur)
 	c.Assert(err, gc.IsNil)
 	s.rawMachine.Refresh()
 	agentTools, err = s.rawMachine.AgentTools()

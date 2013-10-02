@@ -104,8 +104,6 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 }
 
 // SetTools updates the recorded tools version for the agents.
-//
-// DEPRECATE(v1.18) Rename this to SetVersion.
 func (u *UpgraderAPI) SetTools(args params.EntitiesVersion) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.AgentTools)),
