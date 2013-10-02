@@ -76,7 +76,7 @@ func (s *storageBackend) handleHead(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Location", s.httpsBaseURL+req.URL.Path)
 	} else {
 		http.Error(w, "method HEAD is not supported", http.StatusMethodNotAllowed)
-	    return
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
