@@ -166,43 +166,54 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
-	pollInterval := longPoll
-	if len(m.Addresses()) == 0 {
-		pollInterval = shortPoll
-	}
+	pollInterval := shortPoll
+	checkAddress := true
 	for {
-		instId, err := m.InstanceId()
-		if err != nil {
-			return fmt.Errorf("cannot get machine's instance id: %v", err)
-		}
-		newAddrs, err := context.addresses(instId)
-		if err != nil {
-			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
-		} else if !addressesEqual(m.Addresses(), newAddrs) {
-			if err := m.SetAddresses(newAddrs); err != nil {
-				return fmt.Errorf("cannot set addresses on %q: %v", m, err)
+		if checkAddress {
+			if err := checkMachineAddresses(context, m); err != nil {
+				return err
 			}
-			pollInterval = longPoll
+			if len(m.Addresses()) > 0 {
+				pollInterval = longPoll
+			}
+			checkAddress = false
 		}
 		select {
 		case <-time.After(pollInterval):
+			checkAddress = true
 		case <-context.dying():
 			return nil
 		case <-changed:
 			if err := m.Refresh(); err != nil {
 				return err
 			}
-			// In practice the only event that will trigger
-			// a change is the life state changing to dying or dead,
-			// in which case we return. The logic will still work
-			// if a change is triggered for some other reason,
-			// but we don't mind an extra address check in that case,
-			// seeing as it's unlikely.
 			if m.Life() == state.Dead {
 				return nil
 			}
 		}
 	}
+}
+
+// checkMachineAddresses checks the current provider addresses
+// for the given machine's instance, and sets them
+// on the machine if they've changed.
+func checkMachineAddresses(context machineContext, m machine) error {
+	instId, err := m.InstanceId()
+	if err != nil {
+		return fmt.Errorf("cannot get machine's instance id: %v", err)
+	}
+	newAddrs, err := context.addresses(instId)
+	if err != nil {
+		logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
+		return nil
+	}
+	if addressesEqual(m.Addresses(), newAddrs) {
+		return nil
+	}
+	if err := m.SetAddresses(newAddrs); err != nil {
+		return fmt.Errorf("cannot set addresses on %q: %v", m, err)
+	}
+	return nil
 }
 
 func addressesEqual(a0, a1 []instance.Address) bool {
