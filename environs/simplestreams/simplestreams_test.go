@@ -9,9 +9,11 @@ import (
 	"testing"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *testing.T) {
@@ -282,6 +284,47 @@ func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *gc.C) {
 	})
 
 	c.Check(dotOFormats, gc.DeepEquals, simplestreams.IndexMetadataSlice{array[0], array[2]})
+}
+
+func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
+	sources := []simplestreams.DataSource{
+		simplestreams.NewURLDataSource("test:/daily", simplestreams.VerifySSLHostnames),
+		simplestreams.NewURLDataSource("test:/daily", simplestreams.VerifySSLHostnames),
+	}
+	params := simplestreams.ValueParams{DataType: "image-ids"}
+	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Series: []string{"precise"}, // never match
+		Arches: []string{"arm"},
+	})
+
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("filter-tester")
+
+	items, err := simplestreams.GetMetadata(
+		sources,
+		simplestreams.DefaultIndexPath,
+		constraint,
+		false,
+		params,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(items, gc.HasLen, 0)
+	messages := []jc.SimpleMessage{
+		{loggo.DEBUG, "cannot find URL.*sjson"},
+		{loggo.DEBUG, "cannot load index.*sjson"},
+		{loggo.DEBUG, "read metadata index at.*index\\.json"},
+		{loggo.DEBUG, "index file has no data for product name"},
+	}
+	// We should get duplicates of the messages, as the first
+	// data source returns nothing, causing GetMetadata to
+	// attempt the next one.
+	messages = append(messages, messages...)
+	c.Check(tw.Log, jc.LogMatches, messages)
 }
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {

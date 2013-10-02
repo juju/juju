@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/errors"
-	"path"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")
@@ -403,7 +403,7 @@ func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstrai
 		if err != nil && len(items) == 0 && !onlySigned {
 			items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
 		}
-		if err == nil {
+		if err == nil && len(items) != 0 {
 			break
 		}
 	}
