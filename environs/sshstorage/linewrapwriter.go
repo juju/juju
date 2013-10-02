@@ -19,7 +19,9 @@ type lineWrapWriter struct {
 //
 // Note: there is no special consideration for input that
 // already contains newlines; this will simply add newlines
-// after every "lineLength" bytes.
+// after every "lineLength" bytes. Moreover it gives no
+// consideration to multibyte utf-8 characters, which it can split
+// arbitrarily.
 //
 // This is currently only appropriate for wrapping base64-encoded
 // data, which is why it lives here.
