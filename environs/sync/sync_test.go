@@ -56,9 +56,6 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	// It's important that this be v1.8.x to match the test data.
 	version.Current.Number = version.MustParse("1.8.3")
 
-	// We only want to use simplestreams to find any synced tools.
-	envtools.UseLegacyFallback = false
-
 	// Create a target environments.yaml.
 	s.home = coretesting.MakeFakeHome(c, `
 environments:
@@ -79,20 +76,11 @@ environments:
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
-	// Populate the old tools location which will interfere with the uploads
-	// if the new tools locations are not correctly set up.
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	for _, vers := range v180all {
-		envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), vers)
-	}
-
-	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	// Populate both with the public tools.
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
 		putBinary(c, s.localStorage, vers)
 	}
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 
 	// Switch tools location.
 	s.origLocation = sync.DefaultToolsLocation
@@ -101,8 +89,6 @@ environments:
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
 	c.Assert(s.storage.Stop(), gc.IsNil)
-	envtools.UseLegacyFallback = true
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
 	s.home.Restore()
@@ -192,7 +178,6 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			envtools.SetToolPrefix(envtools.NewToolPrefix)
 			targetTools, err := envtools.FindTools(
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
@@ -260,7 +245,6 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
-	envtools.UseLegacyFallback = false
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg, configstore.NewMem())
@@ -269,7 +253,6 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	envtools.UseLegacyFallback = true
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }

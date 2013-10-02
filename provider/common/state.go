@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package common
 
 import (
 	"bytes"
@@ -80,7 +80,7 @@ func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(stor, StateFile)
 	if err != nil {
 		if coreerrors.IsNotFoundError(err) {
-			return nil, coreerrors.NewNotBootstrappedError(err, "environment is not bootstrapped")
+			return nil, environs.ErrNotBootstrapped
 		}
 		return nil, err
 	}

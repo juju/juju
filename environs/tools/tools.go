@@ -10,57 +10,12 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
-
-// NewFindTools returns a List containing all tools with a given
-// major.minor version number available at the data sources, filtered by filter.
-// It is called NewFindTools because the legacy functionality is still present
-// but deprecated. Once the legacy find tools is removed, this will be renamed.
-// If minorVersion = -1, then only majorVersion is considered.
-// At each URL, simplestreams metadata is used to search for the tools.
-// If no *available* tools have the supplied major.minor version number, or match the
-// supplied filter, the function returns a *NotFoundError.
-func NewFindTools(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
-	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
-
-	toolsConstraint, err := makeToolsConstraint(cloudSpec, majorVersion, minorVersion, filter)
-	if err != nil {
-		return nil, err
-	}
-	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
-	if err != nil {
-		return nil, err
-	}
-	if len(toolsMetadata) == 0 {
-		return nil, coretools.ErrNoMatches
-	}
-	list = make(coretools.List, len(toolsMetadata))
-	for i, metadata := range toolsMetadata {
-		binary := version.Binary{
-			Number: version.MustParse(metadata.Version),
-			Arch:   metadata.Arch,
-			Series: metadata.Release,
-		}
-		list[i] = &coretools.Tools{
-			Version: binary,
-			URL:     metadata.FullPath,
-			Size:    metadata.Size,
-			SHA256:  metadata.SHA256,
-		}
-	}
-	if filter.Series != "" {
-		if err := checkToolsSeries(list, filter.Series); err != nil {
-			return nil, err
-		}
-	}
-	return list, err
-}
 
 func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorVersion int,
 	filter coretools.Filter) (*ToolsConstraint, error) {
@@ -103,11 +58,6 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 	toolsConstraint.Series = seriesToSearch
 	return toolsConstraint, nil
 }
-
-// UseLegacyFallback is true is we try loading the tools from the env storage if the
-// new lookup using simplestreams fails.
-// Tests can turn off this feature.
-var UseLegacyFallback = true
 
 // Define some boolean parameter values.
 const DoNotAllowRetry = false
@@ -152,14 +102,40 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
 	if err != nil {
 		return nil, err
 	}
-	list, err = NewFindTools(sources, cloudSpec, majorVersion, minorVersion, filter)
-	if UseLegacyFallback && (err != nil || len(list) == 0) {
-		logger.Warningf("no tools found using simplestreams metadata, using legacy fallback")
-		if env, ok := cloudInst.(environs.Environ); ok {
-			list, err = LegacyFindTools(
-				[]storage.StorageReader{env.Storage(), env.PublicStorage()}, majorVersion, minorVersion, filter)
-		} else {
-			return nil, fmt.Errorf("cannot find legacy tools without an environment")
+	return findTools(sources, cloudSpec, majorVersion, minorVersion, filter)
+}
+
+func findTools(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
+	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+
+	toolsConstraint, err := makeToolsConstraint(cloudSpec, majorVersion, minorVersion, filter)
+	if err != nil {
+		return nil, err
+	}
+	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(toolsMetadata) == 0 {
+		return nil, coretools.ErrNoMatches
+	}
+	list = make(coretools.List, len(toolsMetadata))
+	for i, metadata := range toolsMetadata {
+		binary := version.Binary{
+			Number: version.MustParse(metadata.Version),
+			Arch:   metadata.Arch,
+			Series: metadata.Release,
+		}
+		list[i] = &coretools.Tools{
+			Version: binary,
+			URL:     metadata.FullPath,
+			Size:    metadata.Size,
+			SHA256:  metadata.SHA256,
+		}
+	}
+	if filter.Series != "" {
+		if err := checkToolsSeries(list, filter.Series); err != nil {
+			return nil, err
 		}
 	}
 	return list, err

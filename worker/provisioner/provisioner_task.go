@@ -8,13 +8,16 @@ import (
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 )
@@ -315,29 +318,23 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 }
 
 func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
-	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
-	if err != nil {
-		logger.Errorf("failed to setup authentication: %v", err)
-		return err
-	}
 	cons, err := machine.Constraints()
 	if err != nil {
 		return err
 	}
-	// Generate a unique nonce for the new instance.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return err
-	}
-	// Generated nonce has the format: "machine-#:UUID". The first
-	// part is a badge, specifying the tag of the machine the provisioner
-	// is running on, while the second part is a random UUID.
-	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
 	series, err := machine.Series()
 	if err != nil {
 		return err
 	}
-	inst, metadata, err := provider.StartInstance(task.broker, machine.Id(), nonce, series, cons, stateInfo, apiInfo)
+	possibleTools, err := task.possibleTools(series, cons)
+	if err != nil {
+		return err
+	}
+	machineConfig, err := task.machineConfig(machine)
+	if err != nil {
+		return err
+	}
+	inst, metadata, err := task.broker.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
@@ -350,6 +347,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		}
 		return nil
 	}
+	nonce := machineConfig.MachineNonce
 	if err := machine.SetProvisioned(inst.Id(), nonce, metadata); err != nil {
 		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
 		// The machine is started, but we can't record the mapping in
@@ -368,4 +366,36 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	}
 	logger.Infof("started machine %s as instance %s with hardware %q", machine, inst.Id(), metadata)
 	return nil
+}
+
+func (task *provisionerTask) possibleTools(series string, cons constraints.Value) (coretools.List, error) {
+	if env, ok := task.broker.(environs.Environ); ok {
+		agentVersion, ok := env.Config().AgentVersion()
+		if !ok {
+			return nil, fmt.Errorf("no agent version set in environment configuration")
+		}
+		return tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
+	}
+	if hasTools, ok := task.broker.(coretools.HasTools); ok {
+		return hasTools.Tools(), nil
+	}
+	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
+}
+
+func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cloudinit.MachineConfig, error) {
+	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
+	if err != nil {
+		logger.Errorf("failed to setup authentication: %v", err)
+		return nil, err
+	}
+	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
+	// The first part is a badge, specifying the tag of the machine the provisioner
+	// is running on, while the second part is a random UUID.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
+	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, stateInfo, apiInfo)
+	return machineConfig, nil
 }

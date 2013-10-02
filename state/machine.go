@@ -39,18 +39,27 @@ const (
 	JobManageState
 )
 
-var jobNames = []params.MachineJob{
+var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
 	JobManageState:   params.JobManageState,
 }
 
-func (job MachineJob) String() string {
-	j := int(job)
-	if j <= 0 || j >= len(jobNames) {
-		return fmt.Sprintf("<unknown job %d>", j)
+// AllJobs returns all supported machine jobs.
+func AllJobs() []MachineJob {
+	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+}
+
+// ToParams returns the job as params.MachineJob.
+func (job MachineJob) ToParams() params.MachineJob {
+	if paramsJob, ok := jobNames[job]; ok {
+		return paramsJob
 	}
-	return string(jobNames[j])
+	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+}
+
+func (job MachineJob) String() string {
+	return string(job.ToParams())
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -122,6 +131,7 @@ type instanceData struct {
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
+	Tags       *[]string   `bson:"tags,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
 }
 
@@ -137,6 +147,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	hc.RootDisk = instData.RootDisk
 	hc.CpuCores = instData.CpuCores
 	hc.CpuPower = instData.CpuPower
+	hc.Tags = instData.Tags
 	return hc, nil
 }
 
@@ -562,6 +573,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		RootDisk:   characteristics.RootDisk,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
+		Tags:       characteristics.Tags,
 	}
 	// SCHEMACHANGE
 	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
@@ -702,13 +714,14 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.Status, info string, err error) {
+func (m *Machine) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	status = doc.Status
 	info = doc.StatusInfo
+	data = doc.StatusData
 	return
 }
 

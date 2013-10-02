@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -77,12 +78,12 @@ func (env *maasEnviron) Name() string {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	return common.Bootstrap(env, cons, possibleTools, machineID)
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
@@ -153,6 +154,9 @@ func convertConstraints(cons constraints.Value) url.Values {
 	}
 	if cons.Mem != nil {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
+	}
+	if cons.Tags != nil && len(*cons.Tags) > 0 {
+		params.Add("tags", strings.Join(*cons.Tags, ","))
 	}
 	// TODO(bug 1212689): ignore root-disk constraint for now.
 	if cons.RootDisk != nil {

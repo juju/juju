@@ -20,11 +20,8 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -65,54 +62,6 @@ type JujuConnSuite struct {
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
-}
-
-// FakeStateInfo holds information about no state - it will always
-// give an error when connected to.  The machine id gives the machine id
-// of the machine to be started.
-func FakeStateInfo(machineId string) *state.Info {
-	return &state.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.MachineTag(machineId),
-		Password: "unimportant",
-		CACert:   []byte(testing.CACert),
-	}
-}
-
-// FakeAPIInfo holds information about no state - it will always
-// give an error when connected to.  The machine id gives the machine id
-// of the machine to be started.
-func FakeAPIInfo(machineId string) *api.Info {
-	return &api.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.MachineTag(machineId),
-		Password: "unimportant",
-		CACert:   []byte(testing.CACert),
-	}
-}
-
-// StartInstance is a test helper function that starts an instance on the
-// environment using the current series and invalid info states.
-func StartInstance(c *gc.C, env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics) {
-	return StartInstanceWithConstraints(c, env, machineId, constraints.Value{})
-}
-
-// StartInstanceWithConstraints is a test helper function that starts an instance on the
-// environment with the specified constraints, using the current series and invalid info states.
-func StartInstanceWithConstraints(c *gc.C, env environs.Environ, machineId string,
-	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
-	series := config.DefaultSeries
-	inst, metadata, err := provider.StartInstance(
-		env,
-		machineId,
-		"fake_nonce",
-		series,
-		cons,
-		FakeStateInfo(machineId),
-		FakeAPIInfo(machineId),
-	)
-	c.Assert(err, gc.IsNil)
-	return inst, metadata
 }
 
 const AdminSecret = "dummy-secret"
@@ -199,7 +148,7 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 // and then uses that to open the API. The returned *api.State should not be
 // closed by the caller as a cleanup function has been registered to do that.
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
@@ -244,6 +193,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+
+	envtesting.MustUploadFakeTools(environ.Storage())
 	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -321,7 +272,7 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:series/" + ident)
+	curl := charm.MustParseURL("local:quantal/" + ident)
 	repo, err := charm.InferRepository(curl, testing.Charms.Path)
 	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)

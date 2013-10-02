@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
@@ -95,7 +96,11 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {
-		environ, err := environs.NewFromName(c.EnvName)
+		store, err := configstore.Default()
+		if err != nil {
+			return err
+		}
+		environ, err := environs.NewFromName(c.EnvName, store)
 		if err != nil {
 			return err
 		}

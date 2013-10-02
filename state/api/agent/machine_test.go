@@ -70,18 +70,14 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(s.machine.PasswordValid("bar"), gc.Equals, false)
 	c.Assert(s.machine.PasswordValid("foo"), gc.Equals, true)
 
-	// Check that we cannot log in to mongo with the wrong password.
+	// Check that we cannot log in to mongo with the correct password.
+	// This is because there's no mongo password set for s.machine,
+	// which has JobHostUnits
 	info := s.StateInfo(c)
 	info.Tag = entity.Tag()
-	info.Password = "bar"
+	info.Password = "foo"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
-
-	// Check that we can log in with the correct password
-	info.Password = "foo"
-	st, err := state.Open(info, state.DialOpts{})
-	c.Assert(err, gc.IsNil)
-	st.Close()
 }
 
 func tryOpenState(info *state.Info) error {

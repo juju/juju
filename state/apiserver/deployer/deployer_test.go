@@ -52,10 +52,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobManageState, state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))

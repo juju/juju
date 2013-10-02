@@ -20,9 +20,8 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -147,7 +146,7 @@ func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) err
 func (*azureEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.
-	return coreerrors.NewContainersUnsupported(nil, "azure provider does not support containers")
+	return environs.NewContainersUnsupported("azure provider does not support containers")
 }
 
 // Name is specified in the Environ interface.
@@ -268,13 +267,13 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	err = common.Bootstrap(env, cons, possibleTools, machineID)
 	return err
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
@@ -917,7 +916,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
+	// Add the simplestreams source off the control bucket and public location.
 	sources := []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath),
 		simplestreams.NewURLDataSource(

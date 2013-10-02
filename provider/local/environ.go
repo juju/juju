@@ -26,11 +26,10 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -119,7 +118,7 @@ func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) err
 func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.
-	return coreerrors.NewContainersUnsupported(nil, "local provider does not support nested containers")
+	return environs.NewContainersUnsupported("local provider does not support nested containers")
 }
 
 // Bootstrap is specified in the Environ interface.
@@ -146,7 +145,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
 	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := provider.SaveState(env.Storage(), &provider.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+	if err := common.SaveState(env.Storage(), &common.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -172,7 +171,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 // StateInfo is specified in the Environ interface.
 func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
