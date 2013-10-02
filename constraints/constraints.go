@@ -44,6 +44,23 @@ type Value struct {
 	// time, an instance with the specified amount of disk space in the OS
 	// disk might be requested.
 	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"root-disk,omitempty"`
+
+	// Tags, if not nil, indicates tags that the machine must have applied to it.
+	// An empty list is treated the same as a nil (unspecified) list, except an
+	// empty list will override any default tags, where a nil list will not.
+	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+}
+
+// IsEmpty returns if the given constraints value has no constraints set
+func IsEmpty(v *Value) bool {
+	return v == nil ||
+		v.Arch == nil &&
+			v.Container == nil &&
+			v.CpuCores == nil &&
+			v.CpuPower == nil &&
+			v.Mem == nil &&
+			v.RootDisk == nil &&
+			v.Tags == nil
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -75,6 +92,10 @@ func (v Value) String() string {
 		}
 		strs = append(strs, "root-disk="+s)
 	}
+	if v.Tags != nil {
+		s := strings.Join(*v.Tags, ",")
+		strs = append(strs, "tags="+s)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -98,6 +119,9 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	}
 	if v.RootDisk != nil {
 		v1.RootDisk = v.RootDisk
+	}
+	if v.Tags != nil {
+		v1.Tags = v.Tags
 	}
 	return v1
 }
@@ -177,6 +201,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setMem(str)
 	case "root-disk":
 		err = v.setRootDisk(str)
+	case "tags":
+		err = v.setTags(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -192,7 +218,10 @@ func (v *Value) setRaw(raw string) error {
 // YAML decode determines that *string and *ContainerType are not assignable so
 // the container value of "" in the YAML is ignored.
 func (v *Value) SetYAML(tag string, value interface{}) bool {
-	values := value.(map[interface{}]interface{})
+	values, ok := value.(map[interface{}]interface{})
+	if !ok {
+		return false
+	}
 	for k, val := range values {
 		vstr := fmt.Sprintf("%v", val)
 		var err error
@@ -210,6 +239,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			v.Mem, err = parseUint64(vstr)
 		case "root-disk":
 			v.RootDisk, err = parseUint64(vstr)
+		case "tags":
+			v.Tags, err = parseYamlTags(val)
 		default:
 			return false
 		}
@@ -288,6 +319,14 @@ func (v *Value) setRootDisk(str string) (err error) {
 	return
 }
 
+func (v *Value) setTags(str string) error {
+	if v.Tags != nil {
+		return fmt.Errorf("already set")
+	}
+	v.Tags = parseTags(str)
+	return nil
+}
+
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
@@ -316,6 +355,31 @@ func parseSize(str string) (*uint64, error) {
 		value = uint64(math.Ceil(val))
 	}
 	return &value, nil
+}
+
+// parseTags returns the tags in the value s.  We expect the tags to be comma delimited strings.
+func parseTags(s string) *[]string {
+	if s == "" {
+		return &[]string{}
+	}
+	t := strings.Split(s, ",")
+	return &t
+}
+
+func parseYamlTags(val interface{}) (*[]string, error) {
+	ifcs, ok := val.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected type passed to tags: %T", val)
+	}
+	tags := make([]string, len(ifcs))
+	for n, ifc := range ifcs {
+		s, ok := ifc.(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected type passed as a tag: %T", ifc)
+		}
+		tags[n] = s
+	}
+	return &tags, nil
 }
 
 var mbSuffixes = map[string]float64{

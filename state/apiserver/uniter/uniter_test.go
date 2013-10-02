@@ -51,9 +51,9 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.wordpress, err = s.State.AddService("wordpress", s.wpCharm)
 	c.Assert(err, gc.IsNil)
@@ -124,12 +124,12 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, err := s.mysqlUnit.Status()
+	status, info, _, err := s.mysqlUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, err = s.wordpressUnit.Status()
+	status, info, _, err = s.wordpressUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foobar")
@@ -678,9 +678,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
-		{Tag: "unit-mysql-0", CharmURL: "cs:series/service-42"},
+		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/service-42"},
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
-		{Tag: "unit-foo-42", CharmURL: "cs:series/foo-321"},
+		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
 	}}
 	result, err := s.uniter.SetCharmURL(args)
 	c.Assert(err, gc.IsNil)

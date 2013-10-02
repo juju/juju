@@ -264,7 +264,7 @@ var bootstrapTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -272,7 +272,7 @@ var bootstrapTests = []uniterTest{
 			coretesting.Server.Response(404, nil, nil)
 		}},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:series/wordpress-0: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
 	),
 }
 
@@ -300,6 +300,9 @@ var installHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
+			data: params.StatusData{
+				"hook": "install",
+			},
 		},
 		waitHooks{"fail-install"},
 		fixHook{"install"},
@@ -338,6 +341,9 @@ var startHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
+			data: params.StatusData{
+				"hook": "start",
+			},
 		},
 		waitHooks{"fail-start"},
 		verifyWaiting{},
@@ -365,22 +371,31 @@ var multipleErrorsTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
+			data: params.StatusData{
+				"hook": "install",
+			},
 		},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
+			data: params.StatusData{
+				"hook": "config-changed",
+			},
 		},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
+			data: params.StatusData{
+				"hook": "start",
+			},
 		},
 	),
 }
 
 func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
-	s.runUniterTests(c, startHookTests)
+	s.runUniterTests(c, multipleErrorsTests)
 }
 
 var configChangedHookTests = []uniterTest{
@@ -411,6 +426,9 @@ var configChangedHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
+			data: params.StatusData{
+				"hook": "config-changed",
+			},
 		},
 		waitHooks{"fail-config-changed"},
 		verifyWaiting{},
@@ -573,7 +591,10 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook": "upgrade-charm",
+			},
+			charm: 1,
 		},
 		waitHooks{"fail-upgrade-charm"},
 		verifyCharm{revision: 1},
@@ -594,7 +615,10 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook": "upgrade-charm",
+			},
+			charm: 1,
 		},
 		waitHooks{"fail-upgrade-charm"},
 		verifyCharm{revision: 1},
@@ -604,7 +628,10 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook": "upgrade-charm",
+			},
+			charm: 1,
 		},
 		waitHooks{"fail-upgrade-charm"},
 		verifyWaiting{},
@@ -656,6 +683,9 @@ var errorUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
+			data: params.StatusData{
+				"hook": "start",
+			},
 		},
 		waitHooks{},
 		verifyCharm{},
@@ -682,7 +712,10 @@ var errorUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
-			charm:  1,
+			data: params.StatusData{
+				"hook": "start",
+			},
+			charm: 1,
 		},
 		// ...because the uniter *will* complete a started deployment even if
 		// we stop it from outside. So, by stopping and starting, we can be
@@ -893,6 +926,66 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 	s.runUniterTests(c, relationsTests)
 }
 
+var relationsErrorTests = []uniterTest{
+	ut(
+		"hook error during join of a relation",
+		startupRelationError{"db-relation-joined"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-joined"`,
+			data: params.StatusData{
+				"hook":        "db-relation-joined",
+				"relation-id": 0,
+				"remote-unit": "mysql/0",
+			},
+		},
+	), ut(
+		"hook error during change of a relation",
+		startupRelationError{"db-relation-changed"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-changed"`,
+			data: params.StatusData{
+				"hook":        "db-relation-changed",
+				"relation-id": 0,
+				"remote-unit": "mysql/0",
+			},
+		},
+	), ut(
+		"hook error after a unit departed",
+		startupRelationError{"db-relation-departed"},
+		waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
+		removeRelationUnit{"mysql/0"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-departed"`,
+			data: params.StatusData{
+				"hook":        "db-relation-departed",
+				"relation-id": 0,
+				"remote-unit": "mysql/0",
+			},
+		},
+	),
+	ut(
+		"hook error after a relation died",
+		startupRelationError{"db-relation-broken"},
+		waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
+		relationDying,
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "db-relation-broken"`,
+			data: params.StatusData{
+				"hook":        "db-relation-broken",
+				"relation-id": 0,
+			},
+		},
+	),
+}
+
+func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
+	s.runUniterTests(c, relationsErrorTests)
+}
+
 var subordinatesTests = []uniterTest{
 	// Subordinates.
 	ut(
@@ -957,7 +1050,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
-	curl, err := charm.ParseURL("cs:series/logging")
+	curl, err := charm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
@@ -1278,6 +1371,21 @@ func (s quickStartRelation) step(c *gc.C, ctx *context) {
 	step(c, ctx, verifyRunning{})
 }
 
+type startupRelationError struct {
+	badHook string
+}
+
+func (s startupRelationError) step(c *gc.C, ctx *context) {
+	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
+	step(c, ctx, serveCharm{})
+	step(c, ctx, createUniter{})
+	step(c, ctx, waitUnit{status: params.StatusStarted})
+	step(c, ctx, waitHooks{"install", "config-changed", "start"})
+	step(c, ctx, verifyCharm{})
+	step(c, ctx, addRelation{})
+	step(c, ctx, addRelationUnit{})
+}
+
 type resolveError struct {
 	resolved state.ResolvedMode
 }
@@ -1290,6 +1398,7 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 type waitUnit struct {
 	status   params.Status
 	info     string
+	data     params.StatusData
 	charm    int
 	resolved state.ResolvedMode
 }
@@ -1318,7 +1427,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, err := ctx.unit.Status()
+			status, info, data, err := ctx.unit.Status()
 			c.Assert(err, gc.IsNil)
 			if status != s.status {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
@@ -1327,6 +1436,19 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 			if info != s.info {
 				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
 				continue
+			}
+			if s.data != nil {
+				if len(data) != len(s.data) {
+					c.Logf("want %d unit status data value(s), got %d; still waiting", len(s.data), len(data))
+					continue
+				}
+				for key, value := range s.data {
+					if data[key] != value {
+						c.Logf("want unit status data value %q for key %q, got %q; still waiting",
+							value, key, data[key])
+						continue
+					}
+				}
 			}
 			return
 		case <-timeout:
@@ -1695,7 +1817,7 @@ var subordinateDying = custom{func(c *gc.C, ctx *context) {
 }}
 
 func curl(revision int) *charm.URL {
-	return charm.MustParseURL("cs:series/wordpress").WithRevision(revision)
+	return charm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
 }
 
 func appendHook(c *gc.C, charm, name, data string) {

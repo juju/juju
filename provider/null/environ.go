@@ -17,10 +17,12 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sshstorage"
 	"launchpad.net/juju-core/environs/storage"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -44,9 +46,14 @@ const (
 var logger = loggo.GetLogger("juju.provider.null")
 
 type nullEnviron struct {
-	cfg      *environConfig
-	cfgmutex sync.Mutex
+	cfg                   *environConfig
+	cfgmutex              sync.Mutex
+	bootstrapStorage      *sshstorage.SSHStorage
+	bootstrapStorageMutex sync.Mutex
 }
+
+var _ environs.BootstrapStorager = (*nullEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*nullEnviron)(nil)
 
 var errNoStartInstance = errors.New("null provider cannot start instances")
 var errNoStopInstance = errors.New("null provider cannot stop instances")
@@ -89,7 +96,7 @@ func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List, m
 }
 
 func (e *nullEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 func (e *nullEnviron) SetConfig(cfg *config.Config) error {
@@ -126,15 +133,39 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	return instances, err
 }
 
-// Implements environs/bootstrap.BootstrapStorage.
-func (e *nullEnviron) BootstrapStorage() (storage.Storage, error) {
+// Implements environs.BootstrapStorager.
+func (e *nullEnviron) EnableBootstrapStorage() error {
+	e.bootstrapStorageMutex.Lock()
+	defer e.bootstrapStorageMutex.Unlock()
+	if e.bootstrapStorage != nil {
+		return nil
+	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	return sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	bootstrapStorage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	if err != nil {
+		return err
+	}
+	e.bootstrapStorage = bootstrapStorage
+	return nil
+}
+
+// GetToolsSources returns a list of sources which are
+// used to search for simplestreams tools metadata.
+func (e *nullEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off private storage.
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+	}, nil
 }
 
 func (e *nullEnviron) Storage() storage.Storage {
+	e.bootstrapStorageMutex.Lock()
+	defer e.bootstrapStorageMutex.Unlock()
+	if e.bootstrapStorage != nil {
+		return e.bootstrapStorage
+	}
 	caCertPEM, caKeyPEM := e.StorageCACert(), e.StorageCAKey()
 	if caCertPEM != nil && caKeyPEM != nil {
 		authkey := e.StorageAuthKey()

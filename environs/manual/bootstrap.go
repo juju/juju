@@ -11,7 +11,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/localstorage"
@@ -23,7 +23,6 @@ const BootstrapInstanceId = instance.Id(manualInstancePrefix)
 // manages its own local storage.
 type LocalStorageEnviron interface {
 	environs.Environ
-	environs.BootstrapStorager
 	localstorage.LocalStorageConfig
 }
 
@@ -64,11 +63,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	bootstrapStorage, err := args.Environ.BootstrapStorage()
-	if err != nil {
-		return err
-	}
-
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
 	if err != nil {
 		return fmt.Errorf("error detecting hardware characteristics: %v", err)
@@ -86,9 +80,10 @@ func Bootstrap(args BootstrapArgs) (err error) {
 
 	// Store the state file. If provisioning fails, we'll remove the file.
 	logger.Infof("Saving bootstrap state file to bootstrap storage")
-	err = provider.SaveState(
+	bootstrapStorage := args.Environ.Storage()
+	err = common.SaveState(
 		bootstrapStorage,
-		&provider.BootstrapState{
+		&common.BootstrapState{
 			StateInstances:  []instance.Id{BootstrapInstanceId},
 			Characteristics: []instance.HardwareCharacteristics{hc},
 		},
@@ -99,13 +94,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	defer func() {
 		if err != nil {
 			logger.Errorf("bootstrapping failed, removing state file: %v", err)
-			bootstrapStorage.Remove(provider.StateFile)
+			bootstrapStorage.Remove(common.StateFile)
 		}
 	}()
-
-	// Set the new tools prefix so StorageName returns the right thing.
-	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer restore()
 
 	// Get a file:// scheme tools URL for the tools, which will have been
 	// copied to the remote machine's storage directory.
@@ -121,7 +112,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Finally, provision the machine agent.
-	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, provider.StateFile)
+	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, common.StateFile)
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:          args.Host,
 		dataDir:       args.DataDir,

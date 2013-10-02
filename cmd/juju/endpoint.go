@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 )
 
 // EndpointCommand returns the API endpoints
@@ -46,15 +47,17 @@ func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Print out the addresses of the API server endpoints.
 func (c *EndpointCommand) Run(ctx *cmd.Context) error {
-	environ, err := environs.NewFromName(c.EnvName)
+	store, err := configstore.Default()
 	if err != nil {
 		return err
 	}
-
+	environ, err := environs.NewFromName(c.EnvName, store)
+	if err != nil {
+		return err
+	}
 	_, api_info, err := environ.StateInfo()
 	if err != nil {
 		return err
 	}
-
 	return c.out.Write(ctx, api_info.Addrs)
 }

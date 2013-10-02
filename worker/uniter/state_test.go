@@ -19,7 +19,7 @@ type StateFileSuite struct{}
 
 var _ = gc.Suite(&StateFileSuite{})
 
-var stcurl = charm.MustParseURL("cs:series/service-name-123")
+var stcurl = charm.MustParseURL("cs:quantal/service-name-123")
 var relhook = &hook.Info{
 	Kind:       hooks.RelationJoined,
 	RemoteUnit: "some-thing/123",

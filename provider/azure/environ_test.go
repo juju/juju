@@ -27,9 +27,8 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -481,7 +480,7 @@ func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	_, _, err := env.StateInfo()
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *environSuite) TestStateInfo(c *gc.C) {
@@ -491,9 +490,9 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	}})
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	err := provider.SaveState(
+	err := common.SaveState(
 		env.Storage(),
-		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&common.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -822,9 +821,9 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := provider.SaveState(
+	err := common.SaveState(
 		env.Storage(),
-		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -843,9 +842,9 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := provider.SaveState(
+	err := common.SaveState(
 		env.Storage(),
-		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)

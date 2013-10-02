@@ -74,7 +74,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(annotations, gc.HasLen, 0)
 	cons, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {

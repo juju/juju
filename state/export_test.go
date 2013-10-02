@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -129,7 +128,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "series", testing.Charms.Dir(name))
+	return addCharm(c, st, "quantal", testing.Charms.Dir(name))
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
@@ -181,24 +180,4 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 
 func ParseTag(st *State, tag string) (string, string, error) {
 	return st.parseTag(tag)
-}
-
-// StatusData returns the additional status data of a machine.
-// Outside the tests it is returned by a watcher.
-func MachineStatusData(m *Machine) (params.StatusData, error) {
-	doc, err := getStatus(m.st, m.globalKey())
-	if err != nil {
-		return nil, err
-	}
-	return doc.StatusData, nil
-}
-
-// StatusData returns the additional status data of a unit.
-// Outside the tests it is returned by a watcher.
-func UnitStatusData(u *Unit) (params.StatusData, error) {
-	doc, err := getStatus(u.st, u.globalKey())
-	if err != nil {
-		return nil, err
-	}
-	return doc.StatusData, nil
 }

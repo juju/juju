@@ -154,18 +154,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Constraints, gc.DeepEquals, cons)
 
-				// Check we can connect to the state with
-				// the machine's entity name and password.
-				info := s.StateInfo(c)
-				info.Tag = m.Tag()
-				c.Assert(o.Info.Password, gc.Not(gc.HasLen), 0)
-				info.Password = o.Info.Password
-				c.Assert(o.Info, gc.DeepEquals, info)
-				// Check we can connect to the state with
-				// the machine's entity name and password.
-				st, err := state.Open(o.Info, state.DefaultDialOpts())
-				c.Assert(err, gc.IsNil)
-
 				// All provisioned machines in this test suite have their hardware characteristics
 				// attributes set to the same values as the constraints due to the dummy environment being used.
 				hc, err := m.HardwareCharacteristics()
@@ -176,8 +164,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 					RootDisk: cons.RootDisk,
 					CpuCores: cons.CpuCores,
 					CpuPower: cons.CpuPower,
+					Tags:     cons.Tags,
 				})
-				st.Close()
 				return
 			default:
 				c.Logf("ignoring unexpected operation %#v", o)
@@ -306,7 +294,7 @@ func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 
 	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	s.APILogin(c, machine)
@@ -374,7 +362,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, err := m.Status()
+		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
 		if status == params.StatusPending {
 			time.Sleep(coretesting.ShortWait)

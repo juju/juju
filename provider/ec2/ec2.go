@@ -25,9 +25,8 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -95,6 +94,7 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 		hc.RootDisk = &inst.instType.RootDisk
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		// Tags currently not supported by EC2
 	}
 	return hc
 }
@@ -166,7 +166,7 @@ func (inst *ec2Instance) DNSName() (string, error) {
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -317,7 +317,7 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value) error 
 func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
-	return coreerrors.NewContainersUnsupported(nil, "ec2 provider does not support containers")
+	return environs.NewContainersUnsupported("ec2 provider does not support containers")
 }
 
 func (e *environ) Name() string {
@@ -341,11 +341,11 @@ func (e *environ) PublicStorage() storage.StorageReader {
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -1003,6 +1003,10 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+	// Add the simplestreams source off the control bucket and public location.
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+		simplestreams.NewURLDataSource(
+			"https://juju-dist.s3.amazonaws.com/tools", simplestreams.VerifySSLHostnames)}
+	return sources, nil
 }
