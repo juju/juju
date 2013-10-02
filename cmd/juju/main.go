@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.cmd.juju")
 
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, or bare metal.
+such as OpenStack, Amazon AWS, Windows Azure, HP Cloud, or bare metal.
 
 https://juju.ubuntu.com/
 `
@@ -50,10 +50,16 @@ func Main(args []string) {
 		MissingCallback: RunPlugin,
 	})
 	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
-	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider", helpLocalProvider)
-	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider", helpOpenstackProvider)
-	jujucmd.AddHelpTopic("aws", "How to configure an AWS (EC2) provider", helpEC2Provider)
-	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider", helpHPCloud)
+	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider",
+		helpProviderStart+helpLocalProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider",
+		helpProviderStart+helpOpenstackProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("ec2", "How to configure an Amazon EC2 provider",
+		helpProviderStart+helpEC2Provider+helpProviderEnd)
+	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider",
+		helpProviderStart+helpHPCloud+helpProviderEnd)
+	jujucmd.AddHelpTopic("azure", "How to configure a Windows Azure provider",
+		helpProviderStart+helpAzureProvider+helpProviderEnd)
 	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
