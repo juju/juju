@@ -72,12 +72,11 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) error {
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Host:          e.envConfig().sshHost(),
 		DataDir:       dataDir,
 		Environ:       e,
-		MachineId:     machineID,
 		PossibleTools: possibleTools,
 	})
 }
