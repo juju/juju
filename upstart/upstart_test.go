@@ -41,13 +41,13 @@ func (s *UpstartSuite) TearDownTest(c *gc.C) {
 
 var checkargs = `
 #!/bin/bash
-if [ "$1" == "--system" ]; then
-  shift
-fi
-if [ "$1" != "some-service" ]; then
+if [ "$1" != "--system" ]; then
   exit 255
 fi
-if [ "$2" != "" ]; then
+if [ "$2" != "some-service" ]; then
+  exit 255
+fi
+if [ "$3" != "" ]; then
   exit 255
 fi
 `[1:]
