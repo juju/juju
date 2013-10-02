@@ -47,6 +47,8 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -78,7 +80,7 @@ func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// and checking that the connection happens within that
 	// time.
 	defer testbase.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName, nil)
+	bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
 	apiclient, err := juju.NewAPIClientFromName("")
@@ -93,7 +95,7 @@ func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	envName := coretesting.SampleCertName + "-2"
-	bootstrapEnv(c, envName, nil)
+	bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer apiclient.Close()
@@ -180,12 +182,9 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName, nil)
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"infoapi.com"},
-		},
-	})
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.com")
 
 	infoOpenedState := new(api.State)
 	infoEndpointOpened := make(chan struct{})
@@ -229,14 +228,25 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	}
 }
 
+func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr string) {
+	// Populate the environment's info with an endpoint
+	// with a known address.
+	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	c.Assert(err, gc.IsNil)
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses: []string{addr},
+		CACert:    "certificated",
+	})
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+}
+
 func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName, nil)
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"infoapi.com"},
-		},
-	})
+
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.com")
 
 	infoOpenedState := new(api.State)
 	infoEndpointOpened := make(chan struct{})
@@ -298,14 +308,11 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	}
 }
 
-func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
+func (*NewAPIClientSuite) TestBothError(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName, nil)
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"infoapi.com"},
-		},
-	})
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.com")
 
 	defer testbase.PatchValue(juju.ProviderConnectDelay, 0*time.Second).Restore()
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
@@ -320,10 +327,16 @@ func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 	c.Check(st, gc.IsNil)
 }
 
+func defaultConfigStore(c *gc.C) configstore.Storage {
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	return store
+}
+
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
 func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "", nil)
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	client, _ := juju.NewAPIClientFromName("")
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)

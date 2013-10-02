@@ -46,8 +46,12 @@ type Tests struct {
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C) environs.Environ {
-	e, err := environs.NewFromAttrs(t.TestConfig)
-	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", t.TestConfig))
+	info, err := t.ConfigStore.ReadInfo(t.TestConfig["name"].(string))
+	c.Assert(err, gc.IsNil)
+	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+	c.Assert(err, gc.IsNil)
+	e, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
 	return e
 }
@@ -87,7 +91,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc := testing.StartInstance(c, e, "0")
+	inst0, hc := testing.AssertStartInstance(c, e, "0")
 	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -95,7 +99,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _ := testing.StartInstance(c, e, "1")
+	inst1, _ := testing.AssertStartInstance(c, e, "1")
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
@@ -126,6 +130,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
+	envtesting.UploadFakeTools(c, e.Storage())
 	err := bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -137,6 +142,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
+	envtesting.UploadFakeTools(c, e2.Storage())
 	err = bootstrap.Bootstrap(e2, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
@@ -149,6 +155,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
+	envtesting.UploadFakeTools(c, e3.Storage())
 
 	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)

@@ -77,7 +77,7 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *BundlesDirSuite) AddCharm(c *gc.C) (*uniter.Charm, *state.Charm, []byte) {
-	curl := corecharm.MustParseURL("cs:series/dummy-1")
+	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
 	surl, err := url.Parse(s.URL("/some/charm.bundle"))
 	c.Assert(err, gc.IsNil)
 	bunpath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
@@ -106,7 +106,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	// Try to get the charm when the content doesn't match.
 	coretesting.Server.Response(200, nil, []byte("roflcopter"))
 	_, err = d.Read(apiCharm, nil)
-	prefix := fmt.Sprintf(`failed to download charm "cs:series/dummy-1" from %q: `, sch.BundleURL())
+	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, sch.BundleURL())
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.

@@ -21,7 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -245,7 +245,7 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) (err error) {
+func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
@@ -267,13 +267,13 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	err = common.Bootstrap(env, cons, possibleTools)
 	return err
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
@@ -900,9 +900,11 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 // It contains the central databases for the released and daily streams, but this may
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
-var baseURLs = []string{
-	"http://cloud-images.ubuntu.com/daily",
-}
+//
+// Note: Due to datasource fallback issues, the default daily stream has been removed.
+//       This var now only serves as an injection point for tests. See also:
+//           https://bugs.launchpad.net/juju-core/+bug/1233924
+var baseURLs = []string{}
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {

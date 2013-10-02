@@ -13,9 +13,17 @@ import (
 	"path"
 	"regexp"
 	"text/template"
+	"time"
+
+	"launchpad.net/juju-core/utils"
 )
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
+
+var InstallStartRetryAttempts = utils.AttemptStrategy{
+	Total: 1 * time.Second,
+	Delay: 250 * time.Millisecond,
+}
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
@@ -41,7 +49,7 @@ func (s *Service) Installed() bool {
 
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() bool {
-	cmd := exec.Command("status", s.Name)
+	cmd := exec.Command("status", "--system", s.Name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
@@ -54,7 +62,14 @@ func (s *Service) Start() error {
 	if s.Running() {
 		return nil
 	}
-	return runCommand("start", s.Name)
+	err := runCommand("start", "--system", s.Name)
+	if err != nil {
+		// Double check to see if we were started before our command ran.
+		if s.Running() {
+			return nil
+		}
+	}
+	return err
 }
 
 func runCommand(args ...string) error {
@@ -74,7 +89,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	return runCommand("stop", s.Name)
+	return runCommand("stop", "--system", s.Name)
 }
 
 // StopAndRemove stops the service and then deletes the service
@@ -174,7 +189,14 @@ func (c *Conf) Install() error {
 	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
 		return err
 	}
-	return c.Start()
+	// On slower disks, upstart may take a short time to realise
+	// that there is a service there.
+	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+		if err = c.Start(); err == nil {
+			break
+		}
+	}
+	return err
 }
 
 // InstallCommands returns shell commands to install and start the service.

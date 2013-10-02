@@ -28,9 +28,10 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/ec2"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
@@ -61,7 +62,7 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
 }
 
-var localConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
+var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"name":                 "sample",
 	"type":                 "ec2",
 	"region":               "test",
@@ -104,6 +105,10 @@ func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
 	t.restoreEC2Patching()
+}
+
+func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
+	c.Skip("broken under ec2 - see https://bugs.launchpad.net/juju-core/+bug/1233278")
 }
 
 // localServer represents a fake EC2 server running within
@@ -208,7 +213,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	bootstrapState, err := provider.LoadState(env.Storage())
+	bootstrapState, err := common.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
 
@@ -218,10 +223,6 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
 	c.Check(expectedHardware, gc.DeepEquals, bootstrapState.Characteristics[0])
-
-	info, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.NotNil)
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
@@ -234,23 +235,18 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, gc.IsNil)
 	c.Logf("first instance: UserData: %q", userData)
-	var x map[interface{}]interface{}
-	err = goyaml.Unmarshal(userData, &x)
+	var userDataMap map[interface{}]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	CheckPackage(c, x, "git", true)
-	CheckScripts(c, x, "jujud bootstrap-state", true)
+	CheckPackage(c, userDataMap, "git", true)
+	CheckScripts(c, userDataMap, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
 	// check that a new instance will be started without
 	// zookeeper, with a machine agent, and without a
 	// provisioning agent.
-	series := env.Config().DefaultSeries()
-	info.Tag = "machine-1"
-	info.Password = "password"
-	apiInfo.Tag = "machine-1"
-	inst1, hc, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
-	c.Assert(err, gc.IsNil)
+	inst1, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -260,50 +256,37 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, gc.IsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	x = nil
-	err = goyaml.Unmarshal(userData, &x)
+	userDataMap = nil
+	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	CheckPackage(c, x, "zookeeperd", false)
+	CheckPackage(c, userDataMap, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	_, err = provider.LoadState(env.Storage())
+	_, err = common.LoadState(env.Storage())
 	c.Assert(err, gc.NotNil)
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := env.Config().DefaultSeries()
-	info, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.NotNil)
-	info.Tag = "machine-1"
-	info.Password = "password"
-	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := env.Config().DefaultSeries()
-	info, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.NotNil)
-	info.Tag = "machine-1"
-	info.Password = "password"
-	apiInfo.Tag = "machine-1"
-	_, hc, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
-	c.Assert(err, gc.IsNil)
+	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -312,16 +295,10 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := env.Config().DefaultSeries()
-	info, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.NotNil)
-	info.Tag = "machine-1"
-	info.Password = "password"
-	apiInfo.Tag = "machine-1"
-	inst, _, err := provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
@@ -353,7 +330,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	env := t.Open(c)
+	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
@@ -367,7 +344,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := t.Open(c)
+	env := t.Prepare(c)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
@@ -383,7 +360,7 @@ func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
-	env := t.Open(c)
+	env := t.Prepare(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
@@ -460,8 +437,8 @@ func patchEC2ForTesting() func() {
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
 // defined in ec2_test.
-func CheckScripts(c *gc.C, x map[interface{}]interface{}, pattern string, match bool) {
-	scripts0 := x["runcmd"]
+func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern string, match bool) {
+	scripts0 := userDataMap["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
 		return
@@ -486,8 +463,8 @@ func CheckScripts(c *gc.C, x map[interface{}]interface{}, pattern string, match 
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.  It's exported so it can be
 // used by tests defined outside the ec2 package.
-func CheckPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool) {
-	pkgs0 := x["packages"]
+func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, match bool) {
+	pkgs0 := userDataMap["packages"]
 	if pkgs0 == nil {
 		if match {
 			c.Errorf("cloudinit has no entry for packages")

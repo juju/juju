@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider_test
+package common_test
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -26,101 +26,104 @@ type StateSuite struct {
 
 var _ = gc.Suite(&StateSuite{})
 
-// makeDummyStorage creates a local storage.
-func (suite *StateSuite) makeDummyStorage(c *gc.C) storage.Storage {
+type cleaner interface {
+	AddCleanup(testbase.CleanupFunc)
+}
+
+func newStorage(suite cleaner, c *gc.C) storage.Storage {
 	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
 	return stor
 }
 
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 
-	url, err := provider.CreateStateFile(stor)
+	url, err := common.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.Get(stor, provider.StateFile)
+	reader, err := storage.Get(stor, common.StateFile)
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(data), gc.Equals, "")
 	c.Assert(url, gc.NotNil)
-	expectedURL, err := stor.URL(provider.StateFile)
+	expectedURL, err := stor.URL(common.StateFile)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, expectedURL)
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 	arch := "amd64"
-	state := provider.BootstrapState{
+	state := common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
 		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 
-	err = provider.SaveState(stor, &state)
+	err = common.SaveState(stor, &state)
 	c.Assert(err, gc.IsNil)
 
-	loadedState, err := storage.Get(stor, provider.StateFile)
+	loadedState, err := storage.Get(stor, common.StateFile)
 	c.Assert(err, gc.IsNil)
 	content, err := ioutil.ReadAll(loadedState)
 	c.Assert(err, gc.IsNil)
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) provider.BootstrapState {
+func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) common.BootstrapState {
 	arch := "amd64"
-	state := provider.BootstrapState{
+	state := common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
 		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
-	err = stor.Put(provider.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
+	err = stor.Put(common.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
 	c.Assert(err, gc.IsNil)
 	return state
 }
 
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
+	storage := newStorage(suite, c)
 	state := suite.setUpSavedState(c, storage)
-	storedState, err := provider.LoadState(storage)
+	storedState, err := common.LoadState(storage)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
+	stor := newStorage(suite, c)
 	state := suite.setUpSavedState(c, stor)
-	url, err := stor.URL(provider.StateFile)
+	url, err := stor.URL(common.StateFile)
 	c.Assert(err, gc.IsNil)
-	storedState, err := provider.LoadStateFromURL(url)
+	storedState, err := common.LoadStateFromURL(url)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
-	stor := suite.makeDummyStorage(c)
-	_, err := provider.LoadState(stor)
+	stor := newStorage(suite, c)
+	_, err := common.LoadState(stor)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
-	storage := suite.makeDummyStorage(c)
+	storage := newStorage(suite, c)
 	arch := "amd64"
-	state := provider.BootstrapState{
+	state := common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
 		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
-	err := provider.SaveState(storage, &state)
+	err := common.SaveState(storage, &state)
 	c.Assert(err, gc.IsNil)
-	storedState, err := provider.LoadState(storage)
+	storedState, err := common.LoadState(storage)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
 func (suite *StateSuite) TestGetDNSNamesAcceptsNil(c *gc.C) {
-	result := provider.GetDNSNames(nil)
+	result := common.GetDNSNames(nil)
 	c.Check(result, gc.DeepEquals, []string{})
 }
 
@@ -130,30 +133,30 @@ func (suite *StateSuite) TestGetDNSNamesReturnsNames(c *gc.C) {
 		&dnsNameFakeInstance{name: "bar"},
 	}
 
-	c.Check(provider.GetDNSNames(instances), gc.DeepEquals, []string{"foo", "bar"})
+	c.Check(common.GetDNSNames(instances), gc.DeepEquals, []string{"foo", "bar"})
 }
 
 func (suite *StateSuite) TestGetDNSNamesIgnoresNils(c *gc.C) {
-	c.Check(provider.GetDNSNames([]instance.Instance{nil, nil}), gc.DeepEquals, []string{})
+	c.Check(common.GetDNSNames([]instance.Instance{nil, nil}), gc.DeepEquals, []string{})
 }
 
 func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithoutNames(c *gc.C) {
 	instances := []instance.Instance{&dnsNameFakeInstance{err: instance.ErrNoDNSName}}
-	c.Check(provider.GetDNSNames(instances), gc.DeepEquals, []string{})
+	c.Check(common.GetDNSNames(instances), gc.DeepEquals, []string{})
 }
 
 func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithBlankNames(c *gc.C) {
 	instances := []instance.Instance{&dnsNameFakeInstance{name: ""}}
-	c.Check(provider.GetDNSNames(instances), gc.DeepEquals, []string{})
+	c.Check(common.GetDNSNames(instances), gc.DeepEquals, []string{})
 }
 
 func (suite *StateSuite) TestComposeAddressesAcceptsNil(c *gc.C) {
-	c.Check(provider.ComposeAddresses(nil, 1433), gc.DeepEquals, []string{})
+	c.Check(common.ComposeAddresses(nil, 1433), gc.DeepEquals, []string{})
 }
 
 func (suite *StateSuite) TestComposeAddressesSuffixesAddresses(c *gc.C) {
 	c.Check(
-		provider.ComposeAddresses([]string{"onehost", "otherhost"}, 1957),
+		common.ComposeAddresses([]string{"onehost", "otherhost"}, 1957),
 		gc.DeepEquals,
 		[]string{"onehost:1957", "otherhost:1957"})
 }
@@ -169,7 +172,7 @@ func (suite *StateSuite) TestGetStateInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	hostnames := []string{"onehost", "otherhost"}
 
-	stateInfo, apiInfo := provider.GetStateInfo(cfg, hostnames)
+	stateInfo, apiInfo := common.GetStateInfo(cfg, hostnames)
 
 	c.Check(stateInfo.Addrs, gc.DeepEquals, []string{"onehost:123", "otherhost:123"})
 	c.Check(string(stateInfo.CACert), gc.Equals, cert)

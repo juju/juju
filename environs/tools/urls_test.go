@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/storage"
@@ -28,6 +29,7 @@ func (s *URLsSuite) SetUpTest(c *gc.C) {
 
 func (s *URLsSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	dummy.Reset()
 }
 
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
@@ -37,9 +39,9 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			"tools-url": toolsMetadataURL,
 		})
 	}
-	env, err := environs.NewFromAttrs(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err = environs.Prepare(env.Config(), configstore.NewMem())
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env
 }
@@ -50,8 +52,10 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
+	publicStorageURL, err := env.PublicStorage().URL("tools")
+	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		privateStorageURL, "https://juju.canonical.com/tools/"})
+		privateStorageURL, publicStorageURL + "/", "https://juju.canonical.com/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
@@ -60,8 +64,10 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
+	publicStorageURL, err := env.PublicStorage().URL("tools")
+	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-url/", privateStorageURL, "https://juju.canonical.com/tools/"})
+		"config-tools-url/", privateStorageURL, publicStorageURL + "/", "https://juju.canonical.com/tools/"})
 	haveExpectedSources := false
 	for _, source := range sources {
 		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {

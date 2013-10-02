@@ -7,12 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/localstorage"
@@ -24,7 +22,6 @@ const BootstrapInstanceId = instance.Id(manualInstancePrefix)
 // manages its own local storage.
 type LocalStorageEnviron interface {
 	environs.Environ
-	environs.BootstrapStorager
 	localstorage.LocalStorageConfig
 }
 
@@ -32,7 +29,6 @@ type BootstrapArgs struct {
 	Host          string
 	DataDir       string
 	Environ       LocalStorageEnviron
-	MachineId     string
 	PossibleTools tools.List
 }
 
@@ -53,9 +49,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	if args.DataDir == "" {
 		return errors.New("data-dir argument is empty")
 	}
-	if !names.IsMachine(args.MachineId) {
-		return errMachineIdInvalid(args.MachineId)
-	}
 
 	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
@@ -63,11 +56,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 	if provisioned {
 		return ErrProvisioned
-	}
-
-	bootstrapStorage, err := args.Environ.BootstrapStorage()
-	if err != nil {
-		return err
 	}
 
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
@@ -87,9 +75,10 @@ func Bootstrap(args BootstrapArgs) (err error) {
 
 	// Store the state file. If provisioning fails, we'll remove the file.
 	logger.Infof("Saving bootstrap state file to bootstrap storage")
-	err = provider.SaveState(
+	bootstrapStorage := args.Environ.Storage()
+	err = common.SaveState(
 		bootstrapStorage,
-		&provider.BootstrapState{
+		&common.BootstrapState{
 			StateInstances:  []instance.Id{BootstrapInstanceId},
 			Characteristics: []instance.HardwareCharacteristics{hc},
 		},
@@ -100,13 +89,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	defer func() {
 		if err != nil {
 			logger.Errorf("bootstrapping failed, removing state file: %v", err)
-			bootstrapStorage.Remove(provider.StateFile)
+			bootstrapStorage.Remove(common.StateFile)
 		}
 	}()
-
-	// Set the new tools prefix so StorageName returns the right thing.
-	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer restore()
 
 	// Get a file:// scheme tools URL for the tools, which will have been
 	// copied to the remote machine's storage directory.
@@ -116,21 +101,18 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
 
 	// Add the local storage configuration.
-	agentEnv := map[string]string{
-		agent.StorageAddr:       args.Environ.StorageAddr(),
-		agent.StorageDir:        storageDir,
-		agent.SharedStorageAddr: args.Environ.SharedStorageAddr(),
-		agent.SharedStorageDir:  args.Environ.SharedStorageDir(),
+	agentEnv, err := localstorage.StoreConfig(args.Environ)
+	if err != nil {
+		return err
 	}
 
 	// Finally, provision the machine agent.
-	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, provider.StateFile)
+	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, common.StateFile)
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:          args.Host,
 		dataDir:       args.DataDir,
 		environConfig: args.Environ.Config(),
 		stateFileURL:  stateFileURL,
-		machineId:     args.MachineId,
 		bootstrap:     true,
 		nonce:         state.BootstrapNonce,
 		tools:         &tools,

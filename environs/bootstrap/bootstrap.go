@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
@@ -50,9 +50,6 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 		return err
 	}
 
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids.  Juju assigns the machine ID.
-	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	var vers *version.Number
 	if agentVersion, ok := cfg.AgentVersion(); ok {
@@ -89,15 +86,19 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if len(newestTools) == 0 {
 		return fmt.Errorf("No bootstrap tools found")
 	}
-	return environ.Bootstrap(cons, newestTools, machineID)
+	return environ.Bootstrap(cons, newestTools)
 }
 
 // verifyBootstrapInit does the common initial check before bootstrapping, to
 // confirm that the environment isn't already running, and that the storage
 // works.
 func verifyBootstrapInit(env environs.Environ) error {
+	// TODO(rog) this feels like a layering violation - providers
+	// should not necessarily be required to store their bootstrap
+	// state in a file. This verification should probably
+	// be moved into provider and called by the providers themselves.
 	stor := env.Storage()
-	_, err := provider.LoadState(stor)
+	_, err := common.LoadState(stor)
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}

@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -18,9 +19,11 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type OpenSuite struct {
+	testbase.LoggingSuite
 	envtesting.ToolsFixture
 }
 
@@ -36,6 +39,7 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	c.Assert(bootstrap.Bootstrap(env, constraints.Value{}), gc.IsNil)
 }
 
@@ -50,23 +54,11 @@ func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 
 func (OpenSuite) TestNewFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	e, err := environs.NewFromName("erewhemos")
+	store := configstore.NewMem()
+	e, err := environs.PrepareFromName("erewhemos", store)
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.Name(), gc.Equals, "erewhemos")
-	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment .* is not prepared")
-}
 
-func (OpenSuite) TestNewFromNameNoDefault(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-
-	e, err := environs.NewFromName("")
-	c.Assert(err, gc.ErrorMatches, "no default environment found")
-	c.Assert(e, gc.IsNil)
-}
-
-func (OpenSuite) TestNewFromNameDefault(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
-	e, err := environs.NewFromName("")
+	e, err = environs.NewFromName("erewhemos", store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Name(), gc.Equals, "erewhemos")
 }
@@ -82,20 +74,20 @@ func (OpenSuite) TestPrepareFromName(c *gc.C) {
 
 func (OpenSuite) TestConfigForName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	cfg, err := environs.ConfigForName("erewhemos")
+	cfg, err := environs.ConfigForName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
 }
 
 func (OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	_, err := environs.ConfigForName("")
+	_, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.ErrorMatches, "no default environment found")
 }
 
 func (OpenSuite) TestConfigForNameDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
-	cfg, err := environs.ConfigForName("")
+	cfg, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
 }
@@ -109,8 +101,8 @@ func (OpenSuite) TestNew(c *gc.C) {
 	))
 	c.Assert(err, gc.IsNil)
 	e, err := environs.New(cfg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment .* is not prepared")
+	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
+	c.Assert(e, gc.IsNil)
 }
 
 func (OpenSuite) TestPrepare(c *gc.C) {
@@ -119,7 +111,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 			"state-server": false,
 			"name":         "erewhemos",
 		},
-	))
+	).Delete("ca-cert", "ca-private-key"))
 	c.Assert(err, gc.IsNil)
 	store := configstore.NewMem()
 	env, err := environs.Prepare(cfg, store)
@@ -132,12 +124,58 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, env.Config().AllAttrs())
+	c.Logf("bootstrap config: %#v", info.BootstrapConfig())
+
+	// Check that the CA cert was generated.
+	cfgCertPEM, cfgCertOK := env.Config().CACert()
+	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	c.Assert(cfgCertOK, gc.Equals, true)
+	c.Assert(cfgKeyOK, gc.Equals, true)
+	// Check the common name of the generated cert
+	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
 
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Name(), gc.Equals, "erewhemos")
 	c.Assert(env.Storage(), gc.NotNil)
+	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
+}
+
+func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Delete("ca-cert", "ca-private-key").Merge(
+		testing.Attrs{
+			"state-server": false,
+			"name":         "erewhemos",
+			"ca-cert":      string(testing.CACert),
+		},
+	))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
+	c.Assert(env, gc.IsNil)
+}
+
+func (OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
+		testing.Attrs{
+			"state-server":   false,
+			"name":           "erewhemos",
+			"ca-cert":        string(testing.CACert),
+			"ca-private-key": string(testing.CAKey),
+		},
+	))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	cfgCertPEM, cfgCertOK := env.Config().CACert()
+	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	c.Assert(cfgCertOK, gc.Equals, true)
+	c.Assert(cfgKeyOK, gc.Equals, true)
+	c.Assert(string(cfgCertPEM), gc.DeepEquals, testing.CACert)
+	c.Assert(string(cfgKeyPEM), gc.DeepEquals, testing.CAKey)
 }
 
 func (OpenSuite) TestDestroy(c *gc.C) {
@@ -162,7 +200,8 @@ func (OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
-	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment.* is not prepared")
+	_, _, err = e.StateInfo()
+	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
 	_, err = store.ReadInfo(e.Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
@@ -174,8 +213,8 @@ func (OpenSuite) TestNewFromAttrs(c *gc.C) {
 			"name":         "erewhemos",
 		},
 	))
-	c.Assert(err, gc.IsNil)
-	c.Assert(func() { e.Storage() }, gc.PanicMatches, "environment .* is not prepared")
+	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
+	c.Assert(e, gc.IsNil)
 }
 
 const checkEnv = `

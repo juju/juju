@@ -339,7 +339,15 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())
-	if err = u.unit.SetStatus(params.StatusError, msg, nil); err != nil {
+	// Create error information for status.
+	data := params.StatusData{"hook": u.currentHookName()}
+	if u.s.Hook.Kind.IsRelation() {
+		data["relation-id"] = u.s.Hook.RelationId
+		if u.s.Hook.RemoteUnit != "" {
+			data["remote-unit"] = u.s.Hook.RemoteUnit
+		}
+	}
+	if err = u.unit.SetStatus(params.StatusError, msg, data); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()

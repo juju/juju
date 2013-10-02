@@ -27,6 +27,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
 			RootDisk: uint64(flavor.Disk * 1024),
+			// tags not currently supported on openstack
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}

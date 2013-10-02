@@ -16,10 +16,11 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -45,12 +46,12 @@ func init() {
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	stateInfo := provider.BootstrapState{
+	stateInfo := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("dummy.instance.id")},
 	}
 	stateData, err := goyaml.Marshal(stateInfo)
 	c.Assert(err, gc.IsNil)
-	content := map[string]string{"/" + provider.StateFile: string(stateData)}
+	content := map[string]string{"/" + common.StateFile: string(stateData)}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(content, nil)
 	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
 	providerStateURLFile = s.providerStateURLFile
@@ -130,7 +131,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
@@ -229,7 +230,6 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// and that the in-mongo password also verifies correctly.
 	machineConf1, err := agent.ReadConf(machineConf.DataDir(), "machine-0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineConf1.PasswordHash(), gc.Not(gc.Equals), testPasswordHash())
 
 	st, err = machineConf1.OpenState()
 	c.Assert(err, gc.IsNil)

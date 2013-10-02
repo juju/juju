@@ -29,7 +29,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -95,7 +95,7 @@ func (env *localEnviron) ensureCertOwner() error {
 		config.JujuHomePath(env.name + "-private-key.pem"),
 	}
 
-	uid, gid, err := sudoCallerIds()
+	uid, gid, err := utils.SudoCallerIds()
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -145,7 +145,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
 	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := provider.SaveState(env.Storage(), &provider.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+	if err := common.SaveState(env.Storage(), &common.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -171,7 +171,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 // StateInfo is specified in the Environ interface.
 func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.

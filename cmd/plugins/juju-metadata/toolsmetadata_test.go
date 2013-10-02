@@ -20,7 +20,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
-	_ "launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -42,6 +42,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
 	loggo.ResetLoggers()
 	s.home.Restore()
 }
@@ -83,9 +84,9 @@ var expectedOutputDirectory = expectedOutputCommon + `
 .*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `
 
-func (s *ToolsMetadataSuite) assertGenerateDefaultDirectory(c *gc.C, subdir string) {
+func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	metadataDir := config.JujuHome() // default metadata dir
-	ttesting.MakeTools(c, metadataDir, subdir, versionStrings)
+	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&ToolsMetadataCommand{noS3: true}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
@@ -99,14 +100,6 @@ func (s *ToolsMetadataSuite) assertGenerateDefaultDirectory(c *gc.C, subdir stri
 		obtainedVersionStrings[i] = s
 	}
 	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
-}
-
-func (s *ToolsMetadataSuite) TestGenerateDefaultDirectoryLegacyToolsLocation(c *gc.C) {
-	s.assertGenerateDefaultDirectory(c, "")
-}
-
-func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
-	s.assertGenerateDefaultDirectory(c, "releases")
 }
 
 func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {

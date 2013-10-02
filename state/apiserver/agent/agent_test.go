@@ -35,15 +35,15 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobManageState)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
 
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.container, err = s.State.AddMachineWithConstraints(&state.AddMachineParams{
 		ParentId:      s.machine1.Id(),
-		Series:        "series",
+		Series:        "quantal",
 		ContainerType: instance.LXC,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	})

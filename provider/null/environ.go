@@ -5,8 +5,11 @@ package null
 
 import (
 	"errors"
+	"net"
 	"path"
 	"sync"
+
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -14,13 +17,16 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sshstorage"
 	"launchpad.net/juju-core/environs/storage"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/worker/localstorage"
 )
 
 const (
@@ -37,10 +43,17 @@ const (
 	storageTmpSubdir = "storage-tmp"
 )
 
+var logger = loggo.GetLogger("juju.provider.null")
+
 type nullEnviron struct {
-	cfg      *environConfig
-	cfgmutex sync.Mutex
+	cfg                   *environConfig
+	cfgmutex              sync.Mutex
+	bootstrapStorage      *sshstorage.SSHStorage
+	bootstrapStorageMutex sync.Mutex
 }
+
+var _ environs.BootstrapStorager = (*nullEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*nullEnviron)(nil)
 
 var errNoStartInstance = errors.New("null provider cannot start instances")
 var errNoStopInstance = errors.New("null provider cannot stop instances")
@@ -72,18 +85,17 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) error {
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Host:          e.envConfig().sshHost(),
 		DataDir:       dataDir,
 		Environ:       e,
-		MachineId:     machineID,
 		PossibleTools: possibleTools,
 	})
 }
 
 func (e *nullEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 func (e *nullEnviron) SetConfig(cfg *config.Config) error {
@@ -120,16 +132,53 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	return instances, err
 }
 
-// Implements environs/bootstrap.BootstrapStorage.
-func (e *nullEnviron) BootstrapStorage() (storage.Storage, error) {
+// Implements environs.BootstrapStorager.
+func (e *nullEnviron) EnableBootstrapStorage() error {
+	e.bootstrapStorageMutex.Lock()
+	defer e.bootstrapStorageMutex.Unlock()
+	if e.bootstrapStorage != nil {
+		return nil
+	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	return sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	bootstrapStorage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	if err != nil {
+		return err
+	}
+	e.bootstrapStorage = bootstrapStorage
+	return nil
+}
+
+// GetToolsSources returns a list of sources which are
+// used to search for simplestreams tools metadata.
+func (e *nullEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off private storage.
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+	}, nil
 }
 
 func (e *nullEnviron) Storage() storage.Storage {
-	return httpstorage.Client(e.envConfig().storageAddr())
+	e.bootstrapStorageMutex.Lock()
+	defer e.bootstrapStorageMutex.Unlock()
+	if e.bootstrapStorage != nil {
+		return e.bootstrapStorage
+	}
+	caCertPEM, caKeyPEM := e.StorageCACert(), e.StorageCAKey()
+	if caCertPEM != nil && caKeyPEM != nil {
+		authkey := e.StorageAuthKey()
+		storage, err := httpstorage.ClientTLS(e.envConfig().storageAddr(), caCertPEM, authkey)
+		if err != nil {
+			// Should be impossible, since ca-cert will always be validated.
+			logger.Errorf("initialising HTTPS storage failed: %v", err)
+		} else {
+			return storage
+		}
+	} else {
+		logger.Errorf("missing CA cert or private key")
+	}
+	return nil
 }
 
 func (e *nullEnviron) PublicStorage() storage.StorageReader {
@@ -171,3 +220,34 @@ func (e *nullEnviron) SharedStorageAddr() string {
 func (e *nullEnviron) SharedStorageDir() string {
 	return ""
 }
+
+func (e *nullEnviron) StorageCACert() []byte {
+	if bytes, ok := e.envConfig().CACert(); ok {
+		return bytes
+	}
+	return nil
+}
+
+func (e *nullEnviron) StorageCAKey() []byte {
+	if bytes, ok := e.envConfig().CAPrivateKey(); ok {
+		return bytes
+	}
+	return nil
+}
+
+func (e *nullEnviron) StorageHostnames() []string {
+	cfg := e.envConfig()
+	hostnames := []string{cfg.bootstrapHost()}
+	if ip := net.ParseIP(cfg.storageListenIPAddress()); ip != nil {
+		if !ip.IsUnspecified() {
+			hostnames = append(hostnames, ip.String())
+		}
+	}
+	return hostnames
+}
+
+func (e *nullEnviron) StorageAuthKey() string {
+	return e.envConfig().storageAuthKey()
+}
+
+var _ localstorage.LocalTLSStorageConfig = (*nullEnviron)(nil)
