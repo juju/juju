@@ -55,6 +55,8 @@ func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 // the obtained tools may not have size and checksum set.
 func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 	c.Assert(obtained.Version, gc.Equals, expected.Version)
+	// TODO(dimitern) 2013-10-02 bug #1234217
+	// Are these used at at all? If not we should drop them.
 	if obtained.URL != "" {
 		c.Assert(obtained.URL, gc.Equals, expected.URL)
 	}
