@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -60,6 +61,32 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		},
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
+		DisableSSLHostnameVerification: false,
+	})
+}
+
+func (s *CloudInitSuite) TestFinishMachineConfigNoSSLVerification(c *gc.C) {
+	attrs := dummySampleConfig().Merge(testing.Attrs{
+		"authorized-keys": "we-are-the-keys",
+		"ssl-hostname-verification": false,
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	mcfg := &cloudinit.MachineConfig{
+		StateInfo: &state.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: "not touched"},
+	}
+	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcfg, gc.DeepEquals, &cloudinit.MachineConfig{
+		AuthorizedKeys: "we-are-the-keys",
+		AgentEnvironment: map[string]string{
+			agent.ProviderType:  "dummy",
+			agent.ContainerType: "",
+		},
+		StateInfo: &state.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: "not touched"},
+		DisableSSLHostnameVerification: true,
 	})
 }
 
@@ -80,6 +107,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	err = environs.FinishMachineConfig(mcfg, cfg, cons)
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
+	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := utils.PasswordHash("lisboan-pork")
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: []byte(testing.CACert),

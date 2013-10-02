@@ -31,9 +31,7 @@ func Bootstrap(env environs.Environ, cons constraints.Value, possibleTools coret
 	if err != nil {
 		return err
 	}
-	disableSSLHostnameVerification := !env.Config().SSLHostnameVerification()
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL,
-		disableSSLHostnameVerification)
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 	inst, hw, err := env.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)

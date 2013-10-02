@@ -73,9 +73,9 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	// disableSSLHostnameVerification should be
 	disableSSLHostnameVerification := false
 	if args.bootstrap {
-		mcfg = environs.NewBootstrapMachineConfig(args.machineId, args.stateFileURL, disableSSLHostnameVerification)
+		mcfg = environs.NewBootstrapMachineConfig(args.machineId, args.stateFileURL)
 	} else {
-		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo, disableSSLHostnameVerification)
+		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo)
 	}
 	if args.dataDir != "" {
 		mcfg.DataDir = args.dataDir
