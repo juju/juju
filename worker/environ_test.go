@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-type suite struct {
+type waitForEnvironSuite struct {
 	testing.JujuConnSuite
 }
 
@@ -27,7 +27,7 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-func (s *suite) TestStop(c *gc.C) {
+func (s *waitForEnvironSuite) TestStop(c *gc.C) {
 	w := s.State.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
@@ -46,19 +46,12 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 	c.Check(err, gc.IsNil)
 }
 
-func (s *suite) TestInvalidConfig(c *gc.C) {
+func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	m := cfg.AllAttrs()
-	m["type"] = "unknown"
-	invalidCfg, err := config.New(config.NoDefaults, m)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(invalidCfg)
-	c.Assert(err, gc.IsNil)
-
+	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
+		return attrs.Merge(coretesting.Attrs{"type": "unknown"})
+	})
 	w := s.State.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)

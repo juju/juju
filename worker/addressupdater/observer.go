@@ -14,7 +14,8 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-// TODO(rog) put this somewhere generally available and
+// TODO(rog) 2013-10-02
+// Put this somewhere generally available and
 // refactor other workers to use it.
 
 // environObserver watches the current environment configuration
@@ -28,12 +29,10 @@ type environObserver struct {
 	environ        environs.Environ
 }
 
-// newEnvironObserver waits for the state to have a valid
-// environment configuration and returns a new
-// environment observer.
-// While waiting for the first environment configuration,
-// it will return with tomb.ErrDying if it receives
-// a value on dying.
+// newEnvironObserver waits for the state to have a valid environment
+// configuration and returns a new environment observer. While waiting
+// for the first environment configuration, it will return with
+// tomb.ErrDying if it receives a value on dying.
 func newEnvironObserver(st *state.State, dying <-chan struct{}) (*environObserver, error) {
 	environWatcher := st.WatchForEnvironConfigChanges()
 	environ, err := worker.WaitForEnviron(environWatcher, st, dying)

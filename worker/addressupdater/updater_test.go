@@ -17,7 +17,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }
 
 var _ = gc.Suite(&updaterSuite{})
