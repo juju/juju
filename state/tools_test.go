@@ -48,7 +48,7 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	err = obj.SetAgentTools(&tools.Tools{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty series or arch", agent))
 
-	// TODO(dimitern) 2013-10-01 bug #
+	// TODO(dimitern) 2013-10-01 bug #1234035
 	// After 1.17 (or whatever 1.15+2 is), uncomment
 	// this block, once we're again checking for valid
 	// size and checksum in SetAgentTools().

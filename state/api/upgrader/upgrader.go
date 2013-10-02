@@ -69,6 +69,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	return *result.Version, nil
 }
 
+// Tools returns the agent tools for the given entity.
 func (st *State) Tools(tag string) (*tools.Tools, error) {
 	var results params.AgentToolsResults
 	args := params.Entities{

@@ -205,7 +205,7 @@ func checkToolsValidity(t *tools.Tools) error {
 	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
-	// TODO(dimitern) 2013-10-01 bug #
+	// TODO(dimitern) 2013-10-01 bug #1234035
 	// This is needed, so that we can upgrade from 1.14 to
 	// 1.15. It needs to be removed in the futute.
 	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {

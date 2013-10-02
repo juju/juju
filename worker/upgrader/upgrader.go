@@ -98,15 +98,9 @@ func (u *Upgrader) Stop() error {
 }
 
 func (u *Upgrader) loop() error {
-	currentTools, err := agenttools.ReadTools(u.dataDir, version.Current)
+	currentTools, err := u.st.Tools(u.tag)
 	if err != nil {
-		// Don't abort everything because we can't find the tools directory.
-		// The problem should sort itself out as we will immediately
-		// download some more tools and upgrade.
-		logger.Warningf("cannot read current tools: %v", err)
-		currentTools = &coretools.Tools{
-			Version: version.Current,
-		}
+		return err
 	}
 	err = u.st.SetTools(u.tag, currentTools)
 	if err != nil {

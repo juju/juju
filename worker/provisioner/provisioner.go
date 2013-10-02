@@ -11,14 +11,12 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -191,20 +189,7 @@ func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 }
 
 func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
-	dataDir := p.agentConfig.DataDir()
-	tools, err := agenttools.ReadTools(dataDir, version.Current)
-	if err != nil {
-		// TODO(dimitern) 2013-10-01 bug #
-		// This is temporary fix to enable upgrades from 1.14 to
-		// 1.15 and later. Once we're at 1.17 (or whatever 1.15+2
-		// is), return an error here, if the tools cannot be read.
-		currentTools := &coretools.Tools{
-			Version: version.Current,
-		}
-		logger.Warningf("cannot read agent tools from %q: using current tools (%v)", dataDir, currentTools.Version)
-		return currentTools, nil
-	}
-	return tools, nil
+	return p.st.Tools(p.agentConfig.Tag())
 }
 
 // setConfig updates the environment configuration and notifies

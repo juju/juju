@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/tools"
 )
 
 // State provides access to the Machiner API facade.
@@ -130,4 +131,26 @@ func (st *State) CACert() ([]byte, error) {
 		return nil, err
 	}
 	return result.Result, nil
+}
+
+// Tools returns the agent tools for the given entity.
+func (st *State) Tools(tag string) (*tools.Tools, error) {
+	var results params.AgentToolsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
+	}
+	err := st.caller.Call("Provisioner", "", "Tools", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return result.Tools, nil
 }
