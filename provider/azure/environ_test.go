@@ -1293,12 +1293,9 @@ func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
 
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 3)
+	c.Assert(len(sources), gc.Equals, 2)
 	assertSourceContents(c, sources[0], "filename", data)
 	url, err := sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "http://cloud-images.ubuntu.com/daily/")
-	url, err = sources[2].URL("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
