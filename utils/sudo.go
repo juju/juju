@@ -13,20 +13,20 @@ import (
 // If either is unset, it returns zero for both values.
 // An error is returned if the relevant environment variables
 // are not valid integers.
-func SudoCallerIds() (int, int, error) {
+func SudoCallerIds() (uid int, gid int, err error) {
 	uidStr := os.Getenv("SUDO_UID")
 	gidStr := os.Getenv("SUDO_GID")
 
 	if uidStr == "" || gidStr == "" {
 		return 0, 0, nil
 	}
-	uid, err := strconv.Atoi(uidStr)
+	uid, err = strconv.Atoi(uidStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid value %q for SUDO_UID", uidStr)
 	}
-	gid, err := strconv.Atoi(gidStr)
+	gid, err = strconv.Atoi(gidStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid value %q for SUDO_GID", gidStr)
 	}
-	return uid, gid, nil
+	return
 }
