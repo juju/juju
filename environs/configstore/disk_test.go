@@ -8,12 +8,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&diskInterfaceSuite{})
@@ -58,7 +60,9 @@ func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 
 var _ = gc.Suite(&diskStoreSuite{})
 
-type diskStoreSuite struct{}
+type diskStoreSuite struct {
+	testbase.LoggingSuite
+}
 
 func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 	dir := c.MkDir()
@@ -85,12 +89,14 @@ var sampleInfo = `
     arble: bletch
 `[1:]
 
-func (s *diskStoreSuite) TestRead(c *gc.C) {
-	err := os.Mkdir(storePath(s.dir, ""), 0700)
+func (*diskStoreSuite) TestRead(c *gc.C) {
+	dir := c.MkDir()
+	err := os.Mkdir(storePath(dir, ""), 0700)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(storePath(s.dir, "someenv"), []byte(sampleInfo), 0666)
+	err = ioutil.WriteFile(storePath(dir, "someenv"), []byte(sampleInfo), 0666)
 	c.Assert(err, gc.IsNil)
-	store := s.NewStore(c)
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
 	info, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
@@ -141,6 +147,29 @@ func (*diskStoreSuite) TestCreate(c *gc.C) {
 	info, err = store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsFalse)
+}
+
+func (s *diskStoreSuite) TestCreatePermissions(c *gc.C) {
+	// Even though it doesn't test the actual chown, it does test the code path.
+	s.PatchEnvironment("SUDO_UID", "1000")
+	s.PatchEnvironment("SUDO_GID", "1000")
+
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
+
+	// Create some new environment info.
+	_, err = store.CreateInfo("someenv")
+	c.Assert(err, gc.IsNil)
+
+	checkPath := func(path string) {
+		stat, err := os.Stat(path)
+		c.Assert(err, gc.IsNil)
+		c.Assert(stat.Sys().(*syscall.Stat_t).Uid, gc.Equals, uint32(1000))
+		c.Assert(stat.Sys().(*syscall.Stat_t).Gid, gc.Equals, uint32(1000))
+	}
+	checkPath(storePath(dir, ""))
+	checkPath(storePath(dir, "someenv"))
 }
 
 func (*diskStoreSuite) TestWriteTempFileFails(c *gc.C) {
