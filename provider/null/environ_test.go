@@ -21,7 +21,7 @@ import (
 )
 
 type environSuite struct {
-	testbase.CleanupSuite
+	testbase.LoggingSuite
 	env *nullEnviron
 }
 
