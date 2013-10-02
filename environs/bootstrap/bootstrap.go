@@ -50,9 +50,6 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 		return err
 	}
 
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids.  Juju assigns the machine ID.
-	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	var vers *version.Number
 	if agentVersion, ok := cfg.AgentVersion(); ok {
@@ -89,7 +86,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if len(newestTools) == 0 {
 		return fmt.Errorf("No bootstrap tools found")
 	}
-	return environ.Bootstrap(cons, newestTools, machineID)
+	return environ.Bootstrap(cons, newestTools)
 }
 
 // verifyBootstrapInit does the common initial check before bootstrapping, to

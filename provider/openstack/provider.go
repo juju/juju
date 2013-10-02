@@ -424,7 +424,7 @@ func (e *environ) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -432,7 +432,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -814,21 +814,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy() error {
-	logger.Infof("destroying environment %q", e.name)
-	insts, err := e.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	var ids []instance.Id
-	for _, inst := range insts {
-		ids = append(ids, inst.Id())
-	}
-	err = e.terminateInstances(ids)
-	if err != nil {
-		return err
-	}
-
-	return e.Storage().RemoveAll()
+	return common.Destroy(e)
 }
 
 func (e *environ) globalGroupName() string {

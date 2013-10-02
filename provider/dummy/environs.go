@@ -525,7 +525,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		private, simplestreams.NewURLDataSource(publicURL, simplestreams.VerifySSLHostnames)}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
