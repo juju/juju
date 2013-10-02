@@ -20,7 +20,6 @@ var logger = loggo.GetLogger("juju.provider.common")
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
 func Bootstrap(env environs.Environ, cons constraints.Value, possibleTools coretools.List) error {
-
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.

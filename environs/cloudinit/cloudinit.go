@@ -110,6 +110,10 @@ type MachineConfig struct {
 
 	// StateInfoURL is the URL of a file which contains information about the state server machines.
 	StateInfoURL string
+
+	// DisableSSLHostnameVerification can be set to true to tell cloud-init
+	// that it shouldn't verify SSL certificates
+	DisableSSLHostnameVerification bool
 }
 
 func base64yaml(m *config.Config) string {
@@ -143,13 +147,17 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
+	wgetCommand := "wget"
+	if cfg.DisableSSLHostnameVerification {
+		wgetCommand = "wget --no-check-certificate"
+	}
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	var copyCmd string
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		copyCmd = fmt.Sprintf("wget --no-verbose -O $bin/tools.tar.gz %s", shquote(cfg.Tools.URL))
+		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {

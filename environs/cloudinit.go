@@ -75,13 +75,14 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
+	mcfg.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
+
+	// The following settings are only appropriate at bootstrap time. At the
+	// moment, the only state server is the bootstrap node, but this
+	// will probably change.
 	if !mcfg.StateServer {
 		return nil
 	}
-
-	// These settings are only appropriate at bootstrap time. At the
-	// moment, the only state server is the bootstrap node, but this
-	// will probably change.
 	if mcfg.APIInfo != nil || mcfg.StateInfo != nil {
 		return fmt.Errorf("machine configuration already has api/state info")
 	}
