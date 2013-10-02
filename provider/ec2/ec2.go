@@ -846,19 +846,19 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.S
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{
-				Protocol:     "tcp",
-				FromPort:     0,
-				ToPort:       65535,
+				Protocol: "tcp",
+				FromPort: 0,
+				ToPort:   65535,
 			},
 			{
-				Protocol:     "udp",
-				FromPort:     0,
-				ToPort:       65535,
+				Protocol: "udp",
+				FromPort: 0,
+				ToPort:   65535,
 			},
 			{
-				Protocol:     "icmp",
-				FromPort:     -1,
-				ToPort:       -1,
+				Protocol: "icmp",
+				FromPort: -1,
+				ToPort:   -1,
 			},
 		})
 	if err != nil {
@@ -939,11 +939,11 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 // to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol  string
-	fromPort  int
-	toPort    int
-	groupId   string
-	ipAddr    string
+	protocol string
+	fromPort int
+	toPort   int
+	groupId  string
+	ipAddr   string
 }
 
 type permSet map[permKey]bool

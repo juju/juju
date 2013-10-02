@@ -253,7 +253,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 	// Check that listing those instances finds them using the groups
 	inst_ids := []instance.Id{inst0.Id(), inst1.Id()}
-	ids_from_insts := func (insts []instance.Instance) (ids []instance.Id) {
+	ids_from_insts := func(insts []instance.Instance) (ids []instance.Id) {
 		for _, inst := range insts {
 			ids = append(ids, inst.Id())
 		}
