@@ -24,16 +24,15 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-// SetTools sets the tools associated with the entity
-// with the given tag, which must be the tag
-// of the entity that the upgrader is running
-// on behalf of.
-func (st *State) SetTools(tag string, tools *tools.Tools) error {
+// SetVersion sets the tools version associated with the entity with
+// the given tag, which must be the tag of the entity that the
+// upgrader is running on behalf of.
+func (st *State) SetVersion(tag string, v version.Binary) error {
 	var results params.ErrorResults
-	args := params.SetAgentsTools{
-		AgentTools: []params.SetAgentTools{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag:   tag,
-			Tools: tools,
+			Tools: &params.Version{v},
 		}},
 	}
 	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
@@ -45,7 +44,7 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 }
 
 func (st *State) DesiredVersion(tag string) (version.Number, error) {
-	var results params.AgentVersionResults
+	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
@@ -69,8 +68,9 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	return *result.Version, nil
 }
 
+// Tools returns the agent tools that should run on the given entity.
 func (st *State) Tools(tag string) (*tools.Tools, error) {
-	var results params.AgentToolsResults
+	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
