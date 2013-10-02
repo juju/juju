@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package addressupdater
 
 import (
@@ -18,25 +21,6 @@ var (
 	longPoll  = 10 * time.Second
 	shortPoll = 500 * time.Millisecond
 )
-
-//func NewAddressPublisher() worker.Worker {
-//	p := &updater{
-//		st:
-//	}
-//	// wait for environment
-//	go func() {
-//		defer p.tomb.Done()
-//		p.tomb.Kill(p.loop())
-//	}()
-//}
-
-//type updater struct {
-//	st   *state.State
-//	tomb tomb.Tomb
-//
-//	mu      sync.Mutex
-//	environ environs.Environ
-//}
 
 type machine interface {
 	Id() string
