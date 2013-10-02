@@ -75,7 +75,7 @@ type updaterContext interface {
 }
 
 type updater struct {
-	ctxt        updaterContext
+	context     updaterContext
 	machines    map[string]chan struct{}
 	machineDead chan machine
 }
@@ -84,9 +84,9 @@ type updater struct {
 // machinesWatcher and starts machine goroutines to deal
 // with them, using the provided newMachineContext
 // function to create the appropriate context for each new machine id.
-func watchMachinesLoop(ctxt updaterContext, w machinesWatcher) (err error) {
+func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 	p := &updater{
-		ctxt:        ctxt,
+		context:     context,
 		machines:    make(map[string]chan struct{}),
 		machineDead: make(chan machine),
 	}
@@ -113,7 +113,7 @@ func watchMachinesLoop(ctxt updaterContext, w machinesWatcher) (err error) {
 			}
 		case m := <-p.machineDead:
 			delete(p.machines, m.Id())
-		case <-p.ctxt.dying():
+		case <-p.context.dying():
 			return nil
 		}
 	}
@@ -124,7 +124,7 @@ func (p *updater) startMachines(ids []string) error {
 		if c := p.machines[id]; c == nil {
 			// We don't know about the machine - start
 			// a goroutine to deal with it.
-			m, err := p.ctxt.getMachine(id)
+			m, err := p.context.getMachine(id)
 			if errors.IsNotFoundError(err) {
 				logger.Warningf("watcher gave notification of non-existent machine %q", id)
 				continue
@@ -134,7 +134,7 @@ func (p *updater) startMachines(ids []string) error {
 			}
 			c = make(chan struct{})
 			p.machines[id] = c
-			go runMachine(p.ctxt.newMachineContext(), m, c, p.machineDead)
+			go runMachine(p.context.newMachineContext(), m, c, p.machineDead)
 		} else {
 			c <- struct{}{}
 		}
@@ -144,7 +144,7 @@ func (p *updater) startMachines(ids []string) error {
 
 // runMachine processes the address publishing for a given machine.
 // We assume that the machine is alive when this is first called.
-func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died chan<- machine) {
+func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine) {
 	defer func() {
 		// We can't just send on the died channel because the
 		// central loop might be trying to write to us on the
@@ -157,12 +157,12 @@ func runMachine(ctxt machineContext, m machine, changed <-chan struct{}, died ch
 			}
 		}
 	}()
-	if err := machineLoop(ctxt, m, changed); err != nil {
-		ctxt.killAll(err)
+	if err := machineLoop(context, m, changed); err != nil {
+		context.killAll(err)
 	}
 }
 
-func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}) error {
+func machineLoop(context machineContext, m machine, changed <-chan struct{}) error {
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
@@ -175,7 +175,7 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}) error 
 		if err != nil {
 			return fmt.Errorf("cannot get machine's instance id: %v", err)
 		}
-		newAddrs, err := ctxt.addresses(instId)
+		newAddrs, err := context.addresses(instId)
 		if err != nil {
 			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
 		} else if !addressesEqual(m.Addresses(), newAddrs) {
@@ -186,7 +186,7 @@ func machineLoop(ctxt machineContext, m machine, changed <-chan struct{}) error 
 		}
 		select {
 		case <-time.After(pollInterval):
-		case <-ctxt.dying():
+		case <-context.dying():
 			return nil
 		case <-changed:
 			if err := m.Refresh(); err != nil {

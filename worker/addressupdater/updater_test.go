@@ -23,7 +23,7 @@ type updaterSuite struct {
 }
 
 func (*updaterSuite) TestStopsWatcher(c *gc.C) {
-	ctxt := &testPublisherContext{
+	context := &testPublisherContext{
 		dyingc: make(chan struct{}),
 	}
 	expectErr := errors.New("some error")
@@ -33,9 +33,9 @@ func (*updaterSuite) TestStopsWatcher(c *gc.C) {
 	}
 	done := make(chan error)
 	go func() {
-		done <- watchMachinesLoop(ctxt, watcher)
+		done <- watchMachinesLoop(context, watcher)
 	}()
-	close(ctxt.dyingc)
+	close(context.dyingc)
 	select {
 	case err := <-done:
 		c.Assert(err, gc.ErrorMatches, ".*"+expectErr.Error())
@@ -51,16 +51,16 @@ type testPublisherContext struct {
 	dyingc                chan struct{}
 }
 
-func (ctxt *testPublisherContext) newMachineContext() machineContext {
-	return ctxt.newMachineContextFunc()
+func (context *testPublisherContext) newMachineContext() machineContext {
+	return context.newMachineContextFunc()
 }
 
-func (ctxt *testPublisherContext) getMachine(id string) (machine, error) {
-	return ctxt.getMachineFunc(id)
+func (context *testPublisherContext) getMachine(id string) (machine, error) {
+	return context.getMachineFunc(id)
 }
 
-func (ctxt *testPublisherContext) dying() <-chan struct{} {
-	return ctxt.dyingc
+func (context *testPublisherContext) dying() <-chan struct{} {
+	return context.dyingc
 }
 
 type testMachinesWatcher struct {

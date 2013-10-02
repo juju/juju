@@ -25,7 +25,7 @@ type machineSuite struct {
 var testAddrs = []instance.Address{instance.NewAddress("127.0.0.1")}
 
 func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
-	ctxt := &testMachineContext{
+	context := &testMachineContext{
 		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
 		dyingc:       make(chan struct{}),
 	}
@@ -40,10 +40,10 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 	defer testbase.PatchValue(&shortPoll, coretesting.ShortWait/10).Restore()
 	defer testbase.PatchValue(&longPoll, coretesting.ShortWait/10).Restore()
 
-	go runMachine(ctxt, m, nil, died)
+	go runMachine(context, m, nil, died)
 	time.Sleep(coretesting.ShortWait)
 
-	killMachineLoop(c, m, ctxt.dyingc, died)
+	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
 	c.Assert(m.setAddressCount, gc.Equals, 1)
 }
@@ -73,7 +73,7 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 		}
 		return addrs, nil
 	}
-	ctxt := &testMachineContext{
+	context := &testMachineContext{
 		getAddresses: getAddresses,
 		dyingc:       make(chan struct{}),
 	}
@@ -85,15 +85,15 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 	}
 	died := make(chan machine)
 
-	go runMachine(ctxt, m, nil, died)
+	go runMachine(context, m, nil, died)
 
 	time.Sleep(coretesting.ShortWait)
-	killMachineLoop(c, m, ctxt.dyingc, died)
+	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (*machineSuite) TestChangedRefreshes(c *gc.C) {
-	ctxt := &testMachineContext{
+	context := &testMachineContext{
 		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
 		dyingc:       make(chan struct{}),
 	}
@@ -109,7 +109,7 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	}
 	died := make(chan machine)
 	changed := make(chan struct{})
-	go runMachine(ctxt, m, changed, died)
+	go runMachine(context, m, changed, died)
 	select {
 	case <-died:
 		c.Fatalf("machine died prematurely")
@@ -171,7 +171,7 @@ func (*machineSuite) TestTerminatingErrors(c *gc.C) {
 // given error.  The test is cunningly structured so that it in the normal course
 // of things it will go through all possible places that can return an error.
 func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
-	ctxt := &testMachineContext{
+	context := &testMachineContext{
 		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
 		dyingc:       make(chan struct{}),
 	}
@@ -184,14 +184,14 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	mutate(m, expectErr)
 	died := make(chan machine)
 	changed := make(chan struct{}, 1)
-	go runMachine(ctxt, m, changed, died)
+	go runMachine(context, m, changed, died)
 	changed <- struct{}{}
 	select {
 	case <-died:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for machine to die")
 	}
-	c.Assert(ctxt.killAllErr, gc.ErrorMatches, ".*"+expectErr.Error())
+	c.Assert(context.killAllErr, gc.ErrorMatches, ".*"+expectErr.Error())
 }
 
 func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machine) {
@@ -217,19 +217,19 @@ type testMachineContext struct {
 	dyingc       chan struct{}
 }
 
-func (ctxt *testMachineContext) killAll(err error) {
+func (context *testMachineContext) killAll(err error) {
 	if err == nil {
 		panic("killAll with nil error")
 	}
-	ctxt.killAllErr = err
+	context.killAllErr = err
 }
 
-func (ctxt *testMachineContext) addresses(id instance.Id) ([]instance.Address, error) {
-	return ctxt.getAddresses(id)
+func (context *testMachineContext) addresses(id instance.Id) ([]instance.Address, error) {
+	return context.getAddresses(id)
 }
 
-func (ctxt *testMachineContext) dying() <-chan struct{} {
-	return ctxt.dyingc
+func (context *testMachineContext) dying() <-chan struct{} {
+	return context.dyingc
 }
 
 type testMachine struct {
