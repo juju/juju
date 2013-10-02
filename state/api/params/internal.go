@@ -359,46 +359,53 @@ type AgentGetEntitiesResult struct {
 	Error         *Error
 }
 
-// AgentVersionResult holds the version and possibly error for a given
-// DesiredVersion request
-type AgentVersionResult struct {
+// VersionResult holds the version and possibly error for a given
+// DesiredVersion() API call.
+type VersionResult struct {
 	Version *version.Number
 	Error   *Error
 }
 
-// AgentVersionResults is a list of versions for the requested entities
-type AgentVersionResults struct {
-	Results []AgentVersionResult
+// VersionResults is a list of versions for the requested entities.
+type VersionResults struct {
+	Results []VersionResult
 }
 
-// AgentToolsResult holds the tools and possibly error for a given AgentTools request
-type AgentToolsResult struct {
+// ToolsResult holds the tools and possibly error for a given
+// Tools() API call.
+type ToolsResult struct {
 	Tools *tools.Tools
 	Error *Error
 }
 
-// AgentToolsResults is a list of tools for various requested agents.
-type AgentToolsResults struct {
-	Results []AgentToolsResult
+// ToolsResults is a list of tools for various requested agents.
+type ToolsResults struct {
+	Results []ToolsResult
 }
 
-// SetAgentVersion specifies the tools version to be set for an agent
-// with the given tag. Only the Version field is used, the others are
-// ignored.
+// Version holds a specific binary version.
 //
-// DEPRECATE(v1.18) Use Version version.Binary instead of Tools
-// *tools.Tools here.
-type SetAgentVersion struct {
+// DEPRECATE(v1.18) Remove this and use version.Binary directly.
+type Version struct {
+	Version version.Binary
+}
+
+// EntityVersion specifies the tools version to be set for an entity
+// with the given tag.
+//
+// DEPRECATE(v1.18) Rename Tools field to Version and make it use
+// version.Binary directly.
+type EntityVersion struct {
 	Tag   string
-	Tools *tools.Tools
+	Tools *Version
 }
 
-// SetAgentsVersion specifies what tools are being run for
-// multiple agents.
+// EntitiesVersion specifies what tools are being run for
+// multiple entities.
 //
-// DEPRECATE(v1.18) Use AgentVersions instead of AgentTools here.
-type SetAgentsVersion struct {
-	AgentTools []SetAgentVersion
+// DEPRECATE(v1.18) Use Versions/Entities instead of AgentTools here.
+type EntitiesVersion struct {
+	AgentTools []EntityVersion
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

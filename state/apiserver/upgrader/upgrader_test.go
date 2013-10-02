@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -165,7 +164,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.SetTools(params.SetAgentsVersion{})
+	results, err := s.upgrader.SetTools(params.EntitiesVersion{})
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -175,10 +174,10 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
-	args := params.SetAgentsVersion{
-		AgentTools: []params.SetAgentVersion{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag(),
-			Tools: &tools.Tools{
+			Tools: &params.Version{
 				Version: version.Current,
 			},
 		}},
@@ -193,10 +192,10 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Current
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	args := params.SetAgentsVersion{
-		AgentTools: []params.SetAgentVersion{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag(),
-			Tools: &tools.Tools{
+			Tools: &params.Version{
 				Version: cur,
 			}},
 		},

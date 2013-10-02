@@ -32,10 +32,10 @@ func NewState(caller common.Caller) *State {
 // DEPRECATE(v1.18) Rename this to SetVersion.
 func (st *State) SetTools(tag string, tools *tools.Tools) error {
 	var results params.ErrorResults
-	args := params.SetAgentsVersion{
-		AgentTools: []params.SetAgentVersion{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag:   tag,
-			Tools: tools,
+			Tools: &params.Version{tools.Version},
 		}},
 	}
 	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
@@ -47,7 +47,7 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 }
 
 func (st *State) DesiredVersion(tag string) (version.Number, error) {
-	var results params.AgentVersionResults
+	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
@@ -73,7 +73,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity.
 func (st *State) Tools(tag string) (*tools.Tools, error) {
-	var results params.AgentToolsResults
+	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}

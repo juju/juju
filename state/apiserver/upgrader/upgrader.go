@@ -83,14 +83,14 @@ func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, e
 }
 
 // DesiredVersion reports the Agent Version that we want that agent to be running
-func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.AgentVersionResults, error) {
-	results := make([]params.AgentVersionResult, len(args.Entities))
+func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
+	results := make([]params.VersionResult, len(args.Entities))
 	if len(args.Entities) == 0 {
-		return params.AgentVersionResults{}, nil
+		return params.VersionResults{}, nil
 	}
 	agentVersion, _, err := u.getGlobalAgentVersion()
 	if err != nil {
-		return params.AgentVersionResults{}, common.ServerError(err)
+		return params.VersionResults{}, common.ServerError(err)
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -100,13 +100,13 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.AgentVersionR
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.AgentVersionResults{results}, nil
+	return params.VersionResults{results}, nil
 }
 
 // SetTools updates the recorded tools version for the agents.
 //
 // DEPRECATE(v1.18) Rename this to SetVersion.
-func (u *UpgraderAPI) SetTools(args params.SetAgentsVersion) (params.ErrorResults, error) {
+func (u *UpgraderAPI) SetTools(args params.EntitiesVersion) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}

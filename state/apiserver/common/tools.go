@@ -37,9 +37,9 @@ func NewToolsGetter(st EntityFinderEnvironConfigGetter, getCanRead GetAuthFunc) 
 }
 
 // Tools finds the tools necessary for the given agents.
-func (t *ToolsGetter) Tools(args params.Entities) (params.AgentToolsResults, error) {
-	result := params.AgentToolsResults{
-		Results: make([]params.AgentToolsResult, len(args.Entities)),
+func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
+	result := params.ToolsResults{
+		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
 	canRead, err := t.getCanRead()
 	if err != nil {
