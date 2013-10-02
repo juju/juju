@@ -91,9 +91,9 @@ openstack:
   # region: <your region>
   # USe the following if you require keypair autherntication
   # auth-mode: keypair
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # Usually set via the env variable OS_ACCESS_KEY, but can be specified here
   # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # Usually set via the env variable OS_SECRET_KEY, but can be specified here
   # secret-key: <secret>
 
 ## https://juju.ubuntu.com/docs/config-hpcloud.html
