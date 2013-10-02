@@ -28,9 +28,10 @@ func Test(t *stdtesting.T) {
 
 func minimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
-		"name":           "test",
-		"type":           provider.Null,
-		"bootstrap-host": "hostname",
+		"name":             "test",
+		"type":             provider.Null,
+		"bootstrap-host":   "hostname",
+		"storage-auth-key": "whatever",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,

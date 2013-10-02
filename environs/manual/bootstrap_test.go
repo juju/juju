@@ -33,8 +33,8 @@ type localStorageEnviron struct {
 	sharedStorageDir  string
 }
 
-func (e *localStorageEnviron) BootstrapStorage() (storage.Storage, error) {
-	return e.storage, nil
+func (e *localStorageEnviron) Storage() storage.Storage {
+	return e.storage
 }
 
 func (e *localStorageEnviron) StorageAddr() string {
@@ -86,7 +86,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
-	bootstrapState, err := common.LoadState(s.env.storage)
+	bootstrapState, err := common.LoadState(s.env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(
 		bootstrapState.StateInstances,
@@ -117,7 +117,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 
 	// Since the script failed, the state file should have been
 	// removed from storage.
-	_, err = common.LoadState(s.env.storage)
+	_, err = common.LoadState(s.env.Storage())
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 

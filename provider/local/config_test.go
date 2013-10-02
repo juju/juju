@@ -20,21 +20,13 @@ import (
 
 type configSuite struct {
 	baseProviderSuite
-	oldUser string
 }
 
 var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	s.oldUser = os.Getenv("USER")
-	err := os.Setenv("USER", "tester")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *configSuite) TearDownTest(c *gc.C) {
-	os.Setenv("USER", s.oldUser)
-	s.baseProviderSuite.TearDownTest(c)
+	s.PatchEnvironment("USER", "tester")
 }
 
 func minimalConfigValues() map[string]interface{} {
@@ -127,47 +119,6 @@ func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
 	defer os.Setenv("SUDO_USER", "")
 	testConfig := minimalConfig(c)
 	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
-}
-
-func (s *configSuite) TestSudoCallerIds(c *gc.C) {
-	defer os.Setenv("SUDO_UID", os.Getenv("SUDO_UID"))
-	defer os.Setenv("SUDO_GID", os.Getenv("SUDO_GID"))
-	for _, test := range []struct {
-		uid         string
-		gid         string
-		errString   string
-		expectedUid int
-		expectedGid int
-	}{{
-		uid: "",
-		gid: "",
-	}, {
-		uid:         "1001",
-		gid:         "1002",
-		expectedUid: 1001,
-		expectedGid: 1002,
-	}, {
-		uid:       "1001",
-		gid:       "foo",
-		errString: `invalid value "foo" for SUDO_GID`,
-	}, {
-		uid:       "foo",
-		gid:       "bar",
-		errString: `invalid value "foo" for SUDO_UID`,
-	}} {
-		os.Setenv("SUDO_UID", test.uid)
-		os.Setenv("SUDO_GID", test.gid)
-		uid, gid, err := local.SudoCallerIds()
-		if test.errString == "" {
-			c.Assert(err, gc.IsNil)
-			c.Assert(uid, gc.Equals, test.expectedUid)
-			c.Assert(gid, gc.Equals, test.expectedGid)
-		} else {
-			c.Assert(err, gc.ErrorMatches, test.errString)
-			c.Assert(uid, gc.Equals, 0)
-			c.Assert(gid, gc.Equals, 0)
-		}
-	}
 }
 
 type configRootSuite struct {

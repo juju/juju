@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -24,7 +23,6 @@ const BootstrapInstanceId = instance.Id(manualInstancePrefix)
 // manages its own local storage.
 type LocalStorageEnviron interface {
 	environs.Environ
-	environs.BootstrapStorager
 	localstorage.LocalStorageConfig
 }
 
@@ -65,11 +63,6 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	bootstrapStorage, err := args.Environ.BootstrapStorage()
-	if err != nil {
-		return err
-	}
-
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
 	if err != nil {
 		return fmt.Errorf("error detecting hardware characteristics: %v", err)
@@ -87,6 +80,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 
 	// Store the state file. If provisioning fails, we'll remove the file.
 	logger.Infof("Saving bootstrap state file to bootstrap storage")
+	bootstrapStorage := args.Environ.Storage()
 	err = common.SaveState(
 		bootstrapStorage,
 		&common.BootstrapState{
@@ -112,11 +106,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
 
 	// Add the local storage configuration.
-	agentEnv := map[string]string{
-		agent.StorageAddr:       args.Environ.StorageAddr(),
-		agent.StorageDir:        storageDir,
-		agent.SharedStorageAddr: args.Environ.SharedStorageAddr(),
-		agent.SharedStorageDir:  args.Environ.SharedStorageDir(),
+	agentEnv, err := localstorage.StoreConfig(args.Environ)
+	if err != nil {
+		return err
 	}
 
 	// Finally, provision the machine agent.

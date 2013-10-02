@@ -261,7 +261,7 @@ func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 
-	_, err = environs.NewFromName(env.Name())
+	_, err = environs.NewFromName(env.Name(), store)
 	c.Assert(err, gc.IsNil)
 }
 
