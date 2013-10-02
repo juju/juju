@@ -768,7 +768,6 @@ func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.SecurityGroup, error) {
-	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
 			{
@@ -793,19 +792,16 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.S
 				Protocol:     "tcp",
 				FromPort:     0,
 				ToPort:       65535,
-				SourceGroups: sourceGroups,
 			},
 			{
 				Protocol:     "udp",
 				FromPort:     0,
 				ToPort:       65535,
-				SourceGroups: sourceGroups,
 			},
 			{
 				Protocol:     "icmp",
 				FromPort:     -1,
 				ToPort:       -1,
-				SourceGroups: sourceGroups,
 			},
 		})
 	if err != nil {
@@ -850,10 +846,10 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		// description here, but if it does it's probably due
 		// to something deliberately playing games with juju,
 		// so we ignore it.
-		have = newPermSet(info.IPPerms)
 		g = info.SecurityGroup
+		have = newPermSetForGroup(info.IPPerms, g)
 	}
-	want := newPermSet(perms)
+	want := newPermSetForGroup(perms, g)
 	revoke := make(permSet)
 	for p := range have {
 		if !want[p] {
@@ -889,16 +885,16 @@ type permKey struct {
 	protocol  string
 	fromPort  int
 	toPort    int
-	groupName string
+	groupId   string
 	ipAddr    string
 }
 
 type permSet map[permKey]bool
 
-// newPermSet returns a set of all the permissions in the
+// newPermSetForGroup returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
 // id in source groups, using group ids only.
-func newPermSet(ps []ec2.IPPerm) permSet {
+func newPermSetForGroup(ps []ec2.IPPerm, group ec2.SecurityGroup) permSet {
 	m := make(permSet)
 	for _, p := range ps {
 		k := permKey{
@@ -906,13 +902,13 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			fromPort: p.FromPort,
 			toPort:   p.ToPort,
 		}
-		for _, g := range p.SourceGroups {
-			k.groupName = g.Name
-			m[k] = true
-		}
-		k.groupName = ""
-		for _, ip := range p.SourceIPs {
-			k.ipAddr = ip
+		if len(p.SourceIPs) > 0 {
+			for _, ip := range p.SourceIPs {
+				k.ipAddr = ip
+				m[k] = true
+			}
+		} else {
+			k.groupId = group.Id
 			m[k] = true
 		}
 	}
@@ -933,7 +929,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
 		}
 		ps = append(ps, ipp)
 	}

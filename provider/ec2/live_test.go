@@ -147,6 +147,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
+	t.PrepareOnce(c)
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
@@ -160,6 +161,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// but with different permissions, to check that it's deleted
 	// and recreated correctly.
 	oldJujuGroup := createGroup(c, ec2conn, groups[0].Name, "old juju group")
+	defer ec2conn.DeleteSecurityGroup(oldJujuGroup)
 
 	// Add two permissions: one is required and should be left alone;
 	// the other is not and should be deleted.
@@ -187,6 +189,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
+	defer ec2conn.DeleteSecurityGroup(oldMachineGroup)
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]instance.Instance{inst1})
@@ -235,16 +238,16 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	for _, r := range resp.Reservations {
 		c.Assert(r.Instances, gc.HasLen, 1)
 		// each instance must be part of the general juju group.
-		msg := gc.Commentf("reservation %#v", r)
-		c.Assert(hasSecurityGroup(r, groups[0]), gc.Equals, true, msg)
 		inst := r.Instances[0]
+		msg := gc.Commentf("instance %#v", inst)
+		c.Assert(hasSecurityGroup(inst, groups[0]), gc.Equals, true, msg)
 		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, false, msg)
+			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, false, msg)
 		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, false, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
 		}
@@ -416,7 +419,7 @@ func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.Securi
 	return gi.SecurityGroup
 }
 
-func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
+func hasSecurityGroup(r amzec2.Instance, g amzec2.SecurityGroup) bool {
 	for _, rg := range r.SecurityGroups {
 		if rg.Id == g.Id {
 			return true
