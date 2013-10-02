@@ -18,10 +18,10 @@ type updaterWorker struct {
 	observer *environObserver
 }
 
-// NewAddressUpdater returns a worker that keeps track of
+// NewWorker returns a worker that keeps track of
 // the machines in the state and polls their instance
 // addresses periodically to keep them up to date.
-func NewAddressUpdater(st *state.State) worker.Worker {
+func NewWorker(st *state.State) worker.Worker {
 	u := &updaterWorker{
 		st: st,
 	}
