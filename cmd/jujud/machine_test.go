@@ -393,7 +393,7 @@ func (s *MachineSuite) assertJobWithState(
 ) {
 	paramsJob := job.ToParams()
 	if !paramsJob.NeedsState() {
-		c.Fatalf("%v does not use state")
+		c.Fatalf("%v does not use state", paramsJob)
 	}
 	stm, conf, _ := s.primeAgent(c, job)
 	a := s.newAgent(c, stm)
