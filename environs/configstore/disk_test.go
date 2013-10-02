@@ -85,14 +85,12 @@ var sampleInfo = `
     arble: bletch
 `[1:]
 
-func (*diskStoreSuite) TestRead(c *gc.C) {
-	dir := c.MkDir()
-	err := os.Mkdir(storePath(dir, ""), 0700)
+func (s *diskStoreSuite) TestRead(c *gc.C) {
+	err := os.Mkdir(storePath(s.dir, ""), 0700)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(storePath(dir, "someenv"), []byte(sampleInfo), 0666)
+	err = ioutil.WriteFile(storePath(s.dir, "someenv"), []byte(sampleInfo), 0666)
 	c.Assert(err, gc.IsNil)
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	store := s.NewStore(c)
 	info, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)

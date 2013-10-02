@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"

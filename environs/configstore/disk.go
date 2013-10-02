@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // Default returns disk-based environment config storage
@@ -54,10 +55,27 @@ func (d *diskStore) envPath(envName string) string {
 	return filepath.Join(d.dir, "environments", envName+".jenv")
 }
 
+func ensurePathOwnedByUser(path string) error {
+	uid, gid, err := utils.SudoCallerIds()
+	if err != nil {
+		return err
+	}
+	if uid != 0 {
+		if err := os.Chown(path, uid, gid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *diskStore) mkEnvironmentsDir() error {
-	err := os.Mkdir(filepath.Join(d.dir, "environments"), 0700)
-	if err == nil || os.IsExist(err) {
+	path := filepath.Join(d.dir, "environments")
+	err := os.Mkdir(path, 0700)
+	if os.IsExist(err) {
 		return nil
+	}
+	if err == nil {
+		err = ensurePathOwnedByUser(path)
 	}
 	return err
 }
@@ -78,6 +96,9 @@ func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
 		return nil, err
 	}
 	file.Close()
+	if err := ensurePathOwnedByUser(path); err != nil {
+		return nil, err
+	}
 	return &environInfo{
 		created: true,
 		path:    path,
