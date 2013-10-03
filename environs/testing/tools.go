@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -431,3 +432,14 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{V1001p64},
 	}}
+
+func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
+	envConfig, err := st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	attrs := envConfig.AllAttrs()
+	attrs["ssl-hostname-verification"] = SSLHostnameVerification
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = st.SetEnvironConfig(newConfig)
+	c.Assert(err, gc.IsNil)
+}

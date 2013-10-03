@@ -49,6 +49,10 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 	if err != nil {
 		return result, err
 	}
+	// SSLHostnameVerification defaults to true, so we need to
+	// invert that, for backwards-compatibility (older versions
+	// will have DisableSSLHostnameVerification: false by default).
+	disableSSLHostnameVerification := !cfg.SSLHostnameVerification()
 	env, err := environs.New(cfg)
 	if err != nil {
 		return result, err
@@ -57,6 +61,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 		agentTools, err := t.oneAgentTools(canRead, entity.Tag, agentVersion, env)
 		if err == nil {
 			result.Results[i].Tools = agentTools
+			result.Results[i].DisableSSLHostnameVerification = disableSSLHostnameVerification
 		}
 		result.Results[i].Error = ServerError(err)
 	}
