@@ -144,6 +144,9 @@ func (s *SSHStorage) terminate(err error) error {
 	s.stdin.Close()
 	var output string
 	for s.scanner.Scan() {
+		if len(output) > 0 {
+			output += "\n"
+		}
 		output += s.scanner.Text()
 	}
 	if len(output) > 0 {
@@ -169,26 +172,12 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
 	if input != nil {
-		wrapper, err := newLineWrapWriter(stdin, base64LineLength)
-		if err != nil {
-			err = fmt.Errorf("failed to create split writer: %v", err)
-		} else {
-			encoder := base64.NewEncoder(base64.StdEncoding, wrapper)
-			if _, err = io.CopyN(encoder, input, inputlen); err != nil {
-				err = fmt.Errorf("failed to write input: %v", err)
-			} else if err = encoder.Close(); err != nil {
-				err = fmt.Errorf("failed to flush encoder: %v", err)
-			} else if _, err = stdin.WriteString("\n@EOF\n"); err != nil {
-				err = fmt.Errorf("failed to terminate input: %v", err)
-			}
-		}
-		if err != nil {
-			return "", s.terminate(err)
+		if err := copyAsBase64(stdin, input); err != nil {
+			return "", s.terminate(fmt.Errorf("failed to write input: %v", err))
 		}
 	}
 	if err := stdin.Flush(); err != nil {
-		err = fmt.Errorf("failed to flush input: %v", err)
-		return "", s.terminate(err)
+		return "", s.terminate(fmt.Errorf("failed to write input: %v", err))
 	}
 	var output []string
 	for s.scanner.Scan() {
@@ -217,6 +206,21 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		err = fmt.Errorf("%v (scanner error: %v)", err, scannerErr)
 	}
 	return "", err
+}
+
+func copyAsBase64(w *bufio.Writer, r io.Reader) error {
+	wrapper := newLineWrapWriter(w, base64LineLength)
+	encoder := base64.NewEncoder(base64.StdEncoding, wrapper)
+	if _, err := io.Copy(encoder, r); err != nil {
+		return err
+	}
+	if err := encoder.Close(); err != nil {
+		return err
+	}
+	if _, err := w.WriteString("\n@EOF\n"); err != nil {
+		return err
+	}
+	return nil
 }
 
 // path returns a remote absolute path for a storage object name.

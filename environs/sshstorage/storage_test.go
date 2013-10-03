@@ -167,9 +167,9 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 			// Note: must close stdin before responding the first time, or
 			// the second command will race with closing stdin, and may
 			// flush first.
-			return exec.Command("bash", "-c", "head -n 1 > /dev/null; exec 0<&-; echo JUJU-RC: 0; echo blah blah")
+			return exec.Command("bash", "-c", "head -n 1 > /dev/null; exec 0<&-; echo JUJU-RC: 0; echo blah blah; echo more")
 		case 4:
-			return exec.Command("bash", "-c", `head -n 1 > /dev/null; echo "Hey it's JUJU-RC: , but not at the beginning of the line"`)
+			return exec.Command("bash", "-c", `head -n 1 > /dev/null; echo "Hey it's JUJU-RC: , but not at the beginning of the line"; echo more`)
 		default:
 			c.Errorf("unexpected invocation: #%d, %s", invocations, command)
 			return nil
@@ -181,10 +181,10 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer stor.Close()
 	err = stor.Put("whatever", bytes.NewBuffer(nil), 0)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to flush input: write |1: broken pipe (output: "blah blah")`))
+	c.Assert(err, gc.ErrorMatches, `failed to write input: write \|1: broken pipe \(output: "blah blah\\nmore"\)`)
 
 	_, err = NewSSHStorage("example.com", c.MkDir(), c.MkDir())
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to locate "JUJU-RC: " (output: "Hey it's JUJU-RC: , but not at the beginning of the line")`))
+	c.Assert(err, gc.ErrorMatches, `failed to locate "JUJU-RC: " \(output: "Hey it's JUJU-RC: , but not at the beginning of the line\\nmore"\)`)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
