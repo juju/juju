@@ -8,7 +8,7 @@ Juju -- devops distilled
 https://juju.ubuntu.com/
 
 Juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, bare metal, or your own local machine.
+such as Amazon AWS, HP Cloud, OpenStack, MaaS, or your own local machine.
 
 Basic commands:
   juju init             generate boilerplate configuration for juju environments
@@ -32,14 +32,12 @@ Provider information:
 `
 
 const helpProviderStart = `
-Start by generating a generic configuration file for Juju, using
-the command:
+Start by generating a generic configuration file for Juju, using the command:
 
   juju init
 
-This will generate a file, 'environments.yaml', which will live in your
-'~/.juju/' directory (or $JUJU_HOME, if set) and will create the directory if it
-doesn't already exist.
+This will create the '~/.juju/' directory (or $JUJU_HOME, if set) if it doesn't
+already exist and generate a file, 'environments.yaml' in that directory.
 `
 const helpProviderEnd = `
 See Also:
@@ -49,11 +47,11 @@ See Also:
 
 `
 
-const helpLocalProvider = ` 
-The local provider is a juju environment that uses LXC containers as a virtual
-cloud on the local machine.  Because of this, lxc and mongodb the local provider
-to work.  If you don't already have lxc and mongodb installed, run the following
-commands:
+const helpLocalProvider = `  
+The local provider is a linux-only Juju environment that uses LXC containers as
+a virtual cloud on the local machine.  Because of this, lxc and mongodb are
+required for the local provider to work.  If you don't already have lxc and
+mongodb installed, run the following commands:
 
   sudo apt-get update
   sudo apt-get install lxc mongodb-server
@@ -122,17 +120,15 @@ References:
 
 Other OpenStack Based Clouds:
 
-This answer is for generic upstream OpenStack support, if you're using an
-OpenStack-based provider check these questions out for provider-specific
-information:
+This answer is for generic OpenStack support, if you're using an OpenStack-based
+provider check these questions out for provider-specific information:
 
-  http://askubuntu.com/questions/116174/how-can-i-configure-juju-for-deployment-to-the-hp-cloud
-  http://askubuntu.com/questions/166102/how-do-i-configure-juju-for-deployment-on-rackspace-cloud
+  https://juju.ubuntu.com/docs/config-hpcloud.html 
 
 `
 
 const helpEC2Provider = `
-Configuring the EC2 environment requires telling juju about your AWS access key
+Configuring the EC2 environment requires telling Juju about your AWS access key
 and secret key. To do this, you can either set the 'AWS_ACCESS_KEY_ID' and
 'AWS_SECRET_ACCESS_KEY' environment variables[1] (as usual for other EC2 tools)
 or you can add access-key and secret-key options to your environments.yaml.
@@ -159,7 +155,6 @@ key.
 
 And that's it, you're ready to go!
 
-
 References:
 
   [1]: http://askubuntu.com/questions/730/how-do-i-set-environment-variables
@@ -175,32 +170,26 @@ More information:
 
 const helpHPCloud = `
 HP Cloud is an Openstack cloud provider, so to deploy to it, use an openstack
-environment type for juju, which would look something like this:
+environment type for Juju, which would look something like this:
 
   sample_hpcloud:
     type: openstack
     admin-secret: 6638bebf0c54ffff1007e0247d4dae98
     control-bucket: juju-bc66a4a4adbee50b2ceeee70436528e5
     tenant-name: "juju-project1"
-    auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
+    auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
     auth-mode: userpass
     username: "xxxyour-hpcloud-usernamexxx"
     password: "xxxpasswordxxx"
     region: az-1.region-a.geo-1
 
-Please refer to the question on Ask Ubuntu for details on how to get the
-relevant information to finish configuring your hpcloud environment:
+See the online help for more information:
 
-  http://askubuntu.com/questions/116174/how-can-i-configure-juju-for-deployment-on-hp-cloud
-
-More Information:
-
-  https://juju.ubuntu.com/docs/provider-configuration-openstack.html#openstack-configuration
-  http://askubuntu.com/questions/132411/how-can-i-configure-juju-for-deployment-on-openstack
+  https://juju.ubuntu.com/docs/config-hpcloud.html 
 `
 
 const helpAzureProvider = `
-A generic azure environment looks like this:
+A generic Windows Azure environment looks like this:
 
   sample_azure:
     type: azure
@@ -226,7 +215,7 @@ A generic azure environment looks like this:
     # image-stream: ""
     # default-series: precise
 
-This is the configuration environments.yaml file needed to run on Windows Azure.
+This is the environments.yaml configuration file needed to run on Windows Azure.
 You will need to set the management-subscription-id, management-certificate-
 path, and storage-account-name.
 
@@ -247,8 +236,8 @@ Charm
   A Charm provides the definition of the service, including its metadata,
   dependencies to other services, packages necessary, as well as the logic for
   management of the application. It is the layer that integrates an external
-  application component like Postgres or WordPress into juju. A juju Service may
-  generally be seen as the composition of its juju Charm and the upstream
+  application component like Postgres or WordPress into Juju. A Juju Service may
+  generally be seen as the composition of its Juju Charm and the upstream
   application (traditionally made available through its package).
 
 Charm URL
@@ -296,7 +285,7 @@ Provisioning Agent
   an Environment, as necessary for the requested configuration.
 
 Relation
-  Relations are the way in which juju enables Services to communicate to each
+  Relations are the way in which Juju enables Services to communicate to each
   other, and the way in which the topology of Services is assembled. The Charm
   defines which Relations a given Service may establish, and what kind of
   interface these Relations require.
@@ -323,7 +312,7 @@ Service
   service.
 
 Service Configuration
-  There are many different settings in a juju deployment, but the term Service
+  There are many different settings in a Juju deployment, but the term Service
   Configuration refers to the settings which a user can define to customize the
   behavior of a Service.
 
@@ -331,7 +320,7 @@ Service Configuration
   defined by its Charm.
 
 Service Unit
-  A running instance of a given juju Service. Simple Services may be deployed
+  A running instance of a given Juju Service. Simple Services may be deployed
   with a single Service Unit, but it is possible for an individual Service to
   have multiple Service Units running in independent machines. All Service Units
   for a given Service will share the same Charm, the same relations, and the
