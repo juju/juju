@@ -8,8 +8,8 @@ import (
 
 	"launchpad.net/golxc"
 
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 )
 
 type lxcInstance struct {
