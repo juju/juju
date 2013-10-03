@@ -137,7 +137,9 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	envtesting.UploadFakeTools(c, t.Env.Storage())
-	err := bootstrap.Bootstrap(t.Env, cons)
+	err := bootstrap.EnsureNotBootstrapped(t.Env)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -385,9 +387,11 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
+	// bootstrap.Bootstrap no longer raises errors if the environment is
+	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
 
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")

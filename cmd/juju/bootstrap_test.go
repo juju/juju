@@ -53,6 +53,13 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
+func (s *BootstrapSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
+}
+
 type bootstrapRetryTest struct {
 	info               string
 	args               []string
@@ -99,13 +106,6 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, test.err)
-}
-
-func (s *BootstrapSuite) TearDownTest(c *gc.C) {
-	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-	dummy.Reset()
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
@@ -190,7 +190,11 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, "bootstrap-verify")
+	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
+
+	opPutBootstrapInitFile := (<-opc).(dummy.OpPutFile)
+	c.Check(opPutBootstrapInitFile.Env, gc.Equals, "peckham")
+	c.Check(opPutBootstrapInitFile.FileName, gc.Equals, "provider-state")
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")

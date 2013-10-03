@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"launchpad.net/juju-core/cert"
@@ -15,7 +16,21 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-var InvalidEnvironmentError = fmt.Errorf("environment is not a juju-core environment")
+// File named `VerificationFilename` in the storage will contain
+// `verificationContent`.  This is also used to differentiate between
+// Python Juju and juju-core environments, so change the content with
+// care (and update CheckEnvironment below when you do that).
+const (
+	VerificationFilename = "bootstrap-verify"
+	verificationContent  = "juju-core storage writing verified: ok\n"
+)
+
+var (
+	VerifyStorageError error = fmt.Errorf(
+		"provider storage is not writable")
+	InvalidEnvironmentError = fmt.Errorf(
+		"environment is not a juju-core environment")
+)
 
 // ConfigForName returns the configuration for the environment with the
 // given name from the default environments file. If the name is blank,
@@ -199,6 +214,19 @@ func Destroy(env Environ, store configstore.Storage) error {
 	return nil
 }
 
+// VerifyStorage writes the bootstrap init file to the storage to indicate
+// that the storage is writable.
+func VerifyStorage(stor storage.Storage) error {
+	reader := strings.NewReader(verificationContent)
+	err := stor.Put(VerificationFilename, reader,
+		int64(len(verificationContent)))
+	if err != nil {
+		logger.Warningf("failed to write bootstrap-verify file: %v", err)
+		return VerifyStorageError
+	}
+	return nil
+}
+
 // CheckEnvironment checks if an environment has a bootstrap-verify
 // that is written by juju-core commands (as compared to one being
 // written by Python juju).
@@ -210,7 +238,7 @@ func Destroy(env Environ, store configstore.Storage) error {
 // Returns InvalidEnvironmentError on failure, nil otherwise.
 func CheckEnvironment(environ Environ) error {
 	stor := environ.Storage()
-	reader, err := storage.Get(stor, verificationFilename)
+	reader, err := storage.Get(stor, VerificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.

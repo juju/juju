@@ -297,7 +297,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 	// When the bootstrap-verify file does not exist, it still believes
 	// the environment is a juju-core one because earlier versions
 	// did not create that file.
-	err = stor.Remove("bootstrap-verify")
+	err = stor.Remove(environs.VerificationFilename)
 	c.Assert(err, gc.IsNil)
 	err = environs.CheckEnvironment(environ)
 	c.Assert(err, gc.IsNil)
@@ -318,7 +318,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 	// When fetching the verification file from storage fails,
 	// we get an InvalidEnvironmentError.
 	someError := errors.Unauthorizedf("you shall not pass")
-	dummy.Poison(stor, "bootstrap-verify", someError)
+	dummy.Poison(stor, environs.VerificationFilename, someError)
 	err = environs.CheckEnvironment(environ)
 	c.Assert(err, gc.Equals, someError)
 }
@@ -333,7 +333,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
 	stor := environ.Storage()
 	content := "bad verification content"
 	reader := strings.NewReader(content)
-	err = stor.Put("bootstrap-verify", reader, int64(len(content)))
+	err = stor.Put(environs.VerificationFilename, reader, int64(len(content)))
 	c.Assert(err, gc.IsNil)
 
 	// When the bootstrap-verify file contains unexpected content,

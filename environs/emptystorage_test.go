@@ -68,7 +68,7 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 	stor := environ.Storage()
 	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.IsNil)
-	reader, err := storage.Get(stor, "bootstrap-verify")
+	reader, err := storage.Get(stor, environs.VerificationFilename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)
@@ -84,7 +84,7 @@ func (s *verifyStorageSuite) TestVerifyStorageFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	stor := environ.Storage()
 	someError := errors.Unauthorizedf("you shall not pass")
-	dummy.Poison(stor, "bootstrap-verify", someError)
+	dummy.Poison(stor, environs.VerificationFilename, someError)
 	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.Equals, environs.VerifyStorageError)
 }
