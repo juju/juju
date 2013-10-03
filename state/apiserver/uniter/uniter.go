@@ -966,3 +966,12 @@ func (u *UniterAPI) APIAddresses() (params.StringsResult, error) {
 		Result: apiInfo.Addrs,
 	}, nil
 }
+
+func (u *UniterAPI) GetOwnerTag(tag string) (string, error) {
+	service, err := u.getService(tag)
+	if err != nil {
+		return "", err
+	}
+
+	return service.GetOwnerTag(), nil
+}

@@ -1381,3 +1381,10 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 		Result: apiInfo.Addrs,
 	})
 }
+
+func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
+	tag := s.mysql.Tag()
+	result, err := s.uniter.GetOwnerTag(tag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, "user-admin")
+}
