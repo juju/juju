@@ -6,7 +6,7 @@ package upgrader_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -166,16 +166,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	assertTools()
 	c.Check(results.Results[0].DisableSSLHostnameVerification, jc.IsFalse)
 
-	// Change the environment config to have
-	// "ssl-hostname-verification" false.
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	attrs := envConfig.AllAttrs()
-	attrs["ssl-hostname-verification"] = false
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
 
 	results, err = s.upgrader.Tools(args)
 	c.Assert(err, gc.IsNil)
