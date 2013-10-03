@@ -142,8 +142,12 @@ func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface
 // terminate closes the stdin, and appends any output to the input error.
 func (s *SSHStorage) terminate(err error) error {
 	s.stdin.Close()
-	if output, _ := ioutil.ReadAll(s.stdout); len(output) > 0 {
-		err = fmt.Errorf("%v (output: %q)", err, string(output))
+	var output string
+	for s.scanner.Scan() {
+		output += s.scanner.Text()
+	}
+	if len(output) > 0 {
+		err = fmt.Errorf("%v (output: %q)", err, output)
 	}
 	return err
 }
