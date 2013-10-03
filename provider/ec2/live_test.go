@@ -252,19 +252,19 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	}
 
 	// Check that listing those instances finds them using the groups
-	inst_ids := []instance.Id{inst0.Id(), inst1.Id()}
-	ids_from_insts := func(insts []instance.Instance) (ids []instance.Id) {
+	instIds := []instance.Id{inst0.Id(), inst1.Id()}
+	idsFromInsts := func(insts []instance.Instance) (ids []instance.Id) {
 		for _, inst := range insts {
 			ids = append(ids, inst.Id())
 		}
 		return ids
 	}
-	insts, err := t.Env.Instances(inst_ids)
+	insts, err := t.Env.Instances(instIds)
 	c.Assert(err, gc.IsNil)
-	c.Assert(inst_ids, jc.SameContents, ids_from_insts(insts))
-	all_insts, err := t.Env.AllInstances()
+	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
+	allInsts, err := t.Env.AllInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(inst_ids, jc.SameContents, ids_from_insts(all_insts))
+	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
 }
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
@@ -432,9 +432,9 @@ func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.Securi
 	return gi.SecurityGroup
 }
 
-func hasSecurityGroup(r amzec2.Instance, g amzec2.SecurityGroup) bool {
-	for _, rg := range r.SecurityGroups {
-		if rg.Id == g.Id {
+func hasSecurityGroup(inst amzec2.Instance, group amzec2.SecurityGroup) bool {
+	for _, instGroup := range inst.SecurityGroups {
+		if instGroup.Id == group.Id {
 			return true
 		}
 	}
