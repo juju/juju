@@ -32,7 +32,7 @@ func (lxc *lxcInstance) Status() string {
 }
 
 func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
-	return nil, errors.NewUnimplementedError("lxcInstance.Addresses")
+	return nil, errors.NewNotImplementedError("lxcInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.

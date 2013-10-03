@@ -103,7 +103,7 @@ func (*machineSuite) TestSinglePollWhenAddressesUnimplemented(c *gc.C) {
 	getAddresses := func(id instance.Id) ([]instance.Address, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
 		atomic.AddInt32(&count, 1)
-		return nil, errors.NewUnimplementedError("instance address")
+		return nil, errors.NewNotImplementedError("instance address")
 	}
 	context := &testMachineContext{
 		getAddresses: getAddresses,

@@ -86,23 +86,23 @@ func NewUnauthorizedError(err error, msg string) error {
 	return unauthorizedError{&errorWrapper{Err: err, Msg: msg}}
 }
 
-type unimplementedError struct {
+type notImplementedError struct {
 	what string
 }
 
-// NewUnimplementedError returns an error signifying that
+// NewNotImplementedError returns an error signifying that
 // something is not implemented.
-func NewUnimplementedError(what string) error {
-	return &unimplementedError{what: what}
+func NewNotImplementedError(what string) error {
+	return &notImplementedError{what: what}
 }
 
-func (e *unimplementedError) Error() string {
+func (e *notImplementedError) Error() string {
 	return e.what + " not implemented"
 }
 
-// IsUnimplementedError reports whether the error
-// was created with NewUnimplementedError.
-func IsUnimplementedError(err error) bool {
-	_, ok := err.(*unimplementedError)
+// IsNotImplementedError reports whether the error
+// was created with NewNotImplementedError.
+func IsNotImplementedError(err error) bool {
+	_, ok := err.(*notImplementedError)
 	return ok
 }
