@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -42,7 +44,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/common"
@@ -54,6 +55,8 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.provider.dummy")
 
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
@@ -208,7 +211,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	log.Infof("environs/dummy: reset environment")
+	logger.Infof("reset environment")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -538,7 +541,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
+	logger.Infof("would pick tools from %s", possibleTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
 		return fmt.Errorf("cannot make bootstrap config: %v", err)
@@ -553,6 +556,17 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 	if estate.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
+	// Write the bootstrap file just like a normal provider. However
+	// we need to release the mutex for the save state to work, so regain
+	// it after the call.
+	estate.mu.Unlock()
+	if err := common.SaveState(e.Storage(), &common.BootstrapState{StateInstances: []instance.Id{"localhost"}}); err != nil {
+		logger.Errorf("failed to save state instances: %v", err)
+		estate.mu.Lock() // otherwise defered unlock will fail
+		return err
+	}
+	estate.mu.Lock() // back at it
+
 	if e.ecfg().stateServer() {
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
 		// so that we can call it here.
@@ -653,7 +667,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 
 	defer delay()
 	machineId := machineConfig.MachineId
-	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
+	logger.Infof("dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, err
 	}
@@ -675,7 +689,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	if machineConfig.APIInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
+	logger.Infof("would pick tools from %s", possibleTools)
 	series := possibleTools.OneSeries()
 	i := &dummyInstance{
 		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
@@ -899,7 +913,7 @@ func (inst *dummyInstance) WaitDNSName() (string, error) {
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	defer delay()
-	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
+	logger.Infof("openPorts %s, %#v", machineId, ports)
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.firewallMode)
@@ -970,7 +984,7 @@ var providerDelay time.Duration
 // pause execution to simulate the latency of a real provider
 func delay() {
 	if providerDelay > 0 {
-		log.Infof("environs/dummy: pausing for %v", providerDelay)
+		logger.Infof("pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
 }

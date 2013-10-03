@@ -131,19 +131,21 @@ func (t *Tests) TestStartStop(c *gc.C) {
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e.Storage())
-	err := bootstrap.Bootstrap(e, constraints.Value{})
+	err := bootstrap.EnsureNotBootstrapped(e)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
 	c.Check(apiInfo.Addrs, gc.Not(gc.HasLen), 0)
 
-	err = bootstrap.Bootstrap(e, constraints.Value{})
+	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
 	envtesting.UploadFakeTools(c, e2.Storage())
-	err = bootstrap.Bootstrap(e2, constraints.Value{})
+	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -157,11 +159,13 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	e3 := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e3.Storage())
 
+	err = bootstrap.EnsureNotBootstrapped(e3)
+	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.Bootstrap(e3, constraints.Value{})
-	c.Assert(err, gc.NotNil)
+	err = bootstrap.EnsureNotBootstrapped(e3)
+	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
 var noRetry = utils.AttemptStrategy{}

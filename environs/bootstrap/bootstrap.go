@@ -42,11 +42,8 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	err := verifyBootstrapInit(environ)
-	if err != nil {
+	// Write out the bootstrap-init file, and confirm storage is writeable.
+	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
 
@@ -89,24 +86,18 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	return environ.Bootstrap(cons, newestTools)
 }
 
-// verifyBootstrapInit does the common initial check before bootstrapping, to
-// confirm that the environment isn't already running, and that the storage
-// works.
-func verifyBootstrapInit(env environs.Environ) error {
-	// TODO(rog) this feels like a layering violation - providers
-	// should not necessarily be required to store their bootstrap
-	// state in a file. This verification should probably
-	// be moved into provider and called by the providers themselves.
-	stor := env.Storage()
-	_, err := common.LoadState(stor)
+// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
+// and an error if it is or if the function was not able to tell.
+func EnsureNotBootstrapped(env environs.Environ) error {
+	_, err := common.LoadState(env.Storage())
+	// If there is no error loading the bootstrap state, then we are bootstrapped.
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if err != environs.ErrNotBootstrapped {
-		return fmt.Errorf("cannot query old bootstrap state: %v", err)
+	if err == environs.ErrNotBootstrapped {
+		return nil
 	}
-
-	return environs.VerifyStorage(stor)
+	return err
 }
 
 // ConfigureBootstrapMachine adds the initial machine into state.  As a part
