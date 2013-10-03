@@ -233,11 +233,19 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 		return err
 	}
 
-	bridgeAddress, err := env.findBridgeAddress()
+	// We need the provider config to get the network bridge.
+	config, err := providerInstance.newConfig(cfg)
 	if err != nil {
+		logger.Errorf("failed to create new environ config: %v", err)
 		return err
 	}
-	logger.Debugf("found %q as address for %q", bridgeAddress, lxcBridgeName)
+	networkBridge := config.networkBridge()
+	bridgeAddress, err := env.findBridgeAddress(networkBridge)
+	if err != nil {
+		logger.Infof("configure a different bridge using 'network-bridge' in the config file")
+		return err
+	}
+	logger.Debugf("found %q as address for %q", bridgeAddress, networkBridge)
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"bootstrap-ip": bridgeAddress,
 	})
@@ -245,7 +253,8 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 		logger.Errorf("failed to apply new addresses to config: %v", err)
 		return err
 	}
-	config, err := providerInstance.newConfig(cfg)
+	// Now recreate the config based on the settings with the bootstrap id.
+	config, err = providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
@@ -293,7 +302,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	agenttools := possibleTools[0]
 	logger.Debugf("tools: %#v", agenttools)
 
-	network := lxc.DefaultNetworkConfig()
+	network := lxc.BridgeNetworkConfig(env.config.networkBridge())
 	inst, err := env.containerManager.StartContainer(
 		machineId, series, machineConfig.MachineNonce, network,
 		agenttools, env.config.Config,
@@ -509,8 +518,8 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	return nil
 }
 
-func (env *localEnviron) findBridgeAddress() (string, error) {
-	return getAddressForInterface(lxcBridgeName)
+func (env *localEnviron) findBridgeAddress(networkBridge string) (string, error) {
+	return getAddressForInterface(networkBridge)
 }
 
 func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
