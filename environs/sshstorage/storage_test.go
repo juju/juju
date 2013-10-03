@@ -151,6 +151,42 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
+func (s *storageSuite) TestWriteFailure(c *gc.C) {
+	// Invocations:
+	//  1: first "install"
+	//  2: touch, Put
+	//  3: second "install"
+	//  4: touch
+	var invocations int
+	badSshCommand := func(host string, tty bool, command string) *exec.Cmd {
+		invocations++
+		switch invocations {
+		case 1, 3:
+			return exec.Command("bash", "-c", "echo alles gut")
+		case 2:
+			// Note: must close stdin before responding the first time, or
+			// the second command will race with closing stdin, and may
+			// flush first.
+			return exec.Command("bash", "-c", "head -n 1 > /dev/null; exec 0<&-; echo JUJU-RC: 0; echo blah blah")
+		case 4:
+			return exec.Command("bash", "-c", `head -n 1 > /dev/null; echo "Hey it's JUJU-RC: , but not at the beginning of the line"`)
+		default:
+			c.Errorf("unexpected invocation: #%d, %s", invocations, command)
+			return nil
+		}
+	}
+	s.PatchValue(&sshCommand, badSshCommand)
+
+	stor, err := NewSSHStorage("example.com", c.MkDir(), c.MkDir())
+	c.Assert(err, gc.IsNil)
+	defer stor.Close()
+	err = stor.Put("whatever", bytes.NewBuffer(nil), 0)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to flush input: write |1: broken pipe (output: "blah blah")`))
+
+	_, err = NewSSHStorage("example.com", c.MkDir(), c.MkDir())
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to locate "JUJU-RC: " (output: "Hey it's JUJU-RC: , but not at the beginning of the line")`))
+}
+
 func (s *storageSuite) TestPut(c *gc.C) {
 	stor, storageDir := s.makeStorage(c)
 	data := []byte("abc\000def")

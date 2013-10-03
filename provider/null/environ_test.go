@@ -100,7 +100,16 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 }
 
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
-	const sshScript = "#!/bin/sh\necho JUJU-RC: $RC"
+	var sshScript = `
+#!/bin/bash
+if [ "$*" = "hostname -- bash" ]; then
+    # We're executing bash inside ssh. Wait
+    # for input to be written before exiting.
+    head -n 1 > /dev/null
+fi
+exec 0<&- # close stdin
+echo JUJU-RC: $RC
+`[1:]
 	bin := c.MkDir()
 	ssh := filepath.Join(bin, "ssh")
 	err := ioutil.WriteFile(ssh, []byte(sshScript), 0755)
