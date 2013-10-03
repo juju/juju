@@ -423,6 +423,18 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	var instResp *ec2.RunInstancesResp
 
+	var devices []ec2.BlockDeviceMapping
+
+	if cons.RootDisk != nil {
+		// AWS's volume size is in gigabytes, root-disk is in megabytes,
+		// so round up to the nearest gigabyte.
+		size := int64((*cons.RootDisk + 1023) / 1024)
+		devices = append(devices, ec2.BlockDeviceMapping{
+			DeviceName: "/dev/sda1",
+			VolumeSize: size,
+		})
+	}
+
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:        spec.Image.Id,
@@ -431,6 +443,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 			UserData:       userData,
 			InstanceType:   spec.InstanceType.Name,
 			SecurityGroups: groups,
+			BlockDevices:   devices,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
 			break
