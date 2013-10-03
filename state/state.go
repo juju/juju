@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -133,6 +134,122 @@ func checkEnvironConfig(cfg *config.Config) error {
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
 		return fmt.Errorf("agent-version must always be set in state")
+	}
+	return nil
+}
+
+// versionInconsistentError indicates one or more machines or units
+// have a different agent version from the current one (even empty,
+// when not yet set).
+type versionInconsistentError struct {
+	machines map[string]version.Number
+	units    map[string]version.Number
+}
+
+func (e *versionInconsistentError) Error() string {
+	str := func(m map[string]version.Number) string {
+		items := make([]string, len(m))
+		i := 0
+		for k, v := range m {
+			vers := v.String()
+			if v == version.Zero {
+				vers = "N/A"
+			}
+			items[i] = fmt.Sprintf("%q: %s", k, vers)
+			i++
+		}
+		return fmt.Sprintf("[%s]", strings.Join(items, ", "))
+	}
+
+	message := fmt.Sprintf("current environment version %s is inconsistent for", version.Current.Number)
+	if len(e.machines) > 0 && len(e.units) > 0 {
+		return fmt.Sprintf("%s machines %s and units %s", message, str(e.machines), str(e.units))
+	} else if len(e.machines) > 0 {
+		return fmt.Sprintf("%s machines %s", message, str(e.machines))
+	}
+	return fmt.Sprintf("%s units %v", message, e.units)
+}
+
+// NewVersionInconsistentError returns a new instance of
+// versionInconsistentError.
+func NewVersionInconsistentError(machines, units map[string]version.Number) *versionInconsistentError {
+	return &versionInconsistentError{machines, units}
+}
+
+// IsVersionInconsistentError returns if the given error is
+// versionInconsistentError.
+func IsVersionInconsistentError(e interface{}) bool {
+	_, ok := e.(*versionInconsistentError)
+	return ok
+}
+
+// SetEnvironAgentVersion changes the agent version for the
+// environment to the given version, only if the environment is in a
+// stable state (all agents are running the current version).
+func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
+	// Get the currently set agent version.
+	settings, err := readSettings(st, environGlobalKey)
+	if err != nil {
+		return err
+	}
+	currentVersion, ok := settings.Get("agent-version")
+	if !ok {
+		return fmt.Errorf("no agent version set in the environment")
+	}
+
+	// Get all machines and units with a different or empty version.
+	sel := D{{"$or", []D{
+		{{"tools", D{{"$exists", false}}}},
+		{{"tools.version.number", D{{"$ne", "1.15.1"}}}},
+	}}}
+	var (
+		machineDocs []machineDoc
+		unitDocs    []unitDoc
+	)
+	err = st.machines.Find(sel).All(&machineDocs)
+	if err != nil {
+		return err
+	}
+	err = st.units.Find(sel).All(&unitDocs)
+	if err != nil {
+		return err
+	}
+	machines := make(map[string]version.Number)
+	if len(machineDocs) > 0 {
+		for _, machine := range machineDocs {
+			fmt.Printf("machine: %#v\n", machine)
+			if machine.Tools == nil {
+				machines[machine.Id] = version.Zero
+			} else {
+				machines[machine.Id] = machine.Tools.Version.Number
+			}
+		}
+	}
+	units := make(map[string]version.Number)
+	if len(unitDocs) > 0 {
+		for _, unit := range unitDocs {
+			if unit.Tools == nil {
+				units[unit.Name] = version.Zero
+			} else {
+				units[unit.Name] = unit.Tools.Version.Number
+			}
+		}
+	}
+	if len(machines) > 0 || len(units) > 0 {
+		return NewVersionInconsistentError(machines, units)
+	}
+
+	// Now it's safe to change the version, asserting it
+	// hasn't changed in the mean time.
+	settings.Set("agent-version", newVersion)
+	ops := []txn.Op{{
+		C:      st.settings.Name,
+		Id:     environGlobalKey,
+		Assert: D{{"agent-version", currentVersion}},
+		Update: D{{"$set", settings.Map()}},
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set agent-version: %v", err)
 	}
 	return nil
 }

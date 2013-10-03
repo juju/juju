@@ -1846,6 +1846,55 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
 }
 
+func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
+	// Add 3 machines: one with a different version, one with an
+	// empty version, and one with the current version.
+	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-series-arch"))
+	c.Assert(err, gc.IsNil)
+	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine2.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
+	// Verify machine0 and machine1 are reported as error.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.ErrorMatches, `current environment version .* is inconsistent for machines \["0": 9.9.9, "1": N/A\]`)
+
+	// Add a service and 3 units: one with a different version, one
+	// with an empty version, and one with the current version.
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	unit0, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+	_, err = service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	unit2, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit2.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
+	// Verify unit0 and unit1 are reported as error, along with the
+	// machines from before.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.ErrorMatches, `current environment version .* is inconsistent for machines \["0": 9.9.9, "1": N/A\] and units \["wordpress/0": 6.6.6, "wordpress/1": N/A\]`)
+
+	// Now remove the machines.
+	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
+		err = machine.Destroy()
+		c.Assert(err, gc.IsNil)
+	}
+
+	// Verify only the units are reported as error.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.ErrorMatches, `current environment version .* is inconsistent for units \["wordpress/0": 6.6.6, "wordpress/1": N/A\]`)
+}
+
 type waiter interface {
 	Wait() error
 }
