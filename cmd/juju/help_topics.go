@@ -101,7 +101,6 @@ Here's an example OpenStack configuration:
     # auth-url: https://yourkeystoneurl:443/v2.0/
     # override if your workstation is running a different series to which
     # you are deploying
-    # default-series: precise
     # The following are used for userpass authentication (the default)
     auth-mode: userpass
     # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -141,8 +140,6 @@ them out. For example:
     # secret-key: YOUR-SECRET-KEY-GOES-HERE
     control-bucket: juju-faefb490d69a41f0a3616a4808e0766b
     admin-secret: 81a1e7429e6847c4941fda7591246594
-    default-series: precise
-    ssl-hostname-verification: true
 
 See the EC2 provider documentation[2] for more options. The S3 bucket does not
 need to exist already.
@@ -213,7 +210,6 @@ A generic Windows Azure environment looks like this:
     # images, or any other stream available on simplestreams.  Leave blank for
     # released images.
     # image-stream: ""
-    # default-series: precise
 
 This is the environments.yaml configuration file needed to run on Windows Azure.
 You will need to set the management-subscription-id, management-certificate-
