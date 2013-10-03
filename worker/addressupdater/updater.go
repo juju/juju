@@ -159,6 +159,9 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	for {
 		if checkAddress {
 			if err := checkMachineAddresses(context, m); err != nil {
+				if errors.IsUnimplementedError(err) {
+					pollInterval = 365 * 24 * time.Hour
+				}
 				return err
 			}
 			if len(m.Addresses()) > 0 {
@@ -195,6 +198,9 @@ func checkMachineAddresses(context machineContext, m machine) error {
 		newAddrs, err = context.addresses(instId)
 		if err != nil {
 			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
+			if errors.IsUnimplementedError(err) {
+				return err
+			}
 			return nil
 		}
 	}
