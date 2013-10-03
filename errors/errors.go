@@ -85,3 +85,24 @@ func Unauthorizedf(format string, args ...interface{}) error {
 func NewUnauthorizedError(err error, msg string) error {
 	return unauthorizedError{&errorWrapper{Err: err, Msg: msg}}
 }
+
+type unimplementedError struct {
+	what string
+}
+
+// NewUnimplementedError returns an error signifying that
+// something is not implemented.
+func NewUnimplementedError(what string) error {
+	return &unimplementedError{what: what}
+}
+
+func (e *unimplementedError) Error() string {
+	return e.what + " not implemented"
+}
+
+// IsUnimplementedError reports whether the error
+// was created with NewUnimplementedError.
+func IsUnimplementedError(err error) bool {
+	_, ok := err.(*unimplementedError)
+	return ok
+}

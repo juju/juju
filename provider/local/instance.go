@@ -28,7 +28,7 @@ func (inst *localInstance) Status() string {
 }
 
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
-	return nil, errors.NewImplementedError("localInstance.Addresses")
+	return nil, errors.NewUnimplementedError("localInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.
