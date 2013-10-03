@@ -471,7 +471,7 @@ func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, erro
 		return ec2.SecurityGroupInfo{}, err
 	}
 	if len(resp.Groups) != 1 {
-		return ec2.SecurityGroupInfo{}, fmt.Errorf("expected one security group named %v, got %q", groupName, resp.Groups)
+		return ec2.SecurityGroupInfo{}, fmt.Errorf("expected one security group named %q, got %v", groupName, resp.Groups)
 	}
 	return resp.Groups[0], nil
 }
