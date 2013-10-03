@@ -17,9 +17,14 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.addressupdater")
 
+// ShortPoll and LongPoll hold the polling intervales for the
+// address updater. When a machine has no address,
+// it will be polled at ShortPoll intervals until it does;
+// after that LongPoll will be used to check that
+// the instance address has not changed.
 var (
-	longPoll  = 10 * time.Second
-	shortPoll = 500 * time.Millisecond
+	ShortPoll = 1 * time.Second
+	LongPoll  = 1 * time.Minute
 )
 
 type machine interface {
@@ -149,7 +154,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
-	pollInterval := shortPoll
+	pollInterval := ShortPoll
 	checkAddress := true
 	for {
 		if checkAddress {
@@ -157,7 +162,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				return err
 			}
 			if len(m.Addresses()) > 0 {
-				pollInterval = longPoll
+				pollInterval = LongPoll
 			}
 			checkAddress = false
 		}
