@@ -9,6 +9,7 @@ import (
 	"launchpad.net/golxc"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/errors"
 )
 
 type lxcInstance struct {
@@ -31,8 +32,7 @@ func (lxc *lxcInstance) Status() string {
 }
 
 func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("lxcInstance.Addresses not implemented")
-	return nil, nil
+	return nil, errors.NewImplementedError("lxcInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.
