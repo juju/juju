@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package addressupdater
 
 import (
@@ -7,13 +10,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }
 
 var _ = gc.Suite(&updaterSuite{})
@@ -23,7 +27,7 @@ type updaterSuite struct {
 }
 
 func (*updaterSuite) TestStopsWatcher(c *gc.C) {
-	context := &testPublisherContext{
+	context := &testUpdaterContext{
 		dyingc: make(chan struct{}),
 	}
 	expectErr := errors.New("some error")
@@ -45,21 +49,90 @@ func (*updaterSuite) TestStopsWatcher(c *gc.C) {
 	c.Assert(watcher.stopped, jc.IsTrue)
 }
 
-type testPublisherContext struct {
+func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
+	// We can't see that the machine pollers are still alive directly,
+	// but we can make the machine's Refresh method block,
+	// and test that watchMachinesLoop only terminates
+	// when it unblocks.
+	waitRefresh := make(chan struct{})
+	m := &testMachine{
+		id:         "99",
+		instanceId: "i1234",
+		life:       state.Alive,
+		refresh: func() error {
+			// Signal that we're in Refresh.
+			waitRefresh <- struct{}{}
+			// Wait to be unblocked.
+			<-waitRefresh
+			return nil
+		},
+	}
+	dyingc := make(chan struct{})
+	context := &testUpdaterContext{
+		dyingc: dyingc,
+		newMachineContextFunc: func() machineContext {
+			return &testMachineContext{
+				getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
+				dyingc:       dyingc,
+			}
+		},
+		getMachineFunc: func(id string) (machine, error) {
+			c.Check(id, gc.Equals, m.id)
+			return m, nil
+		},
+	}
+	watcher := &testMachinesWatcher{
+		changes: make(chan []string),
+	}
+	done := make(chan error)
+	go func() {
+		done <- watchMachinesLoop(context, watcher)
+	}()
+	// Send two changes; the first one should start the machineLoop;
+	// the second should call Refresh.
+	watcher.changes <- []string{"99"}
+	watcher.changes <- []string{"99"}
+	// Wait for the machineLoop to call Refresh
+	select {
+	case <-waitRefresh:
+		c.Logf("poller called Refresh")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for machine to be refreshed")
+	}
+	close(context.dyingc)
+	// Wait a little while to be sure that watchMachinesLoop is
+	// actually waiting for its machine poller to finish.
+	select {
+	case err := <-done:
+		c.Fatalf("watchMachinesLoop terminated prematurely: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	waitRefresh <- struct{}{}
+	select {
+	case err := <-done:
+		c.Assert(err, gc.IsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
+	}
+	c.Assert(watcher.stopped, jc.IsTrue)
+}
+
+type testUpdaterContext struct {
 	newMachineContextFunc func() machineContext
 	getMachineFunc        func(id string) (machine, error)
 	dyingc                chan struct{}
 }
 
-func (context *testPublisherContext) newMachineContext() machineContext {
+func (context *testUpdaterContext) newMachineContext() machineContext {
 	return context.newMachineContextFunc()
 }
 
-func (context *testPublisherContext) getMachine(id string) (machine, error) {
+func (context *testUpdaterContext) getMachine(id string) (machine, error) {
 	return context.getMachineFunc(id)
 }
 
-func (context *testPublisherContext) dying() <-chan struct{} {
+func (context *testUpdaterContext) dying() <-chan struct{} {
 	return context.dyingc
 }
 

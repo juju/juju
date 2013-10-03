@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package addressupdater
 
 import (
@@ -235,7 +238,6 @@ func (context *testMachineContext) dying() <-chan struct{} {
 type testMachine struct {
 	instanceId      instance.Id
 	instanceIdErr   error
-	jobs            []state.MachineJob
 	id              string
 	refresh         func() error
 	setAddressesErr error
@@ -272,10 +274,6 @@ func (m *testMachine) SetAddresses(addrs []instance.Address) error {
 	m.addresses = append(m.addresses[:0], addrs...)
 	m.setAddressCount++
 	return nil
-}
-
-func (m *testMachine) Jobs() []state.MachineJob {
-	return m.jobs
 }
 
 func (m *testMachine) String() string {

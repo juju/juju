@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package addressupdater
 
 import (
@@ -19,31 +22,11 @@ var (
 	shortPoll = 500 * time.Millisecond
 )
 
-//func NewAddressPublisher() worker.Worker {
-//	p := &updater{
-//		st:
-//	}
-//	// wait for environment
-//	go func() {
-//		defer p.tomb.Done()
-//		p.tomb.Kill(p.loop())
-//	}()
-//}
-
-//type updater struct {
-//	st   *state.State
-//	tomb tomb.Tomb
-//
-//	mu      sync.Mutex
-//	environ environs.Environ
-//}
-
 type machine interface {
 	Id() string
 	Addresses() []instance.Address
 	InstanceId() (instance.Id, error)
 	SetAddresses([]instance.Address) error
-	Jobs() []state.MachineJob
 	String() string
 	Refresh() error
 	Life() state.Life
@@ -199,13 +182,16 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 // on the machine if they've changed.
 func checkMachineAddresses(context machineContext, m machine) error {
 	instId, err := m.InstanceId()
-	if err != nil {
+	if err != nil && !state.IsNotProvisionedError(err) {
 		return fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
-	newAddrs, err := context.addresses(instId)
-	if err != nil {
-		logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
-		return nil
+	var newAddrs []instance.Address
+	if err == nil {
+		newAddrs, err = context.addresses(instId)
+		if err != nil {
+			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
+			return nil
+		}
 	}
 	if addressesEqual(m.Addresses(), newAddrs) {
 		return nil
