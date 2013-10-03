@@ -48,7 +48,7 @@ func (d *BundlesDir) Read(sch *uniter.Charm, abort <-chan struct{}) (*charm.Bund
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
 func (d *BundlesDir) download(sch *uniter.Charm, abort <-chan struct{}) (err error) {
-	archiveURL, err := sch.ArchiveURL()
+	archiveURL, disableSSLHostnameVerification, err := sch.ArchiveURL()
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,10 @@ func (d *BundlesDir) download(sch *uniter.Charm, abort <-chan struct{}) (err err
 	}
 	aurl := archiveURL.String()
 	log.Infof("worker/uniter/charm: downloading %s from %s", sch.URL(), aurl)
-	dl := downloader.New(aurl, dir)
+	if disableSSLHostnameVerification {
+		log.Infof("worker/uniter/charm: SSL hostname verification disabled")
+	}
+	dl := downloader.New(aurl, dir, disableSSLHostnameVerification)
 	defer dl.Stop()
 	for {
 		select {
