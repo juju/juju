@@ -189,3 +189,48 @@ func (s *AddressSuite) TestHostAddresses(c *gc.C) {
 	c.Assert(addrs, gc.HasLen, 1)
 	c.Assert(addrs[0], gc.Equals, NewAddress("127.0.0.1"))
 }
+
+var stringTests = []struct {
+	addr Address
+	str  string
+}{{
+	addr: Address{
+		Type:  Ipv4Address,
+		Value: "127.0.0.1",
+	},
+	str: "127.0.0.1",
+}, {
+	addr: Address{
+		Type:  HostName,
+		Value: "foo.com",
+	},
+	str: "foo.com",
+}, {
+	addr: Address{
+		Type:         HostName,
+		Value:        "foo.com",
+		NetworkScope: NetworkUnknown,
+	},
+	str: "foo.com",
+}, {
+	addr: Address{
+		Type:         HostName,
+		Value:        "foo.com",
+		NetworkScope: NetworkPublic,
+	},
+	str: "public:foo.com",
+}, {
+	addr: Address{
+		Type:         HostName,
+		Value:        "foo.com",
+		NetworkScope: NetworkPublic,
+		NetworkName:  "netname",
+	},
+	str: "public:foo.com(netname)",
+}}
+
+func (s *AddressSuite) TestString(c *gc.C) {
+	for _, test := range stringTests {
+		c.Check(test.addr.String(), gc.Equals, test.str)
+	}
+}
