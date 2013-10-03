@@ -10,7 +10,6 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -21,7 +20,7 @@ type waitForEnvironSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = gc.Suite(&waitForEnvironSuite{})
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -49,7 +48,9 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
+	var oldType string
 	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
+		oldType = attrs["type"].(string)
 		return attrs.Merge(coretesting.Attrs{"type": "unknown"})
 	})
 	w := s.State.WatchForEnvironConfigChanges()
@@ -63,15 +64,12 @@ func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
 	// Wait for the loop to process the invalid configuratrion
 	<-worker.LoadedInvalid
 
-	// Then load a valid configuration back in.
-	m = cfg.AllAttrs()
-	m["secret"] = "environ_test"
-	validCfg, err := config.New(config.NoDefaults, m)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(validCfg)
-	c.Assert(err, gc.IsNil)
-	s.State.StartSync()
+	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
+		return attrs.Merge(coretesting.Attrs{
+			"type":   oldType,
+			"secret": "environ_test",
+		})
+	})
 
 	env := <-done
 	c.Assert(env, gc.NotNil)
