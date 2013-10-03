@@ -139,6 +139,9 @@ func (u *Upgrader) loop() error {
 		}
 		if wantVersion != currentTools.Version.Number {
 			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+			// TODO(dimitern) 2013-10-03 bug #1234715
+			// Add a testing HTTPS storage to verify the
+			// disableSSLHostnameVerification behavior here.
 			wantTools, disableSSLHostnameVerification, err = u.st.Tools(u.tag)
 			if err != nil {
 				// Not being able to lookup Tools is considered fatal
