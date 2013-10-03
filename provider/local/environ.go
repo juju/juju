@@ -38,11 +38,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// lxcBridgeName is the name of the network interface that the local provider
-// uses to determine the ip address to use for machine-0 such that the
-// containers being created are able to communicate with it simply.
-const lxcBridgeName = "lxcbr0"
-
 // boostrapInstanceId is just the name we give to the bootstrap machine.
 // Using "localhost" because it is, and it makes sense.
 const boostrapInstanceId = "localhost"
