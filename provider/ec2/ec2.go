@@ -459,6 +459,49 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 	return e.terminateInstances(ids)
 }
 
+// groupInfoByName returns information on the security group
+// with the given name including rules and other details.
+func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
+	// Non-default VPC does not support name-based group lookups, can
+	// use a filter by group name instead when support is needed.
+	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
+	resp, err := e.ec2().SecurityGroups(limitToGroups, nil)
+	if err != nil {
+		return ec2.SecurityGroupInfo{}, err
+	}
+	if len(resp.Groups) != 1 {
+		return ec2.SecurityGroupInfo{}, fmt.Errorf("expected one security group named %q, got %v", groupName, resp.Groups)
+	}
+	return resp.Groups[0], nil
+}
+
+// groupByName returns the security group with the given name.
+func (e *environ) groupByName(groupName string) (ec2.SecurityGroup, error) {
+	groupInfo, err := e.groupInfoByName(groupName)
+	return groupInfo.SecurityGroup, err
+}
+
+// addGroupFilter sets a limit an instance filter so only those machines
+// with the juju environment wide security group associated will be listed.
+//
+// An EC2 API call is required to resolve the group name to an id, as VPC
+// enabled accounts do not support name based filtering.
+// TODO: Detect classic accounts and just filter by name for those.
+//
+// Callers must handle InvalidGroup.NotFound errors to mean the same as no
+// matching instances.
+func (e *environ) addGroupFilter(filter *ec2.Filter) error {
+	groupName := e.jujuGroupName()
+	group, err := e.groupByName(groupName)
+	if err != nil {
+		return err
+	}
+	// EC2 should support filtering with and without the 'instance.'
+	// prefix, but only the form with seems to work with default VPC.
+	filter.Add("instance.group-id", group.Id)
+	return nil
+}
+
 // gatherInstances tries to get information on each instance
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
@@ -475,7 +518,13 @@ func (e *environ) gatherInstances(ids []instance.Id, insts []instance.Instance) 
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.jujuGroupName())
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return environs.ErrPartialInstances
+		}
+		return err
+	}
 	filter.Add("instance-id", need...)
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
@@ -538,7 +587,13 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.jujuGroupName())
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, nil
+		}
+		return nil, err
+	}
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return nil, err
@@ -576,9 +631,12 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
+	g, err := e.groupByName(name)
+	if err != nil {
+		return err
+	}
 	ipPerms := portsToIPPerms(ports)
-	g := ec2.SecurityGroup{Name: name}
-	_, err := e.ec2().AuthorizeSecurityGroup(g, ipPerms)
+	_, err = e.ec2().AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
 		if len(ports) == 1 {
 			return nil
@@ -608,8 +666,11 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	// Revoke permissions for anyone to access the given ports.
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
-	g := ec2.SecurityGroup{Name: name}
-	_, err := e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	g, err := e.groupByName(name)
+	if err != nil {
+		return err
+	}
+	_, err = e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
@@ -617,15 +678,11 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 }
 
 func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
-	g := ec2.SecurityGroup{Name: name}
-	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
+	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Groups) != 1 {
-		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
-	}
-	for _, p := range resp.Groups[0].IPPerms {
+	for _, p := range group.IPPerms {
 		if len(p.SourceIPs) != 1 {
 			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
@@ -767,7 +824,6 @@ func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.SecurityGroup, error) {
-	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
 			{
@@ -789,22 +845,19 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.S
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{
-				Protocol:     "tcp",
-				FromPort:     0,
-				ToPort:       65535,
-				SourceGroups: sourceGroups,
+				Protocol: "tcp",
+				FromPort: 0,
+				ToPort:   65535,
 			},
 			{
-				Protocol:     "udp",
-				FromPort:     0,
-				ToPort:       65535,
-				SourceGroups: sourceGroups,
+				Protocol: "udp",
+				FromPort: 0,
+				ToPort:   65535,
 			},
 			{
-				Protocol:     "icmp",
-				FromPort:     -1,
-				ToPort:       -1,
-				SourceGroups: sourceGroups,
+				Protocol: "icmp",
+				FromPort: -1,
+				ToPort:   -1,
 			},
 		})
 	if err != nil {
@@ -829,6 +882,8 @@ var zeroGroup ec2.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
+// Any entries in perms without SourceIPs will be granted for
+// the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
@@ -849,10 +904,10 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		// description here, but if it does it's probably due
 		// to something deliberately playing games with juju,
 		// so we ignore it.
-		have = newPermSet(info.IPPerms)
 		g = info.SecurityGroup
+		have = newPermSetForGroup(info.IPPerms, g)
 	}
-	want := newPermSet(perms)
+	want := newPermSetForGroup(perms, g)
 	revoke := make(permSet)
 	for p := range have {
 		if !want[p] {
@@ -885,19 +940,20 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 // to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol  string
-	fromPort  int
-	toPort    int
-	groupName string
-	ipAddr    string
+	protocol string
+	fromPort int
+	toPort   int
+	groupId  string
+	ipAddr   string
 }
 
 type permSet map[permKey]bool
 
-// newPermSet returns a set of all the permissions in the
+// newPermSetForGroup returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
-// id in source groups, using group ids only.
-func newPermSet(ps []ec2.IPPerm) permSet {
+// id in source groups, and any entry with no source ips will
+// be granted for the given group only.
+func newPermSetForGroup(ps []ec2.IPPerm, group ec2.SecurityGroup) permSet {
 	m := make(permSet)
 	for _, p := range ps {
 		k := permKey{
@@ -905,13 +961,13 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			fromPort: p.FromPort,
 			toPort:   p.ToPort,
 		}
-		for _, g := range p.SourceGroups {
-			k.groupName = g.Name
-			m[k] = true
-		}
-		k.groupName = ""
-		for _, ip := range p.SourceIPs {
-			k.ipAddr = ip
+		if len(p.SourceIPs) > 0 {
+			for _, ip := range p.SourceIPs {
+				k.ipAddr = ip
+				m[k] = true
+			}
+		} else {
+			k.groupId = group.Id
 			m[k] = true
 		}
 	}
@@ -932,7 +988,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
 		}
 		ps = append(ps, ipp)
 	}
