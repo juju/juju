@@ -4,7 +4,7 @@
 package addressupdater
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -12,6 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -93,6 +94,33 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(count, jc.GreaterThan, 2)
+}
+
+func (*machineSuite) TestSinglePollWhenAddressesUnimplemented(c *gc.C) {
+	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
+	count := int32(0)
+	getAddresses := func(id instance.Id) ([]instance.Address, error) {
+		c.Check(id, gc.Equals, instance.Id("i1234"))
+		atomic.AddInt32(&count, 1)
+		return nil, errors.NewNotImplementedError("instance address")
+	}
+	context := &testMachineContext{
+		getAddresses: getAddresses,
+		dyingc:       make(chan struct{}),
+	}
+	m := &testMachine{
+		instanceId: "i1234",
+		refresh:    func() error { return nil },
+		life:       state.Alive,
+	}
+	died := make(chan machine)
+
+	go runMachine(context, m, nil, died)
+
+	time.Sleep(coretesting.ShortWait)
+	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(count, gc.Equals, int32(1))
 }
 
 func (*machineSuite) TestChangedRefreshes(c *gc.C) {
@@ -178,7 +206,7 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
 		dyingc:       make(chan struct{}),
 	}
-	expectErr := errors.New("a very unusual error")
+	expectErr := stderrors.New("a very unusual error")
 	m := &testMachine{
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
