@@ -124,7 +124,18 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO prepare environment
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["control-bucket"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
