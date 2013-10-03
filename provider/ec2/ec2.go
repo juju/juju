@@ -460,9 +460,9 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 	return e.terminateInstances(ids)
 }
 
-// lookupGroupInfoByName returns information on the security group
+// groupInfoByName returns information on the security group
 // with the given name including rules and other details.
-func (e *environ) lookupGroupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
+func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
 	// Non-default VPC does not support name-based group lookups, can
 	// use a filter by group name instead when support is needed.
 	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
@@ -476,9 +476,9 @@ func (e *environ) lookupGroupInfoByName(groupName string) (ec2.SecurityGroupInfo
 	return resp.Groups[0], nil
 }
 
-// lookupGroupByName returns the security group with the given name.
-func (e *environ) lookupGroupByName(groupName string) (ec2.SecurityGroup, error) {
-	groupInfo, err := e.lookupGroupInfoByName(groupName)
+// groupByName returns the security group with the given name.
+func (e *environ) groupByName(groupName string) (ec2.SecurityGroup, error) {
+	groupInfo, err := e.groupInfoByName(groupName)
 	return groupInfo.SecurityGroup, err
 }
 
@@ -493,7 +493,7 @@ func (e *environ) lookupGroupByName(groupName string) (ec2.SecurityGroup, error)
 // matching instances.
 func (e *environ) addGroupFilter(filter *ec2.Filter) error {
 	groupName := e.jujuGroupName()
-	group, err := e.lookupGroupByName(groupName)
+	group, err := e.groupByName(groupName)
 	if err != nil {
 		return err
 	}
@@ -632,7 +632,7 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
-	g, err := e.lookupGroupByName(name)
+	g, err := e.groupByName(name)
 	if err != nil {
 		return err
 	}
@@ -667,7 +667,7 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	// Revoke permissions for anyone to access the given ports.
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
-	g, err := e.lookupGroupByName(name)
+	g, err := e.groupByName(name)
 	if err != nil {
 		return err
 	}
@@ -679,7 +679,7 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 }
 
 func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
-	group, err := e.lookupGroupInfoByName(name)
+	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -883,6 +883,8 @@ var zeroGroup ec2.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
+// Any entries in perms without SourceIPs will be granted for
+// the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
@@ -950,7 +952,8 @@ type permSet map[permKey]bool
 
 // newPermSetForGroup returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
-// id in source groups, using group ids only.
+// id in source groups, and any entry with no source ips will
+// be granted for the given group only.
 func newPermSetForGroup(ps []ec2.IPPerm, group ec2.SecurityGroup) permSet {
 	m := make(permSet)
 	for _, p := range ps {
