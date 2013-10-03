@@ -52,19 +52,27 @@ WORK=$WORK/juju-core_${VERSION}
 hg-checkout https://code.google.com/p/go.net tip code.google.com/p/go.net
 hg-checkout https://code.google.com/p/go.crypto tip code.google.com/p/go.crypto
 
-bzr-checkout lp:~gophers/gnuflag/trunk -1 launchpad.net/gnuflag
-bzr-checkout lp:goamz -1 launchpad.net/goamz
-bzr-checkout lp:gocheck -1 launchpad.net/gocheck
-bzr-checkout lp:golxc -1 launchpad.net/golxc
-bzr-checkout lp:gomaasapi -1 launchpad.net/gomaasapi
-bzr-checkout lp:goose $TAG launchpad.net/goose
-bzr-checkout lp:goyaml -1 launchpad.net/goyaml
-bzr-checkout lp:gwacl -1 launchpad.net/gwacl
-bzr-checkout lp:loggo -1 launchpad.net/loggo
-bzr-checkout lp:lpad -1 launchpad.net/lpad
-# https://launchpad.net/bugs/1221705
-bzr-checkout lp:mgo/v2 revno:240 labix.org/v2/mgo
-bzr-checkout lp:tomb -1 launchpad.net/tomb
+declare -A deps_revno
+declare -A deps_vcs
+while read -r lib vcs revision revno; do
+    if [[ $vcs == "bzr" ]]; then
+        deps_revno+=(["$lib"]="$revno")
+        deps_vcs+=(["$lib"]="$vcs")
+    fi
+done < "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
+
+for lib in "${!deps_revno[@]}"; do
+    revno=${deps_revno["$lib"]}
+    vcs=${deps_vcs["$lib"]}
+    location=$(
+        echo $lib |
+        sed -e 's,launchpad.net/,lp:,; s,labix.org/v2/mgo,lp:mgo/v2,;')
+    # gnuflag has GhostRevisionsHaveNoRevno error. stacking error?
+    if [[ $lib == 'launchpad.net/gnuflag' ]]; then
+        location='lp:~gophers/gnuflag/trunk'
+    fi
+    bzr-checkout $location $revno $lib
+done
 
 # smoke test
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
