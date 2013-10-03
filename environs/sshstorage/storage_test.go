@@ -336,3 +336,13 @@ func (s *storageSuite) TestTmpDirPermissions(c *gc.C) {
 	_, err := NewSSHStorage("example.com", storageDir, filepath.Join(tmpdir, "subdir2"))
 	c.Assert(err, gc.ErrorMatches, ".*install: cannot create directory.*Permission denied.*")
 }
+
+func (s *storageSuite) TestPathCharacters(c *gc.C) {
+	storageDirBase := c.MkDir()
+	storageDir := filepath.Join(storageDirBase, "'")
+	tmpdir := filepath.Join(storageDirBase, `"`)
+	c.Assert(os.Mkdir(storageDir, 0755), gc.IsNil)
+	c.Assert(os.Mkdir(tmpdir, 0755), gc.IsNil)
+	_, err := NewSSHStorage("example.com", storageDir, tmpdir)
+	c.Assert(err, gc.IsNil)
+}

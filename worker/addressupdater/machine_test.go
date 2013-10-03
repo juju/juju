@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package addressupdater
 
 import (
@@ -37,8 +40,8 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 	died := make(chan machine)
 	// Change the poll intervals to be short, so that we know
 	// that we've polled (probably) at least a few times.
-	defer testbase.PatchValue(&shortPoll, coretesting.ShortWait/10).Restore()
-	defer testbase.PatchValue(&longPoll, coretesting.ShortWait/10).Restore()
+	defer testbase.PatchValue(&ShortPoll, coretesting.ShortWait/10).Restore()
+	defer testbase.PatchValue(&LongPoll, coretesting.ShortWait/10).Restore()
 
 	go runMachine(context, m, nil, died)
 	time.Sleep(coretesting.ShortWait)
@@ -49,14 +52,14 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 }
 
 func (*machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
-	defer testbase.PatchValue(&shortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&longPoll, coretesting.LongWait).Restore()
+	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
 	testPollInterval(c, nil)
 }
 
 func (*machineSuite) TestLongPollIntervalWhenHasAddress(c *gc.C) {
-	defer testbase.PatchValue(&shortPoll, coretesting.LongWait).Restore()
-	defer testbase.PatchValue(&longPoll, 1*time.Millisecond).Restore()
+	defer testbase.PatchValue(&ShortPoll, coretesting.LongWait).Restore()
+	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
 	testPollInterval(c, testAddrs)
 }
 
@@ -235,7 +238,6 @@ func (context *testMachineContext) dying() <-chan struct{} {
 type testMachine struct {
 	instanceId      instance.Id
 	instanceIdErr   error
-	jobs            []state.MachineJob
 	id              string
 	refresh         func() error
 	setAddressesErr error
@@ -272,10 +274,6 @@ func (m *testMachine) SetAddresses(addrs []instance.Address) error {
 	m.addresses = append(m.addresses[:0], addrs...)
 	m.setAddressCount++
 	return nil
-}
-
-func (m *testMachine) Jobs() []state.MachineJob {
-	return m.jobs
 }
 
 func (m *testMachine) String() string {

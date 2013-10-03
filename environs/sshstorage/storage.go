@@ -141,7 +141,7 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 	command = fmt.Sprintf(
 		"SHELL=/bin/bash flock %s %s -c %s",
 		flockmode,
-		s.remotepath,
+		utils.ShQuote(s.remotepath),
 		utils.ShQuote(command),
 	)
 	stdin := bufio.NewWriter(s.stdin)

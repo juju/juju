@@ -66,7 +66,7 @@ func SampleConfig() testing.Attrs {
 		"name":                      "only",
 		"authorized-keys":           "my-keys",
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              "fish",
+		"admin-secret":              testing.DefaultMongoPassword,
 		"ca-cert":                   testing.CACert,
 		"ca-private-key":            testing.CAKey,
 		"ssl-hostname-verification": true,
@@ -874,6 +874,9 @@ type dummyInstance struct {
 	machineId    string
 	series       string
 	firewallMode string
+
+	mu        sync.Mutex
+	addresses []instance.Address
 }
 
 func (inst *dummyInstance) Id() instance.Id {
@@ -884,14 +887,24 @@ func (inst *dummyInstance) Status() string {
 	return ""
 }
 
+// SetInstanceAddresses sets the addresses associated with the given
+// dummy instance.
+func SetInstanceAddresses(inst instance.Instance, addrs []instance.Address) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.addresses = append(inst0.addresses[:0], addrs...)
+	inst0.mu.Unlock()
+}
+
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
 	return string(inst.id) + ".dns", nil
 }
 
 func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("Addresses not implemented")
-	return nil, nil
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return append([]instance.Address{}, inst.addresses...), nil
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {

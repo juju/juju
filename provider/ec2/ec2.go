@@ -192,28 +192,27 @@ amazon:
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
+	e.name = cfg.Name()
 	err := e.SetConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	e.name = cfg.Name()
-	if err := e.verifyAllConfig(); err != nil {
-		return nil, err
-	}
-	// Make sure that external clients can't get access to
-	// methods provided to bootstrapper only.
 	return e, nil
 }
 
-func (e *environ) verifyAllConfig() error {
-	// TODO: verify that we have all the configuration data
-	// created by Prepare.
-	return nil
-}
-
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("preparing environment %q", cfg.Name())
-	// TODO create/verify control bucket if necessary.
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["control-bucket"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 

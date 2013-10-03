@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package addressupdater
 
 import (
@@ -14,36 +17,21 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.addressupdater")
 
+// ShortPoll and LongPoll hold the polling intervales for the
+// address updater. When a machine has no address,
+// it will be polled at ShortPoll intervals until it does;
+// after that LongPoll will be used to check that
+// the instance address has not changed.
 var (
-	longPoll  = 10 * time.Second
-	shortPoll = 500 * time.Millisecond
+	ShortPoll = 1 * time.Second
+	LongPoll  = 1 * time.Minute
 )
-
-//func NewAddressPublisher() worker.Worker {
-//	p := &updater{
-//		st:
-//	}
-//	// wait for environment
-//	go func() {
-//		defer p.tomb.Done()
-//		p.tomb.Kill(p.loop())
-//	}()
-//}
-
-//type updater struct {
-//	st   *state.State
-//	tomb tomb.Tomb
-//
-//	mu      sync.Mutex
-//	environ environs.Environ
-//}
 
 type machine interface {
 	Id() string
 	Addresses() []instance.Address
 	InstanceId() (instance.Id, error)
 	SetAddresses([]instance.Address) error
-	Jobs() []state.MachineJob
 	String() string
 	Refresh() error
 	Life() state.Life
@@ -166,7 +154,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	// Use a short poll interval when initially waiting for
 	// a machine's address, and a long one when it already
 	// has an address.
-	pollInterval := shortPoll
+	pollInterval := ShortPoll
 	checkAddress := true
 	for {
 		if checkAddress {
@@ -174,7 +162,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				return err
 			}
 			if len(m.Addresses()) > 0 {
-				pollInterval = longPoll
+				pollInterval = LongPoll
 			}
 			checkAddress = false
 		}
@@ -199,13 +187,16 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 // on the machine if they've changed.
 func checkMachineAddresses(context machineContext, m machine) error {
 	instId, err := m.InstanceId()
-	if err != nil {
+	if err != nil && !state.IsNotProvisionedError(err) {
 		return fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
-	newAddrs, err := context.addresses(instId)
-	if err != nil {
-		logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
-		return nil
+	var newAddrs []instance.Address
+	if err == nil {
+		newAddrs, err = context.addresses(instId)
+		if err != nil {
+			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
+			return nil
+		}
 	}
 	if addressesEqual(m.Addresses(), newAddrs) {
 		return nil
