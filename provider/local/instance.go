@@ -36,7 +36,7 @@ func (inst *localInstance) Addresses() ([]instance.Address, error) {
 func (inst *localInstance) DNSName() (string, error) {
 	if string(inst.id) == "localhost" {
 		// get the bridge address from the environment
-		addr, err := inst.env.findBridgeAddress()
+		addr, err := inst.env.findBridgeAddress(inst.env.config.networkBridge())
 		if err != nil {
 			logger.Errorf("failed to get bridge address: %v", err)
 			return "", instance.ErrNoDNSName

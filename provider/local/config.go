@@ -21,6 +21,7 @@ var (
 	configFields = schema.Fields{
 		"root-dir":            schema.String(),
 		"bootstrap-ip":        schema.String(),
+		"network-bridge":      schema.String(),
 		"storage-port":        schema.ForceInt(),
 		"shared-storage-port": schema.ForceInt(),
 	}
@@ -30,6 +31,7 @@ var (
 	// range.
 	configDefaults = schema.Defaults{
 		"root-dir":            "",
+		"network-bridge":      "lxcbr0",
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,
@@ -69,6 +71,10 @@ func (c *environConfig) namespace() string {
 
 func (c *environConfig) rootDir() string {
 	return c.attrs["root-dir"].(string)
+}
+
+func (c *environConfig) networkBridge() string {
+	return c.attrs["network-bridge"].(string)
 }
 
 func (c *environConfig) sharedStorageDir() string {
