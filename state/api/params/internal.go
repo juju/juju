@@ -374,8 +374,9 @@ type VersionResults struct {
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	Tools *tools.Tools
-	Error *Error
+	Tools                          *tools.Tools
+	DisableSSLHostnameVerification bool
+	Error                          *Error
 }
 
 // ToolsResults is a list of tools for various requested agents.
