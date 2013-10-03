@@ -102,6 +102,9 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 		stdin.Close()
 		return nil, err
 	}
+	// Combine stdout and stderr, so we can easily
+	// get at catastrophic failure messages.
+	cmd.Stderr = cmd.Stdout
 	stor := &SSHStorage{
 		host:       host,
 		remotepath: storagedir,
@@ -136,6 +139,15 @@ func (s *SSHStorage) runf(flockmode flockmode, command string, args ...interface
 	return s.run(flockmode, command, nil, 0)
 }
 
+// terminate closes the stdin, and appends any output to the input error.
+func (s *SSHStorage) terminate(err error) error {
+	s.stdin.Close()
+	if output, _ := ioutil.ReadAll(s.stdout); len(output) > 0 {
+		err = fmt.Errorf("%v (output: %q)", err, string(output))
+	}
+	return err
+}
+
 func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, inputlen int64) (string, error) {
 	const rcPrefix = "JUJU-RC: "
 	command = fmt.Sprintf(
@@ -155,21 +167,24 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 	if input != nil {
 		wrapper, err := newLineWrapWriter(stdin, base64LineLength)
 		if err != nil {
-			return "", fmt.Errorf("failed to create split writer: %v", err)
+			err = fmt.Errorf("failed to create split writer: %v", err)
+		} else {
+			encoder := base64.NewEncoder(base64.StdEncoding, wrapper)
+			if _, err = io.CopyN(encoder, input, inputlen); err != nil {
+				err = fmt.Errorf("failed to write input: %v", err)
+			} else if err = encoder.Close(); err != nil {
+				err = fmt.Errorf("failed to flush encoder: %v", err)
+			} else if _, err = stdin.WriteString("\n@EOF\n"); err != nil {
+				err = fmt.Errorf("failed to terminate input: %v", err)
+			}
 		}
-		encoder := base64.NewEncoder(base64.StdEncoding, wrapper)
-		if _, err := io.CopyN(encoder, input, inputlen); err != nil {
-			return "", fmt.Errorf("failed to write input: %v", err)
-		}
-		if err := encoder.Close(); err != nil {
-			return "", fmt.Errorf("failed to flush encoder: %v", err)
-		}
-		if _, err := stdin.WriteString("\n@EOF\n"); err != nil {
-			return "", fmt.Errorf("failed to terminate input: %v", err)
+		if err != nil {
+			return "", s.terminate(err)
 		}
 	}
 	if err := stdin.Flush(); err != nil {
-		return "", fmt.Errorf("failed to flush input: %v", err)
+		err = fmt.Errorf("failed to flush input: %v", err)
+		return "", s.terminate(err)
 	}
 	var output []string
 	for s.scanner.Scan() {
@@ -189,7 +204,15 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 			output = append(output, line)
 		}
 	}
-	return "", s.scanner.Err()
+
+	err := fmt.Errorf("failed to locate %q", rcPrefix)
+	if len(output) > 0 {
+		err = fmt.Errorf("%v (output: %q)", err, strings.Join(output, "\n"))
+	}
+	if scannerErr := s.scanner.Err(); scannerErr != nil {
+		err = fmt.Errorf("%v (scanner error: %v)", err, scannerErr)
+	}
+	return "", err
 }
 
 // path returns a remote absolute path for a storage object name.

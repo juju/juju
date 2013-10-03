@@ -100,7 +100,12 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 }
 
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
-	const sshScript = "#!/bin/sh\necho JUJU-RC: $RC"
+	var sshScript = `
+#!/bin/sh
+# Wait for input to be written before exiting.
+( echo $* | grep -q touch ) && head -n 1 > /dev/null
+echo JUJU-RC: $RC
+`[1:]
 	bin := c.MkDir()
 	ssh := filepath.Join(bin, "ssh")
 	err := ioutil.WriteFile(ssh, []byte(sshScript), 0755)
