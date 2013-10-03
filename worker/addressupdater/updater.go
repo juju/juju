@@ -214,6 +214,7 @@ func checkMachineAddresses(context machineContext, m machine) error {
 	if addressesEqual(m.Addresses(), newAddrs) {
 		return nil
 	}
+	logger.Infof("machine %q has new addresses: %v", m.Id(), newAddrs)
 	if err := m.SetAddresses(newAddrs); err != nil {
 		return fmt.Errorf("cannot set addresses on %q: %v", m, err)
 	}

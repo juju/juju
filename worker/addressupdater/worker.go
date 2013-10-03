@@ -46,6 +46,7 @@ func (u *updaterWorker) loop() (err error) {
 	if err != nil {
 		return err
 	}
+	logger.Infof("address updater received inital environment configuration")
 	defer func() {
 		obsErr := worker.Stop(u.observer)
 		if err == nil {

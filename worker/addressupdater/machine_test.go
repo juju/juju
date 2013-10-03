@@ -34,6 +34,7 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 		dyingc:       make(chan struct{}),
 	}
 	m := &testMachine{
+		id:         "99",
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
 		life:       state.Alive,
@@ -208,6 +209,7 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	}
 	expectErr := stderrors.New("a very unusual error")
 	m := &testMachine{
+		id:         "99",
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
 		life:       state.Alive,
