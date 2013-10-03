@@ -142,8 +142,17 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
-func (ctx *HookContext) OwnerTag() (string, bool) {
-	return "user-name", true
+func (ctx *HookContext) OwnerTag() (string, bool) { //TODO Return error
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return "", false
+	}
+
+	tag, err := service.GetOwnerTag()
+	if err != nil {
+		return "", false
+	}
+	return tag, true
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook

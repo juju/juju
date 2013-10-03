@@ -967,11 +967,15 @@ func (u *UniterAPI) APIAddresses() (params.StringsResult, error) {
 	}, nil
 }
 
-func (u *UniterAPI) GetOwnerTag(tag string) (string, error) {
-	service, err := u.getService(tag)
+func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, error) {
+
+	nothing := params.StringResult{}
+	service, err := u.getService(args.Entities[0].Tag)
 	if err != nil {
-		return "", err
+		return nothing, err
 	}
 
-	return service.GetOwnerTag(), nil
+	return params.StringResult{
+		Result: service.GetOwnerTag(),
+	}, nil
 }

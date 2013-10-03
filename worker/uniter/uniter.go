@@ -546,3 +546,7 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 		}
 	}
 }
+
+func (u *Uniter) GetOwnerTag() (string, error) {
+	return u.service.GetOwnerTag()
+}

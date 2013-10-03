@@ -176,3 +176,12 @@ func (st *State) APIAddresses() ([]string, error) {
 	}
 	return result.Result, nil
 }
+
+func (st *State) OwnerTag() (string, error) {
+	_, err := st.Service(st.unitTag)
+	if err != nil {
+		return "", err
+	}
+
+	return "foo", nil
+}

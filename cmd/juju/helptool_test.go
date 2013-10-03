@@ -38,6 +38,7 @@ func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
 		"config-get",
 		"juju-log",
 		"open-port",
+		"owner-get",
 		"relation-get",
 		"relation-ids",
 		"relation-list",
