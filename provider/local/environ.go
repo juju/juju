@@ -243,7 +243,7 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	bridgeAddress, err := env.findBridgeAddress(networkBridge)
 	if err != nil {
 		logger.Infof("configure a different bridge using 'network-bridge' in the config file")
-		return err
+		return fmt.Errorf("cannot find address of network-bridge: %q", networkBridge)
 	}
 	logger.Debugf("found %q as address for %q", bridgeAddress, networkBridge)
 	cfg, err = cfg.Apply(map[string]interface{}{
