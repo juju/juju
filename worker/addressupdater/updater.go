@@ -159,6 +159,13 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	for {
 		if checkAddress {
 			if err := checkMachineAddresses(context, m); err != nil {
+				// If the provider doesn't implement addresses now,
+				// it never will until we're upgraded, so don't bother
+				// asking any more. We could use less resources
+				// by taking down the entire address updater worker,
+				// but this is easier for now (and hopefully the local
+				// provider will implement Addresses in the not-too-distant
+				// future), so we won't need to worry about this case at all.
 				if errors.IsNotImplementedError(err) {
 					pollInterval = 365 * 24 * time.Hour
 				}
