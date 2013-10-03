@@ -181,10 +181,10 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer stor.Close()
 	err = stor.Put("whatever", bytes.NewBuffer(nil), 0)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to flush input: write |1: broken pipe (output: "blah blah")`))
+	c.Assert(err, gc.ErrorMatches, `failed to write input: write \|1: broken pipe \(output: "blah blah"\)`)
 
 	_, err = NewSSHStorage("example.com", c.MkDir(), c.MkDir())
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to locate "JUJU-RC: " (output: "Hey it's JUJU-RC: , but not at the beginning of the line")`))
+	c.Assert(err, gc.ErrorMatches, `failed to locate "JUJU-RC: " \(output: "Hey it's JUJU-RC: , but not at the beginning of the line"\)`)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
