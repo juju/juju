@@ -50,7 +50,7 @@ func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
 }
 
 // ArchiveURL returns the url to the charm archive (bundle) in the
-// provider storage.
+// provider storage, and DisableSSLHostnameVerification flag.
 //
 // NOTE: This differs from state.Charm.BundleURL() by returning an
 // error as well, because it needs to make an API call. It's also
@@ -59,12 +59,27 @@ func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
 // TODO(dimitern): 2013-09-06 bug 1221834
 // Cache the result after getting it once for the same charm URL,
 // because it's immutable.
-func (c *Charm) ArchiveURL() (*url.URL, error) {
-	charmURL, err := c.getArchiveInfo("CharmArchiveURL")
-	if err != nil {
-		return nil, err
+func (c *Charm) ArchiveURL() (*url.URL, bool, error) {
+	var results params.CharmArchiveURLResults
+	args := params.CharmURLs{
+		URLs: []params.CharmURL{{URL: c.url}},
 	}
-	return url.Parse(charmURL)
+	err := c.st.caller.Call("Uniter", "", "CharmArchiveURL", args, &results)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(results.Results) != 1 {
+		return nil, false, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, false, result.Error
+	}
+	archiveURL, err := url.Parse(result.Result)
+	if err != nil {
+		return nil, false, err
+	}
+	return archiveURL, result.DisableSSLHostnameVerification, nil
 }
 
 // ArchiveSha256 returns the SHA256 digest of the charm archive
