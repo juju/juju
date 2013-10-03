@@ -269,6 +269,23 @@ var bootstrapTests = []bootstrapTest{{
 	},
 }}
 
+func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
+	restore := createToolsStore(c)
+	defer restore()
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
+	c.Check(code, gc.Equals, 0)
+
+	ctx2 := coretesting.Context(c)
+	code2 := cmd.Main(&BootstrapCommand{}, ctx2, nil)
+	c.Check(code2, gc.Equals, 1)
+	c.Check(coretesting.Stderr(ctx2), gc.Equals, "error: environment is already bootstrapped\n")
+	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+}
+
 func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	// Prepare a mock storage for testing and store the
 	// dummy tools in there.
