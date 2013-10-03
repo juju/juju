@@ -448,12 +448,17 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		checkPackage(c, x, "lxc", hasLxc)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
-			source := struct{ source, key string }{
+			source := struct{ source, keyid string }{
 				source: "ppa:juju/stable",
-				key:    "1024R/C8068B11",
 			}
 			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
 		}
+		source := struct{ source, keyid string }{
+			source: "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main",
+			keyid:  "EC4926EA",
+		}
+		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
+		checkAptSource(c, x, source, needCloudArchive)
 	}
 }
 
@@ -551,7 +556,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 
 // CheckAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
-func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, key string }, match bool) {
+func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, keyid string }, match bool) {
 	sources0 := x["apt_sources"]
 	if sources0 == nil {
 		if match {
@@ -565,7 +570,7 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ sourc
 	found := false
 	for _, s0 := range sources {
 		s := s0.(map[interface{}]interface{})
-		if s["source"] == source.source && s["key"] == source.key {
+		if s["source"] == source.source && (source.keyid == "" || s["keyid"] == source.keyid) {
 			found = true
 		}
 	}
