@@ -8,7 +8,7 @@ Juju -- devops distilled
 https://juju.ubuntu.com/
 
 Juju provides easy, intelligent service orchestration on top of environments
-such as Amazon AWS, HP Cloud, OpenStack, MaaS, or your own local machine.
+such as Amazon EC2, HP Cloud, OpenStack, MaaS, or your own local machine.
 
 Basic commands:
   juju init             generate boilerplate configuration for juju environments
@@ -166,13 +166,11 @@ More information:
 `
 
 const helpHPCloud = `
-HP Cloud is an Openstack cloud provider, so to deploy to it, use an openstack
+HP Cloud is an Openstack cloud provider.  To deploy to it, use an openstack
 environment type for Juju, which would look something like this:
 
   sample_hpcloud:
     type: openstack
-    admin-secret: 6638bebf0c54ffff1007e0247d4dae98
-    control-bucket: juju-bc66a4a4adbee50b2ceeee70436528e5
     tenant-name: "juju-project1"
     auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
     auth-mode: userpass
@@ -190,7 +188,6 @@ A generic Windows Azure environment looks like this:
 
   sample_azure:
     type: azure
-    admin-secret: 35d65be36c72da940933dd02f8d7cef0
     # Location for instances, e.g. West US, North Europe.
     location: West US
     # http://msdn.microsoft.com/en-us/library/windowsazure

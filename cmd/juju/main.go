@@ -20,9 +20,9 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju")
 
 var jujuDoc = `
-juju provides easy, intelligent service orchestration on top of environments
-such as Amazon AWS, HP Cloud, MaaS, OpenStack, Windows Azure, or your local
-machine.
+juju provides easy, intelligent service orchestration on top of cloud
+infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
+Azure, or your local machine.
 
 https://juju.ubuntu.com/
 `

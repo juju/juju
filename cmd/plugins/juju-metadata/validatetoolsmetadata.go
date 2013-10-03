@@ -39,7 +39,7 @@ specified cloud. If version is specified, tools matching the exact specified
 version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
-The cloud specificaton comes from the current Juju environment, as specified in
+The cloud specification comes from the current Juju environment, as specified in
 the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
 Series, Region, and Endpoint are the key attributes.
 
