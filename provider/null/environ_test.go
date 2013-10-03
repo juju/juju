@@ -101,9 +101,13 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 	var sshScript = `
-#!/bin/sh
-# Wait for input to be written before exiting.
-( echo $* | grep -q touch ) && head -n 1 > /dev/null
+#!/bin/bash
+if [ "$*" = "hostname -- bash" ]; then
+    # We're executing bash inside ssh. Wait
+    # for input to be written before exiting.
+    head -n 1 > /dev/null
+fi
+exec 0<&- # close stdin
 echo JUJU-RC: $RC
 `[1:]
 	bin := c.MkDir()
