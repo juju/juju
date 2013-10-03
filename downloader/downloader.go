@@ -59,6 +59,9 @@ func (d *Download) Done() <-chan Status {
 
 func (d *Download) run(url, dir string) {
 	defer d.tomb.Done()
+	// TODO(dimitern) 2013-10-03 bug #1234715
+	// Add a testing HTTPS storage to verify the
+	// disableSSLHostnameVerification behavior here.
 	file, err := download(url, dir, d.disableSSLHostnameVerification)
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", url, err)

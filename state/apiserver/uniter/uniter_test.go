@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -854,16 +854,7 @@ func (s *uniterSuite) TestCharmArchiveURL(c *gc.C) {
 		},
 	})
 
-	// Change the environment config to have
-	// "ssl-hostname-verification" false.
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	attrs := envConfig.AllAttrs()
-	attrs["ssl-hostname-verification"] = false
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
 
 	result, err = s.uniter.CharmArchiveURL(args)
 	c.Assert(err, gc.IsNil)

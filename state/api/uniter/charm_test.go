@@ -6,7 +6,7 @@ package uniter_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state/api/uniter"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -51,16 +51,7 @@ func (s *charmSuite) TestArchiveURL(c *gc.C) {
 	c.Assert(archiveURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
 	c.Assert(disableSSLHostnameVerification, jc.IsFalse)
 
-	// Change the environment config to have
-	// "ssl-hostname-verification" false.
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	attrs := envConfig.AllAttrs()
-	attrs["ssl-hostname-verification"] = false
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
 
 	archiveURL, disableSSLHostnameVerification, err = s.apiCharm.ArchiveURL()
 	c.Assert(err, gc.IsNil)
