@@ -24,9 +24,9 @@ var ownerGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"tag"}, "user-admin\n"},
-	{[]string{"tag", "--format", "yaml"}, "user-admin\n"},
-	{[]string{"tag", "--format", "json"}, `"user-admin"` + "\n"},
+	{[]string{"tag"}, "owner-tag\n"},
+	{[]string{"tag", "--format", "yaml"}, "owner-tag\n"},
+	{[]string{"tag", "--format", "json"}, `"owner-tag"` + "\n"},
 }
 
 func (s *OwnerGetSuite) createCommand(c *gc.C) cmd.Command {
@@ -73,7 +73,7 @@ func (s *OwnerGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, "user-admin\n")
+	c.Assert(string(content), gc.Equals, "owner-tag\n")
 }
 
 func (s *OwnerGetSuite) TestUnknownSetting(c *gc.C) {

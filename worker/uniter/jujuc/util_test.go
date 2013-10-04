@@ -136,7 +136,7 @@ func (c *Context) RelationIds() []int {
 }
 
 func (c *Context) OwnerTag() (string, bool) {
-	return "user-admin", true //TODO: not sure what to do here
+	return "owner-tag", true
 }
 
 type ContextRelation struct {

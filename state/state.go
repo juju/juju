@@ -693,7 +693,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 func (st *State) GetServiceOwner(name string) string {
 	svc, err := st.Service(name)
 	if err != nil {
-		panic(err)
+		logger.Warningf("Failed to find service: %v - no owner-tag will be set", err)
 		return ""
 	}
 
