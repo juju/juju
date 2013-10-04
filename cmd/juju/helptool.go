@@ -48,8 +48,8 @@ func (dummyHookContext) RelationIds() []int {
 	return []int{}
 }
 
-func (dummyHookContext) OwnerTag() (string, bool) {
-	return "", false
+func (dummyHookContext) OwnerTag() string {
+	return ""
 }
 
 type HelpToolCommand struct {
