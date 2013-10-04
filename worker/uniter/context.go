@@ -59,11 +59,14 @@ type HookContext struct {
 
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
+
+	// serviceOwner contains the owner of the service
+	serviceOwner string
 }
 
 func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string) (*HookContext, error) {
+	apiAddrs []string, serviceOwner string) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -72,6 +75,7 @@ func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
 		apiAddrs:       apiAddrs,
+		serviceOwner:   serviceOwner,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -104,6 +108,10 @@ func (ctx *HookContext) OpenPort(protocol string, port int) error {
 
 func (ctx *HookContext) ClosePort(protocol string, port int) error {
 	return ctx.unit.ClosePort(protocol, port)
+}
+
+func (ctx *HookContext) OwnerTag() string {
+	return ctx.serviceOwner
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
@@ -140,19 +148,6 @@ func (ctx *HookContext) RelationIds() []int {
 		ids = append(ids, id)
 	}
 	return ids
-}
-
-func (ctx *HookContext) OwnerTag() (string, bool) { //TODO Return error
-	service, err := ctx.unit.Service()
-	if err != nil {
-		return "", false
-	}
-
-	tag, err := service.GetOwnerTag()
-	if err != nil {
-		return "", false
-	}
-	return tag, true
 }
 
 // hookVars returns an os.Environ-style list of strings necessary to run a hook

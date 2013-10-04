@@ -54,7 +54,7 @@ type Context interface {
 	RelationIds() []int
 
 	// OwnerTag returns the owner of the service the executing units belongs to
-	OwnerTag() (string, bool)
+	OwnerTag() string
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

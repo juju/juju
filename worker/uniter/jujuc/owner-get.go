@@ -28,7 +28,7 @@ func (c *OwnerGetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "owner-get",
 		Args:    "<setting>",
-		Purpose: "print the owner of the service",
+		Purpose: "print information about the owner of the service",
 	}
 }
 
@@ -48,12 +48,9 @@ func (c *OwnerGetCommand) Init(args []string) error {
 }
 
 func (c *OwnerGetCommand) Run(ctx *cmd.Context) error {
-	value, ok := "", false
-	if c.Key == "tag" {
-		value, ok = c.ctx.OwnerTag()
-	}
-	if !ok {
+	if c.Key != "tag" {
 		return fmt.Errorf("%s not set", c.Key)
 	}
-	return c.out.Write(ctx, value)
+
+	return c.out.Write(ctx, c.ctx.OwnerTag())
 }

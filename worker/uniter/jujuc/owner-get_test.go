@@ -24,9 +24,9 @@ var ownerGetTests = []struct {
 	args []string
 	out  string
 }{
-	{[]string{"tag"}, "owner-tag\n"},
-	{[]string{"tag", "--format", "yaml"}, "owner-tag\n"},
-	{[]string{"tag", "--format", "json"}, `"owner-tag"` + "\n"},
+	{[]string{"tag"}, "test-owner\n"},
+	{[]string{"tag", "--format", "yaml"}, "test-owner\n"},
+	{[]string{"tag", "--format", "json"}, `"test-owner"` + "\n"},
 }
 
 func (s *OwnerGetSuite) createCommand(c *gc.C) cmd.Command {
@@ -53,7 +53,7 @@ func (s *OwnerGetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: owner-get [options] <setting>
-purpose: print the owner of the service
+purpose: print information about the owner of the service
 
 options:
 --format  (= smart)
@@ -73,7 +73,7 @@ func (s *OwnerGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Equals, "owner-tag\n")
+	c.Assert(string(content), gc.Equals, "test-owner\n")
 }
 
 func (s *OwnerGetSuite) TestUnknownSetting(c *gc.C) {
