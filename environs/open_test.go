@@ -70,6 +70,10 @@ func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info, err := store.CreateInfo("erewhemos")
 	c.Assert(err, gc.IsNil)
+
+	// The configuration from environments.yaml is invalid
+	// because it doesn't contain the state-id attribute which
+	// the dummy environment adds at Prepare time.
 	info.SetBootstrapConfig(cfg.AllAttrs())
 	err = info.Write()
 	c.Assert(err, gc.IsNil)

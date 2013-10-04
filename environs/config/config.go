@@ -587,7 +587,7 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	checker := schema.FieldMap(fields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
-		logger.Debugf("coersion failed attributes: %#v, checker: %#v, %v", attrs, checker, err)
+		logger.Debugf("coercion failed attributes: %#v, checker: %#v, %v", attrs, checker, err)
 		return nil, err
 	}
 	result := coerced.(map[string]interface{})

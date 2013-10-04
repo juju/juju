@@ -35,7 +35,7 @@ var (
 // ConfigSource represents where some configuration data
 // has come from.
 // TODO(rog) remove this when we don't have to support
-// old environments with no configstore info.
+// old environments with no configstore info. See lp#1235217
 type ConfigSource int
 
 const (
@@ -62,7 +62,7 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	if name == "" {
 		name = envs.Default
 	}
-	// TODO(rog) 2013-10-04
+	// TODO(rog) 2013-10-04 https://bugs.launchpad.net/juju-core/+bug/1235217
 	// Don't fall back to reading from environments.yaml
 	// when we can be sure that everyone has a
 	// .jenv file for their currently bootstrapped environments.
