@@ -360,7 +360,7 @@ func (c *configInternal) writeNewPassword() (string, error) {
 		apiDetails.password = newPassword
 		other.apiDetails = &apiDetails
 	}
-
+	logger.Debugf("writing configuration file")
 	if err := other.Write(); err != nil {
 		return "", err
 	}

@@ -66,7 +66,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}
-	err = c.Conf.read("bootstrap")
+	err = c.Conf.read("machine-0")
 	if err != nil {
 		return err
 	}
