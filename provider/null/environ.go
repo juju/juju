@@ -175,12 +175,9 @@ func (e *nullEnviron) Storage() storage.Storage {
 			return storage
 		}
 	} else {
-		logger.Infof("missing CA cert or auth-key")
+		logger.Errorf("missing CA cert or auth-key")
 	}
-	// It's not necessarily an error not to have the auth-key;
-	// the machine agent may be waiting for secrets.
-	logger.Infof("falling back to HTTP storage client")
-	return httpstorage.Client(e.envConfig().storageAddr())
+	return nil
 }
 
 func (e *nullEnviron) PublicStorage() storage.StorageReader {

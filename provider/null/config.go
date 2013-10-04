@@ -22,7 +22,7 @@ var (
 		"bootstrap-user":    "",
 		"storage-listen-ip": "",
 		"storage-port":      8040,
-		"storage-auth-key":  schema.Omit,
+		"storage-auth-key":  schema.String(),
 	}
 )
 
@@ -60,8 +60,7 @@ func (c *environConfig) storagePort() int {
 }
 
 func (c *environConfig) storageAuthKey() string {
-	authkey, _ := c.attrs["storage-auth-key"].(string)
-	return authkey
+	return c.attrs["storage-auth-key"].(string)
 }
 
 // storageAddr returns an address for connecting to the
