@@ -89,15 +89,12 @@ func (*formatSuite) TestWriteCommandsForFormat(c *gc.C) {
 }
 
 func (*formatSuite) TestReadPreviousFormatWritesNew(c *gc.C) {
-	params := agentParams
-	params.DataDir = c.MkDir()
-	config, err := newConfig(params)
+	config := newTestConfig(c)
+
+	err := previousFormatter.write(config)
 	c.Assert(err, gc.IsNil)
 
-	err = previousFormatter.write(config)
-	c.Assert(err, gc.IsNil)
-
-	_, err = ReadConf(params.DataDir, params.Tag)
+	_, err = ReadConf(config.DataDir(), config.Tag())
 	c.Assert(err, gc.IsNil)
 	format, err := readFormat(config.Dir())
 	c.Assert(err, gc.IsNil)
