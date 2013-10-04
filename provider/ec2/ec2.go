@@ -447,13 +447,13 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.Image.Id,
-			MinCount:       1,
-			MaxCount:       1,
-			UserData:       userData,
-			InstanceType:   spec.InstanceType.Name,
-			SecurityGroups: groups,
-			BlockDevices:   devices,
+			ImageId:             spec.Image.Id,
+			MinCount:            1,
+			MaxCount:            1,
+			UserData:            userData,
+			InstanceType:        spec.InstanceType.Name,
+			SecurityGroups:      groups,
+			BlockDeviceMappings: devices,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
 			break
