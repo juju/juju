@@ -165,9 +165,8 @@ func (e *nullEnviron) Storage() storage.Storage {
 	if e.bootstrapStorage != nil {
 		return e.bootstrapStorage
 	}
-	caCertPEM, caKeyPEM := e.StorageCACert(), e.StorageCAKey()
-	if caCertPEM != nil && caKeyPEM != nil {
-		authkey := e.StorageAuthKey()
+	caCertPEM, authkey := e.StorageCACert(), e.StorageAuthKey()
+	if caCertPEM != nil && authkey != "" {
 		storage, err := httpstorage.ClientTLS(e.envConfig().storageAddr(), caCertPEM, authkey)
 		if err != nil {
 			// Should be impossible, since ca-cert will always be validated.
@@ -176,9 +175,12 @@ func (e *nullEnviron) Storage() storage.Storage {
 			return storage
 		}
 	} else {
-		logger.Errorf("missing CA cert or private key")
+		logger.Infof("missing CA cert or auth-key")
 	}
-	return nil
+	// It's not necessarily an error not to have the auth-key;
+	// the machine agent may be waiting for secrets.
+	logger.Infof("falling back to HTTP storage client")
+	return httpstorage.Client(e.envConfig().storageAddr())
 }
 
 func (e *nullEnviron) PublicStorage() storage.StorageReader {

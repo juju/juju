@@ -60,7 +60,8 @@ func (c *environConfig) storagePort() int {
 }
 
 func (c *environConfig) storageAuthKey() string {
-	return c.attrs["storage-auth-key"].(string)
+	authkey, _ := c.attrs["storage-auth-key"].(string)
+	return authkey
 }
 
 // storageAddr returns an address for connecting to the
