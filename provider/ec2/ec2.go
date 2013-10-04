@@ -71,6 +71,7 @@ type ec2Instance struct {
 	*ec2.Instance
 	arch     *string
 	instType *instances.InstanceType
+	rootdisk uint64
 }
 
 func (inst *ec2Instance) String() string {
@@ -91,9 +92,9 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
 		hc.Mem = &inst.instType.Mem
-		hc.RootDisk = &inst.instType.RootDisk
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		hc.RootDisk = &inst.rootdisk
 		// Tags currently not supported by EC2
 	}
 	return hc
@@ -380,6 +381,9 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 
 const ebsStorage = "ebs"
 
+// default size for ec2 root disks
+const defaultDisk uint64 = 8 * 1024
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
@@ -390,6 +394,12 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// don't restrict images based on root-disk, since
+	// you can always ask for more disk from amazon
+	diskCons := cons.RootDisk
+	cons.RootDisk = nil
+
 	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
@@ -424,11 +434,11 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	var instResp *ec2.RunInstancesResp
 
 	var devices []ec2.BlockDeviceMapping
-
-	if cons.RootDisk != nil {
+	if diskCons != nil {
+		// request the root disk size in the provision request
 		// AWS's volume size is in gigabytes, root-disk is in megabytes,
 		// so round up to the nearest gigabyte.
-		size := int64((*cons.RootDisk + 1023) / 1024)
+		size := int64((*diskCons + 1023) / 1024)
 		devices = append(devices, ec2.BlockDeviceMapping{
 			DeviceName: "/dev/sda1",
 			VolumeSize: size,
@@ -455,11 +465,18 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if len(instResp.Instances) != 1 {
 		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
+
+	rootdisk := defaultDisk
+	if diskCons != nil {
+		rootdisk = *diskCons
+	}
+
 	inst := &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
 		arch:     &spec.Image.Arch,
 		instType: &spec.InstanceType,
+		rootdisk: rootdisk,
 	}
 	logger.Infof("started instance %q", inst.Id())
 	return inst, inst.hardwareCharacteristics(), nil
