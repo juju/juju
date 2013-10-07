@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"launchpad.net/juju-core/cert"
@@ -15,7 +16,33 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-var InvalidEnvironmentError = fmt.Errorf("environment is not a juju-core environment")
+// File named `VerificationFilename` in the storage will contain
+// `verificationContent`.  This is also used to differentiate between
+// Python Juju and juju-core environments, so change the content with
+// care (and update CheckEnvironment below when you do that).
+const (
+	VerificationFilename = "bootstrap-verify"
+	verificationContent  = "juju-core storage writing verified: ok\n"
+)
+
+var (
+	VerifyStorageError error = fmt.Errorf(
+		"provider storage is not writable")
+	InvalidEnvironmentError = fmt.Errorf(
+		"environment is not a juju-core environment")
+)
+
+// ConfigSource represents where some configuration data
+// has come from.
+// TODO(rog) remove this when we don't have to support
+// old environments with no configstore info. See lp#1235217
+type ConfigSource int
+
+const (
+	ConfigFromNowhere ConfigSource = iota
+	ConfigFromInfo
+	ConfigFromEnvirons
+)
 
 // ConfigForName returns the configuration for the environment with the
 // given name from the default environments file. If the name is blank,
@@ -24,28 +51,37 @@ var InvalidEnvironmentError = fmt.Errorf("environment is not a juju-core environ
 // If the given store contains an entry for the environment
 // and it has associated bootstrap config, that configuration
 // will be returned.
-func ConfigForName(name string, store configstore.Storage) (*config.Config, error) {
+// ConfigForName also returns where the configuration
+// was sourced from (this is also valid even when there
+// is an error.
+func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
-		return nil, err
+		return nil, ConfigFromNowhere, err
 	}
 	if name == "" {
 		name = envs.Default
 	}
+	// TODO(rog) 2013-10-04 https://bugs.launchpad.net/juju-core/+bug/1235217
+	// Don't fall back to reading from environments.yaml
+	// when we can be sure that everyone has a
+	// .jenv file for their currently bootstrapped environments.
 	if name != "" {
 		info, err := store.ReadInfo(name)
-		if err == nil && len(info.BootstrapConfig()) > 0 {
+		if err == nil {
+			if len(info.BootstrapConfig()) == 0 {
+				return nil, ConfigFromNowhere, fmt.Errorf("environment has no bootstrap configuration data")
+			}
 			logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
-			return config.New(config.NoDefaults, info.BootstrapConfig())
+			cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+			return cfg, ConfigFromInfo, err
 		}
 		if err != nil && !errors.IsNotFoundError(err) {
-			return nil, fmt.Errorf("cannot read environment info for %q: %v", name, err)
-		}
-		if err == nil {
-			logger.Debugf("ConfigForName found info but no bootstrap config")
+			return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
 		}
 	}
-	return envs.Config(name)
+	cfg, err := envs.Config(name)
+	return cfg, ConfigFromEnvirons, err
 }
 
 // NewFromName opens the environment with the given
@@ -55,11 +91,24 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, erro
 // and it has associated bootstrap config, that configuration
 // will be returned.
 func NewFromName(name string, store configstore.Storage) (Environ, error) {
-	cfg, err := ConfigForName(name, store)
+	// If we get an error when reading from a legacy
+	// environments.yaml entry, we pretend it didn't exist
+	// because the error is likely to be because
+	// configuration attributes don't exist which
+	// will be filled in by Prepare.
+	cfg, source, err := ConfigForName(name, store)
+	if err != nil && source == ConfigFromEnvirons {
+		err = ErrNotBootstrapped
+	}
 	if err != nil {
 		return nil, err
 	}
-	return New(cfg)
+
+	env, err := New(cfg)
+	if err != nil && source == ConfigFromEnvirons {
+		err = ErrNotBootstrapped
+	}
+	return env, err
 }
 
 // PrepareFromName is the same as NewFromName except
@@ -68,7 +117,7 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
 func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
-	cfg, err := ConfigForName(name, store)
+	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +173,10 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
 	}
+	cfg, err = ensureAdminSecret(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
+	}
 	cfg, err = ensureCertificate(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
@@ -140,6 +193,16 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 		return nil, fmt.Errorf("cannot create environment info %q: %v", env.Config().Name(), err)
 	}
 	return env, nil
+}
+
+// ensureAdminSecret returns a config with a non-empty admin-secret.
+func ensureAdminSecret(cfg *config.Config) (*config.Config, error) {
+	if cfg.AdminSecret() != "" {
+		return cfg, nil
+	}
+	return cfg.Apply(map[string]interface{}{
+		"admin-secret": randomKey(),
+	})
 }
 
 // ensureCertificate generates a new CA certificate and
@@ -185,6 +248,19 @@ func Destroy(env Environ, store configstore.Storage) error {
 	return nil
 }
 
+// VerifyStorage writes the bootstrap init file to the storage to indicate
+// that the storage is writable.
+func VerifyStorage(stor storage.Storage) error {
+	reader := strings.NewReader(verificationContent)
+	err := stor.Put(VerificationFilename, reader,
+		int64(len(verificationContent)))
+	if err != nil {
+		logger.Warningf("failed to write bootstrap-verify file: %v", err)
+		return VerifyStorageError
+	}
+	return nil
+}
+
 // CheckEnvironment checks if an environment has a bootstrap-verify
 // that is written by juju-core commands (as compared to one being
 // written by Python juju).
@@ -196,7 +272,7 @@ func Destroy(env Environ, store configstore.Storage) error {
 // Returns InvalidEnvironmentError on failure, nil otherwise.
 func CheckEnvironment(environ Environ) error {
 	stor := environ.Storage()
-	reader, err := storage.Get(stor, verificationFilename)
+	reader, err := storage.Get(stor, VerificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.

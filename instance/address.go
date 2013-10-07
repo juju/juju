@@ -4,6 +4,7 @@
 package instance
 
 import (
+	"bytes"
 	"net"
 )
 
@@ -37,6 +38,30 @@ type Address struct {
 	Type        AddressType
 	NetworkName string
 	NetworkScope
+}
+
+// String returns a string representation of the address,
+// in the form: scope:address(network name);
+// for example:
+//
+//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)
+//
+// If the scope is NetworkUnknown, the initial scope: prefix will
+// be omitted. If the NetworkName is blank, the (network name) suffix
+// will be omitted.
+func (a Address) String() string {
+	var buf bytes.Buffer
+	if a.NetworkScope != NetworkUnknown {
+		buf.WriteString(string(a.NetworkScope))
+		buf.WriteByte(':')
+	}
+	buf.WriteString(a.Value)
+	if a.NetworkName != "" {
+		buf.WriteByte('(')
+		buf.WriteString(a.NetworkName)
+		buf.WriteByte(')')
+	}
+	return buf.String()
 }
 
 func DeriveAddressType(value string) AddressType {

@@ -53,6 +53,13 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
+func (s *BootstrapSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
+}
+
 type bootstrapRetryTest struct {
 	info               string
 	args               []string
@@ -99,13 +106,6 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, test.err)
-}
-
-func (s *BootstrapSuite) TearDownTest(c *gc.C) {
-	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-	dummy.Reset()
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
@@ -190,7 +190,11 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, "bootstrap-verify")
+	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
+
+	opPutBootstrapInitFile := (<-opc).(dummy.OpPutFile)
+	c.Check(opPutBootstrapInitFile.Env, gc.Equals, "peckham")
+	c.Check(opPutBootstrapInitFile.FileName, gc.Equals, "provider-state")
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
@@ -228,7 +232,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "bad environment",
 	args: []string{"-e", "brokenenv"},
-	err:  `environment configuration has no admin-secret`,
+	err:  `dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -264,6 +268,23 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.5-precise-amd64",
 	},
 }}
+
+func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
+	restore := createToolsStore(c)
+	defer restore()
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
+	c.Check(code, gc.Equals, 0)
+
+	ctx2 := coretesting.Context(c)
+	code2 := cmd.Main(&BootstrapCommand{}, ctx2, nil)
+	c.Check(code2, gc.Equals, 1)
+	c.Check(coretesting.Stderr(ctx2), gc.Equals, "error: environment is already bootstrapped\n")
+	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+}
 
 func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	// Prepare a mock storage for testing and store the

@@ -33,8 +33,8 @@ type localStorageEnviron struct {
 	sharedStorageDir  string
 }
 
-func (e *localStorageEnviron) BootstrapStorage() (storage.Storage, error) {
-	return e.storage, nil
+func (e *localStorageEnviron) Storage() storage.Storage {
+	return e.storage
 }
 
 func (e *localStorageEnviron) StorageAddr() string {
@@ -73,7 +73,6 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 		Host:          hostname,
 		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
-		MachineId:     "0",
 		PossibleTools: toolsList,
 	}
 }
@@ -86,7 +85,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
-	bootstrapState, err := common.LoadState(s.env.storage)
+	bootstrapState, err := common.LoadState(s.env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(
 		bootstrapState.StateInstances,
@@ -117,7 +116,7 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 
 	// Since the script failed, the state file should have been
 	// removed from storage.
-	_, err = common.LoadState(s.env.storage)
+	_, err = common.LoadState(s.env.Storage())
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -137,21 +136,6 @@ func (s *bootstrapSuite) TestBootstrapNilEnviron(c *gc.C) {
 	args := s.getArgs(c)
 	args.Environ = nil
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "environ argument is nil")
-}
-
-func (s *bootstrapSuite) TestBootstrapInvalidMachineId(c *gc.C) {
-	args := s.getArgs(c)
-	args.MachineId = ""
-	c.Assert(Bootstrap(args), gc.ErrorMatches, `"" is not a valid machine ID`)
-	args.MachineId = "bahhumbug"
-	c.Assert(Bootstrap(args), gc.ErrorMatches, `"bahhumbug" is not a valid machine ID`)
-}
-
-func (s *bootstrapSuite) TestBootstrapAlternativeMachineId(c *gc.C) {
-	args := s.getArgs(c)
-	args.MachineId = "1"
-	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
-	c.Assert(Bootstrap(args), gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {

@@ -41,7 +41,8 @@ will be displayed.
 
 Wildcards ('*') may be specified in service/unit names to match any sequence
 of characters. For example, 'nova-*' will match any service whose name begins
-with 'nova-': 'nova-compute', 'nova-volume', etc.`[1:]
+with 'nova-': 'nova-compute', 'nova-volume', etc.
+`
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{

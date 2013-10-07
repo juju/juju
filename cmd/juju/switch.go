@@ -21,7 +21,8 @@ type SwitchCommand struct {
 	List    bool
 }
 
-var switchDoc = `Show or change the default juju environment name.
+var switchDoc = `
+Show or change the default juju environment name.
 
 If no command line parameters are passed, switch will output the current
 environment as defined by the file $JUJU_HOME/current-environment.
