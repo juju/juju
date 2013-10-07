@@ -28,9 +28,10 @@ func Test(t *stdtesting.T) {
 
 func minimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
-		"name":           "test",
-		"type":           provider.Null,
-		"bootstrap-host": "hostname",
+		"name":             "test",
+		"type":             provider.Null,
+		"bootstrap-host":   "hostname",
+		"storage-auth-key": "whatever",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,
@@ -59,6 +60,11 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = nullProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
+
+	testConfig, err = testConfig.Apply(map[string]interface{}{"storage-auth-key": nil})
+	c.Assert(err, gc.IsNil)
+	_, err = nullProvider{}.Validate(testConfig, nil)
+	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
 
 	testConfig = minimalConfig(c)
 	valid, err := nullProvider{}.Validate(testConfig, nil)

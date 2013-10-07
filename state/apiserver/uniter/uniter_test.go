@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -839,11 +840,35 @@ func (s *uniterSuite) TestCharmArchiveURL(c *gc.C) {
 	}}
 	result, err := s.uniter.CharmArchiveURL(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
+	c.Assert(result, gc.DeepEquals, params.CharmArchiveURLResults{
+		Results: []params.CharmArchiveURLResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: s.wpCharm.BundleURL().String()},
-			{Result: dummyCharm.BundleURL().String()},
+			{
+				Result: s.wpCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: false,
+			},
+			{
+				Result: dummyCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: false,
+			},
+		},
+	})
+
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
+
+	result, err = s.uniter.CharmArchiveURL(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.CharmArchiveURLResults{
+		Results: []params.CharmArchiveURLResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Result: s.wpCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: true,
+			},
+			{
+				Result: dummyCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: true,
+			},
 		},
 	})
 }

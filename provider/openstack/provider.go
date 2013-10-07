@@ -91,9 +91,9 @@ openstack:
   # region: <your region>
   # USe the following if you require keypair autherntication
   # auth-mode: keypair
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
+  # Usually set via the env variable OS_ACCESS_KEY, but can be specified here
   # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
+  # Usually set via the env variable OS_SECRET_KEY, but can be specified here
   # secret-key: <secret>
 
 ## https://juju.ubuntu.com/docs/config-hpcloud.html
@@ -124,7 +124,18 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO prepare environment
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["control-bucket"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
@@ -424,7 +435,7 @@ func (e *environ) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -432,7 +443,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -814,21 +825,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy() error {
-	logger.Infof("destroying environment %q", e.name)
-	insts, err := e.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	var ids []instance.Id
-	for _, inst := range insts {
-		ids = append(ids, inst.Id())
-	}
-	err = e.terminateInstances(ids)
-	if err != nil {
-		return err
-	}
-
-	return e.Storage().RemoveAll()
+	return common.Destroy(e)
 }
 
 func (e *environ) globalGroupName() string {

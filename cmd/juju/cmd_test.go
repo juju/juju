@@ -253,7 +253,8 @@ func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Sto
 	_, err := store.ReadInfo(env.Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	c.Assert(func() { env.Instances([]instance.Id{"invalid"}) }, gc.PanicMatches, `environment.*is not prepared`)
+	_, err = env.Instances([]instance.Id{"invalid"})
+	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
 }
 
 func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
@@ -261,7 +262,7 @@ func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 
-	_, err = environs.NewFromName(env.Name())
+	_, err = environs.NewFromName(env.Name(), store)
 	c.Assert(err, gc.IsNil)
 }
 

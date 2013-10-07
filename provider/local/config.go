@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/utils"
 )
 
 var checkIfRoot = func() bool {
@@ -21,6 +21,7 @@ var (
 	configFields = schema.Fields{
 		"root-dir":            schema.String(),
 		"bootstrap-ip":        schema.String(),
+		"network-bridge":      schema.String(),
 		"storage-port":        schema.ForceInt(),
 		"shared-storage-port": schema.ForceInt(),
 	}
@@ -30,6 +31,7 @@ var (
 	// range.
 	configDefaults = schema.Defaults{
 		"root-dir":            "",
+		"network-bridge":      "lxcbr0",
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,
@@ -69,6 +71,10 @@ func (c *environConfig) namespace() string {
 
 func (c *environConfig) rootDir() string {
 	return c.attrs["root-dir"].(string)
+}
+
+func (c *environConfig) networkBridge() string {
+	return c.attrs["network-bridge"].(string)
 }
 
 func (c *environConfig) sharedStorageDir() string {
@@ -121,28 +127,6 @@ func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
 
-// sudoCallerIds returns the user id and group id of the SUDO caller.
-// If either is unset, it returns zero for both values.
-// An error is returned if the relevant environment variables
-// are not valid integers.
-func sudoCallerIds() (int, int, error) {
-	uidStr := os.Getenv("SUDO_UID")
-	gidStr := os.Getenv("SUDO_GID")
-
-	if uidStr == "" || gidStr == "" {
-		return 0, 0, nil
-	}
-	uid, err := strconv.Atoi(uidStr)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid value %q for SUDO_UID", uidStr)
-	}
-	gid, err := strconv.Atoi(gidStr)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid value %q for SUDO_GID", gidStr)
-	}
-	return uid, gid, nil
-}
-
 func (c *environConfig) createDirs() error {
 	for _, dirname := range []string{
 		c.sharedStorageDir(),
@@ -158,7 +142,7 @@ func (c *environConfig) createDirs() error {
 	if c.runningAsRoot {
 		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
 		// change ownership of the directories.
-		uid, gid, err := sudoCallerIds()
+		uid, gid, err := utils.SudoCallerIds()
 		if err != nil {
 			return err
 		}

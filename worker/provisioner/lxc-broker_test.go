@@ -4,17 +4,14 @@
 package provisioner_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
@@ -184,15 +181,6 @@ func (s *lxcProvisionerSuite) TearDownSuite(c *gc.C) {
 func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
-	// Write the tools file.
-	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
-	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
-	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
-	data, err := json.Marshal(testTools)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(toolsPath, data, 0644)
-	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
@@ -200,6 +188,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)

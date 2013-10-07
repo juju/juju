@@ -473,7 +473,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if ep, err := rel.Endpoint(); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			logger.Warningf("skipping relation with unknown endpoint %q", ep)
+			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
 			continue
 		}
 		dir, err := relation.ReadStateDir(u.relationsDir, id)

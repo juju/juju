@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // Machine represents the state of a machine.
@@ -200,34 +201,33 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// checkToolsValidity checks whether the given tools are suitable for passing to SetAgentTools.
-func checkToolsValidity(t *tools.Tools) error {
-	if t.Version.Series == "" || t.Version.Arch == "" {
+// checkVersionValidity checks whether the given version is suitable
+// for passing to SetAgentVersion.
+func checkVersionValidity(v version.Binary) error {
+	if v.Series == "" || v.Arch == "" {
 		return fmt.Errorf("empty series or arch")
-	}
-	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
-		return fmt.Errorf("empty size or checksum")
 	}
 	return nil
 }
 
-// SetAgentTools sets the tools that the agent is currently running.
-func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
-	if err = checkToolsValidity(t); err != nil {
+// SetAgentVersion sets the version of juju that the agent is
+// currently running.
+func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set agent version for machine %v", m)
+	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
+	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", t}}}},
+		Update: D{{"$set", D{{"tools", tools}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
-	tools := *t
-	m.doc.Tools = &tools
+	m.doc.Tools = tools
 	return nil
 }
 

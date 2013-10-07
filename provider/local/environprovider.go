@@ -81,6 +81,11 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
 		}
+		if localConfig.networkBridge() != oldLocalConfig.networkBridge() {
+			return nil, fmt.Errorf("cannot change network-bridge from %q to %q",
+				oldLocalConfig.rootDir(),
+				localConfig.rootDir())
+		}
 		if localConfig.storagePort() != oldLocalConfig.storagePort() {
 			return nil, fmt.Errorf("cannot change storage-port from %v to %v",
 				oldLocalConfig.storagePort(),
@@ -120,6 +125,8 @@ local:
   # Override the shared storage port if you have multiple local providers, or if the
   # default port is used by another program.
   # shared-storage-port: 8041
+  # Override the network bridge if you have changed the default lxc bridge
+  # network-bridge: lxcbr0
 
 `[1:]
 }

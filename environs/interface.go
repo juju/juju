@@ -64,15 +64,18 @@ type EnvironStorage interface {
 	PublicStorage() storage.StorageReader
 }
 
-// BootstrapStorager is an interface that returns a environs.Storage that may
-// be used before the bootstrap machine agent has been provisioned.
+// BootstrapStorager is an interface through which an Environ may be
+// instructed to use a special "bootstrap storage". Bootstrap storage
+// is one that may be used before the bootstrap machine agent has been
+// provisioned.
 //
-// This is useful for environments where the storage is managed by the machine
-// agent once bootstrapped.
+// This is useful for environments where the storage is managed by the
+// machine agent once bootstrapped.
 type BootstrapStorager interface {
-	// BootstrapStorager returns an environs.Storage that may be used while
-	// bootstrapping a machine.
-	BootstrapStorage() (storage.Storage, error)
+	// EnableBootstrapStorage enables bootstrap storage, returning an
+	// error if enablement failed. If nil is returned, then calling
+	// this again will have no effect and will return nil.
+	EnableBootstrapStorage() error
 }
 
 // ConfigGetter implements access to an environments configuration.
@@ -133,7 +136,7 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error
+	Bootstrap(cons constraints.Value, possibleTools tools.List) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

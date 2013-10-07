@@ -16,6 +16,7 @@ var (
 		"bootstrap-user":    schema.String(),
 		"storage-listen-ip": schema.String(),
 		"storage-port":      schema.Int(),
+		"storage-auth-key":  schema.String(),
 	}
 	configDefaults = schema.Defaults{
 		"bootstrap-user":    "",
@@ -55,6 +56,10 @@ func (c *environConfig) storageListenIPAddress() string {
 
 func (c *environConfig) storagePort() int {
 	return int(c.attrs["storage-port"].(int64))
+}
+
+func (c *environConfig) storageAuthKey() string {
+	return c.attrs["storage-auth-key"].(string)
 }
 
 // storageAddr returns an address for connecting to the

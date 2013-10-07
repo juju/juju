@@ -327,3 +327,37 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test.err = "environment has no access-key or secret-key"
 	test.check(c)
 }
+
+func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "ec2",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env0, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket0 := env0.(*environ).ecfg().controlBucket()
+	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
+
+	env1, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket1 := env1.(*environ).ecfg().controlBucket()
+	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
+
+	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
+}
+
+func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "ec2",
+		"control-bucket": "burblefoo",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket := env.(*environ).ecfg().controlBucket()
+	c.Assert(bucket, gc.Equals, "burblefoo")
+}

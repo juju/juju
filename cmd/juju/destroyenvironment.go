@@ -35,17 +35,13 @@ func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
-	environ, err := environs.NewFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
 	store, err := configstore.Default()
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
 	}
-	_, err = store.ReadInfo(environ.Name())
+	environ, err := environs.NewFromName(c.EnvName, store)
 	if err != nil {
-		return fmt.Errorf("cannot read environment information: %v", err)
+		return err
 	}
 	if !c.assumeYes {
 		var answer string

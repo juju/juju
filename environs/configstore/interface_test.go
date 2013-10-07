@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs/configstore"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // interfaceSuite defines a set of tests on a ConfigStorage
@@ -15,6 +16,7 @@ import (
 // The NewStore field must be set up to return a ConfigStorage
 // instance of the type to be tested.
 type interfaceSuite struct {
+	testbase.LoggingSuite
 	NewStore func(c *gc.C) configstore.Storage
 }
 
