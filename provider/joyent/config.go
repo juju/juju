@@ -16,7 +16,6 @@ import (
 // date when you change environment configuration below.
 const boilerplateConfig = `joyent:
   type: joyent
-  admin-secret: {{rand}}
 
   # Can be set via env variables, or specified here
   # user: <secret>
