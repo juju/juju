@@ -24,8 +24,7 @@ func (*BenchmarkSuite) BenchmarkAddUnit(c *gc.C) {
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
 	charm := s.AddTestingCharm(c, "wordpress")
-	svc, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", charm)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		_, err := svc.AddUnit()
@@ -40,8 +39,7 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
 	charm := s.AddTestingCharm(c, "wordpress")
-	svc, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", charm)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		unit, err := svc.AddUnit()
