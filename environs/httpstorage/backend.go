@@ -69,21 +69,34 @@ func (s *storageBackend) authorized(req *http.Request) bool {
 	return req.URL.Query().Get("authkey") == s.authkey
 }
 
+// hostOnly splits a host of the form host, or host:port,
+// into its host and port parts, and returns the host part.
+func hostOnly(host string) (string, error) {
+	hostonly, _, err := net.SplitHostPort(host)
+	if err != nil {
+		// err may be because of missing :port. Checking
+		// the error message is brittle, so let's try
+		// again with ":0" tacked on the end.
+		var err2 error
+		hostonly, _, err = net.SplitHostPort(host + ":0")
+		if err2 != nil {
+			// something heinous, return the original error
+			return "", err
+		}
+	}
+	return hostonly, nil
+}
+
 // handleHead returns the HTTPS URL for the specified
 // path in the Location header.
 func (s *storageBackend) handleHead(w http.ResponseWriter, req *http.Request) {
 	if s.httpsPort != 0 {
-		hostonly := req.Host
-		if i := strings.LastIndex(hostonly, "]"); i != -1 {
-			// [ipv6]:port
-			hostonly = hostonly[:i+1]
-		} else {
-			// host:port
-			if i := strings.LastIndex(hostonly, ":"); i != -1 {
-				hostonly = hostonly[:i]
-			}
+		host, err := hostOnly(req.Host)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to split host: %v", err), http.StatusBadRequest)
+			return
 		}
-		url := fmt.Sprintf("https://%s:%d%s", hostonly, s.httpsPort, req.URL.Path)
+		url := fmt.Sprintf("https://%s:%d%s", host, s.httpsPort, req.URL.Path)
 		w.Header().Set("Location", url)
 	} else {
 		http.Error(w, "method HEAD is not supported", http.StatusMethodNotAllowed)
