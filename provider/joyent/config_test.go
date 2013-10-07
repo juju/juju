@@ -145,12 +145,12 @@ var changeConfigTests = []struct {
 	expect: validAttrs(),
 }, {
 	info:   "can change user",
-	insert: testing.Attrs{"user": "dstroppa"},
-	expect: testing.Attrs{"user": "dstropa"},
+	insert: testing.Attrs{"user": "joyent_user"},
+	expect: testing.Attrs{"user": "joyent_user"},
 }, {
 	info:   "can change key-id",
-	insert: testing.Attrs{"key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40"},
-	expect: testing.Attrs{"key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40"},
+	insert: testing.Attrs{"key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	expect: testing.Attrs{"key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
 	info:   "can change region",
 	insert: testing.Attrs{"region": "us-west-1"},

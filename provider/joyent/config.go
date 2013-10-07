@@ -44,7 +44,7 @@ var configFields = schema.Fields{
 }
 
 var configDefaultFields = schema.Defaults{
-	//"region":				"us-east-1",
+	"region":				"us-east-1",
 }
 
 var configSecretFields = []string{
