@@ -22,7 +22,6 @@ var (
 		"bootstrap-user":    "",
 		"storage-listen-ip": "",
 		"storage-port":      8040,
-		"storage-auth-key":  schema.Omit,
 	}
 )
 

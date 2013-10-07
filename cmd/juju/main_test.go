@@ -279,9 +279,10 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 }
 
 var topicNames = []string{
-	"aws",
+	"azure",
 	"basics",
 	"commands",
+	"ec2",
 	"global-options",
 	"glossary",
 	"hpcloud",

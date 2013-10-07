@@ -61,6 +61,11 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	_, err = nullProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
 
+	testConfig, err = testConfig.Apply(map[string]interface{}{"storage-auth-key": nil})
+	c.Assert(err, gc.IsNil)
+	_, err = nullProvider{}.Validate(testConfig, nil)
+	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
+
 	testConfig = minimalConfig(c)
 	valid, err := nullProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)

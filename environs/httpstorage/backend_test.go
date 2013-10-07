@@ -61,7 +61,7 @@ func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
 	caKeyPEM := []byte(coretesting.CAKey)
 	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, testAuthkey)
 	c.Assert(err, gc.IsNil)
-	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
+	return listener, fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port), dataDir
 }
 
 type testCase struct {
@@ -149,7 +149,7 @@ func (s *backendSuite) TestHead(c *gc.C) {
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	location, err := resp.Location()
 	c.Assert(err, gc.IsNil)
-	c.Assert(location.String(), gc.Matches, "https://127.0.0.1:[0-9]{5}/arbitrary")
+	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/arbitrary")
 }
 
 func (s *backendSuite) TestGet(c *gc.C) {

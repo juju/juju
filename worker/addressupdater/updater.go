@@ -168,8 +168,9 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				// future), so we won't need to worry about this case at all.
 				if errors.IsNotImplementedError(err) {
 					pollInterval = 365 * 24 * time.Hour
+				} else {
+					return err
 				}
-				return err
 			}
 			if len(m.Addresses()) > 0 {
 				pollInterval = LongPoll

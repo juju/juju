@@ -49,6 +49,7 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killAllErr, gc.Equals, nil)
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
 	c.Assert(m.setAddressCount, gc.Equals, 1)
 }
@@ -94,6 +95,7 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killAllErr, gc.Equals, nil)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
@@ -121,6 +123,7 @@ func (*machineSuite) TestSinglePollWhenAddressesUnimplemented(c *gc.C) {
 
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killAllErr, gc.Equals, nil)
 	c.Assert(count, gc.Equals, int32(1))
 }
 
