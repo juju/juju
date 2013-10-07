@@ -4,7 +4,6 @@
 package sshstorage
 
 import (
-	"fmt"
 	"io"
 )
 
@@ -16,6 +15,7 @@ type lineWrapWriter struct {
 
 // NewLineWrapWriter returns an io.Writer that encloses the given
 // io.Writer, wrapping lines at the the specified line length.
+// It will panic if the line length is not positive.
 //
 // Note: there is no special consideration for input that
 // already contains newlines; this will simply add newlines
@@ -25,15 +25,15 @@ type lineWrapWriter struct {
 //
 // This is currently only appropriate for wrapping base64-encoded
 // data, which is why it lives here.
-func newLineWrapWriter(out io.Writer, lineLength int) (io.Writer, error) {
+func newLineWrapWriter(out io.Writer, lineLength int) io.Writer {
 	if lineLength <= 0 {
-		return nil, fmt.Errorf("line length %d <= 0", lineLength)
+		panic("lineWrapWriter with line length <= 0")
 	}
 	return &lineWrapWriter{
 		out:    out,
 		remain: lineLength,
 		max:    lineLength,
-	}, nil
+	}
 }
 
 func (w *lineWrapWriter) Write(buf []byte) (int, error) {

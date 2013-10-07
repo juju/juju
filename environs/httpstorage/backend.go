@@ -22,9 +22,9 @@ import (
 type storageBackend struct {
 	backend storage.Storage
 
-	// httpsBaseURL is the base URL to send to clients
+	// httpsPort is the port to send to clients
 	// if they perform a HEAD request.
-	httpsBaseURL string
+	httpsPort int
 
 	// authkey is non-empty if modifying requests
 	// require an auth key.
@@ -37,7 +37,7 @@ func (s *storageBackend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "PUT", "DELETE":
 		// Don't allow modifying operations if there's an HTTPS backend
 		// to handle that, and ensure the user is authorised/authenticated.
-		if s.httpsBaseURL != "" || !s.authorised(req) {
+		if s.httpsPort != 0 || !s.authorised(req) {
 			http.Error(w, "unauthorised access", http.StatusUnauthorized)
 			return
 		}
@@ -72,8 +72,19 @@ func (s *storageBackend) authorised(req *http.Request) bool {
 // handleHead returns the HTTPS URL for the specified
 // path in the Location header.
 func (s *storageBackend) handleHead(w http.ResponseWriter, req *http.Request) {
-	if s.httpsBaseURL != "" {
-		w.Header().Set("Location", s.httpsBaseURL+req.URL.Path)
+	if s.httpsPort != 0 {
+		hostonly := req.Host
+		if i := strings.LastIndex(hostonly, "]"); i != -1 {
+			// [ipv6]:port
+			hostonly = hostonly[:i+1]
+		} else {
+			// host:port
+			if i := strings.LastIndex(hostonly, ":"); i != -1 {
+				hostonly = hostonly[:i]
+			}
+		}
+		url := fmt.Sprintf("https://%s:%d%s", hostonly, s.httpsPort, req.URL.Path)
+		w.Header().Set("Location", url)
 	} else {
 		http.Error(w, "method HEAD is not supported", http.StatusMethodNotAllowed)
 		return
@@ -192,7 +203,7 @@ func serve(addr string, stor storage.Storage, tlsConfig *tls.Config, authkey str
 			listener.Close()
 			return nil, fmt.Errorf("cannot start TLS listener: %v", err)
 		}
-		backend.httpsBaseURL = fmt.Sprintf("https://%s", tlsListener.Addr())
+		backend.httpsPort = tlsListener.Addr().(*net.TCPAddr).Port
 		goServe(tlsListener, tlsBackend)
 	}
 	goServe(listener, backend)

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -114,9 +115,12 @@ func (u *Upgrader) loop() error {
 	// initial event from the API version watcher, thus ensuring
 	// that we attempt an upgrade even if other workers are dying
 	// all around us.
-	var dying <-chan struct{}
-	var wantTools *coretools.Tools
-	var wantVersion version.Number
+	var (
+		dying                          <-chan struct{}
+		wantTools                      *coretools.Tools
+		wantVersion                    version.Number
+		disableSSLHostnameVerification bool
+	)
 	for {
 		select {
 		case _, ok := <-changes:
@@ -135,7 +139,10 @@ func (u *Upgrader) loop() error {
 		}
 		if wantVersion != currentTools.Version.Number {
 			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
-			wantTools, err = u.st.Tools(u.tag)
+			// TODO(dimitern) 2013-10-03 bug #1234715
+			// Add a testing HTTPS storage to verify the
+			// disableSSLHostnameVerification behavior here.
+			wantTools, disableSSLHostnameVerification, err = u.st.Tools(u.tag)
 			if err != nil {
 				// Not being able to lookup Tools is considered fatal
 				return err
@@ -145,7 +152,7 @@ func (u *Upgrader) loop() error {
 			// repeatedly (causing the agent to be stopped), as long
 			// as we have got as far as this, we will still be able to
 			// upgrade the agent.
-			err := u.fetchTools(wantTools)
+			err := u.fetchTools(wantTools, disableSSLHostnameVerification)
 			if err == nil {
 				return &UpgradeReadyError{
 					OldTools:  currentTools,
@@ -160,9 +167,14 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func (u *Upgrader) fetchTools(agentTools *coretools.Tools) error {
+func (u *Upgrader) fetchTools(agentTools *coretools.Tools, disableSSLHostnameVerification bool) error {
+	client := http.DefaultClient
 	logger.Infof("fetching tools from %q", agentTools.URL)
-	resp, err := http.Get(agentTools.URL)
+	if disableSSLHostnameVerification {
+		logger.Infof("hostname SSL verification disabled")
+		client = utils.GetNonValidatingHTTPClient()
+	}
+	resp, err := client.Get(agentTools.URL)
 	if err != nil {
 		return err
 	}

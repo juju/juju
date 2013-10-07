@@ -19,11 +19,8 @@ var _ = gc.Suite(&wrapWriterSuite{})
 
 func (*wrapWriterSuite) TestLineWrapWriterBadLength(c *gc.C) {
 	var buf bytes.Buffer
-	w, err := sshstorage.NewLineWrapWriter(&buf, 0)
-	c.Assert(err, gc.ErrorMatches, "line length 0 <= 0")
-	c.Assert(w, gc.IsNil)
-	w, err = sshstorage.NewLineWrapWriter(&buf, -1)
-	c.Assert(err, gc.ErrorMatches, "line length -1 <= 0")
+	c.Assert(func() { sshstorage.NewLineWrapWriter(&buf, 0) }, gc.PanicMatches, "lineWrapWriter with line length <= 0")
+	c.Assert(func() { sshstorage.NewLineWrapWriter(&buf, -1) }, gc.PanicMatches, "lineWrapWriter with line length <= 0")
 }
 
 func (*wrapWriterSuite) TestLineWrapWriter(c *gc.C) {
@@ -69,8 +66,7 @@ func (*wrapWriterSuite) TestLineWrapWriter(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %q, line length %d", i, t.input, t.lineLength)
 		var buf bytes.Buffer
-		w, err := sshstorage.NewLineWrapWriter(&buf, t.lineLength)
-		c.Assert(err, gc.IsNil)
+		w := sshstorage.NewLineWrapWriter(&buf, t.lineLength)
 		c.Assert(w, gc.NotNil)
 		for _, input := range t.input {
 			n, err := w.Write([]byte(input))
@@ -140,8 +136,7 @@ func (*wrapWriterSuite) TestLineWrapWriterErrors(c *gc.C) {
 		c.Logf("test %d: %q, limit %d", i, t.input, t.limit)
 		var buf bytes.Buffer
 		wrapWriter := &limitedWriter{&buf, t.limit}
-		w, err := sshstorage.NewLineWrapWriter(wrapWriter, lineLength)
-		c.Assert(err, gc.IsNil)
+		w := sshstorage.NewLineWrapWriter(wrapWriter, lineLength)
 		c.Assert(w, gc.NotNil)
 		n, err := w.Write([]byte(t.input))
 		c.Assert(n, gc.Equals, t.written)

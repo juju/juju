@@ -6,6 +6,7 @@ package upgrader_test
 import (
 	gc "launchpad.net/gocheck"
 
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -155,11 +156,22 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	agentTools := results.Results[0].Tools
-	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
-	c.Check(agentTools.Version, gc.DeepEquals, cur)
+	assertTools := func() {
+		c.Check(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.IsNil)
+		agentTools := results.Results[0].Tools
+		c.Check(agentTools.URL, gc.Not(gc.Equals), "")
+		c.Check(agentTools.Version, gc.DeepEquals, cur)
+	}
+	assertTools()
+	c.Check(results.Results[0].DisableSSLHostnameVerification, jc.IsFalse)
+
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
+
+	results, err = s.upgrader.Tools(args)
+	c.Assert(err, gc.IsNil)
+	assertTools()
+	c.Check(results.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {

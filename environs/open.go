@@ -32,6 +32,18 @@ var (
 		"environment is not a juju-core environment")
 )
 
+// ConfigSource represents where some configuration data
+// has come from.
+// TODO(rog) remove this when we don't have to support
+// old environments with no configstore info. See lp#1235217
+type ConfigSource int
+
+const (
+	ConfigFromNowhere ConfigSource = iota
+	ConfigFromInfo
+	ConfigFromEnvirons
+)
+
 // ConfigForName returns the configuration for the environment with the
 // given name from the default environments file. If the name is blank,
 // the default environment will be used. If the configuration is not
@@ -39,28 +51,37 @@ var (
 // If the given store contains an entry for the environment
 // and it has associated bootstrap config, that configuration
 // will be returned.
-func ConfigForName(name string, store configstore.Storage) (*config.Config, error) {
+// ConfigForName also returns where the configuration
+// was sourced from (this is also valid even when there
+// is an error.
+func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
-		return nil, err
+		return nil, ConfigFromNowhere, err
 	}
 	if name == "" {
 		name = envs.Default
 	}
+	// TODO(rog) 2013-10-04 https://bugs.launchpad.net/juju-core/+bug/1235217
+	// Don't fall back to reading from environments.yaml
+	// when we can be sure that everyone has a
+	// .jenv file for their currently bootstrapped environments.
 	if name != "" {
 		info, err := store.ReadInfo(name)
-		if err == nil && len(info.BootstrapConfig()) > 0 {
+		if err == nil {
+			if len(info.BootstrapConfig()) == 0 {
+				return nil, ConfigFromNowhere, fmt.Errorf("environment has no bootstrap configuration data")
+			}
 			logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
-			return config.New(config.NoDefaults, info.BootstrapConfig())
+			cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+			return cfg, ConfigFromInfo, err
 		}
 		if err != nil && !errors.IsNotFoundError(err) {
-			return nil, fmt.Errorf("cannot read environment info for %q: %v", name, err)
-		}
-		if err == nil {
-			logger.Debugf("ConfigForName found info but no bootstrap config")
+			return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
 		}
 	}
-	return envs.Config(name)
+	cfg, err := envs.Config(name)
+	return cfg, ConfigFromEnvirons, err
 }
 
 // NewFromName opens the environment with the given
@@ -70,11 +91,24 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, erro
 // and it has associated bootstrap config, that configuration
 // will be returned.
 func NewFromName(name string, store configstore.Storage) (Environ, error) {
-	cfg, err := ConfigForName(name, store)
+	// If we get an error when reading from a legacy
+	// environments.yaml entry, we pretend it didn't exist
+	// because the error is likely to be because
+	// configuration attributes don't exist which
+	// will be filled in by Prepare.
+	cfg, source, err := ConfigForName(name, store)
+	if err != nil && source == ConfigFromEnvirons {
+		err = ErrNotBootstrapped
+	}
 	if err != nil {
 		return nil, err
 	}
-	return New(cfg)
+
+	env, err := New(cfg)
+	if err != nil && source == ConfigFromEnvirons {
+		err = ErrNotBootstrapped
+	}
+	return env, err
 }
 
 // PrepareFromName is the same as NewFromName except
@@ -83,7 +117,7 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
 func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
-	cfg, err := ConfigForName(name, store)
+	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}

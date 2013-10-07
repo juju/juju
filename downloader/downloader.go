@@ -13,6 +13,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 // Status represents the status of a completed download.
@@ -25,15 +26,19 @@ type Status struct {
 
 // Download can download a file from the network.
 type Download struct {
-	tomb tomb.Tomb
-	done chan Status
+	tomb                           tomb.Tomb
+	done                           chan Status
+	disableSSLHostnameVerification bool
 }
 
-// New returns a new Download instance downloading from the given URL to
-// the given directory. If dir is empty, it defaults to os.TempDir().
-func New(url, dir string) *Download {
+// New returns a new Download instance downloading from the given URL
+// to the given directory. If dir is empty, it defaults to
+// os.TempDir(). If disableSSLHostnameVerification is true then a non-
+// validating http client will be used.
+func New(url, dir string, disableSSLHostnameVerification bool) *Download {
 	d := &Download{
 		done: make(chan Status),
+		disableSSLHostnameVerification: disableSSLHostnameVerification,
 	}
 	go d.run(url, dir)
 	return d
@@ -54,7 +59,10 @@ func (d *Download) Done() <-chan Status {
 
 func (d *Download) run(url, dir string) {
 	defer d.tomb.Done()
-	file, err := download(url, dir)
+	// TODO(dimitern) 2013-10-03 bug #1234715
+	// Add a testing HTTPS storage to verify the
+	// disableSSLHostnameVerification behavior here.
+	file, err := download(url, dir, d.disableSSLHostnameVerification)
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", url, err)
 	}
@@ -69,7 +77,7 @@ func (d *Download) run(url, dir string) {
 	}
 }
 
-func download(url, dir string) (file *os.File, err error) {
+func download(url, dir string, disableSSLHostnameVerification bool) (file *os.File, err error) {
 	if dir == "" {
 		dir = os.TempDir()
 	}
@@ -83,7 +91,11 @@ func download(url, dir string) (file *os.File, err error) {
 		}
 	}()
 	// TODO(rog) make the download operation interruptible.
-	resp, err := http.Get(url)
+	client := http.DefaultClient
+	if disableSSLHostnameVerification {
+		client = utils.GetNonValidatingHTTPClient()
+	}
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}

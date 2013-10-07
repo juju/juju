@@ -29,11 +29,11 @@ type OpenSuite struct {
 
 var _ = gc.Suite(&OpenSuite{})
 
-func (OpenSuite) TearDownTest(c *gc.C) {
+func (*OpenSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 }
 
-func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
+func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
@@ -43,7 +43,7 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(bootstrap.Bootstrap(env, constraints.Value{}), gc.IsNil)
 }
 
-func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {
+func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"type": "wondercloud",
 	})
@@ -52,7 +52,7 @@ func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 	c.Assert(env, gc.IsNil)
 }
 
-func (OpenSuite) TestNewFromName(c *gc.C) {
+func (*OpenSuite) TestNewFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	store := configstore.NewMem()
 	e, err := environs.PrepareFromName("erewhemos", store)
@@ -63,7 +63,36 @@ func (OpenSuite) TestNewFromName(c *gc.C) {
 	c.Assert(e.Name(), gc.Equals, "erewhemos")
 }
 
-func (OpenSuite) TestPrepareFromName(c *gc.C) {
+func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
+	store := configstore.NewMem()
+	cfg, _, err := environs.ConfigForName("erewhemos", store)
+	c.Assert(err, gc.IsNil)
+	info, err := store.CreateInfo("erewhemos")
+	c.Assert(err, gc.IsNil)
+
+	// The configuration from environments.yaml is invalid
+	// because it doesn't contain the state-id attribute which
+	// the dummy environment adds at Prepare time.
+	info.SetBootstrapConfig(cfg.AllAttrs())
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+
+	e, err := environs.NewFromName("erewhemos", store)
+	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
+	c.Assert(e, gc.IsNil)
+}
+
+func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
+	store := configstore.NewMem()
+
+	e, err := environs.NewFromName("erewhemos", store)
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Assert(e, gc.IsNil)
+}
+
+func (*OpenSuite) TestPrepareFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	e, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -72,27 +101,54 @@ func (OpenSuite) TestPrepareFromName(c *gc.C) {
 	c.Assert(e.Storage(), gc.NotNil)
 }
 
-func (OpenSuite) TestConfigForName(c *gc.C) {
+func (*OpenSuite) TestConfigForName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	cfg, err := environs.ConfigForName("erewhemos", configstore.NewMem())
+	cfg, source, err := environs.ConfigForName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
 }
 
-func (OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
+func (*OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	_, err := environs.ConfigForName("", configstore.NewMem())
+	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.ErrorMatches, "no default environment found")
+	c.Assert(cfg, gc.IsNil)
+	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
 }
 
-func (OpenSuite) TestConfigForNameDefault(c *gc.C) {
+func (*OpenSuite) TestConfigForNameDefault(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
-	cfg, err := environs.ConfigForName("", configstore.NewMem())
+	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
+	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
 }
 
-func (OpenSuite) TestNew(c *gc.C) {
+func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
+	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
+	store := configstore.NewMem()
+	cfg, source, err := environs.ConfigForName("", store)
+	c.Assert(err, gc.IsNil)
+	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
+
+	info, err := store.CreateInfo("test-config")
+	c.Assert(err, gc.IsNil)
+	var attrs testing.Attrs = cfg.AllAttrs()
+	attrs = attrs.Merge(testing.Attrs{
+		"name": "test-config",
+	})
+	info.SetBootstrapConfig(attrs)
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+
+	cfg, source, err = environs.ConfigForName("test-config", store)
+	c.Assert(err, gc.IsNil)
+	c.Assert(source, gc.Equals, environs.ConfigFromInfo)
+	c.Assert(testing.Attrs(cfg.AllAttrs()), gc.DeepEquals, attrs)
+}
+
+func (*OpenSuite) TestNew(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"state-server": false,
@@ -105,7 +161,7 @@ func (OpenSuite) TestNew(c *gc.C) {
 	c.Assert(e, gc.IsNil)
 }
 
-func (OpenSuite) TestPrepare(c *gc.C) {
+func (*OpenSuite) TestPrepare(c *gc.C) {
 	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
 		"state-server": false,
 		"name":         "erewhemos",
@@ -153,7 +209,7 @@ func (OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
 }
 
-func (OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
+func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
 		"state-server": false,
 		"name":         "erewhemos",
@@ -178,7 +234,7 @@ func (OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	c.Assert(adminSecret1, gc.Not(gc.Equals), adminSecret0)
 }
 
-func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
+func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Delete("ca-cert", "ca-private-key").Merge(
 		testing.Attrs{
 			"state-server": false,
@@ -192,7 +248,7 @@ func (OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	c.Assert(env, gc.IsNil)
 }
 
-func (OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
+func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"state-server":   false,
@@ -212,7 +268,7 @@ func (OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	c.Assert(string(cfgKeyPEM), gc.DeepEquals, testing.CAKey)
 }
 
-func (OpenSuite) TestDestroy(c *gc.C) {
+func (*OpenSuite) TestDestroy(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"state-server": false,
@@ -240,7 +296,7 @@ func (OpenSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func (OpenSuite) TestNewFromAttrs(c *gc.C) {
+func (*OpenSuite) TestNewFromAttrs(c *gc.C) {
 	e, err := environs.NewFromAttrs(dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"state-server": false,

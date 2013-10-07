@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 )
@@ -28,8 +29,7 @@ func (inst *localInstance) Status() string {
 }
 
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("localInstance.Addresses not implemented")
-	return nil, nil
+	return nil, errors.NewNotImplementedError("localInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.

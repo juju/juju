@@ -67,6 +67,21 @@ type StringResults struct {
 	Results []StringResult
 }
 
+// CharmArchiveURLResult holds a charm archive (bunle) URL, a
+// DisableSSLHostnameVerification flag or an error.
+type CharmArchiveURLResult struct {
+	Error                          *Error
+	Result                         string
+	DisableSSLHostnameVerification bool
+}
+
+// CharmArchiveURLResults holds the bulk operation result of an API
+// call that returns a charm archive (bundle) URL, a
+// DisableSSLHostnameVerification flag or an error.
+type CharmArchiveURLResults struct {
+	Results []CharmArchiveURLResult
+}
+
 // ResolvedModeResult holds a resolved mode or an error.
 type ResolvedModeResult struct {
 	Error *Error
@@ -374,8 +389,9 @@ type VersionResults struct {
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	Tools *tools.Tools
-	Error *Error
+	Tools                          *tools.Tools
+	DisableSSLHostnameVerification bool
+	Error                          *Error
 }
 
 // ToolsResults is a list of tools for various requested agents.

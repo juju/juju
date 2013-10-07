@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -53,6 +54,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Tools, gc.NotNil)
 	c.Assert(result.Results[0].Tools.Version, gc.DeepEquals, version.Current)
+	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsFalse)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
 }

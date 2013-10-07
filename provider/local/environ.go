@@ -82,28 +82,6 @@ func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
 
-// ensureCertOwner checks to make sure that the cert files created
-// by the bootstrap command are owned by the user and not root.
-func (env *localEnviron) ensureCertOwner() error {
-	files := []string{
-		config.JujuHomePath(env.name + "-cert.pem"),
-		config.JujuHomePath(env.name + "-private-key.pem"),
-	}
-
-	uid, gid, err := utils.SudoCallerIds()
-	if err != nil {
-		return err
-	}
-	if uid != 0 || gid != 0 {
-		for _, filename := range files {
-			if err := os.Chown(filename, uid, gid); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // PrecheckInstance is specified in the environs.Prechecker interface.
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
@@ -126,10 +104,6 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
-	if err := env.ensureCertOwner(); err != nil {
-		logger.Errorf("failed to reassign ownership of the certs to the user: %v", err)
-		return err
-	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 
 	cert, key, err := env.setupLocalMongoService()

@@ -50,10 +50,12 @@ mysql-33 becomes cs:precise/mysql-33).
 <service name>, if omitted, will be derived from <charm name>.
 
 Charms can be deployed to a specific machine using the --to argument.
+
 Examples:
- juju deploy mysql --to 23       (Deploy to machine 23)
- juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
- juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
+
+  juju deploy mysql --to 23       (Deploy to machine 23)
+  juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
+  juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
 `
 
 func (c *DeployCommand) Info() *cmd.Info {

@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -77,7 +78,7 @@ func (s *upgraderSuite) TestSetVersion(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestToolsWrongMachine(c *gc.C) {
-	tools, err := s.st.Tools("42")
+	tools, _, err := s.st.Tools("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
@@ -90,10 +91,19 @@ func (s *upgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, err := s.st.Tools(s.rawMachine.Tag())
+	stateTools, disableSSLHostnameVerification, err := s.st.Tools(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
+	c.Assert(disableSSLHostnameVerification, jc.IsFalse)
+
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
+
+	stateTools, disableSSLHostnameVerification, err = s.st.Tools(s.rawMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateTools.Version, gc.Equals, cur)
+	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
+	c.Assert(disableSSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
