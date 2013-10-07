@@ -69,9 +69,6 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 type ec2Instance struct {
 	e *environ
 	*ec2.Instance
-	arch     *string
-	instType *instances.InstanceType
-	rootdisk uint64
 }
 
 func (inst *ec2Instance) String() string {
@@ -86,18 +83,6 @@ func (inst *ec2Instance) Id() instance.Id {
 
 func (inst *ec2Instance) Status() string {
 	return inst.State.Name
-}
-
-func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteristics {
-	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
-	if inst.instType != nil {
-		hc.Mem = &inst.instType.Mem
-		hc.CpuCores = &inst.instType.CpuCores
-		hc.CpuPower = inst.instType.CpuPower
-		hc.RootDisk = &inst.rootdisk
-		// Tags currently not supported by EC2
-	}
-	return hc
 }
 
 // refreshInstance requeries the Instance details over the ec2 api
@@ -398,7 +383,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	// don't restrict images based on root-disk, since
 	// you can always ask for more disk from amazon
 	diskCons := cons.RootDisk
-	cons.RootDisk = nil
+	//	cons.RootDisk = nil
 
 	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
@@ -434,7 +419,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	var instResp *ec2.RunInstancesResp
 
 	var devices []ec2.BlockDeviceMapping
-	if diskCons != nil {
+	if diskCons != nil && *diskCons > 0 {
 		// request the root disk size in the provision request
 		// AWS's volume size is in gigabytes, root-disk is in megabytes,
 		// so round up to the nearest gigabyte.
@@ -467,19 +452,25 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 
 	rootdisk := defaultDisk
-	if diskCons != nil {
+	if diskCons != nil && *diskCons > 0 {
 		rootdisk = *diskCons
 	}
 
 	inst := &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
-		arch:     &spec.Image.Arch,
-		instType: &spec.InstanceType,
-		rootdisk: rootdisk,
 	}
 	logger.Infof("started instance %q", inst.Id())
-	return inst, inst.hardwareCharacteristics(), nil
+
+	hc := instance.HardwareCharacteristics{
+		Arch:     &spec.Image.Arch,
+		Mem:      &spec.InstanceType.Mem,
+		CpuCores: &spec.InstanceType.CpuCores,
+		CpuPower: spec.InstanceType.CpuPower,
+		RootDisk: &rootdisk,
+		// Tags currently not supported by EC2
+	}
+	return inst, &hc, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
