@@ -139,9 +139,9 @@ type AgentConfigParams struct {
 	Values         map[string]string
 }
 
-// NewAgentConfig returns a new config object suitable for use for a unit
-// agent. As the unit agent becomes entirely APIified, we should remove the
-// state addresses from here.
+// NewAgentConfig returns a new config object suitable for use for a
+// machine or unit agent. As the agents becomes entirely APIified,
+// we should remove the state addresses from here.
 func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	if params.DataDir == "" {
 		return nil, requiredError("data directory")
