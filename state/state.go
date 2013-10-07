@@ -598,7 +598,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, owner string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
 	if !names.IsService(name) {

@@ -280,6 +280,12 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return sch
 }
 
+func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *Charm) *State.Service {
+	service, err := st.AddService(name, "test-owner", ch)
+	c.Assert(err, gc.IsNil)
+	return service
+}
+
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
