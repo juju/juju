@@ -8,7 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"juju-core/provider/joyent"
+	"add-joyent-provider/provider/joyent"
 	//"launchpad.net/juju-core/provider/joyent"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"

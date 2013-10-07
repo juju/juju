@@ -5,6 +5,7 @@ package joyent
 
 import (
 	"fmt"
+	"os"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -17,14 +18,26 @@ const boilerplateConfig = `joyent:
   type: joyent
   admin-secret: {{rand}}
 
-  # Can be set via the env variable SDC_ACCOUNT or MANTA_USER, or specified here
+  # Can be set via env variables, or specified here
   # user: <secret>
-  # Can be set via the env variable SDC_KEY_ID or MANTA_KEY_ID, or specified here
+  # Can be set via env variables, or specified here
   # key-id: <secret>
   # region defaults to us-east-1, override if required
   # region: us-east-1
 
 `
+
+const (
+	SdcAccount        = "SDC_ACCOUNT"
+	SdcKeyId          = "SDC_KEY_ID"
+	MantaUser         = "MANTA_USER"
+	MantaKeyId        = "MANTA_KEY_ID"
+)
+
+var environmentVariables = map[string][]string{
+	"user": 	{SdcAccount, MantaUser},
+	"key-id": 	{SdcKeyId, MantaKeyId},
+}
 
 var configFields = schema.Fields{
 	"user":           		schema.String(),
@@ -37,6 +50,7 @@ var configDefaultFields = schema.Defaults{
 }
 
 var configSecretFields = []string{
+	"user",
 	"key-id",
 }
 
@@ -54,6 +68,22 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 		}*/
 		attrs["region"] = "us-east-1"
 	}
+
+	// Read env variables
+	for field := range configSecretFields {
+		// If field is not set, get it from env variables
+		if attrs[field] == "" {
+			for envVariable := range environmentVariables[field] {
+				localEnvVariable := os.Getenv(envVariable)
+				if localEnvVariable != "" {
+					attrs[field] = localEnvVariable
+					break
+				}
+			}
+			return nil, fmt.Errorf("cannot get %s value from environment variables %s or %s", field, environmentVariables[field][0], environmentVariables[field][1])
+		}
+	}
+
 	return cfg.Apply(attrs)
 }
 
@@ -83,13 +113,6 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 		return nil, err
 	}
 	for field := range configFields {
-		if newAttrs[field] == "" {
-			return nil, fmt.Errorf("%s: must not be empty", field)
-		}
-	}
-
-	// Read env variables
-	for field := range configSecretFields {
 		if newAttrs[field] == "" {
 			return nil, fmt.Errorf("%s: must not be empty", field)
 		}

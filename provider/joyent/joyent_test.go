@@ -9,7 +9,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/provider/joyent"
+	//"launchpad.net/juju-core/provider/joyent"
+	"add-joyent-provider/provider/joyent"
 )
 
 func TestPackage(t *testing.T) {
