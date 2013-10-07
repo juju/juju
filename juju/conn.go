@@ -234,7 +234,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
-	service, err := conn.State.AddService(args.ServiceName, args.Charm)
+	service, err := conn.State.AddService(args.ServiceName, "admin-owner", args.Charm)
 	if err != nil {
 		return nil, err
 	}
