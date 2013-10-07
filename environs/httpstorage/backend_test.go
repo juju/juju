@@ -283,7 +283,7 @@ func (s *backendSuite) TestPut(c *gc.C) {
 	testPut(c, http.DefaultClient, url, dataDir, true)
 }
 
-func testPut(c *gc.C, client *http.Client, url, dataDir string, authorised bool) {
+func testPut(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		req, err := http.NewRequest("PUT", url+tc.name, bytes.NewBufferString(tc.content))
 		c.Assert(err, gc.IsNil)
@@ -293,7 +293,7 @@ func testPut(c *gc.C, client *http.Client, url, dataDir string, authorised bool)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
-		} else if !authorised {
+		} else if !authorized {
 			c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
 			return
 		}
@@ -341,7 +341,7 @@ func (s *backendSuite) TestRemove(c *gc.C) {
 	testRemove(c, http.DefaultClient, url, dataDir, true)
 }
 
-func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorised bool) {
+func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		fp := filepath.Join(dataDir, tc.name)
 		dir, _ := filepath.Split(fp)
@@ -357,7 +357,7 @@ func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorised bo
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
-		} else if !authorised {
+		} else if !authorized {
 			c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
 			return
 		}

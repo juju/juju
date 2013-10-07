@@ -36,9 +36,9 @@ func (s *storageBackend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "PUT", "DELETE":
 		// Don't allow modifying operations if there's an HTTPS backend
-		// to handle that, and ensure the user is authorised/authenticated.
-		if s.httpsPort != 0 || !s.authorised(req) {
-			http.Error(w, "unauthorised access", http.StatusUnauthorized)
+		// to handle that, and ensure the user is authorized/authenticated.
+		if s.httpsPort != 0 || !s.authorized(req) {
+			http.Error(w, "unauthorized access", http.StatusUnauthorized)
 			return
 		}
 	}
@@ -60,9 +60,9 @@ func (s *storageBackend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// authorised checks that either the storage does not require
-// authorisation, or the user has specified the correct auth key.
-func (s *storageBackend) authorised(req *http.Request) bool {
+// authorized checks that either the storage does not require
+// authorization, or the user has specified the correct auth key.
+func (s *storageBackend) authorized(req *http.Request) bool {
 	if s.authkey == "" {
 		return true
 	}
@@ -139,8 +139,8 @@ func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 
 // handleDelete removes a file from the storage.
 func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) {
-	if !s.authorised(req) {
-		http.Error(w, "unauthorised access", http.StatusUnauthorized)
+	if !s.authorized(req) {
+		http.Error(w, "unauthorized access", http.StatusUnauthorized)
 		return
 	}
 	err := s.backend.Remove(req.URL.Path[1:])
