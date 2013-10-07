@@ -9,7 +9,6 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
-	//"launchpad.net/juju-core/utils"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -61,10 +60,6 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	// Turn an incomplete config into a valid one, if possible.
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["region"]; !ok {
-		/*uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, fmt.Errorf("cannot generate skeleton-immutable-field")
-		}*/
 		attrs["region"] = "us-east-1"
 	}
 
