@@ -145,13 +145,16 @@ func (s *backendSuite) TestHeadNonAuth(c *gc.C) {
 
 func (s *backendSuite) TestHeadAuth(c *gc.C) {
 	// HEAD on an authenticating server will return the HTTPS counterpart URL.
-	client, url, _ := s.tlsServerAndClient(c)
-	resp, err := client.Head(url + "arbitrary")
+	client, url, datadir := s.tlsServerAndClient(c)
+	createTestData(c, datadir)
+
+	resp, err := client.Head(url)
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	location, err := resp.Location()
 	c.Assert(err, gc.IsNil)
-	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/arbitrary")
+	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/")
+	testGet(c, client, location.String())
 }
 
 func (s *backendSuite) TestHeadCustomHost(c *gc.C) {
