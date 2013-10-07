@@ -9,6 +9,7 @@ package state
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -142,8 +143,9 @@ func checkEnvironConfig(cfg *config.Config) error {
 // have a different agent version from the current one (even empty,
 // when not yet set).
 type versionInconsistentError struct {
-	machines map[string]version.Number
-	units    map[string]version.Number
+	currentVersion version.Number
+	machines       map[string]version.Number
+	units          map[string]version.Number
 }
 
 func (e *versionInconsistentError) Error() string {
@@ -155,25 +157,29 @@ func (e *versionInconsistentError) Error() string {
 			if v == version.Zero {
 				vers = "N/A"
 			}
-			items[i] = fmt.Sprintf("%q: %s", k, vers)
+			items[i] = fmt.Sprintf("%s: %s", k, vers)
 			i++
 		}
-		return fmt.Sprintf("[%s]", strings.Join(items, ", "))
+		return strings.Join(items, ", ")
 	}
 
-	message := fmt.Sprintf("current environment version %s is inconsistent for", version.Current.Number)
+	message := fmt.Sprintf("current environment version %s is inconsistent for", e.currentVersion)
 	if len(e.machines) > 0 && len(e.units) > 0 {
 		return fmt.Sprintf("%s machines %s and units %s", message, str(e.machines), str(e.units))
 	} else if len(e.machines) > 0 {
 		return fmt.Sprintf("%s machines %s", message, str(e.machines))
 	}
-	return fmt.Sprintf("%s units %v", message, e.units)
+	return fmt.Sprintf("%s units %v", message, str(e.units))
 }
 
 // NewVersionInconsistentError returns a new instance of
 // versionInconsistentError.
-func NewVersionInconsistentError(machines, units map[string]version.Number) *versionInconsistentError {
-	return &versionInconsistentError{machines, units}
+func NewVersionInconsistentError(
+	currentVersion version.Number,
+	machines,
+	units map[string]version.Number,
+) *versionInconsistentError {
+	return &versionInconsistentError{currentVersion, machines, units}
 }
 
 // IsVersionInconsistentError returns if the given error is
@@ -192,15 +198,20 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	if err != nil {
 		return err
 	}
-	currentVersion, ok := settings.Get("agent-version")
+	agentVersion, ok := settings.Get("agent-version")
 	if !ok {
 		return fmt.Errorf("no agent version set in the environment")
 	}
+	currentVersion, ok := agentVersion.(string)
+	if !ok {
+		return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
+	}
 
+	matchVersion := "^" + regexp.QuoteMeta(currentVersion) + "-.*"
 	// Get all machines and units with a different or empty version.
 	sel := D{{"$or", []D{
 		{{"tools", D{{"$exists", false}}}},
-		{{"tools.version.number", D{{"$ne", "1.15.1"}}}},
+		{{"tools.version", D{{"$not", bson.RegEx{matchVersion, "i"}}}}},
 	}}}
 	var (
 		machineDocs []machineDoc
@@ -217,7 +228,6 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	machines := make(map[string]version.Number)
 	if len(machineDocs) > 0 {
 		for _, machine := range machineDocs {
-			fmt.Printf("machine: %#v\n", machine)
 			if machine.Tools == nil {
 				machines[machine.Id] = version.Zero
 			} else {
@@ -236,17 +246,17 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 		}
 	}
 	if len(machines) > 0 || len(units) > 0 {
-		return NewVersionInconsistentError(machines, units)
+		return NewVersionInconsistentError(version.MustParse(currentVersion), machines, units)
 	}
 
 	// Now it's safe to change the version, asserting it
 	// hasn't changed in the mean time.
-	settings.Set("agent-version", newVersion)
+	settings.Set("agent-version", newVersion.String())
 	ops := []txn.Op{{
 		C:      st.settings.Name,
 		Id:     environGlobalKey,
 		Assert: D{{"agent-version", currentVersion}},
-		Update: D{{"$set", settings.Map()}},
+		Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
 	}}
 	if err := st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set agent-version: %v", err)

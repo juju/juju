@@ -1847,6 +1847,13 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	stringVersion := agentVersion.String()
+
 	// Add 3 machines: one with a different version, one with an
 	// empty version, and one with the current version.
 	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -1857,12 +1864,13 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine2.SetAgentVersion(version.Current)
+	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
 	c.Assert(err, gc.IsNil)
 
 	// Verify machine0 and machine1 are reported as error.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	c.Assert(err, gc.ErrorMatches, `current environment version .* is inconsistent for machines \["0": 9.9.9, "1": N/A\]`)
+	expectErr := fmt.Sprintf("current environment version %s is inconsistent for machines 0: 9.9.9, 1: N/A", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
 
 	// Add a service and 3 units: one with a different version, one
 	// with an empty version, and one with the current version.
@@ -1876,23 +1884,59 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unit2, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit2.SetAgentVersion(version.Current)
+	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
 	c.Assert(err, gc.IsNil)
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	c.Assert(err, gc.ErrorMatches, `current environment version .* is inconsistent for machines \["0": 9.9.9, "1": N/A\] and units \["wordpress/0": 6.6.6, "wordpress/1": N/A\]`)
+	expectErr = fmt.Sprintf("current environment version %s is inconsistent for machines 0: 9.9.9, 1: N/A and units wordpress/0: 6.6.6, wordpress/1: N/A", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
 
 	// Now remove the machines.
 	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
-		err = machine.Destroy()
+		err = machine.EnsureDead()
+		c.Assert(err, gc.IsNil)
+		err = machine.Remove()
 		c.Assert(err, gc.IsNil)
 	}
 
 	// Verify only the units are reported as error.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	c.Assert(err, gc.ErrorMatches, `current environment version .* is inconsistent for units \["wordpress/0": 6.6.6, "wordpress/1": N/A\]`)
+	expectErr = fmt.Sprintf("current environment version %s is inconsistent for units wordpress/0: 6.6.6, wordpress/1: N/A", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionSuccess(c *gc.C) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	stringVersion := agentVersion.String()
+
+	// Add a machine and a unit with the current version.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	// Change the version.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.IsNil)
+
+	// Now verify agent-version has changed.
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok = envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion.String(), gc.Equals, "4.5.6")
 }
 
 type waiter interface {
