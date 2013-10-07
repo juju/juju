@@ -46,7 +46,7 @@ var configFields = schema.Fields{
 }
 
 var configDefaultFields = schema.Defaults{
-	"region":				"us-east-1",
+	//"region":				"us-east-1",
 }
 
 var configSecretFields = []string{
@@ -55,7 +55,7 @@ var configSecretFields = []string{
 }
 
 var configImmutableFields = []string{
-	//"region",
+	"region",
 }
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {

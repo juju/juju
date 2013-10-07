@@ -42,15 +42,7 @@ var newConfigTests = []struct {
 	remove []string
 	expect testing.Attrs
 	err    string
-}{/*{
-	info:   "skeleton-immutable-field is required",
-	remove: []string{"skeleton-immutable-field"},
-	err:    "skeleton-immutable-field: expected string, got nothing",
-}, {
-	info:   "skeleton-immutable-field cannot be empty",
-	insert: testing.Attrs{"skeleton-immutable-field": ""},
-	err:    "skeleton-immutable-field: must not be empty",
-},*/ {
+}{{
 	info:   "user is required",
 	remove: []string{"user"},
 	err:    "user: expected string, got nothing",
@@ -162,11 +154,7 @@ var changeConfigTests = []struct {
 	info:   "can change region",
 	insert: testing.Attrs{"region": "us-west-1"},
 	expect: testing.Attrs{"region": "us-west-1"},
-}, /*{
-	info:   "cannot change skeleton-immutable-field",
-	insert: testing.Attrs{"skeleton-immutable-field": "mutant"},
-	err:    "skeleton-immutable-field: cannot change from static to mutant",
-},*/ {
+}, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
 	expect: testing.Attrs{"unknown": "ignoti"},
