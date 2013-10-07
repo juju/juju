@@ -74,8 +74,8 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 }
 
 func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := initUsers(st, c.oldPassword); err != nil {
-		return nil, err
+	if err := initBootstrapUser(st, c.oldPassword); err != nil {
+		return nil, fmt.Errorf("cannot initialize bootstrap user: %v", err)
 	}
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
 		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
@@ -92,20 +92,15 @@ func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg Boots
 		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
 	}
 	err = c.initBootstrapMachine(m, cfg)
-	if err == nil {
-		return m, nil
+	if err != nil {
+		return nil, fmt.Errorf("cannot initialize bootstrap machine: %v", err)
 	}
-	if err := m.EnsureDead(); err != nil {
-		logger.Errorf("cannot deaden bootstrap machine: %v", err)
-	} else if err := m.Remove(); err != nil {
-		logger.Errorf("cannot remove bootstrap machine: %v", err)
-	}
-	return nil, err
+	return m, nil
 }
 
-// initUsers creates the initial admin user for the database, and sets
+// initBootstrapUser creates the initial admin user for the database, and sets
 // the initial password.
-func initUsers(st *state.State, passwordHash string) error {
+func initBootstrapUser(st *state.State, passwordHash string) error {
 	logger.Debugf("adding admin user")
 	// Set up initial authentication.
 	u, err := st.AddUser("admin", "")
