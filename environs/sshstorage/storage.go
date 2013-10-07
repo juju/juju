@@ -168,6 +168,7 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		command = fmt.Sprintf("base64 -d << '@EOF' | (%s)", command)
 	}
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
+	logger.Debugf("%s", command)
 	if _, err := stdin.WriteString(command + "\n"); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
@@ -309,7 +310,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	// Write to a temporary file ($TMPFILE), then mv atomically.
 	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
 	command = fmt.Sprintf(
-		"TMPFILE=`mktemp --tmpdir=%s` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
+		"TMPFILE=`mktemp --tmpdir=$tmpdir` && ((mkdir -p `dirname $path` && cat > $TMPFILE && mv $TMPFILE $path) || rm -f $TMPFILE)",
 		tmpdir, command, path,
 	)
 

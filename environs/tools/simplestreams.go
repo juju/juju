@@ -77,7 +77,7 @@ func (tc *ToolsConstraint) Ids() ([]string, error) {
 // ToolsMetadata holds information about a particular tools tarball.
 type ToolsMetadata struct {
 	Release  string `json:"release"`
-	Version  string `json:"version"`
+	Version  version.Number `json:"version"`
 	Arch     string `json:"arch"`
 	Size     int64  `json:"size"`
 	Path     string `json:"path"`

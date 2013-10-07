@@ -12,6 +12,7 @@ import (
 	"text/template"
 	"time"
 
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
@@ -84,7 +85,7 @@ type toolsMetadataParams struct {
 	Path              string
 	Series            string
 	SeriesVersion     string
-	Version           string
+	Version           version.Number
 	VersionKey        string
 	ToolsFileName     string
 }

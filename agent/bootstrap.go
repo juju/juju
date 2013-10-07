@@ -14,22 +14,20 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// InitializeState should be called on the bootstrap machine's agent
+// configuration. It uses that information to dial the state server and
+// initialize it. It also generates a new password for the bootstrap
+// machine and calls Write to save the the configuration.
+//
+// The envCfg values will be stored in the state's EnvironConfig; the
+// machineCfg values will be used to configure the bootstrap Machine,
+// and its constraints will be also be used for the environment-level
+// constraints. The connection to the state server will respect the
+// given timeout parameter.
+//
+// InitializeState returns the newly initialized state and bootstrap
+// machine.
 type StateInitializer interface {
-	// InitializeState should be called on the bootstrap machine's
-	// agent configuration. It uses that information to dial the
-	// state server and initialize it. It also generates a new
-	// password for the bootstrap machine and calls Write to save
-	// the the configuration.
-	//
-	//The envCfg values will be
-	// stored in the state's EnvironConfig; the machineCfg values
-	// will be used to configure the bootstrap Machine, and its
-	// constraints will be also be used for the environment-level
-	// constraints. The connection to the state server will respect
-	// the given timeout parameter.
-	//
-	// InitializeState returns the newly initialized state and
-	// bootstrap machine.
 	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error)
 }
 
@@ -53,7 +51,7 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (_ *state.State, _ *state.Machine, err error) {
+func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -66,27 +64,48 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
-	logger.Debugf("initialized state")
-	defer func() {
-		if err == nil {
-			return
-		}
-		st.Close()
-		st = nil
-	}()
-	if err := bootstrapUsers(st, c.oldPassword); err != nil {
-		return nil, nil, err
-	}
-	m, err := c.newBootstrapMachine(st, machineCfg)
+	logger.Debugf("connected to initial state")
+	m, err := c.initUsersAndBootstrapMachine(st, machineCfg)
 	if err != nil {
+		st.Close()
 		return nil, nil, err
 	}
 	return st, m, nil
 }
 
-// bootstrapUsers creates the initial admin user for the database, and sets
+func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+	if err := initUsers(st, c.oldPassword); err != nil {
+		return nil, err
+	}
+	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
+		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
+	}
+	m, err := st.InjectMachine(&state.AddMachineParams{
+		Series:                  version.Current.Series,
+		Nonce:                   state.BootstrapNonce,
+		Constraints:             cfg.Constraints,
+		InstanceId:              cfg.InstanceId,
+		HardwareCharacteristics: cfg.Characteristics,
+		Jobs: cfg.Jobs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
+	}
+	err = c.initBootstrapMachine(m, cfg)
+	if err == nil {
+		return m, nil
+	}
+	if err := m.EnsureDead(); err != nil {
+		logger.Errorf("cannot deaden bootstrap machine: %v", err)
+	} else if err := m.Remove(); err != nil {
+		logger.Errorf("cannot remove bootstrap machine: %v", err)
+	}
+	return nil, err
+}
+
+// initUsers creates the initial admin user for the database, and sets
 // the initial password.
-func bootstrapUsers(st *state.State, passwordHash string) error {
+func initUsers(st *state.State, passwordHash string) error {
 	logger.Debugf("adding admin user")
 	// Set up initial authentication.
 	u, err := st.AddUser("admin", "")
@@ -108,35 +127,11 @@ func bootstrapUsers(st *state.State, passwordHash string) error {
 	return nil
 }
 
-// newBootstrapMachine adds the initial machine into state.
-func (c *configInternal) newBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (_ *state.Machine, err error) {
-	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
-		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
-	}
-	m, err := st.InjectMachine(&state.AddMachineParams{
-		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
-		Constraints:             cfg.Constraints,
-		InstanceId:              cfg.InstanceId,
-		HardwareCharacteristics: cfg.Characteristics,
-		Jobs: cfg.Jobs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
-	}
-	defer func() {
-		if err != nil {
-			if err := m.EnsureDead(); err != nil {
-				logger.Errorf("cannot deaden bootstrap machine: %v", err)
-			} else if err := m.Remove(); err != nil {
-				logger.Errorf("cannot remove bootstrap machine: %v", err)
-			}
-		}
-	}()
+// initBootstrapMachine initializes the initial bootstrap machine in state.
+func (c *configInternal) initBootstrapMachine(m *state.Machine, cfg BootstrapMachineConfig) error {
 	if m.Id() != bootstrapMachineId {
-		return nil, fmt.Errorf("bootstrap machine expected id 0, got %q", m.Id())
+		return fmt.Errorf("bootstrap machine expected id 0, got %q", m.Id())
 	}
-
 	// Read the machine agent's password and change it to
 	// a new password (other agents will change their password
 	// via the API connection).
@@ -144,13 +139,13 @@ func (c *configInternal) newBootstrapMachine(st *state.State, cfg BootstrapMachi
 
 	newPassword, err := c.writeNewPassword()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := m.SetMongoPassword(newPassword); err != nil {
-		return nil, err
+		return err
 	}
 	if err := m.SetPassword(newPassword); err != nil {
-		return nil, err
+		return err
 	}
-	return m, nil
+	return nil
 }
