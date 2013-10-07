@@ -28,14 +28,12 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
 }
 
 func (s *AssignSuite) addSubordinate(c *gc.C, principal *state.Unit) *state.Unit {
-	_, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -662,8 +660,7 @@ type assignCleanSuite struct {
 
 func (s *assignCleanSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
 }
 
@@ -700,8 +697,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	c.Assert(err, gc.IsNil)
 
 	// Add some units to another service and allocate them to machines
-	service1, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	service1 := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
 		u, err := service1.AddUnit()

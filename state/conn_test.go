@@ -65,6 +65,10 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
+func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	return state.AddTestingService(c, name, ch)
+}
+
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "", "", series, -1)
 }
