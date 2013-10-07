@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package joyent

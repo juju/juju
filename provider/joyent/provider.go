@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package joyent
@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-var logger = loggo.GetLogger("juju.provider.skeleton")
+var logger = loggo.GetLogger("juju.provider.joyent")
 
 type environProvider struct{}
 
@@ -25,10 +25,10 @@ func init() {
 	// somewhere. To enable a provider, import it in the "providers/all"
 	// package; please do *not* import individual providers anywhere else,
 	// except for tests for that provider.
-	environs.RegisterProvider("skeleton", providerInstance)
+	environs.RegisterProvider("joyent", providerInstance)
 }
 
-var errNotImplemented = errors.New("not implemented in skeleton provider")
+var errNotImplemented = errors.New("not implemented in Joyent provider")
 
 func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	// This method may be called with an incomplete cfg. It should make every
@@ -54,15 +54,15 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	// that your checks are always applied.
 	newEcfg, err := validateConfig(cfg, nil)
 	if err != nil {
-		return nil, fmt.Errorf("invalid skeleton provider config: %v", err)
+		return nil, fmt.Errorf("invalid Joyent provider config: %v", err)
 	}
 	if old != nil {
 		oldEcfg, err := validateConfig(old, nil)
 		if err != nil {
-			return nil, fmt.Errorf("original skeleton provider config is invalid: %v", err)
+			return nil, fmt.Errorf("original Joyent provider config is invalid: %v", err)
 		}
 		if newEcfg, err = validateConfig(cfg, oldEcfg); err != nil {
-			return nil, fmt.Errorf("invalid skeleton provider config change: %v", err)
+			return nil, fmt.Errorf("invalid Joyent provider config change: %v", err)
 		}
 	}
 	return newEcfg.Config, nil

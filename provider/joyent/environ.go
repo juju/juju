@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package joyent
@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-// This file contains the core of the skeleton Environ implementation. You will
+// This file contains the core of the joyent Environ implementation. You will
 // probably not need to change this file very much to begin with; and if you
 // never need to add any more fields, you may never need to touch it.
 //

@@ -6,10 +6,9 @@ package joyent
 import (
 	"fmt"
 
-	"launchpad.net/gojoyent/joyent"
-
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
+	//"launchpad.net/juju-core/utils"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -25,29 +24,7 @@ const boilerplateConfig = `joyent:
   # region defaults to us-east-1, override if required
   # region: us-east-1
 
-  # this exists to demonstrate how to deal with sensitive values.
-  skeleton-secret-field: <cloud credentials, for example>
-
-  # this exists to demonstrate how to deal with values that can't change; and
-  # also how to use Prepare to fill in values that don't makes sense with
-  # static defaults but can be inferred or chosen at runtime.
-  # skeleton-immutable-field: <a storage bucket name, for example>
-
-  # this exists to demonstrate how to deal with static default values that
-  # some users may wish to override
-  # skeleton-default-field: <specific default value>
-
 `
-
-/*var configFields = schema.Fields{
-	"skeleton-secret-field":    schema.String(),
-	"skeleton-immutable-field": schema.String(),
-	"skeleton-default-field":   schema.String(),
-}
-
-var configDefaultFields = schema.Defaults{
-	"skeleton-default-field": "<specific default value>",
-}*/
 
 var configFields = schema.Fields{
 	"user":           		schema.String(),
@@ -56,17 +33,28 @@ var configFields = schema.Fields{
 }
 
 var configDefaultFields = schema.Defaults{
-	"user":           		"",
-	"key-id":           	"",
-	"region":               "us-east-1",
+	"region":				"us-east-1",
 }
 
 var configSecretFields = []string{
-	"skeleton-secret-field",
+	"key-id",
 }
 
 var configImmutableFields = []string{
-	"skeleton-immutable-field",
+	//"region",
+}
+
+func prepareConfig(cfg *config.Config) (*config.Config, error) {
+	// Turn an incomplete config into a valid one, if possible.
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["region"]; !ok {
+		/*uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, fmt.Errorf("cannot generate skeleton-immutable-field")
+		}*/
+		attrs["region"] = "us-east-1"
+	}
+	return cfg.Apply(attrs)
 }
 
 func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {
@@ -83,13 +71,27 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	// present in validated, and defaults will be inserted if necessary. If the
 	// schema you passed in doesn't quite express what you need, you can make
 	// whatever checks you need here, before continuing.
+	// In particular, if you want to extract (say) credentials from the user's
+	// shell environment variables, you'll need to allow missing values to pass
+	// through the schema by setting a value of schema.Omit in the configFields
+	// map, and then to set and check them at this point. These values *must* be
+	// stored in newAttrs: a Config will be generated on the user's machine only
+	// to begin with, and will subsequently be used on a different machine that
+	// will probably not have those variables set.
 	newAttrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaultFields)
 	if err != nil {
 		return nil, err
 	}
 	for field := range configFields {
 		if newAttrs[field] == "" {
-			return nil, fmt.Errorf("invalid %q field: must not be empty", field)
+			return nil, fmt.Errorf("%s: must not be empty", field)
+		}
+	}
+
+	// Read env variables
+	for field := range configSecretFields {
+		if newAttrs[field] == "" {
+			return nil, fmt.Errorf("%s: must not be empty", field)
 		}
 	}
 
@@ -98,7 +100,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 		for _, field := range configImmutableFields {
 			if old.attrs[field] != newAttrs[field] {
 				return nil, fmt.Errorf(
-					"invalid %q field: cannot change from %v to %v",
+					"%s: cannot change from %v to %v",
 					field, old.attrs[field], newAttrs[field],
 				)
 			}
@@ -117,26 +119,10 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	}, nil
 }
 
-func prepareConfig(cfg *config.Config) (*config.Config, error) {
-
-}
-
 type environConfig struct {
 	*config.Config
 	attrs map[string]interface{}
 }
-
-/*func (ecfg *environConfig) secretField() string {
-	return ecfg.attrs["skeleton-secret-field"].(string)
-}
-
-func (ecfg *environConfig) immutableField() string {
-	return ecfg.attrs["skeleton-immutable-field"].(string)
-}
-
-func (ecfg *environConfig) defaultField() string {
-	return ecfg.attrs["skeleton-default-field"].(string)
-} */
 
 func (ecfg *environConfig) region() string {
 	return ecfg.attrs["region"].(string)
