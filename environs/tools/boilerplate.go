@@ -12,9 +12,9 @@ import (
 	"text/template"
 	"time"
 
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/version"
 )
 
 const (

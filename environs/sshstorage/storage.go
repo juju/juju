@@ -168,7 +168,6 @@ func (s *SSHStorage) run(flockmode flockmode, command string, input io.Reader, i
 		command = fmt.Sprintf("base64 -d << '@EOF' | (%s)", command)
 	}
 	command = fmt.Sprintf("(%s) 2>&1; echo %s$?", command, rcPrefix)
-	logger.Debugf("%s", command)
 	if _, err := stdin.WriteString(command + "\n"); err != nil {
 		return "", fmt.Errorf("failed to write command: %v", err)
 	}
