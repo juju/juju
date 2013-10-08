@@ -661,7 +661,6 @@ func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
-	logger.Infof("machine doc nonce: %q", m.doc.Nonce)
 	return nonce == m.doc.Nonce && nonce != ""
 }
 
