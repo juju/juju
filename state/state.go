@@ -139,47 +139,23 @@ func checkEnvironConfig(cfg *config.Config) error {
 	return nil
 }
 
-// versionInconsistentError indicates one or more machines or units
-// have a different agent version from the current one (even empty,
-// when not yet set).
+// versionInconsistentError indicates one or more agents have a
+// different version from the current one (even empty, when not yet
+// set).
 type versionInconsistentError struct {
 	currentVersion version.Number
-	machines       map[string]version.Number
-	units          map[string]version.Number
+	agents         []string
 }
 
 func (e *versionInconsistentError) Error() string {
-	str := func(m map[string]version.Number) string {
-		items := make([]string, len(m))
-		i := 0
-		for k, v := range m {
-			vers := v.String()
-			if v == version.Zero {
-				vers = "N/A"
-			}
-			items[i] = fmt.Sprintf("%s: %s", k, vers)
-			i++
-		}
-		return strings.Join(items, ", ")
-	}
-
-	message := fmt.Sprintf("current environment version %s is inconsistent for", e.currentVersion)
-	if len(e.machines) > 0 && len(e.units) > 0 {
-		return fmt.Sprintf("%s machines %s and units %s", message, str(e.machines), str(e.units))
-	} else if len(e.machines) > 0 {
-		return fmt.Sprintf("%s machines %s", message, str(e.machines))
-	}
-	return fmt.Sprintf("%s units %v", message, str(e.units))
+	sort.Strings(e.agents)
+	return fmt.Sprintf("some agents have not upgraded to the current environment version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
 }
 
-// NewVersionInconsistentError returns a new instance of
+// newVersionInconsistentError returns a new instance of
 // versionInconsistentError.
-func NewVersionInconsistentError(
-	currentVersion version.Number,
-	machines,
-	units map[string]version.Number,
-) *versionInconsistentError {
-	return &versionInconsistentError{currentVersion, machines, units}
+func newVersionInconsistentError(currentVersion version.Number, agents []string) *versionInconsistentError {
+	return &versionInconsistentError{currentVersion, agents}
 }
 
 // IsVersionInconsistentError returns if the given error is
@@ -206,16 +182,25 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	if !ok {
 		return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
 	}
+	if newVersion.String() == currentVersion {
+		// Nothing to do.
+		return nil
+	}
 
-	matchVersion := "^" + regexp.QuoteMeta(currentVersion) + "-.*"
+	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
+	matchNew := "^" + regexp.QuoteMeta(newVersion.String()) + "-"
 	// Get all machines and units with a different or empty version.
 	sel := D{{"$or", []D{
 		{{"tools", D{{"$exists", false}}}},
-		{{"tools.version", D{{"$not", bson.RegEx{matchVersion, "i"}}}}},
+		{{"$and", []D{
+			{{"tools.version", D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
+			{{"tools.version", D{{"$not", bson.RegEx{matchNew, ""}}}}},
+		}}},
 	}}}
 	var (
 		machineDocs []machineDoc
 		unitDocs    []unitDoc
+		agentTags   []string
 	)
 	err = st.machines.Find(sel).All(&machineDocs)
 	if err != nil {
@@ -225,37 +210,22 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	if err != nil {
 		return err
 	}
-	machines := make(map[string]version.Number)
-	if len(machineDocs) > 0 {
-		for _, machine := range machineDocs {
-			if machine.Tools == nil {
-				machines[machine.Id] = version.Zero
-			} else {
-				machines[machine.Id] = machine.Tools.Version.Number
-			}
-		}
+	for _, machine := range machineDocs {
+		agentTags = append(agentTags, names.MachineTag(machine.Id))
 	}
-	units := make(map[string]version.Number)
-	if len(unitDocs) > 0 {
-		for _, unit := range unitDocs {
-			if unit.Tools == nil {
-				units[unit.Name] = version.Zero
-			} else {
-				units[unit.Name] = unit.Tools.Version.Number
-			}
-		}
+	for _, unit := range unitDocs {
+		agentTags = append(agentTags, names.UnitTag(unit.Name))
 	}
-	if len(machines) > 0 || len(units) > 0 {
-		return NewVersionInconsistentError(version.MustParse(currentVersion), machines, units)
+	if len(agentTags) > 0 {
+		return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
 	}
 
 	// Now it's safe to change the version, asserting it
 	// hasn't changed in the mean time.
-	settings.Set("agent-version", newVersion.String())
 	ops := []txn.Op{{
 		C:      st.settings.Name,
 		Id:     environGlobalKey,
-		Assert: D{{"agent-version", currentVersion}},
+		Assert: D{{"txn-revno", settings.txnRevno}},
 		Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
 	}}
 	if err := st.runTransaction(ops); err != nil {

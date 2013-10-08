@@ -1854,8 +1854,9 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	stringVersion := agentVersion.String()
 
-	// Add 3 machines: one with a different version, one with an
-	// empty version, and one with the current version.
+	// Add 4 machines: one with a different version, one with an
+	// empty version, one with the current version, and one with
+	// the new version.
 	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-series-arch"))
@@ -1866,14 +1867,20 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
 	c.Assert(err, gc.IsNil)
+	machine3, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	c.Assert(err, gc.IsNil)
 
 	// Verify machine0 and machine1 are reported as error.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	expectErr := fmt.Sprintf("current environment version %s is inconsistent for machines 0: 9.9.9, 1: N/A", stringVersion)
+	expectErr := fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 
-	// Add a service and 3 units: one with a different version, one
-	// with an empty version, and one with the current version.
+	// Add a service and 4 units: one with a different version, one
+	// with an empty version, one with the current version, and one
+	// with the new version.
 	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
@@ -1886,12 +1893,17 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
 	c.Assert(err, gc.IsNil)
+	unit3, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	c.Assert(err, gc.IsNil)
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	expectErr = fmt.Sprintf("current environment version %s is inconsistent for machines 0: 9.9.9, 1: N/A and units wordpress/0: 6.6.6, wordpress/1: N/A", stringVersion)
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 
 	// Now remove the machines.
 	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
@@ -1903,8 +1915,9 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 	// Verify only the units are reported as error.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	expectErr = fmt.Sprintf("current environment version %s is inconsistent for units wordpress/0: 6.6.6, wordpress/1: N/A", stringVersion)
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionSuccess(c *gc.C) {
