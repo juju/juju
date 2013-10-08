@@ -884,7 +884,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
-	wordpress := s.State.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
