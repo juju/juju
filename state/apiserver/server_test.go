@@ -158,8 +158,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 
 func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	// Create a new service and unit to verify "agent alive" behavior.
-	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword("password")

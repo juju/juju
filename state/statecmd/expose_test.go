@@ -47,7 +47,7 @@ func (s *ExposeSuite) TestServiceExpose(c *gc.C) {
 	svcs := make([]*state.Service, len(serviceNames))
 	var err error
 	for i, name := range serviceNames {
-		svcs[i], err = s.State.AddService(name, charm)
+		svcs[i] = s.AddTestingService(c, name, charm)
 		c.Assert(err, gc.IsNil)
 		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
 	}

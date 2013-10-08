@@ -141,8 +141,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
-		svc, err := s.State.AddService(fmt.Sprintf("test%d", i), ch)
-		c.Assert(err, gc.IsNil)
+		svc := s.AddTestingService(c, fmt.Sprintf("test%d", i), ch)
 
 		var constraintsv constraints.Value
 		if t.constraints != "" {
@@ -177,10 +176,9 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
 
 	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("test-service", ch)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "test-service", ch)
 
-	err = svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
+	err := svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, gc.IsNil)
 	got, err := s.APIState.Client().ServiceGet(svc.Name())
 	c.Assert(err, gc.IsNil)
