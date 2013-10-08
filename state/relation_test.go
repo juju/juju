@@ -19,16 +19,13 @@ type RelationSuite struct {
 var _ = gc.Suite(&RelationSuite{})
 
 func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
-	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, gc.IsNil)
 
@@ -82,12 +79,10 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
 	expect, err := s.State.AddRelation(wordpressEP, mysqlEP)
@@ -135,12 +130,10 @@ func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 
 func (s *RelationSuite) TestAddRelation(c *gc.C) {
 	// Add a relation.
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
@@ -158,12 +151,10 @@ func (s *RelationSuite) TestAddRelation(c *gc.C) {
 }
 
 func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService("mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
@@ -174,12 +165,10 @@ func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *gc.C) {
 
 func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 	// Add a relation.
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, gc.IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
@@ -200,12 +189,10 @@ func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 }
 
 func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, gc.IsNil)
-	logging, err := s.State.AddService("logging", s.AddSeriesCharm(c, "logging", "otherseries"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddSeriesCharm(c, "logging", "otherseries"))
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
@@ -213,10 +200,8 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 }
 
 func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -245,8 +230,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	// Check that a peer relation cannot be destroyed directly.
 	riakch := s.AddTestingCharm(c, "riak")
-	riak, err := s.State.AddService("riak", riakch)
-	c.Assert(err, gc.IsNil)
+	riak := s.AddTestingService(c, "riak", riakch)
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, gc.IsNil)
 	rel := assertOneRelation(c, riak, 0, riakEP)
@@ -263,8 +247,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 
 	// Create a new service (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
-	newriak, err := s.State.AddService("riak", riakch)
-	c.Assert(err, gc.IsNil)
+	newriak := s.AddTestingService(c, "riak", riakch)
 	assertOneRelation(c, newriak, 1, riakEP)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)

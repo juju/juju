@@ -20,8 +20,7 @@ var _ = gc.Suite(&MinUnitsSuite{})
 func (s *MinUnitsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.service, err = s.State.AddService("dummy-service", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.service = s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
 }
 
 func (s *MinUnitsSuite) assertRevno(c *gc.C, expectedRevno int, expectedErr error) {

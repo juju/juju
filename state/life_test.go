@@ -19,8 +19,7 @@ func (s *LifeSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
-	s.svc, err = s.State.AddService("dummysvc", s.charm)
-	c.Assert(err, gc.IsNil)
+	s.svc = s.AddTestingService(c, "dummysvc", s.charm)
 }
 
 var _ = gc.Suite(&LifeSuite{})
