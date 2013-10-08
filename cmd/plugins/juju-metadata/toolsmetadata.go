@@ -73,5 +73,5 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return tools.WriteMetadata(toolsList, c.fetch, targetStorage)
+	return tools.MergeAndWriteMetadata(targetStorage, toolsList, tools.ResolveFlag(c.fetch))
 }

@@ -275,11 +275,12 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	c.Assert(toolsMetadata[0], gc.DeepEquals, expectedMetadata)
 }
 
-func assertMetadataMatches(c *gc.C, toolList coretools.List, metadata []*tools.ToolsMetadata) {
+func assertMetadataMatches(c *gc.C, storageDir string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
 	var expectedMetadata []*tools.ToolsMetadata = make([]*tools.ToolsMetadata, len(toolList))
 	for i, tool := range toolList {
-		if tool.URL != "" {
-			size, sha256 := ttesting.SHA256sum(c, tool.URL)
+		if tool.Size == 0 {
+			path := filepath.Join(storageDir, tools.StorageName(tool.Version))
+			size, sha256 := ttesting.SHA256sum(c, path)
 			tool.SHA256 = sha256
 			tool.Size = size
 		}
@@ -311,10 +312,10 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(toolsList, false, writer)
+	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DontResolve)
 	c.Assert(err, gc.IsNil)
 	metadata := ttesting.ParseMetadata(c, dir)
-	assertMetadataMatches(c, toolsList, metadata)
+	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
 func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
@@ -333,15 +334,16 @@ func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
 			SHA256:  "abcd",
 		}, {
 			Version: version.MustParseBinary("2.0.1-raring-amd64"),
-			URL:     "file://" + filepath.Join(dir, "tools/releases/juju-2.0.1-raring-amd64.tgz"),
+			// The URL is not used for generating metadata.
+			URL: "bogus://",
 		},
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(toolsList, true, writer)
+	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.Resolve)
 	c.Assert(err, gc.IsNil)
 	metadata := ttesting.ParseMetadata(c, dir)
-	assertMetadataMatches(c, toolsList, metadata)
+	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
 func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
@@ -359,7 +361,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(existingToolsList, true, writer)
+	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.Resolve)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -369,11 +371,11 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.WriteMetadata(newToolsList, true, writer)
+	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.Resolve)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
 	metadata := ttesting.ParseMetadata(c, dir)
-	assertMetadataMatches(c, requiredToolsList, metadata)
+	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
 type productSpecSuite struct{}

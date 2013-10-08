@@ -120,7 +120,7 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 		}
 		agentTools[i] = t
 	}
-	err := envtools.WriteMetadata(agentTools, true, stor)
+	err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.Resolve)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 		}
 		agentTools[i] = t
 	}
-	err := envtools.WriteMetadata(agentTools, true, stor)
+	err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.Resolve)
 	if err != nil {
 		panic(err)
 	}
