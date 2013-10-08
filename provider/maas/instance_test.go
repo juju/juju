@@ -78,32 +78,17 @@ func (s *instanceTest) TestDNSName(c *gc.C) {
 
 func (s *instanceTest) TestAddresses(c *gc.C) {
 	jsonValue := `{
-			"hostname": "DNS name", 
-			"system_id": "system_id", 
+			"hostname": "testing.invalid",
+			"system_id": "system_id",
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	inst := maasInstance{&obj, s.environ}
 
 	expected := []instance.Address{
-		{
-			"DNS name",
-			instance.HostName,
-			"",
-			instance.NetworkPublic,
-		},
-		{
-			"1.2.3.4",
-			instance.Ipv4Address,
-			"",
-			instance.NetworkUnknown,
-		},
-		{
-			"fe80::d806:dbff:fe23:1199",
-			instance.Ipv6Address,
-			"",
-			instance.NetworkUnknown,
-		},
+		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
+		instance.NewAddress("1.2.3.4"),
+		instance.NewAddress("fe80::d806:dbff:fe23:1199"),
 	}
 
 	addr, err := inst.Addresses()
@@ -125,7 +110,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 	addr, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
 	c.Check(addr, gc.DeepEquals, []instance.Address{
-		{"testing.invalid", instance.HostName, "", instance.NetworkPublic},
+		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
 	})
 }
 
