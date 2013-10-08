@@ -19,7 +19,6 @@ var _ = gc.Suite(&MinUnitsSuite{})
 
 func (s *MinUnitsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	var err error
 	s.service = s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
 }
 

@@ -73,8 +73,7 @@ func (s *ToolsSuite) TestMachineAgentTools(c *gc.C) {
 
 func (s *ToolsSuite) TestUnitAgentTools(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", charm)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)

@@ -29,7 +29,6 @@ var _ = gc.Suite(&ServiceSuite{})
 func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "mysql")
-	var err error
 	s.mysql = s.AddTestingService(c, "mysql", s.charm)
 }
 

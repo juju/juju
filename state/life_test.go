@@ -16,7 +16,6 @@ type LifeSuite struct {
 }
 
 func (s *LifeSuite) SetUpTest(c *gc.C) {
-	var err error
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	s.svc = s.AddTestingService(c, "dummysvc", s.charm)
