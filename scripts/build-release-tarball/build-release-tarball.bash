@@ -35,7 +35,7 @@ TAG=$1
 WORK=$(mktemp -d)
 
 # populate top level dirs
-mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} 
+mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2
 
 # checkout juju (manually, because we're redefining $WORK later on
 bzr-checkout lp:juju-core $TAG launchpad.net/juju-core
@@ -48,31 +48,11 @@ mkdir $WORK/juju-core_${VERSION}
 mv $WORK/src $WORK/juju-core_${VERSION}/
 WORK=$WORK/juju-core_${VERSION}
 
-# fetch dependencies
-hg-checkout https://code.google.com/p/go.net tip code.google.com/p/go.net
-hg-checkout https://code.google.com/p/go.crypto tip code.google.com/p/go.crypto
-
-declare -A deps_revno
-declare -A deps_vcs
-while read -r lib vcs revision revno; do
-    if [[ $vcs == "bzr" ]]; then
-        deps_revno+=(["$lib"]="$revno")
-        deps_vcs+=(["$lib"]="$vcs")
-    fi
-done < "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
-
-for lib in "${!deps_revno[@]}"; do
-    revno=${deps_revno["$lib"]}
-    vcs=${deps_vcs["$lib"]}
-    location=$(
-        echo $lib |
-        sed -e 's,launchpad.net/,lp:,; s,labix.org/v2/mgo,lp:mgo/v2,;')
-    # gnuflag has GhostRevisionsHaveNoRevno error. stacking error?
-    if [[ $lib == 'launchpad.net/gnuflag' ]]; then
-        location='lp:~gophers/gnuflag/trunk'
-    fi
-    bzr-checkout $location $revno $lib
-done
+# Fetch dependencies; restore juju-core to the proper revision; set the deps
+# to the properrevision.
+GOPATH=$WORK go get -v -d launchpad.net/juju-core/...
+(cd "${WORK}/src/launchpad.net/juju-core/" && bzr revert -r $TAG)
+GOPATH=$WORK godeps -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
 
 # smoke test
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
