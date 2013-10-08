@@ -9,7 +9,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceTest struct {
@@ -79,36 +78,64 @@ func (s *instanceTest) TestDNSName(c *gc.C) {
 
 func (s *instanceTest) TestAddresses(c *gc.C) {
 	jsonValue := `{
-			"hostname": "DNS name", 
-			"system_id": "system_id", 
+			"hostname": "testing.invalid",
+			"system_id": "system_id",
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	inst := maasInstance{&obj, s.environ}
 
 	expected := []instance.Address{
-		{
-			"1.2.3.4",
-			instance.Ipv4Address,
-			"",
-			instance.NetworkUnknown,
-		},
-		{
-			"fe80::d806:dbff:fe23:1199",
-			instance.Ipv6Address,
-			"",
-			instance.NetworkUnknown,
-		},
-		{
-			"DNS name",
-			instance.HostName,
-			"",
-			instance.NetworkPublic,
-		},
+		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
+		instance.NewAddress("1.2.3.4"),
+		instance.NewAddress("fe80::d806:dbff:fe23:1199"),
 	}
 
 	addr, err := inst.Addresses()
 
-	c.Check(err, gc.IsNil)
-	c.Check(addr, jc.SameContents, expected)
+	c.Assert(err, gc.IsNil)
+	c.Check(addr, gc.DeepEquals, expected)
+}
+
+func (s *instanceTest) TestAddressesMissing(c *gc.C) {
+	// Older MAAS versions do not have ip_addresses returned, for these
+	// just the DNS name should be returned without error.
+	jsonValue := `{
+		"hostname": "testing.invalid",
+		"system_id": "system_id"
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	addr, err := inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Check(addr, gc.DeepEquals, []instance.Address{
+		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
+	})
+}
+
+func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
+	jsonValue := `{
+		"hostname": "testing.invalid",
+		"system_id": "system_id",
+		"ip_addresses": "incompatible"
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	_, err := inst.Addresses()
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
+	jsonValue := `{
+		"hostname": "testing.invalid",
+		"system_id": "system_id",
+		"ip_addresses": [42]
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	_, err := inst.Addresses()
+	c.Assert(err, gc.NotNil)
 }
