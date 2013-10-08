@@ -224,7 +224,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	}
 
 	// Now it's safe to change the version, asserting it
-	// hasn't changed in the mean time.
+	// hasn't changed in the meantime.
 	for i := 0; i < 5; i++ {
 		ops := []txn.Op{{
 			C:      st.settings.Name,
