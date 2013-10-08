@@ -9,7 +9,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceTest struct {
@@ -88,6 +87,12 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 
 	expected := []instance.Address{
 		{
+			"DNS name",
+			instance.HostName,
+			"",
+			instance.NetworkPublic,
+		},
+		{
 			"1.2.3.4",
 			instance.Ipv4Address,
 			"",
@@ -99,16 +104,53 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 			"",
 			instance.NetworkUnknown,
 		},
-		{
-			"DNS name",
-			instance.HostName,
-			"",
-			instance.NetworkPublic,
-		},
 	}
 
 	addr, err := inst.Addresses()
 
-	c.Check(err, gc.IsNil)
-	c.Check(addr, jc.SameContents, expected)
+	c.Assert(err, gc.IsNil)
+	c.Check(addr, gc.DeepEquals, expected)
+}
+
+func (s *instanceTest) TestAddressesMissing(c *gc.C) {
+	// Older MAAS versions do not have ip_addresses returned, for these
+	// just the DNS name should be returned without error.
+	jsonValue := `{
+		"hostname": "testing.invalid",
+		"system_id": "system_id"
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	addr, err := inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Check(addr, gc.DeepEquals, []instance.Address{
+		{"testing.invalid", instance.HostName, "", instance.NetworkPublic},
+	})
+}
+
+func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
+	jsonValue := `{
+		"hostname": "testing.invalid",
+		"system_id": "system_id",
+		"ip_addresses": "incompatible"
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	_, err := inst.Addresses()
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
+	jsonValue := `{
+		"hostname": "testing.invalid",
+		"system_id": "system_id",
+		"ip_addresses": [42]
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	_, err := inst.Addresses()
+	c.Assert(err, gc.NotNil)
 }

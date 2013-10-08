@@ -76,7 +76,12 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
 	// we have to do this the hard way, since maasObject doesn't have this built-in yet
-	objs, err := mi.maasObject.GetMap()["ip_addresses"].GetArray()
+	addressArray := mi.maasObject.GetMap()["ip_addresses"]
+	if addressArray.IsNil() {
+		// Older MAAS versions do not return ip_addresses.
+		return nil, nil
+	}
+	objs, err := addressArray.GetArray()
 	if err != nil {
 		return nil, err
 	}
