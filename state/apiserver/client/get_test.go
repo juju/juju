@@ -146,11 +146,11 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		var constraintsv constraints.Value
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
-			err = svc.SetConstraints(constraintsv)
+			err := svc.SetConstraints(constraintsv)
 			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
-			err = svc.UpdateConfigSettings(t.config)
+			err := svc.UpdateConfigSettings(t.config)
 			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect

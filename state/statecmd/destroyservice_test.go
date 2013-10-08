@@ -42,13 +42,12 @@ var serviceDestroyTests = []struct {
 func (s *DestroySuite) TestServiceDestroy(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", charm)
-	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Life(), gc.Equals, state.Alive)
 	c.Logf("Svc: %+v", svc)
 
 	for i, t := range serviceDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = statecmd.ServiceDestroy(s.State, params.ServiceDestroy{
+		err := statecmd.ServiceDestroy(s.State, params.ServiceDestroy{
 			ServiceName: t.service,
 		})
 		if t.err != "" {
