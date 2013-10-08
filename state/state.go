@@ -241,7 +241,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 		ops := []txn.Op{{
 			C:      st.settings.Name,
 			Id:     environGlobalKey,
-			Assert: D{{"txn-revno", revNo}, {"agent-version", currentVersion}},
+			Assert: D{{"txn-revno", revNo}},
 			Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
 		}}
 		if err := st.runTransaction(ops); err == nil {
