@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.addressupdater")
 // instance address has not changed.
 var (
 	ShortPoll        = 1 * time.Second
-	ShortPollBackoff = 1.1
+	ShortPollBackoff = 2.0
 	LongPoll         = 15 * time.Minute
 )
 
