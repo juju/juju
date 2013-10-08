@@ -6,6 +6,7 @@ package tools_test
 import (
 	"flag"
 	"fmt"
+	"io"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -16,8 +17,10 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -475,4 +478,163 @@ func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
 	c.Assert(item, gc.NotNil)
 	c.Assert(item, gc.FitsTypeOf, &tools.ToolsMetadata{})
 	c.Assert(item.(*tools.ToolsMetadata).Size, gc.Equals, int64(9223372036854775807))
+}
+
+type metadataHelperSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&metadataHelperSuite{})
+
+func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
+	metadata := tools.MetadataFromTools(nil)
+	c.Assert(metadata, gc.HasLen, 0)
+
+	toolsList := coretools.List{{
+		Version: version.MustParseBinary("1.2.3-precise-amd64"),
+		Size:    123,
+		SHA256:  "abc",
+	}, {
+		Version: version.MustParseBinary("2.0.1-raring-amd64"),
+		URL:     "file:///tmp/releases/juju-2.0.1-raring-amd64.tgz",
+		Size:    456,
+		SHA256:  "xyz",
+	}}
+	metadata = tools.MetadataFromTools(toolsList)
+	c.Assert(metadata, gc.HasLen, len(toolsList))
+	for i, t := range toolsList {
+		md := metadata[i]
+		c.Assert(md.Release, gc.Equals, t.Version.Series)
+		c.Assert(md.Version, gc.Equals, t.Version.Number.String())
+		c.Assert(md.Arch, gc.Equals, t.Version.Arch)
+		c.Assert(md.FullPath, gc.Equals, t.URL)
+		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version)[len("tools/"):])
+		c.Assert(md.FileType, gc.Equals, "tar.gz")
+		c.Assert(md.Size, gc.Equals, t.Size)
+		c.Assert(md.SHA256, gc.Equals, t.SHA256)
+	}
+}
+
+type countingStorage struct {
+	storage.StorageReader
+	counter int
+}
+
+func (c *countingStorage) Get(name string) (io.ReadCloser, error) {
+	c.counter++
+	return c.StorageReader.Get(name)
+}
+
+func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
+	var versionStrings = []string{"1.2.3-precise-amd64"}
+	dir := c.MkDir()
+	ttesting.MakeTools(c, dir, "releases", versionStrings)
+	toolsList := coretools.List{{
+		Version: version.MustParseBinary(versionStrings[0]),
+		Size:    123,
+		SHA256:  "abc",
+	}}
+
+	stor, err := filestorage.NewFileStorageReader(dir)
+	c.Assert(err, gc.IsNil)
+	err = tools.ResolveMetadata(stor, nil)
+	c.Assert(err, gc.IsNil)
+
+	// We already have size/sha256, so ensure that storage isn't consulted.
+	countingStorage := &countingStorage{StorageReader: stor}
+	metadata := tools.MetadataFromTools(toolsList)
+	err = tools.ResolveMetadata(countingStorage, metadata)
+	c.Assert(err, gc.IsNil)
+	c.Assert(countingStorage.counter, gc.Equals, 0)
+
+	// Now clear size/sha256, and check that it is called, and
+	// the size/sha256 sum are updated.
+	metadata[0].Size = 0
+	metadata[0].SHA256 = ""
+	err = tools.ResolveMetadata(countingStorage, metadata)
+	c.Assert(err, gc.IsNil)
+	c.Assert(countingStorage.counter, gc.Equals, 1)
+	c.Assert(metadata[0].Size, gc.Not(gc.Equals), 0)
+	c.Assert(metadata[0].SHA256, gc.Not(gc.Equals), "")
+}
+
+func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
+	md1 := []*tools.ToolsMetadata{{
+		Release: "precise",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path1",
+	}}
+	md2 := []*tools.ToolsMetadata{{
+		Release: "precise",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path2",
+	}}
+
+	merged := tools.MergeMetadata(md1, nil)
+	c.Assert(merged, gc.DeepEquals, md1)
+	merged = tools.MergeMetadata(nil, md2)
+	c.Assert(merged, gc.DeepEquals, md2)
+	merged = tools.MergeMetadata(md1, md1)
+	c.Assert(merged, gc.DeepEquals, md1)
+
+	// If md1 and md2 have the same tools,
+	// and neither has a size, prefer md1.
+	merged = tools.MergeMetadata(md1, md2)
+	c.Assert(merged, gc.DeepEquals, md1)
+
+	// If md1 and md2 have the same tools,
+	// prefer the one with a size.
+	md1[0].Size, md2[0].Size = 1, 0
+	merged = tools.MergeMetadata(md1, md2)
+	c.Assert(merged, gc.DeepEquals, md1)
+	md1[0].Size, md2[0].Size = 0, 1
+	merged = tools.MergeMetadata(md1, md2)
+	c.Assert(merged, gc.DeepEquals, md2)
+
+	// If md1 and md2 have the same tools,
+	// and both have a size, prefer md1.
+	md1[0].Size, md2[0].Size = 1, 1
+	merged = tools.MergeMetadata(md1, md2)
+	c.Assert(merged, gc.DeepEquals, md1)
+
+	md2 = append(md2, &tools.ToolsMetadata{
+		Release: "raring",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path3",
+	})
+	merged = tools.MergeMetadata(md1, md2)
+	expected := []*tools.ToolsMetadata{md1[0], md2[1]}
+	c.Assert(merged, gc.DeepEquals, expected)
+}
+
+func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
+	metadata := []*tools.ToolsMetadata{{
+		Release: "precise",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path1",
+	}, {
+		Release: "raring",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path2",
+	}}
+
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir(), filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	out, err := tools.ReadMetadata(stor)
+	c.Assert(out, gc.HasLen, 0)
+	c.Assert(err, gc.IsNil) // non-existence is not an error
+	err = tools.WriteMetadata(stor, metadata)
+	c.Assert(err, gc.IsNil)
+	out, err = tools.ReadMetadata(stor)
+	for _, md := range out {
+		// FullPath is set by ReadMetadata.
+		c.Assert(md.FullPath, gc.Not(gc.Equals), "")
+		md.FullPath = ""
+	}
+	c.Assert(out, gc.DeepEquals, metadata)
 }

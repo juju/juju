@@ -244,7 +244,7 @@ func MergeMetadata(newMetadata, oldMetadata []*ToolsMetadata) []*ToolsMetadata {
 	}
 	for _, tm := range oldMetadata {
 		binary := tm.binary()
-		if existing, ok := merged[binary]; !ok || existing.Size == 0 {
+		if existing, ok := merged[binary]; !ok || (existing.Size == 0 && tm.Size != 0) {
 			merged[binary] = tm
 		}
 	}
