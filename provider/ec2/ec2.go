@@ -365,8 +365,8 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 
 const ebsStorage = "ebs"
 
-// default size for ec2 root disks
-const defaultDisk uint64 = 8 * 1024
+// minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
+const minDiskSize uint64 = 8 * 1024
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
@@ -378,11 +378,6 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if err != nil {
 		return nil, nil, err
 	}
-
-	// don't restrict images based on root-disk, since
-	// you can always ask for more disk from amazon
-	diskCons := cons.RootDisk
-	//	cons.RootDisk = nil
 
 	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
@@ -418,11 +413,16 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	var instResp *ec2.RunInstancesResp
 
 	var devices []ec2.BlockDeviceMapping
-	if diskCons != nil && *diskCons > 0 {
+
+	diskSize := minDiskSize
+
+	if cons.RootDisk != nil && *cons.RootDisk > minDiskSize {
 		// request the root disk size in the provision request
 		// AWS's volume size is in gigabytes, root-disk is in megabytes,
 		// so round up to the nearest gigabyte.
-		size := int64((*diskCons + 1023) / 1024)
+		size := int64((*cons.RootDisk + 1023) / 1024)
+		fmt.Printf("Size of root disk: %dG", size)
+		diskSize = uint64(size * 1024)
 		devices = append(devices, ec2.BlockDeviceMapping{
 			DeviceName: "/dev/sda1",
 			VolumeSize: size,
@@ -450,11 +450,6 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
-	rootdisk := defaultDisk
-	if diskCons != nil && *diskCons > 0 {
-		rootdisk = *diskCons
-	}
-
 	inst := &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
@@ -466,7 +461,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 		Mem:      &spec.InstanceType.Mem,
 		CpuCores: &spec.InstanceType.CpuCores,
 		CpuPower: spec.InstanceType.CpuPower,
-		RootDisk: &rootdisk,
+		RootDisk: &diskSize,
 		// Tags currently not supported by EC2
 	}
 	return inst, &hc, nil
