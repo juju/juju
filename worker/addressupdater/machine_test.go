@@ -69,7 +69,7 @@ func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 
 	// With an exponent of 2, the maximum number of polls that can
 	// occur within the given interval ShortWait is log to the base
-	// base ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
+	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
 	// sleep for at least the requested interval.
 	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
 	count := countPolls(c, nil)
