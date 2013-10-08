@@ -15,9 +15,11 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ValidateImageMetadataSuite struct {
+	testbase.LoggingSuite
 	home *coretesting.FakeHome
 }
 
@@ -83,18 +85,22 @@ environments:
     ec2:
         type: ec2
         control-bucket: foo
-        access-key: access
-        secret-key: secret
         default-series: precise
         region: us-east-1
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
+	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.AddCleanup(func(*gc.C) { restore() })
+	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
@@ -117,6 +123,21 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `matching image ids for region "us-east-1":.*`)
+}
+
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
+	testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
+	testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
+	s.setupEc2LocalMetadata(c, "us-east-1")
+	ctx := coretesting.Context(c)
+	metadataDir := config.JujuHomePath("")
+	code := cmd.Main(
+		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", metadataDir},
+	)
+	c.Assert(code, gc.Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `error: environment has no access-key or secret-key`)
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
