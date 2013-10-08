@@ -47,14 +47,13 @@ func (s *UnexposeSuite) TestServiceUnexpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	for i, t := range serviceUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		svc, err := s.State.AddService("dummy-service", charm)
-		c.Assert(err, gc.IsNil)
+		svc := s.AddTestingService(c, "dummy-service", charm)
 		if t.initial {
 			svc.SetExposed()
 		}
 		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
 		params := params.ServiceUnexpose{ServiceName: t.service}
-		err = statecmd.ServiceUnexpose(s.State, params)
+		err := statecmd.ServiceUnexpose(s.State, params)
 		if t.err == "" {
 			c.Assert(err, gc.IsNil)
 			svc.Refresh()

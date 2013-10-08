@@ -34,8 +34,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	// Test the exported settings parsing in a compatible way.
-	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	service, err := s.State.Service("dummy")
 	c.Assert(err, gc.IsNil)
 	ch, _, err := service.Charm()
@@ -63,10 +62,9 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServerSet(c *gc.C) {
-	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "foobar",
 		"username": "user name",
 	})
@@ -91,10 +89,9 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
-	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
+	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
@@ -148,8 +145,7 @@ var clientAddServiceUnitsTests = []struct {
 }
 
 func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
-	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	for i, t := range clientAddServiceUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
 		serviceName := t.service
@@ -258,8 +254,7 @@ var clientAnnotationsTests = []struct {
 
 func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	// Set up entities.
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -526,8 +521,7 @@ func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
 func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
@@ -547,8 +541,7 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set minimum units for the service.
 	minUnits := 2
@@ -556,7 +549,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
 		ServiceName: "dummy",
 		MinUnits:    &minUnits,
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the minimum number of units has been set.
@@ -565,8 +558,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set a negative minimum number of units for the service.
 	minUnits := -1
@@ -574,7 +566,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
 		ServiceName: "dummy",
 		MinUnits:    &minUnits,
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot set minimum units for service "dummy": cannot set a negative minimum number of units`)
 
@@ -584,15 +576,14 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetSettingsStrings(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the service.
 	args := params.ServiceUpdate{
 		ServiceName:     "dummy",
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -603,15 +594,14 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsStrings(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetSettingsYAML(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the service.
 	args := params.ServiceUpdate{
 		ServiceName:  "dummy",
 		SettingsYAML: "dummy:\n  title: y-title\n  username: y-user",
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -622,8 +612,7 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsYAML(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
@@ -632,7 +621,7 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
 		ServiceName: "dummy",
 		Constraints: &cons,
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -660,7 +649,7 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 		SettingsYAML:    "service:\n  blog-title: yaml-title\n",
 		Constraints:     &cons,
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the service has been correctly updated.
@@ -690,12 +679,11 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateNoParams(c *gc.C) {
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Calling ServiceUpdate with no parameters set is a no-op.
 	args := params.ServiceUpdate{ServiceName: "wordpress"}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -768,7 +756,7 @@ func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
 func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
-	s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                      `charm URL has invalid schema: "wordpress"`,

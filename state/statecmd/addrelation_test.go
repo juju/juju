@@ -20,12 +20,9 @@ var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) setUpAddRelationScenario(c *gc.C) {
 	// Create some services.
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 }
 
 func (s *AddRelationSuite) checkEndpoints(c *gc.C, res params.AddRelationResults) {

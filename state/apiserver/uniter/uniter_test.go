@@ -56,10 +56,8 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.wordpress, err = s.State.AddService("wordpress", s.wpCharm)
-	c.Assert(err, gc.IsNil)
-	s.mysql, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.wordpress = s.AddTestingService(c, "wordpress", s.wpCharm)
+	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.wordpressUnit, err = s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	s.mysqlUnit, err = s.mysql.AddUnit()
@@ -530,8 +528,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 }
 
 func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
-	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
-	c.Assert(err, gc.IsNil)
+	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, gc.IsNil)
