@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider_test
+package common_test
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -21,21 +21,21 @@ type pollingSuite struct {
 var _ = gc.Suite(&pollingSuite{})
 
 func (s *pollingSuite) SetUpSuite(c *gc.C) {
-	s.originalLongAttempt = provider.LongAttempt
+	s.originalLongAttempt = common.LongAttempt
 	// The implementation of AttemptStrategy does not yield at all for a
 	// delay that's already expired.  So while this setting must be short
 	// to avoid blocking tests, it must also allow enough time to convince
 	// AttemptStrategy to sleep.  Otherwise a polling loop would just run
 	// uninterrupted and a concurrent goroutine that it was waiting for
 	// might never actually get to do its work.
-	provider.LongAttempt = utils.AttemptStrategy{
+	common.LongAttempt = utils.AttemptStrategy{
 		Total: 10 * time.Millisecond,
 		Delay: 1 * time.Millisecond,
 	}
 }
 
 func (s *pollingSuite) TearDownSuite(c *gc.C) {
-	provider.LongAttempt = s.originalLongAttempt
+	common.LongAttempt = s.originalLongAttempt
 }
 
 // dnsNameFakeInstance is a fake environs.Instance implementation where
@@ -55,21 +55,21 @@ func (inst *dnsNameFakeInstance) DNSName() (string, error) {
 }
 
 func (inst *dnsNameFakeInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 func (*dnsNameFakeInstance) Id() instance.Id { return "" }
 
 func (pollingSuite) TestWaitDNSNameReturnsDNSNameIfAvailable(c *gc.C) {
 	inst := dnsNameFakeInstance{name: "anansi"}
-	name, err := provider.WaitDNSName(&inst)
+	name, err := common.WaitDNSName(&inst)
 	c.Assert(err, gc.IsNil)
 	c.Check(name, gc.Equals, "anansi")
 }
 
 func (pollingSuite) TestWaitDNSNamePollsOnErrNoDNSName(c *gc.C) {
 	inst := dnsNameFakeInstance{err: instance.ErrNoDNSName}
-	_, err := provider.WaitDNSName(&inst)
+	_, err := common.WaitDNSName(&inst)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*timed out trying to get DNS address.*")
 }
@@ -77,7 +77,7 @@ func (pollingSuite) TestWaitDNSNamePollsOnErrNoDNSName(c *gc.C) {
 func (pollingSuite) TestWaitDNSNamePropagatesFailure(c *gc.C) {
 	failure := errors.New("deliberate failure")
 	inst := dnsNameFakeInstance{err: failure}
-	_, err := provider.WaitDNSName(&inst)
+	_, err := common.WaitDNSName(&inst)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.Equals, failure)
 }

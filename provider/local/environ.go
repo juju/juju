@@ -29,7 +29,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -37,11 +37,6 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
-
-// lxcBridgeName is the name of the network interface that the local provider
-// uses to determine the ip address to use for machine-0 such that the
-// containers being created are able to communicate with it simply.
-const lxcBridgeName = "lxcbr0"
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
 // Using "localhost" because it is, and it makes sense.
@@ -87,28 +82,6 @@ func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
 
-// ensureCertOwner checks to make sure that the cert files created
-// by the bootstrap command are owned by the user and not root.
-func (env *localEnviron) ensureCertOwner() error {
-	files := []string{
-		config.JujuHomePath(env.name + "-cert.pem"),
-		config.JujuHomePath(env.name + "-private-key.pem"),
-	}
-
-	uid, gid, err := sudoCallerIds()
-	if err != nil {
-		return err
-	}
-	if uid != 0 || gid != 0 {
-		for _, filename := range files {
-			if err := os.Chown(filename, uid, gid); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // PrecheckInstance is specified in the environs.Prechecker interface.
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
@@ -122,7 +95,7 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -131,10 +104,6 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
-	if err := env.ensureCertOwner(); err != nil {
-		logger.Errorf("failed to reassign ownership of the certs to the user: %v", err)
-		return err
-	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 
 	cert, key, err := env.setupLocalMongoService()
@@ -145,7 +114,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
 	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := provider.SaveState(env.Storage(), &provider.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+	if err := common.SaveState(env.Storage(), &common.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -171,7 +140,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 // StateInfo is specified in the Environ interface.
 func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
@@ -233,11 +202,19 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 		return err
 	}
 
-	bridgeAddress, err := env.findBridgeAddress()
+	// We need the provider config to get the network bridge.
+	config, err := providerInstance.newConfig(cfg)
 	if err != nil {
+		logger.Errorf("failed to create new environ config: %v", err)
 		return err
 	}
-	logger.Debugf("found %q as address for %q", bridgeAddress, lxcBridgeName)
+	networkBridge := config.networkBridge()
+	bridgeAddress, err := env.findBridgeAddress(networkBridge)
+	if err != nil {
+		logger.Infof("configure a different bridge using 'network-bridge' in the config file")
+		return fmt.Errorf("cannot find address of network-bridge: %q", networkBridge)
+	}
+	logger.Debugf("found %q as address for %q", bridgeAddress, networkBridge)
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"bootstrap-ip": bridgeAddress,
 	})
@@ -245,7 +222,8 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 		logger.Errorf("failed to apply new addresses to config: %v", err)
 		return err
 	}
-	config, err := providerInstance.newConfig(cfg)
+	// Now recreate the config based on the settings with the bootstrap id.
+	config, err = providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
@@ -293,7 +271,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	agenttools := possibleTools[0]
 	logger.Debugf("tools: %#v", agenttools)
 
-	network := lxc.DefaultNetworkConfig()
+	network := lxc.BridgeNetworkConfig(env.config.networkBridge())
 	inst, err := env.containerManager.StartContainer(
 		machineId, series, machineConfig.MachineNonce, network,
 		agenttools, env.config.Config,
@@ -509,8 +487,8 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	return nil
 }
 
-func (env *localEnviron) findBridgeAddress() (string, error) {
-	return getAddressForInterface(lxcBridgeName)
+func (env *localEnviron) findBridgeAddress(networkBridge string) (string, error) {
+	return getAddressForInterface(networkBridge)
 }
 
 func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {

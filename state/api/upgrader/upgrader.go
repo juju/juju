@@ -24,16 +24,15 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-// SetTools sets the tools associated with the entity
-// with the given tag, which must be the tag
-// of the entity that the upgrader is running
-// on behalf of.
-func (st *State) SetTools(tag string, tools *tools.Tools) error {
+// SetVersion sets the tools version associated with the entity with
+// the given tag, which must be the tag of the entity that the
+// upgrader is running on behalf of.
+func (st *State) SetVersion(tag string, v version.Binary) error {
 	var results params.ErrorResults
-	args := params.SetAgentsTools{
-		AgentTools: []params.SetAgentTools{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag:   tag,
-			Tools: tools,
+			Tools: &params.Version{v},
 		}},
 	}
 	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
@@ -45,7 +44,7 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 }
 
 func (st *State) DesiredVersion(tag string) (version.Number, error) {
-	var results params.AgentVersionResults
+	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
@@ -69,25 +68,27 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	return *result.Version, nil
 }
 
-func (st *State) Tools(tag string) (*tools.Tools, error) {
-	var results params.AgentToolsResults
+// Tools returns the agent tools that should run on the given entity,
+// along with a flag whether to disable SSL hostname verification.
+func (st *State) Tools(tag string) (*tools.Tools, bool, error) {
+	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := st.caller.Call("Upgrader", "", "Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
-		return nil, err
+		return nil, false, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, false, fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return result.Tools, nil
+	return result.Tools, result.DisableSSLHostnameVerification, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {

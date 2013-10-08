@@ -32,7 +32,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -225,7 +225,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	})
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	env := s.Open(c)
+	env := s.Prepare(c)
 	s.metadataStorage = openstack.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
@@ -304,7 +304,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	inst, _ := testing.StartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
 }
@@ -313,7 +313,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	_, hc := testing.StartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -370,7 +370,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
 	// goose's test service always returns ACTIVE state.
-	inst, _ := testing.StartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
 	err := env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
@@ -378,9 +378,9 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
-	inst0, _ := testing.StartInstance(c, env, "100")
+	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
-	inst1, _ := testing.StartInstance(c, env, "101")
+	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	id1 := inst1.Id()
 	defer func() {
 		err := env.StopInstances([]instance.Instance{inst0, inst1})
@@ -426,7 +426,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _ := testing.StartInstance(c, env, "100")
+	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
 		err := env.StopInstances([]instance.Instance{stateInst})
 		c.Assert(err, gc.IsNil)
@@ -451,7 +451,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _ := testing.StartInstance(c, env, "100")
+	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
 		err := env.StopInstances([]instance.Instance{stateInst})
 		c.Assert(err, gc.IsNil)
@@ -472,7 +472,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := provider.LoadState(env.Storage())
+	stateData, err := common.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
@@ -483,10 +483,6 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
 	c.Check(expectedHardware, gc.DeepEquals, stateData.Characteristics[0])
 
-	info, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.NotNil)
-
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
@@ -494,21 +490,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// TODO(wallyworld) - 2013-03-01 bug=1137005
 	// The nova test double needs to be updated to support retrieving instance userData.
 	// Until then, we can't check the cloud init script was generated correctly.
-
-	// check that a new instance will be started with a machine agent,
-	// and without a provisioning agent.
-	series := env.Config().DefaultSeries()
-	info.Tag = "machine-1"
-	info.Password = "password"
-	apiInfo.Tag = "machine-1"
-	_, _, err = provider.StartInstance(env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
-	c.Assert(err, gc.IsNil)
-
-	err = env.Destroy()
-	c.Assert(err, gc.IsNil)
-
-	_, err = provider.LoadState(env.Storage())
-	c.Assert(err, gc.NotNil)
+	// When we can, we should also check cloudinit for a non-manager node (as in the
+	// ec2 tests).
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {

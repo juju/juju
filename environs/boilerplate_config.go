@@ -19,7 +19,6 @@ var configHeader = `## This is the Juju config file, which you can use to specif
 ##
 ## - name (to identify the environment)
 ## - type (to specify the provider)
-## - admin-secret (an arbitrary "password" identifying an client with administrative-level access to system state)
 
 ## Values in <brackets> below need to be filled in by the user.
 

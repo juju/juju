@@ -327,6 +327,53 @@ ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-123'
 cat >> /etc/init/jujud-machine-123\.conf << 'EOF'\\ndescription "juju machine-123 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-123/jujud machine --data-dir '/var/lib/juju' --machine-id 123 --debug >> /var/log/juju/machine-123\.log 2>&1\\nEOF\\n
 start jujud-machine-123
 `,
+	}, {
+		cfg: cloudinit.MachineConfig{
+			MachineId:        "99",
+			AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			DataDir:          environs.DataDir,
+			StateServer:      false,
+			Tools:            newSimpleTools("1.2.3-linux-amd64"),
+			MachineNonce:     "FAKE_NONCE",
+			StateInfo: &state.Info{
+				Addrs:    []string{"state-addr.testing.invalid:12345"},
+				Tag:      "machine-99",
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			APIInfo: &api.Info{
+				Addrs:    []string{"state-addr.testing.invalid:54321"},
+				Tag:      "machine-99",
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			DisableSSLHostnameVerification: true,
+		},
+		expectScripts: `
+set -xe
+mkdir -p /var/lib/juju
+mkdir -p /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
+mkdir -p \$bin
+wget --no-check-certificate --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-linux-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
+printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-99-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+restart rsyslog
+mkdir -p '/var/lib/juju/agents/machine-99'
+install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
+printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/format'
+install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
+printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
+ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
+cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
+start jujud-machine-99
+`,
 	},
 }
 
@@ -401,12 +448,17 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		checkPackage(c, x, "lxc", hasLxc)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
-			source := struct{ source, key string }{
+			source := struct{ source, keyid string }{
 				source: "ppa:juju/stable",
-				key:    "1024R/C8068B11",
 			}
 			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
 		}
+		source := struct{ source, keyid string }{
+			source: "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main",
+			keyid:  "EC4926EA",
+		}
+		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
+		checkAptSource(c, x, source, needCloudArchive)
 	}
 }
 
@@ -504,7 +556,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 
 // CheckAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
-func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, key string }, match bool) {
+func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, keyid string }, match bool) {
 	sources0 := x["apt_sources"]
 	if sources0 == nil {
 		if match {
@@ -518,7 +570,7 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ sourc
 	found := false
 	for _, s0 := range sources {
 		s := s0.(map[interface{}]interface{})
-		if s["source"] == source.source && s["key"] == source.key {
+		if s["source"] == source.source && (source.keyid == "" || s["keyid"] == source.keyid) {
 			found = true
 		}
 	}

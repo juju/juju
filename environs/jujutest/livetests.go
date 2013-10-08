@@ -27,7 +27,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -138,7 +137,9 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	envtesting.UploadFakeTools(c, t.Env.Storage())
-	err := bootstrap.Bootstrap(t.Env, cons)
+	err := bootstrap.EnsureNotBootstrapped(t.Env)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -181,7 +182,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.PrepareOnce(c)
 	envtesting.UploadFakeTools(c, t.Env.Storage())
 
-	inst, _ := testing.StartInstance(c, t.Env, "0")
+	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
 
@@ -235,14 +236,14 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	t.PrepareOnce(c)
 	envtesting.UploadFakeTools(c, t.Env.Storage())
 
-	inst1, _ := testing.StartInstance(c, t.Env, "1")
+	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 	ports, err := inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := testing.StartInstance(c, t.Env, "2")
+	inst2, _ := testing.AssertStartInstance(c, t.Env, "2")
 	c.Assert(inst2, gc.NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
@@ -339,13 +340,13 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, _ := testing.StartInstance(c, t.Env, "1")
+	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := testing.StartInstance(c, t.Env, "2")
+	inst2, _ := testing.AssertStartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -386,9 +387,11 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
+	// bootstrap.Bootstrap no longer raises errors if the environment is
+	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
 
-	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -856,30 +859,17 @@ attempt:
 	checkFileDoesNotExist(c, stor, "file-2.txt", t.Attempt)
 }
 
-// Check that we can't start an instance running tools that correspond with no
-// available platform.  The first thing start instance should do is find
-// appropriate envtools.
-func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
-	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
-	inst, _, err := provider.StartInstance(
-		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
-		testing.FakeAPIInfo("4"))
-	if inst != nil {
-		err := t.Env.StopInstances([]instance.Instance{inst})
-		c.Check(err, gc.IsNil)
-	}
-	c.Assert(inst, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-}
-
-// Check that we can't start an instance with an empty nonce value.
+// Check that we get a consistent error when asking for an instance without
+// a valid machine config.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
+	machineId := "4"
+	stateInfo := testing.FakeStateInfo(machineId)
+	apiInfo := testing.FakeAPIInfo(machineId)
+	machineConfig := environs.NewMachineConfig(machineId, "", stateInfo, apiInfo)
+
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
-	inst, _, err := provider.StartInstance(
-		t.Env, "4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"),
-		testing.FakeAPIInfo("4"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
+	inst, _, err := t.Env.StartInstance(constraints.Value{}, possibleTools, machineConfig)
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, gc.IsNil)

@@ -110,6 +110,10 @@ type MachineConfig struct {
 
 	// StateInfoURL is the URL of a file which contains information about the state server machines.
 	StateInfoURL string
+
+	// DisableSSLHostnameVerification can be set to true to tell cloud-init
+	// that it shouldn't verify SSL certificates
+	DisableSSLHostnameVerification bool
 }
 
 func base64yaml(m *config.Config) string {
@@ -143,13 +147,17 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
+	wgetCommand := "wget"
+	if cfg.DisableSSLHostnameVerification {
+		wgetCommand = "wget --no-check-certificate"
+	}
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	var copyCmd string
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		copyCmd = fmt.Sprintf("wget --no-verbose -O $bin/tools.tar.gz %s", shquote(cfg.Tools.URL))
+		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {
@@ -183,12 +191,18 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		return nil, err
 	}
 
+	// Add the cloud archive cloud-tools pocket to apt sources
+	// for series that need it. This gives us up-to-date LXC,
+	// MongoDB, and other infrastructure.
+	cfg.MaybeAddCloudArchiveCloudTools(c)
+
 	if cfg.StateServer {
 		// disable the default mongodb installed by the mongodb-server package.
 		c.AddBootCmd(`echo ENABLE_MONGODB="no" > /etc/default/mongodb`)
 
 		if cfg.NeedMongoPPA() {
-			c.AddAptSource("ppa:juju/stable", "1024R/C8068B11")
+			const key = "" // key is loaded from PPA
+			c.AddAptSource("ppa:juju/stable", key)
 		}
 		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
@@ -369,11 +383,29 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 	return hosts
 }
 
+// MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
+// pocket to apt sources, if the series requires it.
+func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
+	series := cfg.Tools.Version.Series
+	if series != "precise" {
+		// Currently only precise; presumably we'll
+		// need to add each LTS in here as they're
+		// added to the cloud archive.
+		return
+	}
+	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
+	const keyid = "EC4926EA"
+	const keyserver = "" // use default
+	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, series)
+	c.AddAptSourceWithKeyId(name, keyid, keyserver)
+}
+
 func (cfg *MachineConfig) NeedMongoPPA() bool {
 	series := cfg.Tools.Version.Series
 	// 11.10 and earlier are not supported.
+	// 12.04 can get a compatible version from the cloud-archive.
 	// 13.04 and later ship a compatible version in the archive.
-	return series == "precise" || series == "quantal"
+	return series == "quantal"
 }
 
 func shquote(p string) string {

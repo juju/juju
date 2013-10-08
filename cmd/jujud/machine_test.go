@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/container/lxc"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -28,6 +29,7 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
@@ -73,12 +75,12 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 		Jobs:       jobs,
 	})
 	c.Assert(err, gc.IsNil)
-	err = m.SetMongoPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
 	tag := names.MachineTag(m.Id())
 	if m.IsStateServer() {
+		err = m.SetMongoPassword(initialMachinePassword)
+		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)
 	} else {
 		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword)
@@ -288,21 +290,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 
 	// Wait for the instance id to show up in the state.
-	id1, err := units[0].AssignedMachineId()
-	c.Assert(err, gc.IsNil)
-	m1, err := s.State.Machine(id1)
-	c.Assert(err, gc.IsNil)
-	w := m1.Watch()
-	defer w.Stop()
-	for _ = range w.Changes() {
-		err = m1.Refresh()
-		c.Assert(err, gc.IsNil)
-		if _, err := m1.InstanceId(); err == nil {
-			break
-		} else {
-			c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
-		}
-	}
+	s.waitProvisioned(c, units[0])
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, gc.IsNil)
 
@@ -319,6 +307,73 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
+	defer testbase.PatchValue(&addressupdater.ShortPoll, 500*time.Millisecond).Restore()
+	usefulVersion := version.Current
+	usefulVersion.Series = "quantal" // to match the charm created below
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+
+	// Add one unit to a service;
+	charm := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("test-service", charm)
+	c.Assert(err, gc.IsNil)
+	units, err := s.Conn.AddUnits(svc, 1, "")
+	c.Assert(err, gc.IsNil)
+
+	m, instId := s.waitProvisioned(c, units[0])
+	insts, err := s.Conn.Environ.Instances([]instance.Id{instId})
+	c.Assert(err, gc.IsNil)
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	dummy.SetInstanceAddresses(insts[0], addrs)
+
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		if !a.HasNext() {
+			c.Logf("final machine addresses: %#v", m.Addresses())
+			c.Fatalf("timed out waiting for machine to get address")
+		}
+		err := m.Refresh()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(m.Addresses(), addrs) {
+			break
+		}
+	}
+
+}
+
+func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
+	c.Logf("waiting for unit %q to be provisioned", unit)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	w := m.Watch()
+	defer w.Stop()
+	timeout := time.After(testing.LongWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timed out waiting for provisioning")
+		case _, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			err := m.Refresh()
+			c.Assert(err, gc.IsNil)
+			if instId, err := m.InstanceId(); err == nil {
+				c.Logf("unit provisioned with instance %s", instId)
+				return m, instId
+			} else {
+				c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
+			}
+		}
+	}
+	panic("watcher died")
+}
+
 func (s *MachineSuite) TestUpgrade(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -330,28 +385,7 @@ var fastDialOpts = api.DialOpts{
 	RetryDelay: testing.ShortWait,
 }
 
-func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test func(agent.Config, *state.State)) {
-	stm, conf, _ := s.primeAgent(c, job)
-	a := s.newAgent(c, stm)
-	defer a.Stop()
-
-	agentStates := make(chan *state.State, 1000)
-	undo := sendOpenedStates(agentStates)
-	defer undo()
-
-	done := make(chan error)
-	go func() {
-		done <- a.Run(nil)
-	}()
-
-	select {
-	case agentState := <-agentStates:
-		c.Assert(agentState, gc.NotNil)
-		test(conf, agentState)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("state not opened")
-	}
-
+func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageState {
 		// When shutting down, the API server can be shut down before
@@ -373,6 +407,71 @@ func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test fu
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+}
+
+func (s *MachineSuite) assertJobWithAPI(
+	c *gc.C,
+	job state.MachineJob,
+	test func(agent.Config, *api.State),
+) {
+	stm, conf, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+
+	// All state jobs currently also run an APIWorker, so no
+	// need to check for that here, like in assertJobWithState.
+
+	agentAPIs := make(chan *api.State, 1000)
+	undo := sendOpenedAPIs(agentAPIs)
+	defer undo()
+
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+
+	select {
+	case agentAPI := <-agentAPIs:
+		c.Assert(agentAPI, gc.NotNil)
+		test(conf, agentAPI)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("API not opened")
+	}
+
+	s.waitStopped(c, job, a, done)
+}
+
+func (s *MachineSuite) assertJobWithState(
+	c *gc.C,
+	job state.MachineJob,
+	test func(agent.Config, *state.State),
+) {
+	paramsJob := job.ToParams()
+	if !paramsJob.NeedsState() {
+		c.Fatalf("%v does not use state", paramsJob)
+	}
+	stm, conf, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+
+	agentStates := make(chan *state.State, 1000)
+	undo := sendOpenedStates(agentStates)
+	defer undo()
+
+	done := make(chan error)
+	go func() {
+		done <- a.Run(nil)
+	}()
+
+	select {
+	case agentState := <-agentStates:
+		c.Assert(agentState, gc.NotNil)
+		test(conf, agentState)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("state not opened")
+	}
+
+	s.waitStopped(c, job, a, done)
 }
 
 // TODO(jam): 2013-09-02 http://pad.lv/1219661
@@ -481,7 +580,25 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
+func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+		s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+	})
+}
+
+func (s *MachineSuite) TestOpenStateWorksForJobManageState(c *gc.C) {
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
+	})
+}
+
+// TODO(dimitern) Once firewaller uses the API and no longer connects
+// to state, change this test to use assertCannotOpenState, like the
+// one for JobHostUnits.
+func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
+	})
 }

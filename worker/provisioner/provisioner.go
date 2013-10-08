@@ -11,14 +11,12 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -191,13 +189,7 @@ func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 }
 
 func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
-	dataDir := p.agentConfig.DataDir()
-	tools, err := agenttools.ReadTools(dataDir, version.Current)
-	if err != nil {
-		logger.Errorf("cannot read agent tools from %q", dataDir)
-		return nil, err
-	}
-	return tools, nil
+	return p.st.Tools(p.agentConfig.Tag())
 }
 
 // setConfig updates the environment configuration and notifies

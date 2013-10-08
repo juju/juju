@@ -19,7 +19,7 @@ import (
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/upgrader"
@@ -86,8 +86,9 @@ type Agent interface {
 // The AgentState interface is implemented by state types
 // that represent running agents.
 type AgentState interface {
-	// SetAgentTools sets the tools that the agent is currently running.
-	SetAgentTools(tools *tools.Tools) error
+	// SetAgentVersion sets the tools version that the agent is
+	// currently running.
+	SetAgentVersion(v version.Binary) error
 	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
@@ -189,7 +190,6 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 		}
 	}
 	return st, entity, nil
-
 }
 
 // agentDone processes the error returned by

@@ -556,11 +556,21 @@ func (u *UniterAPI) WatchServiceRelations(args params.Entities) (params.StringsW
 }
 
 // CharmArchiveURL returns the URL, corresponding to the charm archive
-// (bundle) in the provider storage for each given charm URL.
-func (u *UniterAPI) CharmArchiveURL(args params.CharmURLs) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.URLs)),
+// (bundle) in the provider storage for each given charm URL, along
+// with the DisableSSLHostnameVerification flag.
+func (u *UniterAPI) CharmArchiveURL(args params.CharmURLs) (params.CharmArchiveURLResults, error) {
+	result := params.CharmArchiveURLResults{
+		Results: make([]params.CharmArchiveURLResult, len(args.URLs)),
 	}
+	// Get the SSL hostname verification environment setting.
+	envConfig, err := u.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	// SSLHostnameVerification defaults to true, so we need to
+	// invert that, for backwards-compatibility (older versions
+	// will have DisableSSLHostnameVerification: false by default).
+	disableSSLHostnameVerification := !envConfig.SSLHostnameVerification()
 	for i, arg := range args.URLs {
 		curl, err := charm.ParseURL(arg.URL)
 		if err != nil {
@@ -573,6 +583,7 @@ func (u *UniterAPI) CharmArchiveURL(args params.CharmURLs) (params.StringResults
 			}
 			if err == nil {
 				result.Results[i].Result = sch.BundleURL().String()
+				result.Results[i].DisableSSLHostnameVerification = disableSSLHostnameVerification
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
