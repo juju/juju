@@ -484,7 +484,7 @@ func (*environProvider) BoilerplateConfig() string {
 	return `
 ## Fake configuration for dummy provider.
 dummy:
-  type: dummy
+    type: dummy
 
 `[1:]
 }

@@ -54,7 +54,7 @@ func BoilerplateConfig() string {
 		if err := t.Execute(&ecfg, nil); err != nil {
 			panic(fmt.Errorf("cannot generate boilerplate from %s: %v", name, err))
 		}
-		indent(&config, ecfg.Bytes(), "  ")
+		indent(&config, ecfg.Bytes(), "    ")
 	}
 
 	// Sanity check to ensure the boilerplate parses.

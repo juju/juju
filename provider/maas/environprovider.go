@@ -44,10 +44,13 @@ func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, erro
 
 // Boilerplate config YAML.  Don't mess with the indentation or add newlines!
 const boilerplateYAML = `maas:
-  type: maas
-  # Change this to where your MAAS server lives.  It must specify the base path.
-  maas-server: 'http://192.168.1.1/MAAS/'
-  maas-oauth: '<add your OAuth credentials from MAAS here>'
+    type: maas
+    # maas-server specifies the location of the MAAS server. It must
+    # specify the base path.
+    maas-server: 'http://192.168.1.1/MAAS/'
+    
+    # maas-oauth holds the OAuth credentials from MAAS.
+    maas-oauth: '<add your OAuth credentials from MAAS here>'
 
 `
 
