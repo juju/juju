@@ -621,7 +621,7 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
 		ServiceName: "dummy",
 		Constraints: &cons,
 	}
-	err := s.APIState.Client().ServiceUpdate(args)
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -649,7 +649,7 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 		SettingsYAML:    "service:\n  blog-title: yaml-title\n",
 		Constraints:     &cons,
 	}
-	err := s.APIState.Client().ServiceUpdate(args)
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the service has been correctly updated.
