@@ -183,8 +183,7 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno := 2 // 1 is used by SetUpSuite
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
 	providerSvc := s.AddTestingService(c, "myprovider", providerCharm)
-	c.Assert(err, gc.IsNil)
-	err = providerSvc.SetCharm(providerCharm, false)
+	err := providerSvc.SetCharm(providerCharm, false)
 	c.Assert(err, gc.IsNil)
 
 	revno++
@@ -280,7 +279,7 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 
 		origCh := charms[t.startconfig]
 		svc := s.AddTestingService(c, "wordpress", origCh)
-		err = svc.UpdateConfigSettings(t.startvalues)
+		err := svc.UpdateConfigSettings(t.startvalues)
 		c.Assert(err, gc.IsNil)
 
 		newCh := charms[t.endconfig]
@@ -373,7 +372,7 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 			err := svc.UpdateConfigSettings(t.initial)
 			c.Assert(err, gc.IsNil)
 		}
-		err = svc.UpdateConfigSettings(t.update)
+		err := svc.UpdateConfigSettings(t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -413,7 +412,7 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertRef(oldCh, 1)
 	assertNoRef(newCh)
 
-	err = svc.SetCharm(oldCh, false)
+	err := svc.SetCharm(oldCh, false)
 	c.Assert(err, gc.IsNil)
 	assertRef(oldCh, 1)
 	assertNoRef(newCh)
@@ -562,7 +561,7 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
 func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	riak := s.AddTestingService(c, "myriak", s.AddTestingCharm(c, "riak"))
 
-	_, err = riak.Endpoint("garble")
+	_, err := riak.Endpoint("garble")
 	c.Assert(err, gc.ErrorMatches, `service "myriak" has no "garble" relation`)
 
 	jiEP, err := riak.Endpoint("juju-info")
@@ -614,7 +613,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	_, err = wordpress.Endpoint("nonsense")
+	_, err := wordpress.Endpoint("nonsense")
 	c.Assert(err, gc.ErrorMatches, `service "wordpress" has no "nonsense" relation`)
 
 	jiEP, err := wordpress.Endpoint("juju-info")
@@ -1183,7 +1182,7 @@ func (s *ServiceSuite) TestSubordinateConstraints(c *gc.C) {
 	loggingCh := s.AddTestingCharm(c, "logging")
 	logging := s.AddTestingService(c, "logging", loggingCh)
 
-	_, err = logging.Constraints()
+	_, err := logging.Constraints()
 	c.Assert(err, gc.Equals, state.ErrSubordinateConstraints)
 
 	err = logging.SetConstraints(constraints.Value{})
