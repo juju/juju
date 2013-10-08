@@ -48,11 +48,6 @@ const boilerplateYAML = `maas:
   # Change this to where your MAAS server lives.  It must specify the base path.
   maas-server: 'http://192.168.1.1/MAAS/'
   maas-oauth: '<add your OAuth credentials from MAAS here>'
-  admin-secret: {{rand}}
-  default-series: precise
-  authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
-  # Or:
-  # authorized-keys: ssh-rsa keymaterialhere
 
 `
 

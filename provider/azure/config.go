@@ -128,7 +128,6 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 // image-stream and default-series settings.
 const boilerplateYAML = `azure:
   type: azure
-  admin-secret: {{rand}}
   # Location for instances, e.g. West US, North Europe.
   location: West US
   # http://msdn.microsoft.com/en-us/library/windowsazure

@@ -485,7 +485,6 @@ func (*environProvider) BoilerplateConfig() string {
 ## Fake configuration for dummy provider.
 dummy:
   type: dummy
-  admin-secret: {{rand}}
 
 `[1:]
 }

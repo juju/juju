@@ -174,15 +174,13 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/docs/config-aws.html
 amazon:
   type: ec2
-  admin-secret: {{rand}}
-  # globally unique S3 bucket name
-  control-bucket: juju-{{rand}}
   # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
   # region defaults to us-east-1, override if required
   # region: us-east-1
+  #
   # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
   # access-key: <secret>
+  #
   # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
   # secret-key: <secret>
 

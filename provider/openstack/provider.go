@@ -66,33 +66,42 @@ func (p environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
   type: openstack
-  # Specifies whether the use of a floating IP address is required to give the nodes
-  # a public IP address. Some installations assign public IP addresses by default without
-  # requiring a floating IP address.
+  # use-floating-ip specifies whether the use of a floating IP address is required
+  # to give the nodes a public IP address. Some installations assign public IP
+  # addresses by default without requiring a floating IP address.
   # use-floating-ip: false
-  admin-secret: {{rand}}
-  # Globally unique swift bucket name
-  control-bucket: juju-{{rand}}
-  # If set, tools-url specifies from where tools are fetched.
+
+  # tools-url specifies the location of the Juju tools.
   # tools-url:  https://you-tools-url
-  # Usually set via the env variable OS_AUTH_URL, but can be specified here
+
+  # auth-url defaults to the value of the environment variable OS_AUTH_URL,
+  # but can be specified here.
   # auth-url: https://yourkeystoneurl:443/v2.0/
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # The following are used for userpass authentication (the default)
+
+  # The auth-mode, username and password attributes
+  # are used for userpass authentication (the default).
+
+  # auth-mode holds the authentication mode.
   # auth-mode: userpass
-  # Usually set via the env variable OS_USERNAME, but can be specified here
+
+  # username holds the Usually set via the env variable OS_USERNAME, but can be specified here.
   # username: <your username>
+
   # Usually set via the env variable OS_PASSWORD, but can be specified here
   # password: <secret>
+
   # Usually set via the env variable OS_TENANT_NAME, but can be specified here
   # tenant-name: <your tenant name>
+
   # Usually set via the env variable OS_REGION_NAME, but can be specified here
   # region: <your region>
-  # USe the following if you require keypair autherntication
+
+  # Use the following if you require keypair autherntication
   # auth-mode: keypair
+
   # Usually set via the env variable OS_ACCESS_KEY, but can be specified here
   # access-key: <secret>
+
   # Usually set via the env variable OS_SECRET_KEY, but can be specified here
   # secret-key: <secret>
 
@@ -103,9 +112,7 @@ hpcloud:
   # a public IP address. Some installations assign public IP addresses by default without
   # requiring a floating IP address.
   use-floating-ip: false
-  admin-secret: {{rand}}
-  # Globally unique swift bucket name
-  control-bucket: juju-{{rand}}
+
   # Not required if env variable OS_AUTH_URL is set
   auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 

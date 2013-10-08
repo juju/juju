@@ -22,6 +22,7 @@ func init() {
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
 func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO(rog) 2013-10-07 generate storage-auth-key if not set.
 	return p.Open(cfg)
 }
 
@@ -86,20 +87,21 @@ func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 
 func (_ nullProvider) BoilerplateConfig() string {
 	return `"null":
-        type: "null"
-        admin-secret: {{rand}}
-        ## set bootstrap-host to the host where the bootstrap machine agent
-        ## should be provisioned.
-        bootstrap-host:
-        ## set the login user to bootstrap the machine as. If left blank,
-        ## juju will connect to the bootstrap machine as the current user.
-        # bootstrap-user:
-        ## set the IP address for the bootstrap machine to listen on for
-        ## storage requests. If left blank, storage will be served on all
-        ## network interfaces.
-        # storage-listen-ip:
-        # storage-port: 8040
-        storage-auth-key: {{rand}}
+    type: "null"
+    ## Set bootstrap-host to the host where the bootstrap machine agent
+    ## should be provisioned.
+    bootstrap-host:
+    ## Set the login user to bootstrap the machine as. If left blank,
+    ## juju will connect to the bootstrap machine as the current user.
+    # bootstrap-user:
+    #
+    ## Set the IP address for the bootstrap machine to listen on for
+    ## storage requests. If left blank, storage will be served on all
+    ## network interfaces.
+    # storage-listen-ip:
+    # storage-port: 8040
+    #
+    storage-auth-key: {{rand}}
 
 `
 }
