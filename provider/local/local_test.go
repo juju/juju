@@ -4,6 +4,9 @@
 package local_test
 
 import (
+	"fmt"
+	"net"
+
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -28,4 +31,26 @@ func (*localSuite) TestProviderRegistered(c *gc.C) {
 	provider, error := environs.Provider(provider.Local)
 	c.Assert(error, gc.IsNil)
 	c.Assert(provider, gc.DeepEquals, local.Provider)
+}
+
+func (*localSuite) TestEnsureLocalPort(c *gc.C) {
+	// Block some ports.
+	for port := 65501; port < 65505; port++ {
+		addr := fmt.Sprintf(":%d", port)
+		ln, err := net.Listen("tcp", addr)
+		c.Assert(err, gc.IsNil)
+		defer ln.Close()
+	}
+
+	port, err := local.EnsureLocalPort(65501)
+	c.Assert(err, gc.IsNil)
+	c.Assert(port, gc.Equals, 65505)
+
+	port, err = local.EnsureLocalPort(65504)
+	c.Assert(err, gc.IsNil)
+	c.Assert(port, gc.Equals, 65505)
+
+	port, err = local.EnsureLocalPort(65500)
+	c.Assert(err, gc.IsNil)
+	c.Assert(port, gc.Equals, 65500)
 }

@@ -65,3 +65,5 @@ func MockAddressForInterface() func() {
 		getAddressForInterface = utils.GetAddressForInterface
 	}
 }
+
+var EnsureLocalPort = ensureLocalPort
