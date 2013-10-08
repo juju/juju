@@ -185,14 +185,9 @@ func (st *State) getCurrentAgentVersion(newVersion version.Number) (string, int6
 	return currentVersion, settings.txnRevno, nil
 }
 
-// SetEnvironAgentVersion changes the agent version for the
-// environment to the given version, only if the environment is in a
-// stable state (all agents are running the current version).
-func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
-	currentVersion, revNo, err := st.getCurrentAgentVersion(newVersion)
-
+func (st *State) getAgentTagsNotMatchingVersion(currentVersion, newVersion string) ([]string, error) {
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
-	matchNew := "^" + regexp.QuoteMeta(newVersion.String()) + "-"
+	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
 	sel := D{{"$or", []D{
 		{{"tools", D{{"$exists", false}}}},
@@ -216,16 +211,33 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 			}
 		}
 		if err := iter.Err(); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	if len(agentTags) > 0 {
-		return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
-	}
+	return agentTags, nil
+}
 
-	// Now it's safe to change the version, asserting it
-	// hasn't changed in the meantime.
+// SetEnvironAgentVersion changes the agent version for the
+// environment to the given version, only if the environment is in a
+// stable state (all agents are running the current version).
+func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	for i := 0; i < 5; i++ {
+		currentVersion, revNo, err := st.getCurrentAgentVersion(newVersion)
+		if err == nil && currentVersion == "" {
+			// Nothing to do - version already changed.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		agentTags, err := st.getAgentTagsNotMatchingVersion(currentVersion, newVersion.String())
+		if err != nil {
+			return err
+		}
+		if len(agentTags) > 0 {
+			return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
+		}
+
 		ops := []txn.Op{{
 			C:      st.settings.Name,
 			Id:     environGlobalKey,
@@ -236,13 +248,6 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 			return nil
 		} else if err != txn.ErrAborted {
 			return fmt.Errorf("cannot set agent-version: %v", err)
-		}
-		currentVersion, revNo, err = st.getCurrentAgentVersion(newVersion)
-		if err == nil && currentVersion == "" {
-			// Nothing to do - already set.
-			return nil
-		} else if err != nil {
-			return err
 		}
 	}
 	return ErrExcessiveContention
