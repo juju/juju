@@ -165,27 +165,31 @@ func IsVersionInconsistentError(e interface{}) bool {
 	return ok
 }
 
+func (st *State) getCurrentAgentVersion(newVersion version.Number) (string, int64, error) {
+	settings, err := readSettings(st, environGlobalKey)
+	if err != nil {
+		return "", 0, err
+	}
+	agentVersion, ok := settings.Get("agent-version")
+	if !ok {
+		return "", 0, fmt.Errorf("no agent version set in the environment")
+	}
+	currentVersion, ok := agentVersion.(string)
+	if !ok {
+		return "", 0, fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
+	}
+	if newVersion.String() == currentVersion {
+		// Nothing to do.
+		return "", 0, nil
+	}
+	return currentVersion, settings.txnRevno, nil
+}
+
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
-	// Get the currently set agent version.
-	settings, err := readSettings(st, environGlobalKey)
-	if err != nil {
-		return err
-	}
-	agentVersion, ok := settings.Get("agent-version")
-	if !ok {
-		return fmt.Errorf("no agent version set in the environment")
-	}
-	currentVersion, ok := agentVersion.(string)
-	if !ok {
-		return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
-	}
-	if newVersion.String() == currentVersion {
-		// Nothing to do.
-		return nil
-	}
+	currentVersion, revNo, err := st.getCurrentAgentVersion(newVersion)
 
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion.String()) + "-"
@@ -197,24 +201,23 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 			{{"tools.version", D{{"$not", bson.RegEx{matchNew, ""}}}}},
 		}}},
 	}}}
-	var (
-		machineDocs []machineDoc
-		unitDocs    []unitDoc
-		agentTags   []string
-	)
-	err = st.machines.Find(sel).All(&machineDocs)
-	if err != nil {
-		return err
-	}
-	err = st.units.Find(sel).All(&unitDocs)
-	if err != nil {
-		return err
-	}
-	for _, machine := range machineDocs {
-		agentTags = append(agentTags, names.MachineTag(machine.Id))
-	}
-	for _, unit := range unitDocs {
-		agentTags = append(agentTags, names.UnitTag(unit.Name))
+	var agentTags []string
+	for _, collection := range []*mgo.Collection{st.machines, st.units} {
+		var doc struct {
+			Id string `bson:"_id"`
+		}
+		iter := collection.Find(sel).Select(D{{"_id", 1}}).Iter()
+		for iter.Next(&doc) {
+			switch collection.Name {
+			case "machines":
+				agentTags = append(agentTags, names.MachineTag(doc.Id))
+			case "units":
+				agentTags = append(agentTags, names.UnitTag(doc.Id))
+			}
+		}
+		if err := iter.Err(); err != nil {
+			return err
+		}
 	}
 	if len(agentTags) > 0 {
 		return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
@@ -222,16 +225,27 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 
 	// Now it's safe to change the version, asserting it
 	// hasn't changed in the mean time.
-	ops := []txn.Op{{
-		C:      st.settings.Name,
-		Id:     environGlobalKey,
-		Assert: D{{"txn-revno", settings.txnRevno}},
-		Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
-	}}
-	if err := st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set agent-version: %v", err)
+	for i := 0; i < 5; i++ {
+		ops := []txn.Op{{
+			C:      st.settings.Name,
+			Id:     environGlobalKey,
+			Assert: D{{"txn-revno", revNo}, {"agent-version", currentVersion}},
+			Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
+		}}
+		if err := st.runTransaction(ops); err == nil {
+			return nil
+		} else if err != txn.ErrAborted {
+			return fmt.Errorf("cannot set agent-version: %v", err)
+		}
+		currentVersion, revNo, err = st.getCurrentAgentVersion(newVersion)
+		if err == nil && currentVersion == "" {
+			// Nothing to do - already set.
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	return nil
+	return ErrExcessiveContention
 }
 
 // SetEnvironConfig replaces the current configuration of the

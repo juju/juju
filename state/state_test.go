@@ -1926,30 +1926,88 @@ func (s *StateSuite) TestSetEnvironAgentVersionSuccess(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
-	stringVersion := agentVersion.String()
+	currentVersion := agentVersion.String()
 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = machine.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
 	c.Assert(err, gc.IsNil)
 	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
-	c.Assert(err, gc.IsNil)
 
-	// Change the version.
+	agentsVersion := func(vers string) {
+		err = machine.SetAgentVersion(version.MustParseBinary(vers + "-series-arch"))
+		c.Assert(err, gc.IsNil)
+		err = unit.SetAgentVersion(version.MustParseBinary(vers + "-series-arch"))
+		c.Assert(err, gc.IsNil)
+	}
+	changeEnv := func(name string, value interface{}) {
+		attrs := envConfig.AllAttrs()
+		attrs[name] = value
+		newConfig, err := config.New(config.NoDefaults, attrs)
+		c.Assert(err, gc.IsNil)
+		c.Assert(s.State.SetEnvironConfig(newConfig), gc.IsNil)
+	}
+	assertVersion := func(vers string) {
+		envConfig, err = s.State.EnvironConfig()
+		c.Assert(err, gc.IsNil)
+		agentVersion, ok = envConfig.AgentVersion()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(agentVersion.String(), gc.Equals, vers)
+	}
+
+	// Set both agents version to the current one.
+	agentsVersion(currentVersion)
+
+	// Set up a transaction hook to change something
+	// other than the version, and make sure it retries
+	// and passes.
+	checker := state.SetBeforeHooks(c, s.State, func() {
+		changeEnv("default-series", "foo")
+	})
+
+	// Change the agent-version.
 	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, gc.IsNil)
 
 	// Now verify agent-version has changed.
-	envConfig, err = s.State.EnvironConfig()
+	assertVersion("4.5.6")
+	checker.Check()
+
+	// Change the version of both agents again.
+	agentsVersion("7.8.9")
+
+	// Set up a transaction hook to change the version
+	// to the new one, and make sure it retries
+	// and passes.
+	checker = state.SetBeforeHooks(c, s.State, func() {
+		changeEnv("agent-version", "7.8.9")
+	})
+
+	// Change the version and verify.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("7.8.9"))
 	c.Assert(err, gc.IsNil)
-	agentVersion, ok = envConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(agentVersion.String(), gc.Equals, "4.5.6")
+	assertVersion("7.8.9")
+	checker.Check()
+
+	// Change the version of both agents again.
+	agentsVersion("1.2.3")
+
+	// Finally, set a hook to change the config 5 times
+	// to test we return ErrExcessiveContention.
+	changeFuncs := []func(){
+		func() { changeEnv("default-series", "1") },
+		func() { changeEnv("default-series", "2") },
+		func() { changeEnv("default-series", "3") },
+		func() { changeEnv("default-series", "4") },
+		func() { changeEnv("default-series", "5") },
+	}
+	checker = state.SetBeforeHooks(c, s.State, changeFuncs...)
+	err = s.State.SetEnvironAgentVersion(version.MustParse("1.2.3"))
+	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	assertVersion("7.8.9")
+	checker.Check()
 }
 
 type waiter interface {
