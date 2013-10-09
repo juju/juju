@@ -467,28 +467,18 @@ MyTpno24AjIAGb+mH1U=
 -----END PGP SIGNATURE-----
 `
 
-type signingSuite struct {
-	origKey string
-}
-
-func (s *signingSuite) SetUpSuite(c *gc.C) {
-	s.origKey = simplestreams.SetSigningKey(testSigningKey)
-}
-
-func (s *signingSuite) TearDownSuite(c *gc.C) {
-	simplestreams.SetSigningKey(s.origKey)
-}
+type signingSuite struct{}
 
 func (s *signingSuite) TestDecodeCheckValidSignature(c *gc.C) {
 	r := bytes.NewReader([]byte(validClearsignInput + testSig))
-	txt, err := simplestreams.DecodeCheckSignature(r)
+	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	c.Assert(err, gc.IsNil)
 	c.Assert(txt, gc.DeepEquals, []byte("Hello world\nline 2\n"))
 }
 
 func (s *signingSuite) TestDecodeCheckInvalidSignature(c *gc.C) {
 	r := bytes.NewReader([]byte(invalidClearsignInput + testSig))
-	_, err := simplestreams.DecodeCheckSignature(r)
+	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	c.Assert(err, gc.Not(gc.IsNil))
 	_, ok := err.(*simplestreams.NotPGPSignedError)
 	c.Assert(ok, gc.Equals, false)
@@ -496,7 +486,7 @@ func (s *signingSuite) TestDecodeCheckInvalidSignature(c *gc.C) {
 
 func (s *signingSuite) TestDecodeCheckMissingSignature(c *gc.C) {
 	r := bytes.NewReader([]byte("foo"))
-	_, err := simplestreams.DecodeCheckSignature(r)
+	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	_, ok := err.(*simplestreams.NotPGPSignedError)
 	c.Assert(ok, gc.Equals, true)
 }
