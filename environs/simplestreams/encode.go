@@ -20,9 +20,11 @@ func Encode(r io.Reader, armoredPrivateKey, passphrase string) ([]byte, error) {
 	}
 
 	privateKey := keyring[0].PrivateKey
-	err = privateKey.Decrypt([]byte(passphrase))
-	if err != nil {
-		return nil, err
+	if privateKey.Encrypted {
+		err = privateKey.Decrypt([]byte(passphrase))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var buf bytes.Buffer
