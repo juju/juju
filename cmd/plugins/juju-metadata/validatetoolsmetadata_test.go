@@ -129,9 +129,8 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
-		&ValidateToolsMetadataCommand{}, ctx, []string{"-e", "ec2", "-j", "1.11.4", "-d", metadataDir},
+		&ValidateToolsMetadataCommand{}, ctx, []string{"-e", "ec2", "-j", "1.11.4"},
 	)
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
