@@ -188,7 +188,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			// Remove once 1.16 is released.
 			assertLegacyTools(c, s.targetEnv.Storage(), test.tools)
 
-			assertEmpty(c, s.targetEnv.Storage())
+			assertNoUnexpectedTools(c, s.targetEnv.Storage())
 		}()
 	}
 }
@@ -239,7 +239,8 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	c.Assert(err, gc.IsNil)
 }
 
-func assertEmpty(c *gc.C, storage storage.StorageReader) {
+func assertNoUnexpectedTools(c *gc.C, storage storage.StorageReader) {
+	// We only expect v1.x tools, no v2.x tools.
 	list, err := envtools.ReadList(storage, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
