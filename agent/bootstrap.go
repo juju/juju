@@ -26,7 +26,7 @@ import (
 // given timeout parameter.
 //
 // InitializeState returns the newly initialized state and bootstrap
-// machine.
+// machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
 	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error)
 }
@@ -80,18 +80,7 @@ func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg Boots
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
 		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
 	}
-	m, err := st.InjectMachine(&state.AddMachineParams{
-		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
-		Constraints:             cfg.Constraints,
-		InstanceId:              cfg.InstanceId,
-		HardwareCharacteristics: cfg.Characteristics,
-		Jobs: cfg.Jobs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
-	}
-	err = c.initBootstrapMachine(m, cfg)
+	m, err := c.initBootstrapMachine(st, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize bootstrap machine: %v", err)
 	}
@@ -123,9 +112,20 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
-func (c *configInternal) initBootstrapMachine(m *state.Machine, cfg BootstrapMachineConfig) error {
+func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+	m, err := st.InjectMachine(&state.AddMachineParams{
+		Series:                  version.Current.Series,
+		Nonce:                   state.BootstrapNonce,
+		Constraints:             cfg.Constraints,
+		InstanceId:              cfg.InstanceId,
+		HardwareCharacteristics: cfg.Characteristics,
+		Jobs: cfg.Jobs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
+	}
 	if m.Id() != bootstrapMachineId {
-		return fmt.Errorf("bootstrap machine expected id 0, got %q", m.Id())
+		return nil, fmt.Errorf("bootstrap machine expected id 0, got %q", m.Id())
 	}
 	// Read the machine agent's password and change it to
 	// a new password (other agents will change their password
@@ -134,13 +134,13 @@ func (c *configInternal) initBootstrapMachine(m *state.Machine, cfg BootstrapMac
 
 	newPassword, err := c.writeNewPassword()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := m.SetMongoPassword(newPassword); err != nil {
-		return err
+		return nil, err
 	}
 	if err := m.SetPassword(newPassword); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return m, nil
 }
