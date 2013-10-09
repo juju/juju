@@ -173,6 +173,16 @@ func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	sha256hash.Write(buf.Bytes())
 	tool.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
 	tool.Size = nBytes
+
+	// TODO(wallyworld) - 2013-10-09 bug=1237130
+	// This is a 1.16 only hack to allow upgrades from 1.14 to work.
+	// Remove once 1.16 is released.
+	legacyBuf := bytes.NewBuffer(buf.Bytes())
+	legacyName := "tools/juju-" + tool.Version.String() + ".tgz"
+	err = dest.Put(legacyName, legacyBuf, nBytes)
+	if err != nil {
+		return fmt.Errorf("writing tools to legacy location: %v", err)
+	}
 	return dest.Put(toolsName, buf, nBytes)
 }
 
