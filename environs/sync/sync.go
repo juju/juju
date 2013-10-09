@@ -70,9 +70,10 @@ func SyncTools(syncContext *SyncContext) error {
 		if !syncContext.AllVersions {
 			syncContext.MinorVersion = version.Current.Minor
 		}
-	} else {
+	} else if !syncContext.Dev && syncContext.MinorVersion != -1 {
 		// If a major.minor version is specified, we allow dev versions.
-		syncContext.Dev = syncContext.MinorVersion != -1
+		// If Dev is already true, leave it alone.
+		syncContext.Dev = true
 	}
 	sourceTools, err := envtools.ReadList(sourceStorage, syncContext.MajorVersion, syncContext.MinorVersion)
 	if err != nil {
@@ -271,7 +272,7 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		Source:       baseToolsDir,
 		Target:       stor,
 		AllVersions:  true,
-		Dev:          true,
+		Dev:          toolsVersion.IsDev(),
 		MajorVersion: toolsVersion.Major,
 		MinorVersion: -1,
 	}
