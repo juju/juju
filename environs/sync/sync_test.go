@@ -182,29 +182,8 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
-
-			// TODO(wallyworld) - 2013-10-09 bug=1237130
-			// This is a 1.16 only hack to allow upgrades from 1.14 to work.
-			// Remove once 1.16 is released.
-			assertLegacyTools(c, s.targetEnv.Storage(), test.tools)
-
 			assertNoUnexpectedTools(c, s.targetEnv.Storage())
 		}()
-	}
-}
-
-func assertLegacyTools(c *gc.C, stor storage.StorageReader, expected []version.Binary) {
-	files, err := stor.List("tools/juju-")
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(files), gc.Equals, len(expected))
-	for _, vers := range expected {
-		filename := "tools/juju-" + vers.String() + ".tgz"
-		r, err := stor.Get(filename)
-		c.Check(err, gc.IsNil)
-		defer r.Close()
-		data, err := ioutil.ReadAll(r)
-		c.Check(err, gc.IsNil)
-		c.Check(string(data), gc.Equals, vers.String())
 	}
 }
 
