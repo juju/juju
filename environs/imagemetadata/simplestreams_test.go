@@ -4,14 +4,18 @@
 package imagemetadata_test
 
 import (
+	"bytes"
 	"flag"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 )
@@ -75,6 +79,7 @@ func registerSimpleStreamsTests() {
 			}),
 		},
 	})
+	gc.Suite(&signedSuite{})
 }
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
@@ -254,3 +259,132 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
 }
+
+type signedSuite struct {
+	origKey string
+}
+
+var testRoundTripper *jujutest.ProxyRoundTripper
+
+func init() {
+	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	simplestreams.RegisterProtocol("signedtest", testRoundTripper)
+}
+
+func (s *signedSuite) SetUpSuite(c *gc.C) {
+	var imageData = map[string]string{
+		"/unsigned/streams/v1/index.json":          unsignedIndex,
+		"/unsigned/streams/v1/image_metadata.json": unsignedProduct,
+	}
+
+	// Set up some signed data from the unsigned data.
+	// Overwrite the product path to use the sjson suffix.
+	rawUnsignedIndex := strings.Replace(
+		unsignedIndex, "streams/v1/image_metadata.json", "streams/v1/image_metadata.sjson", -1)
+	r := bytes.NewReader([]byte(rawUnsignedIndex))
+	signedData, err := simplestreams.Encode(
+		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	c.Assert(err, gc.IsNil)
+	imageData["/signed/streams/v1/index.sjson"] = string(signedData)
+
+	// Replace the image id in the unsigned data with a different one so we can test that the right
+	// image id is used.
+	rawUnsignedProduct := strings.Replace(
+		unsignedProduct, "ami-26745463", "ami-123456", -1)
+	r = bytes.NewReader([]byte(rawUnsignedProduct))
+	signedData, err = simplestreams.Encode(
+		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	c.Assert(err, gc.IsNil)
+	imageData["/signed/streams/v1/image_metadata.sjson"] = string(signedData)
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
+	s.origKey = imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+}
+
+func (s *signedSuite) TearDownSuite(c *gc.C) {
+	testRoundTripper.Sub = nil
+	imagemetadata.SetSigningPublicKey(s.origKey)
+}
+
+func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
+	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+		Series:    []string{"precise"},
+		Arches:    []string{"amd64"},
+	})
+	images, err := imagemetadata.Fetch(
+		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(images), gc.Equals, 1)
+	c.Assert(images[0].Id, gc.Equals, "ami-123456")
+}
+
+func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
+	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+		Series:    []string{"precise"},
+		Arches:    []string{"amd64"},
+	})
+	imagemetadata.SetSigningPublicKey(s.origKey)
+	_, err := imagemetadata.Fetch(
+		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
+	c.Assert(err, gc.ErrorMatches, "cannot read index data.*")
+}
+
+var unsignedIndex = `
+{
+ "index": {
+  "com.ubuntu.cloud:released:precise": {
+   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+   "clouds": [
+	{
+	 "region": "us-east-1",
+	 "endpoint": "https://ec2.us-east-1.amazonaws.com"
+	}
+   ],
+   "cloudname": "aws",
+   "datatype": "image-ids",
+   "format": "products:1.0",
+   "products": [
+	"com.ubuntu.cloud:server:12.04:amd64"
+   ],
+   "path": "streams/v1/image_metadata.json"
+  }
+ },
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "format": "index:1.0"
+}
+`
+var unsignedProduct = `
+{
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "products": {
+  "com.ubuntu.cloud:server:12.04:amd64": {
+   "release": "precise",
+   "version": "12.04",
+   "arch": "amd64",
+   "region": "us-east-1",
+   "endpoint": "https://somewhere",
+   "versions": {
+    "20121218": {
+     "region": "us-east-1",
+     "endpoint": "https://somewhere-else",
+     "items": {
+      "usww1pe": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "id": "ami-26745463"
+      }
+     },
+     "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+     "label": "release"
+    }
+   }
+  }
+ },
+ "format": "products:1.0"
+}
+`

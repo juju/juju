@@ -32,6 +32,7 @@ var metadataCommandNames = []string{
 	"generate-image",
 	"generate-tools",
 	"help",
+	"sign",
 	"validate-images",
 	"validate-tools",
 }
