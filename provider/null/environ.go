@@ -50,6 +50,13 @@ type nullEnviron struct {
 	cfgmutex              sync.Mutex
 	bootstrapStorage      *sshstorage.SSHStorage
 	bootstrapStorageMutex sync.Mutex
+
+	// series is required to filter bootstrap tools
+	// properly, by setting default-series dynamically.
+	// series and hc come together, and we can pass
+	// them to manual.Bootstrap to avoid another trip.
+	bootstrapHostSeries                  string
+	bootstrapHostHardwareCharacteristics *instance.HardwareCharacteristics
 }
 
 var _ environs.BootstrapStorager = (*nullEnviron)(nil)
@@ -86,11 +93,17 @@ func (e *nullEnviron) Name() string {
 }
 
 func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) error {
+	bootstrapHardware, err := e.envConfig().bootstrapHardware()
+	if err != nil {
+		return err
+	}
 	return manual.Bootstrap(manual.BootstrapArgs{
-		Host:          e.envConfig().sshHost(),
-		DataDir:       dataDir,
-		Environ:       e,
-		PossibleTools: possibleTools,
+		Host:                    e.envConfig().sshHost(),
+		DataDir:                 dataDir,
+		Environ:                 e,
+		PossibleTools:           possibleTools,
+		Series:                  e.envConfig().bootstrapSeries(),
+		HardwareCharacteristics: bootstrapHardware,
 	})
 }
 

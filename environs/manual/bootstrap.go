@@ -30,6 +30,13 @@ type BootstrapArgs struct {
 	DataDir       string
 	Environ       LocalStorageEnviron
 	PossibleTools tools.List
+
+	// If series and hardware characteristics
+	// are known ahead of time, they can be
+	// set here and Bootstrap will not attempt
+	// to detect them again.
+	Series                  string
+	HardwareCharacteristics *instance.HardwareCharacteristics
 }
 
 func errMachineIdInvalid(machineId string) error {
@@ -58,9 +65,16 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
-	if err != nil {
-		return fmt.Errorf("error detecting hardware characteristics: %v", err)
+	var series string
+	var hc instance.HardwareCharacteristics
+	if args.Series != "" && args.HardwareCharacteristics != nil {
+		series = args.Series
+		hc = *args.HardwareCharacteristics
+	} else {
+		hc, series, err = DetectSeriesAndHardwareCharacteristics(args.Host)
+		if err != nil {
+			return fmt.Errorf("error detecting hardware characteristics: %v", err)
+		}
 	}
 
 	// Filter tools based on detected series/arch.

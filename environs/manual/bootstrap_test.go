@@ -81,7 +81,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 
-	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
+	defer FakeSSH{Series: s.Conn.Environ.Config().DefaultSeries()}.Install(c).Restore()
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
@@ -96,21 +96,60 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Do it all again; this should work, despite the fact that
 	// there's a bootstrap state file. Existence for that is
 	// checked in general bootstrap code (environs/bootstrap).
-	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
+	defer FakeSSH{Series: s.Conn.Environ.Config().DefaultSeries()}.Install(c).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
 	// We *do* check that the machine has no juju* upstart jobs, though.
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0).Restore()
+	defer InstallFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
+}
+
+func (s *bootstrapSuite) TestBootstrapSkipDetection(c *gc.C) {
+	args := s.getArgs(c)
+	hc, err := instance.ParseHardware("arch=amd64")
+	c.Assert(err, gc.IsNil)
+
+	type test struct {
+		series string
+		hc     *instance.HardwareCharacteristics
+	}
+	tests := []test{{
+		series: "",
+		hc:     nil,
+	}, {
+		series: "precise",
+		hc:     nil,
+	}, {
+		series: "",
+		hc:     &hc,
+	}, {
+		series: "precise",
+		hc:     &hc,
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %+v", i, test)
+		args.Series = test.series
+		args.HardwareCharacteristics = test.hc
+		var ssh FakeSSH
+		if args.Series != "" && args.HardwareCharacteristics != nil {
+			// If neither series nor hardware-characteristics
+			// is missing, detection is skipped.
+			ssh.SkipDetection = true
+		}
+		defer ssh.Install(c).Restore()
+		err = Bootstrap(args)
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 	series := s.Conn.Environ.Config().DefaultSeries()
-	defer fakeSSH{series: series, provisionAgentExitCode: 1}.install(c).Restore()
+	defer FakeSSH{Series: series, ProvisionAgentExitCode: 1}.Install(c).Restore()
 	err := Bootstrap(args)
 	c.Assert(err, gc.NotNil)
 
@@ -143,11 +182,11 @@ func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	args := s.getArgs(c)
 	args.PossibleTools = nil
 	series := s.Conn.Environ.Config().DefaultSeries()
-	defer fakeSSH{series: series, skipProvisionAgent: true}.install(c).Restore()
+	defer FakeSSH{Series: series, SkipProvisionAgent: true}.Install(c).Restore()
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 
 	// Non-empty list, but none that match the series/arch.
-	defer fakeSSH{series: "edgy", skipProvisionAgent: true}.install(c).Restore()
+	defer FakeSSH{Series: "edgy", SkipProvisionAgent: true}.Install(c).Restore()
 	args = s.getArgs(c)
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 }

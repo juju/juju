@@ -98,7 +98,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		return nil, ErrProvisioned
 	}
 
-	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
+	hc, series, err := DetectSeriesAndHardwareCharacteristics(args.Host)
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
 		return nil, err

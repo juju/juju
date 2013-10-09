@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 )
@@ -20,9 +21,17 @@ func init() {
 }
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
+var errNoBootstrapSeries = errors.New("bootstrap-series must be specified")
 
 func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	return p.Open(cfg)
+	envConfig, err := p.validate(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	if envConfig, err = p.ensureBootstrapSeries(envConfig); err != nil {
+		return nil, err
+	}
+	return p.open(envConfig)
 }
 
 func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -30,7 +39,43 @@ func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &nullEnviron{cfg: envConfig}, nil
+	return p.open(envConfig)
+}
+
+func (p nullProvider) open(cfg *environConfig) (environs.Environ, error) {
+	return &nullEnviron{cfg: cfg}, nil
+}
+
+func (p nullProvider) ensureBootstrapSeries(envConfig *environConfig) (*environConfig, error) {
+	old := envConfig.Config
+	// If the user specified bootstrap-series, use that to
+	// avoid a round-trip to detect series unnecessarily.
+	if envConfig.bootstrapSeries() != "" {
+		cfg, err := envConfig.Apply(map[string]interface{}{
+			"default-series": envConfig.bootstrapSeries(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		return p.validate(cfg, old)
+	}
+	// Detect the bootstrap-host's series and hardware, and save it
+	// in the config. This will be stored in the .jenv file, so it
+	// doesn't need to be recomputed.
+	logger.Infof("Detecting bootstrap-series...")
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := envConfig.Apply(map[string]interface{}{
+		"bootstrap-series":   series,
+		"bootstrap-hardware": hc.String(),
+		"default-series":     series, // for selecting bootstrap tools
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.validate(cfg, old)
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
