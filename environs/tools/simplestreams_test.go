@@ -559,55 +559,87 @@ func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 }
 
 func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
-	md1 := []*tools.ToolsMetadata{{
+	md1 := &tools.ToolsMetadata{
 		Release: "precise",
 		Version: "1.2.3",
 		Arch:    "amd64",
 		Path:    "path1",
-	}}
-	md2 := []*tools.ToolsMetadata{{
+	}
+	md2 := &tools.ToolsMetadata{
 		Release: "precise",
 		Version: "1.2.3",
 		Arch:    "amd64",
 		Path:    "path2",
-	}}
-
-	merged := tools.MergeMetadata(md1, nil)
-	c.Assert(merged, gc.DeepEquals, md1)
-	merged = tools.MergeMetadata(nil, md2)
-	c.Assert(merged, gc.DeepEquals, md2)
-	merged = tools.MergeMetadata(md1, md1)
-	c.Assert(merged, gc.DeepEquals, md1)
-
-	// If md1 and md2 have the same tools,
-	// and neither has a size, prefer md1.
-	merged = tools.MergeMetadata(md1, md2)
-	c.Assert(merged, gc.DeepEquals, md1)
-
-	// If md1 and md2 have the same tools,
-	// prefer the one with a size.
-	md1[0].Size, md2[0].Size = 1, 0
-	merged = tools.MergeMetadata(md1, md2)
-	c.Assert(merged, gc.DeepEquals, md1)
-	md1[0].Size, md2[0].Size = 0, 1
-	merged = tools.MergeMetadata(md1, md2)
-	c.Assert(merged, gc.DeepEquals, md2)
-
-	// If md1 and md2 have the same tools,
-	// and both have a size, prefer md1.
-	md1[0].Size, md2[0].Size = 1, 1
-	merged = tools.MergeMetadata(md1, md2)
-	c.Assert(merged, gc.DeepEquals, md1)
-
-	md2 = append(md2, &tools.ToolsMetadata{
+	}
+	md3 := &tools.ToolsMetadata{
 		Release: "raring",
 		Version: "1.2.3",
 		Arch:    "amd64",
 		Path:    "path3",
-	})
-	merged = tools.MergeMetadata(md1, md2)
-	expected := []*tools.ToolsMetadata{md1[0], md2[1]}
-	c.Assert(merged, gc.DeepEquals, expected)
+	}
+
+	withSize := func(md *tools.ToolsMetadata, size int64) *tools.ToolsMetadata {
+		clone := *md
+		clone.Size = size
+		return &clone
+	}
+
+	type mdlist []*tools.ToolsMetadata
+	type test struct {
+		name             string
+		lhs, rhs, merged []*tools.ToolsMetadata
+	}
+	tests := []test{{
+		name:   "non-empty lhs, empty rhs",
+		lhs:    mdlist{md1},
+		rhs:    nil,
+		merged: mdlist{md1},
+	}, {
+		name:   "empty lhs, non-empty rhs",
+		lhs:    nil,
+		rhs:    mdlist{md2},
+		merged: mdlist{md2},
+	}, {
+		name:   "identical lhs, rhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{md1},
+		merged: mdlist{md1},
+	}, {
+		name:   "same tools in lhs and rhs, neither have size: prefer lhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{md2},
+		merged: mdlist{md1},
+	}, {
+		name:   "same tools in lhs and rhs, only lhs has a size: prefer lhs",
+		lhs:    mdlist{withSize(md1, 123)},
+		rhs:    mdlist{md2},
+		merged: mdlist{withSize(md1, 123)},
+	}, {
+		name:   "same tools in lhs and rhs, only rhs has a size: prefer rhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{withSize(md2, 123)},
+		merged: mdlist{withSize(md2, 123)},
+	}, {
+		name:   "same tools in lhs and rhs, both have a size: prefer lhs",
+		lhs:    mdlist{withSize(md1, 123)},
+		rhs:    mdlist{withSize(md2, 456)},
+		merged: mdlist{withSize(md1, 123)},
+	}, {
+		name:   "lhs is a proper superset of rhs: union of lhs and rhs",
+		lhs:    mdlist{md1, md3},
+		rhs:    mdlist{md1},
+		merged: mdlist{md1, md3},
+	}, {
+		name:   "rhs is a proper superset of lhs: union of lhs and rhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{md1, md3},
+		merged: mdlist{md1, md3},
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		merged := tools.MergeMetadata(test.lhs, test.rhs)
+		c.Assert(merged, gc.DeepEquals, test.merged)
+	}
 }
 
 func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {

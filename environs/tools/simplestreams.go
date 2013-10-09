@@ -214,20 +214,21 @@ func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
 
 // ResolveMetadata resolves incomplete metadata
 // by fetching the tools from storage and computing
-// the metadata locally.
+// the size and hash locally.
 func ResolveMetadata(stor storage.StorageReader, metadata []*ToolsMetadata) error {
 	for _, md := range metadata {
-		if md.Size == 0 {
-			binary := md.binary()
-			logger.Infof("Fetching tools to generate hash: %v", binary)
-			var sha256hash hash.Hash
-			size, sha256hash, err := fetchToolsHash(stor, binary)
-			if err != nil {
-				return err
-			}
-			md.Size = size
-			md.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
+		if md.Size != 0 {
+			continue
 		}
+		binary := md.binary()
+		logger.Infof("Fetching tools to generate hash: %v", binary)
+		var sha256hash hash.Hash
+		size, sha256hash, err := fetchToolsHash(stor, binary)
+		if err != nil {
+			return err
+		}
+		md.Size = size
+		md.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
 	}
 	return nil
 }
@@ -289,24 +290,21 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata) error {
 	return nil
 }
 
-type ResolveFlag bool
-
 const (
-	DontResolve ResolveFlag = false
-	Resolve     ResolveFlag = true
+	DontResolve = false
+	Resolve     = true
 )
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list.
 // If resolve is true, incomplete metadata is resolved by fetching the tools
-// from the target storage. Finally, the resulting metadata is written to
-// storage.
-func MergeAndWriteMetadata(stor storage.Storage, targetTools coretools.List, resolve ResolveFlag) error {
+// from the storage. Finally, the resulting metadata is written to storage.
+func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, resolve bool) error {
 	existing, err := ReadMetadata(stor)
 	if err != nil {
 		return err
 	}
-	metadata := MetadataFromTools(targetTools)
+	metadata := MetadataFromTools(tools)
 	metadata = MergeMetadata(metadata, existing)
 	if resolve {
 		if err = ResolveMetadata(stor, metadata); err != nil {
