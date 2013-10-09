@@ -140,8 +140,7 @@ type AgentConfigParams struct {
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
-// machine or unit agent. As the agents becomes entirely APIified,
-// we should remove the state addresses from here.
+// machine or unit agent.
 func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	if params.DataDir == "" {
 		return nil, requiredError("data directory")

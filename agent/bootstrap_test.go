@@ -139,7 +139,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
+	c.Check(err, gc.IsNil)
 	st.Close()
 
 	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{})

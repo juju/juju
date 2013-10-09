@@ -127,9 +127,6 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
-	// Have to initialize the state configuration with localhost so we get
-	// "special" permissions.
-	// TODO(rog) how does this comment pertain to the statement below?
 	if err := env.initializeState(agentConfig, cons); err != nil {
 		return err
 	}

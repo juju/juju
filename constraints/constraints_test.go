@@ -61,15 +61,15 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "set nonsense container",
 		args:    []string{"container=foo"},
-		err:     `bad "container" constraint: invalid container type "foo"`,
+		err:     `bad constraint "container=foo": invalid container type "foo"`,
 	}, {
 		summary: "double set container together",
 		args:    []string{"container=lxc container=lxc"},
-		err:     `bad "container" constraint: already set`,
+		err:     `bad constraint "container=lxc": already set`,
 	}, {
 		summary: "double set container separately",
 		args:    []string{"container=lxc", "container="},
-		err:     `bad "container" constraint: already set`,
+		err:     `bad constraint "container=": already set`,
 	},
 
 	// "arch" in detail.
@@ -88,19 +88,19 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
-		err:     `bad "arch" constraint: "cheese" not recognized`,
+		err:     `bad constraint "arch=cheese": "cheese" not recognized`,
 	}, {
 		summary: "set nonsense arch 2",
 		args:    []string{"arch=123.45"},
-		err:     `bad "arch" constraint: "123.45" not recognized`,
+		err:     `bad constraint "arch=123.45": "123.45" not recognized`,
 	}, {
 		summary: "double set arch together",
 		args:    []string{"arch=amd64 arch=amd64"},
-		err:     `bad "arch" constraint: already set`,
+		err:     `bad constraint "arch=amd64": already set`,
 	}, {
 		summary: "double set arch separately",
 		args:    []string{"arch=arm", "arch="},
-		err:     `bad "arch" constraint: already set`,
+		err:     `bad constraint "arch=": already set`,
 	},
 
 	// "cpu-cores" in detail.
@@ -116,23 +116,23 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "set nonsense cpu-cores 1",
 		args:    []string{"cpu-cores=cheese"},
-		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
+		err:     `bad constraint "cpu-cores=cheese": must be a non-negative integer`,
 	}, {
 		summary: "set nonsense cpu-cores 2",
 		args:    []string{"cpu-cores=-1"},
-		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
+		err:     `bad constraint "cpu-cores=-1": must be a non-negative integer`,
 	}, {
 		summary: "set nonsense cpu-cores 3",
 		args:    []string{"cpu-cores=123.45"},
-		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
+		err:     `bad constraint "cpu-cores=123.45": must be a non-negative integer`,
 	}, {
 		summary: "double set cpu-cores together",
 		args:    []string{"cpu-cores=128 cpu-cores=1"},
-		err:     `bad "cpu-cores" constraint: already set`,
+		err:     `bad constraint "cpu-cores=1": already set`,
 	}, {
 		summary: "double set cpu-cores separately",
 		args:    []string{"cpu-cores=128", "cpu-cores=1"},
-		err:     `bad "cpu-cores" constraint: already set`,
+		err:     `bad constraint "cpu-cores=1": already set`,
 	},
 
 	// "cpu-power" in detail.
@@ -148,19 +148,19 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "set nonsense cpu-power 1",
 		args:    []string{"cpu-power=cheese"},
-		err:     `bad "cpu-power" constraint: must be a non-negative integer`,
+		err:     `bad constraint "cpu-power=cheese": must be a non-negative integer`,
 	}, {
 		summary: "set nonsense cpu-power 2",
 		args:    []string{"cpu-power=-1"},
-		err:     `bad "cpu-power" constraint: must be a non-negative integer`,
+		err:     `bad constraint "cpu-power=-1": must be a non-negative integer`,
 	}, {
 		summary: "double set cpu-power together",
 		args:    []string{"  cpu-power=300 cpu-power=1700 "},
-		err:     `bad "cpu-power" constraint: already set`,
+		err:     `bad constraint "cpu-power=1700": already set`,
 	}, {
 		summary: "double set cpu-power separately",
 		args:    []string{"cpu-power=300  ", "  cpu-power=1700"},
-		err:     `bad "cpu-power" constraint: already set`,
+		err:     `bad constraint "cpu-power=1700": already set`,
 	},
 
 	// "mem" in detail.
@@ -188,23 +188,23 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "set nonsense mem 1",
 		args:    []string{"mem=cheese"},
-		err:     `bad "mem" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+		err:     `bad constraint "mem=cheese": must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "set nonsense mem 2",
 		args:    []string{"mem=-1"},
-		err:     `bad "mem" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+		err:     `bad constraint "mem=-1": must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "set nonsense mem 3",
 		args:    []string{"mem=32Y"},
-		err:     `bad "mem" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+		err:     `bad constraint "mem=32Y": must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "double set mem together",
 		args:    []string{"mem=1G  mem=2G"},
-		err:     `bad "mem" constraint: already set`,
+		err:     `bad constraint "mem=2G": already set`,
 	}, {
 		summary: "double set mem separately",
 		args:    []string{"mem=1G", "mem=2G"},
-		err:     `bad "mem" constraint: already set`,
+		err:     `bad constraint "mem=2G": already set`,
 	},
 
 	// "root-disk" in detail.
@@ -232,23 +232,23 @@ var parseConstraintsTests = []struct {
 	}, {
 		summary: "set nonsense root-disk 1",
 		args:    []string{"root-disk=cheese"},
-		err:     `bad "root-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+		err:     `bad constraint "root-disk=cheese": must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "set nonsense root-disk 2",
 		args:    []string{"root-disk=-1"},
-		err:     `bad "root-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+		err:     `bad constraint "root-disk=-1": must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "set nonsense root-disk 3",
 		args:    []string{"root-disk=32Y"},
-		err:     `bad "root-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+		err:     `bad constraint "root-disk=32Y": must be a non-negative float with optional M/G/T/P suffix`,
 	}, {
 		summary: "double set root-disk together",
 		args:    []string{"root-disk=1G  root-disk=2G"},
-		err:     `bad "root-disk" constraint: already set`,
+		err:     `bad constraint "root-disk=2G": already set`,
 	}, {
 		summary: "double set root-disk separately",
 		args:    []string{"root-disk=1G", "root-disk=2G"},
-		err:     `bad "root-disk" constraint: already set`,
+		err:     `bad constraint "root-disk=2G": already set`,
 	},
 
 	// tags
