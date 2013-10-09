@@ -48,18 +48,26 @@ type AddUnitCommand struct {
 }
 
 const addUnitDoc = `
-Service units can be added to a specific machine using the --to argument.
+Adding units to an existing service is a way to scale out an environment by
+deploying more instances of a service.  Add-unit must be called on services that
+have already been deployed via juju deploy.  
+
+By default, services are deployed to newly provisioned machines.  Alternatively,
+service units can be added to a specific existing machine using the --to
+argument.
+
 Examples:
-  juju add-unit mysql --to 23       (Add unit to machine 23)
-  juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
-  juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
+ juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
+ juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
+ juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
+ juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
 
 func (c *AddUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-unit",
 		Args:    "<service name>",
-		Purpose: "add a service unit",
+		Purpose: "add one or more units of an already-deployed service",
 		Doc:     addUnitDoc,
 	}
 }
