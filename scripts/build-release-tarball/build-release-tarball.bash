@@ -24,7 +24,7 @@ GOPATH=$WORK go get -v -d launchpad.net/juju-core/...
 echo "Setting juju-core tree to $TAG."
 (cd "${WORK}/src/launchpad.net/juju-core/" && bzr revert -r $TAG)
 
-echo "Updadting juju-core dependencies to the required versions."
+echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK godeps -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
 
 # Smoke test
