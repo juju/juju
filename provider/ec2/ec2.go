@@ -365,9 +365,6 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 
 const ebsStorage = "ebs"
 
-// minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
-const minDiskSize uint64 = 8 * 1024
-
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
@@ -412,23 +409,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	var instResp *ec2.RunInstancesResp
 
-	var devices []ec2.BlockDeviceMapping
-
-	diskSize := minDiskSize
-
-	if cons.RootDisk != nil && *cons.RootDisk > minDiskSize {
-		// request the root disk size in the provision request
-		// AWS's volume size is in gigabytes, root-disk is in megabytes,
-		// so round up to the nearest gigabyte.
-		size := int64((*cons.RootDisk + 1023) / 1024)
-		fmt.Printf("Size of root disk: %dG", size)
-		diskSize = uint64(size * 1024)
-		devices = append(devices, ec2.BlockDeviceMapping{
-			DeviceName: "/dev/sda1",
-			VolumeSize: size,
-		})
-	}
-
+	device, diskSize := getDiskSize(cons)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:             spec.Image.Id,
@@ -437,7 +418,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 			UserData:            userData,
 			InstanceType:        spec.InstanceType.Name,
 			SecurityGroups:      groups,
-			BlockDeviceMappings: devices,
+			BlockDeviceMappings: []ec2.BlockDeviceMapping{device},
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
 			break
@@ -473,6 +454,34 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 		ids[i] = inst.(*ec2Instance).Id()
 	}
 	return e.terminateInstances(ids)
+}
+
+// minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
+const minDiskSize uint64 = 8 * 1024
+
+// getDiskSize translates a RootDisk constraint (or lackthereof) into a
+// BlockDeviceMapping request for EC2.  megs is the size in megabytes of
+// the disk that was requested.
+func getDiskSize(cons constraints.Value) (dvc ec2.BlockDeviceMapping, megs uint64) {
+	diskSize := minDiskSize
+
+	if cons.RootDisk != nil {
+		if *cons.RootDisk >= minDiskSize {
+			diskSize = *cons.RootDisk
+		} else {
+			logger.Infof("Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
+				*cons.RootDisk, minDiskSize)
+		}
+	}
+
+	// AWS's volume size is in gigabytes, root-disk is in megabytes,
+	// so round up to the nearest gigabyte.
+	volsize := int64((diskSize + 1023) / 1024)
+	return ec2.BlockDeviceMapping{
+			DeviceName: "/dev/sda1",
+			VolumeSize: volsize,
+		},
+		uint64(volsize * 1024)
 }
 
 // groupInfoByName returns information on the security group
