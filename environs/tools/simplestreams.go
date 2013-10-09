@@ -33,6 +33,15 @@ const (
 	MirrorContentId = "com.ubuntu.juju:released:tools"
 )
 
+// simplestreamsToolsPublicKey is the public key required to
+// authenticate the simple streams data on http://juju.canonical.com.
+// Declared as a var so it can be overidden for testing.
+// TODO(wallyworld) - 2013-10-08 bug=1236682
+// we don't yet have a tools signing key
+var simplestreamsToolsPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+-----END PGP PUBLIC KEY BLOCK-----
+`
+
 // This needs to be a var so we can override it for testing.
 var DefaultBaseURL = "https://juju.canonical.com/tools"
 
@@ -124,6 +133,7 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 		FilterFunc:      appendMatchingTools,
 		MirrorContentId: MirrorContentId,
 		ValueTemplate:   ToolsMetadata{},
+		PublicKey:       simplestreamsToolsPublicKey,
 	}
 	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
