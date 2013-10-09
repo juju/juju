@@ -297,10 +297,12 @@ var bootstrapTests = []bootstrapTest{{
 }}
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
-	restore := createToolsStore(c, version.Current)
-	defer restore()
-	_, fake := makeEmptyFakeHome(c)
+	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	restore := createToolsStore(c, defaultSeriesVersion)
+	defer restore()
 
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
