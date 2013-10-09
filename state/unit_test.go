@@ -31,7 +31,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
 	var err error
-	s.service, err = s.State.AddService("wordpress", s.charm)
+	s.service = s.AddTestingService(c, "wordpress", s.charm)
 	c.Assert(err, gc.IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -555,8 +555,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	// A unit with subordinates is just set to Dying.
-	_, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -615,8 +614,7 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySubordinateUnits(c *gc.C) {
 	lgsch := s.AddTestingCharm(c, "logging")
-	_, err := s.State.AddService("logging", lgsch)
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", lgsch)
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -683,8 +681,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// Make a second unit to use later. (Subordinate units can only be created
 	// as a side-effect of a principal entering relation scope.)
 	subCharm := s.AddTestingCharm(c, "logging")
-	_, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", subCharm)
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -952,8 +949,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 		// principal entering scope; and a given principal can only have a
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
-		_, err := s.State.AddService(name, subCharm)
-		c.Assert(err, gc.IsNil)
+		s.AddTestingService(c, name, subCharm)
 		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)
@@ -991,7 +987,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	// Create a new unit and add a subordinate.
 	u, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
@@ -1029,8 +1025,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	_, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", subCharm)
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1077,8 +1072,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// Add a relation between wordpress and mysql...
 	wordpress := s.service
 	wordpress0 := s.unit
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1136,8 +1130,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		// principal entering scope; and a given principal can only have a
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
-		subSvc, err := s.State.AddService(name, subCharm)
-		c.Assert(err, gc.IsNil)
+		subSvc := s.AddTestingService(c, name, subCharm)
 		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)

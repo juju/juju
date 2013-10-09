@@ -37,8 +37,7 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.wpcharm = s.AddTestingCharm(c, "wordpress")
-	s.wordpress, err = s.State.AddService("wordpress", s.wpcharm)
-	c.Assert(err, gc.IsNil)
+	s.wordpress = s.AddTestingService(c, "wordpress", s.wpcharm)
 	s.unit, err = s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToNewMachine()
@@ -210,8 +209,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	oldCharm := s.AddTestingCharm(c, "upgrade1")
-	svc, err := s.State.AddService("upgradetest", oldCharm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "upgradetest", oldCharm)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
@@ -450,7 +448,7 @@ func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	rels, err := s.wordpress.Relations()
 	c.Assert(err, gc.IsNil)
 	svcName := fmt.Sprintf("mysql%d", len(rels))
-	_, err = s.State.AddService(svcName, s.mysqlcharm)
+	s.AddTestingService(c, svcName, s.mysqlcharm)
 	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
 	c.Assert(err, gc.IsNil)

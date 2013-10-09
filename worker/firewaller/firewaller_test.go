@@ -133,12 +133,11 @@ func (s *FirewallerSuite) TestNotExposedService(c *gc.C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
 
-	err = u.OpenPort("tcp", 80)
+	err := u.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
@@ -155,10 +154,9 @@ func (s *FirewallerSuite) TestExposedService(c *gc.C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 
-	err = svc.SetExposed()
+	err := svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -180,9 +178,8 @@ func (s *FirewallerSuite) TestMultipleExposedServices(c *gc.C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc1, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
-	err = svc1.SetExposed()
+	svc1 := s.AddTestingService(c, "wordpress", s.charm)
+	err := svc1.SetExposed()
 	c.Assert(err, gc.IsNil)
 
 	u1, m1 := s.addUnit(c, svc1)
@@ -192,7 +189,7 @@ func (s *FirewallerSuite) TestMultipleExposedServices(c *gc.C) {
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
 
-	svc2, err := s.State.AddService("mysql", s.charm)
+	svc2 := s.AddTestingService(c, "mysql", s.charm)
 	c.Assert(err, gc.IsNil)
 	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
@@ -218,7 +215,7 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	fw := firewaller.NewFirewaller(s.State)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	c.Assert(err, gc.IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)

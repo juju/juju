@@ -1332,6 +1332,7 @@ func (ac addCharm) step(c *gc.C, ctx *context) {
 }
 
 type addService struct {
+	testing.JujuConnSuite
 	name  string
 	charm string
 }
@@ -1339,8 +1340,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	_, err := ctx.st.AddService(as.name, ch)
-	c.Assert(err, gc.IsNil)
+	ctx.AddTestingService(c, as.name, ch)
 }
 
 type setServiceExposed struct {

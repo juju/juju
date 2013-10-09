@@ -29,9 +29,7 @@ var _ = gc.Suite(&ServiceSuite{})
 func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "mysql")
-	var err error
-	s.mysql, err = s.State.AddService("mysql", s.charm)
-	c.Assert(err, gc.IsNil)
+	s.mysql = s.AddTestingService(c, "mysql", s.charm)
 }
 
 func (s *ServiceSuite) TestSetCharm(c *gc.C) {
@@ -160,9 +158,8 @@ var setCharmEndpointsTests = []struct {
 func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 	revno := 2 // 1 is used in SetUpSuite
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
-	svc, err := s.State.AddService("fakemysql", ms)
-	c.Assert(err, gc.IsNil)
-	err = svc.SetCharm(ms, false)
+	svc := s.AddTestingService(c, "fakemysql", ms)
+	err := svc.SetCharm(ms, false)
 	c.Assert(err, gc.IsNil)
 
 	for i, t := range setCharmEndpointsTests {
@@ -184,15 +181,13 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno := 2 // 1 is used by SetUpSuite
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
-	providerSvc, err := s.State.AddService("myprovider", providerCharm)
-	c.Assert(err, gc.IsNil)
-	err = providerSvc.SetCharm(providerCharm, false)
+	providerSvc := s.AddTestingService(c, "myprovider", providerCharm)
+	err := providerSvc.SetCharm(providerCharm, false)
 	c.Assert(err, gc.IsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
-	requirerSvc, err := s.State.AddService("myrequirer", requirerCharm)
-	c.Assert(err, gc.IsNil)
+	requirerSvc := s.AddTestingService(c, "myrequirer", requirerCharm)
 	err = requirerSvc.SetCharm(requirerCharm, false)
 	c.Assert(err, gc.IsNil)
 
@@ -282,9 +277,8 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 
 		origCh := charms[t.startconfig]
-		svc, err := s.State.AddService("wordpress", origCh)
-		c.Assert(err, gc.IsNil)
-		err = svc.UpdateConfigSettings(t.startvalues)
+		svc := s.AddTestingService(c, "wordpress", origCh)
+		err := svc.UpdateConfigSettings(t.startvalues)
 		c.Assert(err, gc.IsNil)
 
 		newCh := charms[t.endconfig]
@@ -372,13 +366,12 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	for i, t := range serviceUpdateConfigSettingsTests {
 		c.Logf("test %d. %s", i, t.about)
-		svc, err := s.State.AddService("dummy-service", sch)
-		c.Assert(err, gc.IsNil)
+		svc := s.AddTestingService(c, "dummy-service", sch)
 		if t.initial != nil {
 			err := svc.UpdateConfigSettings(t.initial)
 			c.Assert(err, gc.IsNil)
 		}
-		err = svc.UpdateConfigSettings(t.update)
+		err := svc.UpdateConfigSettings(t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -414,12 +407,11 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoRef(oldCh)
 	assertNoRef(newCh)
 
-	svc, err := s.State.AddService(svcName, oldCh)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, svcName, oldCh)
 	assertRef(oldCh, 1)
 	assertNoRef(newCh)
 
-	err = svc.SetCharm(oldCh, false)
+	err := svc.SetCharm(oldCh, false)
 	c.Assert(err, gc.IsNil)
 	assertRef(oldCh, 1)
 	assertNoRef(newCh)
@@ -566,10 +558,9 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
-	riak, err := s.State.AddService("myriak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	riak := s.AddTestingService(c, "myriak", s.AddTestingCharm(c, "riak"))
 
-	_, err = riak.Endpoint("garble")
+	_, err := riak.Endpoint("garble")
 	c.Assert(err, gc.ErrorMatches, `service "myriak" has no "garble" relation`)
 
 	jiEP, err := riak.Endpoint("juju-info")
@@ -619,10 +610,9 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	_, err = wordpress.Endpoint("nonsense")
+	_, err := wordpress.Endpoint("nonsense")
 	c.Assert(err, gc.ErrorMatches, `service "wordpress" has no "nonsense" relation`)
 
 	jiEP, err := wordpress.Endpoint("juju-info")
@@ -791,8 +781,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	// Add a subordinate service and check that units cannot be added directly.
 	// to add a subordinate unit.
 	subCharm := s.AddTestingCharm(c, "logging")
-	logging, err := s.State.AddService("logging", subCharm)
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", subCharm)
 	_, err = logging.AddUnit()
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to service "logging": service is a subordinate`)
 
@@ -869,8 +858,7 @@ func (s *ServiceSuite) TestReadUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit "pressword/0" not found`)
 
 	// Add another service to check units are not misattributed.
-	mysql, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "wordpress", s.charm)
 	_, err = mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 
@@ -994,8 +982,7 @@ func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1020,15 +1007,13 @@ func (s *ServiceSuite) TestDestroyWithreferencedRelationStaleCount(c *gc.C) {
 }
 
 func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel0, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err = s.State.InferEndpoints([]string{"logging", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel1, err := s.State.AddRelation(eps...)
@@ -1162,8 +1147,7 @@ func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	// with matching names.
 	ch, _, err := s.mysql.Charm()
 	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService(s.mysql.Name(), ch)
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
@@ -1195,10 +1179,9 @@ func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {
 
 func (s *ServiceSuite) TestSubordinateConstraints(c *gc.C) {
 	loggingCh := s.AddTestingCharm(c, "logging")
-	logging, err := s.State.AddService("logging", loggingCh)
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", loggingCh)
 
-	_, err = logging.Constraints()
+	_, err := logging.Constraints()
 	c.Assert(err, gc.Equals, state.ErrSubordinateConstraints)
 
 	err = logging.SetConstraints(constraints.Value{})
@@ -1316,8 +1299,7 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 	addRelation := func() *state.Relation {
 		name := fmt.Sprintf("wp%d", wpi)
 		wpi++
-		wp, err := s.State.AddService(name, wpch)
-		c.Assert(err, gc.IsNil)
+		wp := s.AddTestingService(c, name, wpch)
 		wpep, err := wp.Endpoint("db")
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(mysqlep, wpep)

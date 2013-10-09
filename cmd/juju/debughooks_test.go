@@ -69,12 +69,10 @@ var debugHooksTests = []struct {
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 	machines := s.makeMachines(3, c)
 	dummy := s.AddTestingCharm(c, "dummy")
-	srv, err := s.State.AddService("mysql", dummy)
-	c.Assert(err, gc.IsNil)
+	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, machines[0], c)
 
-	srv, err = s.State.AddService("mongodb", dummy)
-	c.Assert(err, gc.IsNil)
+	srv = s.AddTestingService(c, "mongodb", dummy)
 	s.addUnit(srv, machines[1], c)
 	s.addUnit(srv, machines[2], c)
 
