@@ -5,6 +5,8 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
 	"os"
 	"reflect"
 
@@ -126,7 +128,18 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 	}
 }
 
+func nullContext() *cmd.Context {
+	ctx := cmd.DefaultContext()
+	ctx.Stdin = io.LimitReader(nil, 0)
+	ctx.Stdout = ioutil.Discard
+	ctx.Stderr = ioutil.Discard
+	return ctx
+}
+
 func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+	if ctx == nil {
+		panic("ctx == nil")
+	}
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -140,9 +153,6 @@ func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 			return
 		}
 
-		if ctx == nil {
-			ctx = cmd.DefaultContext()
-		}
 		err = com.Run(ctx)
 		errc <- err
 	}()
@@ -161,7 +171,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// normal destroy
-	opc, errc := runCommand(nil, new(DestroyEnvironmentCommand), "--yes")
+	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
 
@@ -173,7 +183,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// destroy with broken environment
-	opc, errc = runCommand(nil, new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-opc, gc.IsNil)
