@@ -165,27 +165,7 @@ func IsVersionInconsistentError(e interface{}) bool {
 	return ok
 }
 
-func (st *State) getCurrentAgentVersion(newVersion version.Number) (string, int64, error) {
-	settings, err := readSettings(st, environGlobalKey)
-	if err != nil {
-		return "", 0, err
-	}
-	agentVersion, ok := settings.Get("agent-version")
-	if !ok {
-		return "", 0, fmt.Errorf("no agent version set in the environment")
-	}
-	currentVersion, ok := agentVersion.(string)
-	if !ok {
-		return "", 0, fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
-	}
-	if newVersion.String() == currentVersion {
-		// Nothing to do.
-		return "", 0, nil
-	}
-	return currentVersion, settings.txnRevno, nil
-}
-
-func (st *State) getAgentTagsNotMatchingVersion(currentVersion, newVersion string) ([]string, error) {
+func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
@@ -211,10 +191,13 @@ func (st *State) getAgentTagsNotMatchingVersion(currentVersion, newVersion strin
 			}
 		}
 		if err := iter.Err(); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return agentTags, nil
+	if len(agentTags) > 0 {
+		return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
+	}
+	return nil
 }
 
 // SetEnvironAgentVersion changes the agent version for the
@@ -222,26 +205,31 @@ func (st *State) getAgentTagsNotMatchingVersion(currentVersion, newVersion strin
 // stable state (all agents are running the current version).
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	for i := 0; i < 5; i++ {
-		currentVersion, revNo, err := st.getCurrentAgentVersion(newVersion)
-		if err == nil && currentVersion == "" {
-			// Nothing to do - version already changed.
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		agentTags, err := st.getAgentTagsNotMatchingVersion(currentVersion, newVersion.String())
+		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
 			return err
 		}
-		if len(agentTags) > 0 {
-			return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
+		agentVersion, ok := settings.Get("agent-version")
+		if !ok {
+			return fmt.Errorf("no agent version set in the environment")
+		}
+		currentVersion, ok := agentVersion.(string)
+		if !ok {
+			return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
+		}
+		if newVersion.String() == currentVersion {
+			// Nothing to do.
+			return nil
+		}
+
+		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
+			return err
 		}
 
 		ops := []txn.Op{{
 			C:      st.settings.Name,
 			Id:     environGlobalKey,
-			Assert: D{{"txn-revno", revNo}},
+			Assert: D{{"txn-revno", settings.txnRevno}},
 			Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
 		}}
 		if err := st.runTransaction(ops); err == nil {
