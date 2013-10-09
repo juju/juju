@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -62,8 +61,8 @@ type Config interface {
 	CACert() []byte
 
 	// OpenAPI tries to connect to an API end-point.  If a non-empty
-	// newPassword is returned, the password used to connect to the state
-	// should be changed accordingly - the caller should set the entity's
+	// newPassword is returned, OpenAPI will have written the configuration
+	// with the new password; the caller should set the connecting entity's
 	// password accordingly.
 	OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error)
 
@@ -79,10 +78,6 @@ type Config interface {
 	// elements.
 	WriteCommands() ([]string, error)
 
-	// GenerateNewPassword creates a new random password and saves this.  The
-	// new password string is returned.
-	GenerateNewPassword() (string, error)
-
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
@@ -92,6 +87,8 @@ type Config interface {
 
 	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
+
+	StateInitializer
 }
 
 // Ensure that the configInternal struct implements the Config interface.
@@ -142,7 +139,9 @@ type AgentConfigParams struct {
 	Values         map[string]string
 }
 
-func newConfig(params AgentConfigParams) (*configInternal, error) {
+// NewAgentConfig returns a new config object suitable for use for a
+// machine or unit agent.
+func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	if params.DataDir == "" {
 		return nil, requiredError("data directory")
 	}
@@ -184,13 +183,6 @@ func newConfig(params AgentConfigParams) (*configInternal, error) {
 	return config, nil
 }
 
-// NewAgentConfig returns a new config object suitable for use for a unit
-// agent. As the unit agent becomes entirely APIified, we should remove the
-// state addresses from here.
-func NewAgentConfig(params AgentConfigParams) (Config, error) {
-	return newConfig(params)
-}
-
 type StateMachineConfigParams struct {
 	AgentConfigParams
 	StateServerCert []byte
@@ -199,6 +191,8 @@ type StateMachineConfigParams struct {
 	APIPort         int
 }
 
+// NewStateMachineConfig returns a configuration suitable for
+// a machine running the state server.
 func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	if params.StateServerCert == nil {
 		return nil, requiredError("state server cert")
@@ -206,10 +200,11 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	if params.StateServerKey == nil {
 		return nil, requiredError("state server key")
 	}
-	config, err := newConfig(params.AgentConfigParams)
+	config0, err := NewAgentConfig(params.AgentConfigParams)
 	if err != nil {
 		return nil, err
 	}
+	config := config0.(*configInternal)
 	config.stateServerCert = params.StateServerCert
 	config.stateServerKey = params.StateServerKey
 	config.apiPort = params.APIPort
@@ -253,7 +248,7 @@ func ReadConf(dataDir, tag string) (Config, error) {
 		currentFormatter.migrate(config)
 		// Write the content out in the new format.
 		if err := currentFormatter.write(config); err != nil {
-			logger.Errorf("Problem writing the agent config out in format: %s, %v", currentFormat, err)
+			logger.Errorf("cannot write the agent config in format %s: %v", currentFormat, err)
 			return nil, err
 		}
 	}
@@ -265,7 +260,6 @@ func requiredError(what string) error {
 	return fmt.Errorf("%s not found in configuration", what)
 }
 
-// File returns the path of the given file in the agent's directory.
 func (c *configInternal) File(name string) string {
 	return path.Join(c.Dir(), name)
 }
@@ -305,18 +299,14 @@ func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 	return c.apiPort, c.stateServerCert, c.stateServerKey
 }
 
-// Tag returns the tag of the entity on whose behalf the state connection will
-// be made.
 func (c *configInternal) Tag() string {
 	return c.tag
 }
 
-// Dir returns the agent's directory.
 func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
 }
 
-// Check checks that the configuration has all the required elements.
 func (c *configInternal) check() error {
 	if c.stateDetails == nil && c.apiDetails == nil {
 		return requiredError("state or API addresses")
@@ -348,7 +338,9 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) GenerateNewPassword() (string, error) {
+// writeNewPassword generates a new password and writes
+// the configuration with it in.
+func (c *configInternal) writeNewPassword() (string, error) {
 	newPassword, err := utils.RandomPassword()
 	if err != nil {
 		return "", err
@@ -367,7 +359,7 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 		apiDetails.password = newPassword
 		other.apiDetails = &apiDetails
 	}
-
+	logger.Debugf("writing configuration file")
 	if err := other.Write(); err != nil {
 		return "", err
 	}
@@ -375,7 +367,6 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 	return newPassword, nil
 }
 
-// Write writes the agent configuration.
 func (c *configInternal) Write() error {
 	// Lock is taken prior to generating any content to write.
 	configMutex.Lock()
@@ -383,18 +374,10 @@ func (c *configInternal) Write() error {
 	return currentFormatter.write(c)
 }
 
-// WriteCommands returns shell commands to write the agent
-// configuration.  It returns an error if the configuration does not
-// have all the right elements.
 func (c *configInternal) WriteCommands() ([]string, error) {
 	return currentFormatter.writeCommands(c)
 }
 
-// OpenAPI tries to open the state using the given Conf.  If it
-// returns a non-empty newPassword, the password used to connect
-// to the state should be changed accordingly - the caller should write the
-// configuration with StateInfo.Password set to newPassword, then
-// set the entity's password accordingly.
 func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
 	info := api.Info{
 		Addrs:    c.apiDetails.addresses,
@@ -424,7 +407,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 
 	// We've succeeded in connecting with the old password, so
 	// we can now change it to something more private.
-	password, err := c.GenerateNewPassword()
+	password, err := c.writeNewPassword()
 	if err != nil {
 		st.Close()
 		return nil, "", err
@@ -432,7 +415,6 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 	return st, password, nil
 }
 
-// OpenState tries to open the state using the given Conf.
 func (c *configInternal) OpenState() (*state.State, error) {
 	info := state.Info{
 		Addrs:    c.stateDetails.addresses,
@@ -453,53 +435,4 @@ func (c *configInternal) OpenState() (*state.State, error) {
 	}
 	info.Password = c.oldPassword
 	return state.Open(&info, state.DefaultDialOpts())
-}
-
-func InitialStateConfiguration(agentConfig Config, cfg *config.Config, timeout state.DialOpts) (*state.State, error) {
-	c := agentConfig.(*configInternal)
-	info := state.Info{
-		Addrs:  c.stateDetails.addresses,
-		CACert: c.caCert,
-	}
-	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, cfg, timeout)
-	if err != nil {
-		if errors.IsUnauthorizedError(err) {
-			logger.Errorf("unauthorized: %v", err)
-		} else {
-			logger.Errorf("failed to initialize state: %v", err)
-		}
-		return nil, err
-	}
-	logger.Debugf("state initialized")
-
-	if err := bootstrapUsers(st, cfg, c.oldPassword); err != nil {
-		st.Close()
-		return nil, err
-	}
-	return st, nil
-}
-
-// bootstrapUsers creates the initial admin user for the database, and sets
-// the initial password.
-func bootstrapUsers(st *state.State, cfg *config.Config, passwordHash string) error {
-	logger.Debugf("adding admin user")
-	// Set up initial authentication.
-	u, err := st.AddUser("admin", "")
-	if err != nil {
-		return err
-	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-	logger.Debugf("setting password hash for admin user")
-	if err := u.SetPasswordHash(passwordHash); err != nil {
-		return err
-	}
-	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
-		return err
-	}
-	return nil
 }

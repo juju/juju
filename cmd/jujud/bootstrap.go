@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -58,22 +57,23 @@ func (c *BootstrapCommand) Init(args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	err := c.Conf.read("bootstrap")
+	data, err := ioutil.ReadFile(providerStateURLFile)
+	if err != nil {
+		return fmt.Errorf("cannot read provider-state-url file: %v", err)
+	}
+	stateInfoURL := strings.Split(string(data), "\n")[0]
+	bsState, err := common.LoadStateFromURL(stateInfoURL)
+	if err != nil {
+		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
+	}
+	err = c.Conf.read("machine-0")
 	if err != nil {
 		return err
 	}
-	cfg, err := config.New(config.NoDefaults, c.EnvConfig)
+	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
 	if err != nil {
 		return err
 	}
-
-	// There is no entity that's created at init time
-	st, err := agent.InitialStateConfiguration(c.Conf.config, cfg, state.DefaultDialOpts())
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-
 	// TODO(fwereade): we need to be able to customize machine jobs,
 	// not just hardcode these values; in particular, JobHostUnits
 	// on a machine, like this one, that is running JobManageEnviron
@@ -88,25 +88,25 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Upgrader, and it's a capability we'll always want to have
 	// available for the aforementioned use case.
 	jobs := []state.MachineJob{
-		state.JobManageEnviron, state.JobManageState, state.JobHostUnits,
+		state.JobManageEnviron,
+		state.JobManageState,
+		state.JobHostUnits,
 	}
-
-	data, err := ioutil.ReadFile(providerStateURLFile)
-	if err != nil {
-		return fmt.Errorf("cannot read provider-state-url file: %v", err)
-	}
-	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := common.LoadStateFromURL(stateInfoURL)
-	if err != nil {
-		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
-	}
-	instId := bsState.StateInstances[0]
 	var characteristics instance.HardwareCharacteristics
 	if len(bsState.Characteristics) > 0 {
 		characteristics = bsState.Characteristics[0]
 	}
-
-	return bootstrap.ConfigureBootstrapMachine(st, c.Constraints, c.Conf.dataDir, jobs, instance.Id(instId), characteristics)
+	st, _, err := c.Conf.config.InitializeState(envCfg, agent.BootstrapMachineConfig{
+		Constraints:     c.Constraints,
+		Jobs:            jobs,
+		InstanceId:      bsState.StateInstances[0],
+		Characteristics: characteristics,
+	}, state.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	st.Close()
+	return nil
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.
