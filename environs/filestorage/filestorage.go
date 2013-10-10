@@ -151,7 +151,7 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 		os.Remove(file.Name())
 		return err
 	}
-	return os.Rename(file.Name(), fullpath)
+	return utils.Replace(file.Name(), fullpath)
 }
 
 func (f *fileStorageWriter) Remove(name string) error {

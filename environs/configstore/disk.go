@@ -199,7 +199,7 @@ func (info *environInfo) Write() error {
 	if err != nil {
 		return fmt.Errorf("cannot write temporary file: %v", err)
 	}
-	if err := os.Rename(tmpFile.Name(), info.path); err != nil {
+	if err := utils.Replace(tmpFile.Name(), info.path); err != nil {
 		os.Remove(tmpFile.Name())
 		return fmt.Errorf("cannot rename new environment info file: %v", err)
 	}
