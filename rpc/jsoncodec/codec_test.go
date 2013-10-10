@@ -37,9 +37,11 @@ var readTests = []struct {
 	msg: `{"RequestId": 1, "Type": "foo", "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
 	expectHdr: rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:      "foo",
+			Id:        "id",
+			Action:   "frob",
+		},
 	},
 	expectBody: &value{X: "param"},
 }, {
@@ -109,9 +111,11 @@ func (*suite) TestWriteMessageLogsRequests(c *gc.C) {
 	codec := jsoncodec.New(&testConn{})
 	h := rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:      "foo",
+			Id:        "id",
+			Action:   "frob",
+		},
 	}
 
 	// Check that logging is off by default
@@ -144,9 +148,11 @@ func (*suite) TestConcurrentSetLoggingAndWrite(c *gc.C) {
 	}()
 	h := rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:      "foo",
+			Id:        "id",
+			Action:   "frob",
+		},
 	}
 	err := codec.WriteMessage(&h, value{X: "param"})
 	c.Assert(err, gc.IsNil)
@@ -196,9 +202,11 @@ var writeTests = []struct {
 }{{
 	hdr: &rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:      "foo",
+			Id:        "id",
+			Action:   "frob",
+		},
 	},
 	body:   &value{X: "param"},
 	expect: `{"RequestId": 1, "Type": "foo","Id":"id", "Request": "frob", "Params": {"X": "param"}}`,
