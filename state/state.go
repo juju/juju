@@ -690,14 +690,13 @@ func (st *State) AllServices() (services []*Service, err error) {
 }
 
 // GetServiceOwner returns the owner of the named service
-func (st *State) GetServiceOwner(name string) string {
+func (st *State) GetServiceOwnerTag(name string) (string, error) {
 	svc, err := st.Service(name)
 	if err != nil {
-		logger.Warningf("Failed to find service: %v - no owner-tag will be set", err)
-		return ""
+		return "", fmt.Errorf("Failed to find service %v with err %v, no owner-tag can be set", name, err)
 	}
 
-	return svc.GetOwnerTag()
+	return svc.GetOwnerTag(), nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
