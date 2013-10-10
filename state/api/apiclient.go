@@ -158,7 +158,11 @@ func (s *State) Ping() error {
 // we return the correct error when invoking Call("Object",
 // "non-empty-id",...)
 func (s *State) Call(objType, id, request string, args, response interface{}) error {
-	err := s.client.Call(objType, id, request, args, response)
+	err := s.client.Call(rpc.Request{
+		Type:   objType,
+		Id:     id,
+		Action: request,
+	}, args, response)
 	return params.ClientError(err)
 }
 

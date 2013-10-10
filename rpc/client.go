@@ -11,9 +11,7 @@ var ErrShutdown = errors.New("connection is shut down")
 
 // Call represents an active RPC.
 type Call struct {
-	Type     string
-	Id       string
-	Request  string
+	Request
 	Params   interface{}
 	Response interface{}
 	Error    error
@@ -61,8 +59,6 @@ func (conn *Conn) send(call *Call) {
 	// Encode and send the request.
 	hdr := &Header{
 		RequestId: reqId,
-		Type:      call.Type,
-		Id:        call.Id,
 		Request:   call.Request,
 	}
 	params := call.Params
@@ -131,8 +127,8 @@ func (call *Call) done() {
 // error will be of type RequestError.  The params value may be nil if
 // no parameters are provided; the response value may be nil to indicate
 // that any result should be discarded.
-func (conn *Conn) Call(objType, id, action string, params, response interface{}) error {
-	call := <-conn.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
+func (conn *Conn) Call(req Request, params, response interface{}) error {
+	call := <-conn.Go(req, params, response, make(chan *Call, 1)).Done
 	return call.Error
 }
 
@@ -140,7 +136,7 @@ func (conn *Conn) Call(objType, id, action string, params, response interface{})
 // the invocation.  The done channel will signal when the call is complete by returning
 // the same Call object.  If done is nil, Go will allocate a new channel.
 // If non-nil, done must be buffered or Go will deliberately panic.
-func (conn *Conn) Go(objType, id, request string, args, response interface{}, done chan *Call) *Call {
+func (conn *Conn) Go(req Request, args, response interface{}, done chan *Call) *Call {
 	if done == nil {
 		done = make(chan *Call, 1)
 	} else {
@@ -153,9 +149,7 @@ func (conn *Conn) Go(objType, id, request string, args, response interface{}, do
 		}
 	}
 	call := &Call{
-		Type:     objType,
-		Id:       id,
-		Request:  request,
+		Request:  req,
 		Params:   args,
 		Response: response,
 		Done:     done,

@@ -38,9 +38,9 @@ var readTests = []struct {
 	expectHdr: rpc.Header{
 		RequestId: 1,
 		Request: rpc.Request{
-			Type:      "foo",
-			Id:        "id",
-			Action:   "frob",
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
 		},
 	},
 	expectBody: &value{X: "param"},
@@ -112,9 +112,9 @@ func (*suite) TestWriteMessageLogsRequests(c *gc.C) {
 	h := rpc.Header{
 		RequestId: 1,
 		Request: rpc.Request{
-			Type:      "foo",
-			Id:        "id",
-			Action:   "frob",
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
 		},
 	}
 
@@ -149,9 +149,9 @@ func (*suite) TestConcurrentSetLoggingAndWrite(c *gc.C) {
 	h := rpc.Header{
 		RequestId: 1,
 		Request: rpc.Request{
-			Type:      "foo",
-			Id:        "id",
-			Action:   "frob",
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
 		},
 	}
 	err := codec.WriteMessage(&h, value{X: "param"})
@@ -203,9 +203,9 @@ var writeTests = []struct {
 	hdr: &rpc.Header{
 		RequestId: 1,
 		Request: rpc.Request{
-			Type:      "foo",
-			Id:        "id",
-			Action:   "frob",
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
 		},
 	},
 	body:   &value{X: "param"},

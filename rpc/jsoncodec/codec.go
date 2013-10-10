@@ -122,8 +122,8 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	}
 	hdr.RequestId = c.msg.RequestId
 	hdr.Request = rpc.Request{
-		Type: c.msg.Type,
-		Id: c.msg.Id,
+		Type:   c.msg.Type,
+		Id:     c.msg.Id,
 		Action: c.msg.Request,
 	}
 	hdr.Error = c.msg.Error
