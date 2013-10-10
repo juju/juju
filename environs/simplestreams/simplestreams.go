@@ -403,9 +403,13 @@ func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstrai
 		if err != nil && len(items) == 0 && !onlySigned {
 			items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
 		}
-		if err == nil && len(items) != 0 {
+		if err == nil {
 			break
 		}
+	}
+	if _, ok := err.(*noMatchingProductsError); ok {
+		// no matching products is an internal error only
+		err = nil
 	}
 	return items, err
 }
@@ -439,9 +443,6 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons Lookup
 		}
 		if _, ok := err.(*noMatchingProductsError); ok {
 			logger.Debugf("%v", err)
-			// No matching products is not considered an error which will allow another source to be
-			// searched, so return err = nil here.
-			return items, nil
 		}
 	}
 	return items, err
