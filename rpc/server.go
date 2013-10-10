@@ -110,7 +110,6 @@ type Conn struct {
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
 
-
 	// reqId holds the latest client request id.
 	reqId uint64
 
@@ -158,7 +157,7 @@ type RequestNotifier interface {
 	// to a request. If the reply was to an unrecognised request,
 	// the Request will be zero-valued. If the reply contained an
 	// error, body will be nil; otherwise body will be the value that
-	// was passed to the Conn.Call method. 
+	// was passed to the Conn.Call method.
 	ClientReply(req Request, hdr *Header, body interface{})
 }
 
@@ -170,7 +169,7 @@ func NewConn(codec Codec, notifier RequestNotifier) *Conn {
 	return &Conn{
 		codec:         codec,
 		clientPending: make(map[uint64]*Call),
-		notifier: notifier,
+		notifier:      notifier,
 	}
 }
 
@@ -433,7 +432,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error) error {
 type boundRequest struct {
 	rpcreflect.MethodCaller
 	transformErrors func(error) error
-	hdr Header
+	hdr             Header
 }
 
 // bindRequest searches for methods implementing the
@@ -455,7 +454,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	return boundRequest{
 		MethodCaller:    caller,
 		transformErrors: transformErrors,
-		hdr: *hdr,
+		hdr:             *hdr,
 	}, nil
 }
 
