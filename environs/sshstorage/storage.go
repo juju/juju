@@ -84,8 +84,11 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 
 	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
 	cmd.Stdin = os.Stdin
-	if out, err := cmd.CombinedOutput(); err != nil {
-		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(string(out)))
+	cmd.Stdout = os.Stdout // for sudo prompts/output
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(stderr.String()))
 		return nil, err
 	}
 
