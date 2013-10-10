@@ -258,7 +258,7 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 			os.Remove(dlPath)
 			return nil, err
 		}
-		if err := utils.Replace(dlPath, path); err != nil {
+		if err := utils.ReplaceFile(dlPath, path); err != nil {
 			return nil, err
 		}
 	}

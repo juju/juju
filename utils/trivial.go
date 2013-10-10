@@ -32,7 +32,7 @@ func WriteYaml(path string, obj interface{}) error {
 	if _, err = f.Write(data); err != nil {
 		return err
 	}
-	return Replace(prep, path)
+	return ReplaceFile(prep, path)
 }
 
 // ReadYaml unmarshals the yaml contained in the file at path into obj. See
