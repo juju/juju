@@ -1054,12 +1054,10 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
-	ctx.svc, err = s.State.AddService("u", ctx.sch)
-	c.Assert(err, gc.IsNil)
+	ctx.svc = s.AddTestingService(c, "u", ctx.sch)
 
 	// Create the principal service and add a relation.
-	wps, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wpu, err := wps.AddUnit()
 	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "u"})
@@ -1157,6 +1155,7 @@ func (serveCharm) step(c *gc.C, ctx *context) {
 }
 
 type createServiceAndUnit struct {
+	testing.JujuConnSuite
 	serviceName string
 }
 
@@ -1166,8 +1165,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, gc.IsNil)
-	svc, err := ctx.st.AddService(csau.serviceName, sch)
-	c.Assert(err, gc.IsNil)
+	svc := csau.AddTestingService(c, csau.serviceName, sch)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
@@ -1592,16 +1590,16 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 	}
 }
 
-type addRelation struct{}
+type addRelation struct {
+	testing.JujuConnSuite
+}
 
 func (s addRelation) step(c *gc.C, ctx *context) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedSvc == nil {
-		var err error
-		ctx.relatedSvc, err = ctx.st.AddService("mysql", ctx.s.AddTestingCharm(c, "mysql"))
-		c.Assert(err, gc.IsNil)
+		ctx.relatedSvc = s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints([]string{"u", "mysql"})
 	c.Assert(err, gc.IsNil)
@@ -1669,13 +1667,13 @@ func (s relationState) step(c *gc.C, ctx *context) {
 }
 
 type addSubordinateRelation struct {
+	testing.JujuConnSuite
 	ifce string
 }
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Service("logging"); errors.IsNotFoundError(err) {
-		_, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
-		c.Assert(err, gc.IsNil)
+		s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
 	c.Assert(err, gc.IsNil)

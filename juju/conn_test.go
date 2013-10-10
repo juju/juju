@@ -233,6 +233,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 }
 
 type ConnSuite struct {
+	testing.JujuConnSuite
 	testbase.LoggingSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
@@ -380,8 +381,7 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := s.conn.State.AddService("testriak", sch)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "testriak", sch)
 	units, err := s.conn.AddUnits(svc, 2, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(units, gc.HasLen, 2)

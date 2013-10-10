@@ -35,10 +35,8 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(needed, gc.Equals, false)
 
-	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
 	relM, err := s.State.AddRelation(eps...)

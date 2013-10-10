@@ -56,8 +56,7 @@ func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 
 	// Add a charm, service and unit to login to the API with.
 	charm := s.AddTestingCharm(c, "wordpress")
-	service, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "wordpress", charm)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword("password")

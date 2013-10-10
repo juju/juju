@@ -40,8 +40,7 @@ const initialUnitPassword = "unit-password"
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools) {
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(initialUnitPassword)

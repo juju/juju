@@ -43,7 +43,7 @@ var _ = gc.Suite(&RelationerSuite{})
 func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.svc, err = s.State.AddService("u", s.AddTestingCharm(c, "riak"))
+	s.svc = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, gc.IsNil)
 	rels, err := s.svc.Relations()
 	c.Assert(err, gc.IsNil)
@@ -375,14 +375,12 @@ var _ = gc.Suite(&RelationerImplicitSuite{})
 
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = u.SetPrivateAddress("blah")
 	c.Assert(err, gc.IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
