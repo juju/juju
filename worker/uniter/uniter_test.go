@@ -1155,7 +1155,6 @@ func (serveCharm) step(c *gc.C, ctx *context) {
 }
 
 type createServiceAndUnit struct {
-	testing.JujuConnSuite
 	serviceName string
 }
 
@@ -1165,7 +1164,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, gc.IsNil)
-	svc := csau.AddTestingService(c, csau.serviceName, sch)
+	svc := ctx.s.AddTestingService(c, csau.serviceName, sch)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
@@ -1599,7 +1598,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints([]string{"u", "mysql"})
 	c.Assert(err, gc.IsNil)
@@ -1667,13 +1666,12 @@ func (s relationState) step(c *gc.C, ctx *context) {
 }
 
 type addSubordinateRelation struct {
-	testing.JujuConnSuite
 	ifce string
 }
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Service("logging"); errors.IsNotFoundError(err) {
-		s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
+		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
 	c.Assert(err, gc.IsNil)
