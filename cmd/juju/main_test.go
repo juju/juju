@@ -255,6 +255,7 @@ var commandNames = []string{
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
+	"unset",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",

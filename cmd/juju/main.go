@@ -95,6 +95,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&InitCommand{}))
 	jujucmd.Register(wrap(&GetCommand{}))
 	jujucmd.Register(wrap(&SetCommand{}))
+	jujucmd.Register(wrap(&UnsetCommand{}))
 	jujucmd.Register(wrap(&GetConstraintsCommand{}))
 	jujucmd.Register(wrap(&SetConstraintsCommand{}))
 	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
