@@ -32,7 +32,9 @@ type Codec interface {
 	ReadBody(body interface{}, isRequest bool) error
 
 	// WriteMessage writes a message with the given header and body.
-	// The body will always be a struct.
+	// The body will always be a struct. It may be called concurrently
+	// with ReadHeader and ReadBody, but will not be called
+	// concurrently with itself.
 	WriteMessage(hdr *Header, body interface{}) error
 
 	// Close closes the codec. It may be called concurrently
@@ -45,16 +47,12 @@ type Codec interface {
 // from the other side or a response to an outstanding request.
 type Header struct {
 	// RequestId holds the sequence number of the request.
+	// For replies, it holds the sequence number of the request
+	// that is being replied to.
 	RequestId uint64
 
-	// Type holds the type of object to act on.
-	Type string
-
-	// Id holds the id of the object to act on.
-	Id string
-
-	// Request holds the action to invoke on the remote object.
-	Request string
+	// Request holds the action to invoke.
+	Request Request
 
 	// Error holds the error, if any.
 	Error string
@@ -63,10 +61,22 @@ type Header struct {
 	ErrorCode string
 }
 
+// Request represents an RPC to be performed, absent its parameters.
+type Request struct {
+	// Type holds the type of object to act on.
+	Type string
+
+	// Id holds the id of the object to act on.
+	Id string
+
+	// Action holds the action to perform on the object.
+	Action string
+}
+
 // IsRequest returns whether the header represents an RPC request.  If
 // it is not a request, it is a response.
 func (hdr *Header) IsRequest() bool {
-	return hdr.Type != "" || hdr.Request != ""
+	return hdr.Request.Type != "" || hdr.Request.Action != ""
 }
 
 // Note that we use "client request" and "server request" to name
@@ -306,7 +316,7 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
-	req, err := conn.findRequest(hdr)
+	req, err := conn.bindRequest(hdr)
 	if err != nil {
 		if err := conn.readBody(nil, true); err != nil {
 			return err
@@ -342,7 +352,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(hdr.RequestId, hdr.Id, req, arg)
+		go conn.runRequest(hdr.RequestId, hdr.Request.Id, req, arg)
 	}
 	conn.mutex.Unlock()
 	if closing {
@@ -370,32 +380,39 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 	return nil
 }
 
-type request struct {
+// boundRequest represents an RPC request that is
+// bound to an actual implementation.
+type boundRequest struct {
 	rpcreflect.MethodCaller
 	transformErrors func(error) error
+	req             Request
 }
 
-func (conn *Conn) findRequest(hdr *Header) (request, error) {
+// bindRequest searches for methods implementing the
+// request held in the given header and returns
+// a boundRequest that can call those methods.
+func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Lock()
 	rootValue := conn.rootValue
 	transformErrors := conn.transformErrors
 	conn.mutex.Unlock()
 
 	if !rootValue.IsValid() {
-		return request{}, fmt.Errorf("no service")
+		return boundRequest{}, fmt.Errorf("no service")
 	}
-	caller, err := rootValue.MethodCaller(hdr.Type, hdr.Request)
+	caller, err := rootValue.MethodCaller(hdr.Request.Type, hdr.Request.Action)
 	if err != nil {
-		return request{}, err
+		return boundRequest{}, err
 	}
-	return request{
+	return boundRequest{
 		MethodCaller:    caller,
 		transformErrors: transformErrors,
+		req:             hdr.Request,
 	}, nil
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(reqId uint64, objId string, req request, arg reflect.Value) {
+func (conn *Conn) runRequest(reqId uint64, objId string, req boundRequest, arg reflect.Value) {
 	defer conn.srvPending.Done()
 	rv, err := req.Call(objId, arg)
 	if err != nil {
