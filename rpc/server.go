@@ -141,16 +141,22 @@ type RequestNotifier interface {
 	// ServerRequest informs the RequestNotifier of a request made
 	// to the Conn. If the request was not recognized or there was
 	// an error reading the body, body will be nil.
+	//
+	// ServerRequest is called just before the server method
+	// is invoked.
 	ServerRequest(hdr *Header, body interface{})
 
 	// ServerReply informs the RequestNotifier of a reply sent to a
 	// server request. The given Request gives details of the call
 	// that was made; the given Header and body are the header and
 	// body sent as reply.
+	//
+	// ServerReply is called just before the reply is written.
 	ServerReply(req Request, hdr *Header, body interface{})
 
 	// ClientRequest informs the RequestNotifier of a request
-	// made from the Conn.
+	// made from the Conn. It is called just before the request is
+	// written.
 	ClientRequest(hdr *Header, body interface{})
 
 	// ClientReply informs the RequestNotifier of a reply received
@@ -158,6 +164,9 @@ type RequestNotifier interface {
 	// the Request will be zero-valued. If the reply contained an
 	// error, body will be nil; otherwise body will be the value that
 	// was passed to the Conn.Call method.
+	//
+	// ClientReply is called just before the reply is handed to
+	// back to the caller.
 	ClientReply(req Request, hdr *Header, body interface{})
 }
 
