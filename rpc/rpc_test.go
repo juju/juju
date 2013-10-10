@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"sync"
 	stdtesting "testing"
 	"time"
@@ -388,7 +389,7 @@ func (root *Root) assertClientNotified(c *gc.C, p testCallParams, r interface{})
 	c.Assert(p.clientNotifier.serverRequests, gc.HasLen, 0)
 	c.Assert(p.clientNotifier.serverReplies, gc.HasLen, 0)
 
-	// Test that the request got a notification.
+	// Test that there was a notification for the request.
 	c.Assert(p.clientNotifier.clientRequests, gc.HasLen, 1)
 	clientReq := p.clientNotifier.clientRequests[0]
 	requestId := clientReq.hdr.RequestId
@@ -398,7 +399,7 @@ func (root *Root) assertClientNotified(c *gc.C, p testCallParams, r interface{})
 	})
 	c.Assert(clientReq.body, gc.Equals, stringVal{"arg"})
 
-	// Test that the reply got a notification.
+	// Test that there was a notification for the reply.
 	c.Assert(p.clientNotifier.clientReplies, gc.HasLen, 1)
 	clientReply := p.clientNotifier.clientReplies[0]
 	c.Assert(clientReply.req, gc.Equals, p.request())
@@ -428,7 +429,7 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 	c.Assert(p.serverNotifier.clientRequests, gc.HasLen, 0)
 	c.Assert(p.serverNotifier.clientReplies, gc.HasLen, 0)
 
-	// Test that the request got a notification.
+	// Test that there was a notification for the request.
 	c.Assert(p.serverNotifier.serverRequests, gc.HasLen, 1)
 	serverReq := p.serverNotifier.serverRequests[0]
 	c.Assert(serverReq.hdr, gc.DeepEquals, rpc.Header{
@@ -441,7 +442,7 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 		c.Assert(serverReq.body, gc.Equals, struct{}{})
 	}
 
-	// Test that the reply got a notification.
+	// Test that there was a notification for the reply.
 	c.Assert(p.serverNotifier.serverReplies, gc.HasLen, 1)
 	serverReply := p.serverNotifier.serverReplies[0]
 	c.Assert(serverReply.req, gc.Equals, p.request())
@@ -671,18 +672,91 @@ func (*rpcSuite) TestBadCall(c *gc.C) {
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
-	client, srvDone, _, _ := newRPCClientServer(c, root, nil, false)
+	client, srvDone, clientNotifier, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
-	// TODO test notifiers
 
-	err := client.Call(rpc.Request{"BadSomething", "a0", "No"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "BadSomething"`)
+	testBadCall(c, client, clientNotifier, serverNotifier,
+		rpc.Request{"BadSomething", "a0", "No"},
+		`unknown object type "BadSomething"`,
+		false,
+	)
+	testBadCall(c, client, clientNotifier, serverNotifier,
+		rpc.Request{"SimpleMethods", "xx", "No"},
+		`no such request "No" on SimpleMethods`,
+		false,
+	)
+	testBadCall(c, client, clientNotifier, serverNotifier,
+		rpc.Request{"SimpleMethods", "xx", "Call0r0"},
+		`unknown SimpleMethods id`,
+		true,
+	)
+}
 
-	err = client.Call(rpc.Request{"SimpleMethods", "xx", "No"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `request error: no such request "No" on SimpleMethods`)
+func testBadCall(
+	c *gc.C,
+	client *rpc.Conn,
+	clientNotifier, serverNotifier *notifier,
+	req rpc.Request,
+	expectedErr string,
+	requestKnown bool,
+) {
+	clientNotifier.reset()
+	serverNotifier.reset()
+	err := client.Call(req, nil, nil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("request error: "+expectedErr))
 
-	err = client.Call(rpc.Request{"SimpleMethods", "xx", "Call0r0"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, "request error: unknown SimpleMethods id")
+	// Test that there was a notification for the client request.
+	c.Assert(clientNotifier.clientRequests, gc.HasLen, 1)
+	clientReq := clientNotifier.clientRequests[0]
+	requestId := clientReq.hdr.RequestId
+	c.Assert(clientReq, gc.DeepEquals, requestEvent{
+		hdr: rpc.Header{
+			RequestId: requestId,
+			Request:   req,
+		},
+		body: struct{}{},
+	})
+	// Test that there was a notification for the client reply.
+	c.Assert(clientNotifier.clientReplies, gc.HasLen, 1)
+	clientReply := clientNotifier.clientReplies[0]
+	c.Assert(clientReply, gc.DeepEquals, replyEvent{
+		req: req,
+		hdr: rpc.Header{
+			RequestId: requestId,
+			Error:     expectedErr,
+		},
+	})
+
+	// Test that there was a notification for the server request.
+	c.Assert(serverNotifier.serverRequests, gc.HasLen, 1)
+	serverReq := serverNotifier.serverRequests[0]
+
+	// From docs on ServerRequest:
+	// 	If the request was not recognized or there was
+	//	an error reading the body, body will be nil.
+	var expectBody interface{}
+	if requestKnown {
+		expectBody = struct{}{}
+	}
+	c.Assert(serverReq, gc.DeepEquals, requestEvent{
+		hdr: rpc.Header{
+			RequestId: requestId,
+			Request:   req,
+		},
+		body: expectBody,
+	})
+
+	// Test that there was a notification for the server reply.
+	c.Assert(serverNotifier.serverReplies, gc.HasLen, 1)
+	serverReply := serverNotifier.serverReplies[0]
+	c.Assert(serverReply, gc.DeepEquals, replyEvent{
+		hdr: rpc.Header{
+			RequestId: requestId,
+			Error:     expectedErr,
+		},
+		req:  req,
+		body: struct{}{},
+	})
 }
 
 func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
