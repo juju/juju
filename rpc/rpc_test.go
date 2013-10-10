@@ -704,7 +704,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 		if bidir {
 			role = roleBoth
 		}
-		rpcConn := rpc.NewConn(NewJSONCodec(conn, role))
+		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), nil)
 		rpcConn.Serve(root, tfErr)
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
@@ -719,7 +719,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	if bidir {
 		role = roleBoth
 	}
-	client := rpc.NewConn(NewJSONCodec(conn, role))
+	client := rpc.NewConn(NewJSONCodec(conn, role), nil)
 	client.Start()
 	return client, srvDone
 }
