@@ -583,11 +583,17 @@ func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 		clone.Size = size
 		return &clone
 	}
+	withSHA256 := func(md *tools.ToolsMetadata, sha256 string) *tools.ToolsMetadata {
+		clone := *md
+		clone.SHA256 = sha256
+		return &clone
+	}
 
 	type mdlist []*tools.ToolsMetadata
 	type test struct {
 		name             string
 		lhs, rhs, merged []*tools.ToolsMetadata
+		err              string
 	}
 	tests := []test{{
 		name:   "non-empty lhs, empty rhs",
@@ -620,10 +626,20 @@ func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 		rhs:    mdlist{withSize(md2, 123)},
 		merged: mdlist{withSize(md2, 123)},
 	}, {
-		name:   "same tools in lhs and rhs, both have a size: prefer lhs",
+		name:   "same tools in lhs and rhs, both have the same size: prefer lhs",
 		lhs:    mdlist{withSize(md1, 123)},
-		rhs:    mdlist{withSize(md2, 456)},
+		rhs:    mdlist{withSize(md2, 123)},
 		merged: mdlist{withSize(md1, 123)},
+	}, {
+		name: "same tools in lhs and rhs, both have different sizes: error",
+		lhs:  mdlist{withSize(md1, 123)},
+		rhs:  mdlist{withSize(md2, 456)},
+		err:  "metadata mismatch for 1\\.2\\.3-precise-amd64: sizes=\\(123,456\\) sha256=\\(,\\)",
+	}, {
+		name: "same tools in lhs and rhs, both have same size but different sha256: error",
+		lhs:  mdlist{withSHA256(withSize(md1, 123), "a")},
+		rhs:  mdlist{withSHA256(withSize(md2, 123), "b")},
+		err:  "metadata mismatch for 1\\.2\\.3-precise-amd64: sizes=\\(123,123\\) sha256=\\(a,b\\)",
 	}, {
 		name:   "lhs is a proper superset of rhs: union of lhs and rhs",
 		lhs:    mdlist{md1, md3},
@@ -637,8 +653,14 @@ func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
-		merged := tools.MergeMetadata(test.lhs, test.rhs)
-		c.Assert(merged, gc.DeepEquals, test.merged)
+		merged, err := tools.MergeMetadata(test.lhs, test.rhs)
+		if test.err == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(merged, gc.DeepEquals, test.merged)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(merged, gc.IsNil)
+		}
 	}
 }
 

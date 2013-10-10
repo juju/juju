@@ -235,17 +235,30 @@ func ResolveMetadata(stor storage.StorageReader, metadata []*ToolsMetadata) erro
 
 // MergeMetadata merges the given tools metadata.
 // If metadata for the same tools version exists in both lists,
-// an entry with non-empty size/SHA256 takes precedence. If
-// both entries have information, prefer the entry from
-// "newMetadata".
-func MergeMetadata(newMetadata, oldMetadata []*ToolsMetadata) []*ToolsMetadata {
+// an entry with non-empty size/SHA256 takes precedence; if
+// the two entries have different sizes/hashes, then an error is
+// returned.
+func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) {
 	merged := make(map[version.Binary]*ToolsMetadata)
-	for _, tm := range newMetadata {
+	for _, tm := range tmlist1 {
 		merged[tm.binary()] = tm
 	}
-	for _, tm := range oldMetadata {
+	for _, tm := range tmlist2 {
 		binary := tm.binary()
-		if existing, ok := merged[binary]; !ok || (existing.Size == 0 && tm.Size != 0) {
+		if existing, ok := merged[binary]; ok {
+			if tm.Size != 0 {
+				if existing.Size == 0 {
+					merged[binary] = tm
+				} else if existing.Size != tm.Size || existing.SHA256 != tm.SHA256 {
+					return nil, fmt.Errorf(
+						"metadata mismatch for %s: sizes=(%v,%v) sha256=(%v,%v)",
+						binary.String(),
+						existing.Size, tm.Size,
+						existing.SHA256, tm.SHA256,
+					)
+				}
+			}
+		} else {
 			merged[binary] = tm
 		}
 	}
@@ -253,7 +266,7 @@ func MergeMetadata(newMetadata, oldMetadata []*ToolsMetadata) []*ToolsMetadata {
 	for _, metadata := range merged {
 		list = append(list, metadata)
 	}
-	return list
+	return list, nil
 }
 
 // ReadMetadata returns the tools metadata from the given storage.
@@ -305,7 +318,9 @@ func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, resolve b
 		return err
 	}
 	metadata := MetadataFromTools(tools)
-	metadata = MergeMetadata(metadata, existing)
+	if metadata, err = MergeMetadata(metadata, existing); err != nil {
+		return err
+	}
 	if resolve {
 		if err = ResolveMetadata(stor, metadata); err != nil {
 			return err
