@@ -9,9 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	// To be changed once merged/published
-	//"launchpad.net/juju-core/provider/joyent"
-	"add-joyent-provider/provider/joyent"
+	"launchpad.net/juju-core/provider/joyent"
 )
 
 func TestPackage(t *testing.T) {

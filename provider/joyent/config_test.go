@@ -8,9 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	// To be changed once merged/published
-	//"launchpad.net/juju-core/provider/joyent"
-	"add-joyent-provider/provider/joyent"
+	"launchpad.net/juju-core/provider/joyent"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -61,7 +59,7 @@ var newConfigTests = []struct {
 	err:    "key-id: must not be empty",
 }, {
 	info:   "region is inserted if missing",
-	expect: testing.Attrs{"region": "us-east-1"},
+	expect: testing.Attrs{"region": "eu-ams-1"},
 }, {
 	info:   "region cannot be empty",
 	insert: testing.Attrs{"region": ""},
@@ -109,7 +107,7 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 			}
 		} else {
 			c.Check(validatedConfig, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, "invalid config: "+test.err)
+			c.Check(err, gc.ErrorMatches, "invalid Joyent provider config: "+test.err)
 		}
 	}
 }
@@ -129,7 +127,7 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 			}
 		} else {
 			c.Check(validatedConfig, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, "invalid base config: "+test.err)
+			c.Check(err, gc.ErrorMatches, "original Joyent provider config is invalid: "+test.err)
 		}
 	}
 }
@@ -153,8 +151,8 @@ var changeConfigTests = []struct {
 	expect: testing.Attrs{"key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
 	info:   "can change region",
-	insert: testing.Attrs{"region": "us-west-1"},
-	expect: testing.Attrs{"region": "us-west-1"},
+	insert: testing.Attrs{"region": "eu-ams-1"},
+	expect: testing.Attrs{"region": "eu-ams-1"},
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
