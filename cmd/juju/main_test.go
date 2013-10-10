@@ -283,6 +283,7 @@ var topicNames = []string{
 	"azure",
 	"basics",
 	"commands",
+	"constraints",
 	"ec2",
 	"global-options",
 	"glossary",
