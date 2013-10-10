@@ -475,6 +475,17 @@ func (*CmdSuite) TestSetCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
 }
 
+func initUnsetCommand(args ...string) (*UnsetCommand, error) {
+	com := &UnsetCommand{}
+	return com, coretesting.InitCommand(com, args)
+}
+
+func (*CmdSuite) TestUnsetCommandInit(c *gc.C) {
+	// missing args
+	_, err := initUnsetCommand()
+	c.Assert(err, gc.ErrorMatches, "no service name specified")
+}
+
 func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
 	com := &DestroyUnitCommand{}
 	return com, coretesting.InitCommand(com, args)
