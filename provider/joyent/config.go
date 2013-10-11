@@ -59,22 +59,23 @@ var configImmutableFields = []string{
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	// Turn an incomplete config into a valid one, if possible.
 	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["region"]; !ok {
-		attrs["region"] = "us-east-1"
-	}
 
 	// Read env variables
 	for _,field := range configSecretFields {
 		// If field is not set, get it from env variables
+		fmt.Printf("Secret field: %s", field)
 		if attrs[field] == "" {
 			for _,envVariable := range environmentVariables[field] {
+				fmt.Printf("-- Trying to read env variable %s", envVariable)
 				localEnvVariable := os.Getenv(envVariable)
+				fmt.Printf("-- Got: %s", localEnvVariable)
 				if localEnvVariable != "" {
 					attrs[field] = localEnvVariable
-					break
 				}
 			}
-			return nil, fmt.Errorf("cannot get %s value from environment variables %s or %s", field, environmentVariables[field][0], environmentVariables[field][1])
+			if attrs[field] == "" {
+				return nil, fmt.Errorf("cannot get %s value from environment variables %s or %s", field, environmentVariables[field][0], environmentVariables[field][1])
+			}
 		}
 	}
 

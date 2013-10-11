@@ -202,3 +202,38 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		}
 	}
 }
+
+var prepareConfigTests = []struct {
+	info   string
+	insert testing.Attrs
+	remove []string
+	expect testing.Attrs
+	err    string
+}{{
+	info:   "can get user from env variable",
+	insert: testing.Attrs{"user": ""},
+	expect: testing.Attrs{"user": "dstroppa"},
+}, {
+	info:   "can get key-id from env variable",
+	insert: testing.Attrs{"key-id": ""},
+	expect: testing.Attrs{"key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40"},
+}}
+
+func (s *ConfigSuite) TestPrepare(c *gc.C) {
+	for i, test := range prepareConfigTests {
+		c.Logf("test %d: %s", i, test.info)
+		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		testConfig := newConfig(c, attrs)
+		preparedConfig, err := joyent.Provider.Prepare(testConfig)
+		if test.err == "" {
+			c.Check(err, gc.IsNil)
+			attrs := preparedConfig.Config().AllAttrs()
+			for field, value := range test.expect {
+				c.Check(attrs[field], gc.Equals, value)
+			}
+		} else {
+			c.Check(preparedConfig, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, "invalid prepare config: "+test.err)
+		}
+	}
+}

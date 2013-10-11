@@ -37,7 +37,11 @@ func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	// You should implement this method to the best of your ability before
 	// expecting non-developers to use your provider, but it shouldn't be your
 	// first priority.
-	return providerInstance.Open(cfg)
+	preparedCfg, err := prepareConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return providerInstance.Open(preparedCfg)
 }
 
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
