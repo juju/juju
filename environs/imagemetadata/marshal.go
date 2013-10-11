@@ -1,14 +1,10 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The tools package supports locating, parsing, and filtering Ubuntu tools metadata in simplestreams format.
-// See http://launchpad.net/simplestreams and in particular the doc/README file in that project for more information
-// about the file formats.
-package tools
+package imagemetadata
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -16,26 +12,26 @@ import (
 )
 
 const (
-	ProductMetadataPath = "streams/v1/com.ubuntu.juju:released:tools.json"
+	ProductMetadataPath = "streams/v1/com.ubuntu.cloud:released:imagemetadata.json"
 )
 
-// MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.
+// MarshalImageMetadataJSON marshals image metadata to index and products JSON.
 //
 // updated is the time at which the JSON file was updated.
-func MarshalToolsMetadataJSON(metadata []*ToolsMetadata, updated time.Time) (index, products []byte, err error) {
-	if index, err = MarshalToolsMetadataIndexJSON(metadata, updated); err != nil {
+func MarshalImageMetadataJSON(metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec, updated time.Time) (index, products []byte, err error) {
+	if index, err = MarshalImageMetadataIndexJSON(metadata, cloudSpec, updated); err != nil {
 		return nil, nil, err
 	}
-	if products, err = MarshalToolsMetadataProductsJSON(metadata, updated); err != nil {
+	if products, err = MarshalImageMetadataProductsJSON(metadata, updated); err != nil {
 		return nil, nil, err
 	}
 	return index, products, err
 }
 
-// MarshalToolsMetadataIndexJSON marshals tools metadata to index JSON.
+// MarshalImageMetadataIndexJSON marshals image metadata to index JSON.
 //
 // updated is the time at which the JSON file was updated.
-func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata, updated time.Time) (out []byte, err error) {
+func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec, updated time.Time) (out []byte, err error) {
 	productIds := make([]string, len(metadata))
 	for i, t := range metadata {
 		productIds[i], err = t.productId()
@@ -47,21 +43,23 @@ func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata, updated time.Time)
 	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = "index:1.0"
 	indices.Indexes = map[string]*simplestreams.IndexMetadata{
-		"com.ubuntu.juju:released:tools": &simplestreams.IndexMetadata{
+		"com.ubuntu.cloud:custom": &simplestreams.IndexMetadata{
+			CloudName:        "custom",
 			Updated:          indices.Updated,
 			Format:           "products:1.0",
-			DataType:         "content-download",
+			DataType:         "image-ids",
 			ProductsFilePath: ProductMetadataPath,
 			ProductIds:       set.NewStrings(productIds...).SortedValues(),
+			Clouds:           []simplestreams.CloudSpec{*cloudSpec},
 		},
 	}
 	return json.MarshalIndent(&indices, "", "    ")
 }
 
-// MarshalToolsMetadataProductsJSON marshals tools metadata to products JSON.
+// MarshalImageMetadataProductsJSON marshals image metadata to products JSON.
 //
 // updated is the time at which the JSON file was updated.
-func MarshalToolsMetadataProductsJSON(metadata []*ToolsMetadata, updated time.Time) (out []byte, err error) {
+func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Time) (out []byte, err error) {
 	var cloud simplestreams.CloudMetadata
 	cloud.Updated = updated.Format(time.RFC1123Z)
 	cloud.Format = "products:1.0"
@@ -72,16 +70,23 @@ func MarshalToolsMetadataProductsJSON(metadata []*ToolsMetadata, updated time.Ti
 		if err != nil {
 			return nil, err
 		}
-		itemid := fmt.Sprintf("%s-%s-%s", t.Version, t.Release, t.Arch)
+		version, err := simplestreams.SeriesVersion(t.Release)
+		if err != nil {
+			return nil, err
+		}
+		toWrite := &ImageMetadata{
+			Id: t.Id,
+		}
 		if catalog, ok := cloud.Products[id]; ok {
-			catalog.Items[itemsversion].Items[itemid] = t
+			catalog.Items[itemsversion].Items[t.Id] = t
 		} else {
 			catalog = simplestreams.MetadataCatalog{
-				Arch:    t.Arch,
-				Version: t.Version,
+				Arch:       t.Arch,
+				RegionName: t.RegionName,
+				Version:    version,
 				Items: map[string]*simplestreams.ItemCollection{
 					itemsversion: &simplestreams.ItemCollection{
-						Items: map[string]interface{}{itemid: t},
+						Items: map[string]interface{}{t.Id: toWrite},
 					},
 				},
 			}

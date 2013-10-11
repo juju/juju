@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
@@ -145,7 +146,11 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}
-	_, err := imagemetadata.GenerateMetadata(c.Series, &im, &cloudSpec, c.Dir)
+	targetStorage, err := filestorage.NewFileStorageWriter(c.Dir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		return err
+	}
+	err = imagemetadata.WriteMetadata(c.Series, &im, &cloudSpec, targetStorage)
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
