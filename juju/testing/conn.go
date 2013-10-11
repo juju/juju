@@ -281,6 +281,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	c.Assert(s.State, gc.NotNil)
 	service, err := s.State.AddService(name, "test-owner", ch)
 	c.Assert(err, gc.IsNil)
 	return service
