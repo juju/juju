@@ -104,10 +104,10 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		var m json.RawMessage
 		err = c.conn.Receive(&m)
 		if err == nil {
-			logger.Debugf("<- %s", m)
+			logger.Tracef("<- %s", m)
 			err = json.Unmarshal(m, &c.msg)
 		} else {
-			logger.Debugf("<- error: %v (closing %v)", err, c.isClosing())
+			logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
 		}
 	} else {
 		err = c.conn.Receive(&c.msg)
@@ -168,10 +168,10 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	if c.isLogging() {
 		data, err := json.Marshal(r)
 		if err != nil {
-			logger.Debugf("-> marshal error: %v", err)
+			logger.Tracef("-> marshal error: %v", err)
 			return err
 		}
-		logger.Debugf("-> %s", data)
+		logger.Tracef("-> %s", data)
 	}
 	return c.conn.Send(r)
 }
