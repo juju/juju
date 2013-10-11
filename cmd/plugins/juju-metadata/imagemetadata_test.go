@@ -15,20 +15,34 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
+	"path/filepath"
 )
 
 type ImageMetadataSuite struct {
+	testbase.LoggingSuite
 	environ []string
+	home    *testing.FakeHome
+	dir     string
 }
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	os.Clearenv()
+	s.dir = c.MkDir()
+	s.home = testing.MakeFakeHome(c, metadataTestEnvConfig)
+	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.AddCleanup(func(*gc.C) { restore() })
+	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
@@ -36,6 +50,8 @@ func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
 		kv := strings.SplitN(envstring, "=", 2)
 		os.Setenv(kv[0], kv[1])
 	}
+	s.home.Restore()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 var seriesVersions map[string]string = map[string]string{
@@ -43,31 +59,46 @@ var seriesVersions map[string]string = map[string]string{
 	"raring":  "13.04",
 }
 
-func (*ImageMetadataSuite) assertCommandOutput(c *gc.C, errOut, series, arch, indexFileName, imageFileName string) {
+type expectedMetadata struct {
+	series   string
+	arch     string
+	region   string
+	endpoint string
+}
+
+func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetadata, errOut, indexFileName, imageFileName string) {
+	if expected.region == "" {
+		expected.region = "region"
+	}
+	if expected.endpoint == "" {
+		expected.endpoint = "endpoint"
+	}
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `Boilerplate image metadata files.*have been written.*Copy the files.*`)
-	indexpath := testing.HomePath(".juju", indexFileName)
+	c.Check(strippedOut, gc.Matches, `image metadata files have been written to.*`)
+	indexpath := filepath.Join(s.dir, "streams", "v1", indexFileName)
 	data, err := ioutil.ReadFile(indexpath)
 	c.Assert(err, gc.IsNil)
+	content := string(data)
 	var indices interface{}
 	err = json.Unmarshal(data, &indices)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indices.(map[string]interface{})["format"], gc.Equals, "index:1.0")
-	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", seriesVersions[series], arch)
-	c.Assert(strings.Contains(string(data), prodId), gc.Equals, true)
-	c.Assert(strings.Contains(string(data), `"region": "region"`), gc.Equals, true)
-	c.Assert(strings.Contains(string(data), `"endpoint": "endpoint"`), gc.Equals, true)
-	c.Assert(strings.Contains(string(data), fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName)), gc.Equals, true)
+	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", seriesVersions[expected.series], expected.arch)
+	c.Assert(strings.Contains(content, prodId), jc.IsTrue)
+	c.Assert(strings.Contains(content, fmt.Sprintf(`"region": %q`, expected.region)), jc.IsTrue)
+	c.Assert(strings.Contains(content, fmt.Sprintf(`"endpoint": %q`, expected.endpoint)), jc.IsTrue)
+	c.Assert(strings.Contains(content, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName)), jc.IsTrue)
 
-	imagepath := testing.HomePath(".juju", imageFileName)
+	imagepath := filepath.Join(s.dir, "streams", "v1", imageFileName)
 	data, err = ioutil.ReadFile(imagepath)
 	c.Assert(err, gc.IsNil)
+	content = string(data)
 	var images interface{}
 	err = json.Unmarshal(data, &images)
 	c.Assert(err, gc.IsNil)
 	c.Assert(images.(map[string]interface{})["format"], gc.Equals, "products:1.0")
-	c.Assert(strings.Contains(string(data), prodId), gc.Equals, true)
-	c.Assert(strings.Contains(string(data), `"id": "1234"`), gc.Equals, true)
+	c.Assert(strings.Contains(content, prodId), gc.Equals, true)
+	c.Assert(strings.Contains(content, `"id": "1234"`), gc.Equals, true)
 }
 
 const (
@@ -76,71 +107,60 @@ const (
 )
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
+		&ImageMetadataCommand{}, ctx, []string{
+			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	s.assertCommandOutput(c, errOut, "raring", "arch", defaultIndexFileName, defaultImageFileName)
-}
-
-func (s *ImageMetadataSuite) TestImageMetadataFilesWithName(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-n", "foo", "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
-	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	s.assertCommandOutput(c, errOut, "raring", "arch", "foo-"+defaultIndexFileName, "foo-"+defaultImageFileName)
+	expected := expectedMetadata{
+		series: "raring",
+		arch:   "arch",
+	}
+	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring"})
+		&ImageMetadataCommand{}, ctx, []string{
+			"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	s.assertCommandOutput(c, errOut, "raring", "amd64", defaultIndexFileName, defaultImageFileName)
+	expected := expectedMetadata{
+		series: "raring",
+		arch:   "amd64",
+	}
+	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultSeries(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
+		&ImageMetadataCommand{}, ctx, []string{
+			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	s.assertCommandOutput(c, errOut, "precise", "arch", defaultIndexFileName, defaultImageFileName)
+	expected := expectedMetadata{
+		series: "precise",
+		arch:   "arch",
+	}
+	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvRegion(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
-	os.Setenv("OS_REGION_NAME", "region")
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-u", "endpoint"})
+		&ImageMetadataCommand{}, ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	s.assertCommandOutput(c, errOut, "precise", "amd64", defaultIndexFileName, defaultImageFileName)
-}
-
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvEndpoint(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
-	os.Setenv("OS_AUTH_URL", "endpoint")
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region"})
-	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	s.assertCommandOutput(c, errOut, "precise", "amd64", defaultIndexFileName, defaultImageFileName)
+	expected := expectedMetadata{
+		series:   "precise",
+		arch:     "amd64",
+		region:   "us-east-1",
+		endpoint: "https://ec2.us-east-1.amazonaws.com",
+	}
+	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
 }
 
 type errTestParams struct {

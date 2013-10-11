@@ -5,51 +5,95 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	"os"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/goose/identity"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
-// ImageMetadataCommand is used to write out a boilerplate environments.yaml file.
+// ImageMetadataCommand is used to write out simplestreams image metadata information.
 type ImageMetadataCommand struct {
-	cmd.CommandBase
-	Name     string
-	Series   string
-	Arch     string
-	ImageId  string
-	Region   string
-	Endpoint string
+	cmd.EnvCommandBase
+	Dir            string
+	Series         string
+	Arch           string
+	ImageId        string
+	Region         string
+	Endpoint       string
+	privateStorage string
 }
+
+var imageMetadataDoc = `
+generate-image creates simplestreams image metadata for the specified cloud.
+
+The cloud specification comes from the current Juju environment, as specified in
+the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+
+Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
+By default, "amd64" is used for the architecture but this may also be changed.
+`
 
 func (c *ImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
+		Doc:     imageMetadataDoc,
 	}
 }
 
 func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "s", "precise", "the charm series")
 	f.StringVar(&c.Arch, "a", "amd64", "the image achitecture")
-	f.StringVar(&c.Name, "n", "", "the cloud name, as a prefix for the generated file names")
+	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
 	f.StringVar(&c.Endpoint, "u", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {
-	cred := identity.CredentialsFromEnv()
-	if c.Region == "" {
-		c.Region = cred.Region
+	c.privateStorage = "<private storage name>"
+	var environ environs.Environ
+	if store, err := configstore.Default(); err == nil {
+		if environ, err = environs.PrepareFromName(c.EnvName, store); err == nil {
+			logger.Infof("creating image metadata for environment %q", environ.Name())
+			var cloudSpec simplestreams.CloudSpec
+			if inst, ok := environ.(simplestreams.HasRegion); ok {
+				if cloudSpec, err = inst.Region(); err != nil {
+					return err
+				}
+			} else {
+				return fmt.Errorf("environment %q cannot provide region and endpoint", environ.Name())
+			}
+			// If only one of region or endpoint is provided, that is a problem.
+			if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
+				return fmt.Errorf("cannot generate metadata without a complete cloud configuration")
+			}
+			cfg := environ.Config()
+			if c.Series == "" {
+				c.Series = cfg.DefaultSeries()
+			}
+			if c.Region == "" {
+				c.Region = cloudSpec.Region
+			}
+			if c.Endpoint == "" {
+				c.Endpoint = cloudSpec.Endpoint
+			}
+			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
+				c.privateStorage = v.(string)
+			}
+		} else {
+			logger.Warningf("environment %q could not be opened: %v", c.EnvName, err)
+		}
 	}
-	if c.Endpoint == "" {
-		c.Endpoint = cred.URL
+	if environ == nil {
+		logger.Infof("no environment found, creating image metadata using user supplied data")
 	}
 	if c.ImageId == "" {
 		return fmt.Errorf("image id must be specified")
@@ -60,9 +104,35 @@ func (c *ImageMetadataCommand) Init(args []string) error {
 	if c.Endpoint == "" {
 		return fmt.Errorf("cloud endpoint URL must be specified")
 	}
+	if c.Dir == "" {
+		logger.Infof("no destination directory specified, using current directory")
+		var err error
+		if c.Dir, err = os.Getwd(); err != nil {
+			return err
+		}
+	}
 
 	return cmd.CheckEmpty(args)
 }
+
+var helpDoc = `
+image metadata files have been written to:
+%q.
+For Juju to use this metadata, the files need to be put into the
+image metadata search path. There are 2 options:
+
+1. Use tools-url in $JUJU_HOME/environments.yaml
+Configure a http server to serve the contents of
+%q
+and set the value of tools-url accordingly.
+
+2. Upload the contents of
+%q
+to your cloud's private storage (for ec2 and openstack).
+eg for openstack
+"cd %s; swift upload %s streams/v1/*"
+
+`
 
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
@@ -75,14 +145,11 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}
-	files, err := imagemetadata.Boilerplate(c.Name, c.Series, &im, &cloudSpec)
+	_, err := imagemetadata.GenerateMetadata(c.Series, &im, &cloudSpec, c.Dir)
 	if err != nil {
-		return fmt.Errorf("boilerplate image metadata files could not be created: %v", err)
+		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
-	fmt.Fprintf(
-		out,
-		"Boilerplate image metadata files %q have been written to %s.\n", strings.Join(files, ", "), config.JujuHome())
-	fmt.Fprintf(out, `Copy the files to the path "streams/v1" in your cloud's public bucket.`)
-	fmt.Fprintln(out, "")
+	dest := filepath.Join(c.Dir, "streams", "v1")
+	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, c.Dir, c.Dir, c.Dir, c.privateStorage))
 	return nil
 }

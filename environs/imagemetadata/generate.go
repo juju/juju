@@ -12,38 +12,25 @@ import (
 	"text/template"
 	"time"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 const (
 	defaultIndexFileName = "index.json"
 	defaultImageFileName = "imagemetadata.json"
-	streamsDir           = "streams/v1"
 )
 
-// Boilerplate generates some basic simplestreams metadata using the specified cloud and image details.
-// If name is non-empty, it will be used as a prefix for the names of the generated index and image files.
-func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *simplestreams.CloudSpec) ([]string, error) {
-	return MakeBoilerplate(name, series, im, cloudSpec, true)
-}
-
-// MakeBoilerplate exists so it can be called by tests. See Boilerplate above. It provides an option to retain
-// the streams directories when writing the generated metadata files.
-func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *simplestreams.CloudSpec, flattenPath bool) ([]string, error) {
+// GenerateMetadata generates some basic simplestreams metadata using the specified cloud and image details.
+func GenerateMetadata(series string, im *ImageMetadata, cloudSpec *simplestreams.CloudSpec, dest string) ([]string, error) {
 	indexFileName := defaultIndexFileName
 	imageFileName := defaultImageFileName
-	if name != "" {
-		indexFileName = fmt.Sprintf("%s-%s", name, indexFileName)
-		imageFileName = fmt.Sprintf("%s-%s", name, imageFileName)
-	}
 	now := time.Now()
 	imparams := imageMetadataParams{
 		Id:            im.Id,
 		Arch:          im.Arch,
 		Region:        cloudSpec.Region,
 		URL:           cloudSpec.Endpoint,
-		Path:          streamsDir,
+		Path:          "streams/v1",
 		ImageFileName: imageFileName,
 		Updated:       now.Format(time.RFC1123Z),
 		VersionKey:    now.Format("20060102"),
@@ -55,14 +42,12 @@ func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *simplest
 		return nil, fmt.Errorf("invalid series %q", series)
 	}
 
-	if !flattenPath {
-		streamsPath := config.JujuHomePath(streamsDir)
-		if err = os.MkdirAll(streamsPath, 0755); err != nil {
-			return nil, err
-		}
-		indexFileName = filepath.Join(streamsDir, indexFileName)
-		imageFileName = filepath.Join(streamsDir, imageFileName)
+	streamsPath := filepath.Join(dest, "streams", "v1")
+	if err = os.MkdirAll(streamsPath, 0755); err != nil {
+		return nil, err
 	}
+	indexFileName = filepath.Join(streamsPath, indexFileName)
+	imageFileName = filepath.Join(streamsPath, imageFileName)
 	err = writeJsonFile(imparams, indexFileName, indexBoilerplate)
 	if err != nil {
 		return nil, err
@@ -94,8 +79,7 @@ func writeJsonFile(imparams imageMetadataParams, filename, boilerplate string) e
 		panic(fmt.Errorf("cannot generate %s metdata: %v", filename, err))
 	}
 	data := metadata.Bytes()
-	path := config.JujuHomePath(filename)
-	if err := ioutil.WriteFile(path, data, 0666); err != nil {
+	if err := ioutil.WriteFile(filename, data, 0666); err != nil {
 		return err
 	}
 	return nil
