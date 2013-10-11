@@ -245,6 +245,55 @@ func (*suite) TestWrite(c *gc.C) {
 	}
 }
 
+var dumpRequestTests = []struct {
+	hdr    rpc.Header
+	body   interface{}
+	expect string
+}{{
+	hdr: rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type:   "Foo",
+			Id:     "id",
+			Action: "Something",
+		},
+	},
+	body:   struct{ Arg string }{Arg: "an arg"},
+	expect: `{"RequestId":1,"Type":"Foo","Id":"id","Request":"Something","Params":{"Arg":"an arg"}}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 2,
+	},
+	body:   struct{ Ret string }{Ret: "return value"},
+	expect: `{"RequestId":2,"Response":{"Ret":"return value"}}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 3,
+	},
+	expect: `{"RequestId":3}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 4,
+		Error:     "an error",
+		ErrorCode: "an error code",
+	},
+	expect: `{"RequestId":4,"Error":"an error","ErrorCode":"an error code"}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 5,
+	},
+	body:   make(chan int),
+	expect: `"marshal error: json: unsupported type: chan int"`,
+}}
+
+func (*suite) TestDumpRequest(c *gc.C) {
+	for i, test := range dumpRequestTests {
+		c.Logf("test %d; %#v", i, test.hdr)
+		data := jsoncodec.DumpRequest(&test.hdr, test.body)
+		c.Check(string(data), gc.Equals, test.expect)
+	}
+}
+
 // assertJSONEqual compares the json strings v0
 // and v1 ignoring white space.
 func assertJSONEqual(c *gc.C, v0, v1 string) {

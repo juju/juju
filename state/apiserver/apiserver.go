@@ -90,10 +90,10 @@ func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 }
 
 func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
-	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
+	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("<- %s", jsoncodec.DumpRequest(hdr, body))
+	logger.Debugf("<- %s %s[%q].%s", jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {

@@ -159,7 +159,7 @@ func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
 	m.init(hdr, body)
 	data, err := json.Marshal(&m)
 	if err != nil {
-		return []byte(fmt.Sprintf("%q", "marshal error: %v", err))
+		return []byte(fmt.Sprintf("%q", "marshal error: "+err.Error()))
 	}
 	return data
 }
