@@ -13,12 +13,13 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver")
 
 // Server holds the server side of the API.
 type Server struct {
@@ -36,7 +37,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("state/api: listening on %q", lis.Addr())
+	logger.Infof("listening on %q", lis.Addr())
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return nil, err
@@ -76,6 +77,31 @@ func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
 }
 
+type requestNotifier struct {
+	remoteAddr net.Addr
+}
+
+func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
+	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
+		return
+	}
+	// TODO(rog) 2013-10-11 remove secrets from some requests.
+	logger.Debugf("<- %s", jsoncodec.DumpRequest(hdr, body))
+}
+
+func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+	if req.Type == "Pinger" && req.Action == "Ping" {
+		return
+	}
+	logger.Debugf("<- %s %s[%q].%s", jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+}
+
+func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
+}
+
+func (n requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+}
+
 func (srv *Server) run(lis net.Listener) {
 	defer srv.tomb.Done()
 	defer srv.wg.Wait() // wait for any outstanding requests to complete.
@@ -96,7 +122,7 @@ func (srv *Server) run(lis net.Listener) {
 			return
 		}
 		if err := srv.serveConn(conn); err != nil {
-			log.Errorf("state/api: error serving RPCs: %v", err)
+			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
 	// The error from http.Serve is not interesting.
@@ -110,10 +136,14 @@ func (srv *Server) Addr() string {
 
 func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
-	if loggo.GetLogger("").EffectiveLogLevel() >= loggo.DEBUG {
+	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
 		codec.SetLogging(true)
 	}
-	conn := rpc.NewConn(codec, nil)
+	var notifier rpc.RequestNotifier
+	if logger.EffectiveLogLevel() <= loggo.DEBUG {
+		notifier = requestNotifier{wsConn.RemoteAddr()}
+	}
+	conn := rpc.NewConn(codec, notifier)
 	conn.Serve(newStateServer(srv, conn), serverError)
 	conn.Start()
 	select {

@@ -104,10 +104,10 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		var m json.RawMessage
 		err = c.conn.Receive(&m)
 		if err == nil {
-			logger.Debugf("<- %s", m)
+			logger.Tracef("<- %s", m)
 			err = json.Unmarshal(m, &c.msg)
 		} else {
-			logger.Debugf("<- error: %v (closing %v)", err, c.isClosing())
+			logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
 		}
 	} else {
 		err = c.conn.Receive(&c.msg)
@@ -149,29 +149,47 @@ func (c *Codec) ReadBody(body interface{}, isRequest bool) error {
 	return json.Unmarshal(rawBody, body)
 }
 
+// DumpRequest returns JSON-formatted data representing
+// the RPC message with the given header and body,
+// as it would be written by Codec.WriteMessage.
+// If the body cannot be marshalled as JSON, the data
+// will hold a JSON string describing the error.
+func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
+	var m outMsg
+	m.init(hdr, body)
+	data, err := json.Marshal(&m)
+	if err != nil {
+		return []byte(fmt.Sprintf("%q", "marshal error: "+err.Error()))
+	}
+	return data
+}
+
 func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
-	r := &outMsg{
-		RequestId: hdr.RequestId,
-
-		Type:    hdr.Request.Type,
-		Id:      hdr.Request.Id,
-		Request: hdr.Request.Action,
-
-		Error:     hdr.Error,
-		ErrorCode: hdr.ErrorCode,
-	}
-	if hdr.IsRequest() {
-		r.Params = body
-	} else {
-		r.Response = body
-	}
+	var m outMsg
+	m.init(hdr, body)
 	if c.isLogging() {
-		data, err := json.Marshal(r)
+		data, err := json.Marshal(&m)
 		if err != nil {
-			logger.Debugf("-> marshal error: %v", err)
+			logger.Tracef("-> marshal error: %v", err)
 			return err
 		}
-		logger.Debugf("-> %s", data)
+		logger.Tracef("-> %s", data)
 	}
-	return c.conn.Send(r)
+	return c.conn.Send(&m)
+}
+
+// init fills out the receiving outMsg with information from the given
+// header and body.
+func (m *outMsg) init(hdr *rpc.Header, body interface{}) {
+	m.RequestId = hdr.RequestId
+	m.Type = hdr.Request.Type
+	m.Id = hdr.Request.Id
+	m.Request = hdr.Request.Action
+	m.Error = hdr.Error
+	m.ErrorCode = hdr.ErrorCode
+	if hdr.IsRequest() {
+		m.Params = body
+	} else {
+		m.Response = body
+	}
 }
