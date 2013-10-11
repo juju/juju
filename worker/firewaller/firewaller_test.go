@@ -704,7 +704,7 @@ func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	svc2 := s.AddTestingService(c, "moinmoin", s.charm)
-	err := svc2.SetExposed()
+	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
 
 	u2, m2 := s.addUnit(c, svc2)

@@ -82,6 +82,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	})
 
 	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"))
+	err = wordpress.SetExposed()
+	c.Assert(err, gc.IsNil)
 	err = wordpress.SetMinUnits(3)
 	c.Assert(err, gc.IsNil)
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
