@@ -267,7 +267,7 @@ func (s *FirewallerSuite) TestMultipleUnits(c *gc.C) {
 
 func (s *FirewallerSuite) TestStartWithState(c *gc.C) {
 	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	err := svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -296,7 +296,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *gc.C) {
 	inst := s.startInstance(c, m)
 
 	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err := svc.SetExposed()
+	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
 	// Starting the firewaller, no open ports.
@@ -440,7 +440,7 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	svc2 := s.AddTestingService(c, "mysql", s.charm)
-	err := svc2.SetExposed()
+	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
 
 	u2, m2 := s.addUnit(c, svc2)
