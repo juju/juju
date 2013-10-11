@@ -182,8 +182,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
-
-			assertEmpty(c, s.targetEnv.Storage())
+			assertNoUnexpectedTools(c, s.targetEnv.Storage())
 		}()
 	}
 }
@@ -219,7 +218,8 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	c.Assert(err, gc.IsNil)
 }
 
-func assertEmpty(c *gc.C, storage storage.StorageReader) {
+func assertNoUnexpectedTools(c *gc.C, storage storage.StorageReader) {
+	// We only expect v1.x tools, no v2.x tools.
 	list, err := envtools.ReadList(storage, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)

@@ -104,7 +104,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := environs.NewFromName(c.EnvName, store)
+		environ, err := environs.PrepareFromName(c.EnvName, store)
 		if err != nil {
 			return err
 		}

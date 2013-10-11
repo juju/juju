@@ -120,7 +120,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	log.Infof("state/api: connection established")
 
-	client := rpc.NewConn(jsoncodec.NewWebsocket(conn))
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
 		client: client,
@@ -158,7 +158,11 @@ func (s *State) Ping() error {
 // we return the correct error when invoking Call("Object",
 // "non-empty-id",...)
 func (s *State) Call(objType, id, request string, args, response interface{}) error {
-	err := s.client.Call(objType, id, request, args, response)
+	err := s.client.Call(rpc.Request{
+		Type:   objType,
+		Id:     id,
+		Action: request,
+	}, args, response)
 	return params.ClientError(err)
 }
 

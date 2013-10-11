@@ -27,6 +27,29 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+const bootstrapDoc = `
+bootstrap starts a new environment of the current type (it will return an error
+if the environment has already been bootstrapped).  Bootstrapping an environment
+will provision a new machine in the environment and run the juju state server on
+that machine.
+
+If constraints are specified in the bootstrap command, they will apply to the 
+machine provisioned for the juju state server.  They will also be set as default
+constraints on the environment for all future machines, exactly as if the
+constraints were set with juju set-constraints.
+
+Because bootstrap starts a machine in the cloud environment asynchronously, the
+command will likely return before the state server is fully running.  Time for
+bootstrap to be complete varies across cloud providers from a small number of
+seconds to several minutes.  Most other commands are synchronous and will wait
+until bootstrap is finished to complete.
+
+See Also:
+   juju help switch
+   juju help constraints
+   juju help set-constraints
+`
+
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
@@ -41,6 +64,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
 		Purpose: "start up an environment from scratch",
+		Doc:     bootstrapDoc,
 	}
 }
 
