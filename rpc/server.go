@@ -136,7 +136,9 @@ type Conn struct {
 // RequestNotifier can be implemented to find out about requests
 // occurring in an RPC conn, for example to print requests for logging
 // purposes. The calls should not block or interact with the Conn object
-// as that cause delays to the RPC server or deadlock.
+// as that can cause delays to the RPC server or deadlock.
+// Note that the methods on RequestNotifier may
+// be called concurrently.
 type RequestNotifier interface {
 	// ServerRequest informs the RequestNotifier of a request made
 	// to the Conn. If the request was not recognized or there was
@@ -361,11 +363,11 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 func (conn *Conn) handleRequest(hdr *Header) error {
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		if err := conn.readBody(nil, true); err != nil {
-			return err
-		}
 		if conn.notifier != nil {
 			conn.notifier.ServerRequest(hdr, nil)
+		}
+		if err := conn.readBody(nil, true); err != nil {
+			return err
 		}
 		// We don't transform the error because there
 		// may be no transformErrors function available.
