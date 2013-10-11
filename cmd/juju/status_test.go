@@ -58,18 +58,20 @@ type stepper interface {
 }
 
 type context struct {
-	st      *state.State
-	conn    *juju.Conn
-	charms  map[string]*state.Charm
-	pingers map[string]*presence.Pinger
+	st          *state.State
+	statusSuite *StatusSuite
+	conn        *juju.Conn
+	charms      map[string]*state.Charm
+	pingers     map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
 	return &context{
-		st:      s.State,
-		conn:    s.Conn,
-		charms:  make(map[string]*state.Charm),
-		pingers: make(map[string]*presence.Pinger),
+		st:          s.State,
+		statusSuite: s,
+		conn:        s.Conn,
+		charms:      make(map[string]*state.Charm),
+		pingers:     make(map[string]*presence.Pinger),
 	}
 }
 
@@ -332,8 +334,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"dummy"},
-		addService{name: "dummy-service", charm: "dummy"},
-		addService{name: "exposed-service", charm: "dummy"},
+		addService{"dummy-service", "dummy"},
+		addService{"exposed-service", "dummy"},
 		expect{
 			"no services exposed yet",
 			M{
@@ -649,7 +651,7 @@ var statusTests = []testCase{
 	test(
 		"add a dying service",
 		addCharm{"dummy"},
-		addService{name: "dummy-service", charm: "dummy"},
+		addService{"dummy-service", "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		addUnit{"dummy-service", "0"},
 		ensureDyingService{"dummy-service"},
@@ -690,7 +692,7 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"varnish"},
 
-		addService{name: "project", charm: "wordpress"},
+		addService{"project", "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
@@ -698,7 +700,7 @@ var statusTests = []testCase{
 		addAliveUnit{"project", "1"},
 		setUnitStatus{"project/0", params.StatusStarted, ""},
 
-		addService{name: "mysql", charm: "mysql"},
+		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
@@ -706,14 +708,14 @@ var statusTests = []testCase{
 		addAliveUnit{"mysql", "2"},
 		setUnitStatus{"mysql/0", params.StatusStarted, ""},
 
-		addService{name: "varnish", charm: "varnish"},
+		addService{"varnish", "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addUnit{"varnish", "3"},
 
-		addService{name: "private", charm: "wordpress"},
+		addService{"private", "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		startAliveMachine{"4"},
@@ -800,7 +802,7 @@ var statusTests = []testCase{
 		addCharm{"riak"},
 		addCharm{"wordpress"},
 
-		addService{name: "riak", charm: "riak"},
+		addService{"riak", "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
@@ -865,7 +867,7 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"logging"},
 
-		addService{name: "wordpress", charm: "wordpress"},
+		addService{"wordpress", "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
@@ -873,7 +875,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
 
-		addService{name: "mysql", charm: "mysql"},
+		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
@@ -881,7 +883,7 @@ var statusTests = []testCase{
 		addAliveUnit{"mysql", "2"},
 		setUnitStatus{"mysql/0", params.StatusStarted, ""},
 
-		addService{name: "logging", charm: "logging"},
+		addService{"logging", "logging"},
 		setServiceExposed{"logging", true},
 
 		relateServices{"wordpress", "mysql"},
@@ -1070,7 +1072,7 @@ var statusTests = []testCase{
 		addCharm{"logging"},
 		addCharm{"monitoring"},
 
-		addService{name: "wordpress", charm: "wordpress"},
+		addService{"wordpress", "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
@@ -1078,9 +1080,9 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
 
-		addService{name: "logging", charm: "logging"},
+		addService{"logging", "logging"},
 		setServiceExposed{"logging", true},
-		addService{name: "monitoring", charm: "monitoring"},
+		addService{"monitoring", "monitoring"},
 		setServiceExposed{"monitoring", true},
 
 		relateServices{"wordpress", "logging"},
@@ -1141,7 +1143,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -1332,7 +1334,6 @@ func (ac addCharm) step(c *gc.C, ctx *context) {
 }
 
 type addService struct {
-	testing.JujuConnSuite
 	name  string
 	charm string
 }
@@ -1340,7 +1341,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	as.AddTestingService(c, as.name, ch)
+	ctx.statusSuite.AddTestingService(c, as.name, ch)
 }
 
 type setServiceExposed struct {
@@ -1585,7 +1586,7 @@ func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addService{"mysql", "mysql"},
 		addAliveUnit{"mysql", "1"},
 	}
 	ctx := s.newContext()
