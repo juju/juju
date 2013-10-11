@@ -113,7 +113,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	if loggo.GetLogger("").EffectiveLogLevel() >= loggo.DEBUG {
 		codec.SetLogging(true)
 	}
-	conn := rpc.NewConn(codec)
+	conn := rpc.NewConn(codec, nil)
 	conn.Serve(newStateServer(srv, conn), serverError)
 	conn.Start()
 	select {

@@ -120,7 +120,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	log.Infof("state/api: connection established")
 
-	client := rpc.NewConn(jsoncodec.NewWebsocket(conn))
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
 		client: client,
