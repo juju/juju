@@ -43,7 +43,7 @@ func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, erro
 }
 
 // Boilerplate config YAML.  Don't mess with the indentation or add newlines!
-const boilerplateYAML = `
+var boilerplateYAML = `
 # https://juju.ubuntu.com/docs/config-maas.html
 maas:
     type: maas

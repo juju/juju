@@ -111,7 +111,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 // BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
 func (environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-local.html
+# https://juju.ubuntu.com/docs/config-local.html
 local:
     type: local
     # Override the directory that is used for the storage files and database.

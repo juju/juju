@@ -171,7 +171,7 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-aws.html
+# https://juju.ubuntu.com/docs/config-aws.html
 amazon:
     type: ec2
     # region specifies the ec2 region. It defaults to us-east-1.

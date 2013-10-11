@@ -138,7 +138,7 @@ azure:
     # The following attributes specify Windows Azure Management information.
     # See  http://msdn.microsoft.com/en-us/library/windowsazure
     # for details.
-    management-subscription-id: 00000000-0000-0000-0000-000000000000
+    management-subscription-id: <00000000-0000-0000-0000-000000000000>
     management-certificate-path: /home/me/azure.pem
 
     # storage-account-name holds Windows Azure Storage info.
