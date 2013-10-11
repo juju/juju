@@ -210,6 +210,9 @@ var prepareConfigTests = []struct {
 	expect testing.Attrs
 	err    string
 }{{
+	info:   "All value provided, nothig to do",
+	expect: validAttrs(),
+}, {
 	info:   "can get user from env variable",
 	insert: testing.Attrs{"user": ""},
 	expect: testing.Attrs{"user": "dstroppa"},
