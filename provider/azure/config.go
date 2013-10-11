@@ -126,8 +126,11 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 
 // TODO(jtv): Once we have "released" images for Azure, update the provisional
 // image-stream and default-series settings.
-const boilerplateYAML = `azure:
+const boilerplateYAML = `
+# https://juju.ubuntu.com/docs/config-azure.html
+azure:
     type: azure
+
     # location specifies the place where instances will be started, for
     # example: West US, North Europe.
     location: West US
@@ -135,14 +138,16 @@ const boilerplateYAML = `azure:
     # The following attributes specify Windows Azure Management information.
     # See  http://msdn.microsoft.com/en-us/library/windowsazure
     # for details.
-    management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d
+    management-subscription-id: 00000000-0000-0000-0000-000000000000
     management-certificate-path: /home/me/azure.pem
-    
-    # storage-accWindows Azure Storage info.
-    storage-account-name: ghedlkjhw54e
+
+    # storage-account-name holds Windows Azure Storage info.
+    storage-account-name: abcdefghijkl
     
     # The following attributes specify the account name and container
-    # name of a public container holding the juju tools.
+    # name of a public container holding the juju tools. This can
+    # be used to avoid the usual fallback to the global Amazon S3
+    # tools bucket.
     # public-storage-account-name: jujutools
     # public-storage-container-name: juju-tools
     
