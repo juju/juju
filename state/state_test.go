@@ -1860,7 +1860,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	service, err := s.State.AddService("wordpress", "admin-owner", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -1910,7 +1910,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	service, err := s.State.AddService("wordpress", "admin-owner", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
