@@ -126,29 +126,39 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 
 // TODO(jtv): Once we have "released" images for Azure, update the provisional
 // image-stream and default-series settings.
-const boilerplateYAML = `azure:
-  type: azure
-  admin-secret: {{rand}}
-  # Location for instances, e.g. West US, North Europe.
-  location: West US
-  # http://msdn.microsoft.com/en-us/library/windowsazure
-  # Windows Azure Management info.
-  management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d
-  management-certificate-path: /home/me/azure.pem
-  # Windows Azure Storage info.
-  storage-account-name: ghedlkjhw54e
-  # Public Storage info (account name and container name) denoting a public
-  # container holding the juju tools.
-  # public-storage-account-name: jujutools
-  # public-storage-container-name: juju-tools
-  # Override OS image selection with a fixed image for all deployments.
-  # Most useful for developers.
-  # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
-  # Pick a simplestreams stream to select OS images from: daily or released
-  # images, or any other stream available on simplestreams.  Leave blank for
-  # released images.
-  # image-stream: ""
-  # default-series: precise
+const boilerplateYAML = `
+# https://juju.ubuntu.com/docs/config-azure.html
+azure:
+    type: azure
+
+    # location specifies the place where instances will be started, for
+    # example: West US, North Europe.
+    location: West US
+    
+    # The following attributes specify Windows Azure Management information.
+    # See  http://msdn.microsoft.com/en-us/library/windowsazure
+    # for details.
+    management-subscription-id: <00000000-0000-0000-0000-000000000000>
+    management-certificate-path: /home/me/azure.pem
+
+    # storage-account-name holds Windows Azure Storage info.
+    storage-account-name: abcdefghijkl
+    
+    # The following attributes specify the account name and container
+    # name of a public container holding the juju tools. This can
+    # be used to avoid the usual fallback to the global Amazon S3
+    # tools bucket.
+    # public-storage-account-name: jujutools
+    # public-storage-container-name: juju-tools
+    
+    # force-image-name overrides the OS image selection to use
+    # a fixed image for all deployments. Most useful for developers.
+    # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
+    
+    # image-stream chooses a simplestreams stream to select OS images from,
+    # for example daily or released images (or any other stream available on simplestreams).
+    # Leave blank for released images.
+    # image-stream: ""
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {

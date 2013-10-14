@@ -11,25 +11,29 @@ import (
 	"text/template"
 )
 
-var configHeader = `## This is the Juju config file, which you can use to specify multiple environments in which to deploy.
-## By default Juju ships AWS (default), HP Cloud, OpenStack.
-## See https://juju.ubuntu.com/docs for more information
+var configHeader = `
+# This is the Juju config file, which you can use to specify multiple environments in which to deploy.
+# By default Juju ships AWS (default), HP Cloud, OpenStack.
+# See https://juju.ubuntu.com/docs for more information
 
-## An environment configuration must always specify at least the following information:
-##
-## - name (to identify the environment)
-## - type (to specify the provider)
+# An environment configuration must always specify at least the following information:
+#
+# - name (to identify the environment)
+# - type (to specify the provider)
 
-## Values in <brackets> below need to be filled in by the user.
+# Values in <brackets> below need to be filled in by the user.
+# Optional attributes are shown commented out, with
+# a sample value or a value in <brackets>.
 
-## The default environment is chosen when one is not specified using either:
-##   -e, --environment command line parameter
-##   JUJU_ENV environment variable
-## If both -e and JUJU_ENV are specified, the command line parameter has precedence.
+# The default environment is chosen when an environment is not
+# specified using any of the following, in descending order of precedence:
+#   -e or --environment command line parameter.
+#   JUJU_ENV environment variable.
+#   the juju switch command.
 default: amazon
 
 environments:
-`
+`[1:]
 
 func randomKey() string {
 	buf := make([]byte, 16)
@@ -54,7 +58,7 @@ func BoilerplateConfig() string {
 		if err := t.Execute(&ecfg, nil); err != nil {
 			panic(fmt.Errorf("cannot generate boilerplate from %s: %v", name, err))
 		}
-		indent(&config, ecfg.Bytes(), "  ")
+		indent(&config, ecfg.Bytes(), "    ")
 	}
 
 	// Sanity check to ensure the boilerplate parses.

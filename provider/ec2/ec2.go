@@ -157,20 +157,18 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-aws.html
+# https://juju.ubuntu.com/docs/config-aws.html
 amazon:
-  type: ec2
-  admin-secret: {{rand}}
-  # globally unique S3 bucket name
-  control-bucket: juju-{{rand}}
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # region defaults to us-east-1, override if required
-  # region: us-east-1
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-  # secret-key: <secret>
+    type: ec2
+    # region specifies the ec2 region. It defaults to us-east-1.
+    # region: us-east-1
+    #
+    # access-key holds the ec2 access key. It defaults to the environment
+    # variable AWS_ACCESS_KEY_ID.
+    # access-key: <secret>
+    #
+    # secret-key holds the ec2 secret key. It defaults to the environment
+    # variable AWS_SECRET_ACCESS_KEY.
 
 `[1:]
 }

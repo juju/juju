@@ -144,22 +144,25 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 // BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
 func (environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-local.html
+# https://juju.ubuntu.com/docs/config-local.html
 local:
-  type: local
-  admin-secret: {{rand}}
-  # Override the directory that is used for the storage files and database.
-  # The default location is $JUJU_HOME/<ENV>.
-  # $JUJU_HOME defaults to ~/.juju
-  # root-dir: ~/.juju/local
-  # Override the storage port if you have multiple local providers, or if the
-  # default port is used by another program.
-  # storage-port: 8040
-  # Override the shared storage port if you have multiple local providers, or if the
-  # default port is used by another program.
-  # shared-storage-port: 8041
-  # Override the network bridge if you have changed the default lxc bridge
-  # network-bridge: lxcbr0
+    type: local
+    # Override the directory that is used for the storage files and database.
+    # The default location is $JUJU_HOME/<ENV>.
+    
+    # $JUJU_HOME defaults to ~/.juju
+    # root-dir: ~/.juju/local
+    
+    # Override the storage port if you have multiple local providers, or if the
+    # default port is used by another program.
+    # storage-port: 8040
+    
+    # Override the shared storage port if you have multiple local providers, or if the
+    # default port is used by another program.
+    # shared-storage-port: 8041
+    
+    # Override the network bridge if you have changed the default lxc bridge
+    # network-bridge: lxcbr0
 
 `[1:]
 }
