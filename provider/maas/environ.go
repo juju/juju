@@ -33,6 +33,8 @@ import (
 const (
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
+	// machineAllocated is the serialized python enum value.
+	machineAllocated = "6"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -330,15 +332,24 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]instance.Instance, len(listNodes))
-	for index, nodeObj := range listNodes {
+	// Preallocate enough spaces, but don't actually put anything into the
+	// slice, as we will filter out the unallocated nodes.
+	instances := make([]instance.Instance, 0, len(listNodes))
+	for _, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{
-			maasObject: &node,
-			environ:    environ,
+		status, err := node.GetField("status")
+		if err != nil {
+			return nil, err
+		}
+		// If the status is not allocated, continue.
+		if status == machineAllocated {
+			instances = append(instances, &maasInstance{
+				maasObject: &node,
+				environ:    environ,
+			})
 		}
 	}
 	return instances, nil
