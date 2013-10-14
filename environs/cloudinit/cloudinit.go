@@ -217,13 +217,17 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		if err != nil {
 			return nil, err
 		}
+		cons := cfg.Constraints.String()
+		if cons != "" {
+			cons = " --constraints " + shquote(cons)
+		}
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --constraints "+shquote(cfg.Constraints.String())+
+				cons+
 				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
 		)
