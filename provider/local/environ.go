@@ -315,7 +315,6 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("lxcInstances returned %#v (%v)", lxcInstances, lxcInstances)
 	for _, inst := range lxcInstances {
 		instances = append(instances, &localInstance{inst.Id(), env})
 	}
