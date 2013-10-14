@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
@@ -73,7 +74,11 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := imagemetadata.GenerateMetadata(series, &im, &cloudSpec, s.metadataDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		return err
+	}
+	err = imagemetadata.WriteMetadata(series, &im, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
