@@ -6,6 +6,7 @@ package addressupdater
 import (
 	stderrors "errors"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -57,19 +58,38 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 func (*machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
 	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
-	testPollInterval(c, nil)
+	count := countPolls(c, nil)
+	c.Assert(count, jc.GreaterThan, 2)
+}
+
+func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
+	defer testbase.PatchValue(&ShortPoll, 1*time.Microsecond).Restore()
+	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	defer testbase.PatchValue(&ShortPollBackoff, 2.0).Restore()
+
+	// With an exponent of 2, the maximum number of polls that can
+	// occur within the given interval ShortWait is log to the base
+	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
+	// sleep for at least the requested interval.
+	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
+	count := countPolls(c, nil)
+	c.Assert(count, jc.GreaterThan, 2)
+	c.Assert(count, jc.LessThan, maxCount)
+	c.Logf("actual count: %v; max %v", count, maxCount)
 }
 
 func (*machineSuite) TestLongPollIntervalWhenHasAddress(c *gc.C) {
 	defer testbase.PatchValue(&ShortPoll, coretesting.LongWait).Restore()
 	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
-	testPollInterval(c, testAddrs)
+	count := countPolls(c, testAddrs)
+	c.Assert(count, jc.GreaterThan, 2)
 }
 
-// testPollInterval checks that, when the machine and instance addresses
-// are set to addrs, it will poll frequently (given the poll intervals set
-// up outside this function).
-func testPollInterval(c *gc.C, addrs []instance.Address) {
+// countPolls sets up a machine loop with the given
+// addresses to be returned from getAddresses,
+// waits for coretesting.ShortWait, and returns the
+// number of times the addresses are polled.
+func countPolls(c *gc.C, addrs []instance.Address) int {
 	count := int32(0)
 	getAddresses := func(id instance.Id) ([]instance.Address, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
@@ -96,7 +116,7 @@ func testPollInterval(c *gc.C, addrs []instance.Address) {
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(context.killAllErr, gc.Equals, nil)
-	c.Assert(count, jc.GreaterThan, 2)
+	return int(count)
 }
 
 func (*machineSuite) TestSinglePollWhenAddressesUnimplemented(c *gc.C) {

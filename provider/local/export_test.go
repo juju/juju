@@ -66,4 +66,4 @@ func MockAddressForInterface() func() {
 	}
 }
 
-var EnsureLocalPort = ensureLocalPort
+var CheckLocalPort = checkLocalPort

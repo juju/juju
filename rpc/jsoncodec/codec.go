@@ -121,9 +121,11 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		return fmt.Errorf("error receiving message: %v", err)
 	}
 	hdr.RequestId = c.msg.RequestId
-	hdr.Type = c.msg.Type
-	hdr.Id = c.msg.Id
-	hdr.Request = c.msg.Request
+	hdr.Request = rpc.Request{
+		Type:   c.msg.Type,
+		Id:     c.msg.Id,
+		Action: c.msg.Request,
+	}
 	hdr.Error = c.msg.Error
 	hdr.ErrorCode = c.msg.ErrorCode
 	return nil
@@ -151,9 +153,9 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	r := &outMsg{
 		RequestId: hdr.RequestId,
 
-		Type:    hdr.Type,
-		Id:      hdr.Id,
-		Request: hdr.Request,
+		Type:    hdr.Request.Type,
+		Id:      hdr.Request.Id,
+		Request: hdr.Request.Action,
 
 		Error:     hdr.Error,
 		ErrorCode: hdr.ErrorCode,

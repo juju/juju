@@ -475,7 +475,7 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.Secrets = ecfg.secretKey()
 	}
 	newClient := client.NewClient
-	if !ecfg.SSLHostnameVerification() && cred.URL[:8] == "https://" {
+	if !ecfg.SSLHostnameVerification() {
 		newClient = client.NewNonValidatingClient
 	}
 	return newClient(cred, authMode, nil)

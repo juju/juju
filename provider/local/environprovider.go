@@ -55,62 +55,39 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	attrs := cfg.AllAttrs()
-	logger.Infof("ensuring state port")
-	statePort, err := ensureLocalPort(cfg.StatePort())
+	err := checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
 		return nil, err
 	}
-	attrs["state-port"] = statePort
-
-	logger.Infof("ensuring API port")
-	apiPort, err := ensureLocalPort(cfg.APIPort())
+	err = checkLocalPort(cfg.APIPort(), "API port")
 	if err != nil {
 		return nil, err
 	}
-	attrs["api-port"] = apiPort
-
-	newCfg, err := cfg.Apply(attrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.Open(newCfg)
+	return p.Open(cfg)
 }
 
-// ensureLocalPort ensures that the passed port is not used so far. Otherwise
-// it tries to find a free one.
-func ensureLocalPort(port int) (int, error) {
-	testPort := port
-	for {
-		// Try to connect the port on localhost.
-		address := fmt.Sprintf("localhost:%d", testPort)
-		// TODO(mue) Add a timeout?
-		conn, err := net.Dial("tcp", address)
-		if err != nil {
-			if nerr, ok := err.(*net.OpError); ok {
-				if nerr.Err == syscall.ECONNREFUSED {
-					// No connection, so return port.
-					return testPort, nil
-				}
+// checkLocalPort checks that the passed port is not used so far.
+func checkLocalPort(port int, description string) error {
+	logger.Infof("checking %s", description)
+	// Try to connect the port on localhost.
+	address := fmt.Sprintf("localhost:%d", port)
+	// TODO(mue) Add a timeout?
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		if nerr, ok := err.(*net.OpError); ok {
+			if nerr.Err == syscall.ECONNREFUSED {
+				// No connection, so everything is fine.
+				return nil
 			}
-			return 0, err
 		}
-		err = conn.Close()
-		if err != nil {
-			return 0, err
-		}
-		// Port is in use, next one.
-		testPort++
-		if testPort > 65535 {
-			testPort = 1025
-		}
-		if testPort == port {
-			// Ouch, all ports tested. Not realistic and
-			// we hope to never get there.
-			panic("all ports in use, weird")
-		}
+		return err
 	}
+	// Connected, so port is in use.
+	err = conn.Close()
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("cannot use %d as %s, already in use", port, description)
 }
 
 // Validate implements environs.EnvironProvider.Validate.

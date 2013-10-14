@@ -33,24 +33,16 @@ func (*localSuite) TestProviderRegistered(c *gc.C) {
 	c.Assert(provider, gc.DeepEquals, local.Provider)
 }
 
-func (*localSuite) TestEnsureLocalPort(c *gc.C) {
-	// Block some ports.
-	for port := 65501; port < 65505; port++ {
-		addr := fmt.Sprintf(":%d", port)
-		ln, err := net.Listen("tcp", addr)
-		c.Assert(err, gc.IsNil)
-		defer ln.Close()
-	}
-
-	port, err := local.EnsureLocalPort(65501)
+func (*localSuite) TestCheckLocalPort(c *gc.C) {
+	// Block a ports
+	addr := fmt.Sprintf(":%d", 65501)
+	ln, err := net.Listen("tcp", addr)
 	c.Assert(err, gc.IsNil)
-	c.Assert(port, gc.Equals, 65505)
+	defer ln.Close()
 
-	port, err = local.EnsureLocalPort(65504)
-	c.Assert(err, gc.IsNil)
-	c.Assert(port, gc.Equals, 65505)
+	err = local.CheckLocalPort(65501, "test port")
+	c.Assert(err, gc.ErrorMatches, "cannot use 65501 as test port, already in use")
 
-	port, err = local.EnsureLocalPort(65500)
+	err = local.CheckLocalPort(65502, "another test port")
 	c.Assert(err, gc.IsNil)
-	c.Assert(port, gc.Equals, 65500)
 }
