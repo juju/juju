@@ -315,6 +315,7 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("lxcInstances returned %#v (%v)", lxcInstances, lxcInstances)
 	for _, inst := range lxcInstances {
 		instances = append(instances, &localInstance{inst.Id(), env})
 	}
@@ -540,7 +541,7 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 	if err != nil {
 		return err
 	}
-	st, _, err := agentConfig.InitializeState(bootstrapCfg, agent.BootstrapMachineConfig{
+	st, m, err := agentConfig.InitializeState(bootstrapCfg, agent.BootstrapMachineConfig{
 		Constraints: cons,
 		Jobs: []state.MachineJob{
 			state.JobManageEnviron,
@@ -553,6 +554,22 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 	if err != nil {
 		return err
 	}
-	st.Close()
+	defer st.Close()
+	addr, err := env.findBridgeAddress(env.config.networkBridge())
+	if err != nil {
+		return fmt.Errorf("failed to get bridge address: %v", err)
+	}
+	err = m.SetAddresses([]instance.Address{{
+		NetworkScope: instance.NetworkPublic,
+		Type:         instance.HostName,
+		Value:        "localhost",
+	}, {
+		NetworkScope: instance.NetworkCloudLocal,
+		Type:         instance.Ipv4Address,
+		Value:        addr,
+	}})
+	if err != nil {
+		return fmt.Errorf("cannot set addresses on bootstrap instance: %v", err)
+	}
 	return nil
 }
