@@ -70,10 +70,6 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 		if err != nil {
 			return nil, err
 		}
-		version, err := simplestreams.SeriesVersion(t.Release)
-		if err != nil {
-			return nil, err
-		}
 		toWrite := &ImageMetadata{
 			Id: t.Id,
 		}
@@ -83,7 +79,7 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 			catalog = simplestreams.MetadataCatalog{
 				Arch:       t.Arch,
 				RegionName: t.RegionName,
-				Version:    version,
+				Version:    t.Version,
 				Items: map[string]*simplestreams.ItemCollection{
 					itemsversion: &simplestreams.ItemCollection{
 						Items: map[string]interface{}{t.Id: toWrite},

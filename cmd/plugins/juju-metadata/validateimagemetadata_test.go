@@ -66,7 +66,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
-	im := imagemetadata.ImageMetadata{
+	im := &imagemetadata.ImageMetadata{
 		Id:   id,
 		Arch: "amd64",
 	}
@@ -78,7 +78,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.WriteMetadata(series, &im, &cloudSpec, targetStorage)
+	err = imagemetadata.WriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}

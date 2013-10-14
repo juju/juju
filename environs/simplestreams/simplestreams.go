@@ -86,6 +86,9 @@ var (
 
 // SeriesVersion returns the version number for the specified Ubuntu series.
 func SeriesVersion(series string) (string, error) {
+	if series == "" {
+		panic("cannot pass empty series to SeriesVersion()")
+	}
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	if vers, ok := seriesVersions[series]; ok {
@@ -880,8 +883,8 @@ func setFieldByTag(x interface{}, tag, val string, override bool) {
 
 // GetCloudMetadataWithFormat loads the entire cloud metadata encoded using the specified format.
 // Exported for testing.
-func (indexRef *IndexReference) GetCloudMetadataWithFormat(ic LookupConstraint, format string, requireSigned bool) (*CloudMetadata, error) {
-	productFilesPath, err := indexRef.GetProductsPath(ic)
+func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint, format string, requireSigned bool) (*CloudMetadata, error) {
+	productFilesPath, err := indexRef.GetProductsPath(cons)
 	if err != nil {
 		return nil, err
 	}

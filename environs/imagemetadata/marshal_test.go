@@ -90,17 +90,17 @@ var expectedProducts = `{
 var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 	&imagemetadata.ImageMetadata{
 		Id:      "1234",
-		Release: "saucy",
+		Version: "13.10",
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
 		Id:      "5678",
-		Release: "precise",
+		Version: "12.04",
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
 		Id:      "abcd",
-		Release: "precise",
+		Version: "12.04",
 		Arch:    "amd64",
 	},
 }

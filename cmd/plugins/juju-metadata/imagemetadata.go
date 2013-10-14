@@ -138,7 +138,7 @@ eg for openstack
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 
-	im := imagemetadata.ImageMetadata{
+	im := &imagemetadata.ImageMetadata{
 		Id:   c.ImageId,
 		Arch: c.Arch,
 	}
@@ -150,7 +150,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.WriteMetadata(c.Series, &im, &cloudSpec, targetStorage)
+	err = imagemetadata.WriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}

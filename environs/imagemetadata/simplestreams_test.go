@@ -107,15 +107,15 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 var fetchTests = []struct {
-	region string
-	series string
-	arches []string
-	images []*imagemetadata.ImageMetadata
+	region  string
+	version string
+	arches  []string
+	images  []*imagemetadata.ImageMetadata
 }{
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64", "arm"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"amd64", "arm"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -144,9 +144,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"amd64"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -167,9 +167,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"arm"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"arm"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea699",
@@ -182,9 +182,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"amd64"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -217,6 +217,9 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		images, err := imagemetadata.Fetch([]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
+		}
+		for _, testImage := range t.images {
+			testImage.Version = t.version
 		}
 		c.Check(images, gc.DeepEquals, t.images)
 	}
