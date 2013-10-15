@@ -5,6 +5,7 @@ package imagemetadata
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -12,36 +13,28 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-func WriteMetadata(series string, metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec, metadataStore storage.Storage) error {
+// MergeAndWriteMetadata reads the existing metadata from storage (if any),
+// and merges it with supplied metadata, writing the resulting metadata is written to storage.
+func MergeAndWriteMetadata(series string, metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec,
+	metadataStore storage.Storage) error {
+
+	existingMetadata, err := readMetadata(metadataStore)
+	if err != nil {
+		return err
+	}
 	seriesVersion, err := simplestreams.SeriesVersion(series)
 	if err != nil {
 		return err
 	}
-	existingMetadata, err := readExistingMetadata(cloudSpec, metadataStore)
-	if err != nil {
-		return err
-	}
-	toWrite, err := mergeMetadata(seriesVersion, metadata, existingMetadata)
-	metadataInfo, err := generateMetadata(series, toWrite, cloudSpec)
-	if err != nil {
-		return err
-	}
-	for _, md := range metadataInfo {
-		err = metadataStore.Put(md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	toWrite, allCloudSpec := mergeMetadata(seriesVersion, cloudSpec, metadata, existingMetadata)
+	return writeMetadata(toWrite, allCloudSpec, metadataStore)
 }
 
-// readExistingMetadata reads the image metadata for cloudSpec from metadataStore.
-func readExistingMetadata(cloudSpec *simplestreams.CloudSpec, metadataStore storage.Storage) ([]*ImageMetadata, error) {
+// readMetadata reads the image metadata from metadataStore.
+func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	dataSource := storage.NewStorageSimpleStreamsDataSource(metadataStore, "")
-	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: *cloudSpec,
-	})
+	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
 	existingMetadata, err := Fetch(
 		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil && !errors.IsNotFoundError(err) {
@@ -50,31 +43,39 @@ func readExistingMetadata(cloudSpec *simplestreams.CloudSpec, metadataStore stor
 	return existingMetadata, nil
 }
 
+func mapKey(im *ImageMetadata) string {
+	return fmt.Sprintf("%s-%s", im.productId(), im.RegionName)
+}
+
 // mergeMetadata merges the newMetadata into existingMetadata, overwriting existing matching image records.
-func mergeMetadata(seriesVersion string, newMetadata, existingMetadata []*ImageMetadata) ([]*ImageMetadata, error) {
+func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, newMetadata,
+	existingMetadata []*ImageMetadata) ([]*ImageMetadata, []simplestreams.CloudSpec) {
+
 	var toWrite = make([]*ImageMetadata, len(newMetadata))
 	imageIds := make(map[string]bool)
 	for i, im := range newMetadata {
-		newRecord := *im
+		newRecord := im
 		newRecord.Version = seriesVersion
-		toWrite[i] = &newRecord
-		id, err := newRecord.productId()
-		if err != nil {
-			return nil, err
-		}
-		imageIds[id] = true
+		newRecord.RegionName = cloudSpec.Region
+		newRecord.Endpoint = cloudSpec.Endpoint
+		toWrite[i] = newRecord
+		imageIds[mapKey(newRecord)] = true
 	}
+	regions := make(map[string]bool)
+	var allCloudSpecs = []simplestreams.CloudSpec{*cloudSpec}
 	for _, im := range existingMetadata {
-		id, err := im.productId()
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := imageIds[id]; ok {
+		if _, ok := imageIds[mapKey(im)]; ok {
 			continue
 		}
 		toWrite = append(toWrite, im)
+		if _, ok := regions[im.RegionName]; ok {
+			continue
+		}
+		regions[im.RegionName] = true
+		existingCloudSpec := simplestreams.CloudSpec{im.RegionName, im.Endpoint}
+		allCloudSpecs = append(allCloudSpecs, existingCloudSpec)
 	}
-	return toWrite, nil
+	return toWrite, allCloudSpecs
 }
 
 type MetadataFile struct {
@@ -82,19 +83,24 @@ type MetadataFile struct {
 	Data []byte
 }
 
-// generateMetadata generates some basic simplestreams metadata using the specified cloud and image details.
-func generateMetadata(series string, metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec) ([]MetadataFile, error) {
-	for _, im := range metadata {
-		im.RegionName = cloudSpec.Region
-		im.Endpoint = cloudSpec.Endpoint
-	}
+// writeMetadata generates some basic simplestreams metadata using the specified cloud and image details and writes
+// it to the supplied store.
+func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpec,
+	metadataStore storage.Storage) error {
+
 	index, products, err := MarshalImageMetadataJSON(metadata, cloudSpec, time.Now())
 	if err != nil {
-		return nil, err
+		return err
 	}
-	objects := []MetadataFile{
+	metadataInfo := []MetadataFile{
 		{simplestreams.UnsignedIndex, index},
 		{ProductMetadataPath, products},
 	}
-	return objects, nil
+	for _, md := range metadataInfo {
+		err = metadataStore.Put(md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

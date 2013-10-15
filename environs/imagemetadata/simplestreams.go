@@ -135,8 +135,8 @@ func (im *ImageMetadata) String() string {
 	return fmt.Sprintf("%#v", im)
 }
 
-func (im *ImageMetadata) productId() (string, error) {
-	return fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", im.Version, im.Arch), nil
+func (im *ImageMetadata) productId() string {
+	return fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", im.Version, im.Arch)
 }
 
 // Fetch returns a list of images for the specified cloud matching the constraint.
@@ -164,6 +164,8 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ImageCons
 type imageKey struct {
 	vtype   string
 	arch    string
+	version string
+	region  string
 	storage string
 }
 
@@ -175,14 +177,14 @@ func appendMatchingImages(source simplestreams.DataSource, matchingImages []inte
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {
 		im := val.(*ImageMetadata)
-		imagesMap[imageKey{im.VType, im.Arch, im.Storage}] = im
+		imagesMap[imageKey{im.VType, im.Arch, im.Version, im.RegionName, im.Storage}] = im
 	}
 	for _, val := range images {
 		im := val.(*ImageMetadata)
-		if cons != nil && cons.Params().Region != im.RegionName {
+		if cons != nil && cons.Params().Region != "" && cons.Params().Region != im.RegionName {
 			continue
 		}
-		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Storage}]; !ok {
+		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Version, im.RegionName, im.Storage}]; !ok {
 			matchingImages = append(matchingImages, im)
 		}
 	}

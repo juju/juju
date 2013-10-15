@@ -32,7 +32,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = imagemetadata.WriteMetadata(series, metadata, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}

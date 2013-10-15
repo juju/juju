@@ -150,7 +150,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.WriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}

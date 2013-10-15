@@ -106,7 +106,7 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 }
 
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
-	cloudSpec := &simplestreams.CloudSpec{Region: "region", Endpoint: "endpoint"}
+	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, err := imagemetadata.MarshalImageMetadataIndexJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
@@ -119,7 +119,7 @@ func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
-	cloudSpec := &simplestreams.CloudSpec{Region: "region", Endpoint: "endpoint"}
+	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, products, err := imagemetadata.MarshalImageMetadataJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)

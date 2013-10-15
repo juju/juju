@@ -78,7 +78,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.WriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
