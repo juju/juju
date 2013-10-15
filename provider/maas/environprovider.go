@@ -38,7 +38,18 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO any attributes to prepare?
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["uuid"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["uuid"] = uuid.String()
+	}
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
