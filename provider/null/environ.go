@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
@@ -92,8 +93,20 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) error {
-	bootstrapHardware, err := e.envConfig().bootstrapHardware()
+func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
+	if err := common.EnsureNotBootstrapped(e); err != nil {
+		return err
+	}
+	envConfig := e.envConfig()
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
+	if err != nil {
+		return err
+	}
+	possibleTools, err := bootstrap.EnsureToolsAvailability(e, series, hc.Arch)
+	if err != nil {
+		return err
+	}
+	selectedTools, err := bootstrap.SelectBootstrapTools(e, possibleTools)
 	if err != nil {
 		return err
 	}
@@ -101,9 +114,9 @@ func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) e
 		Host:                    e.envConfig().sshHost(),
 		DataDir:                 dataDir,
 		Environ:                 e,
-		PossibleTools:           possibleTools,
-		Series:                  e.envConfig().bootstrapSeries(),
-		HardwareCharacteristics: bootstrapHardware,
+		PossibleTools:           selectedTools,
+		Series:                  series,
+		HardwareCharacteristics: &hc,
 	})
 }
 

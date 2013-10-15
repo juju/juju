@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -183,11 +182,21 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
+	// bootstrap.Bootstrap leaves it to the provider to
+	// locate bootstrap tools.
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys)
+	s.setDummyStorage(c, env)
+	envtesting.RemoveFakeTools(c, env.Storage())
+	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
 	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: invalid URL.*")
 }
 
@@ -243,7 +252,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil

@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
@@ -25,16 +24,6 @@ type StateSuite struct {
 }
 
 var _ = gc.Suite(&StateSuite{})
-
-type cleaner interface {
-	AddCleanup(testbase.CleanupFunc)
-}
-
-func newStorage(suite cleaner, c *gc.C) storage.Storage {
-	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
-	suite.AddCleanup(func(*gc.C) { closer.Close() })
-	return stor
-}
 
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 	stor := newStorage(suite, c)

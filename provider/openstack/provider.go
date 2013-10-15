@@ -435,7 +435,7 @@ func (e *environ) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+func (e *environ) Bootstrap(cons constraints.Value) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -443,7 +443,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) er
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(e, cons, possibleTools)
+	return common.Bootstrap(e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {

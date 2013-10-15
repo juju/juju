@@ -95,7 +95,10 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+func (env *localEnviron) Bootstrap(cons constraints.Value) error {
+	if err := common.EnsureNotBootstrapped(env); err != nil {
+		return err
+	}
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -119,6 +122,18 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
+	// Find tools, syncing with an external tools source as necessary.
+	// Select the newest tools to bootstrap with, and set agent-version.
+	vers := version.Current
+	possibleTools, err := bootstrap.EnsureToolsAvailability(env, vers.Series, &vers.Arch)
+	if err != nil {
+		return err
+	}
+	selectedTools, err := bootstrap.SelectBootstrapTools(env, possibleTools)
+	if err != nil {
+		return err
+	}
+
 	// Need to write out the agent file for machine-0 before initializing
 	// state, as as part of that process, it will reset the password in the
 	// agent file.
@@ -135,7 +150,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 	}
 	defer stateConnection.Close()
 
-	return env.setupLocalMachineAgent(cons, possibleTools)
+	return env.setupLocalMachineAgent(cons, selectedTools)
 }
 
 // StateInfo is specified in the Environ interface.

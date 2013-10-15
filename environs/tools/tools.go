@@ -158,6 +158,7 @@ func TestingPatchBootstrapFindTools(stub findtoolsfunc) func() {
 type BootstrapToolsParams struct {
 	Version    *version.Number
 	Arch       *string
+	Series     string
 	AllowRetry bool
 }
 
@@ -169,7 +170,7 @@ func FindBootstrapTools(cloudInst environs.ConfigGetter, params BootstrapToolsPa
 	cfg := cloudInst.Config()
 	cliVersion := version.Current.Number
 	filter := coretools.Filter{
-		Series: cfg.DefaultSeries(),
+		Series: params.Series,
 		Arch:   stringOrEmpty(params.Arch),
 	}
 	if params.Version != nil {

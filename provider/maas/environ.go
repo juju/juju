@@ -77,8 +77,8 @@ func (env *maasEnviron) Name() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	return common.Bootstrap(env, cons, possibleTools)
+func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
+	return common.Bootstrap(env, cons)
 }
 
 // StateInfo is specified in the Environ interface.

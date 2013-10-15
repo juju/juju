@@ -37,6 +37,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -528,7 +529,19 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		private, simplestreams.NewURLDataSource(publicURL, simplestreams.VerifySSLHostnames)}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List) error {
+func (e *environ) Bootstrap(cons constraints.Value) error {
+	if err := common.EnsureNotBootstrapped(e); err != nil {
+		return err
+	}
+	possibleTools, err := bootstrap.EnsureToolsAvailability(e, e.Config().DefaultSeries(), cons.Arch)
+	if err != nil {
+		return err
+	}
+	selectedTools, err := bootstrap.SelectBootstrapTools(e, possibleTools)
+	if err != nil {
+		return err
+	}
+
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -541,7 +554,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	logger.Infof("would pick tools from %s", possibleTools)
+	logger.Infof("would pick tools from %s", selectedTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
 		return fmt.Errorf("cannot make bootstrap config: %v", err)

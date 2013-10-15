@@ -10,8 +10,8 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/instance"
-	coretools "launchpad.net/juju-core/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")
@@ -19,10 +19,16 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(env environs.Environ, cons constraints.Value, possibleTools coretools.List) error {
+func Bootstrap(env environs.Environ, cons constraints.Value) error {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
+
+	// Check to see if the environment is already bootstrapped
+	// before potentially uploading any tools.
+	if err := EnsureNotBootstrapped(env); err != nil {
+		return err
+	}
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
@@ -32,7 +38,19 @@ func Bootstrap(env environs.Environ, cons constraints.Value, possibleTools coret
 		return err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL)
-	inst, hw, err := env.StartInstance(cons, possibleTools, machineConfig)
+
+	// Find tools, syncing with an external tools source as necessary.
+	// Select the newest tools to bootstrap with, and set agent-version.
+	possibleTools, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), cons.Arch)
+	if err != nil {
+		return err
+	}
+	selectedTools, err := bootstrap.SelectBootstrapTools(env, possibleTools)
+	if err != nil {
+		return err
+	}
+
+	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -55,4 +73,19 @@ func Bootstrap(env environs.Environ, cons constraints.Value, possibleTools coret
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	return nil
+}
+
+// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
+// and an error if it is or if the function was not able to tell.
+func EnsureNotBootstrapped(env environs.Environ) error {
+	_, err := LoadState(env.Storage())
+	// If there is no error loading the bootstrap state, then we are
+	// bootstrapped.
+	if err == nil {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	if err == environs.ErrNotBootstrapped {
+		return nil
+	}
+	return err
 }

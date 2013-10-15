@@ -443,7 +443,14 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	// Disable auto-uploading by setting the agent version.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"agent-version": version.Current.Number.String(),
+	})
+	c.Assert(err, gc.IsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
 }
 
