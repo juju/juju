@@ -63,6 +63,22 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.
 	c.Assert(err, gc.IsNil)
 }
 
+func (suite *EnvironProviderSuite) TestEnvironmentUUIDShouldNotBeSetByHand(c *gc.C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":             "maas",
+		"maas-oauth":       "aa:bb:cc",
+		"maas-server":      "http://maas.testing.invalid/maas/",
+		"environment-uuid": "foobar",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	_, err = suite.makeEnviron().Provider().Prepare(config)
+	c.Assert(err, gc.Equals, errUUIDAlreadySet)
+}
+
 // create a temporary file with the given content.  The file will be cleaned
 // up at the end of the test calling this method.
 func createTempFile(c *gc.C, content []byte) string {
