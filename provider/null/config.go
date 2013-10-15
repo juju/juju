@@ -7,9 +7,10 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/schema"
 )
+
+const defaultStoragePort = 8040
 
 var (
 	configFields = schema.Fields{
@@ -18,19 +19,11 @@ var (
 		"storage-listen-ip": schema.String(),
 		"storage-port":      schema.Int(),
 		"storage-auth-key":  schema.String(),
-
-		// these config values are initialised
-		// during Prepare, by connecting to
-		// the target machine.
-		"bootstrap-series":   schema.String(),
-		"bootstrap-hardware": schema.String(),
 	}
 	configDefaults = schema.Defaults{
-		"bootstrap-user":     "",
-		"storage-listen-ip":  "",
-		"storage-port":       8040,
-		"bootstrap-series":   schema.Omit,
-		"bootstrap-hardware": schema.Omit,
+		"bootstrap-user":    "",
+		"storage-listen-ip": "",
+		"storage-port":      defaultStoragePort,
 	}
 )
 
@@ -81,25 +74,4 @@ func (c *environConfig) storageAddr() string {
 // machine to listen on for its localstorage.
 func (c *environConfig) storageListenAddr() string {
 	return fmt.Sprintf("%s:%d", c.storageListenIPAddress(), c.storagePort())
-}
-
-// bootstrapSeries returns the detected series of the bootstrap host,
-// or "" if it hasn't yet been detected (by Prepare).
-func (c *environConfig) bootstrapSeries() string {
-	series, _ := c.attrs["bootstrap-series"].(string)
-	return series
-}
-
-// bootstrapHardware returns the detected hardware characteristics of he
-// bootstrap host, or nil if they haven't yet been detected (by Prepare).
-func (c *environConfig) bootstrapHardware() (*instance.HardwareCharacteristics, error) {
-	hardware, ok := c.attrs["bootstrap-hardware"].(string)
-	if !ok {
-		return nil, nil
-	}
-	hc, err := instance.ParseHardware(hardware)
-	if err != nil {
-		return nil, err
-	}
-	return &hc, nil
 }

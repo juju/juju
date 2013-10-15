@@ -61,6 +61,7 @@ func Main(args []string) {
 		helpProviderStart+helpHPCloud+helpProviderEnd)
 	jujucmd.AddHelpTopic("azure", "How to configure a Windows Azure provider",
 		helpProviderStart+helpAzureProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
 	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
@@ -95,6 +96,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&InitCommand{}))
 	jujucmd.Register(wrap(&GetCommand{}))
 	jujucmd.Register(wrap(&SetCommand{}))
+	jujucmd.Register(wrap(&UnsetCommand{}))
 	jujucmd.Register(wrap(&GetConstraintsCommand{}))
 	jujucmd.Register(wrap(&SetConstraintsCommand{}))
 	jujucmd.Register(wrap(&GetEnvironmentCommand{}))

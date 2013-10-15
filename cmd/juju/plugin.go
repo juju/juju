@@ -13,16 +13,55 @@ import (
 	"sort"
 	"strings"
 
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 )
 
 const JujuPluginPrefix = "juju-"
 
+// This is a very rudimentary method used to extract common Juju
+// arguments from the full list passed to the plugin. Currently,
+// there is only one such argument: -e env
+// If more than just -e is required, the method can be improved then.
+func extractJujuArgs(args []string) []string {
+	var jujuArgs []string
+	nrArgs := len(args)
+	for nextArg := 0; nextArg < nrArgs; {
+		arg := args[nextArg]
+		nextArg++
+		if arg != "-e" {
+			continue
+		}
+		jujuArgs = append(jujuArgs, arg)
+		if nextArg < nrArgs {
+			jujuArgs = append(jujuArgs, args[nextArg])
+			nextArg++
+		}
+	}
+	return jujuArgs
+}
+
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
-	plugin := &PluginCommand{name: JujuPluginPrefix + subcommand}
+	cmdName := JujuPluginPrefix + subcommand
+	plugin := &PluginCommand{name: cmdName}
+
+	// We process common flags supported by Juju commands.
+	// To do this, we extract only those supported flags from the
+	// argument list to avoid confusing flags.Parse().
+	flags := gnuflag.NewFlagSet(cmdName, gnuflag.ContinueOnError)
+	flags.SetOutput(ioutil.Discard)
+	plugin.SetFlags(flags)
+	jujuArgs := extractJujuArgs(args)
+	err := flags.Parse(false, jujuArgs)
+	if err != nil {
+		return err
+	}
+
 	plugin.Init(args)
-	err := plugin.Run(ctx)
+	err = plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
 	// exec.Error results are for when the executable isn't found, in
 	// those cases, drop through.
@@ -33,7 +72,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	cmd.CommandBase
+	cmd.EnvCommandBase
 	name string
 	args []string
 }
@@ -49,8 +88,16 @@ func (c *PluginCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+}
+
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
+	command.Env = append(os.Environ(), []string{
+		osenv.JujuHome + "=" + config.JujuHome(),
+		osenv.JujuEnv + "=" + c.EnvironName()}...,
+	)
 
 	// Now hook up stdin, stdout, stderr
 	command.Stdin = ctx.Stdin

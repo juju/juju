@@ -128,7 +128,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
 	defer restore()
 
-	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
+	_, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Assert(err, gc.ErrorMatches, test.err)
@@ -179,7 +179,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nil, new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
@@ -372,7 +372,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	}
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
-	opc, errc := runCommand(nil, new(BootstrapCommand))
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand))
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
@@ -393,7 +393,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nil, new(BootstrapCommand))
+	_, errc := runCommand(nullContext(), new(BootstrapCommand))
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "cannot find bootstrap tools: no matching tools available")
 }

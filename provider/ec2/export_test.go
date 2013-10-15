@@ -126,8 +126,6 @@ func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
 	newi := &ec2Instance{
 		e:        oldi.e,
 		Instance: &ec2.Instance{},
-		arch:     oldi.arch,
-		instType: oldi.instType,
 	}
 	*newi.Instance = *oldi.Instance
 	newi.InstanceId = newId

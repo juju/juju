@@ -213,9 +213,17 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		// We temporarily give bootstrap-state a directory
 		// of its own so that it can get the state info via the
 		// same mechanism as other jujud commands.
+		// TODO(rog) 2013-10-04
+		// This is redundant now as jujud bootstrap
+		// uses the machine agent's configuration.
+		// We leave it for the time being for backward compatibility.
 		acfg, err := cfg.addAgentInfo(c, "bootstrap")
 		if err != nil {
 			return nil, err
+		}
+		cons := cfg.Constraints.String()
+		if cons != "" {
+			cons = " --constraints " + shquote(cons)
 		}
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
@@ -223,7 +231,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --constraints "+shquote(cfg.Constraints.String())+
+				cons+
 				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
 		)
@@ -272,7 +280,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	} else {
 		password = cfg.StateInfo.Password
 	}
-	var configParams = agent.AgentConfigParams{
+	configParams := agent.AgentConfigParams{
 		DataDir:        cfg.DataDir,
 		Tag:            tag,
 		Password:       password,
@@ -282,17 +290,16 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 		CACert:         cfg.StateInfo.CACert,
 		Values:         cfg.AgentEnvironment,
 	}
-	if cfg.StateServer {
-		return agent.NewStateMachineConfig(
-			agent.StateMachineConfigParams{
-				AgentConfigParams: configParams,
-				StateServerCert:   cfg.StateServerCert,
-				StateServerKey:    cfg.StateServerKey,
-				StatePort:         cfg.StatePort,
-				APIPort:           cfg.APIPort,
-			})
+	if !cfg.StateServer {
+		return agent.NewAgentConfig(configParams)
 	}
-	return agent.NewAgentConfig(configParams)
+	return agent.NewStateMachineConfig(agent.StateMachineConfigParams{
+		AgentConfigParams: configParams,
+		StateServerCert:   cfg.StateServerCert,
+		StateServerKey:    cfg.StateServerKey,
+		StatePort:         cfg.StatePort,
+		APIPort:           cfg.APIPort,
+	})
 }
 
 // addAgentInfo adds agent-required information to the agent's directory

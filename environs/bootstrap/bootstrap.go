@@ -8,11 +8,8 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -71,53 +68,4 @@ func SelectBootstrapTools(environ environs.Environ, toolsList coretools.List) (c
 		}
 	}
 	return toolsList, nil
-}
-
-// ConfigureBootstrapMachine adds the initial machine into state.  As a part
-// of this process the environmental constraints are saved as constraints used
-// when bootstrapping are considered constraints for the entire environment.
-func ConfigureBootstrapMachine(
-	st *state.State,
-	cons constraints.Value,
-	datadir string,
-	jobs []state.MachineJob,
-	instId instance.Id,
-	characteristics instance.HardwareCharacteristics,
-) error {
-	logger.Debugf("setting environment constraints")
-	if err := st.SetEnvironConstraints(cons); err != nil {
-		return err
-	}
-
-	logger.Debugf("create bootstrap machine in state")
-	m, err := st.InjectMachine(&state.AddMachineParams{
-		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
-		Constraints:             cons,
-		InstanceId:              instId,
-		HardwareCharacteristics: characteristics,
-		Jobs: jobs,
-	})
-	if err != nil {
-		return err
-	}
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	logger.Debugf("create new random password for machine %v", m.Id())
-	mconf, err := agent.ReadConf(datadir, m.Tag())
-	if err != nil {
-		return err
-	}
-	newPassword, err := mconf.GenerateNewPassword()
-	if err != nil {
-		return err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
-		return err
-	}
-	if err := m.SetPassword(newPassword); err != nil {
-		return err
-	}
-	return nil
 }

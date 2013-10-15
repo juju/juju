@@ -12,3 +12,7 @@ func Password(config Config) string {
 	}
 	return ""
 }
+
+func WriteNewPassword(cfg Config) (string, error) {
+	return cfg.(*configInternal).writeNewPassword()
+}

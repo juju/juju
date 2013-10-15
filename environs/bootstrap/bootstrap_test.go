@@ -24,7 +24,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 

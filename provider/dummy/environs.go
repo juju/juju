@@ -483,10 +483,9 @@ func (*environProvider) PrivateAddress() (string, error) {
 
 func (*environProvider) BoilerplateConfig() string {
 	return `
-## Fake configuration for dummy provider.
+# Fake configuration for dummy provider.
 dummy:
-  type: dummy
-  admin-secret: {{rand}}
+    type: dummy
 
 `[1:]
 }
