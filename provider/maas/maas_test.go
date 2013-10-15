@@ -22,7 +22,6 @@ func TestMAAS(t *stdtesting.T) {
 type providerSuite struct {
 	testbase.LoggingSuite
 	envtesting.ToolsFixture
-	environ         *maasEnviron
 	testMAASObject  *gomaasapi.TestMAASObject
 	restoreTimeouts func()
 }
@@ -34,7 +33,6 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
-	s.environ = &maasEnviron{name: "test env", maasClientUnlocked: &TestMAASObject.MAASObject}
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
@@ -59,7 +57,7 @@ const exampleUUID = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *providerSuite) makeEnviron() *maasEnviron {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":                  suite.environ.Name(),
+		"name":                  "test env",
 		"type":                  "maas",
 		"maas-oauth":            "a:b:c",
 		"maas-server":           suite.testMAASObject.TestServer.URL,
