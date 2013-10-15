@@ -33,8 +33,6 @@ import (
 const (
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
-	// machineAllocated is the serialized python enum value.
-	machineAllocated = "6"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -345,7 +343,7 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 			return nil, err
 		}
 		// If the status is not allocated, continue.
-		if status == machineAllocated {
+		if status == gomaasapi.NodeStatusAllocated {
 			instances = append(instances, &maasInstance{
 				maasObject: &node,
 				environ:    environ,
