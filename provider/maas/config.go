@@ -34,6 +34,13 @@ func (cfg *maasEnvironConfig) maasOAuth() string {
 	return cfg.attrs["maas-oauth"].(string)
 }
 
+func (cfg *maasEnvironConfig) maasEnvironmentUUID() string {
+	if uuid, ok := cfg.attrs["maas-environment-uuid"].(string); ok {
+		return uuid
+	}
+	return ""
+}
+
 func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfig, error) {
 	validCfg, err := prov.Validate(cfg, nil)
 	if err != nil {

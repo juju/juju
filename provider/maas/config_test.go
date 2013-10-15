@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type configSuite struct {
@@ -43,15 +44,28 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
 	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server": server,
-		"maas-oauth":  oauth,
-		"future-key":  future,
+		"maas-server":           server,
+		"maas-oauth":            oauth,
+		"maas-environment-uuid": uuid.String(),
+		"future-key":            future,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Check(ecfg.maasServer(), gc.Equals, server)
 	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
+	c.Check(ecfg.maasEnvironmentUUID(), gc.Equals, uuid.String())
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
+}
+
+func (*configSuite) TestEnvironmentUUIDDefault(c *gc.C) {
+	ecfg, err := newConfig(map[string]interface{}{
+		"maas-server": "http://maas.testing.invalid/maas/",
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Check(ecfg.maasEnvironmentUUID(), gc.Equals, "")
 }
 
 func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
