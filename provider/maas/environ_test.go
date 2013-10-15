@@ -26,7 +26,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/common"
-	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -52,28 +51,6 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
-}
-
-const exampleUUID = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
-
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *environSuite) makeEnviron() *maasEnviron {
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":                  suite.environ.Name(),
-		"type":                  "maas",
-		"maas-oauth":            "a:b:c",
-		"maas-server":           suite.testMAASObject.TestServer.URL,
-		"maas-environment-uuid": exampleUUID,
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		panic(err)
-	}
-	env, err := NewEnviron(cfg)
-	if err != nil {
-		panic(err)
-	}
-	return env
 }
 
 func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
@@ -142,7 +119,7 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	resourceURI, _ := node.GetField("resource_uri")
 	instanceIds := []instance.Id{instance.Id(resourceURI)}
 
-	instances, err := suite.environ.Instances(instanceIds)
+	instances, err := suite.makeEnviron().Instances(instanceIds)
 
 	c.Check(err, gc.IsNil)
 	c.Check(len(instances), gc.Equals, 1)
@@ -168,7 +145,7 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *g
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
-	_, err := suite.environ.Instances([]instance.Id{"unknown"})
+	_, err := suite.makeEnviron().Instances([]instance.Id{"unknown"})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 }
 
@@ -177,7 +154,7 @@ func (suite *environSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	resourceURI, _ := node.GetField("resource_uri")
 
-	instances, err := suite.environ.AllInstances()
+	instances, err := suite.makeEnviron().AllInstances()
 
 	c.Check(err, gc.IsNil)
 	c.Check(len(instances), gc.Equals, 1)
@@ -185,7 +162,7 @@ func (suite *environSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
-	instances, err := suite.environ.AllInstances()
+	instances, err := suite.makeEnviron().AllInstances()
 
 	c.Check(err, gc.IsNil)
 	c.Check(len(instances), gc.Equals, 0)
@@ -201,7 +178,7 @@ func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) 
 	instanceId2 := instance.Id("unknown systemID")
 	instanceIds := []instance.Id{instanceId1, instanceId2}
 
-	instances, err := suite.environ.Instances(instanceIds)
+	instances, err := suite.makeEnviron().Instances(instanceIds)
 
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
 	c.Check(len(instances), gc.Equals, 1)

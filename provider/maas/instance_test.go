@@ -49,7 +49,7 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	s.testMAASObject.TestServer.ChangeNode("system_id", "test2", "test2")
-	instance := maasInstance{&obj, s.environ}
+	instance := maasInstance{&obj, s.makeEnviron()}
 
 	err := instance.refreshInstance()
 

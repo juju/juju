@@ -9,7 +9,9 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -50,4 +52,26 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.testMAASObject.Close()
 	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
+}
+
+const exampleUUID = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
+
+// makeEnviron creates a functional maasEnviron for a test.
+func (suite *providerSuite) makeEnviron() *maasEnviron {
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"name":                  suite.environ.Name(),
+		"type":                  "maas",
+		"maas-oauth":            "a:b:c",
+		"maas-server":           suite.testMAASObject.TestServer.URL,
+		"maas-environment-uuid": exampleUUID,
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		panic(err)
+	}
+	env, err := NewEnviron(cfg)
+	if err != nil {
+		panic(err)
+	}
+	return env
 }
