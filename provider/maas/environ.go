@@ -170,12 +170,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
-	constraintsParams := convertConstraints(cons)
+	acquireParams := convertConstraints(cons)
+	acquireParams.Add("agent_name", environ.ecfgUnlocked.maasEnvironmentUUID())
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
-		result, err = client.CallPost("acquire", constraintsParams)
+		result, err = client.CallPost("acquire", acquireParams)
 		if err == nil {
 			break
 		}

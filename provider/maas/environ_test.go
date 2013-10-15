@@ -54,13 +54,16 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
+const exampleUUID = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
+
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":        suite.environ.Name(),
-		"type":        "maas",
-		"maas-oauth":  "a:b:c",
-		"maas-server": suite.testMAASObject.TestServer.URL,
+		"name":                  suite.environ.Name(),
+		"type":                  "maas",
+		"maas-oauth":            "a:b:c",
+		"maas-server":           suite.testMAASObject.TestServer.URL,
+		"maas-environment-uuid": exampleUUID,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
@@ -327,6 +330,21 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	c.Assert(found, gc.Equals, true)
 	c.Assert(nodeRequestValues[0].Get("arch"), gc.Equals, "arm")
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
+}
+
+func (suite *environSuite) TestAcquireNodePassedEnvironmentUUID(c *gc.C) {
+	stor := NewStorage(suite.environ)
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, _, err := env.acquireNode(constraints.Value{}, tools.List{fakeTools})
+
+	c.Check(err, gc.IsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, gc.Equals, true)
+	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleUUID)
 }
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
