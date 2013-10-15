@@ -37,6 +37,11 @@ type environSuite struct {
 	providerSuite
 }
 
+const (
+	allocatedNode = `{"system_id": "test-allocated"}`
+	readyNode     = `{"system_id": "test-ready", "status": "` + gomaasapi.NodeStatusReady + `"}`
+)
+
 var _ = gc.Suite(&environSuite{})
 
 // getTestConfig creates a customized sample MAAS provider configuration.
@@ -134,8 +139,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 }
 
 func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
-	input := `{"system_id": "test"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
+	node := suite.testMAASObject.TestServer.NewNode(allocatedNode)
 	resourceURI, _ := node.GetField("resource_uri")
 	instanceIds := []instance.Id{instance.Id(resourceURI)}
 
@@ -146,9 +150,19 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
 }
 
+func (suite *environSuite) TestInstancesFiltersUnallocated(c *gc.C) {
+	node := suite.testMAASObject.TestServer.NewNode(readyNode)
+	resourceURI, _ := node.GetField("resource_uri")
+	instanceIds := []instance.Id{instance.Id(resourceURI)}
+
+	instances, err := suite.environ.Instances(instanceIds)
+
+	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(instances, gc.HasLen, 0)
+}
+
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
-	input := `{"system_id": "test"}`
-	suite.testMAASObject.TestServer.NewNode(input)
+	suite.testMAASObject.TestServer.NewNode(allocatedNode)
 	instances, err := suite.environ.Instances([]instance.Id{})
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
@@ -156,8 +170,7 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c 
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
-	input := `{"system_id": "test"}`
-	suite.testMAASObject.TestServer.NewNode(input)
+	suite.testMAASObject.TestServer.NewNode(allocatedNode)
 	instances, err := suite.environ.Instances(nil)
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
@@ -169,10 +182,10 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 }
 
-func (suite *environSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
-	input := `{"system_id": "test"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
+func (suite *environSuite) TestAllInstancesReturnsAllAllocatedInstances(c *gc.C) {
+	node := suite.testMAASObject.TestServer.NewNode(allocatedNode)
 	resourceURI, _ := node.GetField("resource_uri")
+	suite.testMAASObject.TestServer.NewNode(readyNode)
 
 	instances, err := suite.environ.AllInstances()
 
@@ -189,8 +202,7 @@ func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C
 }
 
 func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
-	input1 := `{"system_id": "test"}`
-	node1 := suite.testMAASObject.TestServer.NewNode(input1)
+	node1 := suite.testMAASObject.TestServer.NewNode(allocatedNode)
 	resourceURI1, _ := node1.GetField("resource_uri")
 	input2 := `{"system_id": "test2"}`
 	suite.testMAASObject.TestServer.NewNode(input2)
