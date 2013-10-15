@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type EnvironProviderSuite struct {
@@ -36,6 +37,30 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 
 	expectedAttrs := map[string]string{"maas-oauth": oauth}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
+}
+
+func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":        "maas",
+		"maas-oauth":  "aa:bb:cc",
+		"maas-server": "http://maas.testing.invalid/maas/",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	environ, err := suite.environ.Provider().Prepare(config)
+	c.Assert(err, gc.IsNil)
+
+	preparedConfig := environ.Config()
+	unknownAttrs := preparedConfig.UnknownAttrs()
+
+	uuid, ok := unknownAttrs["environment-uuid"]
+	c.Assert(ok, gc.Equals, true)
+
+	_, err = utils.UUIDFromString(uuid.(string))
+	c.Assert(err, gc.IsNil)
 }
 
 // create a temporary file with the given content.  The file will be cleaned
