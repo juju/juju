@@ -49,7 +49,7 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server":           server,
 		"maas-oauth":            oauth,
-		"maas-environment-uuid": uuid.String(),
+		"environment-uuid": uuid.String(),
 		"future-key":            future,
 	})
 	c.Assert(err, gc.IsNil)

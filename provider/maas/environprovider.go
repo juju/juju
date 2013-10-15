@@ -39,12 +39,12 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["maas-environment-uuid"]; !ok {
+	if _, ok := attrs["environment-uuid"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return nil, err
 		}
-		attrs["maas-environment-uuid"] = uuid.String()
+		attrs["environment-uuid"] = uuid.String()
 	}
 	cfg, err := cfg.Apply(attrs)
 	if err != nil {

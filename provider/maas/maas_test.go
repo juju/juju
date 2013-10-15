@@ -61,7 +61,7 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 		"type":                  "maas",
 		"maas-oauth":            "a:b:c",
 		"maas-server":           suite.testMAASObject.TestServer.URL,
-		"maas-environment-uuid": exampleUUID,
+		"environment-uuid": exampleUUID,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {

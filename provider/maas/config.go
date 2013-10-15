@@ -18,14 +18,14 @@ var configFields = schema.Fields{
 	// maas-oauth is a colon-separated triplet of:
 	// consumer-key:resource-token:resource-secret
 	"maas-oauth": schema.String(),
-	// maas-environment-uuid is an optional UUID to group the machines
+	// environment-uuid is an optional UUID to group the machines
 	// acquired from MAAS, to support multiple environments per MAAS user.
-	"maas-environment-uuid": schema.String(),
+	"environment-uuid": schema.String(),
 }
 var configDefaults = schema.Defaults{
-	// For backward-compatibility, maas-environment-uuid is the empty string
+	// For backward-compatibility, environment-uuid is the empty string
 	// by default. However, new environments should all use a UUID.
-	"maas-environment-uuid": "",
+	"environment-uuid": "",
 }
 
 type maasEnvironConfig struct {
@@ -42,7 +42,7 @@ func (cfg *maasEnvironConfig) maasOAuth() string {
 }
 
 func (cfg *maasEnvironConfig) maasEnvironmentUUID() string {
-	if uuid, ok := cfg.attrs["maas-environment-uuid"].(string); ok {
+	if uuid, ok := cfg.attrs["environment-uuid"].(string); ok {
 		return uuid
 	}
 	return ""
