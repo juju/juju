@@ -56,7 +56,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.
 	preparedConfig := environ.Config()
 	unknownAttrs := preparedConfig.UnknownAttrs()
 
-	uuid, ok := unknownAttrs["environment-uuid"]
+	uuid, ok := unknownAttrs["maas-environment-uuid"]
 	c.Assert(ok, gc.Equals, true)
 
 	_, err = utils.UUIDFromString(uuid.(string))
