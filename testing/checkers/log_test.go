@@ -43,6 +43,28 @@ func (s *LogMatchesSuite) TestMatchStrings(c *gc.C) {
 	c.Check(log, gc.Not(jc.LogMatches), []string{"baz", "bing"})
 }
 
+func (s *LogMatchesSuite) TestMatchInexact(c *gc.C) {
+	log := []loggo.TestLogValues{
+		{Level: loggo.INFO, Message: "foo bar"},
+		{Level: loggo.INFO, Message: "baz"},
+		{Level: loggo.INFO, Message: "12345"},
+		{Level: loggo.INFO, Message: "67890"},
+	}
+	c.Check(log, jc.LogMatches, []string{"foo bar", "12345"})
+	c.Check(log, jc.LogMatches, []string{"foo .*", "12345"})
+	c.Check(log, jc.LogMatches, []string{"foo .*", "67890"})
+	c.Check(log, jc.LogMatches, []string{"67890"})
+
+	// Matches are always left-most after the previous match.
+	c.Check(log, jc.LogMatches, []string{".*", "baz"})
+	c.Check(log, jc.LogMatches, []string{"foo bar", ".*", "12345"})
+	c.Check(log, jc.LogMatches, []string{"foo bar", ".*", "67890"})
+
+	// Order is important: 67890 advances to the last item in obtained,
+	// and so there's nothing after to match against ".*".
+	c.Check(log, gc.Not(jc.LogMatches), []string{"67890", ".*"})
+}
+
 func (s *LogMatchesSuite) TestFromLogMatches(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	_, err := loggo.ReplaceDefaultWriter(tw)
