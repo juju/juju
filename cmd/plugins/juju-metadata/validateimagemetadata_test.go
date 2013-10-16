@@ -86,6 +86,14 @@ environments:
         type: ec2
         default-series: precise
         region: us-east-1
+
+    azure:
+        type: azure
+        default-series: raring
+        location: US West
+        management-subscription-id: foo
+        storage-account-name: bar
+        management-certificate-path: /home/me/azure.pem
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {

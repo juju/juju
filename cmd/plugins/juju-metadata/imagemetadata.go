@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -49,7 +50,7 @@ func (c *ImageMetadataCommand) Info() *cmd.Info {
 
 func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.StringVar(&c.Series, "s", "precise", "the charm series")
+	f.StringVar(&c.Series, "s", "", "the charm series")
 	f.StringVar(&c.Arch, "a", "amd64", "the image achitecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
@@ -63,27 +64,30 @@ func (c *ImageMetadataCommand) Init(args []string) error {
 	if store, err := configstore.Default(); err == nil {
 		if environ, err = environs.PrepareFromName(c.EnvName, store); err == nil {
 			logger.Infof("creating image metadata for environment %q", environ.Name())
-			var cloudSpec simplestreams.CloudSpec
-			if inst, ok := environ.(simplestreams.HasRegion); ok {
-				if cloudSpec, err = inst.Region(); err != nil {
-					return err
+			// If the user has not specified region and endpoint, try and get it from the environment.
+			if c.Region == "" || c.Endpoint == "" {
+				var cloudSpec simplestreams.CloudSpec
+				if inst, ok := environ.(simplestreams.HasRegion); ok {
+					if cloudSpec, err = inst.Region(); err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("environment %q cannot provide region and endpoint", environ.Name())
 				}
-			} else {
-				return fmt.Errorf("environment %q cannot provide region and endpoint", environ.Name())
-			}
-			// If only one of region or endpoint is provided, that is a problem.
-			if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-				return fmt.Errorf("cannot generate metadata without a complete cloud configuration")
+				// If only one of region or endpoint is provided, that is a problem.
+				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
+					return fmt.Errorf("cannot generate metadata without a complete cloud configuration")
+				}
+				if c.Region == "" {
+					c.Region = cloudSpec.Region
+				}
+				if c.Endpoint == "" {
+					c.Endpoint = cloudSpec.Endpoint
+				}
 			}
 			cfg := environ.Config()
 			if c.Series == "" {
 				c.Series = cfg.DefaultSeries()
-			}
-			if c.Region == "" {
-				c.Region = cloudSpec.Region
-			}
-			if c.Endpoint == "" {
-				c.Endpoint = cloudSpec.Endpoint
 			}
 			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
 				c.privateStorage = v.(string)
@@ -94,6 +98,9 @@ func (c *ImageMetadataCommand) Init(args []string) error {
 	}
 	if environ == nil {
 		logger.Infof("no environment found, creating image metadata using user supplied data")
+	}
+	if c.Series == "" {
+		c.Series = config.DefaultSeries
 	}
 	if c.ImageId == "" {
 		return fmt.Errorf("image id must be specified")
