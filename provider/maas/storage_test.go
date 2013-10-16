@@ -144,20 +144,20 @@ func (s *storageSuite) TestFileContentsAreBinary(c *gc.C) {
 
 func (s *storageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *gc.C) {
 	const filename = "lost-data"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	_, err := storage.Get(stor, filename)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestListReturnsEmptyIfNoFilesStored(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
 
 func (s *storageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	files := []string{"1a", "2b", "3c"}
 	for _, name := range files {
 		s.fakeStoredFile(stor, name)
@@ -169,7 +169,7 @@ func (s *storageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
 }
 
 func (s *storageSuite) TestListSortsResults(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	files := []string{"4d", "1a", "3c", "2b"}
 	for _, name := range files {
 		s.fakeStoredFile(stor, name)
@@ -181,7 +181,7 @@ func (s *storageSuite) TestListSortsResults(c *gc.C) {
 }
 
 func (s *storageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "foo")
 
 	listing, err := storage.List(stor, "bar")
@@ -190,7 +190,7 @@ func (s *storageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
 }
 
 func (s *storageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "abc")
 	s.fakeStoredFile(stor, "xyz")
 
@@ -200,7 +200,7 @@ func (s *storageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
 }
 
 func (s *storageSuite) TestListMatchesPrefixOnly(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "abc")
 	s.fakeStoredFile(stor, "xabc")
 
@@ -210,7 +210,7 @@ func (s *storageSuite) TestListMatchesPrefixOnly(c *gc.C) {
 }
 
 func (s *storageSuite) TestListOperatesOnFlatNamespace(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "a/b/c/d")
 
 	listing, err := storage.List(stor, "a/b")
@@ -233,7 +233,7 @@ func getFileAtURL(fileURL string) ([]byte, error) {
 
 func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	const filename = "my-file.txt"
-	stor := NewStorage(s.environ).(*maasStorage)
+	stor := NewStorage(s.makeEnviron()).(*maasStorage)
 	file := s.fakeStoredFile(stor, filename)
 	// The file contains an anon_resource_uri, which lacks a network part
 	// (but will probably contain a query part).  anonURL will be the
@@ -256,7 +256,7 @@ func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 	const filename = "broken-toaster.jpg"
 	contents := []byte("Contents here")
 	length := int64(len(contents))
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(contents), length)
 
@@ -271,7 +271,7 @@ func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 
 func (s *storageSuite) TestPutOverwritesFile(c *gc.C) {
 	const filename = "foo.bar"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, filename)
 	newContents := []byte("Overwritten")
 
@@ -292,7 +292,7 @@ func (s *storageSuite) TestPutStopsAtGivenLength(c *gc.C) {
 	const filename = "xyzzyz.2.xls"
 	const length = 5
 	contents := []byte("abcdefghijklmnopqrstuvwxyz")
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(contents), length)
 	c.Assert(err, gc.IsNil)
@@ -310,7 +310,7 @@ func (s *storageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 	const filename = "a-file-which-is-mine"
 	oldContents := []byte("abcdefghijklmnopqrstuvwxyz")
 	newContents := []byte("xyz")
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	err := stor.Put(filename, bytes.NewReader(oldContents), int64(len(oldContents)))
 	c.Assert(err, gc.IsNil)
 
@@ -329,7 +329,7 @@ func (s *storageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 
 func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 	const filename = "doomed.txt"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, filename)
 
 	err := stor.Remove(filename)
@@ -345,7 +345,7 @@ func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 
 func (s *storageSuite) TestRemoveIsIdempotent(c *gc.C) {
 	const filename = "half-a-file"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, filename)
 
 	err := stor.Remove(filename)
@@ -358,7 +358,7 @@ func (s *storageSuite) TestRemoveIsIdempotent(c *gc.C) {
 func (s *storageSuite) TestNamesMayHaveSlashes(c *gc.C) {
 	const filename = "name/with/slashes"
 	content := []byte("File contents")
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(content), int64(len(content)))
 	c.Assert(err, gc.IsNil)

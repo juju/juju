@@ -4,16 +4,20 @@
 package tools_test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/storage"
@@ -83,6 +87,7 @@ func registerSimpleStreamsTests() {
 			}),
 		},
 	})
+	gc.Suite(&signedSuite{})
 }
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
@@ -685,3 +690,108 @@ func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
 	}
 	c.Assert(out, gc.DeepEquals, metadata)
 }
+
+type signedSuite struct {
+	origKey string
+}
+
+var testRoundTripper *jujutest.ProxyRoundTripper
+
+func init() {
+	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	simplestreams.RegisterProtocol("signedtest", testRoundTripper)
+}
+
+func (s *signedSuite) SetUpSuite(c *gc.C) {
+	var imageData = map[string]string{
+		"/unsigned/streams/v1/index.json":          unsignedIndex,
+		"/unsigned/streams/v1/tools_metadata.json": unsignedProduct,
+	}
+
+	// Set up some signed data from the unsigned data.
+	// Overwrite the product path to use the sjson suffix.
+	rawUnsignedIndex := strings.Replace(
+		unsignedIndex, "streams/v1/tools_metadata.json", "streams/v1/tools_metadata.sjson", -1)
+	r := bytes.NewReader([]byte(rawUnsignedIndex))
+	signedData, err := simplestreams.Encode(
+		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	c.Assert(err, gc.IsNil)
+	imageData["/signed/streams/v1/index.sjson"] = string(signedData)
+
+	// Replace the tools path in the unsigned data with a different one so we can test that the right
+	// tools path is used.
+	rawUnsignedProduct := strings.Replace(
+		unsignedProduct, "juju-1.13.0", "juju-1.13.1", -1)
+	r = bytes.NewReader([]byte(rawUnsignedProduct))
+	signedData, err = simplestreams.Encode(
+		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	c.Assert(err, gc.IsNil)
+	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
+	s.origKey = tools.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+}
+
+func (s *signedSuite) TearDownSuite(c *gc.C) {
+	testRoundTripper.Sub = nil
+	tools.SetSigningPublicKey(s.origKey)
+}
+
+func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
+	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+		Series:    []string{"precise"},
+		Arches:    []string{"amd64"},
+	})
+	toolsMetadata, err := tools.Fetch(
+		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, toolsConstraint, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(toolsMetadata), gc.Equals, 1)
+	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")
+}
+
+var unsignedIndex = `
+{
+ "index": {
+  "com.ubuntu.juju:released:tools": {
+   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
+   "datatype": "content-download",
+   "format": "products:1.0",
+   "products": [
+     "com.ubuntu.juju:12.04:amd64"
+   ],
+   "path": "streams/v1/tools_metadata.json"
+  }
+ },
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "format": "index:1.0"
+}
+`
+var unsignedProduct = `
+{
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "datatype": "content-download",
+ "products": {
+   "com.ubuntu.juju:12.04:amd64": {
+    "arch": "amd64",
+    "release": "precise",
+    "versions": {
+     "20130806": {
+      "items": {
+       "1130preciseamd64": {
+        "version": "1.13.0",
+        "size": 2973595,
+        "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+        "ftype": "tar.gz",
+        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+       }
+      }
+     }
+    }
+   }
+ },
+ "format": "products:1.0"
+}
+`

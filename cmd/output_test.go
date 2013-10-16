@@ -50,6 +50,8 @@ var outputTests = map[string][]struct {
 	output string
 }{
 	"": {
+		{nil, ""},
+		{"", ""},
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
@@ -62,6 +64,8 @@ var outputTests = map[string][]struct {
 		{map[interface{}]interface{}{"foo": "bar"}, "foo: bar\n"},
 	},
 	"smart": {
+		{nil, ""},
+		{"", ""},
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
@@ -74,6 +78,8 @@ var outputTests = map[string][]struct {
 		{map[interface{}]interface{}{"foo": "bar"}, "foo: bar\n"},
 	},
 	"json": {
+		{nil, "null\n"},
+		{"", `""` + "\n"},
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
@@ -87,6 +93,8 @@ var outputTests = map[string][]struct {
 		{defaultValue, `{"Juju":1,"Puppet":false}` + "\n"},
 	},
 	"yaml": {
+		{nil, ""},
+		{"", `""` + "\n"},
 		{1, "1\n"},
 		{-1, "-1\n"},
 		{1.1, "1.1\n"},
@@ -111,17 +119,19 @@ func (s *CmdSuite) TestOutputFormat(c *gc.C) {
 			c.Logf("  test %d", i)
 			ctx := testing.Context(c)
 			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
-			c.Assert(result, gc.Equals, 0)
-			c.Assert(bufferString(ctx.Stdout), gc.Equals, t.output)
-			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+			c.Check(result, gc.Equals, 0)
+			c.Check(bufferString(ctx.Stdout), gc.Equals, t.output)
+			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		}
 	}
+}
 
+func (s *CmdSuite) TestUnknownOutputFormat(c *gc.C) {
 	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format", "cuneiform"})
-	c.Assert(result, gc.Equals, 2)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, ".*: unknown format \"cuneiform\"\n")
+	c.Check(result, gc.Equals, 2)
+	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Check(bufferString(ctx.Stderr), gc.Matches, ".*: unknown format \"cuneiform\"\n")
 }
 
 // Py juju allowed both --format json and --format=json. This test verifies that juju is

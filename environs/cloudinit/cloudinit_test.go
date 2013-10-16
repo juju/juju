@@ -120,6 +120,75 @@ cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 ag
 start jujud-machine-0
 `,
 	}, {
+		// NOTE: this is terrible, only want to test part of the results...
+		// precise state server - no constraints
+		cfg: cloudinit.MachineConfig{
+			MachineId:        "0",
+			AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			// precise currently needs mongo from PPA
+			Tools:           newSimpleTools("1.2.3-precise-amd64"),
+			StateServer:     true,
+			StateServerCert: serverCert,
+			StateServerKey:  serverKey,
+			StatePort:       37017,
+			APIPort:         17070,
+			MachineNonce:    "FAKE_NONCE",
+			StateInfo: &state.Info{
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			DataDir:      environs.DataDir,
+			StateInfoURL: "some-url",
+		},
+		setEnvConfig: true,
+		expectScripts: `
+echo ENABLE_MONGODB="no" > /etc/default/mongodb
+set -xe
+mkdir -p /var/lib/juju
+mkdir -p /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
+mkdir -p \$bin
+wget --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-precise-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
+printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+restart rsyslog
+mkdir -p '/var/lib/juju/agents/machine-0'
+install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
+printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
+install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
+printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
+install -m 600 /dev/null '/var/lib/juju/server\.pem'
+printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
+mkdir -p /var/lib/juju/db/journal
+chmod 0700 /var/lib/juju/db
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
+dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
+start juju-db
+mkdir -p '/var/lib/juju/agents/bootstrap'
+install -m 644 /dev/null '/var/lib/juju/agents/bootstrap/format'
+printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/format'
+install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
+printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'some-url' > /tmp/provider-state-url
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
+rm -rf '/var/lib/juju/agents/bootstrap'
+ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+start jujud-machine-0
+`,
+	}, {
 		// raring state server
 		cfg: cloudinit.MachineConfig{
 			MachineId:        "0",

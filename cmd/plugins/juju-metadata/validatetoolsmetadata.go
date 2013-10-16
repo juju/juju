@@ -141,7 +141,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := environs.NewFromName(c.EnvName, store)
+		environ, err := environs.PrepareFromName(c.EnvName, store)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {

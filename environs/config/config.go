@@ -104,7 +104,15 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
 			c.m["logging-config"] = environmentValue
 		} else {
-			c.m["logging-config"] = loggo.LoggerInfo()
+			//TODO(wallyworld) - 2013-10-10 bug=1237731
+			// We need better way to ensure default logging is set to debug.
+			// This is a *quick* fix to get 1.16 out the door.
+			loggoConfig := loggo.LoggerInfo()
+			if loggoConfig != "<root>=WARNING" {
+				c.m["logging-config"] = loggoConfig
+			} else {
+				c.m["logging-config"] = "<root>=DEBUG"
+			}
 		}
 	}
 

@@ -49,13 +49,24 @@ mysql-33 becomes cs:precise/mysql-33).
 
 <service name>, if omitted, will be derived from <charm name>.
 
+Constraints can be specified when using deploy by specifying the --constraints
+flag.  When used with deploy, service-specific constraints are set so that later
+machines provisioned with add-unit will use the same constraints (unless changed
+by set-constraints).
+
 Charms can be deployed to a specific machine using the --to argument.
 
 Examples:
+   juju deploy mysql --to 23       (Deploy to machine 23)
+   juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
+   juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
+   
+   juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
-  juju deploy mysql --to 23       (Deploy to machine 23)
-  juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
-  juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
+See Also:
+   juju help constraints
+   juju help set-constraints
+   juju help get-constraints
 `
 
 func (c *DeployCommand) Info() *cmd.Info {

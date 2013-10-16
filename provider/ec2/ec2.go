@@ -69,8 +69,6 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 type ec2Instance struct {
 	e *environ
 	*ec2.Instance
-	arch     *string
-	instType *instances.InstanceType
 }
 
 func (inst *ec2Instance) String() string {
@@ -85,18 +83,6 @@ func (inst *ec2Instance) Id() instance.Id {
 
 func (inst *ec2Instance) Status() string {
 	return inst.State.Name
-}
-
-func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteristics {
-	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
-	if inst.instType != nil {
-		hc.Mem = &inst.instType.Mem
-		hc.RootDisk = &inst.instType.RootDisk
-		hc.CpuCores = &inst.instType.CpuCores
-		hc.CpuPower = inst.instType.CpuPower
-		// Tags currently not supported by EC2
-	}
-	return hc
 }
 
 // refreshInstance requeries the Instance details over the ec2 api
@@ -171,20 +157,18 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-aws.html
+# https://juju.ubuntu.com/docs/config-aws.html
 amazon:
-  type: ec2
-  admin-secret: {{rand}}
-  # globally unique S3 bucket name
-  control-bucket: juju-{{rand}}
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # region defaults to us-east-1, override if required
-  # region: us-east-1
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-  # secret-key: <secret>
+    type: ec2
+    # region specifies the ec2 region. It defaults to us-east-1.
+    # region: us-east-1
+    #
+    # access-key holds the ec2 access key. It defaults to the environment
+    # variable AWS_ACCESS_KEY_ID.
+    # access-key: <secret>
+    #
+    # secret-key holds the ec2 secret key. It defaults to the environment
+    # variable AWS_SECRET_ACCESS_KEY.
 
 `[1:]
 }
@@ -389,6 +373,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if err != nil {
 		return nil, nil, err
 	}
+
 	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
@@ -422,14 +407,16 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	var instResp *ec2.RunInstancesResp
 
+	device, diskSize := getDiskSize(cons)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.Image.Id,
-			MinCount:       1,
-			MaxCount:       1,
-			UserData:       userData,
-			InstanceType:   spec.InstanceType.Name,
-			SecurityGroups: groups,
+			ImageId:             spec.Image.Id,
+			MinCount:            1,
+			MaxCount:            1,
+			UserData:            userData,
+			InstanceType:        spec.InstanceType.Name,
+			SecurityGroups:      groups,
+			BlockDeviceMappings: []ec2.BlockDeviceMapping{device},
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
 			break
@@ -441,14 +428,22 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if len(instResp.Instances) != 1 {
 		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
+
 	inst := &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
-		arch:     &spec.Image.Arch,
-		instType: &spec.InstanceType,
 	}
 	logger.Infof("started instance %q", inst.Id())
-	return inst, inst.hardwareCharacteristics(), nil
+
+	hc := instance.HardwareCharacteristics{
+		Arch:     &spec.Image.Arch,
+		Mem:      &spec.InstanceType.Mem,
+		CpuCores: &spec.InstanceType.CpuCores,
+		CpuPower: spec.InstanceType.CpuPower,
+		RootDisk: &diskSize,
+		// Tags currently not supported by EC2
+	}
+	return inst, &hc, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
@@ -457,6 +452,34 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 		ids[i] = inst.(*ec2Instance).Id()
 	}
 	return e.terminateInstances(ids)
+}
+
+// minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
+const minDiskSize uint64 = 8 * 1024
+
+// getDiskSize translates a RootDisk constraint (or lackthereof) into a
+// BlockDeviceMapping request for EC2.  megs is the size in megabytes of
+// the disk that was requested.
+func getDiskSize(cons constraints.Value) (dvc ec2.BlockDeviceMapping, megs uint64) {
+	diskSize := minDiskSize
+
+	if cons.RootDisk != nil {
+		if *cons.RootDisk >= minDiskSize {
+			diskSize = *cons.RootDisk
+		} else {
+			logger.Infof("Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
+				*cons.RootDisk, minDiskSize)
+		}
+	}
+
+	// AWS's volume size is in gigabytes, root-disk is in megabytes,
+	// so round up to the nearest gigabyte.
+	volsize := int64((diskSize + 1023) / 1024)
+	return ec2.BlockDeviceMapping{
+			DeviceName: "/dev/sda1",
+			VolumeSize: volsize,
+		},
+		uint64(volsize * 1024)
 }
 
 // groupInfoByName returns information on the security group
