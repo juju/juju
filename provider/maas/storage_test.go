@@ -413,7 +413,7 @@ func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresEmptyUUID(c *gc.C) 
 	sstor := NewStorage(s.makeEnviron())
 	stor := sstor.(*maasStorage)
 	ecfg := stor.environUnlocked.ecfg()
-	ecfg.attrs["environment-uuid"] = ""
+	ecfg.attrs["maas-instance-uuid"] = ""
 
 	const name = "myname"
 	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, name)

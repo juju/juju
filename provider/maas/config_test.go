@@ -47,10 +47,10 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server":      server,
-		"maas-oauth":       oauth,
-		"environment-uuid": uuid.String(),
-		"future-key":       future,
+		"maas-server":        server,
+		"maas-oauth":         oauth,
+		"maas-instance-uuid": uuid.String(),
+		"future-key":         future,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Check(ecfg.maasServer(), gc.Equals, server)

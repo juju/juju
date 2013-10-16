@@ -18,14 +18,14 @@ var configFields = schema.Fields{
 	// maas-oauth is a colon-separated triplet of:
 	// consumer-key:resource-token:resource-secret
 	"maas-oauth": schema.String(),
-	// environment-uuid is an optional UUID to group the machines
+	// maas-instance-uuid is an optional UUID to group the instances
 	// acquired from MAAS, to support multiple environments per MAAS user.
-	"environment-uuid": schema.String(),
+	"maas-instance-uuid": schema.String(),
 }
 var configDefaults = schema.Defaults{
-	// For backward-compatibility, environment-uuid is the empty string
+	// For backward-compatibility, maas-instance-uuid is the empty string
 	// by default. However, new environments should all use a UUID.
-	"environment-uuid": "",
+	"maas-instance-uuid": "",
 }
 
 type maasEnvironConfig struct {
@@ -42,7 +42,7 @@ func (cfg *maasEnvironConfig) maasOAuth() string {
 }
 
 func (cfg *maasEnvironConfig) maasEnvironmentUUID() string {
-	if uuid, ok := cfg.attrs["environment-uuid"].(string); ok {
+	if uuid, ok := cfg.attrs["maas-instance-uuid"].(string); ok {
 		return uuid
 	}
 	return ""
@@ -71,6 +71,12 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
+	}
+	if oldCfg != nil {
+		oldAttrs := oldCfg.UnknownAttrs()
+		if validated["maas-instance-uuid"] != oldAttrs["maas-instance-uuid"] {
+			return nil, fmt.Errorf("cannot change maas-instance-uuid")
+		}
 	}
 	envCfg := new(maasEnvironConfig)
 	envCfg.Config = cfg

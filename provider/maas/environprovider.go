@@ -39,23 +39,20 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 var errUUIDAlreadySet = errors.New(
-	"environment-uuid is already set; this should not be set by hand")
+	"maas-instance-uuid is already set; this should not be set by hand")
 
 func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
-	uuid, found := attrs["environment-uuid"]
-	if found {
-		if uuid != "" {
-			return nil, errUUIDAlreadySet
-		}
-	} else {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		attrs["environment-uuid"] = uuid.String()
+	oldUUID, found := attrs["maas-instance-uuid"]
+	if found && oldUUID != "" {
+		return nil, errUUIDAlreadySet
 	}
-	cfg, err := cfg.Apply(attrs)
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	attrs["maas-instance-uuid"] = uuid.String()
+	cfg, err = cfg.Apply(attrs)
 	if err != nil {
 		return nil, err
 	}
