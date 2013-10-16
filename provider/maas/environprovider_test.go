@@ -40,7 +40,8 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }
 
-func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.C) {
+func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
+	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
