@@ -92,12 +92,12 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 // This prevents different environments from interfering with each other.
 // We're using the environment's UUID here.
 func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
-    env := stor.getSnapshot().environUnlocked
-    prefix := env.ecfg().maasEnvironmentUUID()
-    if prefix != "" {
-        return prefix + "-" + name
-    }
-    return name
+	env := stor.getSnapshot().environUnlocked
+	prefix := env.ecfg().maasEnvironmentUUID()
+	if prefix != "" {
+		return prefix + "-" + name
+	}
+	return name
 }
 
 // Get is specified in the StorageReader interface.
