@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"errors"
 	"os"
 
 	"launchpad.net/loggo"
@@ -37,9 +38,17 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
+var errUUIDAlreadySet = errors.New(
+	"environment-uuid is already set; this should not be set by hand")
+
 func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["environment-uuid"]; !ok {
+	uuid, found := attrs["environment-uuid"]
+	if found {
+		if uuid != "" {
+			return nil, errUUIDAlreadySet
+		}
+	} else {
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return nil, err
