@@ -390,3 +390,14 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(listing, gc.DeepEquals, []string{})
 }
+
+func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithUUID(c *gc.C) {
+	sstor := NewStorage(s.makeEnviron())
+    stor := sstor.(*maasStorage)
+    env := stor.environUnlocked
+    ecfg := env.ecfg()
+    expectedPrefix := ecfg.maasEnvironmentUUID() + "-"
+    const name = "myname"
+    expectedResult := expectedPrefix + name
+    c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, expectedResult)
+}
