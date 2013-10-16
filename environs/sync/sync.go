@@ -119,7 +119,7 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools, envtools.Resolve)
+		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools)
 		if err != nil {
 			return err
 		}

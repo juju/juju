@@ -83,7 +83,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	stor := s.Conn.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
-	err = envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.Resolve)
+	err = envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools})
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
@@ -119,7 +119,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.Resolve)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools})
 	c.Assert(err, gc.IsNil)
 	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -147,7 +147,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.Resolve)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools})
 	c.Assert(err, gc.IsNil)
 	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -202,7 +202,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	stor := s.Conn.Environ.Storage()
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{newTools}, envtools.Resolve)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{newTools})
 	c.Assert(err, gc.IsNil)
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",

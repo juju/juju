@@ -303,16 +303,10 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata) error {
 	return nil
 }
 
-const (
-	DontResolve = false
-	Resolve     = true
-)
-
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
-// and merges it with metadata generated from the given tools list.
-// If resolve is true, incomplete metadata is resolved by fetching the tools
-// from the storage. Finally, the resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, resolve bool) error {
+// and merges it with metadata generated from the given tools list. The
+// resulting metadata is written to storage.
+func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List) error {
 	existing, err := ReadMetadata(stor)
 	if err != nil {
 		return err
@@ -320,11 +314,6 @@ func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, resolve b
 	metadata := MetadataFromTools(tools)
 	if metadata, err = MergeMetadata(metadata, existing); err != nil {
 		return err
-	}
-	if resolve {
-		if err = ResolveMetadata(stor, metadata); err != nil {
-			return err
-		}
 	}
 	return WriteMetadata(stor, metadata)
 }

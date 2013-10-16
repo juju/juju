@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -281,12 +280,6 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 func assertMetadataMatches(c *gc.C, storageDir string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
 	var expectedMetadata []*tools.ToolsMetadata = make([]*tools.ToolsMetadata, len(toolList))
 	for i, tool := range toolList {
-		if tool.Size == 0 {
-			path := filepath.Join(storageDir, tools.StorageName(tool.Version))
-			size, sha256 := ttesting.SHA256sum(c, path)
-			tool.SHA256 = sha256
-			tool.Size = size
-		}
 		expectedMetadata[i] = &tools.ToolsMetadata{
 			Release:  tool.Version.Series,
 			Version:  tool.Version.Number.String(),
@@ -315,7 +308,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DontResolve)
+	err = tools.MergeAndWriteMetadata(writer, toolsList)
 	c.Assert(err, gc.IsNil)
 	metadata := ttesting.ParseMetadata(c, dir)
 	assertMetadataMatches(c, dir, toolsList, metadata)
@@ -343,7 +336,7 @@ func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.Resolve)
+	err = tools.MergeAndWriteMetadata(writer, toolsList)
 	c.Assert(err, gc.IsNil)
 	metadata := ttesting.ParseMetadata(c, dir)
 	assertMetadataMatches(c, dir, toolsList, metadata)
@@ -364,7 +357,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.Resolve)
+	err = tools.MergeAndWriteMetadata(writer, existingToolsList)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -374,7 +367,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.Resolve)
+	err = tools.MergeAndWriteMetadata(writer, newToolsList)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
 	metadata := ttesting.ParseMetadata(c, dir)
