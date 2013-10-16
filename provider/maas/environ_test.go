@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -475,7 +476,9 @@ func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("filename", data)
+	stor := NewStorage(env)
+	err := stor.Put("filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
@@ -490,7 +493,9 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("tools/filename", data)
+	stor := NewStorage(env)
+	err := stor.Put("tools/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, gc.IsNil)
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)
