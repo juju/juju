@@ -89,10 +89,10 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	c.Assert(err, gc.IsNil)
 	c.Assert(indices.(map[string]interface{})["format"], gc.Equals, "index:1.0")
 	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", seriesVersions[expected.series], expected.arch)
-	c.Assert(strings.Contains(content, prodId), jc.IsTrue)
-	c.Assert(strings.Contains(content, fmt.Sprintf(`"region": %q`, expected.region)), jc.IsTrue)
-	c.Assert(strings.Contains(content, fmt.Sprintf(`"endpoint": %q`, expected.endpoint)), jc.IsTrue)
-	c.Assert(strings.Contains(content, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName)), jc.IsTrue)
+	c.Assert(content, jc.Contains, prodId)
+	c.Assert(content, jc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
+	c.Assert(content, jc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
+	c.Assert(content, jc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
 
 	imagepath := filepath.Join(s.dir, "streams", "v1", imageFileName)
 	data, err = ioutil.ReadFile(imagepath)
@@ -102,8 +102,8 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	err = json.Unmarshal(data, &images)
 	c.Assert(err, gc.IsNil)
 	c.Assert(images.(map[string]interface{})["format"], gc.Equals, "products:1.0")
-	c.Assert(strings.Contains(content, prodId), gc.Equals, true)
-	c.Assert(strings.Contains(content, `"id": "1234"`), gc.Equals, true)
+	c.Assert(content, jc.Contains, prodId)
+	c.Assert(content, jc.Contains, `"id": "1234"`)
 }
 
 const (
@@ -117,12 +117,12 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 		&ImageMetadataCommand{}, ctx, []string{
 			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series: "raring",
 		arch:   "arch",
 	}
-	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
@@ -131,12 +131,12 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 		&ImageMetadataCommand{}, ctx, []string{
 			"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series: "raring",
 		arch:   "amd64",
 	}
-	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultSeries(c *gc.C) {
@@ -145,12 +145,12 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultSeries(c *gc.C) {
 		&ImageMetadataCommand{}, ctx, []string{
 			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series: "precise",
 		arch:   "arch",
 	}
-	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
@@ -158,14 +158,14 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	code := cmd.Main(
 		&ImageMetadataCommand{}, ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "precise",
 		arch:     "amd64",
 		region:   "us-east-1",
 		endpoint: "https://ec2.us-east-1.amazonaws.com",
 	}
-	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
@@ -174,14 +174,14 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 		&ImageMetadataCommand{}, ctx, []string{
 			"-d", s.dir, "-e", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "precise",
 		arch:     "amd64",
 		region:   "us-west-1",
 		endpoint: "https://ec2.us-west-1.amazonaws.com",
 	}
-	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
@@ -190,14 +190,14 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc
 		&ImageMetadataCommand{}, ctx, []string{
 			"-d", s.dir, "-e", "azure", "-r", "region", "-u", "endpoint", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "raring",
 		arch:     "amd64",
 		region:   "region",
 		endpoint: "endpoint",
 	}
-	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
 type errTestParams struct {

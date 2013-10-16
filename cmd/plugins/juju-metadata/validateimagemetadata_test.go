@@ -105,10 +105,8 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
-	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
-	s.AddCleanup(func(*gc.C) { restore() })
-	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-	s.AddCleanup(func(*gc.C) { restore() })
+	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
 
 func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {

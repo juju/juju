@@ -54,12 +54,12 @@ func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, new
 	var toWrite = make([]*ImageMetadata, len(newMetadata))
 	imageIds := make(map[string]bool)
 	for i, im := range newMetadata {
-		newRecord := im
+		newRecord := *im
 		newRecord.Version = seriesVersion
 		newRecord.RegionName = cloudSpec.Region
 		newRecord.Endpoint = cloudSpec.Endpoint
-		toWrite[i] = newRecord
-		imageIds[mapKey(newRecord)] = true
+		toWrite[i] = &newRecord
+		imageIds[mapKey(&newRecord)] = true
 	}
 	regions := make(map[string]bool)
 	var allCloudSpecs = []simplestreams.CloudSpec{*cloudSpec}

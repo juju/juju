@@ -65,7 +65,7 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 	cloud.Updated = updated.Format(time.RFC1123Z)
 	cloud.Format = "products:1.0"
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
-	itemsversion := updated.Format("20060102") // YYYYMMDD
+	itemsversion := updated.Format("20060201") // YYYYMMDD
 	for _, t := range metadata {
 		toWrite := &ImageMetadata{
 			Id:         t.Id,
