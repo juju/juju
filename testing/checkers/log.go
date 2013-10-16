@@ -4,6 +4,7 @@
 package checkers
 
 import (
+	"fmt"
 	"regexp"
 
 	gc "launchpad.net/gocheck"
@@ -44,7 +45,10 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 	case []string:
 		expected = make([]SimpleMessage, len(param))
 		for i, s := range param {
-			expected[i].Message = s
+			expected[i] = SimpleMessage{
+				Message: s,
+				Level:   loggo.UNSPECIFIED,
+			}
 		}
 	default:
 		return false, "Expected value must be of type []string or []SimpleMessage"
@@ -53,13 +57,14 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 	for len(expected) > 0 && len(obtained) >= len(expected) {
 		var msg SimpleMessage
 		msg, obtained = obtained[0], obtained[1:]
-		if expected[0].Level != loggo.UNSPECIFIED {
-			if msg.Level != expected[0].Level {
-				continue
-			}
+		expect := expected[0]
+		if expect.Level != loggo.UNSPECIFIED && msg.Level != expect.Level {
+			continue
 		}
-		re := regexp.MustCompile(expected[0].Message)
-		if !re.MatchString(msg.Message) {
+		matched, err := regexp.MatchString(expect.Message, msg.Message)
+		if err != nil {
+			return false, fmt.Sprintf("bad message regexp %q: %v", expect.Message, err)
+		} else if !matched {
 			continue
 		}
 		expected = expected[1:]
@@ -77,8 +82,7 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 // also correct.
 //
 // The log may contain additional messages before and after each of the specified
-// expected messages; the specified messages will be matched to the left-most
-// obtained log message proceeding each previous match.
+// expected messages.
 var LogMatches gc.Checker = &logMatches{
 	&gc.CheckerInfo{Name: "LogMatches", Params: []string{"obtained", "expected"}},
 }

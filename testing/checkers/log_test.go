@@ -27,6 +27,12 @@ func (s *LogMatchesSuite) TestMatchSimpleMessage(c *gc.C) {
 		{loggo.INFO, "foo .*"},
 		{loggo.INFO, "12345"},
 	})
+	// UNSPECIFIED means we don't care what the level is,
+	// just check the message string matches.
+	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.UNSPECIFIED, "foo .*"},
+		{loggo.INFO, "12345"},
+	})
 	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
 		{loggo.INFO, "foo bar"},
 		{loggo.DEBUG, "12345"},
@@ -47,7 +53,8 @@ func (s *LogMatchesSuite) TestMatchInexact(c *gc.C) {
 	log := []loggo.TestLogValues{
 		{Level: loggo.INFO, Message: "foo bar"},
 		{Level: loggo.INFO, Message: "baz"},
-		{Level: loggo.INFO, Message: "12345"},
+		{Level: loggo.DEBUG, Message: "12345"},
+		{Level: loggo.ERROR, Message: "12345"},
 		{Level: loggo.INFO, Message: "67890"},
 	}
 	c.Check(log, jc.LogMatches, []string{"foo bar", "12345"})
@@ -63,6 +70,27 @@ func (s *LogMatchesSuite) TestMatchInexact(c *gc.C) {
 	// Order is important: 67890 advances to the last item in obtained,
 	// and so there's nothing after to match against ".*".
 	c.Check(log, gc.Not(jc.LogMatches), []string{"67890", ".*"})
+	// ALL specified patterns MUST match in the order given.
+	c.Check(log, gc.Not(jc.LogMatches), []string{".*", "foo bar"})
+
+	// Check that levels are matched.
+	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.UNSPECIFIED, "12345"},
+		{loggo.UNSPECIFIED, "12345"},
+	})
+	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.DEBUG, "12345"},
+		{loggo.ERROR, "12345"},
+	})
+	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.DEBUG, "12345"},
+		{loggo.INFO, ".*"},
+	})
+	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
+		{loggo.DEBUG, "12345"},
+		{loggo.INFO, ".*"},
+		{loggo.UNSPECIFIED, ".*"},
+	})
 }
 
 func (s *LogMatchesSuite) TestFromLogMatches(c *gc.C) {
