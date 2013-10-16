@@ -160,6 +160,10 @@ func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 }
 
 func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
+	var stdin bytes.Buffer
+	ctx := cmd.DefaultContext()
+	ctx.Stdin = &stdin
+
 	// Prepare the environment so we can destroy it.
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -171,7 +175,8 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// normal destroy
-	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "--yes")
+	stdin.WriteString("destroy peckham")
+	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand))
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
 
@@ -183,24 +188,11 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// destroy with broken environment
-	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
+	stdin.WriteString("destroy brokenenv")
+	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "-e", "brokenenv")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-opc, gc.IsNil)
-}
-
-func (*CmdSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
-	com := new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, nil), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, false)
-
-	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"-y"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
-
-	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"--yes"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
 }
 
 func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
@@ -217,12 +209,12 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 
 	assertEnvironNotDestroyed(c, env, store)
 
-	// Ensure confirmation is requested if "-y" is not specified.
+	// Ensure confirmation is requested
 	stdin.WriteString("n")
 	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand))
 	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
 	c.Check(<-opc, gc.IsNil)
-	c.Check(stdout.String(), gc.Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
+	c.Check(stdout.String(), gc.Matches, "WARNING!.*peckham.*\\(type: dummy\\)(.|\n)*")
 	assertEnvironNotDestroyed(c, env, store)
 
 	// EOF on stdin: equivalent to answering no.
@@ -233,17 +225,8 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
 	assertEnvironNotDestroyed(c, env, store)
 
-	// "--yes" passed: no confirmation request.
-	stdin.Reset()
-	stdout.Reset()
-	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "--yes")
-	c.Check(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
-	c.Check(stdout.String(), gc.Equals, "")
-	assertEnvironDestroyed(c, env, store)
-
-	// Any of casing of "y" and "yes" will confirm.
-	for _, answer := range []string{"y", "Y", "yes", "YES"} {
+	// "destroy <envname>" will confirm
+	for _, answer := range []string{"destroy peckham", "DESTROY PECKHAM"} {
 		// Prepare the environment so we can destroy it.
 		_, err := environs.PrepareFromName("", store)
 		c.Assert(err, gc.IsNil)
@@ -254,7 +237,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
 		c.Check(<-errc, gc.IsNil)
 		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
-		c.Check(stdout.String(), gc.Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
+		c.Check(stdout.String(), gc.Matches, "WARNING!.*peckham.*\\(type: dummy\\)(.|\n)*")
 		assertEnvironDestroyed(c, env, store)
 	}
 }

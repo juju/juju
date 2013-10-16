@@ -4,8 +4,10 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -18,7 +20,6 @@ import (
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
 	cmd.EnvCommandBase
-	assumeYes bool
 }
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
@@ -30,8 +31,6 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 
 func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
@@ -43,14 +42,19 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if !c.assumeYes {
-		var answer string
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg[1:], environ.Name(), environ.Config().Type())
-		fmt.Fscanln(ctx.Stdin, &answer) // ignore error, treat as "n"
-		answer = strings.ToLower(answer)
-		if answer != "y" && answer != "yes" {
-			return errors.New("Environment destruction aborted")
-		}
+
+	fmt.Fprintf(ctx.Stdout, destroyEnvMsg, environ.Name(), environ.Config().Type(), environ.Name())
+
+	scanner := bufio.NewScanner(ctx.Stdin)
+	scanner.Scan()
+	err = scanner.Err()
+	if err != nil && err != io.EOF {
+		return fmt.Errorf("Environment destruction aborted. Error reading input: %s", scanner.Err())
+	}
+
+	answer := strings.ToLower(scanner.Text())
+	if answer != strings.ToLower("destroy "+environ.Name()) {
+		return errors.New("Environment destruction aborted")
 	}
 
 	// TODO(axw) 2013-08-30 bug 1218688
@@ -60,8 +64,8 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	return environs.Destroy(environ, store)
 }
 
-const destroyEnvMsg = `
-WARNING: this command will destroy the %q environment (type: %s)
+var destroyEnvMsg = `
+WARNING! This command will destroy the %q environment (type: %s)
 This includes all machines, services, data and other resources.
 
-Continue [y/N]? `
+Type "destroy %s" to continue: `[1:]
