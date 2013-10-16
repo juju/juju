@@ -52,16 +52,16 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-const exampleUUID = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
+const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *providerSuite) makeEnviron() *maasEnviron {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":             "test env",
-		"type":             "maas",
-		"maas-oauth":       "a:b:c",
-		"maas-server":      suite.testMAASObject.TestServer.URL,
-		"environment-uuid": exampleUUID,
+		"name":            "test env",
+		"type":            "maas",
+		"maas-oauth":      "a:b:c",
+		"maas-server":     suite.testMAASObject.TestServer.URL,
+		"maas-agent-name": exampleAgentName,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
