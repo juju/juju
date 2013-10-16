@@ -10,11 +10,14 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/imagemetadata/testing"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&generateSuite{})
 
-type generateSuite struct{}
+type generateSuite struct {
+	testbase.LoggingSuite
+}
 
 func (s *generateSuite) TestWriteMetadata(c *gc.C) {
 	im := &imagemetadata.ImageMetadata{
@@ -31,7 +34,7 @@ func (s *generateSuite) TestWriteMetadata(c *gc.C) {
 	err = imagemetadata.WriteMetadata("raring", im, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
 	metadata := testing.ParseMetadata(c, dir)
-	c.Assert(len(metadata), gc.Equals, 1)
+	c.Assert(metadata, gc.HasLen, 1)
 	im.RegionName = cloudSpec.Region
 	c.Assert(im, gc.DeepEquals, metadata[0])
 }
