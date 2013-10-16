@@ -44,7 +44,6 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 
 func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.BoolVar(&c.fetch, "fetch", true, "fetch tools and compute content size and hash")
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
 }
 
@@ -75,13 +74,13 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return mergeAndWriteMetadata(targetStorage, toolsList, c.fetch)
+	return mergeAndWriteMetadata(targetStorage, toolsList)
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
-// conditionally resolves metadata for existing tools by fetching them
-// and computing size/sha256 locally.
-func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, resolve bool) error {
+// resolves metadata for existing tools by fetching them and computing
+// size/sha256 locally.
+func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List) error {
 	existing, err := tools.ReadMetadata(stor)
 	if err != nil {
 		return err
@@ -90,10 +89,8 @@ func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, resol
 	if metadata, err = tools.MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
-	if resolve {
-		if err = tools.ResolveMetadata(stor, metadata); err != nil {
-			return err
-		}
+	if err = tools.ResolveMetadata(stor, metadata); err != nil {
+		return err
 	}
 	return tools.WriteMetadata(stor, metadata)
 }
