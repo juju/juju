@@ -40,7 +40,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }
 
-func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.C) {
+func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -63,7 +63,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
 }
 
-func (suite *EnvironProviderSuite) TestEnvironmentUUIDShouldNotBeSetByHand(c *gc.C) {
+func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -76,7 +76,7 @@ func (suite *EnvironProviderSuite) TestEnvironmentUUIDShouldNotBeSetByHand(c *gc
 	c.Assert(err, gc.IsNil)
 
 	_, err = suite.makeEnviron().Provider().Prepare(config)
-	c.Assert(err, gc.Equals, errUUIDAlreadySet)
+	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 
 // create a temporary file with the given content.  The file will be cleaned

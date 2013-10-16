@@ -59,7 +59,7 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
-func (*configSuite) TestEnvironmentUUIDDefault(c *gc.C) {
+func (*configSuite) TestMaasAgentNameDefault(c *gc.C) {
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
@@ -106,7 +106,7 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
 }
 
-func (*configSuite) TestValidateCannotChangeUUID(c *gc.C) {
+func (*configSuite) TestValidateCannotChangeAgentName(c *gc.C) {
 	baseAttrs := map[string]interface{}{
 		"maas-server":     "http://maas.testing.invalid/maas/",
 		"maas-oauth":      "consumer-key:resource-token:resource-secret",

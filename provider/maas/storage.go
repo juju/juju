@@ -91,7 +91,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 
 // All filenames need to be namespaced so they are private to this environment.
 // This prevents different environments from interfering with each other.
-// We're using the environment's UUID here.
+// We're using the agent name UUID here.
 func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
 	env := stor.getSnapshot().environUnlocked
 	prefix := env.ecfg().maasAgentName()

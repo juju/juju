@@ -310,7 +310,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
 }
 
-func (suite *environSuite) TestAcquireNodePassedEnvironmentUUID(c *gc.C) {
+func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	stor := NewStorage(suite.makeEnviron())
 	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
@@ -322,7 +322,7 @@ func (suite *environSuite) TestAcquireNodePassedEnvironmentUUID(c *gc.C) {
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
 	c.Assert(found, gc.Equals, true)
-	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleUUID)
+	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
