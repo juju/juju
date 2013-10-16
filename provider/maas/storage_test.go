@@ -401,7 +401,7 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithUUID(c *gc.C) {
 	sstor := NewStorage(s.makeEnviron())
 	stor := sstor.(*maasStorage)
-	uuid := stor.environUnlocked.ecfg().maasEnvironmentUUID()
+	uuid := stor.environUnlocked.ecfg().maasAgentName()
 	c.Assert(uuid, gc.Not(gc.Equals), "")
 	expectedPrefix := uuid + "-"
 	const name = "myname"
@@ -413,7 +413,7 @@ func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresEmptyUUID(c *gc.C) 
 	sstor := NewStorage(s.makeEnviron())
 	stor := sstor.(*maasStorage)
 	ecfg := stor.environUnlocked.ecfg()
-	ecfg.attrs["maas-instance-uuid"] = ""
+	ecfg.attrs["maas-agent-name"] = ""
 
 	const name = "myname"
 	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, name)

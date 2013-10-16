@@ -57,7 +57,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.
 	preparedConfig := environ.Config()
 	unknownAttrs := preparedConfig.UnknownAttrs()
 
-	uuid, ok := unknownAttrs["maas-instance-uuid"]
+	uuid, ok := unknownAttrs["maas-agent-name"]
 
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
@@ -67,10 +67,10 @@ func (suite *EnvironProviderSuite) TestEnvironmentUUIDShouldNotBeSetByHand(c *gc
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":               "maas",
-		"maas-oauth":         "aa:bb:cc",
-		"maas-server":        "http://maas.testing.invalid/maas/",
-		"maas-instance-uuid": "foobar",
+		"type":            "maas",
+		"maas-oauth":      "aa:bb:cc",
+		"maas-server":     "http://maas.testing.invalid/maas/",
+		"maas-agent-name": "foobar",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

@@ -47,15 +47,15 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server":        server,
-		"maas-oauth":         oauth,
-		"maas-instance-uuid": uuid.String(),
-		"future-key":         future,
+		"maas-server":     server,
+		"maas-oauth":      oauth,
+		"maas-agent-name": uuid.String(),
+		"future-key":      future,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Check(ecfg.maasServer(), gc.Equals, server)
 	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
-	c.Check(ecfg.maasEnvironmentUUID(), gc.Equals, uuid.String())
+	c.Check(ecfg.maasAgentName(), gc.Equals, uuid.String())
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
@@ -65,7 +65,7 @@ func (*configSuite) TestEnvironmentUUIDDefault(c *gc.C) {
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Check(ecfg.maasEnvironmentUUID(), gc.Equals, "")
+	c.Check(ecfg.maasAgentName(), gc.Equals, "")
 }
 
 func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
@@ -108,16 +108,16 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 
 func (*configSuite) TestValidateCannotChangeUUID(c *gc.C) {
 	baseAttrs := map[string]interface{}{
-		"maas-server":        "http://maas.testing.invalid/maas/",
-		"maas-oauth":         "consumer-key:resource-token:resource-secret",
-		"maas-instance-uuid": "1234-5678",
+		"maas-server":     "http://maas.testing.invalid/maas/",
+		"maas-oauth":      "consumer-key:resource-token:resource-secret",
+		"maas-agent-name": "1234-5678",
 	}
 	oldCfg, err := newConfig(baseAttrs)
 	c.Assert(err, gc.IsNil)
 	newCfg, err := oldCfg.Apply(map[string]interface{}{
-		"maas-instance-uuid": "9876-5432",
+		"maas-agent-name": "9876-5432",
 	})
 	c.Assert(err, gc.IsNil)
 	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
-	c.Assert(err, gc.ErrorMatches, "cannot change maas-instance-uuid")
+	c.Assert(err, gc.ErrorMatches, "cannot change maas-agent-name")
 }
