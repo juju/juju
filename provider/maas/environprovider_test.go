@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -39,9 +40,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }
 
-
 func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.C) {
-	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
@@ -57,27 +56,26 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainEnvironmentUUID(c *gc.
 	preparedConfig := environ.Config()
 	unknownAttrs := preparedConfig.UnknownAttrs()
 
-	uuid, ok := unknownAttrs["environment-uuid"]
-	c.Assert(ok, gc.Equals, true)
+	uuid, ok := unknownAttrs["maas-agent-name"]
 
-	_, err = utils.UUIDFromString(uuid.(string))
-	c.Assert(err, gc.IsNil)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
 }
 
-func (suite *EnvironProviderSuite) TestEnvironmentUUIDShouldNotBeSetByHand(c *gc.C) {
+func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":             "maas",
-		"maas-oauth":       "aa:bb:cc",
-		"maas-server":      "http://maas.testing.invalid/maas/",
-		"environment-uuid": "foobar",
+		"type":            "maas",
+		"maas-oauth":      "aa:bb:cc",
+		"maas-server":     "http://maas.testing.invalid/maas/",
+		"maas-agent-name": "foobar",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	_, err = suite.makeEnviron().Provider().Prepare(config)
-	c.Assert(err, gc.Equals, errUUIDAlreadySet)
+	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 
 // create a temporary file with the given content.  The file will be cleaned
