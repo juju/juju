@@ -105,3 +105,19 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
 }
+
+func (*configSuite) TestValidateCannotChangeUUID(c *gc.C) {
+	baseAttrs := map[string]interface{}{
+		"maas-server":        "http://maas.testing.invalid/maas/",
+		"maas-oauth":         "consumer-key:resource-token:resource-secret",
+		"maas-instance-uuid": "1234-5678",
+	}
+	oldCfg, err := newConfig(baseAttrs)
+	c.Assert(err, gc.IsNil)
+	newCfg, err := oldCfg.Apply(map[string]interface{}{
+		"maas-instance-uuid": "9876-5432",
+	})
+	c.Assert(err, gc.IsNil)
+	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
+	c.Assert(err, gc.ErrorMatches, "cannot change maas-instance-uuid")
+}
