@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
-	"path/filepath"
 )
 
 type ImageMetadataSuite struct {
@@ -38,11 +38,16 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	os.Clearenv()
 	s.dir = c.MkDir()
-	s.home = testing.MakeFakeHome(c, metadataTestEnvConfig)
-	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
-	s.AddCleanup(func(*gc.C) { restore() })
-	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-	s.AddCleanup(func(*gc.C) { restore() })
+	// Create a fake certificate so azure test environment can be opened.
+	certfile, err := ioutil.TempFile(s.dir, "")
+	c.Assert(err, gc.IsNil)
+	filename := certfile.Name()
+	err = ioutil.WriteFile(filename, []byte("test certificate"), 0644)
+	c.Assert(err, gc.IsNil)
+	envConfig := strings.Replace(metadataTestEnvConfig, "/home/me/azure.pem", filename, -1)
+	s.home = testing.MakeFakeHome(c, envConfig)
+	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
 
 func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
@@ -163,6 +168,38 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
 }
 
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
+	ctx := testing.Context(c)
+	code := cmd.Main(
+		&ImageMetadataCommand{}, ctx, []string{
+			"-d", s.dir, "-e", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234"})
+	c.Assert(code, gc.Equals, 0)
+	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	expected := expectedMetadata{
+		series:   "precise",
+		arch:     "amd64",
+		region:   "us-west-1",
+		endpoint: "https://ec2.us-west-1.amazonaws.com",
+	}
+	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+}
+
+func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
+	ctx := testing.Context(c)
+	code := cmd.Main(
+		&ImageMetadataCommand{}, ctx, []string{
+			"-d", s.dir, "-e", "azure", "-r", "region", "-u", "endpoint", "-i", "1234"})
+	c.Assert(code, gc.Equals, 0)
+	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	expected := expectedMetadata{
+		series:   "raring",
+		arch:     "amd64",
+		region:   "region",
+		endpoint: "endpoint",
+	}
+	s.assertCommandOutput(c, expected, errOut, defaultIndexFileName, defaultImageFileName)
+}
+
 type errTestParams struct {
 	args []string
 }
@@ -179,6 +216,10 @@ var errTests = []errTestParams{
 	{
 		// Missing endpoint
 		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
+	},
+	{
+		// Missing endpoint/region for environment with no HasRegion interface
+		args: []string{"-i", "1234", "-e", "azure"},
 	},
 }
 
