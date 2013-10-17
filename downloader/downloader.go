@@ -95,7 +95,7 @@ func download(url, dir string, disableSSLHostnameVerification bool) (file *os.Fi
 	if disableSSLHostnameVerification {
 		client = utils.GetNonValidatingHTTPClient()
 	}
-	resp, err := client.Get(url)
+	resp, err := utils.HTTPGetGet(client, url)
 	if err != nil {
 		return nil, err
 	}

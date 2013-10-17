@@ -22,3 +22,21 @@ func GetNonValidatingHTTPClient() *http.Client {
 	}
 	return insecureClient
 }
+
+// HTTPGetGet issues a GET to the specified URL using the http client.
+func HTTPGet(c *http.Client, url string) (resp *http.Response, err error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return HTTPSendRequest(c, req)
+}
+
+// HTTPSendRequest dispatches the request on the client.
+func HTTPSendRequest(c *http.Client, req *http.Request) (resp *http.Response, err error) {
+	// See https://code.google.com/p/go/issues/detail?id=4677
+	// We need to force the connection to close each time so that we don't
+	// hit the above Go bug.
+	req.Close = true
+	return c.Do(req)
+}

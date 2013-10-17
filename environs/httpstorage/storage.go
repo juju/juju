@@ -86,7 +86,7 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.client.Get(url)
+	resp, err := utils.HTTPGetGet(s.client, url)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.client.Get(url + "*")
+	resp, err := utils.HTTPGetGet(s.client, url+"*")
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.ContentLength = length
-	resp, err := s.client.Do(req)
+	resp, err := utils.HTTPSendRequest(s.client, req)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (s *localStorage) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := s.client.Do(req)
+	resp, err := utils.HTTPSendRequest(s.client, req)
 	if err != nil {
 		return err
 	}

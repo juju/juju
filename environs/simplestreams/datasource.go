@@ -78,7 +78,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	if !h.hostnameVerification {
 		client = utils.GetNonValidatingHTTPClient()
 	}
-	resp, err := client.Get(dataURL)
+	resp, err := utils.HTTPGet(client, dataURL)
 	if err != nil {
 		logger.Debugf("Got error requesting %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
