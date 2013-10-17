@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"errors"
 	"os"
 
 	"launchpad.net/loggo"
@@ -37,8 +38,24 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
+var errAgentNameAlreadySet = errors.New(
+	"maas-agent-name is already set; this should not be set by hand")
+
 func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO any attributes to prepare?
+	attrs := cfg.UnknownAttrs()
+	oldName, found := attrs["maas-agent-name"]
+	if found && oldName != "" {
+		return nil, errAgentNameAlreadySet
+	}
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	attrs["maas-agent-name"] = uuid.String()
+	cfg, err = cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
