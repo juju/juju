@@ -23,7 +23,7 @@ func GetNonValidatingHTTPClient() *http.Client {
 	return insecureClient
 }
 
-// HTTPGetGet issues a GET to the specified URL using the http client.
+// HTTPGet issues a GET to the specified URL using the http client.
 func HTTPGet(c *http.Client, url string) (resp *http.Response, err error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

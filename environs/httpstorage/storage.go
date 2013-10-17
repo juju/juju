@@ -86,7 +86,7 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := utils.HTTPGetGet(s.client, url)
+	resp, err := utils.HTTPGet(s.client, url)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := utils.HTTPGetGet(s.client, url+"*")
+	resp, err := utils.HTTPGet(s.client, url+"*")
 	if err != nil {
 		return nil, err
 	}
