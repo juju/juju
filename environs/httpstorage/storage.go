@@ -56,9 +56,7 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, 
 		addr:    addr,
 		authkey: authkey,
 		client: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{RootCAs: caCerts},
-			},
+			Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
 		},
 	}, nil
 }
@@ -86,7 +84,7 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := utils.HTTPGet(s.client, url)
+	resp, err := s.client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +104,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := utils.HTTPGet(s.client, url+"*")
+	resp, err := s.client.Get(url + "*")
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +181,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.ContentLength = length
-	resp, err := utils.HTTPSendRequest(s.client, req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -205,7 +203,7 @@ func (s *localStorage) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := utils.HTTPSendRequest(s.client, req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}

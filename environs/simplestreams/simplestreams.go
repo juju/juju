@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/errors"
-	"path"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")
@@ -344,17 +344,14 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-var urlClient *http.Client
-
 func init() {
-	urlClient = &http.Client{Transport: http.DefaultTransport}
 	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 }
 
 // RegisterProtocol registers a new protocol with the simplestreams http client.
 // Exported for testing.
 func RegisterProtocol(scheme string, rt http.RoundTripper) {
-	urlClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
+	http.DefaultTransport.(*http.Transport).RegisterProtocol(scheme, rt)
 }
 
 // noMatchingProductsError is used to indicate that metadata files have been located,

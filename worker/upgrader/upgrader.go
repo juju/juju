@@ -174,7 +174,7 @@ func (u *Upgrader) fetchTools(agentTools *coretools.Tools, disableSSLHostnameVer
 		logger.Infof("hostname SSL verification disabled")
 		client = utils.GetNonValidatingHTTPClient()
 	}
-	resp, err := utils.HTTPGet(client, agentTools.URL)
+	resp, err := client.Get(agentTools.URL)
 	if err != nil {
 		return err
 	}

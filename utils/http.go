@@ -17,26 +17,32 @@ func GetNonValidatingHTTPClient() *http.Client {
 	defer insecureClientMutex.Unlock()
 	if insecureClient == nil {
 		insecureConfig := &tls.Config{InsecureSkipVerify: true}
-		insecureTransport := &http.Transport{TLSClientConfig: insecureConfig}
+		insecureTransport := NewHttpTLSTransport(insecureConfig)
 		insecureClient = &http.Client{Transport: insecureTransport}
 	}
 	return insecureClient
 }
 
-// HTTPGet issues a GET to the specified URL using the http client.
-func HTTPGet(c *http.Client, url string) (resp *http.Response, err error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	return HTTPSendRequest(c, req)
-}
-
-// HTTPSendRequest dispatches the request on the client.
-func HTTPSendRequest(c *http.Client, req *http.Request) (resp *http.Response, err error) {
+// NewHttpTLSTransport returns a new http.Transport constructed with the TLS config
+// and the necessary parameters for Juju.
+func NewHttpTLSTransport(tlsConfig *tls.Config) *http.Transport {
 	// See https://code.google.com/p/go/issues/detail?id=4677
 	// We need to force the connection to close each time so that we don't
 	// hit the above Go bug.
-	req.Close = true
-	return c.Do(req)
+	return &http.Transport{
+		TLSClientConfig:   tlsConfig,
+		DisableKeepAlives: true,
+	}
+}
+
+// NewHttpTransport returns a new http.Transport constructed with the necessary
+// parameters for Juju.
+func NewHttpTransport() *http.Transport {
+	// See https://code.google.com/p/go/issues/detail?id=4677
+	// We need to force the connection to close each time so that we don't
+	// hit the above Go bug.
+	return &http.Transport{
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
+	}
 }

@@ -74,11 +74,11 @@ func urlJoin(baseURL, relpath string) string {
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
-	client := urlClient
+	client := http.DefaultClient
 	if !h.hostnameVerification {
 		client = utils.GetNonValidatingHTTPClient()
 	}
-	resp, err := utils.HTTPGet(client, dataURL)
+	resp, err := client.Get(dataURL)
 	if err != nil {
 		logger.Debugf("Got error requesting %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)

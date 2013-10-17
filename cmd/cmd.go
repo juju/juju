@@ -9,12 +9,19 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/utils"
 )
+
+func init() {
+	http.DefaultTransport = utils.NewHttpTransport()
+}
 
 // ErrSilent can be returned from Run to signal that Main should exit with
 // code 1 without producing error output.
