@@ -115,12 +115,21 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 // ImageMetadata holds information about a particular cloud image.
 type ImageMetadata struct {
 	Id          string `json:"id"`
-	Storage     string `json:"root_store"`
-	VType       string `json:"virt"`
-	Arch        string `json:"arch"`
-	RegionAlias string `json:"crsn"`
-	RegionName  string `json:"region"`
-	Endpoint    string `json:"endpoint"`
+	Storage     string `json:"root_store,omitempty"`
+	VType       string `json:"virt,omitempty"`
+	Arch        string `json:"arch,omitempty"`
+	Release     string `json:"-"`
+	RegionAlias string `json:"crsn,omitempty"`
+	RegionName  string `json:"region,omitempty"`
+	Endpoint    string `json:"endpoint,omitempty"`
+}
+
+func (t *ImageMetadata) productId() (string, error) {
+	seriesVersion, err := simplestreams.SeriesVersion(t.Release)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", seriesVersion, t.Arch), nil
 }
 
 // Fetch returns a list of images for the specified cloud matching the constraint.

@@ -32,8 +32,8 @@ var logger = loggo.GetLogger("juju.environs.simplestreams")
 
 // CloudSpec uniquely defines a specific cloud deployment.
 type CloudSpec struct {
-	Region   string
-	Endpoint string
+	Region   string `json:"region"`
+	Endpoint string `json:"endpoint"`
 }
 
 // HasRegion is implemented by instances which can provide a region to which they belong.
