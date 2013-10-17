@@ -159,8 +159,10 @@ func getKeyCommand(keyid, keyserver string) string {
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
 	var cmds []string
-	// Ensure apt-add-repository is available.
-	cmds = append(cmds, "apt-get -y install python-software-properties")
+	if len(cfg.AptSources()) > 0 {
+		// Ensure apt-add-repository is available.
+		cmds = append(cmds, "apt-get -y install python-software-properties")
+	}
 	for _, src := range cfg.AptSources() {
 		// PPA keys are obtained by apt-add-repository, from launchpad.
 		// For other repositories, we may need to obtain a key given a

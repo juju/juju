@@ -88,5 +88,13 @@ func (s *agentSuite) TestAptSources(c *gc.C) {
 			checkIff(gc.Matches, needsJujuPPA),
 			"(.|\n)*apt-add-repository.*ppa:juju/stable(.|\n)*",
 		)
+
+		// Only install python-software-properties (apt-add-repository)
+		// if we need to.
+		c.Assert(
+			script,
+			checkIff(gc.Matches, needsCloudTools || needsJujuPPA),
+			"(.|\n)*apt-get -y install.*python-software-properties(.|\n)*",
+		)
 	}
 }
