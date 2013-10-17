@@ -18,7 +18,9 @@ const (
 // MarshalImageMetadataJSON marshals image metadata to index and products JSON.
 //
 // updated is the time at which the JSON file was updated.
-func MarshalImageMetadataJSON(metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec, updated time.Time) (index, products []byte, err error) {
+func MarshalImageMetadataJSON(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpec,
+	updated time.Time) (index, products []byte, err error) {
+
 	if index, err = MarshalImageMetadataIndexJSON(metadata, cloudSpec, updated); err != nil {
 		return nil, nil, err
 	}
@@ -31,13 +33,12 @@ func MarshalImageMetadataJSON(metadata []*ImageMetadata, cloudSpec *simplestream
 // MarshalImageMetadataIndexJSON marshals image metadata to index JSON.
 //
 // updated is the time at which the JSON file was updated.
-func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec, updated time.Time) (out []byte, err error) {
+func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpec,
+	updated time.Time) (out []byte, err error) {
+
 	productIds := make([]string, len(metadata))
 	for i, t := range metadata {
-		productIds[i], err = t.productId()
-		if err != nil {
-			return nil, err
-		}
+		productIds[i] = t.productId()
 	}
 	var indices simplestreams.Indices
 	indices.Updated = updated.Format(time.RFC1123Z)
@@ -50,7 +51,7 @@ func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec *simples
 			DataType:         "image-ids",
 			ProductsFilePath: ProductMetadataPath,
 			ProductIds:       set.NewStrings(productIds...).SortedValues(),
-			Clouds:           []simplestreams.CloudSpec{*cloudSpec},
+			Clouds:           cloudSpec,
 		},
 	}
 	return json.MarshalIndent(&indices, "", "    ")
@@ -66,31 +67,24 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
 	itemsversion := updated.Format("20060201") // YYYYMMDD
 	for _, t := range metadata {
-		id, err := t.productId()
-		if err != nil {
-			return nil, err
-		}
-		version, err := simplestreams.SeriesVersion(t.Release)
-		if err != nil {
-			return nil, err
-		}
 		toWrite := &ImageMetadata{
-			Id: t.Id,
+			Id:         t.Id,
+			RegionName: t.RegionName,
+			Endpoint:   t.Endpoint,
 		}
-		if catalog, ok := cloud.Products[id]; ok {
-			catalog.Items[itemsversion].Items[t.Id] = t
+		if catalog, ok := cloud.Products[t.productId()]; ok {
+			catalog.Items[itemsversion].Items[t.Id] = toWrite
 		} else {
 			catalog = simplestreams.MetadataCatalog{
-				Arch:       t.Arch,
-				RegionName: t.RegionName,
-				Version:    version,
+				Arch:    t.Arch,
+				Version: t.Version,
 				Items: map[string]*simplestreams.ItemCollection{
 					itemsversion: &simplestreams.ItemCollection{
 						Items: map[string]interface{}{t.Id: toWrite},
 					},
 				},
 			}
-			cloud.Products[id] = catalog
+			cloud.Products[t.productId()] = catalog
 		}
 	}
 	return json.MarshalIndent(&cloud, "", "    ")

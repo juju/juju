@@ -36,6 +36,9 @@ type CloudSpec struct {
 	Endpoint string `json:"endpoint"`
 }
 
+// EmptyCloudSpec is used when we want all records regardless of cloud to be loaded.
+var EmptyCloudSpec = CloudSpec{}
+
 // HasRegion is implemented by instances which can provide a region to which they belong.
 // A region is defined by region name and endpoint.
 type HasRegion interface {
@@ -86,6 +89,9 @@ var (
 
 // SeriesVersion returns the version number for the specified Ubuntu series.
 func SeriesVersion(series string) (string, error) {
+	if series == "" {
+		panic("cannot pass empty series to SeriesVersion()")
+	}
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	if vers, ok := seriesVersions[series]; ok {
@@ -556,13 +562,15 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file missing %q data", indexRef.valueParams.DataType)
 	}
-	// Restrict by cloud spec.
-	hasRightCloud := func(metadata *IndexMetadata) bool {
-		return metadata.hasCloud(cons.Params().CloudSpec)
-	}
-	candidates = candidates.filter(hasRightCloud)
-	if len(candidates) == 0 {
-		return "", errors.NotFoundf("index file has no data for cloud %v", cons.Params().CloudSpec)
+	// Restrict by cloud spec, if required.
+	if cons.Params().CloudSpec != EmptyCloudSpec {
+		hasRightCloud := func(metadata *IndexMetadata) bool {
+			return metadata.hasCloud(cons.Params().CloudSpec)
+		}
+		candidates = candidates.filter(hasRightCloud)
+		if len(candidates) == 0 {
+			return "", errors.NotFoundf("index file has no data for cloud %v", cons.Params().CloudSpec)
+		}
 	}
 	// Restrict by product IDs.
 	hasProduct := func(metadata *IndexMetadata) bool {
@@ -880,8 +888,8 @@ func setFieldByTag(x interface{}, tag, val string, override bool) {
 
 // GetCloudMetadataWithFormat loads the entire cloud metadata encoded using the specified format.
 // Exported for testing.
-func (indexRef *IndexReference) GetCloudMetadataWithFormat(ic LookupConstraint, format string, requireSigned bool) (*CloudMetadata, error) {
-	productFilesPath, err := indexRef.GetProductsPath(ic)
+func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint, format string, requireSigned bool) (*CloudMetadata, error) {
+	productFilesPath, err := indexRef.GetProductsPath(cons)
 	if err != nil {
 		return nil, err
 	}

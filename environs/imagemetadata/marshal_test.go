@@ -10,11 +10,14 @@ import (
 
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&marshalSuite{})
 
-type marshalSuite struct{}
+type marshalSuite struct {
+	testbase.LoggingSuite
+}
 
 var expectedIndex = `{
     "index": {
@@ -90,23 +93,23 @@ var expectedProducts = `{
 var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 	&imagemetadata.ImageMetadata{
 		Id:      "1234",
-		Release: "saucy",
+		Version: "13.10",
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
 		Id:      "5678",
-		Release: "precise",
+		Version: "12.04",
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
 		Id:      "abcd",
-		Release: "precise",
+		Version: "12.04",
 		Arch:    "amd64",
 	},
 }
 
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
-	cloudSpec := &simplestreams.CloudSpec{Region: "region", Endpoint: "endpoint"}
+	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, err := imagemetadata.MarshalImageMetadataIndexJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
@@ -119,7 +122,7 @@ func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
-	cloudSpec := &simplestreams.CloudSpec{Region: "region", Endpoint: "endpoint"}
+	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, products, err := imagemetadata.MarshalImageMetadataJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
