@@ -4,6 +4,7 @@
 package checkers
 
 import (
+	"fmt"
 	"regexp"
 
 	gc "launchpad.net/gocheck"
@@ -36,41 +37,42 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 	default:
 		return false, "Obtained value must be of type []loggo.TestLogValues or SimpleMessage"
 	}
-	switch params[1].(type) {
+
+	var expected []SimpleMessage
+	switch param := params[1].(type) {
 	case []SimpleMessage:
-		expected := params[1].([]SimpleMessage)
-		if len(obtained) != len(expected) {
-			return false, ""
-		}
-		for i := 0; i < len(obtained); i++ {
-			if obtained[i].Level != expected[i].Level {
-				return false, ""
-			}
-			re := regexp.MustCompile(expected[i].Message)
-			if !re.MatchString(obtained[i].Message) {
-				return false, ""
-			}
-		}
-		return true, ""
+		expected = param
 	case []string:
-		asString := make([]string, len(obtained))
-		for i, val := range obtained {
-			asString[i] = val.Message
-		}
-		expected := params[1].([]string)
-		if len(obtained) != len(expected) {
-			return false, ""
-		}
-		for i := 0; i < len(obtained); i++ {
-			re := regexp.MustCompile(expected[i])
-			if !re.MatchString(obtained[i].Message) {
-				return false, ""
+		expected = make([]SimpleMessage, len(param))
+		for i, s := range param {
+			expected[i] = SimpleMessage{
+				Message: s,
+				Level:   loggo.UNSPECIFIED,
 			}
 		}
-		return true, ""
 	default:
 		return false, "Expected value must be of type []string or []SimpleMessage"
 	}
+
+	for len(expected) > 0 && len(obtained) >= len(expected) {
+		var msg SimpleMessage
+		msg, obtained = obtained[0], obtained[1:]
+		expect := expected[0]
+		if expect.Level != loggo.UNSPECIFIED && msg.Level != expect.Level {
+			continue
+		}
+		matched, err := regexp.MatchString(expect.Message, msg.Message)
+		if err != nil {
+			return false, fmt.Sprintf("bad message regexp %q: %v", expect.Message, err)
+		} else if !matched {
+			continue
+		}
+		expected = expected[1:]
+	}
+	if len(obtained) < len(expected) {
+		return false, ""
+	}
+	return true, ""
 }
 
 // LogMatches checks whether a given TestLogValues actually contains the log
@@ -78,6 +80,9 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 // compare that the strings in the messages are correct. You can alternatively
 // pass a slice of SimpleMessage and we will check that the log levels are
 // also correct.
+//
+// The log may contain additional messages before and after each of the specified
+// expected messages.
 var LogMatches gc.Checker = &logMatches{
 	&gc.CheckerInfo{Name: "LogMatches", Params: []string{"obtained", "expected"}},
 }

@@ -6,30 +6,33 @@ package imagemetadata_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ValidateSuite struct {
 	testbase.LoggingSuite
-	home *coretesting.FakeHome
+	metadataDir string
 }
 
 var _ = gc.Suite(&ValidateSuite{})
 
 func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
-	im := imagemetadata.ImageMetadata{
-		Id:   id,
-		Arch: "amd64",
+	metadata := []*imagemetadata.ImageMetadata{
+		{
+			Id:   id,
+			Arch: "amd64",
+		},
 	}
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := imagemetadata.MakeBoilerplate("", series, &im, &cloudSpec, false)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -38,23 +41,17 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.home = coretesting.MakeEmptyFakeHome(c)
-}
-
-func (s *ValidateSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
-	s.LoggingSuite.TearDownTest(c)
+	s.metadataDir = c.MkDir()
 }
 
 func (s *ValidateSuite) TestMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
-	metadataDir := config.JujuHomePath("")
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "raring",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
-		Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
+		Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
 	}
 	imageIds, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
@@ -63,13 +60,12 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
-	metadataDir := config.JujuHomePath("")
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "precise",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
-		Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)},
+		Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
 	}
 	_, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))

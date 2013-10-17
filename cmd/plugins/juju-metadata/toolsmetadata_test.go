@@ -22,10 +22,12 @@ import (
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
 type ToolsMetadataSuite struct {
+	testbase.LoggingSuite
 	home *coretesting.FakeHome
 	env  environs.Environ
 }
@@ -33,18 +35,18 @@ type ToolsMetadataSuite struct {
 var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.home = coretesting.MakeSampleHome(c)
+	s.AddCleanup(func(*gc.C) {
+		s.home.Restore()
+		dummy.Reset()
+		loggo.ResetLoggers()
+	})
 	env, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
-}
-
-func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	loggo.ResetLoggers()
-	s.home.Restore()
 }
 
 var currentVersionStrings = []string{
@@ -66,13 +68,13 @@ var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
 	expected := `Finding tools\.\.\.
-.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-precise-amd64\.tgz
-.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-precise-i386\.tgz
-.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-raring-amd64\.tgz
-.*Fetching tools to generate hash: .*/tools/.*juju-1\.12\.0-raring-i386\.tgz
-.*Fetching tools to generate hash: .*/tools/.*juju-1\.13\.0-precise-amd64\.tgz
+.*Fetching tools to generate hash: 1\.12\.0-precise-amd64
+.*Fetching tools to generate hash: 1\.12\.0-precise-i386
+.*Fetching tools to generate hash: 1\.12\.0-raring-amd64
+.*Fetching tools to generate hash: 1\.12\.0-raring-i386
+.*Fetching tools to generate hash: 1\.13\.0-precise-amd64
 `
-	f := ".*Fetching tools to generate hash: .*/tools/.*juju-%s\\.tgz\n"
+	f := ".*Fetching tools to generate hash: %s\n"
 	for _, v := range currentVersionStrings {
 		expected += fmt.Sprintf(f, regexp.QuoteMeta(v))
 	}
@@ -145,8 +147,8 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`
 Finding tools\.\.\.
-.*Fetching tools to generate hash: .*/tools/releases/juju-%s\.tgz
-.*Fetching tools to generate hash: .*/tools/releases/juju-%s\.tgz
+.*Fetching tools to generate hash: %s
+.*Fetching tools to generate hash: %s
 .*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
