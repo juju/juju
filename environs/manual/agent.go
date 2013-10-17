@@ -93,11 +93,12 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.
-
-	// TODO(axw): 2013-10-16 bug <pending>
-	// Work with smoser to get a supported command
-	// in cloud-init for manually invoking cloud-config.
-	// This would address the above comment.
+	//
+	// We should work with smoser to get a supported
+	// command in (or next to) cloud-init for manually
+	// invoking cloud-config. This would address the
+	// above comment by removing the need to generate a
+	// script "by hand".
 
 	// Bootcmds must be run before anything else,
 	// as they may affect package installation.
