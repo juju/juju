@@ -94,30 +94,118 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.
 
-	// Convert runcmds to a series of shell commands.
-	script := []string{"#!/bin/sh"}
-	for _, cmd := range cloudcfg.RunCmds() {
+	// TODO(axw): 2013-10-16 bug <pending>
+	// Work with smoser to get a supported command
+	// in cloud-init for manually invoking cloud-config.
+	// This would address the above comment.
+
+	// Bootcmds must be run before anything else,
+	// as they may affect package installation.
+	bootcmds, err := cmdlist(cloudcfg.BootCmds())
+	if err != nil {
+		return "", err
+	}
+
+	// Add package sources and packages.
+	pkgcmds, err := addPackageCommands(cloudcfg)
+	if err != nil {
+		return "", err
+	}
+
+	// Runcmds come last.
+	runcmds, err := cmdlist(cloudcfg.RunCmds())
+	if err != nil {
+		return "", err
+	}
+
+	// We prepend "set -xe". This is already in runcmds,
+	// but added here to avoid relying on that to be
+	// invariant.
+	script := []string{"#!/bin/bash", "set -xe"}
+	script = append(script, bootcmds...)
+	script = append(script, pkgcmds...)
+	script = append(script, runcmds...)
+	return strings.Join(script, "\n"), nil
+}
+
+// resolveKeyTemplate is a template for creating a command to fetch a PGP key
+// from a key-server, given its key ID.
+const resolveKeyTemplate = `
+(gpg --list-keys --armor KEYID 2>/dev/null) ||
+(gpg --keyserver KEYSERVER --recv KEYID >/dev/null &&
+ gpg --export --armor KEYID &&
+ gpg --batch --yes --delete-keys KEYID)
+`
+
+// defaultKeyServer is the default key-server to use for fetching apt
+// respository signing keys.
+const defaultKeyServer = "keyserver.ubuntu.com"
+
+// getKeyCommand returns a shell command that will fetch and echo a key,
+// given a key ID and optional keyserver. If the keyserver is "", then
+// defaultKeyServer will be used.
+func getKeyCommand(keyid, keyserver string) string {
+	if keyserver == "" {
+		keyserver = defaultKeyServer
+	}
+	cmd := resolveKeyTemplate
+	cmd = strings.Replace(cmd, "KEYID", utils.ShQuote(keyid), -1)
+	cmd = strings.Replace(cmd, "KEYSERVER", utils.ShQuote(keyserver), -1)
+	return cmd
+}
+
+// addPackageCommands returns a slice of commands that, when run,
+// will add the required apt repositories and packages.
+func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
+	var cmds []string
+	for _, src := range cfg.AptSources() {
+		// PPA keys are obtained by apt-add-repository, from launchpad.
+		// For other repositories, we may need to obtain a key given a
+		// keyid and possibly a keyserver.
+		if !strings.HasPrefix(src.Source, "ppa:") {
+			var key string
+			if src.Key != "" {
+				key = utils.ShQuote(src.Key)
+			} else if src.KeyId != "" {
+				getkey := getKeyCommand(src.KeyId, src.KeyServer)
+				cmd := fmt.Sprintf("apt_key=$(%s) || exit 1", getkey)
+				cmds = append(cmds, cmd)
+				key = `"$apt_key"`
+			}
+			if key != "" {
+				cmd := fmt.Sprintf("printf '%%s\\n' %s | apt-key add -", key)
+				cmds = append(cmds, cmd)
+			}
+		}
+		cmds = append(cmds, "apt-add-repository -y "+utils.ShQuote(src.Source))
+	}
+	if cfg.AptUpdate() {
+		cmds = append(cmds, "apt-get -y update")
+	}
+	// Note: explicitly ignoring apt_upgrade, so as not to trample the target
+	// machine's existing configuration.
+	for _, pkg := range cfg.Packages() {
+		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
+		cmds = append(cmds, cmd)
+	}
+	return cmds, nil
+}
+
+func cmdlist(cmds []interface{}) ([]string, error) {
+	result := make([]string, 0, len(cmds))
+	for _, cmd := range cmds {
 		switch cmd := cmd.(type) {
 		case []string:
 			// Quote args, so shell meta-characters are not interpreted.
 			for i, arg := range cmd[1:] {
 				cmd[i] = utils.ShQuote(arg)
 			}
-			script = append(script, strings.Join(cmd, " "))
+			result = append(result, strings.Join(cmd, " "))
 		case string:
-			script = append(script, cmd)
+			result = append(result, cmd)
 		default:
-			return "", fmt.Errorf("unexpected runcmd type: %T", cmd)
+			return nil, fmt.Errorf("unexpected command type: %T", cmd)
 		}
 	}
-
-	// The first command is "set -xe", which we want to leave in place.
-	head := []string{script[0]}
-	tail := script[1:]
-	for _, pkg := range cloudcfg.Packages() {
-		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
-		head = append(head, cmd)
-	}
-	script = append(head, tail...)
-	return strings.Join(script, "\n"), nil
+	return result, nil
 }

@@ -197,8 +197,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	cfg.MaybeAddCloudArchiveCloudTools(c)
 
 	if cfg.StateServer {
-		// disable the default mongodb installed by the mongodb-server package.
-		c.AddBootCmd(`echo ENABLE_MONGODB="no" > /etc/default/mongodb`)
+		// Disable the default mongodb installed by the mongodb-server package.
+		// Only do this if the file doesn't exist already, so users can run
+		// their own mongodb server if they wish to.
+		c.AddBootCmd(
+			`[ -f /etc/default/mongodb ] ||
+             (echo ENABLE_MONGODB="no" > /etc/default/mongodb)`)
 
 		if cfg.NeedMongoPPA() {
 			const key = "" // key is loaded from PPA
