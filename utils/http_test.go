@@ -11,6 +11,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -60,4 +61,30 @@ func (s *insecureClientSuite) TestInsecureClientCached(c *gc.C) {
 	client1 := utils.GetNonValidatingHTTPClient()
 	client2 := utils.GetNonValidatingHTTPClient()
 	c.Check(client1, gc.Equals, client2)
+}
+
+type httpClientSuite struct {
+	server *httptest.Server
+}
+
+var _ = gc.Suite(&httpClientSuite{})
+
+func (s *httpClientSuite) SetUpTest(c *gc.C) {
+	s.server = httptest.NewServer(&trivialResponseHandler{})
+}
+
+func (s *httpClientSuite) TearDownTest(c *gc.C) {
+	if s.server != nil {
+		s.server.Close()
+	}
+}
+
+func (s *httpClientSuite) TestGet(c *gc.C) {
+	response, err := utils.HTTPGet(http.DefaultClient, s.server.URL)
+	c.Assert(err, gc.IsNil)
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	c.Assert(err, gc.IsNil)
+	c.Assert(response.Close, jc.IsTrue)
+	c.Check(string(body), gc.Equals, "Greetings!\n")
 }
