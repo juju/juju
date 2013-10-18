@@ -46,8 +46,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests.
 	s.machines = nil
+	// Note that the specific machine ids allocated are assumed
+	// to be numerically consecutive from zero.
 	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
-	for i := 1; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)

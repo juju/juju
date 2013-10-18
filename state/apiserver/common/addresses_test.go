@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
@@ -21,6 +22,9 @@ func (s *addresserSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.addresser = common.NewAddresser(fakeAddresses{})
 }
+
+// Verify that AddressAndCertGetter is satisfied by *state.State.
+var _ common.AddressAndCertGetter = (*state.State)(nil)
 
 func (s *addresserSuite) TestStateAddresses(c *gc.C) {
 	result, err := s.addresser.StateAddresses()

@@ -9,7 +9,6 @@ import (
 
 // AddressAndCertGetter can be used to find out
 // state server addresses and the CA public certificate.
-// It is implemented by state.State.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddresses() ([]string, error)
@@ -20,13 +19,13 @@ type AddressAndCertGetter interface {
 // API server addresses, and the CA certificate used to authenticate
 // them.
 type Addresser struct {
-	st AddressAndCertGetter
+	getter AddressAndCertGetter
 }
 
 // NewAddresser returns a new Addresser that uses the given
 // st value to fetch its addresses.
-func NewAddresser(st AddressAndCertGetter) *Addresser {
-	return &Addresser{st}
+func NewAddresser(getter AddressAndCertGetter) *Addresser {
+	return &Addresser{getter}
 }
 
 // StateAddresses returns the list of addresses used to connect to the state.
@@ -37,7 +36,7 @@ func NewAddresser(st AddressAndCertGetter) *Addresser {
 // lands and we can take the addresses of all machines with
 // JobManageState.
 func (a *Addresser) StateAddresses() (params.StringsResult, error) {
-	addrs, err := a.st.Addresses()
+	addrs, err := a.getter.Addresses()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
@@ -54,7 +53,7 @@ func (a *Addresser) StateAddresses() (params.StringsResult, error) {
 // lands and we can take the addresses of all machines with
 // JobManageState.
 func (a *Addresser) APIAddresses() (params.StringsResult, error) {
-	addrs, err := a.st.APIAddresses()
+	addrs, err := a.getter.APIAddresses()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
@@ -66,6 +65,6 @@ func (a *Addresser) APIAddresses() (params.StringsResult, error) {
 // CACert returns the certificate used to validate the state connection.
 func (a *Addresser) CACert() params.BytesResult {
 	return params.BytesResult{
-		Result: a.st.CACert(),
+		Result: a.getter.CACert(),
 	}
 }
