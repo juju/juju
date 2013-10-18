@@ -80,6 +80,7 @@ var seriesVersions = map[string]string{
 	"quantal": "12.10",
 	"raring":  "13.04",
 	"saucy":   "13.10",
+	"trusty":  "14.04",
 }
 
 var (
