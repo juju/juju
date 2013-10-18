@@ -19,6 +19,7 @@ type SwitchCommand struct {
 	cmd.CommandBase
 	EnvName string
 	List    bool
+	Raw     bool
 }
 
 var switchDoc = `
@@ -69,17 +70,17 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	jujuEnv := os.Getenv("JUJU_ENV")
 	if jujuEnv != "" {
 		if c.EnvName == "" {
-			fmt.Fprintf(ctx.Stdout, "Current environment: %q (from JUJU_ENV)\n", jujuEnv)
+			fmt.Fprintf(ctx.Stdout, "%s\n", jujuEnv)
 			return nil
 		} else {
-			return fmt.Errorf("Cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
+			return fmt.Errorf("cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
 		}
 	}
 
 	// Passing through the empty string reads the default environments.yaml file.
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
-		return errors.New("couldn't read the environment.")
+		return errors.New("couldn't read the environment")
 	}
 	names := environments.Names()
 	sort.Strings(names)
@@ -89,32 +90,39 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		currentEnv = environments.Default
 	}
 
-	// In order to have only a set environment name quoted, make a small function
-	env := func() string {
-		if currentEnv == "" {
-			return "<not specified>"
+	// Handle the different operation modes.
+	switch {
+	case c.List:
+		// List all environments.
+		if c.EnvName != "" {
+			return errors.New("cannot switch and list at the same time")
 		}
-		return fmt.Sprintf("%q", currentEnv)
-	}
-
-	if c.EnvName == "" || c.EnvName == currentEnv {
-		fmt.Fprintf(ctx.Stdout, "Current environment: %s\n", env())
-	} else {
-		// Check to make sure that the specified environment
+		for _, name := range names {
+			if name == currentEnv {
+				fmt.Fprintf(ctx.Stdout, "%s (*)\n", name)
+			} else {
+				fmt.Fprintf(ctx.Stdout, "%s\n", name)
+			}
+		}
+	case c.EnvName == "" && currentEnv == "":
+		// Nothing specified and nothing to switch to.
+		return errors.New("no currently specified environment")
+	case c.EnvName == "":
+		// Simply print the current environment.
+		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
+	default:
+		// Switch the environment.
 		if !validEnvironmentName(c.EnvName, names) {
 			return fmt.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
 		if err := cmd.WriteCurrentEnvironment(c.EnvName); err != nil {
 			return err
 		}
-		fmt.Fprintf(ctx.Stdout, "Changed default environment from %s to %q\n", env(), c.EnvName)
-	}
-	if c.List {
-		fmt.Fprintf(ctx.Stdout, "\nEnvironments:\n")
-		for _, name := range names {
-			fmt.Fprintf(ctx.Stdout, "\t%s\n", name)
+		if currentEnv == "" {
+			fmt.Fprintf(ctx.Stdout, "-> %s\n", c.EnvName)
+		} else {
+			fmt.Fprintf(ctx.Stdout, "%s -> %s\n", currentEnv, c.EnvName)
 		}
 	}
-
 	return nil
 }
