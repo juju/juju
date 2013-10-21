@@ -116,10 +116,35 @@ hpcloud:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
     
+    # tenant-name holds the openstack tenant name. In HPCloud, this is 
+    # synonymous with the project-name  It defaults to
+    # the environment variable OS_TENANT_NAME.
+    # tenant-name: <your tenant name>
+    
     # auth-url holds the keystone url for authentication. 
     # It defaults to the value of the environment variable OS_AUTH_URL.
     # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
+    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1).  
+    # It defaults to the environment variable OS_REGION_NAME.
+    # region: <your region>
+    
+    # auth-mode holds the authentication mode. For user-password
+    # authentication, auth-mode should be "userpass" and username
+    # and password should be set appropriately; they default to
+    # the environment variables OS_USERNAME and OS_PASSWORD
+    # respectively.
+    # auth-mode: userpass
+    # username: <your_username>
+    # password: <your_password>
+    
+    # For key-pair authentication, auth-mode should  be "keypair"
+    # and access-key and secret-key should be  set appropriately; they default to
+    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
+    # respectively.
+    # auth-mode: keypair
+    # access-key: <secret>
+    # secret-key: <secret>
 `[1:]
 }
 
