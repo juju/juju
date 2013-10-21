@@ -39,7 +39,7 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 }
 
 var checkargs = `
-#!/bin/bash
+#!/bin/bash --norc
 if [ "$1" != "--system" ]; then
   exit 255
 fi
