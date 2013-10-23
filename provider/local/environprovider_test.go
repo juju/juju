@@ -7,7 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/container/lxc/test"
+	"launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
 )

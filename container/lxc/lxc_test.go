@@ -16,7 +16,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/container/lxc/test"
+	"launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
