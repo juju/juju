@@ -166,12 +166,12 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 }
 
 var goodHook = `
-#!/bin/bash
+#!/bin/bash --norc
 juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:]
 
 var badHook = `
-#!/bin/bash
+#!/bin/bash --norc
 juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
