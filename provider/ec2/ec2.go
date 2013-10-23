@@ -1069,8 +1069,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket and public location.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
-		simplestreams.NewURLDataSource(
-			"https://juju-dist.s3.amazonaws.com/tools", simplestreams.VerifySSLHostnames)}
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

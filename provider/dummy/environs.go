@@ -518,13 +518,8 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	private := storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)
-	publicURL, err := e.PublicStorage().URL(storage.BaseToolsPath)
-	if err != nil {
-		return nil, err
-	}
 	return []simplestreams.DataSource{
-		private, simplestreams.NewURLDataSource(publicURL, simplestreams.VerifySSLHostnames)}, nil
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List) error {

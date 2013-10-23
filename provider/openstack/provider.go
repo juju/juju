@@ -576,23 +576,6 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		source := simplestreams.NewURLDataSource(toolsURL, verify)
 		e.toolsSources = append(e.toolsSources, source)
 	}
-
-	// See if the cloud is one we support and hence know the correct tools-url for.
-	ecfg := e.ecfg()
-	toolsURL, toolsURLFound := GetCertifiedToolsURL(ecfg.authURL())
-	if toolsURLFound {
-		logger.Debugf("certified cloud tools-url set to %s", toolsURL)
-		// A certified tools url should always use a valid SSL cert
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames))
-	}
-
-	// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
-	if deprecatedPublicBucketURL, ok := ecfg.attrs["public-bucket-url"]; ok && deprecatedPublicBucketURL != "" && !toolsURLFound {
-		toolsURL = fmt.Sprintf("%v/juju-dist/tools", deprecatedPublicBucketURL)
-		logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, verify))
-	}
-
 	return e.toolsSources, nil
 }
 

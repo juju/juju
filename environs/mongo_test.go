@@ -42,35 +42,3 @@ func (t *MongoToolsSuite) TearDownTest(c *gc.C) {
 func currentMongoPath() string {
 	return environs.MongoStoragePath(version.Current.Series, version.Current.Arch)
 }
-
-var mongoURLTests = []struct {
-	summary        string   // a summary of the test purpose.
-	contents       []string // names in private storage.
-	publicContents []string // names in public storage.
-	expect         string   // the name we expect to find (if no error).
-	urlpart        string   // part of the url we expect to find (if not blank).
-}{{
-	summary:  "grab mongo from private storage if it exists there",
-	contents: []string{currentMongoPath()},
-	expect:   currentMongoPath(),
-}, {
-	summary: "fall back to public storage when nothing found in private",
-	contents: []string{
-		environs.MongoStoragePath("foo", version.Current.Arch),
-	},
-	publicContents: []string{
-		currentMongoPath(),
-	},
-	expect: "public-" + currentMongoPath(),
-}, {
-	summary: "if nothing in public or private storage, fall back to copy in ec2",
-	contents: []string{
-		environs.MongoStoragePath("foo", version.Current.Arch),
-		environs.MongoStoragePath(version.Current.Series, "foo"),
-	},
-	publicContents: []string{
-		environs.MongoStoragePath("foo", version.Current.Arch),
-	},
-	urlpart: "http://juju-dist.s3.amazonaws.com",
-},
-}
