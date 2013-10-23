@@ -30,12 +30,12 @@ var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
 	defaultTemplate     = "ubuntu-cloud"
-	containerDir        = "/var/lib/juju/containers"
-	removedContainerDir = "/var/lib/juju/removed-containers"
-	lxcContainerDir     = "/var/lib/lxc"
-	lxcRestartDir       = "/etc/lxc/auto"
-	lxcObjectFactory    = golxc.Factory()
 	aptHTTPProxyRE      = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
+	ContainerDir        = "/var/lib/juju/containers"
+	RemovedContainerDir = "/var/lib/juju/removed-containers"
+	LxcContainerDir     = "/var/lib/lxc"
+	LxcRestartDir       = "/etc/lxc/auto"
+	LxcObjectFactory    = golxc.Factory()
 )
 
 const (
@@ -127,7 +127,7 @@ func (manager *containerManager) StartContainer(
 	// Note here that the lxcObjectFacotry only returns a valid container
 	// object, and doesn't actually construct the underlying lxc container on
 	// disk.
-	container := lxcObjectFactory.New(name)
+	container := LxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -168,7 +168,7 @@ func (manager *containerManager) StartContainer(
 	}
 	logger.Tracef("lxc container created")
 	// Now symlink the config file into the restart directory.
-	containerConfigFile := filepath.Join(lxcContainerDir, name, "config")
+	containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
 	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (manager *containerManager) StartContainer(
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
-	container := lxcObjectFactory.New(name)
+	container := LxcObjectFactory.New(name)
 	// Remove the autostart link.
 	if err := os.Remove(restartSymlink(name)); err != nil {
 		logger.Errorf("failed to remove restart symlink: %v", err)
@@ -205,12 +205,12 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 	}
 
 	// Move the directory.
-	logger.Tracef("create old container dir: %s", removedContainerDir)
-	if err := os.MkdirAll(removedContainerDir, 0755); err != nil {
+	logger.Tracef("create old container dir: %s", RemovedContainerDir)
+	if err := os.MkdirAll(RemovedContainerDir, 0755); err != nil {
 		logger.Errorf("failed to create removed container directory: %v", err)
 		return err
 	}
-	removedDir, err := uniqueDirectory(removedContainerDir, name)
+	removedDir, err := uniqueDirectory(RemovedContainerDir, name)
 	if err != nil {
 		logger.Errorf("was not able to generate a unique directory: %v", err)
 		return err
@@ -223,7 +223,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	containers, err := lxcObjectFactory.List()
+	containers, err := LxcObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return
@@ -247,17 +247,17 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 }
 
 func jujuContainerDirectory(containerName string) string {
-	return filepath.Join(containerDir, containerName)
+	return filepath.Join(ContainerDir, containerName)
 }
 
 const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"
 
 func internalLogDir(containerName string) string {
-	return fmt.Sprintf(internalLogDirTemplate, lxcContainerDir, containerName)
+	return fmt.Sprintf(internalLogDirTemplate, LxcContainerDir, containerName)
 }
 
 func restartSymlink(name string) string {
-	return filepath.Join(lxcRestartDir, name+".conf")
+	return filepath.Join(LxcRestartDir, name+".conf")
 }
 
 const localConfig = `%s

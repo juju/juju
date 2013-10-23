@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/lxc/test"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -35,7 +35,7 @@ import (
 
 type MachineSuite struct {
 	agentSuite
-	lxc.TestSuite
+	test.TestSuite
 }
 
 var _ = gc.Suite(&MachineSuite{})
