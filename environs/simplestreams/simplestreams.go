@@ -379,6 +379,7 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 const (
 	UnsignedIndex    = "streams/v1/index.json"
 	DefaultIndexPath = "streams/v1/index"
+	mirrorsPath      = "streams/v1/mirrors"
 	signedSuffix     = ".sjson"
 	unsignedSuffix   = ".json"
 )
@@ -495,8 +496,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 			"unexpected index file format %q, expected %q at URL %q", indices.Format, indexFormat, url)
 	}
 
-	var mirrors MirrorRefs
-	err = json.Unmarshal(data, &mirrors)
+	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned, params)
 	if err != nil {
 		return nil, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
 	}
@@ -523,8 +523,31 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 	return indexRef, nil
 }
 
+// getMirrorRefs parses and returns a simplestreams mirror reference.
+func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool,
+	params ValueParams) (*MirrorRefs, string, error) {
+
+	mirrorsPath := baseMirrorsPath + unsignedSuffix
+	if requireSigned {
+		mirrorsPath = baseMirrorsPath + signedSuffix
+	}
+	data, url, err := fetchData(source, mirrorsPath, requireSigned, params.PublicKey)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			return nil, url, err
+		}
+		return nil, url, fmt.Errorf("cannot read index data, %v", err)
+	}
+	var mirrors MirrorRefs
+	err = json.Unmarshal(data, &mirrors)
+	if err != nil {
+		return nil, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+	}
+	return &mirrors, url, err
+}
+
 // getMirror returns a mirror info struct matching the specified content and cloud.
-func getMirror(source DataSource, mirrors MirrorRefs, datatype, contentId string, cloudSpec CloudSpec,
+func getMirror(source DataSource, mirrors *MirrorRefs, datatype, contentId string, cloudSpec CloudSpec,
 	requireSigned bool, publicKey string) (*MirrorInfo, error) {
 
 	mirrorRef, err := mirrors.getMirrorReference(datatype, contentId, cloudSpec)
