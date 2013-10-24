@@ -60,14 +60,6 @@ func (cfg *azureEnvironConfig) storageAccountName() string {
 	return cfg.attrs["storage-account-name"].(string)
 }
 
-func (cfg *azureEnvironConfig) publicStorageContainerName() string {
-	return cfg.attrs["public-storage-container-name"].(string)
-}
-
-func (cfg *azureEnvironConfig) publicStorageAccountName() string {
-	return cfg.attrs["public-storage-account-name"].(string)
-}
-
 func (cfg *azureEnvironConfig) imageStream() string {
 	return cfg.attrs["image-stream"].(string)
 }
@@ -117,10 +109,6 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	if envCfg.location() == "" {
 		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
 	}
-	if (envCfg.publicStorageAccountName() == "") != (envCfg.publicStorageContainerName() == "") {
-		return nil, fmt.Errorf("public-storage-account-name and public-storage-container-name must be specified both or none of them")
-	}
-
 	return cfg.Apply(envCfg.attrs)
 }
 

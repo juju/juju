@@ -159,20 +159,19 @@ const noStateId = 0
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	id            int
-	name          string
-	ops           chan<- Operation
-	mu            sync.Mutex
-	maxId         int // maximum instance id allocated so far.
-	insts         map[instance.Id]*dummyInstance
-	globalPorts   map[instance.Port]bool
-	bootstrapped  bool
-	storageDelay  time.Duration
-	storage       *storageServer
-	publicStorage *storageServer
-	httpListener  net.Listener
-	apiServer     *apiserver.Server
-	apiState      *state.State
+	id           int
+	name         string
+	ops          chan<- Operation
+	mu           sync.Mutex
+	maxId        int // maximum instance id allocated so far.
+	insts        map[instance.Id]*dummyInstance
+	globalPorts  map[instance.Port]bool
+	bootstrapped bool
+	storageDelay time.Duration
+	storage      *storageServer
+	httpListener net.Listener
+	apiServer    *apiserver.Server
+	apiState     *state.State
 }
 
 // environ represents a client's connection to a given environment's
@@ -269,7 +268,6 @@ func newState(name string, ops chan<- Operation) *environState {
 		globalPorts: make(map[instance.Port]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
-	s.publicStorage = newStorageServer(s, "/"+name+"/public")
 	s.listen()
 	return s
 }
@@ -284,7 +282,6 @@ func (s *environState) listen() {
 	s.httpListener = l
 	mux := http.NewServeMux()
 	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
-	mux.Handle(s.publicStorage.path+"/", http.StripPrefix(s.publicStorage.path+"/", s.publicStorage))
 	go http.Serve(l, mux)
 }
 

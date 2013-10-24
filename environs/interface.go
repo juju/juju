@@ -59,9 +59,6 @@ type EnvironProvider interface {
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() storage.StorageReader
 }
 
 // BootstrapStorager is an interface through which an Environ may be

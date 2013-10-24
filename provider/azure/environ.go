@@ -65,9 +65,6 @@ type azureEnviron struct {
 	// storage is this environ's own private storage.
 	storage storage.Storage
 
-	// publicStorage is the public storage that this environ uses.
-	publicStorage storage.StorageReader
-
 	// storageAccountKey holds an access key to this environment's
 	// private storage.  This is automatically queried from Azure on
 	// startup.
@@ -92,17 +89,6 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	env.storage = &azureStorage{
 		storageContext: &environStorageContext{environ: &env},
 	}
-
-	// Set up public storage.
-	publicContext := publicEnvironStorageContext{environ: &env}
-	if publicContext.getContainer() == "" {
-		// No public storage configured.  Use EmptyStorage.
-		env.publicStorage = environs.EmptyStorage
-	} else {
-		// Set up real public storage.
-		env.publicStorage = &azureStorage{storageContext: &publicContext}
-	}
-
 	return &env, nil
 }
 
@@ -683,11 +669,6 @@ func (env *azureEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-// PublicStorage is specified in the Environ interface.
-func (env *azureEnviron) PublicStorage() storage.StorageReader {
-	return env.getSnapshot().publicStorage
-}
-
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
 	logger.Debugf("destroying environment %q", env.name)
@@ -879,20 +860,6 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
 		RetryPolicy:   retryPolicy,
 	}
-	return &context, nil
-}
-
-// getPublicStorageContext obtains a context object for interfacing with
-// Azure's storage API (public storage).
-func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
-	ecfg := env.getSnapshot().ecfg
-	context := gwacl.StorageContext{
-		Account:       ecfg.publicStorageAccountName(),
-		Key:           "", // Empty string means anonymous access.
-		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
-		RetryPolicy:   retryPolicy,
-	}
-	// There is currently no way for this to fail.
 	return &context, nil
 }
 

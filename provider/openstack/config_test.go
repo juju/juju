@@ -4,9 +4,7 @@
 package openstack
 
 import (
-	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -520,18 +518,4 @@ func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) 
 	})
 	_, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
-	for attr, value := range map[string]string{
-		"default-image-id":      "foo",
-		"default-instance-type": "bar",
-	} {
-		s.setupLogger(c)
-		s.setupEnv(c, attr, value)
-		s.resetLogger(c)
-		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
-		c.Assert(stripped, gc.Matches, expected)
-	}
 }
