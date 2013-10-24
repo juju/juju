@@ -110,7 +110,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 			Password: "foopass",
 		},
 		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.com"},
+			Addresses: []string{"foo.invalid"},
 			CACert:    "certificated",
 		},
 	})
@@ -166,7 +166,7 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("noconfig", &environInfo{
 		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.com"},
+			Addresses: []string{"foo.invalid"},
 		},
 	})
 
