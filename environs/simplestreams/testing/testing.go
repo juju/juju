@@ -121,7 +121,7 @@ var imageData = map[string]string{
 		 "format": "index:1.0"
 		}
 `,
-        "/streams/v1/mirrors.json": `
+	"/streams/v1/mirrors.json": `
         {
          "mirrors": {
           "com.ubuntu.juju:released:tools": [
