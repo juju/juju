@@ -170,6 +170,8 @@ func (*simplestreamsSuite) TestHasCloudFindsMatchWithTrailingSlash(c *gc.C) {
 	}
 	spec := simplestreams.CloudSpec{Region: "r1", Endpoint: "http://e1"}
 	c.Check(simplestreams.HasCloud(metadata, spec), jc.IsTrue)
+	spec = simplestreams.CloudSpec{Region: "r1", Endpoint: "http://e1/"}
+	c.Check(simplestreams.HasCloud(metadata, spec), jc.IsTrue)
 	spec = simplestreams.CloudSpec{Region: "r2", Endpoint: "http://e2/"}
 	c.Check(simplestreams.HasCloud(metadata, spec), jc.IsTrue)
 }
