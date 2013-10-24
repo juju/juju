@@ -50,6 +50,9 @@ type SyncContext struct {
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
 
+	// Tools are being synced for a public cloud so include mirrors information.
+	Public bool
+
 	// Source, if non-empty, specifies a directory in the local file system
 	// to use as a source.
 	Source string
@@ -120,7 +123,11 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools)
+		writeMirrors := envtools.DoNotWriteMirrors
+		if syncContext.Public {
+			writeMirrors = envtools.DoWriteMirrors
+		}
+		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools, writeMirrors)
 		if err != nil {
 			return err
 		}

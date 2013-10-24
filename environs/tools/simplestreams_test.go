@@ -313,13 +313,13 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, toolsList)
+	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir)
+	metadata := ttesting.ParseMetadata(c, dir, false)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
-func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
+func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	var versionStrings = []string{
 		"1.2.3-precise-amd64",
 		"2.0.1-raring-amd64",
@@ -341,10 +341,22 @@ func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, toolsList)
+	writeMirrors := tools.DoNotWriteMirrors
+	if withMirrors {
+		writeMirrors = tools.DoWriteMirrors
+	}
+	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir)
+	metadata := ttesting.ParseMetadata(c, dir, withMirrors)
 	assertMetadataMatches(c, dir, toolsList, metadata)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
+	s.assertWriteMetadata(c, false)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadataWithMirrors(c *gc.C) {
+	s.assertWriteMetadata(c, true)
 }
 
 func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
@@ -362,7 +374,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, existingToolsList)
+	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -372,10 +384,10 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(writer, newToolsList)
+	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := ttesting.ParseMetadata(c, dir)
+	metadata := ttesting.ParseMetadata(c, dir, false)
 	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
@@ -680,7 +692,7 @@ func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
 	out, err := tools.ReadMetadata(stor)
 	c.Assert(out, gc.HasLen, 0)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
-	err = tools.WriteMetadata(stor, metadata)
+	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	out, err = tools.ReadMetadata(stor)
 	for _, md := range out {
