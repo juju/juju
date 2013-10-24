@@ -36,6 +36,23 @@ type CloudSpec struct {
 	Endpoint string `json:"endpoint"`
 }
 
+// equals returns true if spec == other, allowing for endpoints
+// with or without a trailing "/".
+func (spec *CloudSpec) equals(other *CloudSpec) bool {
+	if spec.Region != other.Region {
+		return false
+	}
+	specEndpoint := spec.Endpoint
+	if !strings.HasSuffix(specEndpoint, "/") {
+		specEndpoint += "/"
+	}
+	otherEndpoint := other.Endpoint
+	if !strings.HasSuffix(otherEndpoint, "/") {
+		otherEndpoint += "/"
+	}
+	return specEndpoint == otherEndpoint
+}
+
 // EmptyCloudSpec is used when we want all records regardless of cloud to be loaded.
 var EmptyCloudSpec = CloudSpec{}
 
@@ -319,7 +336,7 @@ func (metadata *IndexMetadata) String() string {
 // are searched.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
-		if metadataCloud == cloud {
+		if metadataCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -599,7 +616,7 @@ func (mirrorRefs *MirrorRefs) extractMirrorRefs(contentId string) MirrorRefSlice
 // Clouds list.
 func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
 	for _, refCloud := range mirrorRef.Clouds {
-		if refCloud == cloud {
+		if refCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -676,7 +693,7 @@ func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string,
 // Clouds list.
 func (mirrorInfo *MirrorInfo) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range mirrorInfo.Clouds {
-		if metadataCloud == cloud {
+		if metadataCloud.equals(&cloud) {
 			return true
 		}
 	}
