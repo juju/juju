@@ -134,15 +134,14 @@ func SupportedSeries() []string {
 	return series
 }
 
-func updateSeriesVersions() error {
+func updateSeriesVersions() {
 	if !updatedseriesVersions {
 		err := updateDistroInfo()
-		updatedseriesVersions = true
 		if err != nil {
-			return err
+			logger.Warningf("failed to update distro info: %v", err)
 		}
+		updatedseriesVersions = true
 	}
-	return nil
 }
 
 // updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
