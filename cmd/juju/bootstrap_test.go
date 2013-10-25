@@ -74,26 +74,26 @@ type bootstrapRetryTest struct {
 }
 
 var bootstrapRetryTests = []bootstrapRetryTest{{
-	info:               "no tools uploaded, first check has no retries; no matching binary in source; sync fails with no second attempt",
-	expectedAllowRetry: []bool{false},
-	err:                "no matching tools available",
-	version:            "1.16.0-precise-amd64",
-}, {
+//	info:               "no tools uploaded, first check has no retries; no matching binary in source; sync fails with no second attempt",
+//	expectedAllowRetry: []bool{false},
+//	err:                "no matching tools available",
+//	version:            "1.16.0-precise-amd64",
+//}, {
 	info:               "no tools uploaded, first check has no retries; matching binary in source; check after sync has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "tools not found",
+	err:                "no tools available",
 	version:            "1.16.0-precise-amd64",
 	addVersionToSource: true,
 }, {
 	info:               "no tools uploaded, first check has no retries; no matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "tools not found",
+	err:                "no tools available",
 	version:            "1.15.1-precise-amd64", // dev version to force upload
 }, {
 	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
 	args:               []string{"--upload-tools"},
 	expectedAllowRetry: []bool{true},
-	err:                "no matching tools available",
+	err:                "no tools available",
 }}
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
@@ -114,6 +114,8 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 			extraVersions = append(extraVersions, testVersion)
 		}
 	}
+	sourceDir := c.MkDir()
+	test.args = append(test.args, []string{"--source", sourceDir}...)
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defer createToolsStore(c, extraVersions...)()
