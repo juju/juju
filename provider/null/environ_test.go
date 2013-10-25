@@ -101,7 +101,7 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 	var sshScript = `
-#!/bin/bash
+#!/bin/bash --norc
 if [ "$*" = "hostname -- bash" ]; then
     # We're executing bash inside ssh. Wait
     # for input to be written before exiting.
