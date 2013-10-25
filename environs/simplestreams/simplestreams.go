@@ -498,7 +498,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 
 	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned, params)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+		return nil, fmt.Errorf("cannot load mirror metadata at URL %q: %v", url, err)
 	}
 
 	indexRef := &IndexReference{
