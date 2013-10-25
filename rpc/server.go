@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"time"
 	"sync"
 
 	"launchpad.net/loggo"
@@ -154,7 +155,7 @@ type RequestNotifier interface {
 	// body sent as reply.
 	//
 	// ServerReply is called just before the reply is written.
-	ServerReply(req Request, hdr *Header, body interface{})
+	ServerReply(req Request, hdr *Header, body interface{}, timeSpent time.Duration)
 
 	// ClientRequest informs the RequestNotifier of a request
 	// made from the Conn. It is called just before the request is
@@ -185,7 +186,7 @@ func NewConn(codec Codec, notifier RequestNotifier) *Conn {
 }
 
 // Start starts the RPC connection running.  It must be called at least
-// one for any RPC connection (client or server side) It has no effect
+// once for any RPC connection (client or server side) It has no effect
 // if it has already been called.  By default, a connection serves no
 // methods.  See Conn.Serve for a description of how to serve methods on
 // a Conn.
@@ -433,7 +434,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error) error {
 	}
 	hdr.Error = err.Error()
 	if conn.notifier != nil {
-		conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{})
+		conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, 0)
 	}
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
@@ -472,6 +473,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 // runRequest runs the given request and sends the reply.
 func (conn *Conn) runRequest(req boundRequest, arg reflect.Value) {
 	defer conn.srvPending.Done()
+	startTime := time.Now()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err))
@@ -486,7 +488,8 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value) {
 			rvi = struct{}{}
 		}
 		if conn.notifier != nil {
-			conn.notifier.ServerReply(req.hdr.Request, hdr, rvi)
+			timeSpent := time.Since(startTime)
+			conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, timeSpent)
 		}
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
