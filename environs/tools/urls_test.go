@@ -53,7 +53,7 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		privateStorageURL, "https://streams.canonical.com/tools/"})
+		privateStorageURL, "https://streams.canonical.com/juju/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
@@ -63,7 +63,7 @@ func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-url/", privateStorageURL, "https://streams.canonical.com/tools/"})
+		"config-tools-url/", privateStorageURL, "https://streams.canonical.com/juju/tools/"})
 	haveExpectedSources := false
 	for _, source := range sources {
 		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
