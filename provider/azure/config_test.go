@@ -54,8 +54,6 @@ func makeAzureConfigMap(c *gc.C) map[string]interface{} {
 		"management-subscription-id":    "subscription-id",
 		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
-		"public-storage-account-name":   "public-account-name",
-		"public-storage-container-name": "public-container-name",
 	}
 	return makeConfigMap(azureConfig)
 }
@@ -193,18 +191,4 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 		"management-certificate": certificate,
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
-}
-
-func (*configSuite) TestConfigDefaults(c *gc.C) {
-	configMap := makeAzureConfigMap(c)
-	delete(configMap, "public-storage-account-name")
-	delete(configMap, "public-storage-container-name")
-	config, err := config.New(config.NoDefaults, configMap)
-	c.Assert(err, gc.IsNil)
-	provider := azureEnvironProvider{}
-	config, err = provider.Validate(config, nil)
-	c.Assert(err, gc.IsNil)
-	attrs := config.AllAttrs()
-	c.Assert(attrs["public-storage-account-name"], gc.Equals, "jujutools")
-	c.Assert(attrs["public-storage-container-name"], gc.Equals, "juju-tools")
 }

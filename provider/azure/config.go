@@ -17,8 +17,6 @@ var configFields = schema.Fields{
 	"management-certificate-path":   schema.String(),
 	"management-certificate":        schema.String(),
 	"storage-account-name":          schema.String(),
-	"public-storage-account-name":   schema.String(),
-	"public-storage-container-name": schema.String(),
 	"image-stream":                  schema.String(),
 	"force-image-name":              schema.String(),
 }
@@ -26,11 +24,6 @@ var configDefaults = schema.Defaults{
 	"location":                    "",
 	"management-certificate":      "",
 	"management-certificate-path": "",
-	// The default account/container expands to the following base URL:
-	//     https://jujutools.blob.core.windows.net/juju-tools
-	// (append "/tools%2Fjuju-$version-$series-$arch.tgz" for a tools archive.)
-	"public-storage-account-name":   "jujutools",
-	"public-storage-container-name": "juju-tools",
 	// The default is blank, which means "use the first of the base URLs
 	// that has a matching image."  The first base URL is for "released",
 	// which is what we want, but also a blank default will be easier on
@@ -131,14 +124,7 @@ azure:
 
     # storage-account-name holds Windows Azure Storage info.
     storage-account-name: abcdefghijkl
-    
-    # The following attributes specify the account name and container
-    # name of a public container holding the juju tools. This can
-    # be used to avoid the usual fallback to the global Amazon S3
-    # tools bucket.
-    # public-storage-account-name: jujutools
-    # public-storage-container-name: juju-tools
-    
+
     # force-image-name overrides the OS image selection to use
     # a fixed image for all deployments. Most useful for developers.
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB

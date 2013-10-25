@@ -149,7 +149,7 @@ type Environ interface {
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage and PublicStorage.
+	// values previously obtained from Storage.
 	SetConfig(cfg *config.Config) error
 
 	// Instances returns a slice of instances corresponding to the
