@@ -120,7 +120,9 @@ func SupportedSeries() []string {
 func updateSeriesVersions() {
 	if !updatedseriesVersions {
 		err := updateDistroInfo()
-		logger.Warningf("failed to update distro info: %v", err)
+		if err != nil {
+			logger.Warningf("failed to update distro info: %v", err)
+		}
 		updatedseriesVersions = true
 	}
 }
