@@ -89,7 +89,7 @@ qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
 `
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "https://streams.canonical.com/tools"
+var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
