@@ -412,9 +412,9 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "precise")
+	_, sourceDir := s.setupAutoUploadTest(c, "1.8.3", "precise")
 	context := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, context, nil)
+	code := cmd.Main(&BootstrapCommand{}, context, []string{"--source", sourceDir})
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
