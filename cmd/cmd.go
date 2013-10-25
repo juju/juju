@@ -15,12 +15,12 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
-
-	"launchpad.net/juju-core/utils"
 )
 
 func init() {
-	http.DefaultTransport = utils.NewHttpTransport()
+	// Don't replace the default transport as other init blocks
+	// register protocols.
+	http.DefaultTransport.(*http.Transport).DisableKeepAlives = true
 }
 
 // ErrSilent can be returned from Run to signal that Main should exit with
