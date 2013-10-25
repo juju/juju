@@ -362,6 +362,7 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
+	startTime := time.Now()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
 		if conn.notifier != nil {
@@ -411,7 +412,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg)
+		go conn.runRequest(req, arg, startTime)
 	}
 	conn.mutex.Unlock()
 	if closing {
@@ -471,9 +472,8 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value) {
+func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
 	defer conn.srvPending.Done()
-	startTime := time.Now()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err))
