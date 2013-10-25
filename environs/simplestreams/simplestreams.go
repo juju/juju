@@ -497,7 +497,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 	}
 
 	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned, params)
-	if err != nil {
+	if err != nil && !errors.IsNotFoundError(err) && !errors.IsUnauthorizedError(err) {
 		return nil, fmt.Errorf("cannot load mirror metadata at URL %q: %v", url, err)
 	}
 
@@ -525,29 +525,30 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 
 // getMirrorRefs parses and returns a simplestreams mirror reference.
 func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool,
-	params ValueParams) (*MirrorRefs, string, error) {
+	params ValueParams) (MirrorRefs, string, error) {
 
 	mirrorsPath := baseMirrorsPath + unsignedSuffix
 	if requireSigned {
 		mirrorsPath = baseMirrorsPath + signedSuffix
 	}
+	var mirrors MirrorRefs
 	data, url, err := fetchData(source, mirrorsPath, requireSigned, params.PublicKey)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-			return nil, url, err
+			logger.Debugf("no mirror index file found")
+			return mirrors, url, err
 		}
-		return nil, url, fmt.Errorf("cannot read index data, %v", err)
+		return mirrors, url, fmt.Errorf("cannot read mirrors data, %v", err)
 	}
-	var mirrors MirrorRefs
 	err = json.Unmarshal(data, &mirrors)
 	if err != nil {
-		return nil, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+		return mirrors, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
 	}
-	return &mirrors, url, err
+	return mirrors, url, err
 }
 
 // getMirror returns a mirror info struct matching the specified content and cloud.
-func getMirror(source DataSource, mirrors *MirrorRefs, datatype, contentId string, cloudSpec CloudSpec,
+func getMirror(source DataSource, mirrors MirrorRefs, datatype, contentId string, cloudSpec CloudSpec,
 	requireSigned bool, publicKey string) (*MirrorInfo, error) {
 
 	mirrorRef, err := mirrors.getMirrorReference(datatype, contentId, cloudSpec)
