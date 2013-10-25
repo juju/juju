@@ -346,7 +346,7 @@ var PublicMirrorsInfo = `{
   "com.ubuntu.juju:released:tools": [
      {
       "datatype": "content-download",
-      "path": "streams/v1/mirrors.json",
+      "path": "streams/v1/tools-mirrors.json",
       "updated": "{{updated}}",
       "format": "mirrors:1.0"
      }
