@@ -68,19 +68,6 @@ func (cfg *Config) AddAptSource(name, key string) {
 		})
 }
 
-// AddAptSource adds an apt source. The public key for the
-// source is retrieved by fetching the given keyId from the
-// GPG key server at the given address.
-func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
-	src, _ := cfg.attrs["apt_sources"].([]*source)
-	cfg.attrs["apt_sources"] = append(src,
-		&source{
-			Source:    name,
-			KeyId:     keyId,
-			KeyServer: keyServer,
-		})
-}
-
 // SetDebconfSelections provides preseeded debconf answers
 // for the boot process. The given answers will be used as input
 // to debconf-set-selections(1).
