@@ -195,34 +195,38 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		AllowRetry: uploadPerformed,
 	}
 	_, err = envtools.FindBootstrapTools(env, params)
-	if errors.IsNotFoundError(err) {
-		// No tools available, so synchronize.
-		toolsSource := c.Source
-		if c.Source == "" {
-			toolsSource = sync.DefaultToolsLocation
-		}
-		logger.Warningf("no tools available, attempting to retrieve from %v", toolsSource)
+	if err == nil || !errors.IsNotFoundError(err) || uploadPerformed {
+		return err
+	}
+	// If no tools are available, synchronize if necessary.
+	uploadRequired := true
+	if c.Source != "" {
+		// If we are syncing tools and it succeeds, we don't need to upload the tools.
+		uploadRequired = false
+		logger.Warningf("no tools available, attempting to retrieve from %v", c.Source)
 		sctx := &sync.SyncContext{
 			Target: env.Storage(),
 			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
-			if err == coretools.ErrNoMatches && vers == nil && version.Current.IsDev() {
-				logger.Infof("no tools found, so attempting to build and upload new tools")
-				uploadAttempted = true
-				if err = c.uploadTools(env); err != nil {
-					return err
-				}
+			if (err == coretools.ErrNoMatches || err == envtools.ErrNoTools) && vers == nil && version.Current.IsDev() {
+				uploadRequired = true
 			} else {
 				return err
 			}
 		}
-		// Synchronization done, try again.
-		params.AllowRetry = true
-		_, err = envtools.FindBootstrapTools(env, params)
-	} else if err != nil {
-		return err
 	}
+	// No suitable tools could be synced so try uploading.
+	if uploadRequired {
+		logger.Infof("no tools found, so attempting to build and upload new tools")
+		uploadAttempted = true
+		if err = c.uploadTools(env); err != nil {
+			return err
+		}
+	}
+	// Synchronization/upload done, try again.
+	params.AllowRetry = true
+	_, err = envtools.FindBootstrapTools(env, params)
 	return err
 }
 

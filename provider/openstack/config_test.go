@@ -374,13 +374,6 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL with tools URL",
-		config: attrs{
-			"public-bucket-url": "http://some/url",
-			"tools-url":         "http://tools/url",
-		},
-		toolsURL: "http://tools/url",
-	}, {
 		summary: "admin-secret given",
 		config: attrs{
 			"admin-secret": "Futumpsh",
@@ -533,7 +526,6 @@ func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
 	for attr, value := range map[string]string{
 		"default-image-id":      "foo",
 		"default-instance-type": "bar",
-		"public-bucket-url":     "somewhere",
 	} {
 		s.setupLogger(c)
 		s.setupEnv(c, attr, value)

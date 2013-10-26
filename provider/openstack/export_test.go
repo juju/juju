@@ -85,13 +85,6 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) string {
 	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
 }
 
-func PatchCertifiedURL(auth_url, fake_url string) func() {
-	toolsURLs[fake_url+"/"] = toolsURLs[auth_url]
-	return func() {
-		delete(toolsURLs, fake_url+"/")
-	}
-}
-
 var publicBucketIndexData = `
 		{
 		 "index": {
