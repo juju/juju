@@ -24,11 +24,6 @@ var configFields = schema.Fields{
 	"region":          schema.String(),
 	"control-bucket":  schema.String(),
 	"use-floating-ip": schema.Bool(),
-	// These next keys are deprecated and ignored. We keep them them in the schema
-	// so existing configs do not error.
-	"default-image-id":      schema.String(),
-	"default-instance-type": schema.String(),
-	"public-bucket":         schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"username":        "",
@@ -41,11 +36,6 @@ var configDefaults = schema.Defaults{
 	"region":          "",
 	"control-bucket":  "",
 	"use-floating-ip": false,
-	// These next keys are deprecated and ignored. We keep them them in the schema
-	// so existing configs do not error.
-	"default-image-id":      "",
-	"default-instance-type": "",
-	"public-bucket":         "juju-dist",
 }
 
 type environConfig struct {

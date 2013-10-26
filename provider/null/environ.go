@@ -180,10 +180,6 @@ func (e *nullEnviron) Storage() storage.Storage {
 	return nil
 }
 
-func (e *nullEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
-}
-
 func (e *nullEnviron) Destroy() error {
 	return errors.New("null provider destruction is not implemented yet")
 }

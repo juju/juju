@@ -534,14 +534,6 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
-	env := s.Open(c)
-	spec, err := openstack.FindInstanceSpec(env, "raring", "amd64", "mem=512M")
-	c.Assert(err, gc.IsNil)
-	c.Assert(spec.Image.Id, gc.Equals, "id-y")
-	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
-}
-
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 	// An error occurs if no suitable image is found.
@@ -652,11 +644,10 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
 	testbase.LoggingSuite
-	attrs                  map[string]interface{}
-	cred                   *identity.Credentials
-	srv                    localServer
-	env                    environs.Environ
-	writeablePublicStorage storage.Storage
+	attrs map[string]interface{}
+	cred  *identity.Credentials
+	srv   localServer
+	env   environs.Environ
 }
 
 func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {
@@ -753,13 +744,6 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 
 	err = bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *localHTTPSServerSuite) TestCanListPublicBucket(c *gc.C) {
-	storage := s.env.PublicStorage()
-	content, err := storage.List("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(content, gc.DeepEquals, []string(nil))
 }
 
 func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
