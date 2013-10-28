@@ -55,7 +55,7 @@ class Environment:
                     raise ErroredUnit(entries[0],  state)
                 pending = True
                 state_listing.append('%s: %s' % (state, ' '.join(entries)))
-            print ' / '.join(state_listing)
+            print ' | '.join(state_listing)
             sys.stdout.flush()
             if not pending:
                 return
