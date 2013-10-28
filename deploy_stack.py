@@ -47,14 +47,16 @@ class Environment:
             status = yaml.safe_load(StringIO(subprocess.check_output(args)))
             states = self.agent_states(status)
             pending = False
+            state_listing = []
             for state, entries in states.items():
                 if state == 'started':
                     continue
                 if 'error' in state:
                     raise ErroredUnit(entries[0],  state)
                 pending = True
-                print "Waiting on %s: %s" % (state, ' '.join(entries))
-                sys.stdout.flush()
+                state_listing.append('%s: %s' % (state, ' '.join(entries))
+            print ' / '.join(state_listing)
+            sys.stdout.flush()
             if not pending:
                 return
         raise Exception('Timed out!')
