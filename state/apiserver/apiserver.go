@@ -80,7 +80,7 @@ func (srv *Server) Wait() error {
 
 type requestNotifier struct {
 	connCounter int64
-	identifier string
+	identifier  string
 }
 
 var globalCounter int64
