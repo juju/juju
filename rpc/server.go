@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"time"
 	"sync"
+	"time"
 
 	"launchpad.net/loggo"
 

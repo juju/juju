@@ -21,7 +21,7 @@ func newStateServer(srv *Server, rpcConn *rpc.Conn, loginCallback func(string)) 
 		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
-		root: r,
+		root:          r,
 		loginCallback: loginCallback,
 	}
 	return r
@@ -52,9 +52,9 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 // clients can access. It holds any methods
 // that are needed to log in.
 type srvAdmin struct {
-	mu       sync.Mutex
-	root     *initialRoot
-	loggedIn bool
+	mu            sync.Mutex
+	root          *initialRoot
+	loggedIn      bool
 	loginCallback func(string)
 }
 
