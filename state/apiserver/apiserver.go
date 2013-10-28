@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -80,21 +81,33 @@ func (srv *Server) Wait() error {
 
 type requestNotifier struct {
 	remoteAddr net.Addr
+	identifier string
 }
 
-func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) SetIdentifier(identifier string) {
+	n.identifier = identifier
+}
+
+func (n *requestNotifier) getIdentifier() string {
+	if n.identifier != "" {
+		return n.identifier
+	}
+	return fmt.Sprintf("%s", n.remoteAddr.Network())
+}
+
+func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		return
 	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	logger.Debugf("<- %s %s", n.remoteAddr, jsoncodec.DumpRequest(hdr, body))
+	logger.Debugf("<- %p %s %s", n, n.getIdentifier(), jsoncodec.DumpRequest(hdr, body))
 }
 
-func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
+func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("<- %5s %s %s %s[%q].%s", timeSpent, n.remoteAddr, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	logger.Debugf("<- %p %s %s %s %s[%q].%s", n, n.getIdentifier(), timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -141,11 +154,14 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 		codec.SetLogging(true)
 	}
 	var notifier rpc.RequestNotifier
+	var loginCallback func(string)
 	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		notifier = requestNotifier{wsConn.RemoteAddr()}
+		reqNotifier := &requestNotifier{wsConn.RemoteAddr(), ""}
+		loginCallback = reqNotifier.SetIdentifier
+		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	conn.Serve(newStateServer(srv, conn), serverError)
+	conn.Serve(newStateServer(srv, conn, loginCallback), serverError)
 	conn.Start()
 	select {
 	case <-conn.Dead():
