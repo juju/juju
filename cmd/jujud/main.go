@@ -8,6 +8,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -107,6 +108,7 @@ func jujuDMain(args []string) (code int, err error) {
 func Main(args []string) {
 	var code int = 1
 	var err error
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	commandName := filepath.Base(args[0])
 	if commandName == "jujud" {
 		code, err = jujuDMain(args)
