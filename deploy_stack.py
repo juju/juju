@@ -8,6 +8,7 @@ from cStringIO import StringIO
 from datetime import datetime, timedelta
 import subprocess
 import sys
+import urllib2
 
 
 class ErroredUnit(Exception):
@@ -40,11 +41,14 @@ class Environment:
                 states[unit['agent-state']].append(unit_name)
         return states
 
+    def get_status(self):
+        args = self._full_args('status')
+        return yaml.safe_load(StringIO(subprocess.check_output(args)))
+
     def wait_for_started(self):
         now = datetime.now()
-        args = self._full_args('status')
         while now - datetime.now() < timedelta(300):
-            status = yaml.safe_load(StringIO(subprocess.check_output(args)))
+            status = self.get_status()
             states = self.agent_states(status)
             pending = False
             state_listing = []
@@ -58,7 +62,7 @@ class Environment:
             print ' | '.join(state_listing)
             sys.stdout.flush()
             if not pending:
-                return
+                return status
         raise Exception('Timed out!')
 
         def pending_entry(entry_name, entry):
@@ -73,7 +77,16 @@ def deploy_stack(environment):
     env.juju('deploy', 'wordpress')
     env.juju('deploy', 'mysql')
     env.juju('add-relation', 'mysql', 'wordpress')
-    env.wait_for_started()
+    status = env.wait_for_started()
+    wp_unit_0 = ['services']['wordpress']['units']['wordpress/0']
+    check_wordpress(wp_unit_0['public-address'])
+
+
+def check_wordpress(host):
+    welcome_text = ('Welcome to the famous five minute WordPress'
+                    ' installation process!')
+    page = urllib2.urlopen('http://%s/wp-admin/install.php' % host)
+    assert welcome_text in page.read(), 'Unexpected page contents.'
 
 
 def main():
