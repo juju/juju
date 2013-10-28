@@ -27,6 +27,7 @@ class Environment:
     def juju(self, command, *args):
         args = self._full_args(command, *args)
         print ' '.join(args)
+        sys.stdout.flush()
         return subprocess.check_call(args)
 
     @staticmethod
@@ -53,6 +54,7 @@ class Environment:
                     raise ErroredUnit(entries[0],  state)
                 pending = True
                 print "Waiting on %s: %s" % (state, ' '.join(entries))
+                sys.stdout.flush()
             if not pending:
                 return
         raise Exception('Timed out!')
