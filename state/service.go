@@ -43,6 +43,7 @@ type serviceDoc struct {
 	Exposed       bool
 	MinUnits      int
 	TxnRevno      int64 `bson:"txn-revno"`
+	OwnerTag      string
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -605,7 +606,7 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 
 // GetOwnerTag returns the owner of this service
 func (s *Service) GetOwnerTag() string {
-	return "user-admin"
+	return s.doc.OwnerTag
 }
 
 // AddUnit adds a new principal unit to the service.

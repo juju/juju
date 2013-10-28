@@ -621,6 +621,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
+		OwnerTag:      "user-admin",
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
@@ -687,16 +688,6 @@ func (st *State) AllServices() (services []*Service, err error) {
 		services = append(services, newService(st, &v))
 	}
 	return services, nil
-}
-
-// GetServiceOwner returns the owner of the named service
-func (st *State) GetServiceOwnerTag(name string) (string, error) {
-	svc, err := st.Service(name)
-	if err != nil {
-		return "", fmt.Errorf("Failed to find service %v with err %v, no owner-tag can be set", name, err)
-	}
-
-	return svc.GetOwnerTag(), nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
