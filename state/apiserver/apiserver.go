@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -80,34 +79,38 @@ func (srv *Server) Wait() error {
 }
 
 type requestNotifier struct {
-	remoteAddr net.Addr
+	connCounter int64
 	identifier string
+}
+
+var globalCounter int64
+var globalCounterMu = sync.Mutex{}
+
+func nextCounter() int64 {
+	globalCounterMu.Lock()
+	globalCounter++
+	val := globalCounter
+	globalCounterMu.Unlock()
+	return val
 }
 
 func (n *requestNotifier) SetIdentifier(identifier string) {
 	n.identifier = identifier
 }
 
-func (n *requestNotifier) getIdentifier() string {
-	if n.identifier != "" {
-		return n.identifier
-	}
-	return fmt.Sprintf("%s", n.remoteAddr.Network())
-}
-
-func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		return
 	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	logger.Debugf("<- %p %s %s", n, n.getIdentifier(), jsoncodec.DumpRequest(hdr, body))
+	logger.Debugf("<- [%X] %s %s", n.connCounter, n.identifier, jsoncodec.DumpRequest(hdr, body))
 }
 
-func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
+func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("<- %p %s %s %s %s[%q].%s", n, n.getIdentifier(), timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	logger.Debugf("<- [%X] %s %s %s %s[%q].%s", n.connCounter, n.identifier, timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -156,7 +159,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	var notifier rpc.RequestNotifier
 	var loginCallback func(string)
 	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		reqNotifier := &requestNotifier{wsConn.RemoteAddr(), ""}
+		reqNotifier := &requestNotifier{nextCounter(), ""}
 		loginCallback = reqNotifier.SetIdentifier
 		notifier = reqNotifier
 	}
