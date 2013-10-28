@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc/mock"
-	"launchpad.net/juju-core/container/lxc/testing"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -30,7 +30,7 @@ import (
 )
 
 type lxcSuite struct {
-	test.TestSuite
+	lxctesting.TestSuite
 	events chan mock.Event
 }
 

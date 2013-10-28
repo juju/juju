@@ -7,13 +7,13 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/container/lxc/testing"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
 )
 
 type baseProviderSuite struct {
-	test.TestSuite
+	lxctesting.TestSuite
 	home    *testing.FakeHome
 	restore func()
 }

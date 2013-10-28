@@ -5,7 +5,7 @@
 // functions are exported for testing purposes only, and shouldn't be called
 // from code that isn't in a test file.
 
-package test
+package testing
 
 import (
 	gc "launchpad.net/gocheck"
