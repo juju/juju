@@ -30,9 +30,9 @@ func (c *UnitCommandBase) Init(args []string) error {
 		return errors.New("--num-units must be a positive integer")
 	}
 	if c.ToMachineSpec != "" {
-		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units > 1 with --to")
-		}
+		//if c.NumUnits > 1 {
+		//	return errors.New("cannot use --num-units > 1 with --to")
+		//}
 		if !cmd.IsMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}

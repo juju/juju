@@ -279,9 +279,9 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
-	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
-	}
+	//if args.NumUnits > 1 && args.ToMachineSpec != "" {
+	//	return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+	//}
 	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
 }
 
