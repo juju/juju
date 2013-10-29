@@ -101,31 +101,40 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	newmachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = newmachine.SetProvisioned("foo", "fake_nonce", nil)
+	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = newmachine.SetPassword("test-password")
+	err = machineInState.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
-	c.Assert(newmachine.Tag(), gc.Equals, "machine-0")
+	c.Assert(machineInState.Tag(), gc.Equals, "machine-0")
 
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("login-tester", tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("login-tester")
 
-	info.Tag = newmachine.Tag()
+	info.Tag = machineInState.Tag()
 	info.Password = "test-password"
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
 	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
-		"state/api: connection established",
-		`<- [\\d+] {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
+		// Two blank spaces between the connection counter and the
+		// request params, because we don't have a login identifier yet
+		`<- \[\d+\]  {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
 			`{"AuthTag":"machine-0","Password":"test-password","Nonce":"fake_nonce"}` +
 			`}`,
-		`<- [\\d+] machine-0 [0-9.umns]+ {"RequestId":1,"Response":{}} Admin[""}.Login`,
+		// Now that we are logged in, we see the entity's tag
+		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
+		// long, though we expect it to be in the 'ms' range.
+		`<- \[\d+\] machine-0 [0-9.umns]+ {"RequestId":1,"Response":{}} Admin\[""\].Login`,
+		`<- \[\d+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
+		`<- \[\d+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
 }
