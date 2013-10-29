@@ -93,9 +93,10 @@ def deploy_stack(environment):
 def check_wordpress(host):
     welcome_text = ('Welcome to the famous five minute WordPress'
                     ' installation process!')
+    url = 'http://%s/wp-admin/install.php' % host
     for ignored in until_timeout(30):
         try:
-            page = urllib2.urlopen('http://%s/wp-admin/install.php' % host)
+            page = urllib2.urlopen(url)
         except Exception:
             pass
         else:
@@ -103,7 +104,7 @@ def check_wordpress(host):
                 break
         sleep(1)
     else:
-        raise Exception('Cannot get welcome screen.')
+        raise Exception('Cannot get welcome screen at %s' % url)
 
 
 def main():
