@@ -8,6 +8,7 @@ from cStringIO import StringIO
 from datetime import datetime, timedelta
 import subprocess
 import sys
+from time import sleep
 import urllib2
 
 
@@ -15,6 +16,12 @@ class ErroredUnit(Exception):
 
     def __init__(self, unit_name, state):
         Exception.__init__('Unit %s is in state %s' % unit_name, state)
+
+
+def until_timeout(timeout):
+    now = datetime.now()
+    while now - datetime.now() < timedelta(timeout):
+        yield None
 
 
 class Environment:
@@ -46,8 +53,7 @@ class Environment:
         return yaml.safe_load(StringIO(subprocess.check_output(args)))
 
     def wait_for_started(self):
-        now = datetime.now()
-        while now - datetime.now() < timedelta(300):
+        for ignored in until_timeout(300):
             status = self.get_status()
             states = self.agent_states(status)
             pending = False
@@ -63,7 +69,8 @@ class Environment:
             sys.stdout.flush()
             if not pending:
                 return status
-        raise Exception('Timed out!')
+        else:
+            raise Exception('Timed out!')
 
         def pending_entry(entry_name, entry):
             if 'error' in entry['agent-state']:
@@ -86,13 +93,26 @@ def deploy_stack(environment):
 def check_wordpress(host):
     welcome_text = ('Welcome to the famous five minute WordPress'
                     ' installation process!')
-    page = urllib2.urlopen('http://%s/wp-admin/install.php' % host)
-    assert welcome_text in page.read(), 'Unexpected page contents.'
+    for ignored in until_timeout(30):
+        try:
+            page = urllib2.urlopen('http://%s/wp-admin/install.php' % host)
+        except Exception:
+            pass
+        else:
+            if welcome_text in page.read():
+                break
+        sleep(1)
+    else:
+        raise Exception('Cannot get welcome screen.')
 
 
 def main():
     try:
         deploy_stack(sys.argv[1])
+    except urllib2.HTTPError as e:
+        print e
+        print e.geturl()
+        sys.exit(2)
     except Exception as e:
         print e
         sys.exit(1)
