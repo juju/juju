@@ -177,6 +177,7 @@ generate_streams() {
     # Create the streams metadata and organised the tree for later publication.
     echo "Phase 5: Generating streams data."
     cd $DESTINATION
+    # XXX sinzui 2013-10-25: Ian is adding a --public option soon.
     juju sync-tools --all --dev \
         --source=${DESTINATION} --destination=${DEST_DIST}
     if [[ $IS_TESTING == "true" ]]; then
@@ -186,6 +187,8 @@ generate_streams() {
         done
     fi
     # Support old tools location so that deployments can upgrade to new tools.
+    # Generate cpc mirrors.sjson based on template suggested by Ian.
+    # https://bugs.launchpad.net/juju-core/+bug/1243470
     cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
     echo "The tools are in ${DEST_DIST}."
 }
