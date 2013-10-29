@@ -45,14 +45,19 @@ class Environment:
         return subprocess.check_call(args)
 
     @staticmethod
+    def agent_items(status):
+        for machine_name, machine in sorted(status['machines'].items()):
+            yield machine_name, machine
+        for service in sorted(status['services'].values()):
+            for unit_name, unit in service.get('units', {}).items():
+                yield unit_name, unit
+
+    @staticmethod
     def agent_states(status):
         """Map agent states to the units and machines in those states."""
         states = defaultdict(list)
-        for machine_name, machine in sorted(status['machines'].items()):
-            states[machine.get('agent-state', 'no-agent')].append(machine_name)
-        for service in sorted(status['services'].values()):
-            for unit_name, unit in service['units'].items():
-                states[unit['agent-state']].append(unit_name)
+        for item_name, item in self.agent_items(status):
+            states[item.get('agent-state', 'no-agent')].append(item_name)
         return states
 
     def get_status(self):
@@ -67,19 +72,26 @@ class Environment:
             states = self.agent_states(status)
             pending = False
             state_listing = []
+            if states.keys() == ['started']:
+                break
             for state, entries in states.items():
-                if state == 'started':
-                    continue
                 if 'error' in state:
                     raise ErroredUnit(entries[0],  state)
-                pending = True
-                state_listing.append('%s: %s' % (state, ' '.join(entries)))
-            print ' | '.join(state_listing)
+            print format_listing(states, 'started')
             sys.stdout.flush()
             if not pending:
                 return status
         else:
             raise Exception('Timed out!')
+
+
+def format_listing(listing, expected):
+    value_listing = []
+    for value, entries in listing.items():
+        if value == expected:
+            continue
+        value_listing.append('%s: %s' % (value, ', '.join(entries)))
+    return ' | '.join(value_listing)
 
 
 def check_wordpress(host):
