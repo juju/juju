@@ -216,3 +216,15 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(link, gc.Equals, newTools.Version.String())
 }
+
+func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
+	stor := s.Conn.Environ.Storage()
+	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	// We've already downloaded the tools, so change the URL to be
+	// something invalid and ensure we don't actually get an error, because
+	// it doesn't actually do an HTTP request
+	u := s.makeUpgrader()
+	newTools.URL = "http://localhost:999999/invalid/path/tools.tgz"
+	err := upgrader.EnsureTools(u, newTools, true)
+	c.Assert(err, gc.IsNil)
+}

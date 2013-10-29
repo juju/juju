@@ -152,7 +152,7 @@ func (u *Upgrader) loop() error {
 			// repeatedly (causing the agent to be stopped), as long
 			// as we have got as far as this, we will still be able to
 			// upgrade the agent.
-			err := u.fetchTools(wantTools, disableSSLHostnameVerification)
+			err := u.ensureTools(wantTools, disableSSLHostnameVerification)
 			if err == nil {
 				return &UpgradeReadyError{
 					OldTools:  currentTools,
@@ -167,12 +167,16 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func (u *Upgrader) fetchTools(agentTools *coretools.Tools, disableSSLHostnameVerification bool) error {
+func (u *Upgrader) ensureTools(agentTools *coretools.Tools, disableSSLHostnameVerification bool) error {
 	client := http.DefaultClient
 	logger.Infof("fetching tools from %q", agentTools.URL)
 	if disableSSLHostnameVerification {
 		logger.Infof("hostname SSL verification disabled")
 		client = utils.GetNonValidatingHTTPClient()
+	}
+	if _, err := agenttools.ReadTools(u.dataDir, agentTools.Version); err == nil {
+		// Tools have already been downloaded
+		return nil
 	}
 	resp, err := client.Get(agentTools.URL)
 	if err != nil {
