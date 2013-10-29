@@ -23,6 +23,7 @@ type DeployerAPI struct {
 	st         *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
+	cache	map[string]interface{}
 }
 
 // getAllUnits returns a list of all principal and subordinate units

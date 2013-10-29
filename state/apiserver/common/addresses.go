@@ -4,6 +4,8 @@
 package common
 
 import (
+	"time"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -23,11 +25,27 @@ type EnvironConfigAndCertGetter interface {
 // them.
 type Addresser struct {
 	st EnvironConfigAndCertGetter
+	cache map[string]interface{}
 }
+
+const addressTimeout = 1*time.Minute
+
+type cachedAddress struct {
+	expiry	time.Time
+	stateInfo state.Info
+	apiInfo	api.Info
+
+}
+
+var AddressCache = make(map[string]interface{})
 
 // NewAddresser returns a new Addresser.
 func NewAddresser(st EnvironConfigAndCertGetter) *Addresser {
-	return &Addresser{st}
+	return &Addresser{st, AddressCache}
+}
+
+func NewAPIAddresser(st EnvironConfigAndCertGetter) *APIAddresser {
+	return &APIAddresser{st, AddressCache}
 }
 
 // getEnvironStateInfo returns the state and API connection
@@ -38,8 +56,16 @@ func NewAddresser(st EnvironConfigAndCertGetter) *Addresser {
 // BUG(lp:1205371): This is temporary, until the Addresser worker
 // lands and we can take the addresses of all machines with
 // JobManageState.
-func (a *Addresser) getEnvironStateInfo() (*state.Info, *api.Info, error) {
-	cfg, err := a.st.EnvironConfig()
+func getEnvironStateInfo(st EnvironConfigAndCertGetter, cache map[string]interface{}) (*state.Info, *api.Info, error) {
+	if val, ok := cache["environ-state-info"]; ok {
+		if cached, ok := val.(cachedAddress); ok {
+			if time.Now().Before(cached.expiry) {
+				return &cached.stateInfo, &cached.apiInfo, nil
+			}
+		}
+		delete(cache, "environ-state-info")
+	}
+	cfg, err := st.EnvironConfig()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -47,7 +73,20 @@ func (a *Addresser) getEnvironStateInfo() (*state.Info, *api.Info, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return env.StateInfo()
+	stateInfo, apiInfo, err := env.StateInfo()
+	if err != nil {
+		return nil, nil, err
+	}
+	cache["environ-state-info"] = cachedAddress{
+		expiry: time.Now().Add(addressTimeout),
+		stateInfo: *stateInfo,
+		apiInfo: *apiInfo,
+	}
+	return stateInfo, apiInfo, nil
+}
+
+func (a *Addresser) getEnvironStateInfo() (*state.Info, *api.Info, error) {
+	return getEnvironStateInfo(a.st, a.cache)
 }
 
 // StateAddresses returns the list of addresses used to connect to the state.
@@ -90,3 +129,23 @@ func (a *Addresser) CACert() params.BytesResult {
 		Result: a.st.CACert(),
 	}
 }
+
+type APIAddresser struct {
+	st EnvironConfigAndCertGetter
+	cache map[string]interface{}
+}
+
+func (a *APIAddresser) getEnvironStateInfo() (*state.Info, *api.Info, error) {
+	return getEnvironStateInfo(a.st, a.cache)
+}
+
+func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	_, apiInfo, err := a.getEnvironStateInfo()
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	return params.StringsResult{
+		Result: apiInfo.Addrs,
+	}, nil
+}
+
