@@ -23,8 +23,8 @@ def until_timeout(timeout):
 
     :param timeout: Number of seconds to wait.
     """
-    now = datetime.now()
-    while now - datetime.now() < timedelta(0, timeout):
+    start = datetime.now()
+    while datetime.now() - start  < timedelta(0, timeout):
         yield None
 
 
