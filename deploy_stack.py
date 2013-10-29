@@ -7,6 +7,7 @@ from collections import defaultdict
 from cStringIO import StringIO
 from datetime import datetime, timedelta
 import httplib
+import socket
 import subprocess
 import sys
 from time import sleep
@@ -109,7 +110,7 @@ def check_wordpress(host):
     for ignored in until_timeout(30):
         try:
             page = urllib2.urlopen(url)
-        except (urllib2.URLError, httplib.HTTPException):
+        except (urllib2.URLError, httplib.HTTPException, socket.error):
             pass
         else:
             if welcome_text in page.read():
