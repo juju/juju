@@ -52,11 +52,11 @@ class Environment:
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit
 
-    @staticmethod
-    def agent_states(status):
+    @classmethod
+    def agent_states(cls, status):
         """Map agent states to the units and machines in those states."""
         states = defaultdict(list)
-        for item_name, item in self.agent_items(status):
+        for item_name, item in cls.agent_items(status):
             states[item.get('agent-state', 'no-agent')].append(item_name)
         return states
 
