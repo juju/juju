@@ -5,12 +5,15 @@ package apiserver_test
 
 import (
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type loginSuite struct {
@@ -40,10 +43,7 @@ var badLoginTests = []struct {
 	err:      `"bar" is not a valid tag`,
 }}
 
-func (s *loginSuite) TestBadLogin(c *gc.C) {
-	// Start our own server so we can control when the first login
-	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
-	// called with user-admin permissions automatically.
+func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 	srv, err := apiserver.NewServer(
 		s.State,
 		"localhost:0",
@@ -51,17 +51,25 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 		[]byte(coretesting.ServerKey),
 	)
 	c.Assert(err, gc.IsNil)
-	defer func() {
-		err := srv.Stop()
-		c.Assert(err, gc.IsNil)
-	}()
-
 	info := &api.Info{
 		Tag:      "",
 		Password: "",
 		Addrs:    []string{srv.Addr()},
 		CACert:   []byte(coretesting.CACert),
 	}
+	return info, func() {
+		err := srv.Stop()
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *loginSuite) TestBadLogin(c *gc.C) {
+	// Start our own server so we can control when the first login
+	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
+	// called with user-admin permissions automatically.
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+
 	for i, t := range badLoginTests {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
 		// Note that Open does not log in if the tag and password
@@ -87,4 +95,46 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
+}
+
+func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+
+	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	err = machineInState.SetPassword("test-password")
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineInState.Tag(), gc.Equals, "machine-0")
+
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("login-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("login-tester")
+
+	info.Tag = machineInState.Tag()
+	info.Password = "test-password"
+	info.Nonce = "fake_nonce"
+
+	apiConn, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
+	apiConn.Close()
+
+	c.Assert(tw.Log, jc.LogMatches, []string{
+		// Two blank spaces between the connection counter and the
+		// request params, because we don't have a login identifier yet
+		`<- \[\d+\]  {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
+			`{"AuthTag":"machine-0","Password":"test-password","Nonce":"fake_nonce"}` +
+			`}`,
+		// Now that we are logged in, we see the entity's tag
+		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
+		// long, though we expect it to be in the 'ms' range.
+		`<- \[\d+\] machine-0 [0-9.umns]+ {"RequestId":1,"Response":{}} Admin\[""\].Login`,
+		`<- \[\d+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
+		`<- \[\d+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+	})
 }
