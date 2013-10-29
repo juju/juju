@@ -108,7 +108,7 @@ def check_wordpress(host):
     for ignored in until_timeout(30):
         try:
             page = urllib2.urlopen(url)
-        except urllib2.HTTPError:
+        except urllib2.URLError:
             pass
         else:
             if welcome_text in page.read():
