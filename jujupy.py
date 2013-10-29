@@ -70,8 +70,6 @@ class Environment:
         for ignored in until_timeout(300):
             status = self.get_status()
             states = self.agent_states(status)
-            pending = False
-            state_listing = []
             if states.keys() == ['started']:
                 break
             for state, entries in states.items():
@@ -79,10 +77,9 @@ class Environment:
                     raise ErroredUnit(entries[0],  state)
             print format_listing(states, 'started')
             sys.stdout.flush()
-            if not pending:
-                return status
         else:
             raise Exception('Timed out!')
+        return status
 
 
 def format_listing(listing, expected):
