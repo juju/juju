@@ -55,7 +55,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
-		Addresser:	    common.NewAddresser(st),
+		Addresser:          common.NewAddresser(st),
 		st:                 st,
 		auth:               authorizer,
 		resources:          resources,

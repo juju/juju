@@ -6,12 +6,16 @@ package common
 import (
 	"time"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.common")
 
 // EnvironConfigAndCertGetter defines EnvironConfig and CACert
 // methods.
@@ -24,17 +28,16 @@ type EnvironConfigAndCertGetter interface {
 // API server addresses, and the CA certificate used to authenticate
 // them.
 type Addresser struct {
-	st EnvironConfigAndCertGetter
+	st    EnvironConfigAndCertGetter
 	cache map[string]interface{}
 }
 
-const addressTimeout = 1*time.Minute
+const addressTimeout = 1 * time.Minute
 
 type cachedAddress struct {
-	expiry	time.Time
+	expiry    time.Time
 	stateInfo state.Info
-	apiInfo	api.Info
-
+	apiInfo   api.Info
 }
 
 var AddressCache = make(map[string]interface{})
@@ -60,10 +63,15 @@ func getEnvironStateInfo(st EnvironConfigAndCertGetter, cache map[string]interfa
 	if val, ok := cache["environ-state-info"]; ok {
 		if cached, ok := val.(cachedAddress); ok {
 			if time.Now().Before(cached.expiry) {
+				logger.Debugf("returning cached stateInfo & apiInfo")
 				return &cached.stateInfo, &cached.apiInfo, nil
+			} else {
+				logger.Debugf("cached stateInfo & apiInfo expired, refreshing")
 			}
 		}
 		delete(cache, "environ-state-info")
+	} else {
+		logger.Debugf("no cached stateInfo & apiInfo, loading from environment")
 	}
 	cfg, err := st.EnvironConfig()
 	if err != nil {
@@ -78,9 +86,9 @@ func getEnvironStateInfo(st EnvironConfigAndCertGetter, cache map[string]interfa
 		return nil, nil, err
 	}
 	cache["environ-state-info"] = cachedAddress{
-		expiry: time.Now().Add(addressTimeout),
+		expiry:    time.Now().Add(addressTimeout),
 		stateInfo: *stateInfo,
-		apiInfo: *apiInfo,
+		apiInfo:   *apiInfo,
 	}
 	return stateInfo, apiInfo, nil
 }
@@ -131,7 +139,7 @@ func (a *Addresser) CACert() params.BytesResult {
 }
 
 type APIAddresser struct {
-	st EnvironConfigAndCertGetter
+	st    EnvironConfigAndCertGetter
 	cache map[string]interface{}
 }
 
@@ -148,4 +156,3 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 		Result: apiInfo.Addrs,
 	}, nil
 }
-
