@@ -475,8 +475,6 @@ var configTests = []configTest{
 		about:       "Config settings from juju 1.13.3 actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
-			"public-bucket":             "juju-dist",
-			"public-bucket-region":      "us-east-1",
 			"name":                      "sample",
 			"development":               false,
 			"admin-secret":              "",

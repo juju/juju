@@ -4,7 +4,6 @@
 package ec2_test
 
 import (
-	"bytes"
 	"regexp"
 	"sort"
 	"strings"
@@ -63,15 +62,13 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 }
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
-	"name":                 "sample",
-	"type":                 "ec2",
-	"region":               "test",
-	"control-bucket":       "test-bucket",
-	"public-bucket":        "public-tools",
-	"public-bucket-region": "test",
-	"access-key":           "x",
-	"secret-key":           "x",
-	"agent-version":        version.Current.Number.String(),
+	"name":           "sample",
+	"type":           "ec2",
+	"region":         "test",
+	"control-bucket": "test-bucket",
+	"access-key":     "x",
+	"secret-key":     "x",
+	"agent-version":  version.Current.Number.String(),
 })
 
 func registerLocalTests() {
@@ -136,8 +133,8 @@ func (srv *localServer) startServer(c *gc.C) {
 		S3LocationConstraint: true,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
-	writeablePublicStorage := ec2.BucketStorage(s3inst.Bucket("public-tools"))
-	envtesting.UploadFakeTools(c, writeablePublicStorage)
+	storage := ec2.BucketStorage(s3inst.Bucket("juju-dist"))
+	envtesting.UploadFakeTools(c, storage)
 	srv.addSpice(c)
 }
 
@@ -363,13 +360,10 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := t.Prepare(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
+	c.Assert(len(sources), gc.Equals, 1)
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
 	c.Assert(strings.Contains(url, ec2.ControlBucketName(env)+"/tools"), jc.IsTrue)
-	url, err = sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "https://juju-dist.s3.amazonaws.com/tools/")
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
@@ -408,16 +402,6 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-func (t *localNonUSEastSuite) TestPutBucket(c *gc.C) {
-	p := ec2.WritablePublicStorage(t.env).(ec2.Storage)
-	for i := 0; i < 5; i++ {
-		p.ResetMadeBucket()
-		var buf bytes.Buffer
-		err := p.Put("test-file", &buf, 0)
-		c.Assert(err, gc.IsNil)
-	}
 }
 
 func patchEC2ForTesting() func() {

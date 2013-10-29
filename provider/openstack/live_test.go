@@ -84,7 +84,7 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Update some Config items now that we have services running.
-	// This is setting the public-bucket-url and auth-url because that
+	// This is setting the simplestreams urls and auth-url because that
 	// information is set during startup of the localLiveSuite
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
