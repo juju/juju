@@ -3,4 +3,13 @@
 
 package upgrader
 
+import (
+	"launchpad.net/juju-core/tools"
+)
+
+
 var RetryAfter = &retryAfter
+
+func EnsureTools(u *Upgrader, agentTools *tools.Tools, disableSSLHostnameVerification bool) error {
+	return u.ensureTools(agentTools, disableSSLHostnameVerification)
+}
