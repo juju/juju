@@ -221,8 +221,6 @@ func RemoveTools(c *gc.C, stor storage.Storage) {
 func RemoveAllTools(c *gc.C, env environs.Environ) {
 	c.Logf("clearing private storage")
 	RemoveTools(c, env.Storage())
-	c.Logf("clearing public storage")
-	RemoveTools(c, env.PublicStorage().(storage.Storage))
 }
 
 var (

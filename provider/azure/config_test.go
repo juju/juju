@@ -50,12 +50,10 @@ PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
 
 func makeAzureConfigMap(c *gc.C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
-		"location":                      "location",
-		"management-subscription-id":    "subscription-id",
-		"management-certificate":        testCert,
-		"storage-account-name":          "account-name",
-		"public-storage-account-name":   "public-account-name",
-		"public-storage-container-name": "public-container-name",
+		"location":                   "location",
+		"management-subscription-id": "subscription-id",
+		"management-certificate":     testCert,
+		"storage-account-name":       "account-name",
 	}
 	return makeConfigMap(azureConfig)
 }
@@ -111,19 +109,15 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
 	storageAccountName := "account-name"
-	publicStorageAccountName := "public-account-name"
-	publicStorageContainerName := "public-container-name"
 	forceImageName := "force-image-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
-		"location":                      location,
-		"management-subscription-id":    managementSubscriptionId,
-		"management-certificate":        certificate,
-		"storage-account-name":          storageAccountName,
-		"public-storage-account-name":   publicStorageAccountName,
-		"public-storage-container-name": publicStorageContainerName,
-		"force-image-name":              forceImageName,
-		"unknown-future-setting":        unknownFutureSetting,
+		"location":                   location,
+		"management-subscription-id": managementSubscriptionId,
+		"management-certificate":     certificate,
+		"storage-account-name":       storageAccountName,
+		"force-image-name":           forceImageName,
+		"unknown-future-setting":     unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
@@ -136,8 +130,6 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	c.Check(azConfig.managementSubscriptionId(), gc.Equals, managementSubscriptionId)
 	c.Check(azConfig.managementCertificate(), gc.Equals, certificate)
 	c.Check(azConfig.storageAccountName(), gc.Equals, storageAccountName)
-	c.Check(azConfig.publicStorageAccountName(), gc.Equals, publicStorageAccountName)
-	c.Check(azConfig.publicStorageContainerName(), gc.Equals, publicStorageContainerName)
 	c.Check(azConfig.forceImageName(), gc.Equals, forceImageName)
 	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], gc.Equals, unknownFutureSetting)
 }
@@ -166,26 +158,6 @@ func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
-}
-
-func (*configSuite) TestChecksPublicStorageAccountNameCannotBeDefinedAlone(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-container-name"] = ""
-	provider := azureEnvironProvider{}
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
-}
-
-func (*configSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-account-name"] = ""
-	provider := azureEnvironProvider{}
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
 }
 
 func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
@@ -219,18 +191,4 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 		"management-certificate": certificate,
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
-}
-
-func (*configSuite) TestConfigDefaults(c *gc.C) {
-	configMap := makeAzureConfigMap(c)
-	delete(configMap, "public-storage-account-name")
-	delete(configMap, "public-storage-container-name")
-	config, err := config.New(config.NoDefaults, configMap)
-	c.Assert(err, gc.IsNil)
-	provider := azureEnvironProvider{}
-	config, err = provider.Validate(config, nil)
-	c.Assert(err, gc.IsNil)
-	attrs := config.AllAttrs()
-	c.Assert(attrs["public-storage-account-name"], gc.Equals, "jujutools")
-	c.Assert(attrs["public-storage-container-name"], gc.Equals, "juju-tools")
 }

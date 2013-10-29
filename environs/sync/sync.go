@@ -26,8 +26,8 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.sync")
 
-// DefaultToolsLocation leads to the default juju distribution on S3.
-var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
+// DefaultToolsLocation leads to the default juju tools location.
+var DefaultToolsLocation = "https://streams.canonical.com/juju"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {

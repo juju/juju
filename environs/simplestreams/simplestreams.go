@@ -36,6 +36,23 @@ type CloudSpec struct {
 	Endpoint string `json:"endpoint"`
 }
 
+// equals returns true if spec == other, allowing for endpoints
+// with or without a trailing "/".
+func (spec *CloudSpec) equals(other *CloudSpec) bool {
+	if spec.Region != other.Region {
+		return false
+	}
+	specEndpoint := spec.Endpoint
+	if !strings.HasSuffix(specEndpoint, "/") {
+		specEndpoint += "/"
+	}
+	otherEndpoint := other.Endpoint
+	if !strings.HasSuffix(otherEndpoint, "/") {
+		otherEndpoint += "/"
+	}
+	return specEndpoint == otherEndpoint
+}
+
 // EmptyCloudSpec is used when we want all records regardless of cloud to be loaded.
 var EmptyCloudSpec = CloudSpec{}
 
@@ -117,15 +134,14 @@ func SupportedSeries() []string {
 	return series
 }
 
-func updateSeriesVersions() error {
+func updateSeriesVersions() {
 	if !updatedseriesVersions {
 		err := updateDistroInfo()
-		updatedseriesVersions = true
 		if err != nil {
-			return err
+			logger.Warningf("failed to update distro info: %v", err)
 		}
+		updatedseriesVersions = true
 	}
-	return nil
 }
 
 // updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
@@ -319,7 +335,7 @@ func (metadata *IndexMetadata) String() string {
 // are searched.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
-		if metadataCloud == cloud {
+		if metadataCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -380,6 +396,7 @@ const (
 	UnsignedIndex    = "streams/v1/index.json"
 	DefaultIndexPath = "streams/v1/index"
 	UnsignedMirror   = "streams/v1/mirrors.json"
+	mirrorsPath      = "streams/v1/mirrors"
 	signedSuffix     = ".sjson"
 	unsignedSuffix   = ".json"
 )
@@ -496,10 +513,9 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 			"unexpected index file format %q, expected %q at URL %q", indices.Format, indexFormat, url)
 	}
 
-	var mirrors MirrorRefs
-	err = json.Unmarshal(data, &mirrors)
-	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned, params)
+	if err != nil && !errors.IsNotFoundError(err) && !errors.IsUnauthorizedError(err) {
+		return nil, fmt.Errorf("cannot load mirror metadata at URL %q: %v", url, err)
 	}
 
 	indexRef := &IndexReference{
@@ -522,6 +538,30 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 	}
 
 	return indexRef, nil
+}
+
+// getMirrorRefs parses and returns a simplestreams mirror reference.
+func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool,
+	params ValueParams) (MirrorRefs, string, error) {
+
+	mirrorsPath := baseMirrorsPath + unsignedSuffix
+	if requireSigned {
+		mirrorsPath = baseMirrorsPath + signedSuffix
+	}
+	var mirrors MirrorRefs
+	data, url, err := fetchData(source, mirrorsPath, requireSigned, params.PublicKey)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			logger.Debugf("no mirror index file found")
+			return mirrors, url, err
+		}
+		return mirrors, url, fmt.Errorf("cannot read mirrors data, %v", err)
+	}
+	err = json.Unmarshal(data, &mirrors)
+	if err != nil {
+		return mirrors, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+	}
+	return mirrors, url, err
 }
 
 // getMirror returns a mirror info struct matching the specified content and cloud.
@@ -600,7 +640,7 @@ func (mirrorRefs *MirrorRefs) extractMirrorRefs(contentId string) MirrorRefSlice
 // Clouds list.
 func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
 	for _, refCloud := range mirrorRef.Clouds {
-		if refCloud == cloud {
+		if refCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -677,7 +717,7 @@ func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string,
 // Clouds list.
 func (mirrorInfo *MirrorInfo) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range mirrorInfo.Clouds {
-		if metadataCloud == cloud {
+		if metadataCloud.equals(&cloud) {
 			return true
 		}
 	}
