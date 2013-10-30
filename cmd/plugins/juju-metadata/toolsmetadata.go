@@ -77,7 +77,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 	writeMirrors := tools.DoNotWriteMirrors
 	if c.public {
-		writeMirrors = tools.DoWriteMirrors
+		writeMirrors = tools.WriteMirrors
 	}
 	return mergeAndWriteMetadata(targetStorage, toolsList, writeMirrors)
 }

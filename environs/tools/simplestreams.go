@@ -367,7 +367,7 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors
 type WriteMirrors bool
 
 const (
-	DoWriteMirrors    = WriteMirrors(true)
+	WriteMirrors      = WriteMirrors(true)
 	DoNotWriteMirrors = WriteMirrors(false)
 )
 

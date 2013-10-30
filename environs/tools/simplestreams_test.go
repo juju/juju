@@ -343,7 +343,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	c.Assert(err, gc.IsNil)
 	writeMirrors := tools.DoNotWriteMirrors
 	if withMirrors {
-		writeMirrors = tools.DoWriteMirrors
+		writeMirrors = tools.WriteMirrors
 	}
 	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)

@@ -125,7 +125,7 @@ func SyncTools(syncContext *SyncContext) error {
 		targetTools = append(targetTools, missing...)
 		writeMirrors := envtools.DoNotWriteMirrors
 		if syncContext.Public {
-			writeMirrors = envtools.DoWriteMirrors
+			writeMirrors = envtools.WriteMirrors
 		}
 		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools, writeMirrors)
 		if err != nil {
