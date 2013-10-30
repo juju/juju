@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"strings"
 	"time"
 
 	"launchpad.net/juju-core/environs/simplestreams"
