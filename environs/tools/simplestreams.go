@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"strings"
 	"time"
 
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -323,15 +324,35 @@ func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
 	return metadata, nil
 }
 
+var PublicMirrorsInfo = `{
+ "mirrors": {
+  "com.ubuntu.juju:released:tools": [
+     {
+      "datatype": "content-download",
+      "path": "streams/v1/cpc-mirrors.json",
+      "updated": "{{updated}}",
+      "format": "mirrors:1.0"
+     }
+  ]
+ }
+}
+`
+
 // WriteMetadata writes the given tools metadata to the given storage.
-func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata) error {
-	index, products, err := MarshalToolsMetadataJSON(metadata, time.Now())
+func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
+	updated := time.Now()
+	index, products, err := MarshalToolsMetadataJSON(metadata, updated)
 	if err != nil {
 		return err
 	}
 	metadataInfo := []MetadataFile{
 		{simplestreams.UnsignedIndex, index},
 		{ProductMetadataPath, products},
+	}
+	if writeMirrors {
+		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
+		mirrorsInfo := strings.Replace(PublicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
+		metadataInfo = append(metadataInfo, MetadataFile{simplestreams.UnsignedMirror, []byte(mirrorsInfo)})
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
@@ -343,10 +364,17 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata) error {
 	return nil
 }
 
+type ShouldWriteMirrors bool
+
+const (
+	WriteMirrors      = ShouldWriteMirrors(true)
+	DoNotWriteMirrors = ShouldWriteMirrors(false)
+)
+
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List) error {
+func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
 	existing, err := ReadMetadata(stor)
 	if err != nil {
 		return err
@@ -355,7 +383,7 @@ func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List) error {
 	if metadata, err = MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
-	return WriteMetadata(stor, metadata)
+	return WriteMetadata(stor, metadata, writeMirrors)
 }
 
 // fetchToolsHash fetches the tools from storage and calculates
