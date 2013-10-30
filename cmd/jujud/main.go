@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
+	"time"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -87,9 +89,52 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	return resp.Code, nil
 }
 
+func captureMemoryProfile(agentTag string) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	now := time.Now()
+	fname := fmt.Sprintf("/tmp/agent-mem-%s-%s-%.3fGB.mprof",
+		agentTag, now.Format("2006-01-02-15:04:05"),
+		float64(m.Alloc)/(1024.0*1024*1024))
+	f, err := os.Create(fname)
+	if err != nil {
+		return
+	}
+	pprof.WriteHeapProfile(f)
+	f.Close()
+}
+
+func profileMemory(agentTag string, stop chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		case <-time.After(1 * time.Minute):
+			captureMemoryProfile(agentTag)
+		}
+	}
+}
+
+// enable the CPU and Memory profiling for this agent
+func enableProfiling(agentTag string) func() {
+	f, err := os.Create(fmt.Sprintf("/tmp/agent-cpu-%s.prof", agentTag))
+	if err != nil {
+		return func() {}
+	}
+	pprof.StartCPUProfile(f)
+	stopChan := make(chan struct{})
+	go profileMemory(agentTag, stopChan)
+	return func() {
+		close(stopChan)
+		pprof.StopCPUProfile()
+		f.Close()
+	}
+}
+
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string) (code int, err error) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
@@ -108,7 +153,6 @@ func jujuDMain(args []string) (code int, err error) {
 func Main(args []string) {
 	var code int = 1
 	var err error
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	commandName := filepath.Base(args[0])
 	if commandName == "jujud" {
 		code, err = jujuDMain(args)

@@ -102,6 +102,8 @@ func (a *MachineAgent) Stop() error {
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old
 	// environments that have been upgraded, we need to explicitly remove the
+	cleanup := enableProfiling(a.Tag())
+	defer cleanup()
 	// file writer if one has been added, otherwise we will get duplicate
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
