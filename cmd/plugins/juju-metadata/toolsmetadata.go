@@ -85,7 +85,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
 // resolves metadata for existing tools by fetching them and computing
 // size/sha256 locally.
-func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, writeMirrors tools.WriteMirrors) error {
+func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, writeMirrors tools.ShouldWriteMirrors) error {
 	existing, err := tools.ReadMetadata(stor)
 	if err != nil {
 		return err

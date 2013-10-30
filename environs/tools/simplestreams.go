@@ -339,7 +339,7 @@ var PublicMirrorsInfo = `{
 `
 
 // WriteMetadata writes the given tools metadata to the given storage.
-func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors WriteMirrors) error {
+func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
 	updated := time.Now()
 	index, products, err := MarshalToolsMetadataJSON(metadata, updated)
 	if err != nil {
@@ -364,17 +364,17 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors
 	return nil
 }
 
-type WriteMirrors bool
+type ShouldWriteMirrors bool
 
 const (
-	WriteMirrors      = WriteMirrors(true)
-	DoNotWriteMirrors = WriteMirrors(false)
+	WriteMirrors      = ShouldWriteMirrors(true)
+	DoNotWriteMirrors = ShouldWriteMirrors(false)
 )
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirrors WriteMirrors) error {
+func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
 	existing, err := ReadMetadata(stor)
 	if err != nil {
 		return err
