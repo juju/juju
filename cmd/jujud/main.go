@@ -147,7 +147,7 @@ func enableProfiling(agentTag string) func() {
 		logger.Debugf("logging CPU profile to %s", fname)
 	}
 	stopChan := make(chan struct{})
-	go profileMemory(agentTag, stopChan)
+	//go profileMemory(agentTag, stopChan)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGUSR1, syscall.SIGTERM)
 	go func() {
