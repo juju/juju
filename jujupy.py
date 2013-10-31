@@ -75,20 +75,20 @@ class Environment:
             for state, entries in states.items():
                 if 'error' in state:
                     raise ErroredUnit(entries[0],  state)
-            print format_listing(states, 'started')
+            print format_listing(states, 'started', self.environment)
             sys.stdout.flush()
         else:
             raise Exception('Timed out!')
         return status
 
 
-def format_listing(listing, expected):
+def format_listing(listing, expected, environment):
     value_listing = []
     for value, entries in listing.items():
         if value == expected:
             continue
         value_listing.append('%s: %s' % (value, ', '.join(entries)))
-    return ' | '.join(value_listing)
+    return ('<%s> ' % environment) + ' | '.join(value_listing)
 
 
 def check_wordpress(host):

@@ -20,7 +20,7 @@ def agent_update(environment, version):
             versions[item.get('agent-version', 'unknown')].append(item_name)
         if versions.keys() == [version]:
             break
-        print format_listing(versions, version)
+        print format_listing(versions, version, environment.environment)
         sys.stdout.flush()
     else:
         raise Exception('Some versions did not update.')
