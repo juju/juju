@@ -13,7 +13,7 @@ import sys
 
 def agent_update(environment, version):
     env = Environment(environment)
-    for ignored in until_timeout(30):
+    for ignored in until_timeout(300):
         versions = defaultdict(list)
         status = env.get_status()
         for item_name, item in env.agent_items(status):
