@@ -182,14 +182,16 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	return result, nil
 }
 
-// EnvironConfig returns the current environment's configuration.
-func (p *ProvisionerAPI) AuthorizedKeys() (params.StringResult, error) {
-	result := params.StringResult{}
+// ContainerConfig returns the current environment's configuration.
+func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+	result := params.ContainerConfig{}
 	config, err := p.st.EnvironConfig()
 	if err != nil {
 		return result, err
 	}
-	result.Result = config.AuthorizedKeys()
+	result.ProviderType = config.Type()
+	result.AuthorizedKeys = config.AuthorizedKeys()
+	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	return result, nil
 }
 
