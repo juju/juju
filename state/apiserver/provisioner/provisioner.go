@@ -182,7 +182,8 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	return result, nil
 }
 
-// ContainerConfig returns the current environment's configuration.
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
 	config, err := p.st.EnvironConfig()
