@@ -1,0 +1,24 @@
+#!/bin/bash
+set -eu
+SCRIPTS=~jenkins/ci-cd-scripts
+CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
+source $SCRIPTS/make-recipe-and-package.bash $(bzr revno .) lp:juju-core
+if ! $SCRIPTS/deploy_stack.py test-release-hp; then
+  juju destroy-environment -e test-release-hp -y
+  exit 1
+fi
+mkdir -p new-tools
+source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
+export GOPATH=$(dirname $(pwd))
+source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
+sudo dpkg -i $TESTING_DIR/juju-core*.deb
+if bash <<EOT
+  juju upgrade-juju -e test-release-hp
+  version=$(juju --version|sed -r 's/([^-]*).*/\1/')
+  $SCRIPTS/wait_for_agent_update.py test-release-hp $version
+EOT
+then
+: # do nothing for now.
+fi
+sudo apt-get install -y $CURRENT_JUJU_CORE
+juju destroy-environment -e test-release-hp -y
