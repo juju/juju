@@ -154,3 +154,13 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	}
 	return result.Tools, nil
 }
+
+// AuthorizedKeys returns the authorized keys from the environment config.
+func (st *State) AuthorizedKeys() (string, error) {
+	var result params.StringResult
+	err := st.caller.Call("Provisioner", "", "AuthorizedKeys", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
+}

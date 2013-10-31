@@ -357,6 +357,12 @@ func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
 }
 
+func (s *provisionerSuite) TestAuthorizedKeys(c *gc.C) {
+	authKeys, err := s.provisioner.AuthorizedKeys()
+	c.Assert(err, gc.IsNil)
+	c.Assert(authKeys, gc.Equals, "my-keys")
+}
+
 func (s *provisionerSuite) TestCACert(c *gc.C) {
 	caCert, err := s.provisioner.CACert()
 	c.Assert(err, gc.IsNil)
