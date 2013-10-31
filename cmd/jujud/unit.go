@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/logger"
+	logworker "launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -89,7 +89,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
-		return logger.NewLogger(st.Logger(), agentConfig), nil
+		return logworker.NewLogger(st.Logger(), agentConfig), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
