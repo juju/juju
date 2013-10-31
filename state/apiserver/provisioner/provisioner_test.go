@@ -675,6 +675,12 @@ func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
 	c.Check(results.Results, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestAuthorizedKeys(c *gc.C) {
+	results, err := s.provisioner.AuthorizedKeys()
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Result, gc.Equals, "my-keys")
+}
+
 func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"

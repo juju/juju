@@ -182,6 +182,17 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	return result, nil
 }
 
+// EnvironConfig returns the current environment's configuration.
+func (p *ProvisionerAPI) AuthorizedKeys() (params.StringResult, error) {
+	result := params.StringResult{}
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Result = config.AuthorizedKeys()
+	return result, nil
+}
+
 // Status returns the status of each given machine entity.
 func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{
