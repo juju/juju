@@ -155,12 +155,16 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	return result.Tools, nil
 }
 
-// AuthorizedKeys returns the authorized keys from the environment config.
-func (st *State) AuthorizedKeys() (string, error) {
-	var result params.StringResult
-	err := st.caller.Call("Provisioner", "", "AuthorizedKeys", nil, &result)
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
+func (st *State) ContainerConfig() (providerType, authorizedKeys string, sslVerification bool, err error) {
+	var result params.ContainerConfig
+	err = st.caller.Call("Provisioner", "", "ContainerConfig", nil, &result)
 	if err != nil {
-		return "", err
+		return "", "", false, err
 	}
-	return result.Result, nil
+	providerType = result.ProviderType
+	authorizedKeys = result.AuthorizedKeys
+	sslVerification = result.SSLHostnameVerification
+	return providerType, authorizedKeys, sslVerification, nil
 }
