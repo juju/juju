@@ -261,17 +261,15 @@ func (env *localEnviron) setupLocalStorage() error {
 func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	machineId := machineConfig.MachineId
 	series := possibleTools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	agenttools := possibleTools[0]
-	logger.Debugf("tools: %#v", agenttools)
-
+	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
+	machineConfig.Tools = possibleTools[0]
+	logger.Debugf("tools: %#v", machineConfig.Tools)
 	network := lxc.BridgeNetworkConfig(env.config.networkBridge())
-	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineConfig.MachineNonce, network,
-		agenttools, env.config.Config,
-		machineConfig.StateInfo, machineConfig.APIInfo)
+	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
+		return nil, nil, err
+	}
+	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}

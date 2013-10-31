@@ -154,3 +154,17 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	}
 	return result.Tools, nil
 }
+
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
+func (st *State) ContainerConfig() (providerType, authorizedKeys string, sslVerification bool, err error) {
+	var result params.ContainerConfig
+	err = st.caller.Call("Provisioner", "", "ContainerConfig", nil, &result)
+	if err != nil {
+		return "", "", false, err
+	}
+	providerType = result.ProviderType
+	authorizedKeys = result.AuthorizedKeys
+	sslVerification = result.SSLHostnameVerification
+	return providerType, authorizedKeys, sslVerification, nil
+}

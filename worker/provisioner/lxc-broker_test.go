@@ -64,7 +64,6 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	config := coretesting.EnvironConfig(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -76,7 +75,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:       []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewLxcBroker(config, tools, s.agentConfig)
+	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -276,4 +275,10 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
+}
+
+type fakeAPI struct{}
+
+func (*fakeAPI) ContainerConfig() (providerType, authorizedKeys string, sslVerification bool, err error) {
+	return "fake", "my-keys", true, nil
 }

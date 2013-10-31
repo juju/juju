@@ -405,3 +405,11 @@ func (i *AnnotationInfo) EntityId() EntityId {
 		Id:   i.Tag,
 	}
 }
+
+// ContainerConfig contains information from the environment config that are
+// needed for container cloud-init.
+type ContainerConfig struct {
+	ProviderType            string
+	AuthorizedKeys          string
+	SSLHostnameVerification bool
+}
