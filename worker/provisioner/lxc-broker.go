@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 )
@@ -21,10 +20,14 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 var _ environs.InstanceBroker = (*lxcBroker)(nil)
 var _ tools.HasTools = (*lxcBroker)(nil)
 
-func NewLxcBroker(config *config.Config, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
+type APICalls interface {
+	ContainerConfig() (providerType, authorizedKeys string, sslVerification bool, err error)
+}
+
+func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
 	return &lxcBroker{
 		manager:     lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
-		config:      config,
+		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,
 	}
@@ -32,7 +35,7 @@ func NewLxcBroker(config *config.Config, tools *tools.Tools, agentConfig agent.C
 
 type lxcBroker struct {
 	manager     lxc.ContainerManager
-	config      *config.Config
+	api         APICalls
 	tools       *tools.Tools
 	agentConfig agent.Config
 }
@@ -56,9 +59,20 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 	network := lxc.BridgeNetworkConfig(bridgeDevice)
 
 	series := possibleTools.OneSeries()
-	inst, err := broker.manager.StartContainer(
-		machineId, series, machineConfig.MachineNonce, network, possibleTools[0], broker.config,
-		machineConfig.StateInfo, machineConfig.APIInfo)
+	machineConfig.MachineContainerType = instance.LXC
+	machineConfig.Tools = possibleTools[0]
+
+	providerType, authorizedKeys, sslVerification, err := broker.api.ContainerConfig()
+	if err != nil {
+		lxcLogger.Errorf("failed to get container config: %v", err)
+		return nil, nil, err
+	}
+	if err := environs.PopulateMachineConfig(machineConfig, providerType, authorizedKeys, sslVerification); err != nil {
+		lxcLogger.Errorf("failed to populate machine config: %v", err)
+		return nil, nil, err
+	}
+
+	inst, err := broker.manager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
