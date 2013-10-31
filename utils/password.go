@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"runtime"
+	"time"
 
 	"launchpad.net/juju-core/thirdparty/pbkdf2"
 )
@@ -44,6 +46,9 @@ var FastInsecureHash = false
 // and password that is computationally hard to crack by iterating
 // through possible passwords.
 func PasswordHash(password string) string {
+	var buf = make([]byte, 4096)
+	count := runtime.Stack(buf, false)
+	logger.Debugf("PasswordHash called by:\n%s", string(buf[:count]))
 	iter := 8192
 	if FastInsecureHash {
 		iter = 1
@@ -52,6 +57,8 @@ func PasswordHash(password string) string {
 	// uses the MD5 sum of the password anyway, so there's
 	// no point in using more bytes. (18 so we don't get base 64
 	// padding characters).
+	startTime := time.Now()
 	h := pbkdf2.Key([]byte(password), salt, iter, 18, sha512.New)
+	logger.Debugf("PasswordHash(pbkdf2.Key) in %s", time.Since(startTime))
 	return base64.StdEncoding.EncodeToString(h)
 }
