@@ -169,6 +169,7 @@ func enableProfiling(agentTag string) func() {
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string) (code int, err error) {
+	logger.Debugf("setting GOMAXPROCS = %d", runtime.NumCPU())
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
