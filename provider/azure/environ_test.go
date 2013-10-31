@@ -244,31 +244,6 @@ func (*environSuite) TestStorage(c *gc.C) {
 	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
 }
 
-func (*environSuite) TestPublicStorage(c *gc.C) {
-	env := makeEnviron(c)
-	baseStorage := env.PublicStorage()
-	storage, ok := baseStorage.(*azureStorage)
-	c.Assert(storage, gc.NotNil)
-	c.Check(ok, gc.Equals, true)
-	c.Check(storage.storageContext.getContainer(), gc.Equals, env.ecfg.publicStorageContainerName())
-	context, err := storage.getStorageContext()
-	c.Assert(err, gc.IsNil)
-	c.Check(context.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(context.Key, gc.Equals, "")
-	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
-}
-
-func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-container-name"] = ""
-	attrs["public-storage-account-name"] = ""
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	env, err := NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
-	c.Check(env.PublicStorage(), gc.Equals, environs.EmptyStorage)
-}
-
 func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 	env := makeEnviron(c)
 	keysInAzure := gwacl.StorageAccountKeys{Primary: "a-key"}
@@ -386,15 +361,6 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 	// outdated information into env.
 	c.Check(err, gc.ErrorMatches, "environment was reconfigured")
 	c.Check(env.storageAccountKey, gc.Equals, "")
-}
-
-func (*environSuite) TestGetPublicStorageContext(c *gc.C) {
-	env := makeEnviron(c)
-	stor, err := env.getPublicStorageContext()
-	c.Assert(err, gc.IsNil)
-	c.Assert(stor, gc.NotNil)
-	c.Check(stor.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(stor.Key, gc.Equals, "")
 }
 
 func (*environSuite) TestSetConfigValidates(c *gc.C) {
@@ -1309,9 +1275,6 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
+	c.Assert(len(sources), gc.Equals, 1)
 	assertSourceContents(c, sources[0], "filename", data)
-	url, err := sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "https://jujutools.blob.core.windows.net/juju-tools/tools/")
 }

@@ -130,7 +130,7 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 			agentTools[i] = t
 		}
 	}
-	if err := envtools.MergeAndWriteMetadata(stor, agentTools); err != nil {
+	if err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
 	return agentTools, nil
@@ -153,7 +153,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 		}
 		agentTools[i] = t
 	}
-	err := envtools.MergeAndWriteMetadata(stor, agentTools)
+	err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors)
 	if err != nil {
 		panic(err)
 	}
@@ -221,8 +221,6 @@ func RemoveTools(c *gc.C, stor storage.Storage) {
 func RemoveAllTools(c *gc.C, env environs.Environ) {
 	c.Logf("clearing private storage")
 	RemoveTools(c, env.Storage())
-	c.Logf("clearing public storage")
-	RemoveTools(c, env.PublicStorage().(storage.Storage))
 }
 
 var (

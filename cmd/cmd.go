@@ -9,12 +9,19 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
 )
+
+func init() {
+	// Don't replace the default transport as other init blocks
+	// register protocols.
+	http.DefaultTransport.(*http.Transport).DisableKeepAlives = true
+}
 
 // ErrSilent can be returned from Run to signal that Main should exit with
 // code 1 without producing error output.

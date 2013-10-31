@@ -196,13 +196,6 @@ func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	c.Check(specificStorage.environUnlocked, gc.Equals, env)
 }
 
-func (suite *environSuite) TestPublicStorageReturnsEmptyStorage(c *gc.C) {
-	env := suite.makeEnviron()
-	stor := env.PublicStorage()
-	c.Assert(stor, gc.NotNil)
-	c.Check(stor, gc.Equals, environs.EmptyStorage)
-}
-
 func decodeUserData(userData string) ([]byte, error) {
 	data, err := base64.StdEncoding.DecodeString(userData)
 	if err != nil {

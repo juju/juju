@@ -382,12 +382,6 @@ func (env *maasEnviron) Storage() storage.Storage {
 	return env.storageUnlocked
 }
 
-// PublicStorage is defined by the Environ interface.
-func (env *maasEnviron) PublicStorage() storage.StorageReader {
-	// MAAS does not have a shared storage.
-	return environs.EmptyStorage
-}
-
 func (environ *maasEnviron) Destroy() error {
 	return common.Destroy(environ)
 }

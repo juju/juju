@@ -33,7 +33,7 @@ const (
 )
 
 // simplestreamsToolsPublicKey is the public key required to
-// authenticate the simple streams data on http://juju.canonical.com.
+// authenticate the simple streams data on http://streams.canonical.com.
 // Declared as a var so it can be overidden for testing.
 var simplestreamsToolsPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.11 (GNU/Linux)
@@ -90,7 +90,7 @@ qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
 `
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "https://juju.canonical.com/tools"
+var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -164,27 +164,11 @@ func (t *ToolsMetadata) productId() (string, error) {
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
 }
 
-func excludeDefaultSource(sources []simplestreams.DataSource) []simplestreams.DataSource {
-	var result []simplestreams.DataSource
-	for _, source := range sources {
-		url, _ := source.URL("")
-		if !strings.HasPrefix(url, "https://juju.canonical.com/tools") {
-			result = append(result, source)
-		}
-	}
-	return result
-}
-
 // Fetch returns a list of tools for the specified cloud matching the constraint.
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
-
-	// TODO (wallyworld): 2013-09-05 bug 1220965
-	// Until the official tools repository is set up, we don't want to use it.
-	sources = excludeDefaultSource(sources)
-
 	params := simplestreams.ValueParams{
 		DataType:        ContentDownload,
 		FilterFunc:      appendMatchingTools,
@@ -280,7 +264,6 @@ func ResolveMetadata(stor storage.StorageReader, metadata []*ToolsMetadata) erro
 		}
 		binary := md.binary()
 		logger.Infof("Fetching tools to generate hash: %v", binary)
-		var sha256hash hash.Hash
 		size, sha256hash, err := fetchToolsHash(stor, binary)
 		if err != nil {
 			return err
@@ -341,15 +324,35 @@ func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
 	return metadata, nil
 }
 
+var PublicMirrorsInfo = `{
+ "mirrors": {
+  "com.ubuntu.juju:released:tools": [
+     {
+      "datatype": "content-download",
+      "path": "streams/v1/cpc-mirrors.json",
+      "updated": "{{updated}}",
+      "format": "mirrors:1.0"
+     }
+  ]
+ }
+}
+`
+
 // WriteMetadata writes the given tools metadata to the given storage.
-func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata) error {
-	index, products, err := MarshalToolsMetadataJSON(metadata, time.Now())
+func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
+	updated := time.Now()
+	index, products, err := MarshalToolsMetadataJSON(metadata, updated)
 	if err != nil {
 		return err
 	}
 	metadataInfo := []MetadataFile{
 		{simplestreams.UnsignedIndex, index},
 		{ProductMetadataPath, products},
+	}
+	if writeMirrors {
+		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
+		mirrorsInfo := strings.Replace(PublicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
+		metadataInfo = append(metadataInfo, MetadataFile{simplestreams.UnsignedMirror, []byte(mirrorsInfo)})
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
@@ -361,10 +364,17 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata) error {
 	return nil
 }
 
+type ShouldWriteMirrors bool
+
+const (
+	WriteMirrors      = ShouldWriteMirrors(true)
+	DoNotWriteMirrors = ShouldWriteMirrors(false)
+)
+
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List) error {
+func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
 	existing, err := ReadMetadata(stor)
 	if err != nil {
 		return err
@@ -373,7 +383,7 @@ func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List) error {
 	if metadata, err = MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
-	return WriteMetadata(stor, metadata)
+	return WriteMetadata(stor, metadata, writeMirrors)
 }
 
 // fetchToolsHash fetches the tools from storage and calculates

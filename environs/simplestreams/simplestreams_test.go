@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *testing.T) {
@@ -147,7 +148,7 @@ func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
 
 func (*simplestreamsSuite) TestHasCloudAcceptsNil(c *gc.C) {
 	metadata := simplestreams.IndexMetadata{Clouds: nil}
-	c.Check(simplestreams.HasCloud(metadata, simplestreams.CloudSpec{}), gc.Equals, true)
+	c.Check(simplestreams.HasCloud(metadata, simplestreams.CloudSpec{}), jc.IsTrue)
 }
 
 func (*simplestreamsSuite) TestHasCloudFindsMatch(c *gc.C) {
@@ -157,7 +158,22 @@ func (*simplestreamsSuite) TestHasCloudFindsMatch(c *gc.C) {
 			{Region: "r2", Endpoint: "http://e2"},
 		},
 	}
-	c.Check(simplestreams.HasCloud(metadata, metadata.Clouds[1]), gc.Equals, true)
+	c.Check(simplestreams.HasCloud(metadata, metadata.Clouds[1]), jc.IsTrue)
+}
+
+func (*simplestreamsSuite) TestHasCloudFindsMatchWithTrailingSlash(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{
+		Clouds: []simplestreams.CloudSpec{
+			{Region: "r1", Endpoint: "http://e1/"},
+			{Region: "r2", Endpoint: "http://e2"},
+		},
+	}
+	spec := simplestreams.CloudSpec{Region: "r1", Endpoint: "http://e1"}
+	c.Check(simplestreams.HasCloud(metadata, spec), jc.IsTrue)
+	spec = simplestreams.CloudSpec{Region: "r1", Endpoint: "http://e1/"}
+	c.Check(simplestreams.HasCloud(metadata, spec), jc.IsTrue)
+	spec = simplestreams.CloudSpec{Region: "r2", Endpoint: "http://e2/"}
+	c.Check(simplestreams.HasCloud(metadata, spec), jc.IsTrue)
 }
 
 func (*simplestreamsSuite) TestHasCloudReturnsFalseIfCloudsDoNotMatch(c *gc.C) {
@@ -168,7 +184,7 @@ func (*simplestreamsSuite) TestHasCloudReturnsFalseIfCloudsDoNotMatch(c *gc.C) {
 		},
 	}
 	otherCloud := simplestreams.CloudSpec{Region: "r9", Endpoint: "http://e9"}
-	c.Check(simplestreams.HasCloud(metadata, otherCloud), gc.Equals, false)
+	c.Check(simplestreams.HasCloud(metadata, otherCloud), jc.IsFalse)
 }
 
 func (*simplestreamsSuite) TestHasCloudRequiresIdenticalRegion(c *gc.C) {
@@ -181,7 +197,7 @@ func (*simplestreamsSuite) TestHasCloudRequiresIdenticalRegion(c *gc.C) {
 	similarCloud.Region = "elsewhere"
 	c.Assert(similarCloud, gc.Not(gc.Equals), metadata.Clouds[0])
 
-	c.Check(simplestreams.HasCloud(metadata, similarCloud), gc.Equals, false)
+	c.Check(simplestreams.HasCloud(metadata, similarCloud), jc.IsFalse)
 }
 
 func (*simplestreamsSuite) TestHasCloudRequiresIdenticalEndpoint(c *gc.C) {
@@ -194,12 +210,12 @@ func (*simplestreamsSuite) TestHasCloudRequiresIdenticalEndpoint(c *gc.C) {
 	similarCloud.Endpoint = "http://far"
 	c.Assert(similarCloud, gc.Not(gc.Equals), metadata.Clouds[0])
 
-	c.Check(simplestreams.HasCloud(metadata, similarCloud), gc.Equals, false)
+	c.Check(simplestreams.HasCloud(metadata, similarCloud), jc.IsFalse)
 }
 
 func (*simplestreamsSuite) TestHasProductAcceptsNils(c *gc.C) {
 	metadata := simplestreams.IndexMetadata{}
-	c.Check(simplestreams.HasProduct(metadata, nil), gc.Equals, false)
+	c.Check(simplestreams.HasProduct(metadata, nil), jc.IsFalse)
 }
 
 func (*simplestreamsSuite) TestHasProductFindsMatchingProduct(c *gc.C) {
@@ -212,7 +228,7 @@ func (*simplestreamsSuite) TestHasProductFindsMatchingProduct(c *gc.C) {
 
 func (*simplestreamsSuite) TestHasProductReturnsFalseIfProductsDoNotMatch(c *gc.C) {
 	metadata := simplestreams.IndexMetadata{ProductIds: []string{"x", "y", "z"}}
-	c.Check(simplestreams.HasProduct(metadata, []string{"a", "b", "c"}), gc.Equals, false)
+	c.Check(simplestreams.HasProduct(metadata, []string{"a", "b", "c"}), jc.IsFalse)
 }
 
 func (*simplestreamsSuite) TestFilterReturnsNothingForEmptyArray(c *gc.C) {
@@ -301,7 +317,7 @@ func (s *simplestreamsSuite) TestItemCollection(c *gc.C) {
 	ic := s.AssertGetItemCollections(c, "20121218")
 	c.Check(ic.RegionName, gc.Equals, "au-east-2")
 	c.Check(ic.Endpoint, gc.Equals, "https://somewhere-else")
-	c.Assert(len(ic.Items) > 0, gc.Equals, true)
+	c.Assert(len(ic.Items) > 0, jc.IsTrue)
 	ti := ic.Items["usww2he"].(*sstesting.TestItem)
 	c.Check(ti.Id, gc.Equals, "ami-442ea674")
 	c.Check(ti.Storage, gc.Equals, "ebs")
@@ -350,6 +366,7 @@ func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
 	cleanup := simplestreams.SetSeriesVersions(make(map[string]string))
 	defer cleanup()
 	series := simplestreams.SupportedSeries()
+	series = series[0:4]
 	c.Assert(series, gc.DeepEquals, []string{"precise", "quantal", "raring", "saucy"})
 }
 
@@ -367,6 +384,12 @@ var getMirrorTests = []struct {
 	// default mirror index entry
 	region:    "some-region",
 	endpoint:  "https://some-endpoint.com",
+	mirrorURL: "http://big-mirror/",
+	path:      "big:download.json",
+}, {
+	// endpoint with trailing "/"
+	region:    "some-region",
+	endpoint:  "https://some-endpoint.com/",
 	mirrorURL: "http://big-mirror/",
 	path:      "big:download.json",
 }}
@@ -481,12 +504,12 @@ func (s *signingSuite) TestDecodeCheckInvalidSignature(c *gc.C) {
 	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	c.Assert(err, gc.Not(gc.IsNil))
 	_, ok := err.(*simplestreams.NotPGPSignedError)
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *signingSuite) TestDecodeCheckMissingSignature(c *gc.C) {
 	r := bytes.NewReader([]byte("foo"))
 	_, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	_, ok := err.(*simplestreams.NotPGPSignedError)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
