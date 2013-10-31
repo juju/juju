@@ -46,7 +46,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests.
 	s.machines = nil
-	for i := 0; i < 3; i++ {
+	// Note that the specific machine ids allocated are assumed
+	// to be numerically consecutive from zero.
+	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	for i := 0; i < 2; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -652,12 +655,13 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	result, err := s.provisioner.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: addrs,
 	})
 }
 

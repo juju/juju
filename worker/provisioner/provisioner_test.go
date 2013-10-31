@@ -294,9 +294,13 @@ func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 
 	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
+	err = machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	s.APILogin(c, machine)
 }
 

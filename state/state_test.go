@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"labix.org/v2/mgo/bson"
@@ -54,34 +53,60 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestStateInfo(c *gc.C) {
-	info := state.TestingStateInfo()
-	stateAddr, err := s.State.Addresses()
+func (s *StateSuite) TestAddresses(c *gc.C) {
+	var err error
+	machines := make([]*state.Machine, 3)
+	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateAddr, gc.DeepEquals, info.Addrs)
-	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
+	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	for i, m := range machines {
+		err := m.SetAddresses([]instance.Address{{
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        fmt.Sprintf("10.0.0.%d", i),
+		}, {
+			Type:         instance.Ipv6Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        "::1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkMachineLocal,
+			Value:        "127.0.0.1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+			Value:        "5.4.3.2",
+		}})
+		c.Assert(err, gc.IsNil)
+	}
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
+	})
+
+	addrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
+	})
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
 	testing.MgoRestart()
 	c.Assert(s.State.Ping(), gc.NotNil)
-}
-
-func (s *StateSuite) TestAPIAddresses(c *gc.C) {
-	config, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	apiPort := strconv.Itoa(config.APIPort())
-	info := state.TestingStateInfo()
-	expectedAddrs := make([]string, 0, len(info.Addrs))
-	for _, stateAddr := range info.Addrs {
-		domain := strings.Split(stateAddr, ":")[0]
-		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
-		expectedAddrs = append(expectedAddrs, expectedAddr)
-	}
-	apiAddrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiAddrs, gc.DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *gc.C) {
