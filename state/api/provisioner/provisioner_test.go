@@ -369,11 +369,11 @@ func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
-	providerType, authKeys, sslVerify, err := s.provisioner.ContainerConfig()
+	result, err := s.provisioner.ContainerConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(providerType, gc.Equals, "dummy")
-	c.Assert(authKeys, gc.Equals, "my-keys")
-	c.Assert(sslVerify, jc.IsTrue)
+	c.Assert(result.ProviderType, gc.Equals, "dummy")
+	c.Assert(result.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *provisionerSuite) TestCACert(c *gc.C) {

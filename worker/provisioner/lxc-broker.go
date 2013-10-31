@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 )
 
@@ -21,7 +22,7 @@ var _ environs.InstanceBroker = (*lxcBroker)(nil)
 var _ tools.HasTools = (*lxcBroker)(nil)
 
 type APICalls interface {
-	ContainerConfig() (providerType, authorizedKeys string, sslVerification bool, err error)
+	ContainerConfig() (params.ContainerConfig, error)
 }
 
 func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
@@ -62,12 +63,17 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 	machineConfig.MachineContainerType = instance.LXC
 	machineConfig.Tools = possibleTools[0]
 
-	providerType, authorizedKeys, sslVerification, err := broker.api.ContainerConfig()
+	config, err := broker.api.ContainerConfig()
 	if err != nil {
 		lxcLogger.Errorf("failed to get container config: %v", err)
 		return nil, nil, err
 	}
-	if err := environs.PopulateMachineConfig(machineConfig, providerType, authorizedKeys, sslVerification); err != nil {
+	if err := environs.PopulateMachineConfig(
+		machineConfig,
+		config.ProviderType,
+		config.AuthorizedKeys,
+		config.SSLHostnameVerification,
+	); err != nil {
 		lxcLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, err
 	}

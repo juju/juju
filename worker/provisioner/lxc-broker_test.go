@@ -22,6 +22,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
@@ -279,6 +280,6 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 
 type fakeAPI struct{}
 
-func (*fakeAPI) ContainerConfig() (providerType, authorizedKeys string, sslVerification bool, err error) {
-	return "fake", "my-keys", true, nil
+func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+	return params.ContainerConfig{"fake", "my-keys", true}, nil
 }
