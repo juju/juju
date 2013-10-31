@@ -13,12 +13,12 @@ export GOPATH=$(dirname $(pwd))
 source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
 sudo dpkg -i $TESTING_DIR/juju-core*.deb
 if bash <<EOT
-  juju upgrade-juju -e test-release-hp
+  juju upgrade-juju --show-log -e test-release-hp
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   $SCRIPTS/wait_for_agent_update.py test-release-hp $version
 EOT
 then
 : # do nothing for now.
 fi
-sudo apt-get install -y $CURRENT_JUJU_CORE
+sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
 juju destroy-environment -e test-release-hp -y
