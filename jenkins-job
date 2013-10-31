@@ -12,13 +12,23 @@ source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
 export GOPATH=$(dirname $(pwd))
 source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
 sudo dpkg -i $TESTING_DIR/juju-core*.deb
-if bash <<EOT
+EXIT_STATUS=0
+# Test upgrading an existing environment
+if ! bash <<EOT
   juju upgrade-juju --show-log -e test-release-hp
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   $SCRIPTS/wait_for_agent_update.py test-release-hp $version
 EOT
 then
-: # do nothing for now.
+  EXIT_STATUS=1
+else
+  # test deploying on the new version
+  juju destroy-environment -e test-release-hp -y
+  sleep 5
+  if ! $SCRIPTS/deploy_stack.py test-release-hp; then
+    EXIT_STATUS=1
+  fi
 fi
 sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
 juju destroy-environment -e test-release-hp -y
+exit $EXIT_STATUS
