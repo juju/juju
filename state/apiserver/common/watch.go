@@ -64,6 +64,7 @@ func (a *AgentEntityWatcher) Watch(args params.Entities) (params.NotifyWatchResu
 		err := ErrPerm
 		watcherId := ""
 		if canWatch(entity.Tag) {
+			logger.Debugf("attempting to watch entity: %s", entity.Tag)
 			watcherId, err = a.watchEntity(entity.Tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
