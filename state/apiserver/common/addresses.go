@@ -4,8 +4,6 @@
 package common
 
 import (
-	"time"
-
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
