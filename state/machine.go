@@ -241,16 +241,20 @@ func (m *Machine) SetMongoPassword(password string) error {
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
 	hp := utils.PasswordHash(password)
+	return m.setPasswordHash(hp)
+}
+
+func (m *Machine) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: D{{"$set", D{{"passwordhash", passwordHash}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
-	m.doc.PasswordHash = hp
+	m.doc.PasswordHash = passwordHash
 	return nil
 }
 

@@ -164,6 +164,14 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
 }
 
+func SetMachinePasswordHash(m *Machine, passwordHash string) error {
+	return m.setPasswordHash(passwordHash)
+}
+
+func SetUnitPasswordHash(u *Unit, passwordHash string) error {
+	return u.setPasswordHash(passwordHash)
+}
+
 func init() {
 	logSize = logSizeTests
 }
