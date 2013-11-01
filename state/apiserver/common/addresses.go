@@ -6,8 +6,6 @@ package common
 import (
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -75,23 +73,4 @@ func (a *Addresser) CACert() params.BytesResult {
 	return params.BytesResult{
 		Result: a.getter.CACert(),
 	}
-}
-
-type APIAddresser struct {
-	st    EnvironConfigAndCertGetter
-	cache map[string]interface{}
-}
-
-func (a *APIAddresser) getEnvironStateInfo() (*state.Info, *api.Info, error) {
-	return getEnvironStateInfo(a.st, a.cache)
-}
-
-func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	_, apiInfo, err := a.getEnvironStateInfo()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: apiInfo.Addrs,
-	}, nil
 }
