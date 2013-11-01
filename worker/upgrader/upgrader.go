@@ -168,15 +168,15 @@ func (u *Upgrader) loop() error {
 }
 
 func (u *Upgrader) ensureTools(agentTools *coretools.Tools, disableSSLHostnameVerification bool) error {
+	if _, err := agenttools.ReadTools(u.dataDir, agentTools.Version); err == nil {
+		// Tools have already been downloaded
+		return nil
+	}
 	client := http.DefaultClient
 	logger.Infof("fetching tools from %q", agentTools.URL)
 	if disableSSLHostnameVerification {
 		logger.Infof("hostname SSL verification disabled")
 		client = utils.GetNonValidatingHTTPClient()
-	}
-	if _, err := agenttools.ReadTools(u.dataDir, agentTools.Version); err == nil {
-		// Tools have already been downloaded
-		return nil
 	}
 	resp, err := client.Get(agentTools.URL)
 	if err != nil {

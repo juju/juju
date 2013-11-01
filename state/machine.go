@@ -257,7 +257,17 @@ func (m *Machine) SetPassword(password string) error {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == m.doc.PasswordHash
+	if utils.PasswordHash(password) == m.doc.PasswordHash {
+		return true
+	}
+	// In Juju 1.16 and older we used slower passwords for machine agents
+	// TODO: If we can allow agents to use a new password, but ask them to
+	// reset their password, then we can eventually deprecate this
+	// fallback.
+	if utils.SlowPasswordHash(password) == m.doc.PasswordHash {
+		return true
+	}
+	return false
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does

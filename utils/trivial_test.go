@@ -43,10 +43,11 @@ func (utilsSuite) TestRandomPassword(c *gc.C) {
 	c.Assert(p[len(p)-1], gc.Not(gc.Equals), '=')
 }
 
+var testPasswords = []string{"", "a", "a longer password than i would usually bother with"}
+
 func (utilsSuite) TestPasswordHash(c *gc.C) {
-	tests := []string{"", "a", "a longer password than i would usually bother with"}
 	hs := make(map[string]bool)
-	for i, t := range tests {
+	for i, t := range testPasswords {
 		c.Logf("test %d", i)
 		h := utils.PasswordHash(t)
 		c.Logf("hash %q", h)
@@ -57,6 +58,23 @@ func (utilsSuite) TestPasswordHash(c *gc.C) {
 		hs[h] = true
 		// check it's deterministic
 		h1 := utils.PasswordHash(t)
+		c.Assert(h1, gc.Equals, h)
+	}
+}
+
+func (utilsSuite) TestSlowPasswordHash(c *gc.C) {
+	hs := make(map[string]bool)
+	for i, t := range testPasswords {
+		c.Logf("test %d", i)
+		h := utils.SlowPasswordHash(t)
+		c.Logf("hash %q", h)
+		c.Assert(len(h), gc.Equals, 24)
+		c.Assert(hs[h], gc.Equals, false)
+		// check we're not adding base64 padding.
+		c.Assert(h[len(h)-1], gc.Not(gc.Equals), '=')
+		hs[h] = true
+		// check it's deterministic
+		h1 := utils.SlowPasswordHash(t)
 		c.Assert(h1, gc.Equals, h)
 	}
 }

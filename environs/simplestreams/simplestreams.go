@@ -395,6 +395,7 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 const (
 	UnsignedIndex    = "streams/v1/index.json"
 	DefaultIndexPath = "streams/v1/index"
+	UnsignedMirror   = "streams/v1/mirrors.json"
 	mirrorsPath      = "streams/v1/mirrors"
 	signedSuffix     = ".sjson"
 	unsignedSuffix   = ".json"

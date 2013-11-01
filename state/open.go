@@ -9,7 +9,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -264,34 +263,6 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	st.transactionHooks = make(chan ([]transactionHook), 1)
 	st.transactionHooks <- nil
 	return st, nil
-}
-
-// Addresses returns the list of addresses used to connect to the state.
-func (st *State) Addresses() ([]string, error) {
-	stateAddrs := st.db.Session.LiveServers()
-	if len(stateAddrs) == 0 {
-		return nil, stderrors.New("unable to find state addresses")
-	}
-	return stateAddrs, nil
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (st *State) APIAddresses() ([]string, error) {
-	stateAddrs, err := st.Addresses()
-	if err != nil {
-		return nil, err
-	}
-	config, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	apiAddrs := make([]string, 0, len(stateAddrs))
-	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-	for _, stateAddr := range stateAddrs {
-		i := strings.LastIndex(stateAddr, ":")
-		apiAddrs = append(apiAddrs, stateAddr[:i]+apiPortSuffix)
-	}
-	return apiAddrs, nil
 }
 
 // CACert returns the certificate used to validate the state connection.

@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"runtime"
 	"time"
 
 	"launchpad.net/juju-core/thirdparty/pbkdf2"
@@ -42,13 +41,9 @@ func RandomPassword() (string, error) {
 // testing purposes - to make tests run faster.
 var FastInsecureHash = false
 
-// PasswordHash returns base64-encoded one-way hash of the provided salt
-// and password that is computationally hard to crack by iterating
-// through possible passwords.
-func PasswordHash(password string) string {
-	var buf = make([]byte, 4096)
-	count := runtime.Stack(buf, false)
-	logger.Debugf("PasswordHash called by:\n%s", string(buf[:count]))
+// SlowPasswordHash returns base64-encoded one-way hash password that is
+// computationally hard to crack by iterating through possible passwords.
+func SlowPasswordHash(password string) string {
 	iter := 8192
 	if FastInsecureHash {
 		iter = 1
@@ -59,6 +54,20 @@ func PasswordHash(password string) string {
 	// padding characters).
 	startTime := time.Now()
 	h := pbkdf2.Key([]byte(password), salt, iter, 18, sha512.New)
+	hashed := base64.StdEncoding.EncodeToString(h)
+	logger.Debugf("SlowPasswordHash(pbkdf2.Key) in %s", time.Since(startTime))
+	return hashed
+}
+
+// PasswordHash returns base64-encoded one-way hash password that is
+// computationally hard to crack by iterating through possible passwords.
+func PasswordHash(password string) string {
+	startTime := time.Now()
+	sum := sha512.New()
+	sum.Write([]byte(password))
+	h := make([]byte, 0, sum.Size())
+	h = sum.Sum(h)
+	hashed := base64.StdEncoding.EncodeToString(h[:18])
 	logger.Debugf("PasswordHash(pbkdf2.Key) in %s", time.Since(startTime))
-	return base64.StdEncoding.EncodeToString(h)
+	return hashed
 }
