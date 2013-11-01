@@ -1,10 +1,13 @@
 #!/bin/bash
 set -eu
-SCRIPTS=~jenkins/ci-cd-scripts
+export ENVS="test-release-aws test-release-canonistackk test-release-hp"
+export SCRIPTS=~jenkins/ci-cd-scripts
 CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
 source $SCRIPTS/make-recipe-and-package.bash $(bzr revno .) lp:juju-core
-if ! $SCRIPTS/deploy_stack.py test-release-hp; then
-  juju destroy-environment -e test-release-hp -y
+if ! $SCRIPTS/deploy_stack.py $ENVS; then
+  for env in $ENVS; do
+    juju destroy-environment -e $env -y
+  done
   exit 1
 fi
 mkdir -p new-tools
@@ -14,21 +17,30 @@ source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
 sudo dpkg -i $TESTING_DIR/juju-core*.deb
 EXIT_STATUS=0
 # Test upgrading an existing environment
-if ! bash <<EOT
-  juju upgrade-juju --show-log -e test-release-hp
+if ! bash <<"EOT"
+  set -e
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
-  $SCRIPTS/wait_for_agent_update.py test-release-hp $version
+  for env in $ENVS; do
+    juju upgrade-juju --show-log -e $env
+  done
+  for env in $ENVS; do
+    $SCRIPTS/wait_for_agent_update.py $env $version
+  done
 EOT
 then
   EXIT_STATUS=1
 else
   # test deploying on the new version
-  juju destroy-environment -e test-release-hp -y
+  for env in $ENVS; do
+      juju destroy-environment -e $env -y
+  done
   sleep 5
-  if ! $SCRIPTS/deploy_stack.py test-release-hp; then
+  if ! $SCRIPTS/deploy_stack.py $ENVS; then
     EXIT_STATUS=1
   fi
 fi
 sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
-juju destroy-environment -e test-release-hp -y
+for env in $ENVS; do
+    juju destroy-environment -e $env -y || true
+done
 exit $EXIT_STATUS
