@@ -25,7 +25,7 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info string) error {
+func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info string, data params.StatusData) error {
 	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info st
 	if !ok {
 		return NotSupportedError(tag, "setting status")
 	}
-	return entity.SetStatus(status, info)
+	return entity.SetStatus(status, info, data)
 }
 
 // SetStatus sets the status of each given entity.
@@ -57,7 +57,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	for i, arg := range args.Entities {
 		err := ErrPerm
 		if canModify(arg.Tag) {
-			err = s.setEntityStatus(arg.Tag, arg.Status, arg.Info)
+			err = s.setEntityStatus(arg.Tag, arg.Status, arg.Info, arg.Data)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

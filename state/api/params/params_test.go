@@ -41,14 +41,14 @@ var marshalTestCases = []struct {
 			StatusInfo: "foo",
 		},
 	},
-	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo"}]`,
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo","StatusData":null}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
 		Entity: &params.ServiceInfo{
 			Name:        "Benji",
 			Exposed:     true,
-			CharmURL:    "cs:series/name",
+			CharmURL:    "cs:quantal/name",
 			Life:        params.Life(state.Dying.String()),
 			MinUnits:    42,
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
@@ -58,7 +58,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
@@ -79,7 +79,7 @@ var marshalTestCases = []struct {
 			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo","StatusData":null}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{

@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // Machine represents the state of a machine.
@@ -39,18 +40,27 @@ const (
 	JobManageState
 )
 
-var jobNames = []params.MachineJob{
+var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
 	JobManageState:   params.JobManageState,
 }
 
-func (job MachineJob) String() string {
-	j := int(job)
-	if j <= 0 || j >= len(jobNames) {
-		return fmt.Sprintf("<unknown job %d>", j)
+// AllJobs returns all supported machine jobs.
+func AllJobs() []MachineJob {
+	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+}
+
+// ToParams returns the job as params.MachineJob.
+func (job MachineJob) ToParams() params.MachineJob {
+	if paramsJob, ok := jobNames[job]; ok {
+		return paramsJob
 	}
-	return string(jobNames[j])
+	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+}
+
+func (job MachineJob) String() string {
+	return string(job.ToParams())
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -122,6 +132,7 @@ type instanceData struct {
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
+	Tags       *[]string   `bson:"tags,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
 }
 
@@ -137,6 +148,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	hc.RootDisk = instData.RootDisk
 	hc.CpuCores = instData.CpuCores
 	hc.CpuPower = instData.CpuPower
+	hc.Tags = instData.Tags
 	return hc, nil
 }
 
@@ -189,23 +201,33 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// SetAgentTools sets the tools that the agent is currently running.
-func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
-	if t.Version.Series == "" || t.Version.Arch == "" {
+// checkVersionValidity checks whether the given version is suitable
+// for passing to SetAgentVersion.
+func checkVersionValidity(v version.Binary) error {
+	if v.Series == "" || v.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
+	return nil
+}
+
+// SetAgentVersion sets the version of juju that the agent is
+// currently running.
+func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set agent version for machine %v", m)
+	if err = checkVersionValidity(v); err != nil {
+		return err
+	}
+	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", t}}}},
+		Update: D{{"$set", D{{"tools", tools}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
-	tools := *t
-	m.doc.Tools = &tools
+	m.doc.Tools = tools
 	return nil
 }
 
@@ -551,6 +573,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		RootDisk:   characteristics.RootDisk,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
+		Tags:       characteristics.Tags,
 	}
 	// SCHEMACHANGE
 	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
@@ -691,21 +714,23 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.Status, info string, err error) {
+func (m *Machine) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	status = doc.Status
 	info = doc.StatusInfo
+	data = doc.StatusData
 	return
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string) error {
+func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err

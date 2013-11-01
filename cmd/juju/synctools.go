@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/version"
@@ -26,8 +27,9 @@ type SyncToolsCommand struct {
 	minorVersion int
 	dryRun       bool
 	dev          bool
+	public       bool
 	source       string
-	destination  string
+	localDir     string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -55,8 +57,9 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
-	f.StringVar(&c.source, "source", "", "chose a location on the file system as source")
-	f.StringVar(&c.destination, "destination", "", "chose a location on the file system as destination")
+	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
+	f.StringVar(&c.source, "source", "", "local source directory")
+	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
 	// location, rather than only copying from us-east-1
@@ -76,14 +79,18 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	environ, err := environs.PrepareFromName(c.EnvName)
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	environ, err := environs.PrepareFromName(c.EnvName, store)
 	if err != nil {
 		return err
 	}
 
 	target := environ.Storage()
-	if c.destination != "" {
-		target, err = filestorage.NewFileStorageWriter(c.destination, filestorage.UseDefaultTmpDir)
+	if c.localDir != "" {
+		target, err = filestorage.NewFileStorageWriter(c.localDir, filestorage.UseDefaultTmpDir)
 		if err != nil {
 			return err
 		}
@@ -97,6 +104,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		MinorVersion: c.minorVersion,
 		DryRun:       c.dryRun,
 		Dev:          c.dev,
+		Public:       c.public,
 		Source:       c.source,
 	}
 	return syncTools(sctx)

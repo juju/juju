@@ -40,7 +40,7 @@ func (e error_) Error() string {
 	if e.got == nil {
 		return fmt.Sprintf("%s: expected %s, got nothing", path, e.want)
 	}
-	return fmt.Sprintf("%s: expected %s, got %#v", path, e.want, e.got)
+	return fmt.Sprintf("%s: expected %s, got %T(%#v)", path, e.want, e.got, e.got)
 }
 
 // Any returns a Checker that succeeds with any input value and

@@ -44,8 +44,6 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools
 	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword(initialUnitPassword)
-	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(initialUnitPassword)
 	c.Assert(err, gc.IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
@@ -102,7 +100,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(testing.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, gc.IsNil)
-			st, info, err := unit.Status()
+			st, info, data, err := unit.Status()
 			c.Assert(err, gc.IsNil)
 			switch st {
 			case params.StatusPending, params.StatusInstalled:
@@ -115,7 +113,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
-				c.Fatalf("unexpected status %s %s", st, info)
+				c.Fatalf("unexpected status %s %s %v", st, info, data)
 			}
 		}
 	}
@@ -132,7 +130,7 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	unit, _, currentTools := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	s.testUpgrade(c, a, currentTools)
+	s.testUpgrade(c, a, unit.Tag(), currentTools)
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
@@ -180,4 +178,16 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+}
+
+func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
+	// Start a unit agent and make sure it doesn't set a mongo password
+	// we can use to connect to state with.
+	unit, conf, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	waitForUnitStarted(s.State, unit, c)
+
+	s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }

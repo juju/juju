@@ -125,10 +125,12 @@ func (mock *mockContainer) Unfreeze() error {
 
 // Destroy stops and removes the container.
 func (mock *mockContainer) Destroy() error {
+	// golxc destroy will stop the machine if it is running.
+	if mock.state == golxc.StateRunning {
+		mock.Stop()
+	}
 	if mock.state == golxc.StateUnknown {
 		return fmt.Errorf("container has not been created")
-	} else if mock.state == golxc.StateRunning {
-		return fmt.Errorf("container is running")
 	}
 	mock.state = golxc.StateUnknown
 	delete(mock.factory.instances, mock.name)

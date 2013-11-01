@@ -4,9 +4,7 @@
 package openstack
 
 import (
-	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -50,24 +48,26 @@ var _ = gc.Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary       string
-	config        map[string]interface{}
-	change        map[string]interface{}
-	expect        map[string]interface{}
-	envVars       map[string]string
-	region        string
-	controlBucket string
-	toolsURL      string
-	useFloatingIP bool
-	username      string
-	password      string
-	tenantName    string
-	authMode      string
-	authURL       string
-	accessKey     string
-	secretKey     string
-	firewallMode  string
-	err           string
+	summary                 string
+	config                  map[string]interface{}
+	change                  map[string]interface{}
+	expect                  map[string]interface{}
+	envVars                 map[string]string
+	region                  string
+	controlBucket           string
+	toolsURL                string
+	useFloatingIP           bool
+	username                string
+	password                string
+	tenantName              string
+	authMode                string
+	authURL                 string
+	accessKey               string
+	secretKey               string
+	firewallMode            string
+	err                     string
+	sslHostnameVerification bool
+	sslHostnameSet          bool
 }
 
 type attrs map[string]interface{}
@@ -140,7 +140,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.password(), gc.Equals, t.password)
 		c.Assert(ecfg.tenantName(), gc.Equals, t.tenantName)
 		c.Assert(ecfg.authURL(), gc.Equals, t.authURL)
-		expected := map[string]interface{}{
+		expected := map[string]string{
 			"username":    t.username,
 			"password":    t.password,
 			"tenant-name": t.tenantName,
@@ -159,6 +159,12 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
+	// Default should be true
+	expectedHostnameVerification := true
+	if t.sslHostnameSet {
+		expectedHostnameVerification = t.sslHostnameVerification
+	}
+	c.Assert(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, gc.Equals, true)
@@ -211,7 +217,7 @@ var configTests = []configTest{
 		config: attrs{
 			"region": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		summary: "missing region in environment",
 		envVars: map[string]string{
@@ -224,7 +230,7 @@ var configTests = []configTest{
 		config: attrs{
 			"username": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		summary: "missing username in environment",
 		err:     "required environment variable not set for credentials attribute: User",
@@ -237,7 +243,7 @@ var configTests = []configTest{
 		config: attrs{
 			"password": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		summary: "missing password in environment",
 		err:     "required environment variable not set for credentials attribute: Secrets",
@@ -250,7 +256,7 @@ var configTests = []configTest{
 		config: attrs{
 			"tenant-name": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		summary: "missing tenant in environment",
 		err:     "required environment variable not set for credentials attribute: TenantName",
@@ -263,7 +269,7 @@ var configTests = []configTest{
 		config: attrs{
 			"auth-url": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		summary: "missing auth-url in environment",
 		err:     "required environment variable not set for credentials attribute: URL",
@@ -317,7 +323,7 @@ var configTests = []configTest{
 		config: attrs{
 			"control-bucket": 666,
 		},
-		err: ".*expected string, got 666",
+		err: `.*expected string, got int\(666\)`,
 	}, {
 		summary: "changing control-bucket",
 		change: attrs{
@@ -366,25 +372,6 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
-		summary: "public bucket URL sets tools URL",
-		config: attrs{
-			"public-bucket-url": "http://some/url",
-		},
-		toolsURL: "http://some/url/juju-dist/tools",
-	}, {
-		summary: "public bucket URL with tools URL",
-		config: attrs{
-			"public-bucket-url": "http://some/url",
-			"tools-url":         "http://tools/url",
-		},
-		toolsURL: "http://tools/url",
-	}, {
-		summary: "HP Cloud config sets tools URL",
-		config: attrs{
-			"auth-url": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0",
-		},
-		toolsURL: "https://region-a.geo-1.objects.hpcloudsvc.com:443/v1/60502529753910/juju-dist/tools",
-	}, {
 		summary: "admin-secret given",
 		config: attrs{
 			"admin-secret": "Futumpsh",
@@ -419,6 +406,18 @@ var configTests = []configTest{
 		expect: attrs{
 			"future": "hammerstein",
 		},
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": false,
+		},
+		sslHostnameVerification: false,
+		sslHostnameSet:          true,
+	}, {
+		change: attrs{
+			"ssl-hostname-verification": true,
+		},
+		sslHostnameVerification: true,
+		sslHostnameSet:          true,
 	},
 }
 
@@ -428,6 +427,42 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		c.Logf("test %d: %s (%v)", i, t.summary, t.config)
 		t.check(c)
 	}
+}
+
+func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+	s.setupEnvCredentials()
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "openstack",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env0, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket0 := env0.(*environ).ecfg().controlBucket()
+	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
+
+	env1, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket1 := env1.(*environ).ecfg().controlBucket()
+	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
+
+	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
+}
+
+func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+	s.setupEnvCredentials()
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "openstack",
+		"control-bucket": "burblefoo",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket := env.(*environ).ecfg().controlBucket()
+	c.Assert(bucket, gc.Equals, "burblefoo")
 }
 
 func (s *ConfigSuite) setupEnvCredentials() {
@@ -440,9 +475,7 @@ func (s *ConfigSuite) setupEnvCredentials() {
 
 type ConfigDeprecationSuite struct {
 	ConfigSuite
-	writer    *testWriter
-	oldWriter loggo.Writer
-	oldLevel  loggo.Level
+	writer *testWriter
 }
 
 var _ = gc.Suite(&ConfigDeprecationSuite{})
@@ -485,19 +518,4 @@ func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) 
 	})
 	_, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
-	for attr, value := range map[string]string{
-		"default-image-id":      "foo",
-		"default-instance-type": "bar",
-		"public-bucket-url":     "somewhere",
-	} {
-		s.setupLogger(c)
-		s.setupEnv(c, attr, value)
-		s.resetLogger(c)
-		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
-		c.Assert(stripped, gc.Matches, expected)
-	}
 }

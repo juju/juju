@@ -6,6 +6,7 @@ package state
 import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity
@@ -31,7 +32,7 @@ var (
 )
 
 type StatusSetter interface {
-	SetStatus(status params.Status, info string) error
+	SetStatus(status params.Status, info string, data params.StatusData) error
 }
 
 var (
@@ -55,7 +56,7 @@ var (
 // that have associated agent tools.
 type AgentTooler interface {
 	AgentTools() (*tools.Tools, error)
-	SetAgentTools(*tools.Tools) error
+	SetAgentVersion(version.Binary) error
 }
 
 // EnsureDeader with an EnsureDead method.

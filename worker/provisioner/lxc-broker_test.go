@@ -6,14 +6,12 @@ package provisioner_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
@@ -23,7 +21,6 @@ import (
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -83,13 +80,13 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-
-	series := "series"
-	nonce := "fake-nonce"
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
-	lxc, _, err := provider.StartInstance(s.broker, machineId, nonce, series, cons, stateInfo, apiInfo)
+	possibleTools := s.broker.(coretools.HasTools).Tools()
+	lxc, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
 	c.Assert(err, gc.IsNil)
 	return lxc
 }
@@ -165,8 +162,8 @@ func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
 type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
-	machineId string
-	events    chan mock.Event
+	parentMachineId string
+	events          chan mock.Event
 }
 
 var _ = gc.Suite(&lxcProvisionerSuite{})
@@ -184,18 +181,19 @@ func (s *lxcProvisionerSuite) TearDownSuite(c *gc.C) {
 func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
-	// Write the tools file.
-	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
-	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
-	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
 	c.Assert(err, gc.IsNil)
-	s.machineId = m.Id()
+	err = m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+	s.parentMachineId = m.Id()
+	s.APILogin(c, m)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
@@ -234,9 +232,9 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
-	machineTag := names.MachineTag(s.machineId)
-	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, agentConfig)
+	parentMachineTag := names.MachineTag(s.parentMachineId)
+	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
+	return provisioner.NewProvisioner(provisioner.LXC, s.provisioner, agentConfig)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -257,7 +255,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	params := state.AddMachineParams{
-		ParentId:      s.machineId,
+		ParentId:      s.parentMachineId,
 		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
@@ -272,7 +270,6 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	defer stop(c, p)
 
 	container := s.addContainer(c)
-
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.

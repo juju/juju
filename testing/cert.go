@@ -53,7 +53,8 @@ func mustNewCA() (string, string) {
 
 func mustNewServer() (string, string) {
 	cert.KeyBits = 512
-	srvCert, srvKey, err := cert.NewServer("testing-env", []byte(CACert), []byte(CAKey), time.Now().AddDate(10, 0, 0))
+	var hostnames []string
+	srvCert, srvKey, err := cert.NewServer([]byte(CACert), []byte(CAKey), time.Now().AddDate(10, 0, 0), hostnames)
 	if err != nil {
 		panic(err)
 	}

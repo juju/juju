@@ -128,7 +128,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "series", testing.Charms.Dir(name))
+	return addCharm(c, st, "quantal", testing.Charms.Dir(name))
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {

@@ -23,7 +23,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -31,7 +31,9 @@ func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-type MainSuite struct{}
+type MainSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&MainSuite{})
 
@@ -52,6 +54,7 @@ func badrun(c *gc.C, exit int, args ...string) string {
 	ps := exec.Command(os.Args[0], localArgs...)
 	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
 	output, err := ps.CombinedOutput()
+	c.Logf("command output: %q", output)
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
 	}
@@ -172,11 +175,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 }
 
 var brokenConfig = `
-environments:
-    one:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
+'
 `
 
 // breakJuju writes a dummy environment with incomplete configuration.
@@ -185,32 +184,34 @@ func breakJuju(c *gc.C, environMethod string) (msg string) {
 	path := config.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(brokenConfig), 0666)
 	c.Assert(err, gc.IsNil)
-	return fmt.Sprintf("environment configuration has no admin-secret")
+	return `cannot parse "[^"]*": YAML error.*`
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
+	c.Skip("breaks test isolation: lp:1233601")
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "--log-file", logpath, "bootstrap")
-	c.Assert(out, jc.HasSuffix, "ERROR "+msg+"\n")
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .*%s\n`, msg)
+	c.Assert(out, gc.Matches, fullmsg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* %s\n`, msg)
 	c.Assert(string(content), gc.Matches, fullmsg)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
+	c.Skip("breaks test isolation: lp:1233601")
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
 	out := badrun(c, 1, "bootstrap", "--log-file", logpath)
-	c.Assert(out, jc.HasSuffix, "ERROR "+msg+"\n")
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .*%s\n`, msg)
+	c.Assert(out, gc.Matches, fullmsg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* %s\n`, msg)
 	c.Assert(string(content), gc.Matches, fullmsg)
 }
 
@@ -254,6 +255,7 @@ var commandNames = []string{
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
+	"unset",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
@@ -278,9 +280,11 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 }
 
 var topicNames = []string{
-	"aws",
+	"azure",
 	"basics",
 	"commands",
+	"constraints",
+	"ec2",
 	"global-options",
 	"glossary",
 	"hpcloud",

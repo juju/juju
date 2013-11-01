@@ -13,13 +13,15 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
 
 type UpstartSuite struct {
-	origPath string
+	testbase.LoggingSuite
 	testPath string
 	service  *upstart.Service
 }
@@ -27,24 +29,24 @@ type UpstartSuite struct {
 var _ = gc.Suite(&UpstartSuite{})
 
 func (s *UpstartSuite) SetUpTest(c *gc.C) {
-	s.origPath = os.Getenv("PATH")
+	origPath := os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	os.Setenv("PATH", s.testPath+":"+s.origPath)
+	s.PatchEnvironment("PATH", s.testPath+":"+origPath)
+	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.service = &upstart.Service{Name: "some-service", InitDir: c.MkDir()}
 	_, err := os.Create(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *UpstartSuite) TearDownTest(c *gc.C) {
-	os.Setenv("PATH", s.origPath)
-}
-
 var checkargs = `
-#!/bin/bash
-if [ "$1" != "some-service" ]; then
+#!/bin/bash --norc
+if [ "$1" != "--system" ]; then
   exit 255
 fi
-if [ "$2" != "" ]; then
+if [ "$2" != "some-service" ]; then
+  exit 255
+fi
+if [ "$3" != "" ]; then
   exit 255
 fi
 `[1:]

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2/httpstorage"
@@ -25,8 +26,8 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.sync")
 
-// DefaultToolsLocation leads to the default juju distribution on S3.
-var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
+// DefaultToolsLocation leads to the default juju tools location.
+var DefaultToolsLocation = "https://streams.canonical.com/juju"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
@@ -49,6 +50,9 @@ type SyncContext struct {
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
 
+	// Tools are being synced for a public cloud so include mirrors information.
+	Public bool
+
 	// Source, if non-empty, specifies a directory in the local file system
 	// to use as a source.
 	Source string
@@ -69,9 +73,10 @@ func SyncTools(syncContext *SyncContext) error {
 		if !syncContext.AllVersions {
 			syncContext.MinorVersion = version.Current.Minor
 		}
-	} else {
+	} else if !syncContext.Dev && syncContext.MinorVersion != -1 {
 		// If a major.minor version is specified, we allow dev versions.
-		syncContext.Dev = syncContext.MinorVersion != -1
+		// If Dev is already true, leave it alone.
+		syncContext.Dev = true
 	}
 	sourceTools, err := envtools.ReadList(sourceStorage, syncContext.MajorVersion, syncContext.MinorVersion)
 	if err != nil {
@@ -96,12 +101,6 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("listing target bucket")
-	// When we read the contents of the target bucket, we don't want to have the ReadList() method
-	// below look for tools in the old location, since the old location is no longer used and if it
-	// finds tools there, it will incorrectly think they exist in the target. For completeness, the
-	// default tools prefix is restored at the end.
-	restore := envtools.SetToolPrefix(envtools.NewToolPrefix)
-	defer restore()
 	targetStorage := syncContext.Target
 	targetTools, err := envtools.ReadList(targetStorage, syncContext.MajorVersion, -1)
 	switch err {
@@ -124,7 +123,11 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.WriteMetadata(targetTools, true, targetStorage)
+		writeMirrors := envtools.DoNotWriteMirrors
+		if syncContext.Public {
+			writeMirrors = envtools.WriteMirrors
+		}
+		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools, writeMirrors)
 		if err != nil {
 			return err
 		}
@@ -157,9 +160,6 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest storage.
 
 // copyOneToolsPackage copies one tool from the source to the target.
 func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
-	reset := envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	defer reset()
-	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	resp, err := http.Get(tool.URL)
@@ -236,8 +236,6 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 	}
 	defer os.RemoveAll(baseToolsDir)
 	putTools := func(vers version.Binary) (string, error) {
-		reset := envtools.SetToolPrefix(envtools.NewToolPrefix)
-		defer reset()
 		name := envtools.StorageName(vers)
 		err = copyFile(filepath.Join(baseToolsDir, name), f.Name())
 		if err != nil {
@@ -251,6 +249,10 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		return nil, err
 	}
 	for _, series := range fakeSeries {
+		_, err := simplestreams.SeriesVersion(series)
+		if err != nil {
+			return nil, err
+		}
 		if series != toolsVersion.Series {
 			fakeVersion := toolsVersion
 			fakeVersion.Series = series
@@ -267,7 +269,7 @@ func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		Source:       baseToolsDir,
 		Target:       stor,
 		AllVersions:  true,
-		Dev:          true,
+		Dev:          toolsVersion.IsDev(),
 		MajorVersion: toolsVersion.Major,
 		MinorVersion: -1,
 	}

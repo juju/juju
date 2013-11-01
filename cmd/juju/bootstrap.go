@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -26,6 +26,29 @@ import (
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
+
+const bootstrapDoc = `
+bootstrap starts a new environment of the current type (it will return an error
+if the environment has already been bootstrapped).  Bootstrapping an environment
+will provision a new machine in the environment and run the juju state server on
+that machine.
+
+If constraints are specified in the bootstrap command, they will apply to the 
+machine provisioned for the juju state server.  They will also be set as default
+constraints on the environment for all future machines, exactly as if the
+constraints were set with juju set-constraints.
+
+Because bootstrap starts a machine in the cloud environment asynchronously, the
+command will likely return before the state server is fully running.  Time for
+bootstrap to be complete varies across cloud providers from a small number of
+seconds to several minutes.  Most other commands are synchronous and will wait
+until bootstrap is finished to complete.
+
+See Also:
+   juju help switch
+   juju help constraints
+   juju help set-constraints
+`
 
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
@@ -41,6 +64,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
 		Purpose: "start up an environment from scratch",
+		Doc:     bootstrapDoc,
 	}
 }
 
@@ -63,26 +87,27 @@ func (c *BootstrapCommand) Init(args []string) error {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	// TODO(rog): arrange for PrepareFromName to write any additional
-	// config attributes, or do so after calling it.
-	environ, err := environs.PrepareFromName(c.EnvName)
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	environ, err := environs.PrepareFromName(c.EnvName, store)
 	if err != nil {
 		return err
 	}
 	// If the environment has a special bootstrap Storage, use it wherever
 	// we'd otherwise use environ.Storage.
 	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		bootstrapStorage, err := bs.BootstrapStorage()
-		if err != nil {
-			return fmt.Errorf("failed to acquire bootstrap storage: %v", err)
+		if err := bs.EnableBootstrapStorage(); err != nil {
+			return fmt.Errorf("failed to enable bootstrap storage: %v", err)
 		}
-		environ = &bootstrapStorageEnviron{environ, bootstrapStorage}
 	}
-	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
-	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
-	if err != nil {
+	// Check to see if the environment is already bootstrapped
+	// before potentially uploading any tools.
+	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
+
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unecessary upload.
@@ -170,34 +195,38 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		AllowRetry: uploadPerformed,
 	}
 	_, err = envtools.FindBootstrapTools(env, params)
-	if errors.IsNotFoundError(err) {
-		// No tools available, so synchronize.
-		toolsSource := c.Source
-		if c.Source == "" {
-			toolsSource = sync.DefaultToolsLocation
-		}
-		logger.Warningf("no tools available, attempting to retrieve from %v", toolsSource)
+	if err == nil || !errors.IsNotFoundError(err) || uploadPerformed {
+		return err
+	}
+	// If no tools are available, synchronize if necessary.
+	uploadRequired := true
+	if c.Source != "" {
+		// If we are syncing tools and it succeeds, we don't need to upload the tools.
+		uploadRequired = false
+		logger.Warningf("no tools available, attempting to retrieve from %v", c.Source)
 		sctx := &sync.SyncContext{
 			Target: env.Storage(),
 			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
-			if err == coretools.ErrNoMatches && vers == nil && version.Current.IsDev() {
-				logger.Infof("no tools found, so attempting to build and upload new tools")
-				uploadAttempted = true
-				if err = c.uploadTools(env); err != nil {
-					return err
-				}
+			if (err == coretools.ErrNoMatches || err == envtools.ErrNoTools) && vers == nil && version.Current.IsDev() {
+				uploadRequired = true
 			} else {
 				return err
 			}
 		}
-		// Synchronization done, try again.
-		params.AllowRetry = true
-		_, err = envtools.FindBootstrapTools(env, params)
-	} else if err != nil {
-		return err
 	}
+	// No suitable tools could be synced so try uploading.
+	if uploadRequired {
+		logger.Infof("no tools found, so attempting to build and upload new tools")
+		uploadAttempted = true
+		if err = c.uploadTools(env); err != nil {
+			return err
+		}
+	}
+	// Synchronization/upload done, try again.
+	params.AllowRetry = true
+	_, err = envtools.FindBootstrapTools(env, params)
 	return err
 }
 
@@ -231,13 +260,4 @@ func getUploadSeries(cfg *config.Config, series []string) []string {
 		unique.Add(cfg.DefaultSeries())
 	}
 	return unique.Values()
-}
-
-type bootstrapStorageEnviron struct {
-	environs.Environ
-	bootstrapStorage storage.Storage
-}
-
-func (b *bootstrapStorageEnviron) Storage() storage.Storage {
-	return b.bootstrapStorage
 }

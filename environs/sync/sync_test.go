@@ -19,12 +19,15 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -55,9 +58,6 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	// It's important that this be v1.8.x to match the test data.
 	version.Current.Number = version.MustParse("1.8.3")
 
-	// We only want to use simplestreams to find any synced tools.
-	envtools.UseLegacyFallback = false
-
 	// Create a target environments.yaml.
 	s.home = coretesting.MakeFakeHome(c, `
 environments:
@@ -67,7 +67,7 @@ environments:
         authorized-keys: "not-really-one"
 `)
 	var err error
-	s.targetEnv, err = environs.PrepareFromName("test-target")
+	s.targetEnv, err = environs.PrepareFromName("test-target", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
@@ -78,20 +78,11 @@ environments:
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
-	// Populate the old tools location which will interfere with the uploads
-	// if the new tools locations are not correctly set up.
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
-	for _, vers := range v180all {
-		envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), vers)
-	}
-
-	envtools.SetToolPrefix(envtools.NewToolPrefix)
 	// Populate both with the public tools.
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
 		putBinary(c, s.localStorage, vers)
 	}
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 
 	// Switch tools location.
 	s.origLocation = sync.DefaultToolsLocation
@@ -100,8 +91,6 @@ environments:
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
 	c.Assert(s.storage.Stop(), gc.IsNil)
-	envtools.UseLegacyFallback = true
-	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
 	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
 	s.home.Restore()
@@ -111,13 +100,14 @@ func (s *syncSuite) tearDownTest(c *gc.C) {
 }
 
 var tests = []struct {
-	description string
-	ctx         *sync.SyncContext
-	source      bool
-	tools       []version.Binary
-	version     version.Number
-	major       int
-	minor       int
+	description   string
+	ctx           *sync.SyncContext
+	source        bool
+	tools         []version.Binary
+	version       version.Number
+	major         int
+	minor         int
+	expectMirrors bool
 }{
 	{
 		description: "copy newest from the filesystem",
@@ -165,6 +155,14 @@ var tests = []struct {
 		},
 		tools: v1all,
 	},
+	{
+		description: "write the mirrors files",
+		ctx: &sync.SyncContext{
+			Public: true,
+		},
+		tools:         v180all,
+		expectMirrors: true,
+	},
 }
 
 func (s *syncSuite) TestSyncing(c *gc.C) {
@@ -191,13 +189,12 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			envtools.SetToolPrefix(envtools.NewToolPrefix)
 			targetTools, err := envtools.FindTools(
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
-
-			assertEmpty(c, s.targetEnv.Storage())
+			assertNoUnexpectedTools(c, s.targetEnv.Storage())
+			assertMirrors(c, s.targetEnv.Storage(), test.expectMirrors)
 		}()
 	}
 }
@@ -233,8 +230,9 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	c.Assert(err, gc.IsNil)
 }
 
-func assertEmpty(c *gc.C, storage storage.StorageReader) {
-	list, err := envtools.ReadList(storage, 2, 0)
+func assertNoUnexpectedTools(c *gc.C, stor storage.StorageReader) {
+	// We only expect v1.x tools, no v2.x tools.
+	list, err := envtools.ReadList(stor, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
@@ -249,6 +247,20 @@ func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 	}
 }
 
+func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
+	r, err := storage.Get(stor, "tools/"+simplestreams.UnsignedMirror)
+	if err == nil {
+		defer r.Close()
+	}
+	if expectMirrors {
+		data, err := ioutil.ReadAll(r)
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+	} else {
+		c.Assert(err, gc.NotNil)
+	}
+}
+
 type uploadSuite struct {
 	env environs.Environ
 	testbase.LoggingSuite
@@ -259,16 +271,14 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
-	envtools.UseLegacyFallback = false
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg)
+	s.env, err = environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	envtools.UseLegacyFallback = true
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }

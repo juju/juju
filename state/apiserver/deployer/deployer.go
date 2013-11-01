@@ -6,10 +6,8 @@ package deployer
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
@@ -20,6 +18,7 @@ type DeployerAPI struct {
 	*common.Remover
 	*common.PasswordChanger
 	*common.LifeGetter
+	*common.Addresser
 
 	st         *state.State
 	resources  *common.Resources
@@ -76,6 +75,7 @@ func NewDeployerAPI(
 		Remover:         common.NewRemover(st, true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
+		Addresser:       common.NewAddresser(st),
 		st:              st,
 		resources:       resources,
 		authorizer:      authorizer,
@@ -119,65 +119,4 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// getEnvironStateInfo returns the state and API connection
-// information from the state and the environment.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (d *DeployerAPI) getEnvironStateInfo() (*state.Info, *api.Info, error) {
-	cfg, err := d.st.EnvironConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	return env.StateInfo()
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
-	stateInfo, _, err := d.getEnvironStateInfo()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: stateInfo.Addrs,
-	}, nil
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
-	_, apiInfo, err := d.getEnvironStateInfo()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: apiInfo.Addrs,
-	}, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (d *DeployerAPI) CACert() params.BytesResult {
-	return params.BytesResult{
-		Result: d.st.CACert(),
-	}
 }

@@ -32,6 +32,11 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	loggo.ResetLoggers()
+}
+
 // sampleConfig holds a configuration with all required
 // attributes set.
 var sampleConfig = testing.Attrs{
@@ -88,6 +93,14 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"default-series": "",
+		},
+	}, {
+		about:       "Explicit logging",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"logging-config": "juju=INFO",
 		},
 	}, {
 		about:       "Explicit authorized-keys",
@@ -273,7 +286,7 @@ var configTests = []configTest{
 			"authorized-keys": "my-keys",
 			"development":     "true",
 		},
-		err: "development: expected bool, got \"true\"",
+		err: `development: expected bool, got string\("true"\)`,
 	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
@@ -386,7 +399,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"ssl-hostname-verification": "yes please",
 		},
-		err: `ssl-hostname-verification: expected bool, got "yes please"`,
+		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
@@ -403,7 +416,7 @@ var configTests = []configTest{
 			"name":       "my-name",
 			"state-port": "illegal",
 		},
-		err: `state-port: expected number, got "illegal"`,
+		err: `state-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Explicit API port",
 		useDefaults: config.UseDefaults,
@@ -420,7 +433,7 @@ var configTests = []configTest{
 			"name":     "my-name",
 			"api-port": "illegal",
 		},
-		err: `api-port: expected number, got "illegal"`,
+		err: `api-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
@@ -462,8 +475,6 @@ var configTests = []configTest{
 		about:       "Config settings from juju 1.13.3 actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
-			"public-bucket":             "juju-dist",
-			"public-bucket-region":      "us-east-1",
 			"name":                      "sample",
 			"development":               false,
 			"admin-secret":              "",
@@ -721,6 +732,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
+	if v, ok := test.attrs["logging-config"]; ok {
+		c.Assert(cfg.LoggingConfig(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.LoggingConfig(), gc.Equals, "<root>=DEBUG")
+	}
+
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -764,6 +781,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
 	attrs["tools-url"] = ""
+	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
@@ -910,7 +928,7 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	// Invalid field: failure.
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
-	c.Assert(err, gc.ErrorMatches, `known: expected int, got "this"`)
+	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
 }
 
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {

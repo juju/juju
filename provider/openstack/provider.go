@@ -32,7 +32,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -63,51 +63,62 @@ func init() {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-openstack.html
+# https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
-  type: openstack
-  # Specifies whether the use of a floating IP address is required to give the nodes
-  # a public IP address. Some installations assign public IP addresses by default without
-  # requiring a floating IP address.
-  # use-floating-ip: false
-  admin-secret: {{rand}}
-  # Globally unique swift bucket name
-  control-bucket: juju-{{rand}}
-  # If set, tools-url specifies from where tools are fetched.
-  # tools-url:  https://you-tools-url
-  # Usually set via the env variable OS_AUTH_URL, but can be specified here
-  # auth-url: https://yourkeystoneurl:443/v2.0/
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # The following are used for userpass authentication (the default)
-  # auth-mode: userpass
-  # Usually set via the env variable OS_USERNAME, but can be specified here
-  # username: <your username>
-  # Usually set via the env variable OS_PASSWORD, but can be specified here
-  # password: <secret>
-  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
-  # tenant-name: <your tenant name>
-  # Usually set via the env variable OS_REGION_NAME, but can be specified here
-  # region: <your region>
-  # USe the following if you require keypair autherntication
-  # auth-mode: keypair
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-  # secret-key: <secret>
+    type: openstack
+    # use-floating-ip specifies whether a floating IP address is required
+    # to give the nodes a public IP address. Some installations assign public IP
+    # addresses by default without requiring a floating IP address.
+    # use-floating-ip: false
 
-## https://juju.ubuntu.com/docs/config-hpcloud.html
+    # tools-url specifies the location of the Juju tools. It defaults to the
+    # global public tools S3 bucket.
+    # tools-url:  https://you-tools-url
+
+    # auth-url defaults to the value of the environment variable OS_AUTH_URL,
+    # but can be specified here.
+    # auth-url: https://yourkeystoneurl:443/v2.0/
+
+    # tenant-name holds the openstack tenant name. It defaults to
+    # the environment variable OS_TENANT_NAME.
+    # tenant-name: <your tenant name>
+
+    # region holds the openstack region.  It defaults to
+    # the environment variable OS_REGION_NAME.
+    # region: <your region>
+
+    # The auth-mode, username and password attributes
+    # are used for userpass authentication (the default).
+
+    # auth-mode holds the authentication mode. For user-password
+    # authentication, auth-mode should be "userpass" and username
+    # and password should be set appropriately; they default to
+    # the environment variables OS_USERNAME and OS_PASSWORD
+     # respectively.
+    # auth-mode: userpass
+    # username: <your username>
+    # password: <secret>
+     
+    # For key-pair authentication, auth-mode should  be "keypair"
+    # and access-key and secret-key should be  set appropriately; they default to
+    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
+    # respectively.
+    # auth-mode: keypair
+    # access-key: <secret>
+    # secret-key: <secret>
+
+# https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
-  type: openstack
-  # Specifies whether the use of a floating IP address is required to give the nodes
-  # a public IP address. Some installations assign public IP addresses by default without
-  # requiring a floating IP address.
-  use-floating-ip: false
-  admin-secret: {{rand}}
-  # Globally unique swift bucket name
-  control-bucket: juju-{{rand}}
-  # Not required if env variable OS_AUTH_URL is set
-  # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
+    type: openstack
+    
+    # use-floating-ip specifies whether a floating IP address is required
+    # to give the nodes a public IP address. Some installations assign public IP
+    # addresses by default without requiring a floating IP address.
+    # use-floating-ip: false
+    
+    # auth-url holds the keystone url for authentication. 
+    # It defaults to the value of the environment variable OS_AUTH_URL.
+    # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
 `[1:]
 }
@@ -124,7 +135,18 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO prepare environment
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["control-bucket"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
@@ -140,8 +162,8 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
-func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
+func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	m := make(map[string]string)
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -267,6 +289,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		}
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
+		// tags not currently supported on openstack
 	}
 	return hc
 }
@@ -341,7 +364,7 @@ func (inst *openstackInstance) DNSName() (string, error) {
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
@@ -395,6 +418,18 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
+// PrecheckInstance is specified in the environs.Prechecker interface.
+func (*environ) PrecheckInstance(series string, cons constraints.Value) error {
+	return nil
+}
+
+// PrecheckContainer is specified in the environs.Prechecker interface.
+func (*environ) PrecheckContainer(series string, kind instance.ContainerType) error {
+	// This check can either go away or be relaxed when the openstack
+	// provider manages container addressibility.
+	return environs.NewContainersUnsupported("openstack provider does not support containers")
+}
+
 func (e *environ) Name() string {
 	return e.name
 }
@@ -406,12 +441,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) PublicStorage() storage.StorageReader {
-	// No public storage required. Tools are fetched from tools-url.
-	return environs.EmptyStorage
-}
-
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -419,11 +449,11 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 	if err != nil {
 		return err
 	}
-	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
+	return common.Bootstrap(e, cons, possibleTools)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(e)
+	return common.StateInfo(e)
 }
 
 func (e *environ) Config() *config.Config {
@@ -450,7 +480,11 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
-	return client.NewClient(cred, authMode, nil)
+	newClient := client.NewClient
+	if !ecfg.SSLHostnameVerification() {
+		newClient = client.NewNonValidatingClient
+	}
+	return newClient(cred, authMode, nil)
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
@@ -501,7 +535,12 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		e.imageSources = append(e.imageSources, simplestreams.NewURLDataSource(productStreamsURL))
+		verify := simplestreams.VerifySSLHostnames
+		if !e.Config().SSLHostnameVerification() {
+			verify = simplestreams.NoVerifySSLHostnames
+		}
+		source := simplestreams.NewURLDataSource(productStreamsURL, verify)
+		e.imageSources = append(e.imageSources, source)
 	}
 	return e.imageSources, nil
 }
@@ -520,12 +559,17 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
+	verify := simplestreams.VerifySSLHostnames
+	if !e.Config().SSLHostnameVerification() {
+		verify = simplestreams.NoVerifySSLHostnames
+	}
 	// Add the simplestreams source off the control bucket.
 	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL))
+		source := simplestreams.NewURLDataSource(toolsURL, verify)
+		e.toolsSources = append(e.toolsSources, source)
 	}
 	return e.toolsSources, nil
 }
@@ -571,7 +615,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
-	for a := provider.LongAttempt.Start(); a.Next(); {
+	for a := common.LongAttempt.Start(); a.Next(); {
 		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil
@@ -769,34 +813,8 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Destroy(ensureInsts []instance.Instance) error {
-	logger.Infof("destroying environment %q", e.name)
-	insts, err := e.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	found := make(map[instance.Id]bool)
-	var ids []instance.Id
-	for _, inst := range insts {
-		ids = append(ids, inst.Id())
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := instance.Id(inst.(*openstackInstance).Id())
-		if !found[id] {
-			ids = append(ids, id)
-			found[id] = true
-		}
-	}
-	err = e.terminateInstances(ids)
-	if err != nil {
-		return err
-	}
-
-	return e.Storage().RemoveAll()
+func (e *environ) Destroy() error {
+	return common.Destroy(e)
 }
 
 func (e *environ) globalGroupName() string {
@@ -1006,6 +1024,10 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	group, err := novaClient.SecurityGroupByName(name)
 	if err == nil {
 		// Group exists, so assume it is correctly set up and return it.
+		// TODO(jam): 2013-09-18 http://pad.lv/121795
+		// We really should verify the group is set up correctly,
+		// because deleting and re-creating environments can get us bad
+		// groups (especially if they were set up under Python)
 		return *group, nil
 	}
 	// Doesn't exist, so try and create it.

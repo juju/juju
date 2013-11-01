@@ -139,7 +139,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 
 	// Try getting a unit we're not responsible for.
 	// First create a new machine and deploy another unit there.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	principal1, err := s.service0.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -229,6 +229,8 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
+	testing.AddStateServerMachine(c, s.State)
+
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
 
@@ -238,11 +240,14 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	testing.AddStateServerMachine(c, s.State)
+
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.st.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
+	c.Assert(addresses, gc.DeepEquals, apiAddresses)
 }
 
 func (s *deployerSuite) TestCACert(c *gc.C) {

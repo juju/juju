@@ -20,16 +20,16 @@ type format_1_12Suite struct {
 
 var _ = gc.Suite(&format_1_12Suite{})
 
-func (s *format_1_12Suite) newConfig(c *gc.C) *configInternal {
+func newTestConfig(c *gc.C) *configInternal {
 	params := agentParams
 	params.DataDir = c.MkDir()
-	config, err := newConfig(params)
+	config, err := NewAgentConfig(params)
 	c.Assert(err, gc.IsNil)
-	return config
+	return config.(*configInternal)
 }
 
 func (s *format_1_12Suite) TestWriteAgentConfig(c *gc.C) {
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 
@@ -55,12 +55,12 @@ func (s *format_1_12Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 }
 
 func (s *format_1_12Suite) TestRead(c *gc.C) {
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	s.assertWriteAndRead(c, config)
 }
 
 func (s *format_1_12Suite) TestWriteCommands(c *gc.C) {
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	commands, err := s.formatter.writeCommands(config)
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 3)

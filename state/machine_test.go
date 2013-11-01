@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -30,7 +29,7 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -48,7 +47,7 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
@@ -70,7 +69,7 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 	}
 	for _, test := range tests {
 		params := state.AddMachineParams{
-			Series: "series",
+			Series: "quantal",
 			Jobs:   test.jobs,
 		}
 		m, err := s.State.AddMachineWithConstraints(&params)
@@ -81,7 +80,7 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
@@ -94,7 +93,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	_, err := s.State.AddMachineWithConstraints(&params)
@@ -133,7 +132,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 
 	// A machine that has never had units assigned can advance lifecycle.
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -211,9 +210,9 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyMachines(c *gc.C) {
 	m0 := s.machine
-	m1, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("series", state.JobHostUnits)
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	sch := s.AddTestingCharm(c, "wordpress")
@@ -306,7 +305,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -322,7 +321,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -344,7 +343,7 @@ func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -424,15 +423,12 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
-	m0, err := s.State.AddMachine("series", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentTools(&tools.Tools{
-		URL:     "foo",
-		Version: version.MustParseBinary("0.0.3-series-arch"),
-	})
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -466,9 +462,9 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// tells us the right thing.
 
 	m1 := s.machine
-	m2, err := s.State.AddMachine("series", state.JobHostUnits)
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	m3, err := s.State.AddMachine("series", state.JobHostUnits)
+	m3, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	dummy := s.AddTestingCharm(c, "dummy")
@@ -540,7 +536,7 @@ func sortedUnitNames(units []*state.Unit) []string {
 }
 
 func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Service, *state.Unit) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Clean(), gc.Equals, true)
 
@@ -592,10 +588,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentTools(&tools.Tools{
-		URL:     "foo",
-		Version: version.MustParseBinary("0.0.3-series-arch"),
-	})
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -659,7 +652,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.StatusStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -689,7 +682,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.StatusStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -765,7 +758,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.StatusStarted, "")
+	err = mysql0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -796,7 +789,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.StatusStarted, "")
+	err = logging0.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -871,7 +864,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	// A newly-created machine gets a copy of the environment constraints.
 	err := s.State.SetEnvironConstraints(econs1)
 	c.Assert(err, gc.IsNil)
-	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	mcons1, err := machine1.Constraints()
 	c.Assert(err, gc.IsNil)
@@ -880,7 +873,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	// Change environment constraints and add a new machine.
 	err = s.State.SetEnvironConstraints(econs2)
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	mcons2, err := machine2.Constraints()
 	c.Assert(err, gc.IsNil)
@@ -893,7 +886,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetConstraints(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Constraints can be set...
@@ -924,7 +917,7 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()
 		c.Assert(err1, gc.IsNil)
-		c.Assert(mcons, gc.DeepEquals, constraints.Value{})
+		c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 		return err
 	})
 
@@ -937,66 +930,162 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusError, "")
+	err := s.machine.SetStatus(params.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.machine.SetStatus(params.StatusPending, "")
+	err = s.machine.SetStatus(params.StatusPending, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-	err = s.machine.SetStatus(params.StatusDown, "")
+	err = s.machine.SetStatus(params.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.machine.SetStatus(params.Status("vliegkat"), "orville")
+	err = s.machine.SetStatus(params.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, err := s.machine.Status()
+	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
-	err = s.machine.SetStatus(params.StatusStarted, "")
+	err = s.machine.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err = s.machine.Status()
+	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed")
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+		"foo": "bar",
+	})
 	c.Assert(err, gc.IsNil)
-	status, info, err = s.machine.Status()
+	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"foo": "bar",
+	})
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	// When Dying set/get should work.
 	err := s.machine.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStopped, "")
+	err = s.machine.SetStatus(params.StatusStopped, "", nil)
 	c.Assert(err, gc.IsNil)
-	status, info, err := s.machine.Status()
+	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
-	status, info, err = s.machine.Status()
+	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
 
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStarted, "not really")
+	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
-	_, _, err = s.machine.Status()
+	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
+func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, _, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Regular status setting with data.
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
+	c.Assert(err, gc.IsNil)
+	status, info, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "provisioning failed")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
+}
+
+func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, _, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Status setting with MongoDB special values.
+	err = s.machine.SetStatus(params.StatusError, "mongo", params.StatusData{
+		`{name: "Joe"}`: "$where",
+		"eval":          `eval(function(foo) { return foo; }, "bar")`,
+		"mapReduce":     "mapReduce",
+		"group":         "group",
+	})
+	c.Assert(err, gc.IsNil)
+	status, info, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "mongo")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		`{name: "Joe"}`: "$where",
+		"eval":          `eval(function(foo) { return foo; }, "bar")`,
+		"mapReduce":     "mapReduce",
+		"group":         "group",
+	})
+}
+
+func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+	_, _, _, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+
+	// Status setting and changing data afterwards.
+	data := params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	}
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", data)
+	c.Assert(err, gc.IsNil)
+	data["4th-key"] = 4.0
+
+	status, info, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "provisioning failed")
+	c.Assert(data, gc.DeepEquals, params.StatusData{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	})
+
+	// Set status data to nil, so an empty map will be returned.
+	err = s.machine.SetStatus(params.StatusStarted, "", nil)
+	c.Assert(err, gc.IsNil)
+
+	status, info, data, err = s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
+}
+
 func (s *MachineSuite) TestSetAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 

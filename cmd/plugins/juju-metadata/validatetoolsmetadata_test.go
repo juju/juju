@@ -15,10 +15,12 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
 type ValidateToolsMetadataSuite struct {
+	testbase.LoggingSuite
 	home *coretesting.FakeHome
 }
 
@@ -87,11 +89,17 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region,
 }
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
+	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.AddCleanup(func(*gc.C) { restore() })
+	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *ValidateToolsMetadataSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
@@ -114,6 +122,20 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+}
+
+func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
+	testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
+	testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
+	s.setupEc2LocalMetadata(c, "us-east-1")
+	ctx := coretesting.Context(c)
+	code := cmd.Main(
+		&ValidateToolsMetadataCommand{}, ctx, []string{"-e", "ec2", "-j", "1.11.4"},
+	)
+	c.Assert(code, gc.Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `error: environment has no access-key or secret-key`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {

@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"os"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	_ "launchpad.net/juju-core/provider/all"
 )
 
+var logger = loggo.GetLogger("juju.plugins.metadata")
+
 var metadataDoc = `
-Juju metadata is used to find the correct image and tools when bootstrapping a Juju
-environment.
+Juju metadata is used to find the correct image and tools when bootstrapping a
+Juju environment.
 `
 
 // Main registers subcommands for the juju-metadata executable, and hands over control
@@ -35,8 +39,8 @@ func Main(args []string) {
 	metadatacmd.Register(&ValidateImageMetadataCommand{})
 	metadatacmd.Register(&ImageMetadataCommand{})
 	metadatacmd.Register(&ToolsMetadataCommand{})
-
 	metadatacmd.Register(&ValidateToolsMetadataCommand{})
+	metadatacmd.Register(&SignMetadataCommand{})
 
 	os.Exit(cmd.Main(metadatacmd, cmd.DefaultContext(), args[1:]))
 }

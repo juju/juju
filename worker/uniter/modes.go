@@ -157,7 +157,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.s.Started {
-		if err = u.unit.SetStatus(params.StatusInstalled, ""); err != nil {
+		if err = u.unit.SetStatus(params.StatusInstalled, "", nil); err != nil {
 			return nil, err
 		}
 	}
@@ -195,7 +195,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(params.StatusStopped, ""); err != nil {
+	if err = u.unit.SetStatus(params.StatusStopped, "", nil); err != nil {
 		return nil, err
 	}
 	w, err := u.unit.Watch()
@@ -239,7 +239,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if u.s.Op != Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	if err = u.unit.SetStatus(params.StatusStarted, ""); err != nil {
+	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
@@ -338,8 +338,16 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
-	if err = u.unit.SetStatus(params.StatusError, msg); err != nil {
+	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())
+	// Create error information for status.
+	data := params.StatusData{"hook": u.currentHookName()}
+	if u.s.Hook.Kind.IsRelation() {
+		data["relation-id"] = u.s.Hook.RelationId
+		if u.s.Hook.RemoteUnit != "" {
+			data["remote-unit"] = u.s.Hook.RemoteUnit
+		}
+	}
+	if err = u.unit.SetStatus(params.StatusError, msg, data); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
@@ -378,7 +386,8 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
-		if err = u.unit.SetStatus(params.StatusError, "upgrade failed"); err != nil {
+		// TODO(mue) Add helpful data here too in later CL.
+		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()

@@ -41,7 +41,8 @@ will be displayed.
 
 Wildcards ('*') may be specified in service/unit names to match any sequence
 of characters. For example, 'nova-*' will match any service whose name begins
-with 'nova-': 'nova-compute', 'nova-volume', etc.`[1:]
+with 'nova-': 'nova-compute', 'nova-volume', etc.
+`
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -494,7 +495,7 @@ type stateAgent interface {
 	lifer
 	AgentAlive() (bool, error)
 	AgentTools() (*tools.Tools, error)
-	Status() (params.Status, string, error)
+	Status() (params.Status, string, params.StatusData, error)
 }
 
 // processAgent retrieves version and status information from the given entity
@@ -504,7 +505,8 @@ func processAgent(entity stateAgent) (life string, version string, status params
 	if t, err := entity.AgentTools(); err == nil {
 		version = t.Version.Number.String()
 	}
-	status, info, err = entity.Status()
+	// TODO(mue) StatusData may be useful here too.
+	status, info, _, err = entity.Status()
 	if err != nil {
 		return
 	}

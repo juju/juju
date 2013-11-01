@@ -5,6 +5,8 @@ package httpstorage_test
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -18,8 +20,13 @@ import (
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
+	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
+
+const testAuthkey = "jabberwocky"
 
 func TestLocal(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -41,6 +48,21 @@ func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	listener, err = httpstorage.Serve("localhost:0", embedded)
 	c.Assert(err, gc.IsNil)
 	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
+}
+
+// startServerTLS starts a new TLS-based local storage server
+// using a temporary directory and returns the listener,
+// a base URL for the server and the directory path.
+func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
+	dataDir = c.MkDir()
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	hostnames := []string{"127.0.0.1"}
+	caCertPEM := []byte(coretesting.CACert)
+	caKeyPEM := []byte(coretesting.CAKey)
+	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, testAuthkey)
+	c.Assert(err, gc.IsNil)
+	return listener, fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port), dataDir
 }
 
 type testCase struct {
@@ -113,14 +135,55 @@ var getTests = []testCase{
 	},
 }
 
+func (s *backendSuite) TestHeadNonAuth(c *gc.C) {
+	// HEAD is unsupported for non-authenticating servers.
+	listener, url, _ := startServer(c)
+	defer listener.Close()
+	resp, err := http.Head(url)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+}
+
+func (s *backendSuite) TestHeadAuth(c *gc.C) {
+	// HEAD on an authenticating server will return the HTTPS counterpart URL.
+	client, url, datadir := s.tlsServerAndClient(c)
+	createTestData(c, datadir)
+
+	resp, err := client.Head(url)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	location, err := resp.Location()
+	c.Assert(err, gc.IsNil)
+	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/")
+	testGet(c, client, location.String())
+}
+
+func (s *backendSuite) TestHeadCustomHost(c *gc.C) {
+	// HEAD with a custom "Host:" header; the server should respond
+	// with a Location with the specified Host header.
+	client, url, _ := s.tlsServerAndClient(c)
+	req, err := http.NewRequest("HEAD", url+"arbitrary", nil)
+	c.Assert(err, gc.IsNil)
+	req.Host = "notarealhost"
+	resp, err := client.Do(req)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	location, err := resp.Location()
+	c.Assert(err, gc.IsNil)
+	c.Assert(location.String(), gc.Matches, "https://notarealhost:[0-9]{5}/arbitrary")
+}
+
 func (s *backendSuite) TestGet(c *gc.C) {
 	// Test retrieving a file from a storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
 	createTestData(c, dataDir)
+	testGet(c, http.DefaultClient, url)
+}
 
+func testGet(c *gc.C, client *http.Client, url string) {
 	check := func(tc testCase) {
-		resp, err := http.Get(url + tc.name)
+		resp, err := client.Get(url + tc.name)
 		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
@@ -188,11 +251,13 @@ func (s *backendSuite) TestList(c *gc.C) {
 	// Test listing file of a storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
-
 	createTestData(c, dataDir)
+	testList(c, http.DefaultClient, url)
+}
 
+func testList(c *gc.C, client *http.Client, url string) {
 	check := func(tc testCase) {
-		resp, err := http.Get(url + tc.name + "*")
+		resp, err := client.Get(url + tc.name + "*")
 		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
@@ -235,20 +300,25 @@ func (s *backendSuite) TestPut(c *gc.C) {
 	// Test sending a file to the storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
-
 	createTestData(c, dataDir)
+	testPut(c, http.DefaultClient, url, dataDir, true)
+}
 
+func testPut(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		req, err := http.NewRequest("PUT", url+tc.name, bytes.NewBufferString(tc.content))
 		c.Assert(err, gc.IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
+		} else if !authorized {
+			c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
+			return
 		}
-		c.Assert(resp.StatusCode, gc.Equals, 201)
+		c.Assert(resp.StatusCode, gc.Equals, http.StatusCreated)
 
 		fp := filepath.Join(dataDir, tc.name)
 		b, err := ioutil.ReadFile(fp)
@@ -288,9 +358,11 @@ func (s *backendSuite) TestRemove(c *gc.C) {
 	// Test removing a file in the storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
-
 	createTestData(c, dataDir)
+	testRemove(c, http.DefaultClient, url, dataDir, true)
+}
 
+func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		fp := filepath.Join(dataDir, tc.name)
 		dir, _ := filepath.Split(fp)
@@ -301,10 +373,13 @@ func (s *backendSuite) TestRemove(c *gc.C) {
 
 		req, err := http.NewRequest("DELETE", url+tc.name, nil)
 		c.Assert(err, gc.IsNil)
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
+			return
+		} else if !authorized {
+			c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
 			return
 		}
 		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -338,4 +413,39 @@ func createTestData(c *gc.C, dataDir string) {
 	writeData(innerDir, "fooin", "this is inner file 'fooin'")
 	writeData(innerDir, "barin", "this is inner file 'barin'")
 	writeData(innerDir, "bazin", "this is inner file 'bazin'")
+}
+
+func (b *backendSuite) tlsServerAndClient(c *gc.C) (client *http.Client, url, dataDir string) {
+	listener, url, dataDir := startServerTLS(c)
+	b.AddCleanup(func(*gc.C) { listener.Close() })
+	caCerts := x509.NewCertPool()
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
+	client = &http.Client{
+		Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
+	}
+	return client, url, dataDir
+}
+
+func (b *backendSuite) TestTLSUnauthenticatedGet(c *gc.C) {
+	client, url, dataDir := b.tlsServerAndClient(c)
+	createTestData(c, dataDir)
+	testGet(c, client, url)
+}
+
+func (b *backendSuite) TestTLSUnauthenticatedList(c *gc.C) {
+	client, url, dataDir := b.tlsServerAndClient(c)
+	createTestData(c, dataDir)
+	testList(c, client, url)
+}
+
+func (b *backendSuite) TestTLSUnauthenticatedPut(c *gc.C) {
+	client, url, dataDir := b.tlsServerAndClient(c)
+	createTestData(c, dataDir)
+	testPut(c, client, url, dataDir, false)
+}
+
+func (b *backendSuite) TestTLSUnauthenticatedRemove(c *gc.C) {
+	client, url, dataDir := b.tlsServerAndClient(c)
+	createTestData(c, dataDir)
+	testRemove(c, client, url, dataDir, false)
 }

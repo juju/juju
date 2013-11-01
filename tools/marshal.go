@@ -12,6 +12,8 @@ import (
 type toolsDoc struct {
 	Version version.Binary
 	URL     string
+	Size    int64
+	SHA256  string
 }
 
 // GetBSON returns the structure to be serialized for the tools as a generic
@@ -20,7 +22,7 @@ func (t *Tools) GetBSON() (interface{}, error) {
 	if t == nil {
 		return nil, nil
 	}
-	return &toolsDoc{t.Version, t.URL}, nil
+	return &toolsDoc{t.Version, t.URL, t.Size, t.SHA256}, nil
 }
 
 // SetBSON updates the internal members with the data stored in the bson.Raw
@@ -36,5 +38,7 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 	}
 	t.Version = doc.Version
 	t.URL = doc.URL
+	t.Size = doc.Size
+	t.SHA256 = doc.SHA256
 	return nil
 }

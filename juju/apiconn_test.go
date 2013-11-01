@@ -5,6 +5,7 @@ package juju_test
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state/api"
@@ -45,8 +45,10 @@ func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
+
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -78,7 +80,7 @@ func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// and checking that the connection happens within that
 	// time.
 	defer testbase.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName)
+	bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
 	apiclient, err := juju.NewAPIClientFromName("")
@@ -92,9 +94,8 @@ func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 
 func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
-	// The default environment is "erewhemos", make sure we get the other one.
-	const envName = "erewhemos-2"
-	bootstrapEnv(c, envName)
+	envName := coretesting.SampleCertName + "-2"
+	bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer apiclient.Close()
@@ -103,17 +104,15 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	creds := configstore.APICredentials{
-		User:     "foo",
-		Password: "foopass",
-	}
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{"foo.com"},
-		CACert:    "certificated",
-	}
 	store := newConfigStore("noconfig", &environInfo{
-		creds:    creds,
-		endpoint: endpoint,
+		creds: configstore.APICredentials{
+			User:     "foo",
+			Password: "foopass",
+		},
+		endpoint: configstore.APIEndpoint{
+			Addresses: []string{"foo.com"},
+			CACert:    "certificated",
+		},
 	})
 
 	called := 0
@@ -137,9 +136,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 func (*NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	expectErr := fmt.Errorf("an error")
-	store := newConfigStore("noconfig", &environInfo{
-		err: expectErr,
-	})
+	store := newConfigStoreWithError(expectErr)
 	defer testbase.PatchValue(juju.APIOpen, panicAPIOpen).Restore()
 	client, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.Equals, expectErr)
@@ -152,12 +149,11 @@ func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 
 func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{},
-		CACert:    "certificated",
-	}
 	store := newConfigStore("noconfig", &environInfo{
-		endpoint: endpoint,
+		endpoint: configstore.APIEndpoint{
+			Addresses: []string{},
+			CACert:    "certificated",
+		},
 	})
 	defer testbase.PatchValue(juju.APIOpen, panicAPIOpen).Restore()
 
@@ -168,11 +164,10 @@ func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{"foo.com"},
-	}
 	store := newConfigStore("noconfig", &environInfo{
-		endpoint: endpoint,
+		endpoint: configstore.APIEndpoint{
+			Addresses: []string{"foo.com"},
+		},
 	})
 
 	expectErr := fmt.Errorf("an error")
@@ -187,13 +182,9 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName)
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{"infoapi.com"},
-	}
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-		endpoint: endpoint,
-	})
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.com")
 
 	infoOpenedState := new(api.State)
 	infoEndpointOpened := make(chan struct{})
@@ -237,15 +228,25 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	}
 }
 
+func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr string) {
+	// Populate the environment's info with an endpoint
+	// with a known address.
+	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	c.Assert(err, gc.IsNil)
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses: []string{addr},
+		CACert:    "certificated",
+	})
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+}
+
 func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName)
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{"infoapi.com"},
-	}
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-		endpoint: endpoint,
-	})
+
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.com")
 
 	infoOpenedState := new(api.State)
 	infoEndpointOpened := make(chan struct{})
@@ -307,15 +308,11 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	}
 }
 
-func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
+func (*NewAPIClientSuite) TestBothError(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, coretesting.SampleEnvName)
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{"infoapi.com"},
-	}
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
-		endpoint: endpoint,
-	})
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.com")
 
 	defer testbase.PatchValue(juju.ProviderConnectDelay, 0*time.Second).Restore()
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
@@ -330,14 +327,77 @@ func (*NewAPIClientSuite) TestBothErrror(c *gc.C) {
 	c.Check(st, gc.IsNil)
 }
 
+func defaultConfigStore(c *gc.C) configstore.Storage {
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	return store
+}
+
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
 func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "")
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	client, _ := juju.NewAPIClientFromName("")
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
+}
+
+func (*NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.BootstrapConfig(), gc.NotNil)
+	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
+
+	err = os.Remove(config.JujuHomePath("environments.yaml"))
+	c.Assert(err, gc.IsNil)
+
+	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)
+	c.Check(err, gc.IsNil)
+	st.Close()
+}
+
+func (*NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
+	// We want to make sure that the code is using the bootstrap
+	// config rather than information from environments.yaml,
+	// even when there is an entry in environments.yaml
+	// We can do that by changing the info bootstrap config
+	// so it has a different environment name.
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+
+	store := configstore.NewMem()
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	c.Assert(err, gc.IsNil)
+
+	envName2 := coretesting.SampleCertName + "-2"
+	info2, err := store.CreateInfo(envName2)
+	c.Assert(err, gc.IsNil)
+	info2.SetBootstrapConfig(info.BootstrapConfig())
+	err = info2.Write()
+	c.Assert(err, gc.IsNil)
+
+	// Now we have info for envName2 which will actually
+	// cause a connection to the originally bootstrapped
+	// state.
+	st, err := juju.NewAPIFromName(envName2, store)
+	c.Check(err, gc.IsNil)
+	st.Close()
+
+	// Sanity check that connecting to the envName2
+	// but with no info fails.
+	// Currently this panics with an "environment not prepared" error.
+	// Disable for now until an upcoming branch fixes it.
+	//	err = info2.Destroy()
+	//	c.Assert(err, gc.IsNil)
+	//	st, err = juju.NewAPIFromName(envName2, store)
+	//	if err == nil {
+	//		st.Close()
+	//	}
+	//	c.Assert(err, gc.ErrorMatches, "fooobie")
 }
 
 func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
@@ -355,41 +415,44 @@ func setAPIClosed() (<-chan *api.State, testbase.Restorer) {
 	return stateClosed, testbase.PatchValue(juju.APIClose, apiClose)
 }
 
-func newConfigStore(envName string, info *environInfo) configstore.Storage {
-	return &configStorage{
-		envs: map[string]*environInfo{
-			envName: info,
-		},
+// newConfigStoreWithError that will return the given
+// error from ReadInfo.
+func newConfigStoreWithError(err error) configstore.Storage {
+	return &errorConfigStorage{
+		Storage: configstore.NewMem(),
+		err:     err,
 	}
+}
+
+type errorConfigStorage struct {
+	configstore.Storage
+	err error
+}
+
+func (store *errorConfigStorage) ReadInfo(envName string) (configstore.EnvironInfo, error) {
+	return nil, store.err
 }
 
 type environInfo struct {
-	configstore.EnvironInfo // panic on methods we don't care about
-	creds                   configstore.APICredentials
-	endpoint                configstore.APIEndpoint
-	err                     error
+	creds           configstore.APICredentials
+	endpoint        configstore.APIEndpoint
+	bootstrapConfig map[string]interface{}
 }
 
-type configStorage struct {
-	configstore.Storage // panic on methods we don't care about
-	envs                map[string]*environInfo
-}
-
-func (store *configStorage) ReadInfo(envName string) (configstore.EnvironInfo, error) {
-	info := store.envs[envName]
-	if info == nil {
-		return nil, errors.NotFoundf("info on environment %q", envName)
+// newConfigStore returns a storage that contains information
+// for the environment name.
+func newConfigStore(envName string, info *environInfo) configstore.Storage {
+	store := configstore.NewMem()
+	newInfo, err := store.CreateInfo(envName)
+	if err != nil {
+		panic(err)
 	}
-	if info.err != nil {
-		return nil, info.err
+	newInfo.SetAPICredentials(info.creds)
+	newInfo.SetAPIEndpoint(info.endpoint)
+	newInfo.SetBootstrapConfig(info.bootstrapConfig)
+	err = newInfo.Write()
+	if err != nil {
+		panic(err)
 	}
-	return info, nil
-}
-
-func (info *environInfo) APICredentials() configstore.APICredentials {
-	return info.creds
-}
-
-func (info *environInfo) APIEndpoint() configstore.APIEndpoint {
-	return info.endpoint
+	return store
 }

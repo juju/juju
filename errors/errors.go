@@ -30,8 +30,8 @@ type notFoundError struct {
 	*errorWrapper
 }
 
-// IsNotFoundError is satisfied by errors created by this package representing resources that can't
-// be found.
+// IsNotFoundError is satisfied by errors created by this package representing
+// resources that can't be found.
 func IsNotFoundError(err error) bool {
 	if _, ok := err.(notFoundError); ok {
 		return true
@@ -51,19 +51,21 @@ func NotFoundf(format string, args ...interface{}) error {
 	}
 }
 
-// NewNotFoundError returns a new error wrapping err that satisfies IsNotFoundError().
+// NewNotFoundError returns a new error wrapping err that satisfies
+// IsNotFoundError().
 func NewNotFoundError(err error, msg string) error {
 	return notFoundError{&errorWrapper{Err: err, Msg: msg}}
 }
 
 // unauthorizedError represents the error that an operation is unauthorized.
-// Use IsUnauthorized() to determine if the error was related to authorization failure.
+// Use IsUnauthorized() to determine if the error was related to authorization
+// failure.
 type unauthorizedError struct {
 	*errorWrapper
 }
 
-// IsUnauthorizedError is satisfied by errors created by this package representing
-// authorization failures.
+// IsUnauthorizedError is satisfied by errors created by this package
+// representing authorization failures.
 func IsUnauthorizedError(err error) bool {
 	_, ok := err.(unauthorizedError)
 	return ok
@@ -78,27 +80,29 @@ func Unauthorizedf(format string, args ...interface{}) error {
 	}
 }
 
-// NewUnauthorizedError returns an error which wraps err and satisfies IsUnauthorized().
+// NewUnauthorizedError returns an error which wraps err and satisfies
+// IsUnauthorized().
 func NewUnauthorizedError(err error, msg string) error {
-	return unauthorizedError{&errorWrapper{Msg: msg}}
+	return unauthorizedError{&errorWrapper{Err: err, Msg: msg}}
 }
 
-// notBootstrappedError indicates that the environment can't be used because it hasn't been
-// bootstrapped yet.
-type notBootstrappedError struct {
-	*errorWrapper
+type notImplementedError struct {
+	what string
 }
 
-// IsNotBootstrapped is satisfied by errors created by this package representing an environment
-// that isn't bootstrapped.
-func IsNotBootstrapped(err error) bool {
-	if _, ok := err.(notBootstrappedError); ok {
-		return true
-	}
-	return false
+// NewNotImplementedError returns an error signifying that
+// something is not implemented.
+func NewNotImplementedError(what string) error {
+	return &notImplementedError{what: what}
 }
 
-// NewNotBootstrappedError returns a new error which wraps err and satisfies IsNotBootstrapped().
-func NewNotBootstrappedError(err error, msg string) error {
-	return notBootstrappedError{&errorWrapper{Err: err, Msg: msg}}
+func (e *notImplementedError) Error() string {
+	return e.what + " not implemented"
+}
+
+// IsNotImplementedError reports whether the error
+// was created with NewNotImplementedError.
+func IsNotImplementedError(err error) bool {
+	_, ok := err.(*notImplementedError)
+	return ok
 }

@@ -70,7 +70,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	add := func(e params.EntityInfo) {
 		entities = append(entities, e)
 	}
-	m, err := s.State.AddMachine("series", JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, "machine-0")
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
@@ -133,7 +133,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(err, gc.IsNil)
 		c.Assert(wu.Tag(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := s.State.AddMachine("series", JobHostUnits)
+		m, err := s.State.AddMachine("quantal", JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Tag(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -155,7 +155,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetStatus(params.StatusError, m.Tag())
+		err = m.SetStatus(params.StatusError, m.Tag(), nil)
 		c.Assert(err, gc.IsNil)
 		add(&params.MachineInfo{
 			Id:         fmt.Sprint(i + 1),
@@ -187,7 +187,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
-			Series:  "series",
+			Series:  "quantal",
 			Ports:   []instance.Port{},
 			Status:  params.StatusPending,
 		})
@@ -260,9 +260,9 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "machine is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
-			err = m.SetStatus(params.StatusError, "failure")
+			err = m.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -288,7 +288,7 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("series", JobManageEnviron)
+			m, err := st.AddMachine("quantal", JobManageEnviron)
 			c.Assert(err, gc.IsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, gc.IsNil)
@@ -335,11 +335,11 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, gc.IsNil)
-			m, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusError, "failure")
+			err = u.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -350,7 +350,7 @@ var allWatcherChangedTests = []struct {
 			&params.UnitInfo{
 				Name:           "wordpress/0",
 				Service:        "wordpress",
-				Series:         "series",
+				Series:         "quantal",
 				PublicAddress:  "public",
 				PrivateAddress: "private",
 				MachineId:      "0",
@@ -384,7 +384,7 @@ var allWatcherChangedTests = []struct {
 			&params.UnitInfo{
 				Name:          "wordpress/0",
 				Service:       "wordpress",
-				Series:        "series",
+				Series:        "quantal",
 				PublicAddress: "public",
 				Ports:         []instance.Port{{"udp", 17070}},
 				Status:        params.StatusError,
@@ -426,7 +426,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				Exposed:  true,
-				CharmURL: "local:series/series-wordpress-3",
+				CharmURL: "local:quantal/quantal-wordpress-3",
 				Life:     params.Life(Alive.String()),
 				MinUnits: 42,
 				Config:   charm.Settings{},
@@ -437,7 +437,7 @@ var allWatcherChangedTests = []struct {
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:        "wordpress",
 			Exposed:     true,
-			CharmURL:    "local:series/series-wordpress-3",
+			CharmURL:    "local:quantal/quantal-wordpress-3",
 			MinUnits:    47,
 			Constraints: constraints.MustParse("mem=99M"),
 			Config:      charm.Settings{"blog-title": "boring"},
@@ -454,7 +454,7 @@ var allWatcherChangedTests = []struct {
 		expectContents: []params.EntityInfo{
 			&params.ServiceInfo{
 				Name:        "wordpress",
-				CharmURL:    "local:series/series-wordpress-3",
+				CharmURL:    "local:quantal/quantal-wordpress-3",
 				Life:        params.Life(Alive.String()),
 				Constraints: constraints.MustParse("mem=99M"),
 				Config:      charm.Settings{"blog-title": "boring"},
@@ -466,7 +466,7 @@ var allWatcherChangedTests = []struct {
 			Name: "wordpress",
 			// Note: CharmURL has a different revision number from
 			// the wordpress revision in the testing repo.
-			CharmURL: "local:series/series-wordpress-2",
+			CharmURL: "local:quantal/quantal-wordpress-2",
 			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
@@ -481,7 +481,7 @@ var allWatcherChangedTests = []struct {
 		expectContents: []params.EntityInfo{
 			&params.ServiceInfo{
 				Name:     "wordpress",
-				CharmURL: "local:series/series-wordpress-3",
+				CharmURL: "local:quantal/quantal-wordpress-3",
 				Life:     params.Life(Alive.String()),
 				Config:   charm.Settings{"blog-title": "boring"},
 			},
@@ -548,7 +548,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "annotation is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, gc.IsNil)
@@ -574,7 +574,7 @@ var allWatcherChangedTests = []struct {
 			},
 		}},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetAnnotations(map[string]string{
 				"arble":  "khroomph",
@@ -636,7 +636,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, gc.IsNil)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusStarted, "")
+			err = u.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -645,8 +645,43 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.UnitInfo{
-				Name:   "wordpress/0",
-				Status: params.StatusStarted,
+				Name:       "wordpress/0",
+				Status:     params.StatusStarted,
+				StatusData: params.StatusData{},
+			},
+		},
+	}, {
+		about: "status is changed with additional status data",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:   "wordpress/0",
+			Status: params.StatusStarted,
+		}},
+		setUp: func(c *gc.C, st *State) {
+			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
+			c.Assert(err, gc.IsNil)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
+				"1st-key": "one",
+				"2nd-key": 2,
+				"3rd-key": true,
+			})
+			c.Assert(err, gc.IsNil)
+		},
+		change: watcher.Change{
+			C:  "statuses",
+			Id: "u#wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Status:     params.StatusError,
+				StatusInfo: "hook error",
+				StatusData: params.StatusData{
+					"1st-key": "one",
+					"2nd-key": 2,
+					"3rd-key": true,
+				},
 			},
 		},
 	},
@@ -683,9 +718,9 @@ var allWatcherChangedTests = []struct {
 			StatusInfo: "failure",
 		}},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("series", JobHostUnits)
+			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
-			err = m.SetStatus(params.StatusStarted, "")
+			err = m.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -694,8 +729,9 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.MachineInfo{
-				Id:     "0",
-				Status: params.StatusStarted,
+				Id:         "0",
+				Status:     params.StatusStarted,
+				StatusData: params.StatusData{},
 			},
 		},
 	},
@@ -751,28 +787,28 @@ var allWatcherChangedTests = []struct {
 		setUp: func(c *gc.C, st *State) {},
 		change: watcher.Change{
 			C:  "settings",
-			Id: "s#wordpress#local:series/series-wordpress-3",
+			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
 		},
 	}, {
 		about: "no change if service is not in backing",
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
-			CharmURL: "local:series/series-wordpress-3",
+			CharmURL: "local:quantal/quantal-wordpress-3",
 		}},
 		setUp: func(*gc.C, *State) {},
 		change: watcher.Change{
 			C:  "settings",
-			Id: "s#wordpress#local:series/series-wordpress-3",
+			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
 		},
 		expectContents: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
-			CharmURL: "local:series/series-wordpress-3",
+			CharmURL: "local:quantal/quantal-wordpress-3",
 		}},
 	}, {
 		about: "service config is changed if service exists in the store with the same URL",
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
-			CharmURL: "local:series/series-wordpress-3",
+			CharmURL: "local:quantal/quantal-wordpress-3",
 			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
@@ -782,12 +818,12 @@ var allWatcherChangedTests = []struct {
 		},
 		change: watcher.Change{
 			C:  "settings",
-			Id: "s#wordpress#local:series/series-wordpress-3",
+			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
 		},
 		expectContents: []params.EntityInfo{
 			&params.ServiceInfo{
 				Name:     "wordpress",
-				CharmURL: "local:series/series-wordpress-3",
+				CharmURL: "local:quantal/quantal-wordpress-3",
 				Config:   charm.Settings{"blog-title": "foo"},
 			},
 		},
@@ -795,26 +831,26 @@ var allWatcherChangedTests = []struct {
 		about: "service config is unescaped when reading from the backing store",
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
-			CharmURL: "local:series/series-wordpress-3",
+			CharmURL: "local:quantal/quantal-wordpress-3",
 			Config:   charm.Settings{"key.dotted": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
 			testCharm := AddCustomCharm(
 				c, st, "wordpress",
 				"config.yaml", dottedConfig,
-				"series", 3)
+				"quantal", 3)
 			svc, err := st.AddService("wordpress", testCharm)
 			c.Assert(err, gc.IsNil)
 			setServiceConfigAttr(c, svc, "key.dotted", "foo")
 		},
 		change: watcher.Change{
 			C:  "settings",
-			Id: "s#wordpress#local:series/series-wordpress-3",
+			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
 		},
 		expectContents: []params.EntityInfo{
 			&params.ServiceInfo{
 				Name:     "wordpress",
-				CharmURL: "local:series/series-wordpress-3",
+				CharmURL: "local:quantal/quantal-wordpress-3",
 				Config:   charm.Settings{"key.dotted": "foo"},
 			},
 		},
@@ -822,7 +858,7 @@ var allWatcherChangedTests = []struct {
 		about: "service config is unchanged if service exists in the store with a different URL",
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
-			CharmURL: "local:series/series-wordpress-2", // Note different revno.
+			CharmURL: "local:quantal/quantal-wordpress-2", // Note different revno.
 			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
@@ -832,12 +868,12 @@ var allWatcherChangedTests = []struct {
 		},
 		change: watcher.Change{
 			C:  "settings",
-			Id: "s#wordpress#local:series/series-wordpress-3",
+			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
 		},
 		expectContents: []params.EntityInfo{
 			&params.ServiceInfo{
 				Name:     "wordpress",
-				CharmURL: "local:series/series-wordpress-2",
+				CharmURL: "local:quantal/quantal-wordpress-2",
 				Config:   charm.Settings{"foo": "bar"},
 			},
 		},
@@ -896,11 +932,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.State.AddMachine("series", JobManageEnviron)
+	m0, err := s.State.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
-	m1, err := s.State.AddMachine("series", JobHostUnits)
+	m1, err := s.State.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
@@ -930,7 +966,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m1.Remove()
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("series", JobManageEnviron)
+	m2, err := s.State.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 	s.State.StartSync()

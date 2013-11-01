@@ -20,6 +20,8 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -40,7 +42,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobManageEnviron)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
@@ -86,7 +88,7 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 
 func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
-	otherMachine, err := s.State.AddMachine("series", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
@@ -126,7 +128,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
-	otherMachine, err := s.State.AddMachine("series", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
@@ -145,7 +147,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 
 func (s *provisionerSuite) TestSetProvisionedAndInstanceId(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
-	notProvisionedMachine, err := s.State.AddMachine("series", state.JobHostUnits)
+	notProvisionedMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	apiMachine, err := s.provisioner.Machine(notProvisionedMachine.Tag())
@@ -192,13 +194,13 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	series, err = apiMachine.Series()
 	c.Assert(err, gc.IsNil)
-	c.Assert(series, gc.Equals, "series")
+	c.Assert(series, gc.Equals, "quantal")
 }
 
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
 	args := state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=12", "mem=8G"),
 	}
@@ -225,7 +227,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Add one LXC container.
 	args := state.AddMachineParams{
-		Series:        "series",
+		Series:        "quantal",
 		ParentId:      s.machine.Id(),
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 		ContainerType: instance.LXC,
@@ -273,9 +275,9 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertChange(s.machine.Id())
 
 	// Add another 2 machines make sure they are detected.
-	otherMachine, err := s.State.AddMachine("series", state.JobHostUnits)
+	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	otherMachine, err = s.State.AddMachine("series", state.JobHostUnits)
+	otherMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("1", "2")
 
@@ -286,7 +288,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 
 	// Add a container and make sure it's not detected.
 	args := state.AddMachineParams{
-		Series:        "series",
+		Series:        "quantal",
 		ParentId:      s.machine.Id(),
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 		ContainerType: instance.LXC,
@@ -336,4 +338,58 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
+	err := s.machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
+	stateAddresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	addresses, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.DeepEquals, stateAddresses)
+}
+
+func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
+	err := s.machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	addresses, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.DeepEquals, apiAddresses)
+}
+
+func (s *provisionerSuite) TestCACert(c *gc.C) {
+	caCert, err := s.provisioner.CACert()
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
+}
+
+func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
+	tools, err := s.provisioner.Tools("42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(tools, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestTools(c *gc.C) {
+	cur := version.Current
+	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools.Version.Minor++
+	s.machine.SetAgentVersion(cur)
+	// Provisioner.Tools returns the *desired* set of tools, not the
+	// currently running set. We want to be upgraded to cur.Version
+	stateTools, err := s.provisioner.Tools(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateTools.Version, gc.Equals, cur)
+	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
 }

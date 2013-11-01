@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -31,9 +32,29 @@ var logger = loggo.GetLogger("juju.environs.simplestreams")
 
 // CloudSpec uniquely defines a specific cloud deployment.
 type CloudSpec struct {
-	Region   string
-	Endpoint string
+	Region   string `json:"region"`
+	Endpoint string `json:"endpoint"`
 }
+
+// equals returns true if spec == other, allowing for endpoints
+// with or without a trailing "/".
+func (spec *CloudSpec) equals(other *CloudSpec) bool {
+	if spec.Region != other.Region {
+		return false
+	}
+	specEndpoint := spec.Endpoint
+	if !strings.HasSuffix(specEndpoint, "/") {
+		specEndpoint += "/"
+	}
+	otherEndpoint := other.Endpoint
+	if !strings.HasSuffix(otherEndpoint, "/") {
+		otherEndpoint += "/"
+	}
+	return specEndpoint == otherEndpoint
+}
+
+// EmptyCloudSpec is used when we want all records regardless of cloud to be loaded.
+var EmptyCloudSpec = CloudSpec{}
 
 // HasRegion is implemented by instances which can provide a region to which they belong.
 // A region is defined by region name and endpoint.
@@ -76,6 +97,7 @@ var seriesVersions = map[string]string{
 	"quantal": "12.10",
 	"raring":  "13.04",
 	"saucy":   "13.10",
+	"trusty":  "14.04",
 }
 
 var (
@@ -85,6 +107,9 @@ var (
 
 // SeriesVersion returns the version number for the specified Ubuntu series.
 func SeriesVersion(series string) (string, error) {
+	if series == "" {
+		panic("cannot pass empty series to SeriesVersion()")
+	}
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	if vers, ok := seriesVersions[series]; ok {
@@ -109,15 +134,14 @@ func SupportedSeries() []string {
 	return series
 }
 
-func updateSeriesVersions() error {
+func updateSeriesVersions() {
 	if !updatedseriesVersions {
 		err := updateDistroInfo()
-		updatedseriesVersions = true
 		if err != nil {
-			return err
+			logger.Warningf("failed to update distro info: %v", err)
 		}
+		updatedseriesVersions = true
 	}
-	return nil
 }
 
 // updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
@@ -211,8 +235,9 @@ type Indices struct {
 // Exported for testing.
 type IndexReference struct {
 	Indices
-	Source      DataSource
-	valueParams ValueParams
+	MirroredProductsPath string
+	Source               DataSource
+	valueParams          ValueParams
 }
 
 type IndexMetadata struct {
@@ -229,8 +254,6 @@ type IndexMetadata struct {
 
 type MirrorRefs struct {
 	Mirrors map[string][]MirrorReference `json:"mirrors"`
-	Updated string                       `json:"updated"`
-	Format  string                       `json:"format"`
 }
 
 type MirrorReference struct {
@@ -308,10 +331,11 @@ func (metadata *IndexMetadata) String() string {
 
 // hasCloud tells you whether an IndexMetadata has the given cloud in its
 // Clouds list. If IndexMetadata has no clouds defined, then hasCloud
-// returns true regardless.
+// returns true regardless so that the corresponding product records
+// are searched.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
-		if metadataCloud == cloud {
+		if metadataCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -343,17 +367,14 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-var urlClient *http.Client
-
 func init() {
-	urlClient = &http.Client{Transport: http.DefaultTransport}
 	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 }
 
 // RegisterProtocol registers a new protocol with the simplestreams http client.
 // Exported for testing.
 func RegisterProtocol(scheme string, rt http.RoundTripper) {
-	urlClient.Transport.(*http.Transport).RegisterProtocol(scheme, rt)
+	http.DefaultTransport.(*http.Transport).RegisterProtocol(scheme, rt)
 }
 
 // noMatchingProductsError is used to indicate that metadata files have been located,
@@ -372,9 +393,12 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 }
 
 const (
+	UnsignedIndex    = "streams/v1/index.json"
 	DefaultIndexPath = "streams/v1/index"
-	SignedSuffix     = ".sjson"
-	UnsignedSuffix   = ".json"
+	UnsignedMirror   = "streams/v1/mirrors.json"
+	mirrorsPath      = "streams/v1/mirrors"
+	signedSuffix     = ".sjson"
+	unsignedSuffix   = ".json"
 )
 
 type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
@@ -383,91 +407,81 @@ type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, 
 type ValueParams struct {
 	// The simplestreams data type key.
 	DataType string
+	// The key to use when looking for content mirrors.
+	MirrorContentId string
 	// A function used to filter and return records of a given type.
 	FilterFunc appendMatchingFunc
 	// An struct representing the type of records to return.
 	ValueTemplate interface{}
+	// For signed metadata, the public key used to validate the signature.
+	PublicKey string
 }
 
-// GetMaybeSignedMetadata returns metadata records matching the specified constraint.
-func GetMaybeSignedMetadata(sources []DataSource, indexPath string, cons LookupConstraint, requireSigned bool, params ValueParams) ([]interface{}, error) {
-	var items []interface{}
+// GetMetadata returns metadata records matching the specified constraint,looking in each source for signed metadata.
+// If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
+// Each source is tried in turn until at least one signed (or unsigned) match is found.
+func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstraint, onlySigned bool, params ValueParams) (items []interface{}, err error) {
 	for _, source := range sources {
-		indexURL, err := source.URL(indexPath)
-		if err != nil {
-			// Some providers return an error if asked for the URL of a non-existent file.
-			// So the best we can do is use the relative path for the URL when logging messages.
-			indexURL = indexPath
+		items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, true, params)
+		// If no items are found using signed metadata, check unsigned.
+		if err != nil && len(items) == 0 && !onlySigned {
+			items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
 		}
-		indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
-		if err != nil {
-			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q: %v", indexURL, err)
-				continue
-			}
-			return nil, err
-		}
-		logger.Debugf("read metadata index at %q", indexURL)
-		items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", requireSigned)
-		if err != nil {
-			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
-				continue
-			}
-			if _, ok := err.(*noMatchingProductsError); ok {
-				logger.Debugf("%v", err)
-				break
-			}
-			return nil, err
-		}
-		if len(items) > 0 {
+		if err == nil {
 			break
 		}
 	}
-	return items, nil
+	return items, err
 }
 
-// GetMaybeSignedMirror returns a mirror info struct matching the specified content and cloud.
-func GetMaybeSignedMirror(sources []DataSource, indexPath string, requireSigned bool, contentId string, cloudSpec CloudSpec) (*MirrorInfo, error) {
-	var mirrorInfo *MirrorInfo
-	for _, source := range sources {
-		mirrorRefs, dataURL, err := GetMirrorRefsWithFormat(source, indexPath, "index:1.0", requireSigned)
-		if err != nil {
-			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q: %v", dataURL, err)
-				continue
-			}
+// getMaybeSignedMetadata returns metadata records matching the specified constraint.
+func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons LookupConstraint, signed bool, params ValueParams) ([]interface{}, error) {
+	indexPath := baseIndexPath + unsignedSuffix
+	if signed {
+		indexPath = baseIndexPath + signedSuffix
+	}
+	var items []interface{}
+	indexURL, err := source.URL(indexPath)
+	if err != nil {
+		// Some providers return an error if asked for the URL of a non-existent file.
+		// So the best we can do is use the relative path for the URL when logging messages.
+		indexURL = indexPath
+	}
+	indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", signed, cons.Params().CloudSpec, params)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			logger.Debugf("cannot load index %q: %v", indexURL, err)
+		}
+		return nil, err
+	}
+	logger.Debugf("read metadata index at %q", indexURL)
+	items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", signed)
+	if err != nil {
+		if errors.IsNotFoundError(err) {
+			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
 			return nil, err
 		}
-		mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
-		if err != nil {
-			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", dataURL, err)
-				continue
-			}
-			return nil, err
-		}
-		mirrorInfo, err = mirrorRef.getMirrorInfo(source, contentId, cloudSpec, "mirrors:1.0", requireSigned)
-		if err != nil {
-			return nil, err
+		if _, ok := err.(*noMatchingProductsError); ok {
+			logger.Debugf("%v", err)
+			// No matching products is not considered an error which will allow another source to be
+			// searched, so return err = nil here.
+			return items, nil
 		}
 	}
-	if mirrorInfo == nil {
-		return nil, errors.NotFoundf("mirror metadata for %q and cloud %v", contentId, cloudSpec)
-	}
-	return mirrorInfo, nil
+	return items, err
 }
 
 // fetchData gets all the data from the given source located at the specified path.
 // It returns the data found and the full URL used.
-func fetchData(source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
+func fetchData(source DataSource, path string, requireSigned bool, publicKey string) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
+		logger.Debugf("fetchData failed for %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	defer rc.Close()
 	if requireSigned {
-		data, err = DecodeCheckSignature(rc)
+		data, err = DecodeCheckSignature(rc, publicKey)
 	} else {
 		data, err = ioutil.ReadAll(rc)
 	}
@@ -479,8 +493,10 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 
 // GetIndexWithFormat returns a simplestreams index of the specified format.
 // Exported for testing.
-func GetIndexWithFormat(source DataSource, indexPath, format string, requireSigned bool, params ValueParams) (*IndexReference, error) {
-	data, url, err := fetchData(source, indexPath, requireSigned)
+func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requireSigned bool,
+	cloudSpec CloudSpec, params ValueParams) (*IndexReference, error) {
+
+	data, url, err := fetchData(source, indexPath, requireSigned, params.PublicKey)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 			return nil, err
@@ -492,19 +508,86 @@ func GetIndexWithFormat(source DataSource, indexPath, format string, requireSign
 	if err != nil {
 		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %q: %v", url, err)
 	}
-	if indices.Format != format {
-		return nil, fmt.Errorf("unexpected index file format %q, expected %q at URL %q", indices.Format, format, url)
+	if indices.Format != indexFormat {
+		return nil, fmt.Errorf(
+			"unexpected index file format %q, expected %q at URL %q", indices.Format, indexFormat, url)
 	}
-	return &IndexReference{
+
+	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned, params)
+	if err != nil && !errors.IsNotFoundError(err) && !errors.IsUnauthorizedError(err) {
+		return nil, fmt.Errorf("cannot load mirror metadata at URL %q: %v", url, err)
+	}
+
+	indexRef := &IndexReference{
 		Source:      source,
 		Indices:     indices,
 		valueParams: params,
-	}, nil
+	}
+
+	// Apply any mirror information to the source.
+	if params.MirrorContentId != "" {
+		mirrorInfo, err := getMirror(
+			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned, params.PublicKey)
+		if err == nil {
+			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
+			indexRef.Source = NewURLDataSource(mirrorInfo.MirrorURL, VerifySSLHostnames)
+			indexRef.MirroredProductsPath = mirrorInfo.Path
+		} else {
+			logger.Debugf("no mirror information available for %s: %v", cloudSpec, err)
+		}
+	}
+
+	return indexRef, nil
+}
+
+// getMirrorRefs parses and returns a simplestreams mirror reference.
+func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool,
+	params ValueParams) (MirrorRefs, string, error) {
+
+	mirrorsPath := baseMirrorsPath + unsignedSuffix
+	if requireSigned {
+		mirrorsPath = baseMirrorsPath + signedSuffix
+	}
+	var mirrors MirrorRefs
+	data, url, err := fetchData(source, mirrorsPath, requireSigned, params.PublicKey)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			logger.Debugf("no mirror index file found")
+			return mirrors, url, err
+		}
+		return mirrors, url, fmt.Errorf("cannot read mirrors data, %v", err)
+	}
+	err = json.Unmarshal(data, &mirrors)
+	if err != nil {
+		return mirrors, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+	}
+	return mirrors, url, err
+}
+
+// getMirror returns a mirror info struct matching the specified content and cloud.
+func getMirror(source DataSource, mirrors MirrorRefs, datatype, contentId string, cloudSpec CloudSpec,
+	requireSigned bool, publicKey string) (*MirrorInfo, error) {
+
+	mirrorRef, err := mirrors.getMirrorReference(datatype, contentId, cloudSpec)
+	if err != nil {
+		return nil, err
+	}
+	mirrorInfo, err := mirrorRef.getMirrorInfo(source, contentId, cloudSpec, "mirrors:1.0", requireSigned, publicKey)
+	if err != nil {
+		return nil, err
+	}
+	if mirrorInfo == nil {
+		return nil, errors.NotFoundf("mirror metadata for %q and cloud %v", contentId, cloudSpec)
+	}
+	return mirrorInfo, nil
 }
 
 // GetProductsPath returns the path to the metadata file containing products for the specified constraint.
 // Exported for testing.
 func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, error) {
+	if indexRef.MirroredProductsPath != "" {
+		return indexRef.MirroredProductsPath, nil
+	}
 	prodIds, err := cons.Ids()
 	if err != nil {
 		return "", err
@@ -518,13 +601,15 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file missing %q data", indexRef.valueParams.DataType)
 	}
-	// Restrict by cloud spec.
-	hasRightCloud := func(metadata *IndexMetadata) bool {
-		return metadata.hasCloud(cons.Params().CloudSpec)
-	}
-	candidates = candidates.filter(hasRightCloud)
-	if len(candidates) == 0 {
-		return "", errors.NotFoundf("index file has no data for cloud %v", cons.Params().CloudSpec)
+	// Restrict by cloud spec, if required.
+	if cons.Params().CloudSpec != EmptyCloudSpec {
+		hasRightCloud := func(metadata *IndexMetadata) bool {
+			return metadata.hasCloud(cons.Params().CloudSpec)
+		}
+		candidates = candidates.filter(hasRightCloud)
+		if len(candidates) == 0 {
+			return "", errors.NotFoundf("index file has no data for cloud %v", cons.Params().CloudSpec)
+		}
 	}
 	// Restrict by product IDs.
 	hasProduct := func(metadata *IndexMetadata) bool {
@@ -541,27 +626,6 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	return candidates[0].ProductsFilePath, nil
 }
 
-// GetMirrorRefsWithFormat returns a simplestreams mirrors struct of the specified format.
-// Exported for testing.
-func GetMirrorRefsWithFormat(source DataSource, indexPath, format string, requireSigned bool) (*MirrorRefs, string, error) {
-	data, url, err := fetchData(source, indexPath, requireSigned)
-	if err != nil {
-		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-			return nil, url, err
-		}
-		return nil, url, fmt.Errorf("cannot read index data, %v", err)
-	}
-	var mirrorRefs MirrorRefs
-	err = json.Unmarshal(data, &mirrorRefs)
-	if err != nil {
-		return nil, url, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
-	}
-	if mirrorRefs.Format != format {
-		return nil, url, fmt.Errorf("unexpected mirror file format %q, expected %q at URL %q", mirrorRefs.Format, format, url)
-	}
-	return &mirrorRefs, url, nil
-}
-
 // extractMirrorRefs returns just the array of MirrorRef structs for the contentId, in arbitrary order.
 func (mirrorRefs *MirrorRefs) extractMirrorRefs(contentId string) MirrorRefSlice {
 	for id, refs := range mirrorRefs.Mirrors {
@@ -576,7 +640,7 @@ func (mirrorRefs *MirrorRefs) extractMirrorRefs(contentId string) MirrorRefSlice
 // Clouds list.
 func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
 	for _, refCloud := range mirrorRef.Clouds {
-		if refCloud == cloud {
+		if refCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -584,15 +648,14 @@ func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
 }
 
 // GetMirrorReference returns the reference to the metadata file containing mirrors for the specified content and cloud.
-// Exported for testing.
-func (mirrorRefs *MirrorRefs) GetMirrorReference(contentId string, cloud CloudSpec) (*MirrorReference, error) {
+func (mirrorRefs *MirrorRefs) getMirrorReference(datatype, contentId string, cloud CloudSpec) (*MirrorReference, error) {
 	candidates := mirrorRefs.extractMirrorRefs(contentId)
 	if len(candidates) == 0 {
 		return nil, errors.NotFoundf("mirror data for %q", contentId)
 	}
-	// Restrict by cloud spec.
+	// Restrict by cloud spec and datatype.
 	hasRightCloud := func(mirrorRef *MirrorReference) bool {
-		return mirrorRef.hasCloud(cloud)
+		return mirrorRef.hasCloud(cloud) && mirrorRef.DataType == datatype
 	}
 	matchingCandidates := candidates.filter(hasRightCloud)
 	if len(matchingCandidates) == 0 {
@@ -613,8 +676,10 @@ func (mirrorRefs *MirrorRefs) GetMirrorReference(contentId string, cloud CloudSp
 }
 
 // getMirrorInfo returns mirror information from the mirror file at the given path for the specified content and cloud.
-func (mirrorRef *MirrorReference) getMirrorInfo(source DataSource, contentId string, cloud CloudSpec, format string, requireSigned bool) (*MirrorInfo, error) {
-	metadata, err := GetMirrorMetadataWithFormat(source, mirrorRef.Path, format, requireSigned)
+func (mirrorRef *MirrorReference) getMirrorInfo(source DataSource, contentId string, cloud CloudSpec, format string,
+	requireSigned bool, publicKey string) (*MirrorInfo, error) {
+
+	metadata, err := GetMirrorMetadataWithFormat(source, mirrorRef.Path, format, requireSigned, publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -627,8 +692,10 @@ func (mirrorRef *MirrorReference) getMirrorInfo(source DataSource, contentId str
 
 // GetMirrorMetadataWithFormat returns simplestreams mirror data of the specified format.
 // Exported for testing.
-func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string, requireSigned bool) (*MirrorMetadata, error) {
-	data, url, err := fetchData(source, mirrorPath, requireSigned)
+func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string,
+	requireSigned bool, publicKey string) (*MirrorMetadata, error) {
+
+	data, url, err := fetchData(source, mirrorPath, requireSigned, publicKey)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 			return nil, err
@@ -650,7 +717,7 @@ func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string, r
 // Clouds list.
 func (mirrorInfo *MirrorInfo) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range mirrorInfo.Clouds {
-		if metadataCloud == cloud {
+		if metadataCloud.equals(&cloud) {
 			return true
 		}
 	}
@@ -860,13 +927,13 @@ func setFieldByTag(x interface{}, tag, val string, override bool) {
 
 // GetCloudMetadataWithFormat loads the entire cloud metadata encoded using the specified format.
 // Exported for testing.
-func (indexRef *IndexReference) GetCloudMetadataWithFormat(ic LookupConstraint, format string, requireSigned bool) (*CloudMetadata, error) {
-	productFilesPath, err := indexRef.GetProductsPath(ic)
+func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint, format string, requireSigned bool) (*CloudMetadata, error) {
+	productFilesPath, err := indexRef.GetProductsPath(cons)
 	if err != nil {
 		return nil, err
 	}
 	logger.Debugf("finding products at path %q", productFilesPath)
-	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
+	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned, indexRef.valueParams.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read product data, %v", err)
 	}

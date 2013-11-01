@@ -4,8 +4,6 @@
 package environs
 
 import (
-	"errors"
-
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
@@ -46,8 +44,9 @@ type EnvironProvider interface {
 	BoilerplateConfig() string
 
 	// SecretAttrs filters the supplied configuration returning only values
-	// which are considered sensitive.
-	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
+	// which are considered sensitive. All of the values of these secret
+	// attributes need to be strings.
+	SecretAttrs(cfg *config.Config) (map[string]string, error)
 
 	// PublicAddress returns this machine's public host name.
 	PublicAddress() (string, error)
@@ -56,27 +55,24 @@ type EnvironProvider interface {
 	PrivateAddress() (string, error)
 }
 
-var ErrNoInstances = errors.New("no instances found")
-var ErrPartialInstances = errors.New("only some instances were found")
-
-// EnvironStorage implements storage access for an environment.
+// EnvironStorage implements storage access for an environment
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() storage.StorageReader
 }
 
-// BootstrapStorager is an interface that returns a environs.Storage that may
-// be used before the bootstrap machine agent has been provisioned.
+// BootstrapStorager is an interface through which an Environ may be
+// instructed to use a special "bootstrap storage". Bootstrap storage
+// is one that may be used before the bootstrap machine agent has been
+// provisioned.
 //
-// This is useful for environments where the storage is managed by the machine
-// agent once bootstrapped.
+// This is useful for environments where the storage is managed by the
+// machine agent once bootstrapped.
 type BootstrapStorager interface {
-	// BootstrapStorager returns an environs.Storage that may be used while
-	// bootstrapping a machine.
-	BootstrapStorage() (storage.Storage, error)
+	// EnableBootstrapStorage enables bootstrap storage, returning an
+	// error if enablement failed. If nil is returned, then calling
+	// this again will have no effect and will return nil.
+	EnableBootstrapStorage() error
 }
 
 // ConfigGetter implements access to an environments configuration.
@@ -85,6 +81,28 @@ type ConfigGetter interface {
 	// Note that this is not necessarily current; the canonical location
 	// for the configuration data is stored in the state.
 	Config() *config.Config
+}
+
+// Prechecker is an optional interface that an Environ may implement,
+// in order to support pre-flight checking of instance/container creation.
+//
+// Prechecker's methods are best effort, and not guaranteed to eliminate
+// all invalid parameters. If a precheck method returns nil, it is not
+// guaranteed that the constraints are valid; if a non-nil error is
+// returned, then the constraints are definitely invalid.
+type Prechecker interface {
+	// PrecheckInstance performs a preflight check on the specified
+	// series and constraints, ensuring that they are possibly valid for
+	// creating an instance in this environment.
+	PrecheckInstance(series string, cons constraints.Value) error
+
+	// PrecheckContainer performs a preflight check on the container type,
+	// ensuring that the environment is possibly capable of creating a
+	// container of the specified type and series.
+	//
+	// The container type must be a valid ContainerType as specified
+	// in the instance package, and != instance.NONE.
+	PrecheckContainer(series string, kind instance.ContainerType) error
 }
 
 // An Environ represents a juju environment as specified
@@ -115,7 +133,7 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error
+	Bootstrap(cons constraints.Value, possibleTools tools.List) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -131,7 +149,7 @@ type Environ interface {
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage and PublicStorage.
+	// values previously obtained from Storage.
 	SetConfig(cfg *config.Config) error
 
 	// Instances returns a slice of instances corresponding to the
@@ -145,15 +163,13 @@ type Environ interface {
 	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
-	// rest of the environment. A list of instances known to
-	// be part of the environment can be given with insts.
-	// This is because recently started machines might not
-	// yet be visible in the environment, so this method
-	// can wait until they are.
+	// rest of the environment. Note that on some providers,
+	// very recently started instances may not be destroyed
+	// because they are not yet visible.
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid
-	Destroy(insts []instance.Instance) error
+	Destroy() error
 
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the

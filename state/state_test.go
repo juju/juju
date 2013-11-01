@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"labix.org/v2/mgo/bson"
@@ -24,7 +23,6 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -36,7 +34,7 @@ type D []bson.DocElem
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetStatus(params.StatusStarted, "")
+	err := u.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -55,34 +53,60 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestStateInfo(c *gc.C) {
-	info := state.TestingStateInfo()
-	stateAddr, err := s.State.Addresses()
+func (s *StateSuite) TestAddresses(c *gc.C) {
+	var err error
+	machines := make([]*state.Machine, 3)
+	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateAddr, gc.DeepEquals, info.Addrs)
-	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
+	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	for i, m := range machines {
+		err := m.SetAddresses([]instance.Address{{
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        fmt.Sprintf("10.0.0.%d", i),
+		}, {
+			Type:         instance.Ipv6Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        "::1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkMachineLocal,
+			Value:        "127.0.0.1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+			Value:        "5.4.3.2",
+		}})
+		c.Assert(err, gc.IsNil)
+	}
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
+	})
+
+	addrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
+	})
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
 	testing.MgoRestart()
 	c.Assert(s.State.Ping(), gc.NotNil)
-}
-
-func (s *StateSuite) TestAPIAddresses(c *gc.C) {
-	config, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	apiPort := strconv.Itoa(config.APIPort())
-	info := state.TestingStateInfo()
-	expectedAddrs := make([]string, 0, len(info.Addrs))
-	for _, stateAddr := range info.Addrs {
-		domain := strings.Split(stateAddr, ":")[0]
-		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
-		expectedAddrs = append(expectedAddrs, expectedAddr)
-	}
-	apiAddrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiAddrs, gc.DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *gc.C) {
@@ -96,7 +120,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	// Check that adding charms from scratch works correctly.
 	ch := testing.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, gc.IsNil)
@@ -137,15 +161,15 @@ func (s *StateSuite) TestJobString(c *gc.C) {
 func (s *StateSuite) TestAddMachineErrors(c *gc.C) {
 	_, err := s.State.AddMachine("")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.AddMachine("series")
+	_, err = s.State.AddMachine("quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
-	_, err = s.State.AddMachine("series", state.JobHostUnits, state.JobHostUnits)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: duplicate job: .*")
 }
 
 func (s *StateSuite) TestAddMachines(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.AddMachine("series", oneJob...)
+	m0, err := s.State.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
 	check := func(m *state.Machine, id, series string, jobs []state.MachineJob) {
 		c.Assert(m.Id(), gc.Equals, id)
@@ -153,10 +177,10 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 		c.Assert(m.Jobs(), gc.DeepEquals, jobs)
 		s.assertMachineContainers(c, m, nil)
 	}
-	check(m0, "0", "series", oneJob)
+	check(m0, "0", "quantal", oneJob)
 	m0, err = s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
-	check(m0, "0", "series", oneJob)
+	check(m0, "0", "quantal", oneJob)
 
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
@@ -174,7 +198,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	m, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.HasLen, 2)
-	check(m[0], "0", "series", oneJob)
+	check(m[0], "0", "quantal", oneJob)
 	check(m[1], "1", "blahblah", allJobs)
 }
 
@@ -184,22 +208,20 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
 	params := state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Constraints: extraCons,
 		Jobs:        oneJob,
 	}
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	expectedCons := constraints.MustParse("cpu-cores=4 mem=4G")
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
-
-var emptyCons = constraints.Value{}
 
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {
 	mc, err := m.Containers()
@@ -212,17 +234,17 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 	params := state.AddMachineParams{
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          oneJob,
 	}
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcons, gc.DeepEquals, emptyCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 
 	m, err = s.State.Machine("0")
@@ -235,26 +257,26 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.AddMachine("series", oneJob...)
+	m0, err := s.State.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("series", oneJob...)
+	m1, err := s.State.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.
 	params := state.AddMachineParams{
 		ParentId:      "1",
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "1/lxc/0")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcons, gc.DeepEquals, emptyCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
 
@@ -268,7 +290,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	m, err = s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "1/lxc/1")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
@@ -281,7 +303,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *gc.C) {
 	params := state.AddMachineParams{
 		ParentId:      "",
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Constraints:   cons,
 		Jobs:          oneJob,
 	}
@@ -296,7 +318,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *gc.C) {
 	m, err = s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	mcons, err := m.Constraints()
@@ -310,7 +332,7 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 	params := state.AddMachineParams{
 		ParentId:      "10",
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          oneJob,
 	}
 	_, err := s.State.AddMachineWithConstraints(&params)
@@ -333,11 +355,11 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 	}
 	err := injectMachine("", "i-minvalid", state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	err = injectMachine("series", "", state.BootstrapNonce, state.JobHostUnits)
+	err = injectMachine("quantal", "", state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without an instance id")
-	err = injectMachine("series", "i-minvalid", "", state.JobHostUnits)
+	err = injectMachine("quantal", "i-minvalid", "", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without a nonce")
-	err = injectMachine("series", state.BootstrapNonce, "i-mlazy")
+	err = injectMachine("quantal", state.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -346,8 +368,9 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	arch := "amd64"
 	mem := uint64(1024)
 	disk := uint64(1024)
+	tags := []string{"foo", "bar"}
 	params := &state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Constraints: cons,
 		InstanceId:  instance.Id("i-mindustrious"),
 		Nonce:       state.BootstrapNonce,
@@ -355,6 +378,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 			Arch:     &arch,
 			Mem:      &mem,
 			RootDisk: &disk,
+			Tags:     &tags,
 		},
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
@@ -378,7 +402,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	params := state.AddMachineParams{
-		Series:     "series",
+		Series:     "quantal",
 		InstanceId: instance.Id("i-mindustrious"),
 		Nonce:      state.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
@@ -390,17 +414,17 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	params = state.AddMachineParams{
 		ParentId:      "0",
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcons, gc.DeepEquals, emptyCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0"})
 
@@ -408,14 +432,14 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	m, err = s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/1")
-	c.Assert(m.Series(), gc.Equals, "series")
+	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
 }
 
 func (s *StateSuite) TestReadMachine(c *gc.C) {
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	expectedId := machine.Id()
 	machine, err = s.State.Machine(expectedId)
@@ -445,11 +469,11 @@ func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
 func (s *StateSuite) TestAllMachines(c *gc.C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-foo-bar"))
 		c.Assert(err, gc.IsNil)
 		err = m.Destroy()
 		c.Assert(err, gc.IsNil)
@@ -463,7 +487,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(string(instId), gc.Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, gc.IsNil)
-		c.Check(tools, gc.DeepEquals, newTools("7.8.9-foo-bar", "http://arble.tgz"))
+		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-foo-bar"))
 		c.Assert(m.Life(), gc.Equals, state.Dying)
 	}
 }
@@ -730,10 +754,9 @@ func (s *StateSuite) TestEnvironConfig(c *gc.C) {
 
 func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	// Environ constraints start out empty (for now).
-	cons0 := emptyCons
-	cons1, err := s.State.EnvironConstraints()
+	cons, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons1, gc.DeepEquals, cons0)
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Environ constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(1024)}
@@ -742,7 +765,6 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	cons3, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
-	c.Assert(cons3, gc.Not(gc.Equals), cons2)
 
 	// Environ constraints are completely overwritten when re-set.
 	cons4 := constraints.Value{CpuPower: uint64p(250)}
@@ -751,7 +773,6 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	cons5, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
-	c.Assert(cons5, gc.Not(gc.Equals), cons4)
 }
 
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
@@ -838,11 +859,11 @@ func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	// Alive machine...
-	alive, err := s.State.AddMachine("series", state.JobHostUnits)
+	alive, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Dying machine...
-	dying, err := s.State.AddMachine("series", state.JobHostUnits)
+	dying, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -850,13 +871,13 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Dead machine...
-	dead, err := s.State.AddMachine("series", state.JobHostUnits)
+	dead, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = dead.EnsureDead()
 	c.Assert(err, gc.IsNil)
 
 	// Gone machine.
-	gone, err := s.State.AddMachine("series", state.JobHostUnits)
+	gone, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = gone.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -892,7 +913,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0")
 	wc.AssertNoChange()
@@ -923,7 +944,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	// Older versions of juju do not write the "containertype" field.
 	// This has caused machines to not be detected in the initial event.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		D{{"_id", machine.Id()}},
@@ -948,7 +969,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 
 	// Add a machine: reported.
 	params := state.AddMachineParams{
-		Series: "series",
+		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	machine, err := s.State.AddMachineWithConstraints(&params)
@@ -982,7 +1003,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Add a host machine.
 	params := state.AddMachineParams{
-		Series: "series",
+		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	machine, err := s.State.AddMachineWithConstraints(&params)
@@ -1066,7 +1087,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	w := machine.WatchHardwareCharacteristics()
 	defer statetesting.AssertStop(c, w)
@@ -1081,15 +1102,8 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Alter the machine: not reported.
-	tools := &tools.Tools{
-		Version: version.Binary{
-			Number: version.MustParse("1.2.3"),
-			Series: "gutsy",
-			Arch:   "ppc",
-		},
-		URL: "http://canonical.com/",
-	}
-	err = machine.SetAgentTools(tools)
+	vers := version.MustParseBinary("1.2.3-gutsy-ppc")
+	err = machine.SetAgentVersion(vers)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 }
@@ -1249,7 +1263,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	// before, so this testing at least ensures we're conscious
 	// about such changes.
 
-	m1, err := s.State.AddMachine("series", state.JobHostUnits)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, gc.DeepEquals, m2)
@@ -1536,7 +1550,7 @@ var entityTypes = map[string]interface{}{
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
-	_, err := s.State.AddMachine("series", state.JobHostUnits)
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
@@ -1587,7 +1601,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	}
 
 	// Parse a machine entity name.
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, m.Tag())
 	c.Assert(coll, gc.Equals, "machines")
@@ -1855,6 +1869,171 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
 	c.Assert(state.ContainerTypeFromId("0/lxc/1"), gc.Equals, instance.LXC)
 	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	stringVersion := agentVersion.String()
+
+	// Add 4 machines: one with a different version, one with an
+	// empty version, one with the current version, and one with
+	// the new version.
+	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-series-arch"))
+	c.Assert(err, gc.IsNil)
+	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	machine3, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	// Verify machine0 and machine1 are reported as error.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	expectErr := fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
+
+	// Add a service and 4 units: one with a different version, one
+	// with an empty version, one with the current version, and one
+	// with the new version.
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	unit0, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+	_, err = service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	unit2, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	unit3, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	// Verify unit0 and unit1 are reported as error, along with the
+	// machines from before.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
+
+	// Now remove the machines.
+	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
+		err = machine.EnsureDead()
+		c.Assert(err, gc.IsNil)
+		err = machine.Remove()
+		c.Assert(err, gc.IsNil)
+	}
+
+	// Verify only the units are reported as error.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
+}
+
+func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	currentVersion := agentVersion.String()
+
+	// Add a machine and a unit with the current version.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	return envConfig, currentVersion
+}
+
+func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
+	attrs := envConfig.AllAttrs()
+	attrs[name] = value
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.State.SetEnvironConfig(newConfig), gc.IsNil)
+}
+
+func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion.String(), gc.Equals, vers)
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
+	envConfig, _ := s.prepareAgentVersionTests(c)
+
+	// Set up a transaction hook to change something
+	// other than the version, and make sure it retries
+	// and passes.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.changeEnviron(c, envConfig, "default-series", "foo")
+	}).Check()
+
+	// Change the agent-version and ensure it has changed.
+	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.IsNil)
+	s.assertAgentVersion(c, envConfig, "4.5.6")
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) {
+	envConfig, _ := s.prepareAgentVersionTests(c)
+
+	// Set up a transaction hook to change the version
+	// to the new one, and make sure it retries
+	// and passes.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.changeEnviron(c, envConfig, "agent-version", "4.5.6")
+	}).Check()
+
+	// Change the agent-version and verify.
+	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.IsNil)
+	s.assertAgentVersion(c, envConfig, "4.5.6")
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
+	envConfig, currentVersion := s.prepareAgentVersionTests(c)
+
+	// Set a hook to change the config 5 times
+	// to test we return ErrExcessiveContention.
+	changeFuncs := []func(){
+		func() { s.changeEnviron(c, envConfig, "default-series", "1") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "4") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "5") },
+	}
+	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
+	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	// Make sure the version remained the same.
+	s.assertAgentVersion(c, envConfig, currentVersion)
 }
 
 type waiter interface {

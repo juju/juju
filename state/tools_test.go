@@ -17,7 +17,7 @@ import (
 
 type tooler interface {
 	AgentTools() (*tools.Tools, error)
-	SetAgentTools(t *tools.Tools) error
+	SetAgentVersion(v version.Binary) error
 	Life() state.Life
 	Refresh() error
 	Destroy() error
@@ -34,6 +34,8 @@ func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
 		Version: version.MustParseBinary(vers),
 		URL:     url,
+		Size:    10,
+		SHA256:  "1234",
 	}
 }
 
@@ -43,27 +45,28 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	c.Assert(t, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	err = obj.SetAgentTools(&tools.Tools{})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty series or arch", agent))
-	t2 := newTools("7.8.9-foo-bar", "http://arble.tgz")
-	err = obj.SetAgentTools(t2)
+	err = obj.SetAgentVersion(version.Binary{})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent version for %s: empty series or arch", agent))
+
+	v2 := version.MustParseBinary("7.8.9-foo-bar")
+	err = obj.SetAgentVersion(v2)
 	c.Assert(err, gc.IsNil)
 	t3, err := obj.AgentTools()
 	c.Assert(err, gc.IsNil)
-	c.Assert(t3, gc.DeepEquals, t2)
+	c.Assert(t3.Version, gc.DeepEquals, v2)
 	err = obj.Refresh()
 	c.Assert(err, gc.IsNil)
 	t3, err = obj.AgentTools()
 	c.Assert(err, gc.IsNil)
-	c.Assert(t3, gc.DeepEquals, t2)
+	c.Assert(t3.Version, gc.DeepEquals, v2)
 
 	testWhenDying(c, obj, noErr, deadErr, func() error {
-		return obj.SetAgentTools(t2)
+		return obj.SetAgentVersion(v2)
 	})
 }
 
 func (s *ToolsSuite) TestMachineAgentTools(c *gc.C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	testAgentTools(c, m, "machine 0")
 }

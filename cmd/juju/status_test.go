@@ -23,7 +23,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -96,35 +95,35 @@ var (
 		"agent-state": "started",
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainers = M{
@@ -137,21 +136,21 @@ var (
 						"agent-state": "started",
 						"dns-name":    "dummyenv-3.dns",
 						"instance-id": "dummyenv-3",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"dns-name":    "dummyenv-2.dns",
 				"instance-id": "dummyenv-2",
-				"series":      "series",
+				"series":      "quantal",
 			},
 			"1/lxc/1": M{
 				"instance-id": "pending",
-				"series":      "series",
+				"series":      "quantal",
 			},
 		},
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainersScoped = M{
@@ -161,20 +160,20 @@ var (
 				"agent-state": "started",
 				"dns-name":    "dummyenv-2.dns",
 				"instance-id": "dummyenv-2",
-				"series":      "series",
+				"series":      "quantal",
 			},
 		},
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
-		"series":      "series",
+		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"charm":   "local:series/dummy-1",
+		"charm":   "local:quantal/dummy-1",
 		"exposed": false,
 	}
 	exposedService = M{
-		"charm":   "local:series/dummy-1",
+		"charm":   "local:quantal/dummy-1",
 		"exposed": true,
 	}
 )
@@ -217,7 +216,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{},
@@ -234,7 +233,7 @@ var statusTests = []testCase{
 						"agent-state": "pending",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
-						"series":      "series",
+						"series":      "quantal",
 						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -254,14 +253,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", &tools.Tools{
-			Version: version.Binary{
-				Number: version.MustParse("1.2.3"),
-				Series: "gutsy",
-				Arch:   "ppc",
-			},
-			URL: "http://canonical.com/",
-		}},
+		setTools{"0", version.MustParseBinary("1.2.3-gutsy-ppc")},
 		expect{
 			"simulate the MA setting the version",
 			M{
@@ -272,7 +264,7 @@ var statusTests = []testCase{
 						"instance-id":   "dummyenv-0",
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
-						"series":        "series",
+						"series":        "quantal",
 						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -293,7 +285,7 @@ var statusTests = []testCase{
 						"agent-state": "started",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
-						"series":      "series",
+						"series":      "quantal",
 						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
 					},
 				},
@@ -310,7 +302,7 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{},
@@ -327,7 +319,7 @@ var statusTests = []testCase{
 						"instance-state": "missing",
 						"instance-id":    "i-missing",
 						"agent-state":    "pending",
-						"series":         "series",
+						"series":         "quantal",
 						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -415,7 +407,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -429,7 +421,7 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -466,7 +458,7 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-3",
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
-						"series":           "series",
+						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
@@ -474,18 +466,18 @@ var statusTests = []testCase{
 						"instance-id":      "dummyenv-4",
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
-						"series":           "series",
+						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
 						"life":        "dead",
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -499,7 +491,7 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -524,7 +516,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -548,7 +540,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -574,7 +566,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -598,7 +590,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -625,7 +617,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -637,7 +629,7 @@ var statusTests = []testCase{
 						},
 					},
 					"exposed-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -668,12 +660,12 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
-						"series":      "series",
+						"series":      "quantal",
 					},
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:series/dummy-1",
+						"charm":   "local:quantal/dummy-1",
 						"exposed": false,
 						"life":    "dying",
 						"units": M{
@@ -745,7 +737,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"project": M{
-						"charm":   "local:series/wordpress-3",
+						"charm":   "local:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"project/0": M{
@@ -759,7 +751,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:series/mysql-1",
+						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -772,7 +764,7 @@ var statusTests = []testCase{
 						},
 					},
 					"varnish": M{
-						"charm":   "local:series/varnish-1",
+						"charm":   "local:quantal/varnish-1",
 						"exposed": true,
 						"units": M{
 							"varnish/0": M{
@@ -785,7 +777,7 @@ var statusTests = []testCase{
 						},
 					},
 					"private": M{
-						"charm":   "local:series/wordpress-3",
+						"charm":   "local:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"private/0": M{
@@ -838,7 +830,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"riak": M{
-						"charm":   "local:series/riak-7",
+						"charm":   "local:quantal/riak-7",
 						"exposed": true,
 						"units": M{
 							"riak/0": M{
@@ -914,7 +906,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:series/wordpress-3",
+						"charm":   "local:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -933,7 +925,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:series/mysql-1",
+						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -953,7 +945,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:series/logging-1",
+						"charm":   "local:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -977,7 +969,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:series/wordpress-3",
+						"charm":   "local:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -996,7 +988,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:series/mysql-1",
+						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -1016,7 +1008,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:series/logging-1",
+						"charm":   "local:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -1039,7 +1031,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:series/wordpress-3",
+						"charm":   "local:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1058,7 +1050,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:series/logging-1",
+						"charm":   "local:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -1114,7 +1106,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:series/wordpress-3",
+						"charm":   "local:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1133,7 +1125,7 @@ var statusTests = []testCase{
 						},
 					},
 					"monitoring": M{
-						"charm":   "local:series/monitoring-0",
+						"charm":   "local:quantal/monitoring-0",
 						"exposed": true,
 						"relations": M{
 							"monitoring-port": L{"wordpress"},
@@ -1181,7 +1173,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "local:series/mysql-1",
+						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -1209,7 +1201,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "local:series/mysql-1",
+						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/1": M{
@@ -1234,7 +1226,7 @@ type addMachine struct {
 
 func (am addMachine) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
-		Series:      "series",
+		Series:      "quantal",
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	}
@@ -1253,7 +1245,7 @@ func (ac addContainer) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
 		ParentId:      ac.parentId,
 		ContainerType: instance.LXC,
-		Series:        "series",
+		Series:        "quantal",
 		Jobs:          []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineWithConstraints(params)
@@ -1270,7 +1262,7 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 }
@@ -1284,7 +1276,7 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	_, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 }
@@ -1306,7 +1298,7 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	c.Assert(agentAlive, gc.Equals, true)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -1314,13 +1306,13 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 
 type setTools struct {
 	machineId string
-	tools     *tools.Tools
+	version   version.Binary
 }
 
 func (st setTools) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(st.machineId)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAgentTools(st.tools)
+	err = m.SetAgentVersion(st.version)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1331,7 +1323,7 @@ type addCharm struct {
 func (ac addCharm) step(c *gc.C, ctx *context) {
 	ch := coretesting.Charms.Dir(ac.name)
 	name, rev := ch.Meta().Name, ch.Revision()
-	curl := charm.MustParseURL(fmt.Sprintf("local:series/%s-%d", name, rev))
+	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
 	c.Assert(err, gc.IsNil)
 	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
@@ -1437,7 +1429,7 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, gc.IsNil)
-	err = u.SetStatus(sus.status, sus.statusInfo)
+	err = u.SetStatus(sus.status, sus.statusInfo, nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1501,7 +1493,7 @@ type setMachineStatus struct {
 func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
 	c.Assert(err, gc.IsNil)
-	err = m.SetStatus(sms.status, sms.statusInfo)
+	err = m.SetStatus(sms.status, sms.statusInfo, nil)
 	c.Assert(err, gc.IsNil)
 }
 

@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -51,9 +52,9 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.wordpress, err = s.State.AddService("wordpress", s.wpCharm)
 	c.Assert(err, gc.IsNil)
@@ -102,9 +103,9 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah")
+	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo")
+	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -124,12 +125,12 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, err := s.mysqlUnit.Status()
+	status, info, _, err := s.mysqlUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, err = s.wordpressUnit.Status()
+	status, info, _, err = s.wordpressUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foobar")
@@ -678,9 +679,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
-		{Tag: "unit-mysql-0", CharmURL: "cs:series/service-42"},
+		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/service-42"},
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
-		{Tag: "unit-foo-42", CharmURL: "cs:series/foo-321"},
+		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
 	}}
 	result, err := s.uniter.SetCharmURL(args)
 	c.Assert(err, gc.IsNil)
@@ -808,10 +809,10 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ConfigSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.ConfigSettingsResults{
+		Results: []params.ConfigSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{"blog-title": "My Title"}},
+			{Settings: params.ConfigSettings{"blog-title": "My Title"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -839,11 +840,35 @@ func (s *uniterSuite) TestCharmArchiveURL(c *gc.C) {
 	}}
 	result, err := s.uniter.CharmArchiveURL(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
+	c.Assert(result, gc.DeepEquals, params.CharmArchiveURLResults{
+		Results: []params.CharmArchiveURLResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: s.wpCharm.BundleURL().String()},
-			{Result: dummyCharm.BundleURL().String()},
+			{
+				Result: s.wpCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: false,
+			},
+			{
+				Result: dummyCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: false,
+			},
+		},
+	})
+
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
+
+	result, err = s.uniter.CharmArchiveURL(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.CharmArchiveURLResults{
+		Results: []params.CharmArchiveURLResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Result: s.wpCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: true,
+			},
+			{
+				Result: dummyCharm.BundleURL().String(),
+				DisableSSLHostnameVerification: true,
+			},
 		},
 	})
 }
@@ -1097,10 +1122,10 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{
+			{Settings: params.RelationSettings{
 				"some": "settings",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1112,6 +1137,31 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"other":        "things",
+		"invalid-bool": false,
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag(), Unit: "unit-wordpress-0"},
+	}}
+	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
+	result, err := s.uniter.ReadSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }
@@ -1146,8 +1196,8 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: &params.Error{Message: expectErr}},
@@ -1182,11 +1232,38 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}}}
 	result, err = s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Settings: params.RelationSettings{
 				"other": "things",
 			}},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"other":        "things",
+		"invalid-bool": false,
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "unit-mysql-0",
+	}}}
+	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
+	result, err := s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+		Results: []params.RelationSettingsResult{
+			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }
@@ -1202,7 +1279,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	err = relUnit.EnterScope(settings)
 	s.assertInScope(c, relUnit, true)
 
-	newSettings := params.Settings{
+	newSettings := params.RelationSettings{
 		"some":  "different",
 		"other": "",
 	}

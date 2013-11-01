@@ -17,6 +17,7 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -51,17 +52,18 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 }
 
 // ParseMetadata loads ToolsMetadata from the specified directory.
-func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
+func ParseMetadata(c *gc.C, metadataDir string, expectMirrors bool) []*tools.ToolsMetadata {
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
 	}
 
-	source := simplestreams.NewURLDataSource("file://" + metadataDir + "/tools")
+	source := simplestreams.NewURLDataSource("file://"+metadataDir+"/tools", simplestreams.VerifySSLHostnames)
 
 	const requireSigned = false
-	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
-	indexRef, err := simplestreams.GetIndexWithFormat(source, indexPath, "index:1.0", requireSigned, params)
+	indexPath := simplestreams.UnsignedIndex
+	indexRef, err := simplestreams.GetIndexWithFormat(
+		source, indexPath, "index:1.0", requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 
@@ -100,6 +102,12 @@ func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
 	toolsMetadata := make([]*tools.ToolsMetadata, len(toolsMetadataMap))
 	for i, key := range toolsVersions.SortedValues() {
 		toolsMetadata[i] = toolsMetadataMap[key]
+	}
+
+	if expectMirrors {
+		data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", simplestreams.UnsignedMirror))
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+		c.Assert(err, gc.IsNil)
 	}
 	return toolsMetadata
 }
