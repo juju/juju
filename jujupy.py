@@ -16,7 +16,7 @@ import urllib2
 class ErroredUnit(Exception):
 
     def __init__(self, unit_name, state):
-        Exception.__init__('Unit %s is in state %s' % unit_name, state)
+        Exception.__init__('Unit %s is in state %s' % (unit_name, state))
 
 
 def until_timeout(timeout):
