@@ -13,7 +13,8 @@ import (
 
 type addresserSuite struct {
 	testing.JujuConnSuite
-	addresser *common.Addresser
+	addresser        *common.Addresser
+	onlyAPIAddresser *common.APIAddresser
 }
 
 var _ = gc.Suite(&addresserSuite{})
@@ -21,6 +22,7 @@ var _ = gc.Suite(&addresserSuite{})
 func (s *addresserSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.addresser = common.NewAddresser(fakeAddresses{})
+	s.onlyAPIAddresser = common.NewAPIAddresser(fakeAddresses{})
 }
 
 // Verify that AddressAndCertGetter is satisfied by *state.State.
@@ -34,6 +36,9 @@ func (s *addresserSuite) TestStateAddresses(c *gc.C) {
 
 func (s *addresserSuite) TestAPIAddresses(c *gc.C) {
 	result, err := s.addresser.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
+	result, err = s.onlyAPIAddresser.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
