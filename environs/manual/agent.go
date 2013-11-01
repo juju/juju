@@ -129,32 +129,6 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	return strings.Join(script, "\n"), nil
 }
 
-// resolveKeyTemplate is a template for creating a command to fetch a PGP key
-// from a key-server, given its key ID.
-const resolveKeyTemplate = `
-(gpg --list-keys --armor KEYID 2>/dev/null) ||
-(gpg --keyserver KEYSERVER --recv KEYID >/dev/null &&
- gpg --export --armor KEYID &&
- gpg --batch --yes --delete-keys KEYID)
-`
-
-// defaultKeyServer is the default key-server to use for fetching apt
-// respository signing keys.
-const defaultKeyServer = "keyserver.ubuntu.com"
-
-// getKeyCommand returns a shell command that will fetch and echo a key,
-// given a key ID and optional keyserver. If the keyserver is "", then
-// defaultKeyServer will be used.
-func getKeyCommand(keyid, keyserver string) string {
-	if keyserver == "" {
-		keyserver = defaultKeyServer
-	}
-	cmd := resolveKeyTemplate
-	cmd = strings.Replace(cmd, "KEYID", utils.ShQuote(keyid), -1)
-	cmd = strings.Replace(cmd, "KEYSERVER", utils.ShQuote(keyserver), -1)
-	return cmd
-}
-
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
@@ -165,19 +139,9 @@ func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
 	}
 	for _, src := range cfg.AptSources() {
 		// PPA keys are obtained by apt-add-repository, from launchpad.
-		// For other repositories, we may need to obtain a key given a
-		// keyid and possibly a keyserver.
 		if !strings.HasPrefix(src.Source, "ppa:") {
-			var key string
 			if src.Key != "" {
-				key = utils.ShQuote(src.Key)
-			} else if src.KeyId != "" {
-				getkey := getKeyCommand(src.KeyId, src.KeyServer)
-				cmd := fmt.Sprintf("apt_key=$(%s) || exit 1", getkey)
-				cmds = append(cmds, cmd)
-				key = `"$apt_key"`
-			}
-			if key != "" {
+				key := utils.ShQuote(src.Key)
 				cmd := fmt.Sprintf("printf '%%s\\n' %s | apt-key add -", key)
 				cmds = append(cmds, cmd)
 			}

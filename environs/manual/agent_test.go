@@ -68,7 +68,7 @@ func (s *agentSuite) TestAptSources(c *gc.C) {
 		// Only Precise requires the cloud-tools pocket.
 		//
 		// The only source we add that requires an explicitly
-		// specified key/keyid is cloud-tools.
+		// specified key is cloud-tools.
 		needsCloudTools := series == "precise"
 		c.Assert(
 			script,
