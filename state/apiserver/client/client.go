@@ -305,7 +305,11 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 
 // ServiceDestroy destroys a given service.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
-	return statecmd.ServiceDestroy(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.Destroy()
 }
 
 // GetServiceConstraints returns the constraints for a given service.
