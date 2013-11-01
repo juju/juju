@@ -40,7 +40,7 @@ class Environment:
     def bootstrap(self):
         """Bootstrap, using sudo if necessary."""
         if self.environment == 'local':
-            args = ['sudo'] + self._full_args('bootstrap')
+            args = ('sudo',) + self._full_args('bootstrap')
             print ' '.join(args)
             sys.stdout.flush()
             return subprocess.check_call(args)
