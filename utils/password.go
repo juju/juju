@@ -40,10 +40,9 @@ func RandomPassword() (string, error) {
 // testing purposes - to make tests run faster.
 var FastInsecureHash = false
 
-// PasswordHash returns base64-encoded one-way hash of the provided salt
-// and password that is computationally hard to crack by iterating
-// through possible passwords.
-func PasswordHash(password string) string {
+// SlowPasswordHash returns base64-encoded one-way hash password that is
+// computationally hard to crack by iterating through possible passwords.
+func SlowPasswordHash(password string) string {
 	iter := 8192
 	if FastInsecureHash {
 		iter = 1
@@ -54,4 +53,14 @@ func PasswordHash(password string) string {
 	// padding characters).
 	h := pbkdf2.Key([]byte(password), salt, iter, 18, sha512.New)
 	return base64.StdEncoding.EncodeToString(h)
+}
+
+// PasswordHash returns base64-encoded one-way hash password that is
+// computationally hard to crack by iterating through possible passwords.
+func PasswordHash(password string) string {
+	sum := sha512.New()
+	sum.Write([]byte(password))
+	h := make([]byte, 0, sum.Size())
+	h = sum.Sum(h)
+	return base64.StdEncoding.EncodeToString(h[:18])
 }

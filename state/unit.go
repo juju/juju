@@ -222,7 +222,17 @@ func (u *Unit) SetPassword(password string) error {
 // PasswordValid returns whether the given password is valid
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == u.doc.PasswordHash
+	if utils.PasswordHash(password) == u.doc.PasswordHash {
+		return true
+	}
+	// In Juju 1.16 and older we used slower passwords for unit agents
+	// TODO: If we can allow agents to use a new password, but ask them to
+	// reset their password, then we can eventually deprecate this
+	// fallback.
+	if utils.SlowPasswordHash(password) == m.doc.PasswordHash {
+		return true
+	}
+	return false
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as

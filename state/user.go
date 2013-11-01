@@ -25,7 +25,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 		st: st,
 		doc: userDoc{
 			Name:         name,
-			PasswordHash: utils.PasswordHash(password),
+			PasswordHash: utils.SlowPasswordHash(password),
 		},
 	}
 	ops := []txn.Op{{
@@ -87,7 +87,7 @@ func (u *User) Tag() string {
 
 // SetPassword sets the password associated with the user.
 func (u *User) SetPassword(password string) error {
-	return u.SetPasswordHash(utils.PasswordHash(password))
+	return u.SetPasswordHash(utils.SlowPasswordHash(password))
 }
 
 // SetPasswordHash sets the password to the
@@ -110,7 +110,11 @@ func (u *User) SetPasswordHash(pwHash string) error {
 // PasswordValid returns whether the given password
 // is valid for the user.
 func (u *User) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == u.doc.PasswordHash
+	// Since these are potentially set by a User, we intentionally use the
+	// slower pbkdf2 style hashing. Also, we don't expect to have thousands
+	// of Users trying to log in at the same time (which we *do* expect of
+	// Unit and Machine agents.)
+	return utils.SlowPasswordHash(password) == u.doc.PasswordHash
 }
 
 // Refresh refreshes information about the user
