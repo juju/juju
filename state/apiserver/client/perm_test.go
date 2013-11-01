@@ -165,12 +165,12 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 }
 
 func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	info, err := st.Client().CharmInfo("local:series/wordpress-3")
+	info, err := st.Client().CharmInfo("local:quantal/wordpress-3")
 	if err != nil {
 		c.Check(info, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(info.URL, gc.Equals, "local:series/wordpress-3")
+	c.Assert(info.URL, gc.Equals, "local:quantal/wordpress-3")
 	c.Assert(info.Meta.Name, gc.Equals, "wordpress")
 	c.Assert(info.Revision, gc.Equals, 3)
 	return func() {}, nil
@@ -307,7 +307,7 @@ func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), er
 func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	args := params.ServiceUpdate{
 		ServiceName:     "no-such-charm",
-		CharmUrl:        "cs:series/wordpress-42",
+		CharmUrl:        "cs:quantal/wordpress-42",
 		ForceCharmUrl:   true,
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
@@ -320,7 +320,7 @@ func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), er
 }
 
 func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
+	err := st.Client().ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

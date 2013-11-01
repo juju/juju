@@ -37,12 +37,10 @@ func (cfg *Config) set(opt string, yes bool, value interface{}) {
 	}
 }
 
-// source is Key, or KeyId and KeyServer
+// source is a Source and a Key
 type source struct {
-	Source    string `yaml:"source"`
-	Key       string `yaml:"key,omitempty"`
-	KeyId     string `yaml:"keyid,omitempty"`
-	KeyServer string `yaml:"keyserver,omitempty"`
+	Source string `yaml:"source"`
+	Key    string `yaml:"key,omitempty"`
 }
 
 // command represents a shell command.

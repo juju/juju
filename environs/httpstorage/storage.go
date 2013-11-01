@@ -4,29 +4,75 @@
 package httpstorage
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
+	"sync"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
 // storage implements the storage.Storage interface.
 type localStorage struct {
-	baseURL string
+	addr   string
+	client *http.Client
+
+	authkey           string
+	httpsBaseURL      string
+	httpsBaseURLError error
+	httpsBaseURLOnce  sync.Once
 }
 
-// Client returns a storage object that will talk to the storage server
-// at the given network address (see Serve)
+// Client returns a storage object that will talk to the
+// storage server at the given network address (see Serve)
 func Client(addr string) storage.Storage {
 	return &localStorage{
-		baseURL: fmt.Sprintf("http://%s/", addr),
+		addr:   addr,
+		client: http.DefaultClient,
 	}
+}
+
+// ClientTLS returns a storage object that will talk to the
+// storage server at the given network address (see Serve),
+// using TLS. The client is given an authentication key,
+// which the server will verify for Put and Remove* operations.
+func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, error) {
+	caCerts := x509.NewCertPool()
+	if caCertPEM != nil {
+		if !caCerts.AppendCertsFromPEM(caCertPEM) {
+			return nil, errors.New("error adding CA certificate to pool")
+		}
+	}
+	return &localStorage{
+		addr:    addr,
+		authkey: authkey,
+		client: &http.Client{
+			Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
+		},
+	}, nil
+}
+
+func (s *localStorage) getHTTPSBaseURL() (string, error) {
+	url, _ := s.URL("/") // never fails
+	resp, err := s.client.Head(url)
+	if err != nil {
+		return "", err
+	}
+	resp.Body.Close()
+	httpsURL, err := resp.Location()
+	if err != nil {
+		return "", err
+	}
+	return httpsURL.String(), nil
 }
 
 // Get opens the given storage file and returns a ReadCloser
@@ -38,12 +84,12 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Get(url)
+	resp, err := s.client.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.NotFoundf("file %q", name)
+		return nil, coreerrors.NotFoundf("file %q", name)
 	}
 	return resp.Body, nil
 }
@@ -58,7 +104,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Get(url + "*")
+	resp, err := s.client.Get(url + "*")
 	if err != nil {
 		return nil, err
 	}
@@ -84,9 +130,25 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-// URL returns an URL that can be used to access the given storage file.
+// URL returns a URL that can be used to access the given storage file.
 func (s *localStorage) URL(name string) (string, error) {
-	return s.baseURL + name, nil
+	return fmt.Sprintf("http://%s/%s", s.addr, name), nil
+}
+
+// modURL returns a URL that can be used to modify the given storage file.
+func (s *localStorage) modURL(name string) (string, error) {
+	if s.client == http.DefaultClient {
+		return s.URL(name)
+	}
+	s.httpsBaseURLOnce.Do(func() {
+		s.httpsBaseURL, s.httpsBaseURLError = s.getHTTPSBaseURL()
+	})
+	if s.httpsBaseURLError != nil {
+		return "", s.httpsBaseURLError
+	}
+	v := url.Values{}
+	v.Set("authkey", s.authkey)
+	return fmt.Sprintf("%s%s?%s", s.httpsBaseURL, name, v.Encode()), nil
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
@@ -102,10 +164,11 @@ func (s *localStorage) ShouldRetry(err error) bool {
 // Put reads from r and writes to the given storage file.
 // The length must be set to the total length of the file.
 func (s *localStorage) Put(name string, r io.Reader, length int64) error {
-	url, err := s.URL(name)
+	url, err := s.modURL(name)
 	if err != nil {
 		return err
 	}
+
 	// Here we wrap up the reader.  For some freaky unexplainable reason, the
 	// http library will call Close on the reader if it has a Close method
 	// available.  Since we sometimes reuse the reader, especially when
@@ -118,7 +181,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.ContentLength = length
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -132,7 +195,7 @@ func (s *localStorage) Put(name string, r io.Reader, length int64) error {
 // storage. It should not return an error if the file does
 // not exist.
 func (s *localStorage) Remove(name string) error {
-	url, err := s.URL(name)
+	url, err := s.modURL(name)
 	if err != nil {
 		return err
 	}
@@ -140,7 +203,7 @@ func (s *localStorage) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}

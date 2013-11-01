@@ -21,10 +21,12 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -112,19 +114,18 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
-	// that need a state connection Unless we're bootstrapping, we
+	// that need a state connection. Unless we're bootstrapping, we
 	// need to connect to the API server to find out if we need to
 	// call this, so we make the APIWorker call it when necessary if
-	// the machine requires it.  Note that ensureStateWorker can be
+	// the machine requires it. Note that ensureStateWorker can be
 	// called many times - StartWorker does nothing if there is
 	// already a worker started with the given name.
 	ensureStateWorker := func() {
 		a.runner.StartWorker("state", a.StateWorker)
 	}
+	// We might be bootstrapping, and the API server is not
+	// running yet. If so, make sure we run a state worker instead.
 	if a.MachineId == bootstrapMachineId {
-		// If we're bootstrapping, we don't have an API
-		// server to connect to, so start the state worker regardless.
-
 		// TODO(rog) When we have HA, we only want to do this
 		// when we really are bootstrapping - once other
 		// instances of the API server have been started, we
@@ -145,12 +146,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-var stateJobs = map[params.MachineJob]bool{
-	params.JobHostUnits:     true,
-	params.JobManageEnviron: true,
-	params.JobManageState:   true,
-}
-
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 //
@@ -159,25 +154,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	agentConfig := a.Conf.config
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
-		// There was an error connecting to the API,
-		// https://launchpad.net/bugs/1199915 means that we may just
-		// not have an API password set. So force a state connection at
-		// this point.
-		// TODO(jam): Once we can reliably trust that we have API
-		//            passwords set, and we no longer need state
-		//            connections (and possibly agents will be blocked
-		//            from connecting directly to state) we can remove
-		//            this. Currently needed because 1.10 does not set
-		//            the API password and 1.11 requires it
-		ensureStateWorker()
 		return nil, err
 	}
-	needsStateWorker := false
+	reportOpenedAPI(st)
 	for _, job := range entity.Jobs() {
-		needsStateWorker = needsStateWorker || stateJobs[job]
-	}
-	if needsStateWorker {
-		ensureStateWorker()
+		if job.NeedsState() {
+			ensureStateWorker()
+			break
+		}
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
@@ -189,6 +173,25 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
+	// At this stage, since we don't embed LXC containers, just start an lxc
+	// provisioner task for non-lxc containers.  Since we have only LXC
+	// containers and normal machines, this effectively means that we only
+	// have an LXC provisioner when we have a normally provisioned machine
+	// (through the environ-provisioner).  With the upcoming advent of KVM
+	// containers, it is likely that we will want an LXC provisioner on a KVM
+	// machine, and once we get nested LXC containers, we can remove this
+	// check.
+	//
+	// TODO(dimitern) 2013-09-25 bug #1230289
+	// Create jobs for container providers, rather than
+	// using the provider and container type like this.
+	providerType := agentConfig.Value(agent.ProviderType)
+	if providerType != provider.Local && entity.ContainerType() != instance.LXC {
+		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
+		runner.StartWorker(workerName, func() (worker.Worker, error) {
+			return provisioner.NewProvisioner(provisioner.LXC, st.Provisioner(), agentConfig), nil
+		})
+	}
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
@@ -198,7 +201,10 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			// Not yet implemented with the API.
+			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
+				return provisioner.NewProvisioner(provisioner.ENVIRON, st.Provisioner(), agentConfig), nil
+			})
+			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
 			// Not yet implemented with the API.
 		default:
@@ -221,25 +227,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	m := entity.(*state.Machine)
 
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-	// At this stage, since we don't embed lxc containers, just start an lxc
-	// provisioner task for non-lxc containers.  Since we have only LXC
-	// containers and normal machines, this effectively means that we only
-	// have an LXC provisioner when we have a normally provisioned machine
-	// (through the environ-provisioner).  With the upcoming advent of KVM
-	// containers, it is likely that we will want an LXC provisioner on a KVM
-	// machine, and once we get nested LXC containers, we can remove this
-	// check.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local && m.ContainerType() != instance.LXC {
-		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
-		runner.StartWorker(workerName, func() (worker.Worker, error) {
-			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, agentConfig), nil
-		})
-	}
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	if providerType == provider.Local && m.Id() == bootstrapMachineId {
+	providerType := agentConfig.Value(agent.ProviderType)
+	if (providerType == provider.Local || providerType == provider.Null) && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
+			// TODO(axw) 2013-09-24 bug #1229507
+			// Make another job to enable storage.
+			// There's nothing special about this.
 			return localstorage.NewWorker(agentConfig), nil
 		})
 	}
@@ -248,11 +243,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, agentConfig), nil
-			})
+			// TODO(axw) 2013-09-24 bug #1229506
+			// Make another job to enable the firewaller. Not all environments
+			// are capable of managing ports centrally.
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
+			})
+			runner.StartWorker("addressupdater", func() (worker.Worker, error) {
+				return addressupdater.NewWorker(st), nil
 			})
 		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
@@ -332,4 +330,18 @@ func sendOpenedStates(dst chan<- *state.State) (undo func()) {
 	var original chan<- *state.State
 	original, stateReporter = stateReporter, dst
 	return func() { stateReporter = original }
+}
+
+var apiReporter chan<- *api.State
+
+func reportOpenedAPI(st *api.State) {
+	select {
+	case apiReporter <- st:
+	default:
+	}
+}
+func sendOpenedAPIs(dst chan<- *api.State) (undo func()) {
+	var original chan<- *api.State
+	original, apiReporter = apiReporter, dst
+	return func() { apiReporter = original }
 }

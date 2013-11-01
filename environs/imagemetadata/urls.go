@@ -20,6 +20,14 @@ type SupportsCustomSources interface {
 // be considered.
 func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
+	config := env.Config()
+	if userURL, ok := config.ImageMetadataURL(); ok {
+		verify := simplestreams.VerifySSLHostnames
+		if !config.SSLHostnameVerification() {
+			verify = simplestreams.NoVerifySSLHostnames
+		}
+		sources = append(sources, simplestreams.NewURLDataSource(userURL, verify))
+	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetImageSources()
 		if err != nil {
@@ -27,12 +35,9 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		}
 		sources = append(sources, customSources...)
 	}
-	if userURL, ok := env.Config().ImageMetadataURL(); ok {
-		sources = append(sources, simplestreams.NewURLDataSource(userURL))
-	}
 
 	if DefaultBaseURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL))
+		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL, simplestreams.VerifySSLHostnames))
 	}
 	return sources, nil
 }

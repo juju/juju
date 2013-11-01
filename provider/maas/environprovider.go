@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"errors"
 	"os"
 
 	"launchpad.net/loggo"
@@ -37,24 +38,41 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
+var errAgentNameAlreadySet = errors.New(
+	"maas-agent-name is already set; this should not be set by hand")
+
 func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO any attributes to prepare?
+	attrs := cfg.UnknownAttrs()
+	oldName, found := attrs["maas-agent-name"]
+	if found && oldName != "" {
+		return nil, errAgentNameAlreadySet
+	}
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	attrs["maas-agent-name"] = uuid.String()
+	cfg, err = cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
 // Boilerplate config YAML.  Don't mess with the indentation or add newlines!
-const boilerplateYAML = `maas:
-  type: maas
-  # Change this to where your MAAS server lives.  It must specify the base path.
-  maas-server: 'http://192.168.1.1/MAAS/'
-  maas-oauth: '<add your OAuth credentials from MAAS here>'
-  admin-secret: {{rand}}
-  default-series: precise
-  authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
-  # Or:
-  # authorized-keys: ssh-rsa keymaterialhere
+var boilerplateYAML = `
+# https://juju.ubuntu.com/docs/config-maas.html
+maas:
+    type: maas
+  
+    # maas-server specifies the location of the MAAS server. It must
+    # specify the base path.
+    maas-server: 'http://192.168.1.1/MAAS/'
+    
+    # maas-oauth holds the OAuth credentials from MAAS.
+    maas-oauth: '<add your OAuth credentials from MAAS here>'
 
-`
+`[1:]
 
 // BoilerplateConfig is specified in the EnvironProvider interface.
 func (maasEnvironProvider) BoilerplateConfig() string {
@@ -62,8 +80,8 @@ func (maasEnvironProvider) BoilerplateConfig() string {
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	secretAttrs := make(map[string]interface{})
+func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	secretAttrs := make(map[string]string)
 	maasCfg, err := prov.newConfig(cfg)
 	if err != nil {
 		return nil, err

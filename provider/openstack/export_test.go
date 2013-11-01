@@ -85,7 +85,7 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) string {
 	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
 }
 
-var publicBucketIndexData = `
+var indexData = `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released:openstack": {
@@ -112,7 +112,7 @@ var publicBucketIndexData = `
 		}
 `
 
-var publicBucketImagesData = `
+var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
@@ -212,7 +212,7 @@ const productMetadatafile = "image-metadata/products.json"
 
 func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
 	// Put some image metadata files into the public storage.
-	t := template.Must(template.New("").Parse(publicBucketIndexData))
+	t := template.Must(template.New("").Parse(indexData))
 	var metadata bytes.Buffer
 	if err := t.Execute(&metadata, cred); err != nil {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
@@ -221,7 +221,7 @@ func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
 	stor := MetadataStorage(e)
 	stor.Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
 	stor.Put(
-		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
+		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
@@ -284,4 +284,28 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 
 func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
+}
+
+// ImageMetadataStorage returns a Storage object pointing where the goose
+// infrastructure sets up its keystone entry for image metadata
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
+	env := e.(*environ)
+	return &openstackstorage{
+		containerName: "imagemetadata",
+		swift:         swift.New(env.client),
+	}
+}
+
+// CreateCustomStorage creates a swift container and returns the Storage object
+// so you can put data into it.
+func CreateCustomStorage(e environs.Environ, containerName string) storage.Storage {
+	env := e.(*environ)
+	swiftClient := swift.New(env.client)
+	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
+		panic(err)
+	}
+	return &openstackstorage{
+		containerName: containerName,
+		swift:         swiftClient,
+	}
 }

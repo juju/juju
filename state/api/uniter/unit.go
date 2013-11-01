@@ -55,11 +55,11 @@ func (u *Unit) Refresh() error {
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string) error {
+func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.SetEntityStatus{
-			{Tag: u.tag, Status: status, Info: info},
+			{Tag: u.tag, Status: status, Info: info, Data: data},
 		},
 	}
 	err := u.st.caller.Call("Uniter", "", "SetStatus", args, &result)
@@ -120,20 +120,12 @@ func (u *Unit) Service() (*Service, error) {
 	return service, nil
 }
 
-func convertSettings(input params.Settings) charm.Settings {
-	result := make(charm.Settings)
-	for k, v := range input {
-		result[k] = v
-	}
-	return result
-}
-
 // ConfigSettings returns the complete set of service charm config settings
 // available to the unit. Unset values will be replaced with the default
 // value for the associated option, and may thus be nil when no default is
 // specified.
 func (u *Unit) ConfigSettings() (charm.Settings, error) {
-	var results params.SettingsResults
+	var results params.ConfigSettingsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
@@ -148,7 +140,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return convertSettings(result.Settings), nil
+	return charm.Settings(result.Settings), nil
 }
 
 // ServiceName returns the service name.

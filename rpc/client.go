@@ -5,17 +5,13 @@ package rpc
 
 import (
 	"errors"
-
-	"launchpad.net/juju-core/log"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
 
 // Call represents an active RPC.
 type Call struct {
-	Type     string
-	Id       string
-	Request  string
+	Request
 	Params   interface{}
 	Response interface{}
 	Error    error
@@ -63,13 +59,14 @@ func (conn *Conn) send(call *Call) {
 	// Encode and send the request.
 	hdr := &Header{
 		RequestId: reqId,
-		Type:      call.Type,
-		Id:        call.Id,
 		Request:   call.Request,
 	}
 	params := call.Params
 	if params == nil {
 		params = struct{}{}
+	}
+	if conn.notifier != nil {
+		conn.notifier.ClientRequest(hdr, params)
 	}
 	if err := conn.codec.WriteMessage(hdr, params); err != nil {
 		conn.mutex.Lock()
@@ -98,6 +95,9 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		// removed; response is a server telling us about an
 		// error reading request body. We should still attempt
 		// to read error body, but there's no one to give it to.
+		if conn.notifier != nil {
+			conn.notifier.ClientReply(Request{}, hdr, nil)
+		}
 		err = conn.readBody(nil, false)
 	case hdr.Error != "":
 		// We've got an error response. Give this to the request;
@@ -108,9 +108,15 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Code:    hdr.ErrorCode,
 		}
 		err = conn.readBody(nil, false)
+		if conn.notifier != nil {
+			conn.notifier.ClientReply(call.Request, hdr, nil)
+		}
 		call.done()
 	default:
 		err = conn.readBody(call.Response, false)
+		if conn.notifier != nil {
+			conn.notifier.ClientReply(call.Request, hdr, call.Response)
+		}
 		call.done()
 	}
 	return err
@@ -123,7 +129,7 @@ func (call *Call) done() {
 	default:
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
-		log.Errorf("rpc: discarding Call reply due to insufficient Done chan capacity")
+		logger.Errorf("discarding Call reply due to insufficient Done chan capacity")
 	}
 }
 
@@ -133,8 +139,8 @@ func (call *Call) done() {
 // error will be of type RequestError.  The params value may be nil if
 // no parameters are provided; the response value may be nil to indicate
 // that any result should be discarded.
-func (conn *Conn) Call(objType, id, action string, params, response interface{}) error {
-	call := <-conn.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
+func (conn *Conn) Call(req Request, params, response interface{}) error {
+	call := <-conn.Go(req, params, response, make(chan *Call, 1)).Done
 	return call.Error
 }
 
@@ -142,7 +148,7 @@ func (conn *Conn) Call(objType, id, action string, params, response interface{})
 // the invocation.  The done channel will signal when the call is complete by returning
 // the same Call object.  If done is nil, Go will allocate a new channel.
 // If non-nil, done must be buffered or Go will deliberately panic.
-func (conn *Conn) Go(objType, id, request string, args, response interface{}, done chan *Call) *Call {
+func (conn *Conn) Go(req Request, args, response interface{}, done chan *Call) *Call {
 	if done == nil {
 		done = make(chan *Call, 1)
 	} else {
@@ -155,9 +161,7 @@ func (conn *Conn) Go(objType, id, request string, args, response interface{}, do
 		}
 	}
 	call := &Call{
-		Type:     objType,
-		Id:       id,
-		Request:  request,
+		Request:  req,
 		Params:   args,
 		Response: response,
 		Done:     done,

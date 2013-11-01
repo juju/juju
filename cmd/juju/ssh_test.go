@@ -100,7 +100,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	m := s.makeMachines(3, c)
 	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, gc.IsNil)
@@ -131,11 +131,11 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *gc.C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, md := testing.StartInstance(c, s.Conn.Environ, m.Id())
+		inst, md := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())
 		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", md), gc.IsNil)
 		machines[i] = m
 	}

@@ -8,26 +8,36 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&ConfigSuite{})
 
-type ConfigSuite struct{}
+type ConfigSuite struct {
+	testbase.LoggingSuite
+}
+
+func (s *ConfigSuite) TearDownTest(c *gc.C) {
+	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
+}
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	expected := map[string]interface{}{
+	defer env.Destroy()
+	expected := map[string]string{
 		"secret": "pork",
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)
 	c.Assert(err, gc.IsNil)
-	c.Assert(expected, gc.DeepEquals, actual)
+	c.Assert(actual, gc.DeepEquals, expected)
 }
 
 var firewallModeTests = []struct {
@@ -57,9 +67,9 @@ var firewallModeTests = []struct {
 	},
 }
 
-func (*ConfigSuite) TestFirewallMode(c *gc.C) {
-	for _, test := range firewallModeTests {
-		c.Logf("test firewall mode %q", test.configFirewallMode)
+func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
+	for i, test := range firewallModeTests {
+		c.Logf("test %d: %s", i, test.configFirewallMode)
 		attrs := dummy.SampleConfig()
 		if test.configFirewallMode != "" {
 			attrs = attrs.Merge(testing.Attrs{
@@ -71,14 +81,17 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-
-		env, err := environs.Prepare(cfg)
-		if err != nil {
+		env, err := environs.Prepare(cfg, configstore.NewMem())
+		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
+		c.Assert(err, gc.IsNil)
+		defer env.Destroy()
 
 		firewallMode := env.Config().FirewallMode()
 		c.Assert(firewallMode, gc.Equals, test.firewallMode)
+
+		s.TearDownTest(c)
 	}
 }

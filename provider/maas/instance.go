@@ -9,7 +9,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 )
 
 type maasInstance struct {
@@ -76,7 +76,12 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
 	// we have to do this the hard way, since maasObject doesn't have this built-in yet
-	objs, err := mi.maasObject.GetMap()["ip_addresses"].GetArray()
+	addressArray := mi.maasObject.GetMap()["ip_addresses"]
+	if addressArray.IsNil() {
+		// Older MAAS versions do not return ip_addresses.
+		return nil, nil
+	}
+	objs, err := addressArray.GetArray()
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +102,7 @@ func (mi *maasInstance) DNSName() (string, error) {
 }
 
 func (mi *maasInstance) WaitDNSName() (string, error) {
-	return provider.WaitDNSName(mi)
+	return common.WaitDNSName(mi)
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

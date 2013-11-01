@@ -42,10 +42,10 @@ func NewMachineConfig(machineID, machineNonce string,
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 // stateInfoURL is the storage URL for the environment's state file.
-func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
-	// state.Info and the api.Info.
-	mcfg := NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	// state.Info and the api.Info. The machine id must *always* be "0".
+	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	return mcfg
@@ -75,13 +75,14 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
+	mcfg.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
+
+	// The following settings are only appropriate at bootstrap time. At the
+	// moment, the only state server is the bootstrap node, but this
+	// will probably change.
 	if !mcfg.StateServer {
 		return nil
 	}
-
-	// These settings are only appropriate at bootstrap time. At the
-	// moment, the only state server is the bootstrap node, but this
-	// will probably change.
 	if mcfg.APIInfo != nil || mcfg.StateInfo != nil {
 		return fmt.Errorf("machine configuration already has api/state info")
 	}

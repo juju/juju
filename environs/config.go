@@ -155,7 +155,7 @@ type NoEnvError struct {
 	error
 }
 
-// IsNoEnv returns if err is a NoEnvError.
+// IsNoEnv reports whether err is a NoEnvError.
 func IsNoEnv(err error) bool {
 	_, ok := err.(NoEnvError)
 	return ok

@@ -7,18 +7,32 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
 	baseProviderSuite
+	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&environSuite{})
+
+func (s *environSuite) SetUpTest(c *gc.C) {
+	s.baseProviderSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
+}
 
 func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	testConfig := minimalConfig(c)
@@ -38,7 +52,33 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Name(), gc.Equals, "test")
 	c.Assert(environ.Storage(), gc.NotNil)
-	c.Assert(environ.PublicStorage(), gc.NotNil)
+}
+
+func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	sources, err := tools.GetMetadataSources(environ)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	url, err := sources[0].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
+}
+
+func (s *environSuite) TestPrecheck(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	var cons constraints.Value
+	prechecker, ok := environ.(environs.Prechecker)
+	c.Assert(ok, jc.IsTrue)
+
+	err = prechecker.PrecheckInstance("precise", cons)
+	c.Check(err, gc.IsNil)
+
+	err = prechecker.PrecheckContainer("precise", instance.LXC)
+	c.Check(err, gc.ErrorMatches, "local provider does not support nested containers")
 }
 
 type localJujuTestSuite struct {
@@ -65,7 +105,10 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
 	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return true })
 	s.Tests.SetUpTest(c)
-	s.dbServiceName = "juju-db-" + local.ConfigNamespace(s.Env.Config())
+
+	cfg, err := config.New(config.NoDefaults, s.TestConfig)
+	c.Assert(err, gc.IsNil)
+	s.dbServiceName = "juju-db-" + local.ConfigNamespace(cfg)
 }
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {

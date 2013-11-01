@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -70,18 +71,19 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	return env, nil
 }
 
+// Name is specified in the Environ interface.
 func (env *maasEnviron) Name() string {
 	return env.name
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+	return common.Bootstrap(env, cons, possibleTools)
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return provider.StateInfo(env)
+	return common.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
@@ -153,6 +155,9 @@ func convertConstraints(cons constraints.Value) url.Values {
 	if cons.Mem != nil {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
+	if cons.Tags != nil && len(*cons.Tags) > 0 {
+		params.Add("tags", strings.Join(*cons.Tags, ","))
+	}
 	// TODO(bug 1212689): ignore root-disk constraint for now.
 	if cons.RootDisk != nil {
 		logger.Warningf("ignoring unsupported constraint 'root-disk'")
@@ -165,12 +170,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
-	constraintsParams := convertConstraints(cons)
+	acquireParams := convertConstraints(cons)
+	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
-		result, err = client.CallPost("acquire", constraintsParams)
+		result, err = client.CallPost("acquire", acquireParams)
 		if err == nil {
 			break
 		}
@@ -317,6 +323,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
+	filter.Add("agent_name", environ.ecfg().maasAgentName())
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
 		return nil, err
@@ -375,38 +382,8 @@ func (env *maasEnviron) Storage() storage.Storage {
 	return env.storageUnlocked
 }
 
-// PublicStorage is defined by the Environ interface.
-func (env *maasEnviron) PublicStorage() storage.StorageReader {
-	// MAAS does not have a shared storage.
-	return environs.EmptyStorage
-}
-
-func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
-	logger.Debugf("destroying environment %q", environ.name)
-	insts, err := environ.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	found := make(map[instance.Id]bool)
-	for _, inst := range insts {
-		found[inst.Id()] = true
-	}
-
-	// Add any instances we've been told about but haven't yet shown
-	// up in the instance list.
-	for _, inst := range ensureInsts {
-		id := inst.Id()
-		if !found[id] {
-			insts = append(insts, inst)
-			found[id] = true
-		}
-	}
-	err = environ.StopInstances(insts)
-	if err != nil {
-		return err
-	}
-
-	return environ.Storage().RemoveAll()
+func (environ *maasEnviron) Destroy() error {
+	return common.Destroy(environ)
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

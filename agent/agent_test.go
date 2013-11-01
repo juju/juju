@@ -203,7 +203,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(confCommands, gc.DeepEquals, rereadCommands)
 }
 
-func (*suite) TestGenerateNewPassword(c *gc.C) {
+func (*suite) TestWriteNewPassword(c *gc.C) {
 
 	for i, test := range []struct {
 		about  string
@@ -241,11 +241,12 @@ func (*suite) TestGenerateNewPassword(c *gc.C) {
 
 		conf, err := agent.NewAgentConfig(test.params)
 		c.Assert(err, gc.IsNil)
-		_, err = conf.GenerateNewPassword()
+		newPass, err := agent.WriteNewPassword(conf)
 		c.Assert(err, gc.IsNil)
 		// Show that the password is saved.
 		reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
-		c.Assert(conf.PasswordHash(), gc.Equals, reread.PasswordHash())
+		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
+		c.Assert(newPass, gc.Equals, agent.Password(conf))
 	}
 }
 

@@ -194,11 +194,11 @@ func (manager *containerManager) StartContainer(
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	container := lxcObjectFactory.New(name)
-	if err := container.Stop(); err != nil {
-		logger.Errorf("failed to stop lxc container: %v", err)
+	// Remove the autostart link.
+	if err := os.Remove(restartSymlink(name)); err != nil {
+		logger.Errorf("failed to remove restart symlink: %v", err)
 		return err
 	}
-	// Destroy removes the restart symlink for us.
 	if err := container.Destroy(); err != nil {
 		logger.Errorf("failed to destroy lxc container: %v", err)
 		return err

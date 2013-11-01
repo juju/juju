@@ -147,7 +147,7 @@ var setCharmEndpointsTests = []struct {
 	}, {
 		summary: "different peer",
 		meta:    metaDifferentPeer,
-		err:     `cannot upgrade service "fakemysql" to charm "local:series/series-mysql-5": would break relation "fakemysql:cluster"`,
+		err:     `cannot upgrade service "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
 	}, {
 		summary: "same relations ok",
 		meta:    metaBase,
@@ -204,9 +204,9 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno++
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	err = providerSvc.SetCharm(baseCharm, false)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myprovider" to charm "local:series/series-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 	err = requirerSvc.SetCharm(baseCharm, false)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myrequirer" to charm "local:series/series-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
 var stringConfig = `
@@ -783,7 +783,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, gc.IsNil)
@@ -1132,10 +1132,9 @@ func uint64p(val uint64) *uint64 {
 
 func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	// Constraints are initially empty (for now).
-	cons0 := constraints.Value{}
-	cons1, err := s.mysql.Constraints()
+	cons, err := s.mysql.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons1, gc.DeepEquals, cons0)
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
@@ -1167,7 +1166,7 @@ func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons6, gc.DeepEquals, cons0)
+	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {
@@ -1181,7 +1180,7 @@ func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: not found or not alive`)
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(scons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
 	// Removed (== Dead, for a service).
 	err = unit.EnsureDead()

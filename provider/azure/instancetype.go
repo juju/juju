@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/errors"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that
@@ -142,11 +143,10 @@ func findMatchingImages(e *azureEnviron, location, series, stream string, arches
 	}
 	indexPath := simplestreams.DefaultIndexPath
 	images, err := fetchImageMetadata(sources, indexPath, constraint, signedImageDataOnly)
-	if err != nil {
-		return nil, err
-	}
-	if len(images) == 0 {
+	if len(images) == 0 || errors.IsNotFoundError(err) {
 		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
+	} else if err != nil {
+		return nil, err
 	}
 	return images, nil
 }
@@ -168,6 +168,7 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 		Cost:     roleSize.Cost,
 		VType:    &vtype,
 		CpuPower: &cpuPower,
+		// tags are not currently supported by azure
 	}
 }
 

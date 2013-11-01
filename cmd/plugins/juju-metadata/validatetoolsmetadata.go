@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/version"
@@ -32,44 +33,52 @@ type ValidateToolsMetadataCommand struct {
 }
 
 var validateToolsMetadataDoc = `
-validate-tools loads simplestreams metadata and validates the contents by looking for tools
-belonging to the specified series, architecture, for the specified cloud. If version is
-specified, tools matching the exact specified version are found. It is also possible to just
-specify the major (and optionally minor) version numbers to search for.
+validate-tools loads simplestreams metadata and validates the contents by
+looking for tools belonging to the specified series, architecture, for the
+specified cloud. If version is specified, tools matching the exact specified
+version are found. It is also possible to just specify the major (and optionally
+minor) version numbers to search for.
 
-The cloud specificaton comes from the current Juju environment, as specified in the usual way
-from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV. Series, Region, and Endpoint
-are the key attributes.
+The cloud specification comes from the current Juju environment, as specified in
+the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+Series, Region, and Endpoint are the key attributes.
 
-It is possible to specify a local directory containing tools metadata, in which case cloud
-attributes like provider type, region etc are optional.
+It is possible to specify a local directory containing tools metadata, in which
+case cloud attributes like provider type, region etc are optional.
 
-The key environment attributes may be overridden using command arguments, so that the validation
-may be peformed on arbitary metadata.
+The key environment attributes may be overridden using command arguments, so
+that the validation may be peformed on arbitary metadata.
 
 Examples:
 
-- validate using the current environment settings but with series raring
- juju metadata validate-tools -s raring
+ - validate using the current environment settings but with series raring
+  
+  juju metadata validate-tools -s raring
 
-- validate using the current environment settings but with Juju version 1.11.4
- juju metadata validate-tools -j 1.11.4
+ - validate using the current environment settings but with Juju version 1.11.4
+  
+  juju metadata validate-tools -j 1.11.4
 
-- validate using the current environment settings but with Juju major version 2
- juju metadata validate-tools -m 2
+ - validate using the current environment settings but with Juju major version 2
+  
+  juju metadata validate-tools -m 2
 
-- validate using the current environment settings but with Juju major.minor version 2.1
- juju metadata validate-tools -m 2.1
+ - validate using the current environment settings but with Juju major.minor version 2.1
+ 
+  juju metadata validate-tools -m 2.1
 
-- validate using the current environment settings and list all tools found for any series
- juju metadata validate-tools --series=
+ - validate using the current environment settings and list all tools found for any series
+ 
+  juju metadata validate-tools --series=
 
-- validate with series raring and using metadata from local directory
- juju metadata validate-images -s raring -d <some directory>
+ - validate with series raring and using metadata from local directory
+ 
+  juju metadata validate-images -s raring -d <some directory>
 
-A key use case is to validate newly generated metadata prior to deployment to production.
-In this case, the metadata is placed in a local directory, a cloud provider type is specified (ec2, openstack etc),
-and the validation is performed for each supported series, version, and arcgitecture.
+A key use case is to validate newly generated metadata prior to deployment to
+production. In this case, the metadata is placed in a local directory, a cloud
+provider type is specified (ec2, openstack etc), and the validation is performed
+for each supported series, version, and arcgitecture.
 
 Example bash snippet:
 
@@ -128,7 +137,11 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {
-		environ, err := environs.NewFromName(c.EnvName)
+		store, err := configstore.Default()
+		if err != nil {
+			return err
+		}
+		environ, err := environs.PrepareFromName(c.EnvName, store)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
@@ -178,7 +191,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://" + c.metadataDir)}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+c.metadataDir, simplestreams.VerifySSLHostnames)}
 	}
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{

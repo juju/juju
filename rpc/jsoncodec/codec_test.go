@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
@@ -37,9 +38,11 @@ var readTests = []struct {
 	msg: `{"RequestId": 1, "Type": "foo", "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
 	expectHdr: rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
+		},
 	},
 	expectBody: &value{X: "param"},
 }, {
@@ -82,6 +85,9 @@ func (*suite) TestRead(c *gc.C) {
 }
 
 func (*suite) TestReadHeaderLogsRequests(c *gc.C) {
+	codecLogger := loggo.GetLogger("juju.rpc.jsoncodec")
+	defer codecLogger.SetLogLevel(codecLogger.LogLevel())
+	codecLogger.SetLogLevel(loggo.TRACE)
 	msg := `{"RequestId":1,"Type": "foo","Id": "id","Request":"frob","Params":{"X":"param"}}`
 	codec := jsoncodec.New(&testConn{
 		readMsgs: []string{msg, msg, msg},
@@ -96,22 +102,27 @@ func (*suite) TestReadHeaderLogsRequests(c *gc.C) {
 	codec.SetLogging(true)
 	err = codec.ReadHeader(&h)
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), gc.Matches, ".*TRACE juju.rpc.jsoncodec <- "+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.ReadHeader(&h)
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), gc.Matches, ".*TRACE juju.rpc.jsoncodec <- "+regexp.QuoteMeta(msg)+`\n`)
 }
 
 func (*suite) TestWriteMessageLogsRequests(c *gc.C) {
+	codecLogger := loggo.GetLogger("juju.rpc.jsoncodec")
+	defer codecLogger.SetLogLevel(codecLogger.LogLevel())
+	codecLogger.SetLogLevel(loggo.TRACE)
 	codec := jsoncodec.New(&testConn{})
 	h := rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
+		},
 	}
 
 	// Check that logging is off by default
@@ -124,13 +135,13 @@ func (*suite) TestWriteMessageLogsRequests(c *gc.C) {
 	err = codec.WriteMessage(&h, value{X: "param"})
 	c.Assert(err, gc.IsNil)
 	msg := `{"RequestId":1,"Type":"foo","Id":"id","Request":"frob","Params":{"X":"param"}}`
-	c.Assert(c.GetTestLog(), gc.Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), gc.Matches, `.*TRACE juju.rpc.jsoncodec -> `+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.WriteMessage(&h, value{X: "param"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), gc.Matches, `.*TRACE juju.rpc.jsoncodec -> `+regexp.QuoteMeta(msg)+`\n`)
 }
 
 func (*suite) TestConcurrentSetLoggingAndWrite(c *gc.C) {
@@ -144,9 +155,11 @@ func (*suite) TestConcurrentSetLoggingAndWrite(c *gc.C) {
 	}()
 	h := rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
+		},
 	}
 	err := codec.WriteMessage(&h, value{X: "param"})
 	c.Assert(err, gc.IsNil)
@@ -196,9 +209,11 @@ var writeTests = []struct {
 }{{
 	hdr: &rpc.Header{
 		RequestId: 1,
-		Type:      "foo",
-		Id:        "id",
-		Request:   "frob",
+		Request: rpc.Request{
+			Type:   "foo",
+			Id:     "id",
+			Action: "frob",
+		},
 	},
 	body:   &value{X: "param"},
 	expect: `{"RequestId": 1, "Type": "foo","Id":"id", "Request": "frob", "Params": {"X": "param"}}`,
@@ -227,6 +242,55 @@ func (*suite) TestWrite(c *gc.C) {
 		c.Assert(conn.writeMsgs, gc.HasLen, 1)
 
 		assertJSONEqual(c, conn.writeMsgs[0], test.expect)
+	}
+}
+
+var dumpRequestTests = []struct {
+	hdr    rpc.Header
+	body   interface{}
+	expect string
+}{{
+	hdr: rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type:   "Foo",
+			Id:     "id",
+			Action: "Something",
+		},
+	},
+	body:   struct{ Arg string }{Arg: "an arg"},
+	expect: `{"RequestId":1,"Type":"Foo","Id":"id","Request":"Something","Params":{"Arg":"an arg"}}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 2,
+	},
+	body:   struct{ Ret string }{Ret: "return value"},
+	expect: `{"RequestId":2,"Response":{"Ret":"return value"}}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 3,
+	},
+	expect: `{"RequestId":3}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 4,
+		Error:     "an error",
+		ErrorCode: "an error code",
+	},
+	expect: `{"RequestId":4,"Error":"an error","ErrorCode":"an error code"}`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 5,
+	},
+	body:   make(chan int),
+	expect: `"marshal error: json: unsupported type: chan int"`,
+}}
+
+func (*suite) TestDumpRequest(c *gc.C) {
+	for i, test := range dumpRequestTests {
+		c.Logf("test %d; %#v", i, test.hdr)
+		data := jsoncodec.DumpRequest(&test.hdr, test.body)
+		c.Check(string(data), gc.Equals, test.expect)
 	}
 }
 

@@ -48,10 +48,10 @@ func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-func (s *suite) TestDownload(c *gc.C) {
+func (s *suite) testDownload(c *gc.C, disableSSLHostnameVerification bool) {
 	tmp := c.MkDir()
 	testing.Server.Response(200, nil, []byte("archive"))
-	d := downloader.New(s.URL("/archive.tgz"), tmp)
+	d := downloader.New(s.URL("/archive.tgz"), tmp, disableSSLHostnameVerification)
 	status := <-d.Done()
 	c.Assert(status.Err, gc.IsNil)
 	c.Assert(status.File, gc.NotNil)
@@ -63,9 +63,17 @@ func (s *suite) TestDownload(c *gc.C) {
 	assertFileContents(c, status.File, "archive")
 }
 
+func (s *suite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
+	s.testDownload(c, false)
+}
+
+func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
+	s.testDownload(c, true)
+}
+
 func (s *suite) TestDownloadError(c *gc.C) {
 	testing.Server.Response(404, nil, nil)
-	d := downloader.New(s.URL("/archive.tgz"), c.MkDir())
+	d := downloader.New(s.URL("/archive.tgz"), c.MkDir(), false)
 	status := <-d.Done()
 	c.Assert(status.File, gc.IsNil)
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
@@ -73,7 +81,7 @@ func (s *suite) TestDownloadError(c *gc.C) {
 
 func (s *suite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
-	d := downloader.New(s.URL("/x.tgz"), tmp)
+	d := downloader.New(s.URL("/x.tgz"), tmp, false)
 	d.Stop()
 	select {
 	case status := <-d.Done():

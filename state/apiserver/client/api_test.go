@@ -97,11 +97,11 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status params.Status, info string) error
+	SetStatus(status params.Status, info string, data params.StatusData) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(params.StatusStarted, "")
+	err := entity.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -207,7 +207,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, "machine-0")
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
@@ -237,7 +237,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Tag(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 		if i == 1 {

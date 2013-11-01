@@ -7,9 +7,10 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
-	"time"
 )
 
 // TarFile represents a file to be archived.
@@ -31,26 +32,26 @@ func NewTarFile(name string, mode os.FileMode, contents string) *TarFile {
 	if ftype == 0 {
 		panic(fmt.Errorf("unexpected mode %v", mode))
 	}
+	// NOTE: Do not set attributes (e.g. times) dynamically, as various
+	// tests expect the contents of fake tools archives to be unchanging.
 	return &TarFile{
 		Header: tar.Header{
-			Typeflag:   ftype,
-			Name:       name,
-			Size:       int64(len(contents)),
-			Mode:       int64(mode & 0777),
-			ModTime:    time.Now(),
-			AccessTime: time.Now(),
-			ChangeTime: time.Now(),
-			Uname:      "ubuntu",
-			Gname:      "ubuntu",
+			Typeflag: ftype,
+			Name:     name,
+			Size:     int64(len(contents)),
+			Mode:     int64(mode & 0777),
+			Uname:    "ubuntu",
+			Gname:    "ubuntu",
 		},
 		Contents: contents,
 	}
 }
 
-// TarGz returns the given files in gzipped tar-archive format.
-func TarGz(files ...*TarFile) []byte {
+// TarGz returns the given files in gzipped tar-archive format, along with the sha256 checksum.
+func TarGz(files ...*TarFile) ([]byte, string) {
 	var buf bytes.Buffer
-	gzw := gzip.NewWriter(&buf)
+	sha256hash := sha256.New()
+	gzw := gzip.NewWriter(io.MultiWriter(&buf, sha256hash))
 	tarw := tar.NewWriter(gzw)
 
 	for _, f := range files {
@@ -71,5 +72,6 @@ func TarGz(files ...*TarFile) []byte {
 	if err != nil {
 		panic(err)
 	}
-	return buf.Bytes()
+	checksum := fmt.Sprintf("%x", sha256hash.Sum(nil))
+	return buf.Bytes(), checksum
 }

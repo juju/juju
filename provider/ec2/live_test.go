@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	amzec2 "launchpad.net/goamz/ec2"
@@ -19,10 +18,8 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -55,7 +52,6 @@ func registerAmazonTests() {
 		"name":           "sample-" + uniqueName,
 		"type":           "ec2",
 		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
 		"agent-version":  version.Current.Number.String(),
@@ -75,7 +71,6 @@ func registerAmazonTests() {
 type LiveTests struct {
 	testbase.LoggingSuite
 	jujutest.LiveTests
-	writablePublicStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
@@ -84,14 +79,10 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	e, err := environs.NewFromAttrs(t.TestConfig)
 	c.Assert(err, gc.IsNil)
 
-	// Environ.PublicStorage() is read only.
-	// For testing, we create a specific storage instance which is authorised to write to
-	// the public storage bucket so that we can upload files for testing.
-	t.writablePublicStorage = ec2.WritablePublicStorage(e)
 	// Put some fake tools in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
-	envtesting.UploadFakeTools(c, t.writablePublicStorage)
+	envtesting.UploadFakeTools(c, e.Storage())
 	t.LiveTests.SetUpSuite(c)
 }
 
@@ -100,8 +91,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := t.writablePublicStorage.RemoveAll()
-	c.Assert(err, gc.IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }
@@ -119,7 +108,7 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
-	inst, hc := testing.StartInstance(c, t.Env, "30")
+	inst, hc := testing.AssertStartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, gc.NotNil)
@@ -143,8 +132,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, hc, err := provider.StartInstance(t.Env, "31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
-	c.Assert(err, gc.IsNil)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.medium")
@@ -156,6 +144,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
+	t.PrepareOnce(c)
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
@@ -190,14 +179,14 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 
-	inst0, _ := testing.StartInstance(c, t.Env, "98")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
 	defer t.Env.StopInstances([]instance.Instance{inst0})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, _ := testing.StartInstance(c, t.Env, "99")
+	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -244,20 +233,35 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	for _, r := range resp.Reservations {
 		c.Assert(r.Instances, gc.HasLen, 1)
 		// each instance must be part of the general juju group.
-		msg := gc.Commentf("reservation %#v", r)
-		c.Assert(hasSecurityGroup(r, groups[0]), gc.Equals, true, msg)
 		inst := r.Instances[0]
+		msg := gc.Commentf("instance %#v", inst)
+		c.Assert(hasSecurityGroup(inst, groups[0]), gc.Equals, true, msg)
 		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, false, msg)
+			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, false, msg)
 		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, false, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+
+	// Check that listing those instances finds them using the groups
+	instIds := []instance.Id{inst0.Id(), inst1.Id()}
+	idsFromInsts := func(insts []instance.Instance) (ids []instance.Id) {
+		for _, inst := range insts {
+			ids = append(ids, inst.Id())
+		}
+		return ids
+	}
+	insts, err := t.Env.Instances(instIds)
+	c.Assert(err, gc.IsNil)
+	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
+	allInsts, err := t.Env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
 }
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
@@ -328,9 +332,9 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, _ := testing.StartInstance(c, t.Env, "40")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-	inst2, _ := testing.StartInstance(c, t.Env, "41")
+	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
 
 	err := t.Env.StopInstances([]instance.Instance{inst0, inst1, inst2})
 	c.Check(err, gc.IsNil)
@@ -356,26 +360,6 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
-}
-
-func (t *LiveTests) TestPublicStorage(c *gc.C) {
-	s := ec2.WritablePublicStorage(t.Env)
-
-	contents := "test"
-	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
-	c.Assert(err, gc.IsNil)
-
-	r, err := storage.Get(s, "test-object")
-	c.Assert(err, gc.IsNil)
-	defer r.Close()
-
-	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, contents)
-
-	// Check that the public storage isn't aliased to the private storage.
-	r, err = storage.Get(t.Env.Storage(), "test-object")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
@@ -425,9 +409,9 @@ func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.Securi
 	return gi.SecurityGroup
 }
 
-func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
-	for _, rg := range r.SecurityGroups {
-		if rg.Id == g.Id {
+func hasSecurityGroup(inst amzec2.Instance, group amzec2.SecurityGroup) bool {
+	for _, instGroup := range inst.SecurityGroups {
+		if instGroup.Id == group.Id {
 			return true
 		}
 	}

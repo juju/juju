@@ -28,8 +28,9 @@ for the environment are output using the selected formatter.
 A single environment value can be output by adding the environment key name to
 the end of the command line.
 
-e.g. $ juju get-environment default-series
-     precise
+Example:
+  
+  juju get-environment default-series  (returns the default series for the environment)
 `
 
 func (c *GetEnvironmentCommand) Info() *cmd.Info {

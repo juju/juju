@@ -78,7 +78,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	if !found {
 		return fmt.Errorf("unknown relation id")
 	}
-	var settings params.Settings
+	var settings params.RelationSettings
 	if c.UnitName == c.ctx.UnitName() {
 		node, err := r.Settings()
 		if err != nil {
@@ -92,11 +92,11 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	var value interface{}
 	if c.Key == "" {
-		value = settings
-	} else {
-		value, _ = settings[c.Key]
+		return c.out.Write(ctx, settings)
 	}
-	return c.out.Write(ctx, value)
+	if value, ok := settings[c.Key]; ok {
+		return c.out.Write(ctx, value)
+	}
+	return c.out.Write(ctx, nil)
 }

@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
-	"launchpad.net/juju-core/state/apiserver/logger"
+	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
 	"launchpad.net/juju-core/state/apiserver/uniter"
@@ -136,12 +136,12 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 
 // Logger returns an object that provides access to the Logger API facade.
 // The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Logger(id string) (*logger.LoggerAPI, error) {
+func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
 	if id != "" {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return logger.NewLoggerAPI(r.srv.state, r.resources, r)
+	return loggerapi.NewLoggerAPI(r.srv.state, r.resources, r)
 }
 
 // Upgrader returns an object that provides access to the Upgrader API facade.

@@ -65,6 +65,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
+		logger.Errorf("failed to validate unknown attrs: %v", err)
 		return nil, err
 	}
 	localConfig := newEnvironConfig(cfg, validated)
@@ -77,6 +78,11 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		}
 		if localConfig.rootDir() != oldLocalConfig.rootDir() {
 			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
+				oldLocalConfig.rootDir(),
+				localConfig.rootDir())
+		}
+		if localConfig.networkBridge() != oldLocalConfig.networkBridge() {
+			return nil, fmt.Errorf("cannot change network-bridge from %q to %q",
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
 		}
@@ -105,26 +111,31 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 // BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
 func (environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-local.html
+# https://juju.ubuntu.com/docs/config-local.html
 local:
-  type: local
-  admin-secret: {{rand}}
-  # Override the directory that is used for the storage files and database.
-  # The default location is $JUJU_HOME/<ENV>.
-  # $JUJU_HOME defaults to ~/.juju
-  # root-dir: ~/.juju/local
-  # Override the storage port if you have multiple local providers, or if the
-  # default port is used by another program.
-  # storage-port: 8040
-  # Override the shared storage port if you have multiple local providers, or if the
-  # default port is used by another program.
-  # shared-storage-port: 8041
+    type: local
+    # Override the directory that is used for the storage files and database.
+    # The default location is $JUJU_HOME/<ENV>.
+    
+    # $JUJU_HOME defaults to ~/.juju
+    # root-dir: ~/.juju/local
+    
+    # Override the storage port if you have multiple local providers, or if the
+    # default port is used by another program.
+    # storage-port: 8040
+    
+    # Override the shared storage port if you have multiple local providers, or if the
+    # default port is used by another program.
+    # shared-storage-port: 8041
+    
+    # Override the network bridge if you have changed the default lxc bridge
+    # network-bridge: lxcbr0
 
 `[1:]
 }
 
 // SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs
 	return nil, nil
 }

@@ -9,13 +9,17 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type EmptyStorageSuite struct{}
+type EmptyStorageSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&EmptyStorageSuite{})
 
@@ -37,7 +41,9 @@ func (s *EmptyStorageSuite) TestList(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-type verifyStorageSuite struct{}
+type verifyStorageSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&verifyStorageSuite{})
 
@@ -51,17 +57,18 @@ environments:
 
 func (s *verifyStorageSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	stor := environ.Storage()
 	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.IsNil)
-	reader, err := storage.Get(stor, "bootstrap-verify")
+	reader, err := storage.Get(stor, environs.VerificationFilename)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)
@@ -73,11 +80,11 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 func (s *verifyStorageSuite) TestVerifyStorageFails(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test")
+	environ, err := environs.PrepareFromName("test", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	stor := environ.Storage()
 	someError := errors.Unauthorizedf("you shall not pass")
-	dummy.Poison(stor, "bootstrap-verify", someError)
+	dummy.Poison(stor, environs.VerificationFilename, someError)
 	err = environs.VerifyStorage(stor)
 	c.Assert(err, gc.Equals, environs.VerifyStorageError)
 }

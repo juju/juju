@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -52,10 +53,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobManageState, state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
@@ -302,6 +303,11 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
+	err := s.machine0.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
 	addresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
 
@@ -313,12 +319,18 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	err := s.machine0.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	result, err := s.deployer.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: apiAddresses,
 	})
 }
 

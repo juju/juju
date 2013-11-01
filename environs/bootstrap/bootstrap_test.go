@@ -13,8 +13,11 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -22,7 +25,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -82,13 +85,12 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 func uploadTools(c *gc.C, env environs.Environ) {
 	usefulVersion := version.Current
 	usefulVersion.Series = env.Config().DefaultSeries()
-	envtesting.UploadFakeToolsVersion(c, env.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	s.setDummyStorage(c, env)
-	uploadTools(c, env)
 	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -98,7 +100,6 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	s.setDummyStorage(c, env)
-	uploadTools(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(env, cons)
 	c.Assert(err, gc.IsNil)
@@ -150,16 +151,14 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
 		}
-		env, err := environs.NewFromAttrs(attrs)
+		cfg, err := config.New(config.NoDefaults, attrs)
 		c.Assert(err, gc.IsNil)
-		env, err = environs.Prepare(env.Config())
+		env, err := environs.Prepare(cfg, configstore.NewMem())
 		c.Assert(err, gc.IsNil)
 		envtesting.RemoveAllTools(c, env)
 
 		version.Current = test.CliVersion
-		for _, vers := range test.Available {
-			envtesting.UploadFakeToolsVersion(c, env.Storage(), vers)
-		}
+		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), test.Available...)
 
 		cons := constraints.Value{}
 		if test.Arch != "" {
@@ -170,7 +169,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, ".*"+test.Err.Error())
 			continue
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 		unique := map[version.Number]bool{}
 		for _, expected := range test.Expect {
@@ -189,7 +188,7 @@ func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: invalid URL.*")
 }
 
 type bootstrapEnviron struct {
@@ -201,6 +200,14 @@ type bootstrapEnviron struct {
 	bootstrapCount int
 	constraints    constraints.Value
 	storage        storage.Storage
+}
+
+var _ envtools.SupportsCustomSources = (*bootstrapEnviron)(nil)
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (e *bootstrapEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
@@ -236,7 +243,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil
@@ -253,8 +260,4 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 
 func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
-}
-
-func (e *bootstrapEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
 }

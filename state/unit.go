@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -173,23 +174,24 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// SetAgentTools sets the tools that the agent is currently running.
-func (u *Unit) SetAgentTools(t *tools.Tools) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
-	if t.Version.Series == "" || t.Version.Arch == "" {
-		return fmt.Errorf("empty series or arch")
+// SetAgentVersion sets the version of juju that the agent is
+// currently running.
+func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set agent version for unit %q", u)
+	if err = checkVersionValidity(v); err != nil {
+		return err
 	}
+	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", t}}}},
+		Update: D{{"$set", D{{"tools", tools}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
-	tools := *t
-	u.doc.Tools = &tools
+	u.doc.Tools = tools
 	return nil
 }
 
@@ -488,22 +490,25 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// Status returns the status of the unit's agent.
-func (u *Unit) Status() (status params.Status, info string, err error) {
+// Status returns the status of the unit.
+func (u *Unit) Status() (status params.Status, info string, data params.StatusData, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	status = doc.Status
 	info = doc.StatusInfo
+	data = doc.StatusData
 	return
 }
 
-// SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string) error {
+// SetStatus sets the status of the unit. The optional values
+// allow to pass additional helpful status data.
+func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+		StatusData: data,
 	}
 	if err := doc.validateSet(); err != nil {
 		return err
@@ -1088,6 +1093,9 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	if cons.CpuPower != nil && *cons.CpuPower > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpupower", D{{"$gte", *cons.CpuPower}}})
 	}
+	if cons.Tags != nil && len(*cons.Tags) > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"tags", D{{"$all", *cons.Tags}}})
+	}
 	if len(suitableTerms) > 0 {
 		err := u.st.instanceData.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
@@ -1218,7 +1226,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
-	status, _, err := u.Status()
+	status, _, _, err := u.Status()
 	if err != nil {
 		return err
 	}

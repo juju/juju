@@ -22,9 +22,9 @@ type UnsetCommand struct {
 }
 
 const unsetDoc = `
-Set one or more configuration options for the specified service
-to their default. See also the set commmand to set one or more 
-configuration options for a specified service.
+Set one or more configuration options for the specified service to their
+default. See also the set commmand to set one or more  configuration options for
+a specified service.
 `
 
 func (c *UnsetCommand) Info() *cmd.Info {
