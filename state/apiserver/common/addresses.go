@@ -15,28 +15,20 @@ type AddressAndCertGetter interface {
 	CACert() []byte
 }
 
-// Addresser implements a common set of methods for getting state and
-// API server addresses, and the CA certificate used to authenticate
-// them.
-type Addresser struct {
+// APIAddresser implements the APIAddresses method
+type APIAddresser struct {
 	getter AddressAndCertGetter
 }
 
-// NewAddresser returns a new Addresser that uses the given
-// st value to fetch its addresses.
-func NewAddresser(getter AddressAndCertGetter) *Addresser {
-	return &Addresser{getter}
+// NewAPIAddresser returns a new APIAddresser that uses the given getter to
+// fetch its addresses.
+func NewAPIAddresser(getter AddressAndCertGetter) *APIAddresser {
+	return &APIAddresser{getter}
 }
 
-// StateAddresses returns the list of addresses used to connect to the state.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (a *Addresser) StateAddresses() (params.StringsResult, error) {
-	addrs, err := a.getter.Addresses()
+// APIAddresses returns the list of addresses used to connect to the API.
+func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	addrs, err := a.getter.APIAddresses()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
@@ -45,15 +37,22 @@ func (a *Addresser) StateAddresses() (params.StringsResult, error) {
 	}, nil
 }
 
-// APIAddresses returns the list of addresses used to connect to the API.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (a *Addresser) APIAddresses() (params.StringsResult, error) {
-	addrs, err := a.getter.APIAddresses()
+// Addresser implements a common set of methods for getting state and
+// API server addresses, and the CA certificate used to authenticate
+// them.
+type Addresser struct {
+	APIAddresser
+}
+
+// NewAddresser returns a new Addresser that uses the given
+// st value to fetch its addresses.
+func NewAddresser(getter AddressAndCertGetter) *Addresser {
+	return &Addresser{APIAddresser{getter}}
+}
+
+// StateAddresses returns the list of addresses used to connect to the state.
+func (a *Addresser) StateAddresses() (params.StringsResult, error) {
+	addrs, err := a.getter.Addresses()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
