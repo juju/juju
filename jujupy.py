@@ -37,6 +37,16 @@ class Environment:
     def _full_args(self, command, *args):
         return ('juju', command, '-e', self.environment) + args
 
+    def bootstrap(self):
+        """Bootstrap, using sudo if necessary."""
+        if self.environment == 'local':
+            args = ['sudo'] + self._full_args('bootstrap')
+            print ' '.join(args)
+            sys.stdout.flush()
+            return subprocess.check_call(args)
+        else:
+            self.juju('bootstrap', '--constraints', 'mem=2G')
+
     def juju(self, command, *args):
         """Run a command under juju for the current environment."""
         args = self._full_args(command, *args)

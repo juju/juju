@@ -14,7 +14,7 @@ def deploy_stack(environments):
     """
     envs = [Environment(e) for e in environments]
     for env in envs:
-        env.juju('bootstrap', '--constraints', 'mem=2G')
+        env.bootstrap()
     for env in envs:
         env.juju('deploy', 'wordpress')
         env.juju('deploy', 'mysql')
