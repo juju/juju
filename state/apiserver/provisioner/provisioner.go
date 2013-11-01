@@ -23,7 +23,8 @@ type ProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
-	*common.Addresser
+	*common.StateAddresser
+	*common.APIAddresser
 	*common.ToolsGetter
 
 	st          *state.State
@@ -72,7 +73,8 @@ func NewProvisionerAPI(
 		DeadEnsurer:     common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		Addresser:       common.NewAddresser(st),
+		StateAddresser:  common.NewStateAddresser(st),
+		APIAddresser:    common.NewAPIAddresser(st),
 		ToolsGetter:     common.NewToolsGetter(st, getAuthFunc),
 		st:              st,
 		resources:       resources,
