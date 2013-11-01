@@ -6,15 +6,15 @@ CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-co
 source $SCRIPTS/make-recipe-and-package.bash $(bzr revno .) lp:juju-core
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   for env in $ENVS; do
-    juju destroy-environment -e $env -y
+    juju destroy-environment -e $env -y || true
   done
   exit 1
 fi
+sudo dpkg -i $TESTING_DIR/juju-core*.deb
 mkdir -p new-tools
 source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
 export GOPATH=$(dirname $(pwd))
 source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
-sudo dpkg -i $TESTING_DIR/juju-core*.deb
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
