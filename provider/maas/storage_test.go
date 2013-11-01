@@ -29,8 +29,10 @@ var _ = gc.Suite(&storageSuite{})
 // makeStorage creates a MAAS storage object for the running test.
 func (s *storageSuite) makeStorage(name string) *maasStorage {
 	maasobj := s.testMAASObject.MAASObject
-	env := maasEnviron{name: name, maasClientUnlocked: &maasobj}
-	return NewStorage(&env).(*maasStorage)
+	env := s.makeEnviron()
+	env.name = name
+	env.maasClientUnlocked = &maasobj
+	return NewStorage(env).(*maasStorage)
 }
 
 // makeRandomBytes returns an array of arbitrary byte values.
@@ -50,7 +52,10 @@ func makeRandomBytes(length int) []byte {
 // Or don't, if you want consistent (and debuggable) results.
 func (s *storageSuite) fakeStoredFile(stor storage.Storage, name string) gomaasapi.MAASObject {
 	data := makeRandomBytes(rand.Intn(10))
-	return s.testMAASObject.TestServer.NewFile(name, data)
+	// The filename must be prefixed with the private namespace as we're
+	// bypassing the Put() method that would normally do that.
+	prefixFilename := stor.(*maasStorage).prefixWithPrivateNamespace("") + name
+	return s.testMAASObject.TestServer.NewFile(prefixFilename, data)
 }
 
 func (s *storageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
@@ -93,7 +98,8 @@ func (s *storageSuite) TestRetrieveFileObjectReturnsFileObject(c *gc.C) {
 	fileContent, err := file.GetField("content")
 	c.Assert(err, gc.IsNil)
 
-	obj, err := stor.retrieveFileObject(filename)
+	prefixFilename := stor.prefixWithPrivateNamespace(filename)
+	obj, err := stor.retrieveFileObject(prefixFilename)
 	c.Assert(err, gc.IsNil)
 
 	uri, err := obj.GetField("anon_resource_uri")
@@ -117,7 +123,8 @@ func (s *storageSuite) TestRetrieveFileObjectEscapesName(c *gc.C) {
 	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, gc.IsNil)
 
-	obj, err := stor.retrieveFileObject(filename)
+	prefixFilename := stor.prefixWithPrivateNamespace(filename)
+	obj, err := stor.retrieveFileObject(prefixFilename)
 	c.Assert(err, gc.IsNil)
 
 	base64Content, err := obj.GetField("content")
@@ -389,4 +396,25 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(listing, gc.DeepEquals, []string{})
+}
+
+func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc.C) {
+	sstor := NewStorage(s.makeEnviron())
+	stor := sstor.(*maasStorage)
+	agentName := stor.environUnlocked.ecfg().maasAgentName()
+	c.Assert(agentName, gc.Not(gc.Equals), "")
+	expectedPrefix := agentName + "-"
+	const name = "myname"
+	expectedResult := expectedPrefix + name
+	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, expectedResult)
+}
+
+func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresAgentName(c *gc.C) {
+	sstor := NewStorage(s.makeEnviron())
+	stor := sstor.(*maasStorage)
+	ecfg := stor.environUnlocked.ecfg()
+	ecfg.attrs["maas-agent-name"] = ""
+
+	const name = "myname"
+	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, name)
 }

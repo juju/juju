@@ -38,12 +38,10 @@ func (cfg *Config) set(opt string, yes bool, value interface{}) {
 }
 
 // AptSource is an apt(8) source, comprising a source location,
-// optionally either a Key, or KeyId with an optional KeyServer.
+// with an optional Key.
 type AptSource struct {
-	Source    string `yaml:"source"`
-	Key       string `yaml:"key,omitempty"`
-	KeyId     string `yaml:"keyid,omitempty"`
-	KeyServer string `yaml:"keyserver,omitempty"`
+	Source string `yaml:"source"`
+	Key    string `yaml:"key,omitempty"`
 }
 
 // command represents a shell command.

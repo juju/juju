@@ -6,6 +6,7 @@ package imagemetadata_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
@@ -19,15 +20,19 @@ type ValidateSuite struct {
 var _ = gc.Suite(&ValidateSuite{})
 
 func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
-	im := imagemetadata.ImageMetadata{
-		Id:   id,
-		Arch: "amd64",
+	metadata := []*imagemetadata.ImageMetadata{
+		{
+			Id:   id,
+			Arch: "amd64",
+		},
 	}
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := imagemetadata.GenerateMetadata(series, &im, &cloudSpec, s.metadataDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}

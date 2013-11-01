@@ -175,13 +175,13 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 }
 
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
-	content := fmt.Sprintf("#!/bin/bash\necho %s $*", name)
+	content := fmt.Sprintf("#!/bin/bash --norc\necho %s $*", name)
 	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
 
 func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
-	content := fmt.Sprintf("#!/bin/bash\necho failing\nexit %d", exitStatus)
+	content := fmt.Sprintf("#!/bin/bash --norc\necho failing\nexit %d", exitStatus)
 	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), 0755)
 }
@@ -193,7 +193,7 @@ type PluginParams struct {
 	DependsOn  string
 }
 
-const pluginTemplate = `#!/bin/bash
+const pluginTemplate = `#!/bin/bash --norc
 
 if [ "$1" = "--description" ]; then
   if [ -n "{{.Creates}}" ]; then

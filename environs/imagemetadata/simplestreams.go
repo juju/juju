@@ -88,9 +88,11 @@ type ImageConstraint struct {
 }
 
 func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
-	if len(params.Series) != 1 {
-		// This can only happen as a result of a coding error.
-		panic(fmt.Sprintf("image constraint requires a single series, got %v", params.Series))
+	if len(params.Series) == 0 {
+		params.Series = simplestreams.SupportedSeries()
+	}
+	if len(params.Arches) == 0 {
+		params.Arches = []string{"amd64", "i386", "arm"}
 	}
 	return &ImageConstraint{LookupParams: params}
 }
@@ -101,13 +103,18 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	if stream != "" {
 		stream = "." + stream
 	}
-	version, err := simplestreams.SeriesVersion(ic.Series[0])
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]string, len(ic.Arches))
+
+	nrArches := len(ic.Arches)
+	nrSeries := len(ic.Series)
+	ids := make([]string, nrArches*nrSeries)
 	for i, arch := range ic.Arches {
-		ids[i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
+		for j, series := range ic.Series {
+			version, err := simplestreams.SeriesVersion(series)
+			if err != nil {
+				return nil, err
+			}
+			ids[j*nrArches+i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
+		}
 	}
 	return ids, nil
 }
@@ -115,12 +122,21 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 // ImageMetadata holds information about a particular cloud image.
 type ImageMetadata struct {
 	Id          string `json:"id"`
-	Storage     string `json:"root_store"`
-	VType       string `json:"virt"`
-	Arch        string `json:"arch"`
-	RegionAlias string `json:"crsn"`
-	RegionName  string `json:"region"`
-	Endpoint    string `json:"endpoint"`
+	Storage     string `json:"root_store,omitempty"`
+	VType       string `json:"virt,omitempty"`
+	Arch        string `json:"arch,omitempty"`
+	Version     string `json:"version,omitempty"`
+	RegionAlias string `json:"crsn,omitempty"`
+	RegionName  string `json:"region,omitempty"`
+	Endpoint    string `json:"endpoint,omitempty"`
+}
+
+func (im *ImageMetadata) String() string {
+	return fmt.Sprintf("%#v", im)
+}
+
+func (im *ImageMetadata) productId() string {
+	return fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", im.Version, im.Arch)
 }
 
 // Fetch returns a list of images for the specified cloud matching the constraint.
@@ -148,6 +164,8 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ImageCons
 type imageKey struct {
 	vtype   string
 	arch    string
+	version string
+	region  string
 	storage string
 }
 
@@ -159,14 +177,14 @@ func appendMatchingImages(source simplestreams.DataSource, matchingImages []inte
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {
 		im := val.(*ImageMetadata)
-		imagesMap[imageKey{im.VType, im.Arch, im.Storage}] = im
+		imagesMap[imageKey{im.VType, im.Arch, im.Version, im.RegionName, im.Storage}] = im
 	}
 	for _, val := range images {
 		im := val.(*ImageMetadata)
-		if cons.Params().Region != im.RegionName {
+		if cons != nil && cons.Params().Region != "" && cons.Params().Region != im.RegionName {
 			continue
 		}
-		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Storage}]; !ok {
+		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Version, im.RegionName, im.Storage}]; !ok {
 			matchingImages = append(matchingImages, im)
 		}
 	}

@@ -6,134 +6,101 @@ package imagemetadata
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"text/template"
 	"time"
 
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/errors"
 )
 
-const (
-	defaultIndexFileName = "index.json"
-	defaultImageFileName = "imagemetadata.json"
-)
+// MergeAndWriteMetadata reads the existing metadata from storage (if any),
+// and merges it with supplied metadata, writing the resulting metadata is written to storage.
+func MergeAndWriteMetadata(series string, metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec,
+	metadataStore storage.Storage) error {
 
-// GenerateMetadata generates some basic simplestreams metadata using the specified cloud and image details.
-func GenerateMetadata(series string, im *ImageMetadata, cloudSpec *simplestreams.CloudSpec, dest string) ([]string, error) {
-	indexFileName := defaultIndexFileName
-	imageFileName := defaultImageFileName
-	now := time.Now()
-	imparams := imageMetadataParams{
-		Id:            im.Id,
-		Arch:          im.Arch,
-		Region:        cloudSpec.Region,
-		URL:           cloudSpec.Endpoint,
-		Path:          "streams/v1",
-		ImageFileName: imageFileName,
-		Updated:       now.Format(time.RFC1123Z),
-		VersionKey:    now.Format("20060102"),
-	}
-
-	var err error
-	imparams.Version, err = simplestreams.SeriesVersion(series)
+	existingMetadata, err := readMetadata(metadataStore)
 	if err != nil {
-		return nil, fmt.Errorf("invalid series %q", series)
-	}
-
-	streamsPath := filepath.Join(dest, "streams", "v1")
-	if err = os.MkdirAll(streamsPath, 0755); err != nil {
-		return nil, err
-	}
-	indexFileName = filepath.Join(streamsPath, indexFileName)
-	imageFileName = filepath.Join(streamsPath, imageFileName)
-	err = writeJsonFile(imparams, indexFileName, indexBoilerplate)
-	if err != nil {
-		return nil, err
-	}
-	err = writeJsonFile(imparams, imageFileName, productBoilerplate)
-	if err != nil {
-		return nil, err
-	}
-	return []string{indexFileName, imageFileName}, nil
-}
-
-type imageMetadataParams struct {
-	Region        string
-	URL           string
-	Updated       string
-	Arch          string
-	Path          string
-	Series        string
-	Version       string
-	VersionKey    string
-	Id            string
-	ImageFileName string
-}
-
-func writeJsonFile(imparams imageMetadataParams, filename, boilerplate string) error {
-	t := template.Must(template.New("").Parse(boilerplate))
-	var metadata bytes.Buffer
-	if err := t.Execute(&metadata, imparams); err != nil {
-		panic(fmt.Errorf("cannot generate %s metdata: %v", filename, err))
-	}
-	data := metadata.Bytes()
-	if err := ioutil.WriteFile(filename, data, 0666); err != nil {
 		return err
+	}
+	seriesVersion, err := simplestreams.SeriesVersion(series)
+	if err != nil {
+		return err
+	}
+	toWrite, allCloudSpec := mergeMetadata(seriesVersion, cloudSpec, metadata, existingMetadata)
+	return writeMetadata(toWrite, allCloudSpec, metadataStore)
+}
+
+// readMetadata reads the image metadata from metadataStore.
+func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
+	// Read any existing metadata so we can merge the new tools metadata with what's there.
+	dataSource := storage.NewStorageSimpleStreamsDataSource(metadataStore, "")
+	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
+	existingMetadata, err := Fetch(
+		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, imageConstraint, false)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
+	}
+	return existingMetadata, nil
+}
+
+func mapKey(im *ImageMetadata) string {
+	return fmt.Sprintf("%s-%s", im.productId(), im.RegionName)
+}
+
+// mergeMetadata merges the newMetadata into existingMetadata, overwriting existing matching image records.
+func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, newMetadata,
+	existingMetadata []*ImageMetadata) ([]*ImageMetadata, []simplestreams.CloudSpec) {
+
+	var toWrite = make([]*ImageMetadata, len(newMetadata))
+	imageIds := make(map[string]bool)
+	for i, im := range newMetadata {
+		newRecord := *im
+		newRecord.Version = seriesVersion
+		newRecord.RegionName = cloudSpec.Region
+		newRecord.Endpoint = cloudSpec.Endpoint
+		toWrite[i] = &newRecord
+		imageIds[mapKey(&newRecord)] = true
+	}
+	regions := make(map[string]bool)
+	var allCloudSpecs = []simplestreams.CloudSpec{*cloudSpec}
+	for _, im := range existingMetadata {
+		if _, ok := imageIds[mapKey(im)]; ok {
+			continue
+		}
+		toWrite = append(toWrite, im)
+		if _, ok := regions[im.RegionName]; ok {
+			continue
+		}
+		regions[im.RegionName] = true
+		existingCloudSpec := simplestreams.CloudSpec{im.RegionName, im.Endpoint}
+		allCloudSpecs = append(allCloudSpecs, existingCloudSpec)
+	}
+	return toWrite, allCloudSpecs
+}
+
+type MetadataFile struct {
+	Path string
+	Data []byte
+}
+
+// writeMetadata generates some basic simplestreams metadata using the specified cloud and image details and writes
+// it to the supplied store.
+func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpec,
+	metadataStore storage.Storage) error {
+
+	index, products, err := MarshalImageMetadataJSON(metadata, cloudSpec, time.Now())
+	if err != nil {
+		return err
+	}
+	metadataInfo := []MetadataFile{
+		{simplestreams.UnsignedIndex, index},
+		{ProductMetadataPath, products},
+	}
+	for _, md := range metadataInfo {
+		err = metadataStore.Put(md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
-
-var indexBoilerplate = `
-{
- "index": {
-   "com.ubuntu.cloud:custom": {
-     "updated": "{{.Updated}}",
-     "clouds": [
-       {
-         "region": "{{.Region}}",
-         "endpoint": "{{.URL}}"
-       }
-     ],
-     "cloudname": "custom",
-     "datatype": "image-ids",
-     "format": "products:1.0",
-     "products": [
-       "com.ubuntu.cloud:server:{{.Version}}:{{.Arch}}"
-     ],
-     "path": "{{.Path}}/{{.ImageFileName}}"
-   }
- },
- "updated": "{{.Updated}}",
- "format": "index:1.0"
-}
-`
-
-var productBoilerplate = `
-{
-  "content_id": "com.ubuntu.cloud:custom",
-  "format": "products:1.0",
-  "updated": "{{.Updated}}",
-  "datatype": "image-ids",
-  "products": {
-    "com.ubuntu.cloud:server:{{.Version}}:{{.Arch}}": {
-      "release": "{{.Series}}",
-      "version": "{{.Version}}",
-      "arch": "{{.Arch}}",
-      "versions": {
-        "{{.VersionKey}}": {
-          "items": {
-            "{{.Id}}": {
-              "region": "{{.Region}}",
-              "id": "{{.Id}}"
-            }
-          },
-          "pubname": "ubuntu-{{.Series}}-{{.Version}}-{{.Arch}}-server-{{.VersionKey}}",
-          "label": "custom"
-        }
-      }
-    }
-  }
-}
-`

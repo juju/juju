@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -195,13 +196,6 @@ func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	c.Check(specificStorage.environUnlocked, gc.Equals, env)
 }
 
-func (suite *environSuite) TestPublicStorageReturnsEmptyStorage(c *gc.C) {
-	env := suite.makeEnviron()
-	stor := env.PublicStorage()
-	c.Assert(stor, gc.NotNil)
-	c.Check(stor, gc.Equals, environs.EmptyStorage)
-}
-
 func decodeUserData(userData string) ([]byte, error) {
 	data, err := base64.StdEncoding.DecodeString(userData)
 	if err != nil {
@@ -309,7 +303,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
 }
 
-func (suite *environSuite) TestAcquireNodePassedEnvironmentUUID(c *gc.C) {
+func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	stor := NewStorage(suite.makeEnviron())
 	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
@@ -321,7 +315,7 @@ func (suite *environSuite) TestAcquireNodePassedEnvironmentUUID(c *gc.C) {
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
 	c.Assert(found, gc.Equals, true)
-	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleUUID)
+	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
@@ -475,7 +469,9 @@ func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("filename", data)
+	stor := NewStorage(env)
+	err := stor.Put("filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
@@ -490,7 +486,9 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("tools/filename", data)
+	stor := NewStorage(env)
+	err := stor.Put("tools/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, gc.IsNil)
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)

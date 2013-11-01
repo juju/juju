@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
@@ -65,7 +66,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
-	im := imagemetadata.ImageMetadata{
+	im := &imagemetadata.ImageMetadata{
 		Id:   id,
 		Arch: "amd64",
 	}
@@ -73,7 +74,11 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := imagemetadata.GenerateMetadata(series, &im, &cloudSpec, s.metadataDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		return err
+	}
+	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -100,10 +105,8 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
-	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
-	s.AddCleanup(func(*gc.C) { restore() })
-	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-	s.AddCleanup(func(*gc.C) { restore() })
+	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
 
 func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {

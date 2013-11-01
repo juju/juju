@@ -14,8 +14,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
@@ -124,17 +126,17 @@ func (c *ImageMetadataCommand) Init(args []string) error {
 
 var helpDoc = `
 image metadata files have been written to:
-%q.
+%s.
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
 
 1. Use tools-url in $JUJU_HOME/environments.yaml
 Configure a http server to serve the contents of
-%q
+%s
 and set the value of tools-url accordingly.
 
 2. Upload the contents of
-%q
+%s
 to your cloud's private storage (for ec2 and openstack).
 eg for openstack
 "cd %s; swift upload %s streams/v1/*"
@@ -144,7 +146,7 @@ eg for openstack
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 
-	im := imagemetadata.ImageMetadata{
+	im := &imagemetadata.ImageMetadata{
 		Id:   c.ImageId,
 		Arch: c.Arch,
 	}
@@ -152,11 +154,16 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}
-	_, err := imagemetadata.GenerateMetadata(c.Series, &im, &cloudSpec, c.Dir)
+	targetStorage, err := filestorage.NewFileStorageWriter(c.Dir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		return err
+	}
+	err = imagemetadata.MergeAndWriteMetadata(c.Series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
 	dest := filepath.Join(c.Dir, "streams", "v1")
-	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, c.Dir, c.Dir, c.Dir, c.privateStorage))
+	dir := utils.NormalizePath(c.Dir)
+	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir, dir, c.privateStorage))
 	return nil
 }

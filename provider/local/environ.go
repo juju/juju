@@ -326,9 +326,9 @@ func (env *localEnviron) Storage() storage.Storage {
 	return httpstorage.Client(env.config.storageAddr())
 }
 
-// PublicStorage is specified in the Environ interface.
-func (env *localEnviron) PublicStorage() storage.StorageReader {
-	return httpstorage.Client(env.config.sharedStorageAddr())
+// Implements environs.BootstrapStorager.
+func (env *localEnviron) EnableBootstrapStorage() error {
+	return env.setupLocalStorage()
 }
 
 // Destroy is specified in the Environ interface.

@@ -441,11 +441,6 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) PublicStorage() storage.StorageReader {
-	// No public storage required. Tools are fetched from tools-url.
-	return environs.EmptyStorage
-}
-
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
@@ -576,23 +571,6 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		source := simplestreams.NewURLDataSource(toolsURL, verify)
 		e.toolsSources = append(e.toolsSources, source)
 	}
-
-	// See if the cloud is one we support and hence know the correct tools-url for.
-	ecfg := e.ecfg()
-	toolsURL, toolsURLFound := GetCertifiedToolsURL(ecfg.authURL())
-	if toolsURLFound {
-		logger.Debugf("certified cloud tools-url set to %s", toolsURL)
-		// A certified tools url should always use a valid SSL cert
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames))
-	}
-
-	// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
-	if deprecatedPublicBucketURL, ok := ecfg.attrs["public-bucket-url"]; ok && deprecatedPublicBucketURL != "" && !toolsURLFound {
-		toolsURL = fmt.Sprintf("%v/juju-dist/tools", deprecatedPublicBucketURL)
-		logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, verify))
-	}
-
 	return e.toolsSources, nil
 }
 

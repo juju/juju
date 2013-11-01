@@ -75,19 +75,7 @@ func (cfg *Config) AddAptSource(name, key string) {
 		})
 }
 
-// AddAptSource adds an apt source. The public key for the
-// source is retrieved by fetching the given keyId from the
-// GPG key server at the given address.
-func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
-	src, _ := cfg.attrs["apt_sources"].([]*AptSource)
-	cfg.attrs["apt_sources"] = append(src,
-		&AptSource{
-			Source:    name,
-			KeyId:     keyId,
-			KeyServer: keyServer,
-		})
-}
-
+// AptSources returns the apt sources added with AddAptSource.
 func (cfg *Config) AptSources() []*AptSource {
 	srcs, _ := cfg.attrs["apt_sources"].([]*AptSource)
 	return srcs

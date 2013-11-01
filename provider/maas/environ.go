@@ -171,7 +171,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
-	acquireParams.Add("agent_name", environ.ecfg().maasEnvironmentUUID())
+	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
@@ -323,7 +323,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
-	filter.Add("agent_name", environ.ecfg().maasEnvironmentUUID())
+	filter.Add("agent_name", environ.ecfg().maasAgentName())
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
 		return nil, err
@@ -380,12 +380,6 @@ func (env *maasEnviron) Storage() storage.Storage {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.storageUnlocked
-}
-
-// PublicStorage is defined by the Environ interface.
-func (env *maasEnviron) PublicStorage() storage.StorageReader {
-	// MAAS does not have a shared storage.
-	return environs.EmptyStorage
 }
 
 func (environ *maasEnviron) Destroy() error {
