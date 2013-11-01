@@ -23,6 +23,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1383,6 +1384,23 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 			return e.SetPassword("arble")
 		})
 	}
+}
+
+func testSetSlowAgentPassword(c *gc.C, entity state.Authenticator) {
+	// In Juju versions 1.16 and older we used SlowPasswordHash for Unit
+	// agents. This was determined to be overkill (since we know that Unit
+	// agents will actually use utils.RandomPassword() and get 18 bytes of
+	// entropy, and thus won't be brute-forced.)
+	c.Assert(entity.PasswordValid("foo"), gc.Equals, false)
+	err := state.SetPasswordHash(entity, utils.PasswordHash("foo"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(entity.PasswordValid("bar"), gc.Equals, false)
+
+	err = state.SetPasswordHash(entity, utils.SlowPasswordHash("foo"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(entity.PasswordValid("bar"), gc.Equals, false)
 }
 
 type entity interface {

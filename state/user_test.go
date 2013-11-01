@@ -57,11 +57,17 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, gc.IsNil)
 
-	err = u.SetPasswordHash(utils.PasswordHash("foo"))
+	err = u.SetPasswordHash(utils.SlowPasswordHash("foo"))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u.PasswordValid("foo"), gc.Equals, true)
 	c.Assert(u.PasswordValid("bar"), gc.Equals, false)
+
+	// User passwords should *not* use the fast PasswordHash function
+	err = u.SetPasswordHash(utils.PasswordHash("foo"))
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(u.PasswordValid("foo"), gc.Equals, false)
 }
 
 func (s *UserSuite) TestName(c *gc.C) {

@@ -164,6 +164,17 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
 }
 
+type setPasswordHasher interface {
+	setPasswordHash(string) error
+}
+
+func SetPasswordHash(e Authenticator, passwordHash string) error {
+	if hasher, ok := e.(setPasswordHasher); ok {
+		return hasher.setPasswordHash(passwordHash)
+	}
+	return fmt.Errorf("Authenticator has not setPasswordHash function")
+}
+
 func init() {
 	logSize = logSizeTests
 }

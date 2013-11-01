@@ -205,17 +205,21 @@ func (u *Unit) SetMongoPassword(password string) error {
 // SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
 	hp := utils.PasswordHash(password)
+	return u.setPasswordHash(hp)
+}
+
+func (u *Unit) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: D{{"$set", D{{"passwordhash", passwordHash}}}},
 	}}
 	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
-	u.doc.PasswordHash = hp
+	u.doc.PasswordHash = passwordHash
 	return nil
 }
 
@@ -229,7 +233,7 @@ func (u *Unit) PasswordValid(password string) bool {
 	// TODO: If we can allow agents to use a new password, but ask them to
 	// reset their password, then we can eventually deprecate this
 	// fallback.
-	if utils.SlowPasswordHash(password) == m.doc.PasswordHash {
+	if utils.SlowPasswordHash(password) == u.doc.PasswordHash {
 		return true
 	}
 	return false
