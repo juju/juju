@@ -6,8 +6,6 @@ package common
 import (
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
 
