@@ -73,10 +73,10 @@ var configTests = []configTest{
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"image-metadata-url": "image-url",
-			"tools-url":          "tools-url",
+			"type":       "my-type",
+			"name":       "my-name",
+			"images-url": "image-url",
+			"tools-url":  "tools-url",
 		},
 	}, {
 		about:       "Explicit series",
@@ -482,7 +482,7 @@ var configTests = []configTest{
 			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
 			"control-bucket":            "rog-some-control-bucket",
 			"region":                    "us-east-1",
-			"image-metadata-url":        "",
+			"images-url":                "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
 			"tools-url":                 "",
@@ -739,7 +739,7 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()
-	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
+	if v, _ := test.attrs["images-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
@@ -779,7 +779,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["default-series"] = config.DefaultSeries
 	attrs["logging-config"] = loggo.LoggerInfo()
 	attrs["ca-private-key"] = ""
-	attrs["image-metadata-url"] = ""
+	attrs["images-url"] = ""
 	attrs["tools-url"] = ""
 	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance

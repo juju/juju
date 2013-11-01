@@ -423,7 +423,7 @@ func (c *Config) ToolsURL() (string, bool) {
 // ImageMetadataURL returns the URL at which the metadata used to locate image ids is located,
 // and wether it has been set.
 func (c *Config) ImageMetadataURL() (string, bool) {
-	if url, ok := c.m["image-metadata-url"]; ok && url != "" {
+	if url, ok := c.m["images-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -480,7 +480,7 @@ var fields = schema.Fields{
 	"name":                      schema.String(),
 	"default-series":            schema.String(),
 	"tools-url":                 schema.String(),
-	"image-metadata-url":        schema.String(),
+	"images-url":                schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
 	"firewall-mode":             schema.String(),
@@ -519,10 +519,10 @@ var alwaysOptional = schema.Defaults{
 	// omitted.
 	// TODO(rog) remove this support when we can
 	// remove upgrade compatibility with versions prior to 1.14.
-	"admin-secret":       "", // TODO(rog) omit
-	"ca-private-key":     "", // TODO(rog) omit
-	"image-metadata-url": "", // TODO(rog) omit
-	"tools-url":          "", // TODO(rog) omit
+	"admin-secret":   "", // TODO(rog) omit
+	"ca-private-key": "", // TODO(rog) omit
+	"images-url":     "", // TODO(rog) omit
+	"tools-url":      "", // TODO(rog) omit
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
