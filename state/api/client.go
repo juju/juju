@@ -84,6 +84,12 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
 }
 
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
