@@ -171,13 +171,6 @@ var ctests = []struct {
 		},
 	},
 	{
-		"AptSources",
-		"apt_sources:\n- source: keyName\n  keyid: someKey\n  keyserver: foo.com\n",
-		func(cfg *cloudinit.Config) {
-			cfg.AddAptSourceWithKeyId("keyName", "someKey", "foo.com")
-		},
-	},
-	{
 		"Packages",
 		"packages:\n- juju\n- ubuntu\n",
 		func(cfg *cloudinit.Config) {

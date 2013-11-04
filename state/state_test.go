@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"labix.org/v2/mgo/bson"
@@ -54,34 +53,60 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestStateInfo(c *gc.C) {
-	info := state.TestingStateInfo()
-	stateAddr, err := s.State.Addresses()
+func (s *StateSuite) TestAddresses(c *gc.C) {
+	var err error
+	machines := make([]*state.Machine, 3)
+	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateAddr, gc.DeepEquals, info.Addrs)
-	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
+	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	for i, m := range machines {
+		err := m.SetAddresses([]instance.Address{{
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        fmt.Sprintf("10.0.0.%d", i),
+		}, {
+			Type:         instance.Ipv6Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        "::1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkMachineLocal,
+			Value:        "127.0.0.1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+			Value:        "5.4.3.2",
+		}})
+		c.Assert(err, gc.IsNil)
+	}
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
+	})
+
+	addrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
+	})
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
 	testing.MgoRestart()
 	c.Assert(s.State.Ping(), gc.NotNil)
-}
-
-func (s *StateSuite) TestAPIAddresses(c *gc.C) {
-	config, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	apiPort := strconv.Itoa(config.APIPort())
-	info := state.TestingStateInfo()
-	expectedAddrs := make([]string, 0, len(info.Addrs))
-	for _, stateAddr := range info.Addrs {
-		domain := strings.Split(stateAddr, ":")[0]
-		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
-		expectedAddrs = append(expectedAddrs, expectedAddr)
-	}
-	apiAddrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiAddrs, gc.DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *gc.C) {
@@ -1844,6 +1869,171 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
 	c.Assert(state.ContainerTypeFromId("0/lxc/1"), gc.Equals, instance.LXC)
 	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	stringVersion := agentVersion.String()
+
+	// Add 4 machines: one with a different version, one with an
+	// empty version, one with the current version, and one with
+	// the new version.
+	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-series-arch"))
+	c.Assert(err, gc.IsNil)
+	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	machine3, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	// Verify machine0 and machine1 are reported as error.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	expectErr := fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
+
+	// Add a service and 4 units: one with a different version, one
+	// with an empty version, one with the current version, and one
+	// with the new version.
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	unit0, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+	_, err = service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	unit2, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	unit3, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	// Verify unit0 and unit1 are reported as error, along with the
+	// machines from before.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
+
+	// Now remove the machines.
+	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
+		err = machine.EnsureDead()
+		c.Assert(err, gc.IsNil)
+		err = machine.Remove()
+		c.Assert(err, gc.IsNil)
+	}
+
+	// Verify only the units are reported as error.
+	err = s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	expectErr = fmt.Sprintf("some agents have not upgraded to the current environment version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
+}
+
+func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	currentVersion := agentVersion.String()
+
+	// Add a machine and a unit with the current version.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-series-arch"))
+	c.Assert(err, gc.IsNil)
+
+	return envConfig, currentVersion
+}
+
+func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
+	attrs := envConfig.AllAttrs()
+	attrs[name] = value
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.State.SetEnvironConfig(newConfig), gc.IsNil)
+}
+
+func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion.String(), gc.Equals, vers)
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
+	envConfig, _ := s.prepareAgentVersionTests(c)
+
+	// Set up a transaction hook to change something
+	// other than the version, and make sure it retries
+	// and passes.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.changeEnviron(c, envConfig, "default-series", "foo")
+	}).Check()
+
+	// Change the agent-version and ensure it has changed.
+	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.IsNil)
+	s.assertAgentVersion(c, envConfig, "4.5.6")
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) {
+	envConfig, _ := s.prepareAgentVersionTests(c)
+
+	// Set up a transaction hook to change the version
+	// to the new one, and make sure it retries
+	// and passes.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.changeEnviron(c, envConfig, "agent-version", "4.5.6")
+	}).Check()
+
+	// Change the agent-version and verify.
+	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.IsNil)
+	s.assertAgentVersion(c, envConfig, "4.5.6")
+}
+
+func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
+	envConfig, currentVersion := s.prepareAgentVersionTests(c)
+
+	// Set a hook to change the config 5 times
+	// to test we return ErrExcessiveContention.
+	changeFuncs := []func(){
+		func() { s.changeEnviron(c, envConfig, "default-series", "1") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "4") },
+		func() { s.changeEnviron(c, envConfig, "default-series", "5") },
+	}
+	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
+	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	// Make sure the version remained the same.
+	s.assertAgentVersion(c, envConfig, currentVersion)
 }
 
 type waiter interface {

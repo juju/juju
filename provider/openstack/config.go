@@ -24,12 +24,6 @@ var configFields = schema.Fields{
 	"region":          schema.String(),
 	"control-bucket":  schema.String(),
 	"use-floating-ip": schema.Bool(),
-	// These next keys are deprecated and ignored. We keep them them in the schema
-	// so existing configs do not error.
-	"default-image-id":      schema.String(),
-	"default-instance-type": schema.String(),
-	"public-bucket":         schema.String(),
-	"public-bucket-url":     schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"username":        "",
@@ -42,12 +36,6 @@ var configDefaults = schema.Defaults{
 	"region":          "",
 	"control-bucket":  "",
 	"use-floating-ip": false,
-	// These next keys are deprecated and ignored. We keep them them in the schema
-	// so existing configs do not error.
-	"default-image-id":      "",
-	"default-instance-type": "",
-	"public-bucket-url":     "",
-	"public-bucket":         "juju-dist",
 }
 
 type environConfig struct {
@@ -215,15 +203,6 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
 				"See 'juju help bootstrap' or 'juju help deploy'.",
 			"default-instance-type", defaultInstanceType)
-		logger.Warningf(msg)
-	}
-
-	if publicBucketURL := cfg.AllAttrs()["public-bucket-url"]; publicBucketURL != nil && publicBucketURL.(string) != "" {
-		msg := fmt.Sprintf(
-			"Config attribute %q (%v) is deprecated.\n"+
-				"The location to find tools is now specified using the %q attribute.\n"+
-				"Your configuration has been updated look for tools in: %v.",
-			"public-bucket-url", publicBucketURL, "tools-url", fmt.Sprintf("%v/juju-dist/tools", publicBucketURL))
 		logger.Warningf(msg)
 	}
 

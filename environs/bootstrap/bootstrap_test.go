@@ -25,7 +25,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -260,8 +260,4 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 
 func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
-}
-
-func (e *bootstrapEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
 }

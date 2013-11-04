@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
@@ -20,7 +20,8 @@ import (
 
 type ValidateImageMetadataSuite struct {
 	testbase.LoggingSuite
-	home *coretesting.FakeHome
+	home        *coretesting.FakeHome
+	metadataDir string
 }
 
 var _ = gc.Suite(&ValidateImageMetadataSuite{})
@@ -65,7 +66,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
-	im := imagemetadata.ImageMetadata{
+	im := &imagemetadata.ImageMetadata{
 		Id:   id,
 		Arch: "amd64",
 	}
@@ -73,7 +74,11 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := imagemetadata.MakeBoilerplate("", series, &im, &cloudSpec, false)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	if err != nil {
+		return err
+	}
+	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
 	}
@@ -84,18 +89,24 @@ const metadataTestEnvConfig = `
 environments:
     ec2:
         type: ec2
-        control-bucket: foo
         default-series: precise
         region: us-east-1
+
+    azure:
+        type: azure
+        default-series: raring
+        location: US West
+        management-subscription-id: foo
+        storage-account-name: bar
+        management-certificate-path: /home/me/azure.pem
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.metadataDir = c.MkDir()
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
-	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
-	s.AddCleanup(func(*gc.C) { restore() })
-	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-	s.AddCleanup(func(*gc.C) { restore() })
+	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
 
 func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {
@@ -115,9 +126,8 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region strin
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
-		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", metadataDir},
+		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -128,11 +138,12 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
 	testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
+	testbase.PatchEnvironment("EC2_ACCESS_KEY", "")
+	testbase.PatchEnvironment("EC2_SECRET_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
-		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", metadataDir},
+		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
@@ -143,11 +154,10 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "ec2", "-s", "precise", "-r", "us-west-1",
-			"-u", "https://ec2.us-west-1.amazonaws.com", "-d", metadataDir},
+			"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -158,17 +168,16 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "ec2", "-s", "raring", "-r", "us-west-1",
-			"-u", "https://ec2.us-west-1.amazonaws.com", "-d", metadataDir},
+			"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	code = cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "ec2", "-s", "precise", "-r", "region",
-			"-u", "https://ec2.region.amazonaws.com", "-d", metadataDir},
+			"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 }
@@ -176,11 +185,10 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
-			"-u", "some-auth-url", "-d", metadataDir},
+			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -191,17 +199,16 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "precise", "-r", "region-2",
-			"-u", "some-auth-url", "-d", metadataDir},
+			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	code = cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-3",
-			"-u", "some-auth-url", "-d", metadataDir},
+			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 }

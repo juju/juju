@@ -16,6 +16,40 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 )
 
+const getConstraintsDoc = `
+get-constraints returns a list of constraints that have been set on
+the environment using juju set-constraints.  You can also view constraints set
+for a specific service by using juju get-constraints <service>.
+
+See Also:
+   juju help constraints
+   juju help set-constraints
+`
+
+const setConstraintsDoc = `
+set-constraints sets machine constraints on the system, which are used as the
+default constraints for all new machines provisioned in the environment (unless
+overridden).  You can also set constraints on a specific service by using juju 
+set-constraints <service>. 
+
+Constraints set on a service are combined with environment constraints for
+commands (such as juju deploy) that provision machines for services.  Where
+environment and service constraints overlap, the service constraints take
+precedence.
+
+Examples:
+
+   set-constraints mem=8G               (all new machines in the environment must have at least 8GB of RAM)
+   set-constraints wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
+
+See Also:
+   juju help constraints
+   juju help get-constraints
+   juju help deploy
+   juju help add-machine
+   juju help add-unit
+`
+
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
 	cmd.EnvCommandBase
@@ -27,7 +61,8 @@ func (c *GetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
 		Args:    "[<service>]",
-		Purpose: "view constraints",
+		Purpose: "view constraints on the environment or a service",
+		Doc:     getConstraintsDoc,
 	}
 }
 
@@ -89,7 +124,8 @@ func (c *SetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
 		Args:    "[key=[value] ...]",
-		Purpose: "replace constraints",
+		Purpose: "set constraints on the environment or a service",
+		Doc:     setConstraintsDoc,
 	}
 }
 

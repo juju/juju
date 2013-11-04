@@ -23,6 +23,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 const testAuthkey = "jabberwocky"
@@ -134,22 +135,42 @@ var getTests = []testCase{
 	},
 }
 
-func (s *backendSuite) TestHead(c *gc.C) {
+func (s *backendSuite) TestHeadNonAuth(c *gc.C) {
 	// HEAD is unsupported for non-authenticating servers.
 	listener, url, _ := startServer(c)
 	defer listener.Close()
 	resp, err := http.Head(url)
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+}
 
+func (s *backendSuite) TestHeadAuth(c *gc.C) {
 	// HEAD on an authenticating server will return the HTTPS counterpart URL.
-	client, url, _ := s.tlsServerAndClient(c)
-	resp, err = client.Head(url + "arbitrary")
+	client, url, datadir := s.tlsServerAndClient(c)
+	createTestData(c, datadir)
+
+	resp, err := client.Head(url)
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	location, err := resp.Location()
 	c.Assert(err, gc.IsNil)
-	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/arbitrary")
+	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/")
+	testGet(c, client, location.String())
+}
+
+func (s *backendSuite) TestHeadCustomHost(c *gc.C) {
+	// HEAD with a custom "Host:" header; the server should respond
+	// with a Location with the specified Host header.
+	client, url, _ := s.tlsServerAndClient(c)
+	req, err := http.NewRequest("HEAD", url+"arbitrary", nil)
+	c.Assert(err, gc.IsNil)
+	req.Host = "notarealhost"
+	resp, err := client.Do(req)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	location, err := resp.Location()
+	c.Assert(err, gc.IsNil)
+	c.Assert(location.String(), gc.Matches, "https://notarealhost:[0-9]{5}/arbitrary")
 }
 
 func (s *backendSuite) TestGet(c *gc.C) {
@@ -283,7 +304,7 @@ func (s *backendSuite) TestPut(c *gc.C) {
 	testPut(c, http.DefaultClient, url, dataDir, true)
 }
 
-func testPut(c *gc.C, client *http.Client, url, dataDir string, authorised bool) {
+func testPut(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		req, err := http.NewRequest("PUT", url+tc.name, bytes.NewBufferString(tc.content))
 		c.Assert(err, gc.IsNil)
@@ -293,7 +314,7 @@ func testPut(c *gc.C, client *http.Client, url, dataDir string, authorised bool)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
-		} else if !authorised {
+		} else if !authorized {
 			c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
 			return
 		}
@@ -341,7 +362,7 @@ func (s *backendSuite) TestRemove(c *gc.C) {
 	testRemove(c, http.DefaultClient, url, dataDir, true)
 }
 
-func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorised bool) {
+func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		fp := filepath.Join(dataDir, tc.name)
 		dir, _ := filepath.Split(fp)
@@ -357,7 +378,7 @@ func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorised bo
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
-		} else if !authorised {
+		} else if !authorized {
 			c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
 			return
 		}
@@ -400,9 +421,7 @@ func (b *backendSuite) tlsServerAndClient(c *gc.C) (client *http.Client, url, da
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	client = &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: caCerts},
-		},
+		Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
 	}
 	return client, url, dataDir
 }

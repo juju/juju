@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
@@ -40,7 +39,7 @@ import (
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
 // Using "localhost" because it is, and it makes sense.
-const boostrapInstanceId = "localhost"
+const bootstrapInstanceId instance.Id = "localhost"
 
 // upstartScriptLocation is parameterised purely for testing purposes as we
 // don't really want to be installing and starting scripts as root for
@@ -113,8 +112,9 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := common.SaveState(env.Storage(), &common.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+	if err := common.SaveState(env.Storage(), &common.BootstrapState{
+		StateInstances: []instance.Id{bootstrapInstanceId},
+	}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -127,13 +127,9 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
-	// Have to initialize the state configuration with localhost so we get
-	// "special" permissions.
-	stateConnection, err := env.initialStateConfiguration(agentConfig, cons)
-	if err != nil {
+	if err := env.initializeState(agentConfig, cons); err != nil {
 		return err
 	}
-	defer stateConnection.Close()
 
 	return env.setupLocalMachineAgent(cons, possibleTools)
 }
@@ -286,7 +282,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 	for _, inst := range instances {
-		if inst.Id() == boostrapInstanceId {
+		if inst.Id() == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
 		if err := env.containerManager.StopContainer(inst); err != nil {
@@ -313,7 +309,7 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 
 // AllInstances is specified in the InstanceBroker interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
-	instances = append(instances, &localInstance{boostrapInstanceId, env})
+	instances = append(instances, &localInstance{bootstrapInstanceId, env})
 	// Add in all the containers as well.
 	lxcInstances, err := env.containerManager.ListContainers()
 	if err != nil {
@@ -330,9 +326,9 @@ func (env *localEnviron) Storage() storage.Storage {
 	return httpstorage.Client(env.config.storageAddr())
 }
 
-// PublicStorage is specified in the Environ interface.
-func (env *localEnviron) PublicStorage() storage.StorageReader {
-	return httpstorage.Client(env.config.sharedStorageAddr())
+// Implements environs.BootstrapStorager.
+func (env *localEnviron) EnableBootstrapStorage() error {
+	return env.setupLocalStorage()
 }
 
 // Destroy is specified in the Environ interface.
@@ -539,25 +535,40 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 	return config, nil
 }
 
-func (env *localEnviron) initialStateConfiguration(agentConfig agent.Config, cons constraints.Value) (*state.State, error) {
-	timeout := state.DialOpts{60 * time.Second}
+func (env *localEnviron) initializeState(agentConfig agent.Config, cons constraints.Value) error {
 	bootstrapCfg, err := environs.BootstrapConfig(env.config.Config)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	st, err := agent.InitialStateConfiguration(agentConfig, bootstrapCfg, timeout)
+	st, m, err := agentConfig.InitializeState(bootstrapCfg, agent.BootstrapMachineConfig{
+		Constraints: cons,
+		Jobs: []state.MachineJob{
+			state.JobManageEnviron,
+			state.JobManageState,
+		},
+		InstanceId: bootstrapInstanceId,
+	}, state.DialOpts{
+		Timeout: 60 * time.Second,
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
-
-	if err := bootstrap.ConfigureBootstrapMachine(
-		st, cons, env.config.rootDir(), jobs, instance.Id(boostrapInstanceId), instance.HardwareCharacteristics{}); err != nil {
-		st.Close()
-		return nil, err
+	defer st.Close()
+	addr, err := env.findBridgeAddress(env.config.networkBridge())
+	if err != nil {
+		return fmt.Errorf("failed to get bridge address: %v", err)
 	}
-
-	// Return an open state reference.
-	return st, nil
+	err = m.SetAddresses([]instance.Address{{
+		NetworkScope: instance.NetworkPublic,
+		Type:         instance.HostName,
+		Value:        "localhost",
+	}, {
+		NetworkScope: instance.NetworkCloudLocal,
+		Type:         instance.Ipv4Address,
+		Value:        addr,
+	}})
+	if err != nil {
+		return fmt.Errorf("cannot set addresses on bootstrap instance: %v", err)
+	}
+	return nil
 }

@@ -63,51 +63,62 @@ func init() {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-openstack.html
+# https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
-  type: openstack
-  # Specifies whether the use of a floating IP address is required to give the nodes
-  # a public IP address. Some installations assign public IP addresses by default without
-  # requiring a floating IP address.
-  # use-floating-ip: false
-  admin-secret: {{rand}}
-  # Globally unique swift bucket name
-  control-bucket: juju-{{rand}}
-  # If set, tools-url specifies from where tools are fetched.
-  # tools-url:  https://you-tools-url
-  # Usually set via the env variable OS_AUTH_URL, but can be specified here
-  # auth-url: https://yourkeystoneurl:443/v2.0/
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # The following are used for userpass authentication (the default)
-  # auth-mode: userpass
-  # Usually set via the env variable OS_USERNAME, but can be specified here
-  # username: <your username>
-  # Usually set via the env variable OS_PASSWORD, but can be specified here
-  # password: <secret>
-  # Usually set via the env variable OS_TENANT_NAME, but can be specified here
-  # tenant-name: <your tenant name>
-  # Usually set via the env variable OS_REGION_NAME, but can be specified here
-  # region: <your region>
-  # USe the following if you require keypair autherntication
-  # auth-mode: keypair
-  # Usually set via the env variable OS_ACCESS_KEY, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable OS_SECRET_KEY, but can be specified here
-  # secret-key: <secret>
+    type: openstack
+    # use-floating-ip specifies whether a floating IP address is required
+    # to give the nodes a public IP address. Some installations assign public IP
+    # addresses by default without requiring a floating IP address.
+    # use-floating-ip: false
 
-## https://juju.ubuntu.com/docs/config-hpcloud.html
+    # tools-url specifies the location of the Juju tools. It defaults to the
+    # global public tools S3 bucket.
+    # tools-url:  https://you-tools-url
+
+    # auth-url defaults to the value of the environment variable OS_AUTH_URL,
+    # but can be specified here.
+    # auth-url: https://yourkeystoneurl:443/v2.0/
+
+    # tenant-name holds the openstack tenant name. It defaults to
+    # the environment variable OS_TENANT_NAME.
+    # tenant-name: <your tenant name>
+
+    # region holds the openstack region.  It defaults to
+    # the environment variable OS_REGION_NAME.
+    # region: <your region>
+
+    # The auth-mode, username and password attributes
+    # are used for userpass authentication (the default).
+
+    # auth-mode holds the authentication mode. For user-password
+    # authentication, auth-mode should be "userpass" and username
+    # and password should be set appropriately; they default to
+    # the environment variables OS_USERNAME and OS_PASSWORD
+     # respectively.
+    # auth-mode: userpass
+    # username: <your username>
+    # password: <secret>
+     
+    # For key-pair authentication, auth-mode should  be "keypair"
+    # and access-key and secret-key should be  set appropriately; they default to
+    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
+    # respectively.
+    # auth-mode: keypair
+    # access-key: <secret>
+    # secret-key: <secret>
+
+# https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
-  type: openstack
-  # Specifies whether the use of a floating IP address is required to give the nodes
-  # a public IP address. Some installations assign public IP addresses by default without
-  # requiring a floating IP address.
-  use-floating-ip: false
-  admin-secret: {{rand}}
-  # Globally unique swift bucket name
-  control-bucket: juju-{{rand}}
-  # Not required if env variable OS_AUTH_URL is set
-  auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
+    type: openstack
+    
+    # use-floating-ip specifies whether a floating IP address is required
+    # to give the nodes a public IP address. Some installations assign public IP
+    # addresses by default without requiring a floating IP address.
+    # use-floating-ip: false
+    
+    # auth-url holds the keystone url for authentication. 
+    # It defaults to the value of the environment variable OS_AUTH_URL.
+    # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
 `[1:]
 }
@@ -430,11 +441,6 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) PublicStorage() storage.StorageReader {
-	// No public storage required. Tools are fetched from tools-url.
-	return environs.EmptyStorage
-}
-
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
@@ -565,23 +571,6 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		source := simplestreams.NewURLDataSource(toolsURL, verify)
 		e.toolsSources = append(e.toolsSources, source)
 	}
-
-	// See if the cloud is one we support and hence know the correct tools-url for.
-	ecfg := e.ecfg()
-	toolsURL, toolsURLFound := GetCertifiedToolsURL(ecfg.authURL())
-	if toolsURLFound {
-		logger.Debugf("certified cloud tools-url set to %s", toolsURL)
-		// A certified tools url should always use a valid SSL cert
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, simplestreams.VerifySSLHostnames))
-	}
-
-	// If tools-url is not set, use the value of the deprecated public-bucket-url to set it.
-	if deprecatedPublicBucketURL, ok := ecfg.attrs["public-bucket-url"]; ok && deprecatedPublicBucketURL != "" && !toolsURLFound {
-		toolsURL = fmt.Sprintf("%v/juju-dist/tools", deprecatedPublicBucketURL)
-		logger.Infof("tools-url set to %q based on public-bucket-url", toolsURL)
-		e.toolsSources = append(e.toolsSources, simplestreams.NewURLDataSource(toolsURL, verify))
-	}
-
 	return e.toolsSources, nil
 }
 

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -34,7 +33,7 @@ const (
 )
 
 // simplestreamsToolsPublicKey is the public key required to
-// authenticate the simple streams data on http://juju.canonical.com.
+// authenticate the simple streams data on http://streams.canonical.com.
 // Declared as a var so it can be overidden for testing.
 var simplestreamsToolsPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.11 (GNU/Linux)
@@ -91,7 +90,7 @@ qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
 `
 
 // This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "https://juju.canonical.com/tools"
+var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -138,13 +137,23 @@ type ToolsMetadata struct {
 	Arch     string `json:"arch"`
 	Size     int64  `json:"size"`
 	Path     string `json:"path"`
-	FullPath string `json:"-,omitempty"`
+	FullPath string `json:"-"`
 	FileType string `json:"ftype"`
 	SHA256   string `json:"sha256"`
 }
 
 func (t *ToolsMetadata) String() string {
 	return fmt.Sprintf("%+v", *t)
+}
+
+// binary returns the tools metadata's binary version,
+// which may be used for map lookup.
+func (t *ToolsMetadata) binary() version.Binary {
+	return version.Binary{
+		Number: version.MustParse(t.Version),
+		Series: t.Release,
+		Arch:   t.Arch,
+	}
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
@@ -155,27 +164,11 @@ func (t *ToolsMetadata) productId() (string, error) {
 	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
 }
 
-func excludeDefaultSource(sources []simplestreams.DataSource) []simplestreams.DataSource {
-	var result []simplestreams.DataSource
-	for _, source := range sources {
-		url, _ := source.URL("")
-		if !strings.HasPrefix(url, "https://juju.canonical.com/tools") {
-			result = append(result, source)
-		}
-	}
-	return result
-}
-
 // Fetch returns a list of tools for the specified cloud matching the constraint.
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
-
-	// TODO (wallyworld): 2013-09-05 bug 1220965
-	// Until the official tools repository is set up, we don't want to use it.
-	sources = excludeDefaultSource(sources)
-
 	params := simplestreams.ValueParams{
 		DataType:        ContentDownload,
 		FilterFunc:      appendMatchingTools,
@@ -199,10 +192,10 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 func appendMatchingTools(source simplestreams.DataSource, matchingTools []interface{},
 	tools map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
 
-	toolsMap := make(map[string]*ToolsMetadata, len(matchingTools))
+	toolsMap := make(map[version.Binary]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
-		toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)] = tm
+		toolsMap[tm.binary()] = tm
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
@@ -227,7 +220,7 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 				}
 			}
 		}
-		if _, ok := toolsMap[fmt.Sprintf("%s-%s-%s", tm.Release, tm.Version, tm.Arch)]; !ok {
+		if _, ok := toolsMap[tm.binary()]; !ok {
 			tm.FullPath, _ = source.URL(tm.Path)
 			matchingTools = append(matchingTools, tm)
 		}
@@ -240,42 +233,130 @@ type MetadataFile struct {
 	Data []byte
 }
 
-func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore storage.Storage) error {
-	// Read any existing metadata so we can merge the new tools metadata with what's there.
-	// The metadata from toolsList is already present, the existing data is overwritten.
-	dataSource := storage.NewStorageSimpleStreamsDataSource(metadataStore, "tools")
-	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
-	if err != nil {
-		return err
+// MetadataFromTools returns a tools metadata list derived from the
+// given tools list. The size and sha256 will not be computed if
+// missing.
+func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
+	metadata := make([]*ToolsMetadata, len(toolsList))
+	for i, t := range toolsList {
+		path := fmt.Sprintf("releases/juju-%s-%s-%s.tgz", t.Version.Number, t.Version.Series, t.Version.Arch)
+		metadata[i] = &ToolsMetadata{
+			Release:  t.Version.Series,
+			Version:  t.Version.Number.String(),
+			Arch:     t.Version.Arch,
+			FullPath: t.URL,
+			Path:     path,
+			FileType: "tar.gz",
+			Size:     t.Size,
+			SHA256:   t.SHA256,
+		}
 	}
-	existingMetadata, err := Fetch([]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
-	if err != nil && !errors.IsNotFoundError(err) {
-		return err
-	}
-	newToolsVersions := make(map[string]bool)
-	for _, tool := range toolsList {
-		newToolsVersions[tool.Version.String()] = true
-	}
-	// Merge in existing records.
-	for _, toolsMetadata := range existingMetadata {
-		vers := version.Binary{version.MustParse(toolsMetadata.Version), toolsMetadata.Release, toolsMetadata.Arch}
-		if _, ok := newToolsVersions[vers.String()]; ok {
+	return metadata
+}
+
+// ResolveMetadata resolves incomplete metadata
+// by fetching the tools from storage and computing
+// the size and hash locally.
+func ResolveMetadata(stor storage.StorageReader, metadata []*ToolsMetadata) error {
+	for _, md := range metadata {
+		if md.Size != 0 {
 			continue
 		}
-		tool := &coretools.Tools{
-			Version: vers,
-			SHA256:  toolsMetadata.SHA256,
-			Size:    toolsMetadata.Size,
+		binary := md.binary()
+		logger.Infof("Fetching tools to generate hash: %v", binary)
+		size, sha256hash, err := fetchToolsHash(stor, binary)
+		if err != nil {
+			return err
 		}
-		toolsList = append(toolsList, tool)
+		md.Size = size
+		md.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
 	}
-	metadataInfo, err := generateMetadata(toolsList, fetch)
+	return nil
+}
+
+// MergeMetadata merges the given tools metadata.
+// If metadata for the same tools version exists in both lists,
+// an entry with non-empty size/SHA256 takes precedence; if
+// the two entries have different sizes/hashes, then an error is
+// returned.
+func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) {
+	merged := make(map[version.Binary]*ToolsMetadata)
+	for _, tm := range tmlist1 {
+		merged[tm.binary()] = tm
+	}
+	for _, tm := range tmlist2 {
+		binary := tm.binary()
+		if existing, ok := merged[binary]; ok {
+			if tm.Size != 0 {
+				if existing.Size == 0 {
+					merged[binary] = tm
+				} else if existing.Size != tm.Size || existing.SHA256 != tm.SHA256 {
+					return nil, fmt.Errorf(
+						"metadata mismatch for %s: sizes=(%v,%v) sha256=(%v,%v)",
+						binary.String(),
+						existing.Size, tm.Size,
+						existing.SHA256, tm.SHA256,
+					)
+				}
+			}
+		} else {
+			merged[binary] = tm
+		}
+	}
+	list := make([]*ToolsMetadata, 0, len(merged))
+	for _, metadata := range merged {
+		list = append(list, metadata)
+	}
+	return list, nil
+}
+
+// ReadMetadata returns the tools metadata from the given storage.
+func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
+	dataSource := storage.NewStorageSimpleStreamsDataSource(store, "tools")
+	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := Fetch([]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
+	}
+	return metadata, nil
+}
+
+var PublicMirrorsInfo = `{
+ "mirrors": {
+  "com.ubuntu.juju:released:tools": [
+     {
+      "datatype": "content-download",
+      "path": "streams/v1/cpc-mirrors.json",
+      "updated": "{{updated}}",
+      "format": "mirrors:1.0"
+     }
+  ]
+ }
+}
+`
+
+// WriteMetadata writes the given tools metadata to the given storage.
+func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
+	updated := time.Now()
+	index, products, err := MarshalToolsMetadataJSON(metadata, updated)
 	if err != nil {
 		return err
+	}
+	metadataInfo := []MetadataFile{
+		{simplestreams.UnsignedIndex, index},
+		{ProductMetadataPath, products},
+	}
+	if writeMirrors {
+		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
+		mirrorsInfo := strings.Replace(PublicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
+		metadataInfo = append(metadataInfo, MetadataFile{simplestreams.UnsignedMirror, []byte(mirrorsInfo)})
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
-		err = metadataStore.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		err = stor.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}
@@ -283,58 +364,37 @@ func WriteMetadata(toolsList coretools.List, fetch bool, metadataStore storage.S
 	return nil
 }
 
-func generateMetadata(toolsList coretools.List, fetch bool) ([]MetadataFile, error) {
-	metadata := make([]*ToolsMetadata, len(toolsList))
-	for i, t := range toolsList {
-		var size int64
-		var sha256hex string
-		var err error
-		if fetch && t.Size == 0 {
-			logger.Infof("Fetching tools to generate hash: %v", t.URL)
-			var sha256hash hash.Hash
-			size, sha256hash, err = fetchToolsHash(t.URL)
-			if err != nil {
-				return nil, err
-			}
-			sha256hex = fmt.Sprintf("%x", sha256hash.Sum(nil))
-		} else {
-			size = t.Size
-			sha256hex = t.SHA256
-		}
+type ShouldWriteMirrors bool
 
-		path := fmt.Sprintf("releases/juju-%s-%s-%s.tgz", t.Version.Number, t.Version.Series, t.Version.Arch)
-		metadata[i] = &ToolsMetadata{
-			Release:  t.Version.Series,
-			Version:  t.Version.Number.String(),
-			Arch:     t.Version.Arch,
-			Path:     path,
-			FileType: "tar.gz",
-			Size:     size,
-			SHA256:   sha256hex,
-		}
-	}
+const (
+	WriteMirrors      = ShouldWriteMirrors(true)
+	DoNotWriteMirrors = ShouldWriteMirrors(false)
+)
 
-	index, products, err := MarshalToolsMetadataJSON(metadata, time.Now())
+// MergeAndWriteMetadata reads the existing metadata from storage (if any),
+// and merges it with metadata generated from the given tools list. The
+// resulting metadata is written to storage.
+func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
+	existing, err := ReadMetadata(stor)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	objects := []MetadataFile{
-		{simplestreams.UnsignedIndex, index},
-		{ProductMetadataPath, products},
+	metadata := MetadataFromTools(tools)
+	if metadata, err = MergeMetadata(metadata, existing); err != nil {
+		return err
 	}
-	return objects, nil
+	return WriteMetadata(stor, metadata, writeMirrors)
 }
 
-// fetchToolsHash fetches the file at the specified URL,
-// and calculates its size in bytes and computes a SHA256
-// hash of its contents.
-func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
-	resp, err := http.Get(url)
+// fetchToolsHash fetches the tools from storage and calculates
+// its size in bytes and computes a SHA256 hash of its contents.
+func fetchToolsHash(stor storage.StorageReader, ver version.Binary) (size int64, sha256hash hash.Hash, err error) {
+	r, err := storage.Get(stor, StorageName(ver))
 	if err != nil {
 		return 0, nil, err
 	}
+	defer r.Close()
 	sha256hash = sha256.New()
-	size, err = io.Copy(sha256hash, resp.Body)
-	resp.Body.Close()
+	size, err = io.Copy(sha256hash, r)
 	return size, sha256hash, err
 }

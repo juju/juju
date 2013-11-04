@@ -27,6 +27,29 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+const bootstrapDoc = `
+bootstrap starts a new environment of the current type (it will return an error
+if the environment has already been bootstrapped).  Bootstrapping an environment
+will provision a new machine in the environment and run the juju state server on
+that machine.
+
+If constraints are specified in the bootstrap command, they will apply to the 
+machine provisioned for the juju state server.  They will also be set as default
+constraints on the environment for all future machines, exactly as if the
+constraints were set with juju set-constraints.
+
+Because bootstrap starts a machine in the cloud environment asynchronously, the
+command will likely return before the state server is fully running.  Time for
+bootstrap to be complete varies across cloud providers from a small number of
+seconds to several minutes.  Most other commands are synchronous and will wait
+until bootstrap is finished to complete.
+
+See Also:
+   juju help switch
+   juju help constraints
+   juju help set-constraints
+`
+
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
@@ -41,6 +64,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
 		Purpose: "start up an environment from scratch",
+		Doc:     bootstrapDoc,
 	}
 }
 
@@ -171,34 +195,38 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		AllowRetry: uploadPerformed,
 	}
 	_, err = envtools.FindBootstrapTools(env, params)
-	if errors.IsNotFoundError(err) {
-		// No tools available, so synchronize.
-		toolsSource := c.Source
-		if c.Source == "" {
-			toolsSource = sync.DefaultToolsLocation
-		}
-		logger.Warningf("no tools available, attempting to retrieve from %v", toolsSource)
+	if err == nil || !errors.IsNotFoundError(err) || uploadPerformed {
+		return err
+	}
+	// If no tools are available, synchronize if necessary.
+	uploadRequired := true
+	if c.Source != "" {
+		// If we are syncing tools and it succeeds, we don't need to upload the tools.
+		uploadRequired = false
+		logger.Warningf("no tools available, attempting to retrieve from %v", c.Source)
 		sctx := &sync.SyncContext{
 			Target: env.Storage(),
 			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
-			if err == coretools.ErrNoMatches && vers == nil && version.Current.IsDev() {
-				logger.Infof("no tools found, so attempting to build and upload new tools")
-				uploadAttempted = true
-				if err = c.uploadTools(env); err != nil {
-					return err
-				}
+			if (err == coretools.ErrNoMatches || err == envtools.ErrNoTools) && vers == nil && version.Current.IsDev() {
+				uploadRequired = true
 			} else {
 				return err
 			}
 		}
-		// Synchronization done, try again.
-		params.AllowRetry = true
-		_, err = envtools.FindBootstrapTools(env, params)
-	} else if err != nil {
-		return err
 	}
+	// No suitable tools could be synced so try uploading.
+	if uploadRequired {
+		logger.Infof("no tools found, so attempting to build and upload new tools")
+		uploadAttempted = true
+		if err = c.uploadTools(env); err != nil {
+			return err
+		}
+	}
+	// Synchronization/upload done, try again.
+	params.AllowRetry = true
+	_, err = envtools.FindBootstrapTools(env, params)
 	return err
 }
 

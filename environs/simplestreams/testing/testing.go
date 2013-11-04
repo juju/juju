@@ -117,6 +117,12 @@ var imageData = map[string]string{
 		   "path": "streams/v1/tools_metadata.json"
 		  }
 		 },
+		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		 "format": "index:1.0"
+		}
+`,
+	"/streams/v1/mirrors.json": `
+        {
          "mirrors": {
           "com.ubuntu.juju:released:tools": [
              {
@@ -141,11 +147,11 @@ var imageData = map[string]string{
               "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
               "format": "mirrors:1.0"
              }
-		  ]
-		 },
-		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		 "format": "index:1.0"
-		}
+          ]
+         },
+         "updated": "Wed, 01 May 2013 13:31:26 +0000",
+         "format": "index:1.0"
+        }
 `,
 	"/streams/v1/tools_metadata.json": `
 {
