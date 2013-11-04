@@ -43,6 +43,15 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 	return c.st.Call("Client", "", "ServiceSet", p, nil)
 }
 
+// ServiceUnset resets configuration options on a service.
+func (c *Client) ServiceUnset(service string, options []string) error {
+	p := params.ServiceUnset{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.st.Call("Client", "", "ServiceUnset", p, nil)
+}
+
 // Resolved clears errors on a unit.
 func (c *Client) Resolved(unit string, retry bool) error {
 	p := params.Resolved{

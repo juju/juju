@@ -113,6 +113,14 @@ type ServiceSetYAML struct {
 	Config      string
 }
 
+// ServiceUnset holds the parameters for a ServiceUnset
+// command. Options contains the option attribute names
+// to unset.
+type ServiceUnset struct {
+	ServiceName string
+	Options     []string
+}
+
 // ServiceGet holds parameters for making the ServiceGet call.
 type ServiceGet struct {
 	ServiceName string
