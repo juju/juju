@@ -1094,6 +1094,12 @@ func step(c *gc.C, ctx *context, s stepper) {
 	s.step(c, ctx)
 }
 
+type ensureStateWorker struct {
+}
+
+func (s ensureStateWorker) step(c *gc.C, ctx *context) {
+}
+
 type createCharm struct {
 	revision  int
 	badHooks  []string
@@ -1353,6 +1359,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 type quickStart struct{}
 
 func (s quickStart) step(c *gc.C, ctx *context) {
+	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
