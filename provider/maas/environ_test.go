@@ -39,7 +39,6 @@ type environSuite struct {
 
 const (
 	allocatedNode = `{"system_id": "test-allocated"}`
-	readyNode     = `{"system_id": "test-ready", "status": "` + gomaasapi.NodeStatusReady + `"}`
 )
 
 var _ = gc.Suite(&environSuite{})
@@ -134,14 +133,6 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	c.Assert(instances[0].Id(), gc.Equals, id)
 }
 
-func (suite *environSuite) TestInstancesFiltersUnallocated(c *gc.C) {
-	id := suite.addNode(readyNode)
-	instances, err := suite.makeEnviron().Instances([]instance.Id{id})
-
-	c.Check(err, gc.Equals, environs.ErrNoInstances)
-	c.Check(instances, gc.HasLen, 0)
-}
-
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
 	suite.addNode(allocatedNode)
 	instances, err := suite.makeEnviron().Instances([]instance.Id{})
@@ -164,9 +155,8 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C
 	c.Check(instances, gc.IsNil)
 }
 
-func (suite *environSuite) TestAllInstancesReturnsAllAllocatedInstances(c *gc.C) {
+func (suite *environSuite) TestAllInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
-	suite.addNode(readyNode)
 	instances, err := suite.makeEnviron().AllInstances()
 
 	c.Check(err, gc.IsNil)
@@ -183,16 +173,14 @@ func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C
 
 func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
 	known := suite.addNode(allocatedNode)
-	ready := suite.addNode(readyNode)
 	suite.addNode(`{"system_id": "test2"}`)
 	unknown := instance.Id("unknown systemID")
-	instances, err := suite.makeEnviron().Instances([]instance.Id{known, unknown, ready})
+	instances, err := suite.makeEnviron().Instances([]instance.Id{known, unknown})
 
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
-	c.Assert(instances, gc.HasLen, 3)
+	c.Assert(instances, gc.HasLen, 2)
 	c.Check(instances[0].Id(), gc.Equals, known)
 	c.Check(instances[1], gc.IsNil)
-	c.Check(instances[2], gc.IsNil)
 }
 
 func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {

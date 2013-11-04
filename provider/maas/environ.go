@@ -332,23 +332,15 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 	if err != nil {
 		return nil, err
 	}
-	// Only return those that are in the allocated status.
-	instances := make([]instance.Instance, 0, len(listNodes))
-	for _, nodeObj := range listNodes {
+	instances := make([]instance.Instance, len(listNodes))
+	for index, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
 		if err != nil {
 			return nil, err
 		}
-		status, err := node.GetField("status")
-		if err != nil {
-			return nil, err
-		}
-		// If the status is not allocated, continue.
-		if status == gomaasapi.NodeStatusAllocated {
-			instances = append(instances, &maasInstance{
-				maasObject: &node,
-				environ:    environ,
-			})
+		instances[index] = &maasInstance{
+			maasObject: &node,
+			environ:    environ,
 		}
 	}
 	return instances, nil
@@ -357,7 +349,7 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 // Instances returns the instance.Instance objects corresponding to the given
 // slice of instance.Id.  The error is ErrNoInstances if no instances
 // were found.
-func (environ *maasEnviron) Instances(ids []instance.Id) (result []instance.Instance, err error) {
+func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		// This would be treated as "return all instances" below, so
 		// treat it as a special case.
@@ -372,15 +364,17 @@ func (environ *maasEnviron) Instances(ids []instance.Id) (result []instance.Inst
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
+
 	idMap := make(map[instance.Id]instance.Instance)
 	for _, instance := range instances {
 		idMap[instance.Id()] = instance
 	}
-	result = make([]instance.Instance, len(ids))
 
+	result := make([]instance.Instance, len(ids))
 	for index, id := range ids {
 		result[index] = idMap[id]
 	}
+
 	if len(instances) < len(ids) {
 		return result, environs.ErrPartialInstances
 	}
