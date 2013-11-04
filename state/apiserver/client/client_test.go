@@ -341,17 +341,51 @@ func (s *clientSuite) TestClientServiceUnexpose(c *gc.C) {
 	c.Assert(service.IsExposed(), gc.Equals, false)
 }
 
+var serviceDestroyTests = []struct {
+	about   string
+	service string
+	err     string
+}{
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
+	{
+		about:   "destroy a service",
+		service: "dummy-service",
+	},
+	{
+		about:   "destroy an already destroyed service",
+		service: "dummy-service",
+		err:     `service "dummy-service" not found`,
+	},
+}
+
 func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
-	// Setup:
+	_, err := s.State.AddService("dummy-service", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+	for i, t := range serviceDestroyTests {
+		c.Logf("test %d. %s", i, t.about)
+		err = s.APIState.Client().ServiceDestroy(t.service)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+	}
+
+	// Now do ServiceDestroy on a service with units. Destroy will
+	// cause the service to be not-Alive, but will not remove its
+	// document.
 	s.setUpScenario(c)
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
 	c.Assert(err, gc.IsNil)
-	// Code under test:
 	err = s.APIState.Client().ServiceDestroy(serviceName)
 	c.Assert(err, gc.IsNil)
 	err = service.Refresh()
-	// The test actual assertion: the service should no-longer be Alive.
+	c.Assert(err, gc.IsNil)
 	c.Assert(service.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
