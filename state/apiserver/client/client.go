@@ -90,6 +90,19 @@ func (c *Client) ServiceSet(p params.ServiceSet) error {
 	return serviceSetSettingsStrings(svc, p.Options)
 }
 
+// ServiceUnset implements the server side of Client.ServiceUnset.
+func (c *Client) ServiceUnset(p params.ServiceUnset) error {
+	svc, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	settings := make(charm.Settings)
+	for _, option := range p.Options {
+		settings[option] = nil
+	}
+	return svc.UpdateConfigSettings(settings)
+}
+
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	svc, err := c.api.state.Service(p.ServiceName)

@@ -90,6 +90,31 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 	})
 }
 
+func (s *clientSuite) TestClientServerUnset(c *gc.C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "foobar",
+		"username": "user name",
+	})
+	c.Assert(err, gc.IsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": "user name",
+	})
+
+	err = s.APIState.Client().ServiceUnset("dummy", []string{"username"})
+	c.Assert(err, gc.IsNil)
+	settings, err = dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title": "foobar",
+	})
+}
+
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
