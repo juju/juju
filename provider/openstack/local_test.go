@@ -219,7 +219,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-url":          containerURL + "/juju-dist-test/tools",
+		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
@@ -508,7 +508,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)), jc.IsTrue)
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/images"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
@@ -525,7 +525,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The tools-url ends with "/juju-dist-test/tools/".
+	// The tools-metadata-url ends with "/juju-dist-test/tools/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
 	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
@@ -665,8 +665,8 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(containerURL[:8], gc.Equals, "https://")
-	attrs["tools-url"] = containerURL + "/juju-dist-test/tools"
-	c.Logf("Set tools-url=%q", attrs["tools-url"])
+	attrs["tools-metadata-url"] = containerURL + "/juju-dist-test/tools"
+	c.Logf("Set tools-metadata-url=%q", attrs["tools-metadata-url"])
 	attrs["image-metadata-url"] = containerURL + "/juju-dist-test"
 	c.Logf("Set image-metadata-url=%q", attrs["image-metadata-url"])
 	return attrs
@@ -765,7 +765,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 
 	// Make sure there is something to download from each location
 	private := "private-content"
-	err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
+	err = s.env.Storage().Put("images/"+private, bytes.NewBufferString(private), int64(len(private)))
 	c.Assert(err, gc.IsNil)
 
 	metadata := "metadata-content"
@@ -818,7 +818,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Check(customURL[:8], gc.Equals, "https://")
 
 	config, err := s.env.Config().Apply(
-		map[string]interface{}{"tools-url": customURL},
+		map[string]interface{}{"tools-metadata-url": customURL},
 	)
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
@@ -847,7 +847,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the Config entry's tools-url
+	// Read from the Config entry's tools-metadata-url
 	contentReader, url, err := sources[0].Fetch(custom)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
