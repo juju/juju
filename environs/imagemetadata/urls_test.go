@@ -34,7 +34,7 @@ func (s *URLsSuite) env(c *gc.C, imageMetadataURL string) environs.Environ {
 	attrs := dummy.SampleConfig()
 	if imageMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
-			"images-url": imageMetadataURL,
+			"image-metadata-url": imageMetadataURL,
 		})
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -55,11 +55,11 @@ func (s *URLsSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 }
 
 func (s *URLsSuite) TestImageMetadataURLs(c *gc.C) {
-	env := s.env(c, "config-images-url")
+	env := s.env(c, "config-image-metadata-url")
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("images")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-images-url/", privateStorageURL, "http://cloud-images.ubuntu.com/releases/"})
+		"config-image-metadata-url/", privateStorageURL, "http://cloud-images.ubuntu.com/releases/"})
 }

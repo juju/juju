@@ -73,10 +73,10 @@ var configTests = []configTest{
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":       "my-type",
-			"name":       "my-name",
-			"images-url": "image-url",
-			"tools-url":  "tools-url",
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			"tools-metadata-url": "tools-metadata-url",
 		},
 	}, {
 		about:       "Explicit series",
@@ -482,10 +482,10 @@ var configTests = []configTest{
 			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
 			"control-bucket":            "rog-some-control-bucket",
 			"region":                    "us-east-1",
-			"images-url":                "",
+			"image-metadata-url":        "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
-			"tools-url":                 "",
+			"tools-metadata-url":        "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
@@ -739,14 +739,14 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()
-	if v, _ := test.attrs["images-url"].(string); v != "" {
+	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
 	url, urlPresent = cfg.ToolsURL()
-	if v, _ := test.attrs["tools-url"].(string); v != "" {
+	if v, _ := test.attrs["tools-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
@@ -779,8 +779,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["default-series"] = config.DefaultSeries
 	attrs["logging-config"] = loggo.LoggerInfo()
 	attrs["ca-private-key"] = ""
-	attrs["images-url"] = ""
-	attrs["tools-url"] = ""
+	attrs["image-metadata-url"] = ""
+	attrs["tools-metadata-url"] = ""
 	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

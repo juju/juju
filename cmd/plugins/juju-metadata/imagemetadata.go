@@ -130,10 +130,10 @@ image metadata files have been written to:
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
 
-1. Use images-url in $JUJU_HOME/environments.yaml
+1. Use image-metadata-url in $JUJU_HOME/environments.yaml
 Configure a http server to serve the contents of
 %s
-and set the value of images-url accordingly.
+and set the value of image-metadata-url accordingly.
 
 2. Upload the contents of
 %s
