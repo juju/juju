@@ -330,8 +330,7 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 	if err != nil {
 		return nil, err
 	}
-	// Preallocate enough spaces, but don't actually put anything into the
-	// slice, as we will filter out the unallocated nodes.
+	// Only return those that are in the allocated status.
 	instances := make([]instance.Instance, 0, len(listNodes))
 	for _, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
@@ -356,7 +355,7 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 // Instances returns the instance.Instance objects corresponding to the given
 // slice of instance.Id.  The error is ErrNoInstances if no instances
 // were found.
-func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (environ *maasEnviron) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	if len(ids) == 0 {
 		// This would be treated as "return all instances" below, so
 		// treat it as a special case.
@@ -368,13 +367,27 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	if err != nil {
 		return nil, err
 	}
-	if len(instances) == 0 {
+	idMap := make(map[instance.Id]instance.Instance)
+	for _, instance := range instances {
+		idMap[instance.Id()] = instance
+	}
+	result = make([]instance.Instance, len(ids))
+
+	var errResult error
+	allNil := true
+	for index, id := range ids {
+		instance := idMap[id]
+		if instance == nil {
+			errResult = environs.ErrPartialInstances
+		} else {
+			result[index] = instance
+			allNil = false
+		}
+	}
+	if allNil {
 		return nil, environs.ErrNoInstances
 	}
-	if len(ids) != len(instances) {
-		return instances, environs.ErrPartialInstances
-	}
-	return instances, nil
+	return result, errResult
 }
 
 // AllInstances returns all the instance.Instance in this provider.

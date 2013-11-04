@@ -87,6 +87,12 @@ func (suite *environSuite) setupFakeTools(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor)
 }
 
+func (suite *environSuite) addNode(jsonText string) instance.Id {
+	node := suite.testMAASObject.TestServer.NewNode(jsonText)
+	resourceURI, _ := node.GetField("resource_uri")
+	return instance.Id(resourceURI)
+}
+
 func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	// SetConfig() validates the config change and disallows, for example,
 	// changes in the environment name.
@@ -139,30 +145,24 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 }
 
 func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
-	node := suite.testMAASObject.TestServer.NewNode(allocatedNode)
-	resourceURI, _ := node.GetField("resource_uri")
-	instanceIds := []instance.Id{instance.Id(resourceURI)}
-
-	instances, err := suite.environ.Instances(instanceIds)
+	id := suite.addNode(allocatedNode)
+	instances, err := suite.environ.Instances([]instance.Id{id})
 
 	c.Check(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Id(), gc.Equals, id)
 }
 
 func (suite *environSuite) TestInstancesFiltersUnallocated(c *gc.C) {
-	node := suite.testMAASObject.TestServer.NewNode(readyNode)
-	resourceURI, _ := node.GetField("resource_uri")
-	instanceIds := []instance.Id{instance.Id(resourceURI)}
-
-	instances, err := suite.environ.Instances(instanceIds)
+	id := suite.addNode(readyNode)
+	instances, err := suite.environ.Instances([]instance.Id{id})
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.HasLen, 0)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
-	suite.testMAASObject.TestServer.NewNode(allocatedNode)
+	suite.addNode(allocatedNode)
 	instances, err := suite.environ.Instances([]instance.Id{})
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
@@ -170,7 +170,7 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c 
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
-	suite.testMAASObject.TestServer.NewNode(allocatedNode)
+	suite.addNode(allocatedNode)
 	instances, err := suite.environ.Instances(nil)
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
@@ -178,43 +178,40 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *g
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
-	_, err := suite.environ.Instances([]instance.Id{"unknown"})
+	instances, err := suite.environ.Instances([]instance.Id{"unknown"})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(instances, gc.IsNil)
 }
 
 func (suite *environSuite) TestAllInstancesReturnsAllAllocatedInstances(c *gc.C) {
-	node := suite.testMAASObject.TestServer.NewNode(allocatedNode)
-	resourceURI, _ := node.GetField("resource_uri")
-	suite.testMAASObject.TestServer.NewNode(readyNode)
-
+	id := suite.addNode(allocatedNode)
+	suite.addNode(readyNode)
 	instances, err := suite.environ.AllInstances()
 
 	c.Check(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Id(), gc.Equals, id)
 }
 
 func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
 	instances, err := suite.environ.AllInstances()
 
 	c.Check(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 0)
+	c.Check(instances, gc.HasLen, 0)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
-	node1 := suite.testMAASObject.TestServer.NewNode(allocatedNode)
-	resourceURI1, _ := node1.GetField("resource_uri")
-	input2 := `{"system_id": "test2"}`
-	suite.testMAASObject.TestServer.NewNode(input2)
-	instanceId1 := instance.Id(resourceURI1)
-	instanceId2 := instance.Id("unknown systemID")
-	instanceIds := []instance.Id{instanceId1, instanceId2}
-
-	instances, err := suite.environ.Instances(instanceIds)
+	known := suite.addNode(allocatedNode)
+	ready := suite.addNode(readyNode)
+	suite.addNode(`{"system_id": "test2"}`)
+	unknown := instance.Id("unknown systemID")
+	instances, err := suite.environ.Instances([]instance.Id{known, unknown, ready})
 
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(string(instances[0].Id()), gc.Equals, resourceURI1)
+	c.Assert(instances, gc.HasLen, 3)
+	c.Check(instances[0].Id(), gc.Equals, known)
+	c.Check(instances[1], gc.IsNil)
+	c.Check(instances[2], gc.IsNil)
 }
 
 func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
