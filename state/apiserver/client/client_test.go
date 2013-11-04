@@ -362,16 +362,33 @@ func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = u.SetStatus(params.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
-	// Code under test:
-	err = s.APIState.Client().Resolved("wordpress/0", false)
-	c.Assert(err, gc.IsNil)
-	// Freshen the unit's state.
-	err = u.Refresh()
-	c.Assert(err, gc.IsNil)
-	// And now the actual test assertions: we set the unit as resolved via
-	// the API so it should have a resolved mode set.
-	mode := u.Resolved()
-	c.Assert(mode, gc.Equals, state.ResolvedNoHooks)
+	type test struct {
+		retry        bool
+		resolvedMode state.ResolvedMode
+	}
+	tests := []test{{
+		retry:        false,
+		resolvedMode: state.ResolvedNoHooks,
+	}, {
+		retry:        true,
+		resolvedMode: state.ResolvedRetryHooks,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: retry: %v, expected resolved-mode: %v", i, test.retry, test.resolvedMode)
+		// Code under test:
+		err = s.APIState.Client().Resolved("wordpress/0", test.retry)
+		c.Assert(err, gc.IsNil)
+		// Freshen the unit's state.
+		err = u.Refresh()
+		c.Assert(err, gc.IsNil)
+		// And now the actual test assertions: we set the unit as resolved via
+		// the API so it should have a resolved mode set.
+		mode := u.Resolved()
+		c.Assert(mode, gc.Equals, test.resolvedMode)
+		// Clear resolved mode, for next iteration.
+		err = u.ClearResolved()
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
