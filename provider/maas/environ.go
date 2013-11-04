@@ -364,10 +364,21 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	if len(ids) != len(instances) {
-		return instances, environs.ErrPartialInstances
+
+	idMap := make(map[instance.Id]instance.Instance)
+	for _, instance := range instances {
+		idMap[instance.Id()] = instance
 	}
-	return instances, nil
+
+	result := make([]instance.Instance, len(ids))
+	for index, id := range ids {
+		result[index] = idMap[id]
+	}
+
+	if len(instances) < len(ids) {
+		return result, environs.ErrPartialInstances
+	}
+	return result, nil
 }
 
 // AllInstances returns all the instance.Instance in this provider.
