@@ -470,7 +470,7 @@ func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	// obtained source later.
 	data := makeRandomBytes(10)
 	stor := NewStorage(env)
-	err := stor.Put("filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	err := stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
 	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)

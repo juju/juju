@@ -71,9 +71,13 @@ openstack:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
 
-    # tools-url specifies the location of the Juju tools. It defaults to the
-    # global public tools S3 bucket.
-    # tools-url:  https://you-tools-url
+    # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
+    # global public tools metadata location https://streams.canonical.com/tools.
+    # tools-metadata-url:  https://you-tools-metadata-url
+
+    # image-metadata-url specifies the location of Ubuntu cloud image metadata. It defaults to the
+    # global public image metadata location https://cloud-images.ubuntu.com/releases.
+    # image-metadata-url:  https://you-tools-metadata-url
 
     # auth-url defaults to the value of the environment variable OS_AUTH_URL,
     # but can be specified here.
@@ -531,7 +535,8 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
+	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(
+		e.Storage(), storage.BaseImagesPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {

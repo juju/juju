@@ -1255,7 +1255,7 @@ func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
-	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
+	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
 
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
