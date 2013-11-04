@@ -20,7 +20,7 @@ Basic Workflow
 Whether images or tools, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
-1. User supplied location (specified by tools-url or images-url config settings)
+1. User supplied location (specified by tools-metadata-url or image-metadata-url config settings)
 2. The environment's cloud storage
 3. Provider specific locations (eg keystone endpoint if on Openstack)
 4. A web location with metadata for supported public clouds (https://streams.canonical.com)
@@ -98,8 +98,8 @@ override what is provided by the cloud.
 
 1. User specified URLs
 
-These are specified in the environments.yaml file. For images, use "images-url";
-for tools, use "tools-url". The URLs can point to a world readable container/bucket in
+These are specified in the environments.yaml file. For images, use "image-metadata-url";
+for tools, use "tools-metadata-url". The URLs can point to a world readable container/bucket in
 the cloud, an address served by a http server, or even a shared directory accessible by
 all node instances running in the cloud.
 
@@ -107,8 +107,8 @@ eg assume an Apache http server with base URL https://juju-metadata, providing a
 information at <base>/images and <base>/tools. The Juju environment yaml file could have
 the following entries (one or both):
 
-tools-url: https://juju-metadata/tools
-images-url: https://juju-metadata/images
+tools-metadata-url: https://juju-metadata/tools
+image-metadata-url: https://juju-metadata/images
 
 The required files in each location is as per the directory layout described earlier.
 For a shared directory, use a URL of the form "file:///sharedpath".
@@ -173,7 +173,7 @@ The overall workflow is:
 - generate image metadata
 - copy image metadata to somewhere in the metadata search path
 - optionally, mirror tools to somewhere in the metadata search path
-- optionally, configure tools-url and/or images-url
+- optionally, configure tools-metadata-url and/or image-metadata-url
 
 1. Image metadata
 
@@ -187,12 +187,12 @@ an environment specified with the -e option). These parameters can also be overr
 The image metadata command can be run multiple times with different regions, series, architecture, and
 it will keep adding to the metadata files. Once all required image ids have been added, the index and product
 json files can be uploaded to a location in the Juju metadata search path. As per the Configuration section,
-this may be somewhere specified by the images-url setting or the cloud's storage etc.
+this may be somewhere specified by the image-metadata-url setting or the cloud's storage etc.
 
 Examples:
-1. images-url
+1. image-metadata-url
  - upload contents of <metadata_dir> to http://somelocation
- - set images-url to http://somelocation/images
+ - set image-metadata-url to http://somelocation/images
 2. Cloud storage
  - upload contents of <metadata_dir> directly to environment's cloud storage
 
@@ -213,13 +213,13 @@ it is possible to manually generate metadata for a custom built tools tarball us
 
 where the required tools tarballs are first placed in a directory <tools_dir>/tools/releases.
 Then, the contents of <tools_dir> can be uploaded to a location in the Juju metadata search path.
-As per the Configuration section, this may be somewhere specified by the tools-url setting or
+As per the Configuration section, this may be somewhere specified by the tools-metadata-url setting or
 the cloud's storage etc.
 
 Examples:
-1. tools-url
+1. tools-metadata-url
  - upload contents of <tools_dir> to http://somelocation
- - set tools-url to http://somelocation/tools
+ - set tools-metadata-url to http://somelocation/tools
 2. Cloud storage
  - upload contents of <tools_dir> directly to environment's cloud storage
 
