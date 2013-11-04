@@ -365,6 +365,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 var multipleErrorsTests = []uniterTest{
 	ut(
 		"resolved is cleared before moving on to next hook",
+		ensureStateWorker{},
 		createCharm{badHooks: []string{"install", "config-changed", "start"}},
 		serveCharm{},
 		createUniter{},
@@ -443,6 +444,7 @@ var configChangedHookTests = []uniterTest{
 	),
 	ut(
 		"steady state config change with config-get verification",
+		ensureStateWorker{},
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
@@ -489,6 +491,7 @@ var hookSynchronizationTests = []uniterTest{
 		"verify held lock by another unit is not broken",
 		acquireHookSyncLock{"u/1:fake"},
 		// Can't use quickstart as it has a built in waitHooks.
+		ensureStateWorker{},
 		createCharm{},
 		serveCharm{},
 		createServiceAndUnit{},
@@ -528,6 +531,7 @@ var dyingReactionTests = []uniterTest{
 		waitHooks{},
 	), ut(
 		"hook error service dying",
+		ensureStateWorker{},
 		startupError{"start"},
 		serviceDying,
 		verifyWaiting{},
@@ -537,6 +541,7 @@ var dyingReactionTests = []uniterTest{
 		waitUniterDead{},
 	), ut(
 		"hook error unit dying",
+		ensureStateWorker{},
 		startupError{"start"},
 		unitDying,
 		verifyWaiting{},
@@ -546,6 +551,7 @@ var dyingReactionTests = []uniterTest{
 		waitUniterDead{},
 	), ut(
 		"hook error unit dead",
+		ensureStateWorker{},
 		startupError{"start"},
 		unitDead,
 		waitUniterDead{},
@@ -756,6 +762,7 @@ var upgradeConflictsTests = []uniterTest{
 		verifyCharm{revision: 1},
 	), ut(
 		`upgrade: conflicting directories`,
+		ensureStateWorker{},
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				err := os.Mkdir(filepath.Join(path, "data"), 0755)
@@ -1048,6 +1055,8 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		charms:  coretesting.ResponseMap{},
 	}
 
+	testing.AddStateServerMachine(c, ctx.st)
+
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
 	curl, err := charm.ParseURL("cs:quantal/logging")
@@ -1098,6 +1107,13 @@ type ensureStateWorker struct {
 }
 
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
+	addresses, err := ctx.st.Addresses()
+	if err != nil || len(addresses) == 0 {
+		testing.AddStateServerMachine(c, ctx.st)
+	}
+	addresses, err = ctx.st.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.HasLen, 1)
 }
 
 type createCharm struct {
@@ -1339,6 +1355,7 @@ type startupError struct {
 }
 
 func (s startupError) step(c *gc.C, ctx *context) {
+	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -1383,6 +1400,7 @@ type startupRelationError struct {
 }
 
 func (s startupRelationError) step(c *gc.C, ctx *context) {
+	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -1560,6 +1578,7 @@ type startUpgradeError struct{}
 
 func (s startUpgradeError) step(c *gc.C, ctx *context) {
 	steps := []stepper{
+		ensureStateWorker{},
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				appendHook(c, path, "start", "echo STARTDATA > data")
