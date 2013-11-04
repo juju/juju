@@ -315,30 +315,103 @@ func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
 	}
 }
 
+var serviceExposeTests = []struct {
+	about   string
+	service string
+	err     string
+	exposed bool
+}{
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
+	{
+		about:   "expose a service",
+		service: "dummy-service",
+		exposed: true,
+	},
+	{
+		about:   "expose an already exposed service",
+		service: "exposed-service",
+		exposed: true,
+	},
+}
+
 func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
-	s.setUpScenario(c)
-	serviceName := "wordpress"
-	service, err := s.State.Service(serviceName)
+	charm := s.AddTestingCharm(c, "dummy")
+	serviceNames := []string{"dummy-service", "exposed-service"}
+	svcs := make([]*state.Service, len(serviceNames))
+	var err error
+	for i, name := range serviceNames {
+		svcs[i], err = s.State.AddService(name, charm)
+		c.Assert(err, gc.IsNil)
+		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
+	}
+	err = svcs[1].SetExposed()
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.IsExposed(), gc.Equals, false)
-	err = s.APIState.Client().ServiceExpose(serviceName)
-	c.Assert(err, gc.IsNil)
-	err = service.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(service.IsExposed(), gc.Equals, true)
+	c.Assert(svcs[1].IsExposed(), gc.Equals, true)
+	for i, t := range serviceExposeTests {
+		c.Logf("test %d. %s", i, t.about)
+		err = s.APIState.Client().ServiceExpose(t.service)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+			service, err := s.State.Service(t.service)
+			c.Assert(err, gc.IsNil)
+			c.Assert(service.IsExposed(), gc.Equals, t.exposed)
+		}
+	}
+}
+
+var serviceUnexposeTests = []struct {
+	about    string
+	service  string
+	err      string
+	initial  bool
+	expected bool
+}{
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
+	{
+		about:    "unexpose a service",
+		service:  "dummy-service",
+		initial:  true,
+		expected: false,
+	},
+	{
+		about:    "unexpose an already unexposed service",
+		service:  "dummy-service",
+		initial:  false,
+		expected: false,
+	},
 }
 
 func (s *clientSuite) TestClientServiceUnexpose(c *gc.C) {
-	s.setUpScenario(c)
-	serviceName := "wordpress"
-	service, err := s.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
-	service.SetExposed()
-	c.Assert(service.IsExposed(), gc.Equals, true)
-	err = s.APIState.Client().ServiceUnexpose(serviceName)
-	c.Assert(err, gc.IsNil)
-	service.Refresh()
-	c.Assert(service.IsExposed(), gc.Equals, false)
+	charm := s.AddTestingCharm(c, "dummy")
+	for i, t := range serviceUnexposeTests {
+		c.Logf("test %d. %s", i, t.about)
+		svc, err := s.State.AddService("dummy-service", charm)
+		c.Assert(err, gc.IsNil)
+		if t.initial {
+			svc.SetExposed()
+		}
+		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
+		err = s.APIState.Client().ServiceUnexpose(t.service)
+		if t.err == "" {
+			c.Assert(err, gc.IsNil)
+			svc.Refresh()
+			c.Assert(svc.IsExposed(), gc.Equals, t.expected)
+		} else {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		}
+		err = svc.Destroy()
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
