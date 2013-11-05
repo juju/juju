@@ -58,6 +58,30 @@ wJvtgSATSknibvh2+1JjTcxQ9D46ThxhXrrNoNkuTrOlgldmHE/tmGUG/BBERL+u
 -----END PGP PUBLIC KEY BLOCK-----`
 
 var imageData = map[string]string{
+	"/daily/streams/v1/index.json": `
+        {
+         "index": {
+          "com.ubuntu.cloud:released:raring": {
+           "updated": "Wed, 01 May 2013 13:31:26 +0000",
+           "clouds": [
+            {
+             "region": "us-east-1",
+             "endpoint": "https://ec2.us-east-1.amazonaws.com"
+            }
+           ],
+           "cloudname": "aws",
+           "datatype": "image-ids",
+           "format": "products:1.0",
+           "products": [
+            "com.ubuntu.cloud:server:13.04:amd64"
+           ],
+           "path": "streams/v1/raring_metadata.json"
+          }
+         },
+         "updated": "Wed, 01 May 2013 13:31:26 +0000",
+         "format": "index:1.0"
+        }
+    `,
 	"/streams/v1/index.json": `
 		{
 		 "index": {

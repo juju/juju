@@ -71,9 +71,13 @@ openstack:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
 
-    # tools-url specifies the location of the Juju tools. It defaults to the
-    # global public tools S3 bucket.
-    # tools-url:  https://you-tools-url
+    # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
+    # global public tools metadata location https://streams.canonical.com/tools.
+    # tools-metadata-url:  https://you-tools-metadata-url
+
+    # image-metadata-url specifies the location of Ubuntu cloud image metadata. It defaults to the
+    # global public image metadata location https://cloud-images.ubuntu.com/releases.
+    # image-metadata-url:  https://you-tools-metadata-url
 
     # auth-url defaults to the value of the environment variable OS_AUTH_URL,
     # but can be specified here.
@@ -116,10 +120,35 @@ hpcloud:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
     
+    # tenant-name holds the openstack tenant name. In HPCloud, this is 
+    # synonymous with the project-name  It defaults to
+    # the environment variable OS_TENANT_NAME.
+    # tenant-name: <your tenant name>
+    
     # auth-url holds the keystone url for authentication. 
     # It defaults to the value of the environment variable OS_AUTH_URL.
     # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
+    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1).  
+    # It defaults to the environment variable OS_REGION_NAME.
+    # region: <your region>
+    
+    # auth-mode holds the authentication mode. For user-password
+    # authentication, auth-mode should be "userpass" and username
+    # and password should be set appropriately; they default to
+    # the environment variables OS_USERNAME and OS_PASSWORD
+    # respectively.
+    # auth-mode: userpass
+    # username: <your_username>
+    # password: <your_password>
+    
+    # For key-pair authentication, auth-mode should  be "keypair"
+    # and access-key and secret-key should be  set appropriately; they default to
+    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
+    # respectively.
+    # auth-mode: keypair
+    # access-key: <secret>
+    # secret-key: <secret>
 `[1:]
 }
 
@@ -531,7 +560,8 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 		}
 	}
 	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), ""))
+	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(
+		e.Storage(), storage.BaseImagesPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {

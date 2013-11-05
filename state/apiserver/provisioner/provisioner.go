@@ -182,6 +182,20 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	return result, nil
 }
 
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
+func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+	result := params.ContainerConfig{}
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.ProviderType = config.Type()
+	result.AuthorizedKeys = config.AuthorizedKeys()
+	result.SSLHostnameVerification = config.SSLHostnameVerification()
+	return result, nil
+}
+
 // Status returns the status of each given machine entity.
 func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{

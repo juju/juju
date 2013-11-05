@@ -104,6 +104,10 @@ var operationPermTests = []struct {
 	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.SetEnvironmentConstraints",
+	op:    opClientSetEnvironmentConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
 	allow: []string{"user-admin", "user-other"},
@@ -359,6 +363,15 @@ func opClientGetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (fu
 func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
 	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientSetEnvironmentConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetEnvironmentConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
