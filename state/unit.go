@@ -208,6 +208,9 @@ func (u *Unit) SetPassword(password string) error {
 	return u.setPasswordHash(hp)
 }
 
+// setPasswordHash sets the underlying password hash in the database directly
+// to the value supplied. This is split out from SetPassword to allow direct
+// manipulation in tests (to check for backwards compatibility).
 func (u *Unit) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -223,17 +226,25 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 	return nil
 }
 
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func (u *Unit) getPasswordHash() string {
+	return u.doc.PasswordHash
+}
+
 // PasswordValid returns whether the given password is valid
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {
-	if utils.PasswordHash(password) == u.doc.PasswordHash {
+	agentHash := utils.PasswordHash(password)
+	if agentHash == u.doc.PasswordHash {
 		return true
 	}
-	// In Juju 1.16 and older we used slower passwords for unit agents
-	// TODO: If we can allow agents to use a new password, but ask them to
-	// reset their password, then we can eventually deprecate this
-	// fallback.
+	// In Juju 1.16 and older we used the slower password hash for unit
+	// agents. So check to see if the supplied password matches the old
+	// path, and if so, update it to the new mechanism.
 	if utils.SlowPasswordHash(password) == u.doc.PasswordHash {
+		u.setPasswordHash(agentHash)
 		return true
 	}
 	return false

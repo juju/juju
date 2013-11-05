@@ -276,7 +276,6 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetSlowPassword(c *gc.C) {
-	//preventUnitDestroyRemove(c, s.unit)
 	e, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, gc.IsNil)
 	testSetSlowAgentPassword(c, e)

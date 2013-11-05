@@ -1391,16 +1391,24 @@ func testSetSlowAgentPassword(c *gc.C, entity state.Authenticator) {
 	// agents. This was determined to be overkill (since we know that Unit
 	// agents will actually use utils.RandomPassword() and get 18 bytes of
 	// entropy, and thus won't be brute-forced.)
-	c.Assert(entity.PasswordValid("foo"), gc.Equals, false)
-	err := state.SetPasswordHash(entity, utils.PasswordHash("foo"))
+	c.Assert(entity.PasswordValid("foo"), jc.IsFalse)
+	expectedHash := utils.PasswordHash("foo")
+	err := state.SetPasswordHash(entity, expectedHash)
 	c.Assert(err, gc.IsNil)
-	c.Assert(entity.PasswordValid("foo"), gc.Equals, true)
-	c.Assert(entity.PasswordValid("bar"), gc.Equals, false)
+	c.Assert(entity.PasswordValid("foo"), jc.IsTrue)
+	c.Assert(entity.PasswordValid("bar"), jc.IsFalse)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, expectedHash)
 
-	err = state.SetPasswordHash(entity, utils.SlowPasswordHash("foo"))
+	backwardsCompatibleHash := utils.SlowPasswordHash("foo")
+	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
 	c.Assert(err, gc.IsNil)
-	c.Assert(entity.PasswordValid("foo"), gc.Equals, true)
-	c.Assert(entity.PasswordValid("bar"), gc.Equals, false)
+	c.Assert(entity.PasswordValid("bar"), jc.IsFalse)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, backwardsCompatibleHash)
+	// After succeeding to log in with the old compatible hash, the db
+	// should be updated with the new hash
+	c.Assert(entity.PasswordValid("foo"), jc.IsTrue)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, expectedHash)
+
 }
 
 type entity interface {
