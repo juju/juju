@@ -13,7 +13,8 @@ import (
 	"launchpad.net/juju-core/thirdparty/pbkdf2"
 )
 
-var salt = []byte{0x75, 0x82, 0x81, 0xca}
+// In Juju 1.16 and older we used a hard-coded salt for all Users
+var oldDefaultSalt = []byte{0x75, 0x82, 0x81, 0xca}
 
 // RandomBytes returns n random bytes.
 func RandomBytes(n int) ([]byte, error) {
@@ -34,33 +35,66 @@ func RandomPassword() (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
+// PasswordHash returns base64-encoded one-way hash password that is
+// computationally hard to crack by iterating through possible passwords.
+// This is for backwards compatibility with Juju 1.16 and older. Newer versions
+// of Juju use UserPasswordHash with a Salt value or AgentPasswordHash with a
+// required longer password.
+func PasswordHash(password string) string {
+	if len(password) < 24 {
+		// This doesn't increase security, it just makes testing easier
+		password = password + "123456789012345678901234"
+	}
+	hash, err := AgentPasswordHash(password)
+	if err != nil {
+		panic(err)
+	}
+	return hash
+}
+
 // FastInsecureHash specifies whether a fast, insecure version of the hash
 // algorithm will be used.  Changing this will cause PasswordHash to
 // produce incompatible passwords.  It should only be changed for
 // testing purposes - to make tests run faster.
 var FastInsecureHash = false
 
-// SlowPasswordHash returns base64-encoded one-way hash password that is
+// UserPasswordHash returns base64-encoded one-way hash password that is
 // computationally hard to crack by iterating through possible passwords.
-func SlowPasswordHash(password string) string {
+func UserPasswordHash(password string, salt string) string {
 	iter := 8192
 	if FastInsecureHash {
 		iter = 1
+	}
+	if salt == "" {
+		panic("salt is not allowed to be empty")
 	}
 	// Generate 18 byte passwords because we know that MongoDB
 	// uses the MD5 sum of the password anyway, so there's
 	// no point in using more bytes. (18 so we don't get base 64
 	// padding characters).
-	h := pbkdf2.Key([]byte(password), salt, iter, 18, sha512.New)
+	h := pbkdf2.Key([]byte(password), []byte(salt), iter, 18, sha512.New)
 	return base64.StdEncoding.EncodeToString(h)
 }
 
-// PasswordHash returns base64-encoded one-way hash password that is
-// computationally hard to crack by iterating through possible passwords.
-func PasswordHash(password string) string {
+func SlowPasswordHash(password string) string {
+	return UserPasswordHash(password, string(oldDefaultSalt))
+}
+
+// AgentPasswordHash returns base64-encoded one-way hash of password. This is
+// not suitable for User passwords because those will have limited entropy (see
+// UserPasswordHash). However, since we generate long random passwords for
+// agents, we can trust that there is sufficient entropy to prevent brute force
+// search. And using a faster hash allows us to restart the state machines and
+// have 1000s of agents log in in a reasonable amount of time.
+// As a sanity check that AgentPasswordHash is being used correctly, we require
+// the minimum length of password to be 18 characters.
+func AgentPasswordHash(password string) (string, error) {
+	if len(password) < 24 {
+		return "", fmt.Errorf("password is only %d bytes long, and is not valid as an Agent password", len(password))
+	}
 	sum := sha512.New()
 	sum.Write([]byte(password))
 	h := make([]byte, 0, sum.Size())
 	h = sum.Sum(h)
-	return base64.StdEncoding.EncodeToString(h[:18])
+	return base64.StdEncoding.EncodeToString(h[:18]), nil
 }
