@@ -168,6 +168,8 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
+	// Make tests that use password authentication faster.
+	utils.FastInsecureHash = true
 }
 
 // readLines reads lines from the given reader and returns
@@ -199,6 +201,7 @@ func readLines(r io.Reader, n int) []string {
 }
 
 func (s *MgoSuite) TearDownSuite(c *gc.C) {
+	utils.FastInsecureHash = false
 }
 
 // MgoDial returns a new connection to the shared MongoDB server.
