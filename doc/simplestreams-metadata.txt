@@ -6,8 +6,8 @@ When Juju bootstraps, it needs two critical pieces of information:
 2. The URL from which to download the correct version of a tools tarball
 
 The necessary information is stored in a json metadata format called simplestreams.
-simplestreams is used to describe related items in a structural fashion. See the
-Launchpad project lp:simplestreams for more details.
+The simplestreams format is used to describe related items in a structural fashion.
+See the Launchpad project lp:simplestreams for more details.
 
 For supported public clouds like Amazon, HP Cloud etc, no action is required by the
 end user so the following information is more for those interested in what happens
@@ -25,7 +25,7 @@ The path components (in order of lookup) are:
 3. Provider specific locations (eg keystone endpoint if on Openstack)
 4. A web location with metadata for supported public clouds (https://streams.canonical.com)
 
-Metadata may be inline signed, or unsigned. By convention, signed json metadata files have
+Metadata may be inline signed, or unsigned. We indicate a metadata file is signed by using
 a '.sjson' extension. Each location in the path is first searched for signed metadata, and
 if none is found, unsigned metadata is attempted before moving onto the next path location.
 
@@ -50,20 +50,20 @@ The metadata index and product files are required to be in the following directo
 (relative to the URL associated with each path component):
 
 <path_url>
-  |_streams
-      |_v1
-         |_ index.(s)json
-         |_ product-foo.(s)json
-         |_ product-bar.(s)json
+  |-streams
+      |-v1
+         |-index.(s)json
+         |-product-foo.(s)json
+         |-product-bar.(s)json
 
-The index file must be called "index.(s)json" (sjson for signed). The product file name(s)
-match whatever is in the index file.
+The index file must be called "index.(s)json" (sjson for signed). The various product files are
+named according to the Path values contained in the index file.
 
 Tools Metadata Contents
 =======================
 
 Tools metadata uses a simplestreams content type of "content-download".
-The produc id is formed as follows:
+The product id is formed as follows:
 "com.ubuntu.juju:<series_version>:<arch>"
 eg
 "com.ubuntu.juju:12.04:amd64"
@@ -73,16 +73,16 @@ The metadata index and product files are required to be in the following directo
 which Juju needs to download are also expected.
 
 <path_url>
-  |_streams
-  |   |_v1
-  |      |_ index.(s)json
-  |      |_ product-foo.(s)json
-  |      |_ product-bar.(s)json
+  |-streams
+  |   |-v1
+  |      |-index.(s)json
+  |      |-product-foo.(s)json
+  |      |-product-bar.(s)json
   |
-  |_releases
-      |_ tools-abc.tar.gz
-      |_ tools-def.tar.gz
-      |_ tools-xyz.tar.gz
+  |-releases
+      |-tools-abc.tar.gz
+      |-tools-def.tar.gz
+      |-tools-xyz.tar.gz
 
 The index file must be called "index.(s)json" (sjson for signed). The product file and
 tools tarball name(s) match whatever is in the index/product files.
@@ -98,10 +98,11 @@ override what is provided by the cloud.
 
 1. User specified URLs
 
-These are specified in the environments.yaml file. For images, use "image-metadata-url";
-for tools, use "tools-metadata-url". The URLs can point to a world readable container/bucket in
-the cloud, an address served by a http server, or even a shared directory accessible by
-all node instances running in the cloud.
+These are initially specified in the environments.yaml file (and then subsequently copied to the
+jenv file when the environment is bootstrapped). For images, use "image-metadata-url"; for tools,
+use "tools-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
+an address served by a http server, or even a shared directory accessible by all node instances
+running in the cloud.
 
 eg assume an Apache http server with base URL https://juju-metadata, providing access to
 information at <base>/images and <base>/tools. The Juju environment yaml file could have
@@ -124,17 +125,17 @@ and Openstack clouds, the storage is defined by the "control-bucket" value, for 
 The (optional) directory structure inside the cloud storage is as follows:
 
 <cloud storage top level>
-  |_tools
-  |   |_streams
-  |       |_v1
-  |   |_releases
+  |-tools
+  |   |-streams
+  |       |-v1
+  |   |-releases
   |
-  |_images
-      |_streams
-          |_v1
+  |-images
+      |-streams
+          |-v1
 
 Of course, if only custom image metadata is required, the tools directory will not be required,
-and visa versa.
+and vice versa.
 
 As a sidebar, note that if juju bootstrap is run with the --upload-tools option, the tools and metadata
 are placed according to the above structure. That's why the tools are then available for Juju to use.
@@ -162,9 +163,11 @@ There are two main issues when deploying a private cloud:
 Issue 1 means that image id metadata needs to be generated and made available.
 Issue 2 means that tools need to be mirrored locally to make them accessible.
 
-Juju tools exist to help with generating and validating image and tools metadata,
-although since the easiest way to make tools available is to mirror https://streams.canonical.com/tools,
-usually just the image metadata is required to be created.
+Juju tools exist to help with generating and validating image and tools metadata.
+For tools, it is often easiest to just mirror https://streams.canonical.com/tools.
+However image metadata cannot be simply mirrored because the image ids are taken
+from the cloud storage provider, so this need to be generated and validated using
+the commands described below.
 
 The available Juju metadata tools can be seen by using the help command:
   juju help metadata
