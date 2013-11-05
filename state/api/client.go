@@ -40,7 +40,9 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.st.Call("Client", "", "ServiceSet", p, nil)
+	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
+	// ServiceSet to unset values set to an empty string.
+	return c.st.Call("Client", "", "NewServiceSetForClientAPI", p, nil)
 }
 
 // ServiceUnset resets configuration options on a service.

@@ -80,13 +80,32 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	}, nil
 }
 
-// ServiceSet implements the server side of Client.ServiceSet.
+// ServiceSet implements the server side of Client.ServiceSet. Values set to an
+// empty string will be unset.
+//
+// (Deprecated) Use NewServiceSetForClientAPI instead, to preserve values set to
+// an empty string, and use ServiceUnset to unset values.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
 	return serviceSetSettingsStrings(svc, p.Options)
+}
+
+// NewServiceSetForClientAPI implements the server side of
+// Client.NewServiceSetForClientAPI. This is exactly like ServiceSet except that
+// it does not unset values that are set to an empty string.  ServiceUnset
+// should be used for that.
+//
+// TODO(Nate): rename this to ServiceSet (and remove the deprecated ServiceSet)
+// when the GUI handles the new behavior.
+func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
+	svc, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return newServiceSetSettingsStringsForClientAPI(svc, p.Options)
 }
 
 // ServiceUnset implements the server side of Client.ServiceUnset.
@@ -270,6 +289,26 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	if err != nil {
 		return err
 	}
+	return service.UpdateConfigSettings(changes)
+}
+
+// newServiceSetSettingsStringsForClientAPI updates the settings for the given
+// service, taking the configuration from a map of strings.
+//
+// TODO(Nate): replace serviceSetSettingsStrings with this onces the GUI no
+// longer expects to be able to unset values by sending an empty string.
+func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings map[string]string) error {
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
+	}
+
+	// Validate the settings.
+	changes, err := ch.Config().ParseSettingsStrings(settings)
+	if err != nil {
+		return err
+	}
+
 	return service.UpdateConfigSettings(changes)
 }
 
