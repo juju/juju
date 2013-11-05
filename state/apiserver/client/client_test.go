@@ -448,7 +448,7 @@ func (s *clientSuite) TestClientDestroyUnits(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
+func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolvedMode state.ResolvedMode) {
 	// Setup:
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
@@ -456,7 +456,7 @@ func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	err = u.SetStatus(params.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	// Code under test:
-	err = s.APIState.Client().Resolved("wordpress/0", false)
+	err = s.APIState.Client().Resolved("wordpress/0", retry)
 	c.Assert(err, gc.IsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -464,7 +464,15 @@ func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
-	c.Assert(mode, gc.Equals, state.ResolvedNoHooks)
+	c.Assert(mode, gc.Equals, expectedResolvedMode)
+}
+
+func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
+	s.testClientUnitResolved(c, false, state.ResolvedNoHooks)
+}
+
+func (s *clientSuite) TestClientUnitResolvedRetry(c *gc.C) {
+	s.testClientUnitResolved(c, true, state.ResolvedRetryHooks)
 }
 
 func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
