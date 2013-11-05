@@ -46,7 +46,6 @@ func RandomSalt() (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-
 // FastInsecureHash specifies whether a fast, insecure version of the hash
 // algorithm will be used.  Changing this will cause PasswordHash to
 // produce incompatible passwords.  It should only be changed for
