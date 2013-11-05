@@ -313,7 +313,7 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	return statecmd.DestroyServiceUnits(c.api.state, args)
+	return c.api.state.DestroyUnits(args.UnitNames...)
 }
 
 // ServiceDestroy destroys a given service.
