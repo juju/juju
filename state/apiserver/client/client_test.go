@@ -889,3 +889,61 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		}
 	}
 }
+
+func (s *clientSuite) TestClientSetServiceConstraints(c *gc.C) {
+	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	// Update constraints for the service.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().SetServiceConstraints("dummy", cons)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the constraints have been correctly updated.
+	obtained, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientGetServiceConstraints(c *gc.C) {
+	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	// Set constraints for the service.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = service.SetConstraints(cons)
+	c.Assert(err, gc.IsNil)
+
+	// Check we can get the constraints.
+	obtained, err := s.APIState.Client().GetServiceConstraints("dummy")
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientSetEnvironmentConstraints(c *gc.C) {
+	// Set constraints for the environment.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the constraints have been correctly updated.
+	obtained, err := s.State.EnvironConstraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
+	// Set constraints for the environment.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConstraints(cons)
+	c.Assert(err, gc.IsNil)
+
+	// Check we can get the constraints.
+	obtained, err := s.APIState.Client().GetEnvironmentConstraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}

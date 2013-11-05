@@ -195,14 +195,14 @@ type GetServiceConstraints struct {
 	ServiceName string
 }
 
-// GetServiceConstraintsResults holds results of the GetServiceConstraints call.
-type GetServiceConstraintsResults struct {
+// GetConstraintsResults holds results of the GetConstraints call.
+type GetConstraintsResults struct {
 	Constraints constraints.Value
 }
 
-// SetServiceConstraints stores parameters for making the SetServiceConstraints call.
-type SetServiceConstraints struct {
-	ServiceName string
+// SetConstraints stores parameters for making the SetConstraints call.
+type SetConstraints struct {
+	ServiceName string //optional, if empty, environment constraints are set.
 	Constraints constraints.Value
 }
 

@@ -162,18 +162,33 @@ func (c *Client) ServiceDestroy(service string) error {
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetServiceConstraintsResults)
+	results := new(params.GetConstraintsResults)
 	err := c.st.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.st.Call("Client", "", "GetEnvironmentConstraints", nil, results)
 	return results.Constraints, err
 }
 
 // SetServiceConstraints specifies the constraints for the given service.
 func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetServiceConstraints{
+	params := params.SetConstraints{
 		ServiceName: service,
 		Constraints: constraints,
 	}
 	return c.st.Call("Client", "", "SetServiceConstraints", params, nil)
+}
+
+// SetEnvironmentConstraints specifies the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error {
+	params := params.SetConstraints{
+		Constraints: constraints,
+	}
+	return c.st.Call("Client", "", "SetEnvironmentConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -309,13 +310,36 @@ func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 }
 
 // GetServiceConstraints returns the constraints for a given service.
-func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
-	return statecmd.GetServiceConstraints(c.api.state, args)
+func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return params.GetConstraintsResults{constraints.Value{}}, err
+	}
+	cons, err := svc.Constraints()
+	return params.GetConstraintsResults{cons}, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
+	cons, err := c.api.state.EnvironConstraints()
+	if err != nil {
+		return params.GetConstraintsResults{cons}, err
+	}
+	return params.GetConstraintsResults{cons}, nil
 }
 
 // SetServiceConstraints sets the constraints for a given service.
-func (c *Client) SetServiceConstraints(args params.SetServiceConstraints) error {
-	return statecmd.SetServiceConstraints(c.api.state, args)
+func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConstraints(args.Constraints)
+}
+
+// SetEnvironmentConstraints sets the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
+	return c.api.state.SetEnvironConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
