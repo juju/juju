@@ -82,7 +82,7 @@ func (passwordSuite) TestAgentPasswordHashRefusesShortPasswords(c *gc.C) {
 	// data base64 encoded into 24 actual bytes.
 	_, err := utils.AgentPasswordHash("not quite 24 chars")
 	c.Assert(err, gc.ErrorMatches,
-		"password is only 18 bytes long, and is not valid as an Agent password")
+		"password is only 18 bytes long, and is not a valid Agent password")
 }
 
 func (passwordSuite) TestAgentPasswordHash(c *gc.C) {

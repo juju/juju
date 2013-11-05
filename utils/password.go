@@ -67,7 +67,7 @@ func CompatPasswordHash(password string) string {
 // the minimum length of password to be 18 characters.
 func AgentPasswordHash(password string) (string, error) {
 	if len(password) < 24 {
-		return "", fmt.Errorf("password is only %d bytes long, and is not valid as an Agent password", len(password))
+		return "", fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
 	sum := sha512.New()
 	sum.Write([]byte(password))
