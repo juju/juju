@@ -1384,7 +1384,7 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 
 	if le, ok := e.(lifer); ok {
 		testWhenDying(c, le, noErr, deadErr, func() error {
-			return e.SetPassword("arble")
+			return e.SetPassword("arble-farble-dying-yarble")
 		})
 	}
 }
