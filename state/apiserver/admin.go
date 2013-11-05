@@ -15,13 +15,14 @@ import (
 	"launchpad.net/juju-core/state/presence"
 )
 
-func newStateServer(srv *Server, rpcConn *rpc.Conn) *initialRoot {
+func newStateServer(srv *Server, rpcConn *rpc.Conn, loginCallback func(string)) *initialRoot {
 	r := &initialRoot{
 		srv:     srv,
 		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
-		root: r,
+		root:          r,
+		loginCallback: loginCallback,
 	}
 	return r
 }
@@ -51,9 +52,10 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 // clients can access. It holds any methods
 // that are needed to log in.
 type srvAdmin struct {
-	mu       sync.Mutex
-	root     *initialRoot
-	loggedIn bool
+	mu            sync.Mutex
+	root          *initialRoot
+	loggedIn      bool
+	loginCallback func(string)
 }
 
 var errAlreadyLoggedIn = stderrors.New("already logged in")
@@ -82,6 +84,9 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	}
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return common.ErrBadCreds
+	}
+	if a.loginCallback != nil {
+		a.loginCallback(entity.Tag())
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.

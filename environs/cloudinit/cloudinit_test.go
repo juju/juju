@@ -39,6 +39,12 @@ type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
 	setEnvConfig  bool
 	expectScripts string
+	// inexactMatch signifies whether we allow extra lines
+	// in the actual scripts found. If it's true, the lines
+	// mentioned in expectScripts must appear in that
+	// order, but they can be arbitrarily interleaved with other
+	// script lines.
+	inexactMatch bool
 }
 
 func minimalConfig(c *gc.C) *config.Config {
@@ -120,76 +126,7 @@ cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 ag
 start jujud-machine-0
 `,
 	}, {
-		// NOTE: this is terrible, only want to test part of the results...
-		// precise state server - no constraints
-		cfg: cloudinit.MachineConfig{
-			MachineId:        "0",
-			AuthorizedKeys:   "sshkey1",
-			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-			// precise currently needs mongo from PPA
-			Tools:           newSimpleTools("1.2.3-precise-amd64"),
-			StateServer:     true,
-			StateServerCert: serverCert,
-			StateServerKey:  serverKey,
-			StatePort:       37017,
-			APIPort:         17070,
-			MachineNonce:    "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
-			},
-			APIInfo: &api.Info{
-				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
-			},
-			DataDir:      environs.DataDir,
-			StateInfoURL: "some-url",
-		},
-		setEnvConfig: true,
-		expectScripts: `
-echo ENABLE_MONGODB="no" > /etc/default/mongodb
-set -xe
-mkdir -p /var/lib/juju
-mkdir -p /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
-mkdir -p \$bin
-wget --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-precise-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
-printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
-restart rsyslog
-mkdir -p '/var/lib/juju/agents/machine-0'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
-install -m 600 /dev/null '/var/lib/juju/server\.pem'
-printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
-mkdir -p /var/lib/juju/db/journal
-chmod 0700 /var/lib/juju/db
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
-start juju-db
-mkdir -p '/var/lib/juju/agents/bootstrap'
-install -m 644 /dev/null '/var/lib/juju/agents/bootstrap/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/format'
-install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
-echo 'some-url' > /tmp/provider-state-url
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
-rm -rf '/var/lib/juju/agents/bootstrap'
-ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
-start jujud-machine-0
-`,
-	}, {
-		// raring state server
+		// raring state server - we just test the raring-specific parts of the output.
 		cfg: cloudinit.MachineConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
@@ -215,49 +152,20 @@ start jujud-machine-0
 			StateInfoURL: "some-url",
 		},
 		setEnvConfig: true,
+		inexactMatch: true,
 		expectScripts: `
-echo ENABLE_MONGODB="no" > /etc/default/mongodb
-set -xe
-mkdir -p /var/lib/juju
-mkdir -p /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
-mkdir -p \$bin
 wget --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
-restart rsyslog
-mkdir -p '/var/lib/juju/agents/machine-0'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
-install -m 600 /dev/null '/var/lib/juju/server\.pem'
-printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
-mkdir -p /var/lib/juju/db/journal
-chmod 0700 /var/lib/juju/db
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
-start juju-db
-mkdir -p '/var/lib/juju/agents/bootstrap'
-install -m 644 /dev/null '/var/lib/juju/agents/bootstrap/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/format'
-install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
-echo 'some-url' > /tmp/provider-state-url
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
-start jujud-machine-0
 `,
 	}, {
+		// non state server.
 		cfg: cloudinit.MachineConfig{
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
@@ -304,6 +212,7 @@ cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 
 start jujud-machine-99
 `,
 	}, {
+		// check that it works ok with compound machine ids.
 		cfg: cloudinit.MachineConfig{
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
@@ -326,19 +235,8 @@ start jujud-machine-99
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
 		},
+		inexactMatch: true,
 		expectScripts: `
-set -xe
-mkdir -p /var/lib/juju
-mkdir -p /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
-mkdir -p \$bin
-wget --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-linux-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
-printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-2-lxc-1-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-2-lxc-1.log\\n\$InputFileTag juju-machine-2-lxc-1:\\n\$InputFileStateFile machine-2-lxc-1\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
@@ -351,52 +249,7 @@ cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machin
 start jujud-machine-2-lxc-1
 `,
 	}, {
-		cfg: cloudinit.MachineConfig{
-			MachineId:            "123",
-			MachineContainerType: "lxc",
-			AuthorizedKeys:       "sshkey1",
-			AgentEnvironment:     map[string]string{agent.ProviderType: "dummy"},
-			DataDir:              environs.DataDir,
-			Tools:                newFileTools("1.2.3-linux-amd64", "/var/lib/juju/storage/juju1.2.3-linux-amd64.tgz"),
-			MachineNonce:         "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Addrs:    []string{"state-addr.testing.invalid:12345"},
-				Tag:      "machine-123",
-				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
-			},
-			APIInfo: &api.Info{
-				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      "machine-123",
-				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
-			},
-		},
-		expectScripts: `
-set -xe
-mkdir -p /var/lib/juju
-mkdir -p /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
-mkdir -p \$bin
-cp '/var/lib/juju/storage/juju1.2.3-linux-amd64\.tgz' \$bin/tools\.tar\.gz
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-linux-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
-printf %s '{"version":"1\.2\.3-linux-amd64","url":"file:///var/lib/juju/storage/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-123-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-123.log\\n\$InputFileTag juju-machine-123:\\n\$InputFileStateFile machine-123\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
-restart rsyslog
-mkdir -p '/var/lib/juju/agents/machine-123'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-123/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-123/format'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-123/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-123/agent\.conf'
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-123'
-cat >> /etc/init/jujud-machine-123\.conf << 'EOF'\\ndescription "juju machine-123 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-123/jujud machine --data-dir '/var/lib/juju' --machine-id 123 --debug >> /var/log/juju/machine-123\.log 2>&1\\nEOF\\n
-start jujud-machine-123
-`,
-	}, {
+		// hostname verification disabled.
 		cfg: cloudinit.MachineConfig{
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
@@ -419,29 +272,39 @@ start jujud-machine-123
 			},
 			DisableSSLHostnameVerification: true,
 		},
+		inexactMatch: true,
 		expectScripts: `
-set -xe
-mkdir -p /var/lib/juju
-mkdir -p /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
-mkdir -p \$bin
 wget --no-check-certificate --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-linux-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
-printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-99-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
-restart rsyslog
-mkdir -p '/var/lib/juju/agents/machine-99'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/format'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
-cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
-start jujud-machine-99
+`,
+	}, {
+		// empty contraints.
+		cfg: cloudinit.MachineConfig{
+			MachineId:        "0",
+			AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			// precise currently needs mongo from PPA
+			Tools:           newSimpleTools("1.2.3-precise-amd64"),
+			StateServer:     true,
+			StateServerCert: serverCert,
+			StateServerKey:  serverKey,
+			StatePort:       37017,
+			APIPort:         17070,
+			MachineNonce:    "FAKE_NONCE",
+			StateInfo: &state.Info{
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			DataDir:      environs.DataDir,
+			StateInfoURL: "some-url",
+		},
+		setEnvConfig: true,
+		inexactMatch: true,
+		expectScripts: `
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
 `,
 	},
 }
@@ -507,7 +370,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		c.Check(x["apt_update"], gc.Equals, true)
 
 		scripts := getScripts(x)
-		scriptDiff(c, scripts, test.expectScripts)
+		assertScriptMatch(c, scripts, test.expectScripts, !test.inexactMatch)
 		if test.cfg.Config != nil {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
@@ -517,17 +380,12 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		checkPackage(c, x, "lxc", hasLxc)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
-			source := struct{ source, keyid string }{
-				source: "ppa:juju/stable",
-			}
-			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
+			source := "ppa:juju/stable"
+			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
 		}
-		source := struct{ source, keyid string }{
-			source: "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main",
-			keyid:  "EC4926EA",
-		}
+		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
-		checkAptSource(c, x, source, needCloudArchive)
+		checkAptSource(c, x, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 
@@ -576,22 +434,56 @@ func getScripts(x map[interface{}]interface{}) []string {
 	return scripts
 }
 
-func scriptDiff(c *gc.C, got []string, expect string) {
+type line struct {
+	index int
+	line  string
+}
+
+func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 	for _, s := range got {
 		c.Logf("script: %s", regexp.QuoteMeta(strings.Replace(s, "\n", "\\n", -1)))
 	}
-	pats := strings.Split(strings.Trim(expect, "\n"), "\n")
-	for i := 0; ; i++ {
+	var pats []line
+	for i, pat := range strings.Split(strings.Trim(expect, "\n"), "\n") {
+		pats = append(pats, line{
+			index: i,
+			line:  pat,
+		})
+	}
+	var scripts []line
+	for i := range got {
+		scripts = append(scripts, line{
+			index: i,
+			line:  strings.Replace(got[i], "\n", "\\n", -1), // make .* work
+		})
+	}
+	for {
 		switch {
-		case i == len(got) && i == len(pats):
+		case len(pats) == 0 && len(scripts) == 0:
 			return
-		case i == len(got):
-			c.Fatalf("too few scripts found (expected %q at line %d)", pats[i], i)
-		case i == len(pats):
-			c.Fatalf("too many scripts found (got %q at line %d)", got[i], i)
+		case len(pats) == 0:
+			if exact {
+				c.Fatalf("too many scripts found (got %q at line %d)", scripts[0].line, scripts[0].index)
+			}
+			return
+		case len(scripts) == 0:
+			if exact {
+				c.Fatalf("too few scripts found (expected %q at line %d)", pats[0].line, pats[0].index)
+			}
+			c.Fatalf("could not find match for %q", pats[0].line)
+		default:
+			ok, err := regexp.MatchString(pats[0].line, scripts[0].line)
+			c.Assert(err, gc.IsNil)
+			if ok {
+				pats = pats[1:]
+				scripts = scripts[1:]
+			} else if exact {
+				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d", scripts[0].index))
+				panic("unreachable")
+			} else {
+				scripts = scripts[1:]
+			}
 		}
-		script := strings.Replace(got[i], "\n", "\\n", -1) // make .* work
-		c.Assert(script, gc.Matches, pats[i], gc.Commentf("line %d", i))
 	}
 }
 
@@ -625,7 +517,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 
 // CheckAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
-func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, keyid string }, match bool) {
+func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, match bool) {
 	sources0 := x["apt_sources"]
 	if sources0 == nil {
 		if match {
@@ -639,7 +531,7 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ sourc
 	found := false
 	for _, s0 := range sources {
 		s := s0.(map[interface{}]interface{})
-		if s["source"] == source.source && (source.keyid == "" || s["keyid"] == source.keyid) {
+		if s["source"] == source && s["key"] == key {
 			found = true
 		}
 	}

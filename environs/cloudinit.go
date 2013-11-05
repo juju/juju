@@ -51,6 +51,23 @@ func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 	return mcfg
 }
 
+func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
+	providerType, authorizedKeys string,
+	sslHostnameVerification bool) error {
+
+	if authorizedKeys == "" {
+		return fmt.Errorf("environment configuration has no authorized-keys")
+	}
+	mcfg.AuthorizedKeys = authorizedKeys
+	if mcfg.AgentEnvironment == nil {
+		mcfg.AgentEnvironment = make(map[string]string)
+	}
+	mcfg.AgentEnvironment[agent.ProviderType] = providerType
+	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
+	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
+	return nil
+}
+
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by
 // inspecting a plain config.Config and the machine constraints at the last
 // moment before bootstrapping. It assumes that the supplied Config comes from
@@ -64,18 +81,9 @@ func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	// Everything needs the environment's authorized keys.
-	authKeys := cfg.AuthorizedKeys()
-	if authKeys == "" {
-		return fmt.Errorf("environment configuration has no authorized-keys")
+	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification()); err != nil {
+		return err
 	}
-	mcfg.AuthorizedKeys = authKeys
-	if mcfg.AgentEnvironment == nil {
-		mcfg.AgentEnvironment = make(map[string]string)
-	}
-	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
-	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
-	mcfg.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
 
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this

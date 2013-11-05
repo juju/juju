@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
@@ -75,26 +76,21 @@ func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig ag
 }
 
 func (p *Provisioner) loop() error {
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
-	if err != nil {
-		return err
-	}
-	environConfigChanges := environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
-
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
-	if err != nil {
-		return err
-	}
-
-	if p.pt != ENVIRON {
-		// Only the environment provisioner cares about
-		// changes to the environment configuration.
-		if err := environWatcher.Stop(); err != nil {
+	// Only wait for the environment if we are an environmental provisioner.
+	var environConfigChanges <-chan struct{}
+	var environWatcher apiwatcher.NotifyWatcher
+	if p.pt == ENVIRON {
+		environWatcher, err := p.st.WatchForEnvironConfigChanges()
+		if err != nil {
 			return err
 		}
-		// Don't wait for changes on the channel below.
-		environConfigChanges = nil
+		environConfigChanges = environWatcher.Changes()
+		defer watcher.Stop(environWatcher, &p.tomb)
+
+		p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+		if err != nil {
+			return err
+		}
 	}
 
 	auth, err := NewAPIAuthenticator(p.st)
@@ -177,13 +173,12 @@ func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 	case ENVIRON:
 		return p.environ, nil
 	case LXC:
-		config := p.environ.Config()
 		tools, err := p.getAgentTools()
 		if err != nil {
 			logger.Errorf("cannot get tools from machine for lxc broker")
 			return nil, err
 		}
-		return NewLxcBroker(config, tools, p.agentConfig), nil
+		return NewLxcBroker(p.st, tools, p.agentConfig), nil
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }
