@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -53,9 +54,11 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
-	err := unit.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	err = unit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 }
