@@ -133,6 +133,8 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
+	// This is the same steps as OpenAPIAsNewMachine but we need to assert
+	// the agent is not alive before we actually open the API.
 	// Create a new machine to verify "agent alive" behavior.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
