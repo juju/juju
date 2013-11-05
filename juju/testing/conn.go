@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -150,11 +151,13 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetPassword("test-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	return s.openAPIAs(c, machine.Tag(), "test-password", "fake_nonce"), machine
+	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }
 
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
@@ -281,11 +284,13 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:        s.DataDir(),
 			Tag:            tag,
-			Password:       "dummy-secret",
+			Password:       password,
 			Nonce:          "nonce",
 			StateAddresses: s.StateInfo(c).Addrs,
 			APIAddresses:   s.APIInfo(c).Addrs,
