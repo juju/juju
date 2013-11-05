@@ -896,21 +896,21 @@ func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.U
 
 func (s *clientSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
 	c.Assert(endpoints["wordpress"], gc.DeepEquals, charm.Relation{
-			Name:      "db",
-			Role:      charm.RelationRole("requirer"),
-			Interface: "mysql",
-			Optional:  false,
-			Limit:     1,
-			Scope:     charm.RelationScope("global"),
-		})
+		Name:      "db",
+		Role:      charm.RelationRole("requirer"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     1,
+		Scope:     charm.RelationScope("global"),
+	})
 	c.Assert(endpoints["mysql"], gc.DeepEquals, charm.Relation{
-			Name:      "server",
-			Role:      charm.RelationRole("provider"),
-			Interface: "mysql",
-			Optional:  false,
-			Limit:     0,
-			Scope:     charm.RelationScope("global"),
-		})
+		Name:      "server",
+		Role:      charm.RelationRole("provider"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     0,
+		Scope:     charm.RelationScope("global"),
+	})
 }
 
 func (s *clientSuite) assertAddRelation(c *gc.C, endpoints []string) {
