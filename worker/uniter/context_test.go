@@ -359,9 +359,11 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	err = s.ru.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 
-	err = unit.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	err = unit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
