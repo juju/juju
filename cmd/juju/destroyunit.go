@@ -10,8 +10,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyUnitCommand is responsible for destroying service units.
@@ -45,13 +43,10 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *DestroyUnitCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	params := params.DestroyServiceUnits{
-		UnitNames: c.UnitNames,
-	}
-	return statecmd.DestroyServiceUnits(conn.State, params)
+	defer client.Close()
+	return client.DestroyServiceUnits(c.UnitNames)
 }

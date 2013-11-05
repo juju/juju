@@ -427,6 +427,27 @@ func (s *clientSuite) TestClientDestroyMachines(c *gc.C) {
 	c.Assert(m.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
+func (s *clientSuite) TestClientDestroyUnits(c *gc.C) {
+	// Setup:
+	s.setUpScenario(c)
+	service, err := s.State.Service("wordpress")
+	c.Assert(err, gc.IsNil)
+	_, err = service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	// Destroy some units and check the result.
+	err = s.APIState.Client().DestroyServiceUnits([]string{"wordpress/1", "wordpress/2"})
+	c.Assert(err, gc.IsNil)
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	for i, u := range units {
+		if i == 0 {
+			c.Assert(u.Life(), gc.Equals, state.Alive)
+		} else {
+			c.Assert(u.Life(), gc.Equals, state.Dying)
+		}
+	}
+}
+
 func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	// Setup:
 	s.setUpScenario(c)
