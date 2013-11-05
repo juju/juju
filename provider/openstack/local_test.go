@@ -167,11 +167,11 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
-	openstack.UseTestImageData(s.Env, s.cred)
+	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
-	openstack.RemoveTestImageData(s.Env)
+	openstack.RemoveTestImageData(openstack.ImageMetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.srv.stop()
 	s.LoggingSuite.TearDownSuite(c)
@@ -180,6 +180,7 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
@@ -194,9 +195,10 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 type localServerSuite struct {
 	testbase.LoggingSuite
 	jujutest.Tests
-	cred            *identity.Credentials
-	srv             localServer
-	metadataStorage storage.Storage
+	cred                 *identity.Credentials
+	srv                  localServer
+	toolsMetadataStorage storage.Storage
+	imageMetadataStorage storage.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -226,18 +228,21 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	env := s.Prepare(c)
-	s.metadataStorage = openstack.MetadataStorage(env)
+	s.toolsMetadataStorage = openstack.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.metadataStorage)
-	openstack.UseTestImageData(env, s.cred)
+	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
+	s.imageMetadataStorage = openstack.ImageMetadataStorage(env)
+	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
-	openstack.RemoveTestImageData(s.Open(c))
-	if s.metadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, s.metadataStorage)
+	if s.imageMetadataStorage != nil {
+		openstack.RemoveTestImageData(s.imageMetadataStorage)
+	}
+	if s.toolsMetadataStorage != nil {
+		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
@@ -535,7 +540,11 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
 	env := s.Open(c)
+
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
@@ -739,8 +748,8 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	c.Logf("Generating fake tools for: %v", url)
 	envtesting.UploadFakeTools(c, metadataStorage)
 	defer envtesting.RemoveFakeTools(c, metadataStorage)
-	openstack.UseTestImageData(s.env, s.cred)
-	defer openstack.RemoveTestImageData(s.env)
+	openstack.UseTestImageData(metadataStorage, s.cred)
+	defer openstack.RemoveTestImageData(metadataStorage)
 
 	err = bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)

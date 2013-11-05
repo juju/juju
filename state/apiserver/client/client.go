@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 type API struct {
@@ -124,13 +123,21 @@ func (c *Client) Resolved(p params.Resolved) error {
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
-	return statecmd.ServiceExpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetExposed()
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
-	return statecmd.ServiceUnexpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.ClearExposed()
 }
 
 var CharmStore charm.Repository = charm.Store
@@ -360,12 +367,36 @@ func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	return statecmd.AddRelation(c.api.state, args)
+	inEps, err := c.api.state.InferEndpoints(args.Endpoints)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	rel, err := c.api.state.AddRelation(inEps...)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	outEps := make(map[string]charm.Relation)
+	for _, inEp := range inEps {
+		outEp, err := rel.Endpoint(inEp.ServiceName)
+		if err != nil {
+			return params.AddRelationResults{}, err
+		}
+		outEps[inEp.ServiceName] = outEp.Relation
+	}
+	return params.AddRelationResults{Endpoints: outEps}, nil
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	return statecmd.DestroyRelation(c.api.state, args)
+	eps, err := c.api.state.InferEndpoints(args.Endpoints)
+	if err != nil {
+		return err
+	}
+	rel, err := c.api.state.EndpointsRelation(eps...)
+	if err != nil {
+		return err
+	}
+	return rel.Destroy()
 }
 
 // DestroyMachines removes a given set of machines.

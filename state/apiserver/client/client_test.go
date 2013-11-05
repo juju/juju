@@ -340,30 +340,103 @@ func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
 	}
 }
 
+var serviceExposeTests = []struct {
+	about   string
+	service string
+	err     string
+	exposed bool
+}{
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
+	{
+		about:   "expose a service",
+		service: "dummy-service",
+		exposed: true,
+	},
+	{
+		about:   "expose an already exposed service",
+		service: "exposed-service",
+		exposed: true,
+	},
+}
+
 func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
-	s.setUpScenario(c)
-	serviceName := "wordpress"
-	service, err := s.State.Service(serviceName)
+	charm := s.AddTestingCharm(c, "dummy")
+	serviceNames := []string{"dummy-service", "exposed-service"}
+	svcs := make([]*state.Service, len(serviceNames))
+	var err error
+	for i, name := range serviceNames {
+		svcs[i], err = s.State.AddService(name, charm)
+		c.Assert(err, gc.IsNil)
+		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
+	}
+	err = svcs[1].SetExposed()
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.IsExposed(), gc.Equals, false)
-	err = s.APIState.Client().ServiceExpose(serviceName)
-	c.Assert(err, gc.IsNil)
-	err = service.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(service.IsExposed(), gc.Equals, true)
+	c.Assert(svcs[1].IsExposed(), gc.Equals, true)
+	for i, t := range serviceExposeTests {
+		c.Logf("test %d. %s", i, t.about)
+		err = s.APIState.Client().ServiceExpose(t.service)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+			service, err := s.State.Service(t.service)
+			c.Assert(err, gc.IsNil)
+			c.Assert(service.IsExposed(), gc.Equals, t.exposed)
+		}
+	}
+}
+
+var serviceUnexposeTests = []struct {
+	about    string
+	service  string
+	err      string
+	initial  bool
+	expected bool
+}{
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
+	{
+		about:    "unexpose a service",
+		service:  "dummy-service",
+		initial:  true,
+		expected: false,
+	},
+	{
+		about:    "unexpose an already unexposed service",
+		service:  "dummy-service",
+		initial:  false,
+		expected: false,
+	},
 }
 
 func (s *clientSuite) TestClientServiceUnexpose(c *gc.C) {
-	s.setUpScenario(c)
-	serviceName := "wordpress"
-	service, err := s.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
-	service.SetExposed()
-	c.Assert(service.IsExposed(), gc.Equals, true)
-	err = s.APIState.Client().ServiceUnexpose(serviceName)
-	c.Assert(err, gc.IsNil)
-	service.Refresh()
-	c.Assert(service.IsExposed(), gc.Equals, false)
+	charm := s.AddTestingCharm(c, "dummy")
+	for i, t := range serviceUnexposeTests {
+		c.Logf("test %d. %s", i, t.about)
+		svc, err := s.State.AddService("dummy-service", charm)
+		c.Assert(err, gc.IsNil)
+		if t.initial {
+			svc.SetExposed()
+		}
+		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
+		err = s.APIState.Client().ServiceUnexpose(t.service)
+		if t.err == "" {
+			c.Assert(err, gc.IsNil)
+			svc.Refresh()
+			c.Assert(svc.IsExposed(), gc.Equals, t.expected)
+		} else {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		}
+		err = svc.Destroy()
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 var serviceDestroyTests = []struct {
@@ -448,7 +521,7 @@ func (s *clientSuite) TestClientDestroyUnits(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
+func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolvedMode state.ResolvedMode) {
 	// Setup:
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
@@ -456,7 +529,7 @@ func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	err = u.SetStatus(params.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	// Code under test:
-	err = s.APIState.Client().Resolved("wordpress/0", false)
+	err = s.APIState.Client().Resolved("wordpress/0", retry)
 	c.Assert(err, gc.IsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -464,7 +537,15 @@ func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
-	c.Assert(mode, gc.Equals, state.ResolvedNoHooks)
+	c.Assert(mode, gc.Equals, expectedResolvedMode)
+}
+
+func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
+	s.testClientUnitResolved(c, false, state.ResolvedNoHooks)
+}
+
+func (s *clientSuite) TestClientUnitResolvedRetry(c *gc.C) {
+	s.testClientUnitResolved(c, true, state.ResolvedRetryHooks)
 }
 
 func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
@@ -894,50 +975,159 @@ func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.U
 	return curl, bundle
 }
 
-func (s *clientSuite) TestSuccessfulAddRelation(c *gc.C) {
+func (s *clientSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
+	c.Assert(endpoints["wordpress"], gc.DeepEquals, charm.Relation{
+		Name:      "db",
+		Role:      charm.RelationRole("requirer"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     1,
+		Scope:     charm.RelationScope("global"),
+	})
+	c.Assert(endpoints["mysql"], gc.DeepEquals, charm.Relation{
+		Name:      "server",
+		Role:      charm.RelationRole("provider"),
+		Interface: "mysql",
+		Optional:  false,
+		Limit:     0,
+		Scope:     charm.RelationScope("global"),
+	})
+}
+
+func (s *clientSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	s.setUpScenario(c)
-	endpoints := []string{"wordpress", "mysql"}
 	res, err := s.APIState.Client().AddRelation(endpoints...)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res.Endpoints["wordpress"].Name, gc.Equals, "db")
-	c.Assert(res.Endpoints["wordpress"].Interface, gc.Equals, "mysql")
-	c.Assert(res.Endpoints["wordpress"].Scope, gc.Equals, charm.RelationScope("global"))
-	c.Assert(res.Endpoints["mysql"].Name, gc.Equals, "server")
-	c.Assert(res.Endpoints["mysql"].Interface, gc.Equals, "mysql")
-	c.Assert(res.Endpoints["mysql"].Scope, gc.Equals, charm.RelationScope("global"))
-	for _, endpoint := range endpoints {
-		svc, err := s.State.Service(endpoint)
-		c.Assert(err, gc.IsNil)
-		rels, err := svc.Relations()
-		c.Assert(err, gc.IsNil)
-		for _, rel := range rels {
-			c.Assert(rel.Life(), gc.Equals, state.Alive)
-		}
-	}
+	s.checkEndpoints(c, res.Endpoints)
+	// Show that the relation was added.
+	wpSvc, err := s.State.Service("wordpress")
+	c.Assert(err, gc.IsNil)
+	rels, err := wpSvc.Relations()
+	// There are 2 relations - the logging-wordpress one set up in the
+	// scenario and the one created in this test.
+	c.Assert(len(rels), gc.Equals, 2)
+	mySvc, err := s.State.Service("mysql")
+	c.Assert(err, gc.IsNil)
+	rels, err = mySvc.Relations()
+	c.Assert(len(rels), gc.Equals, 1)
+}
+
+func (s *clientSuite) TestSuccessfullyAddRelation(c *gc.C) {
+	endpoints := []string{"wordpress", "mysql"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *clientSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
+	// Show that the order of the services listed in the AddRelation call
+	// does not matter.  This is a repeat of the previous test with the service
+	// names swapped.
+	endpoints := []string{"mysql", "wordpress"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *clientSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress"}
+	_, err := s.APIState.Client().AddRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *clientSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress", "mysql", "logging"}
+	_, err := s.APIState.Client().AddRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
+}
+
+func (s *clientSuite) TestAddAlreadyAddedRelation(c *gc.C) {
+	s.setUpScenario(c)
+	// Add a relation between wordpress and mysql.
+	endpoints := []string{"wordpress", "mysql"}
+	eps, err := s.State.InferEndpoints(endpoints)
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	// And try to add it again.
+	_, err = s.APIState.Client().AddRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+}
+
+func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
+	s.setUpScenario(c)
+	// Add a relation between the endpoints.
+	eps, err := s.State.InferEndpoints(endpoints)
+	c.Assert(err, gc.IsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+
+	err = s.APIState.Client().DestroyRelation(endpoints...)
+	c.Assert(err, gc.IsNil)
+	// Show that the relation was removed.
+	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *clientSuite) TestSuccessfulDestroyRelation(c *gc.C) {
-	s.setUpScenario(c)
-	endpoints := []string{"wordpress", "logging"}
-	err := s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.IsNil)
-	for _, endpoint := range endpoints {
-		service, err := s.State.Service(endpoint)
-		c.Assert(err, gc.IsNil)
-		rels, err := service.Relations()
-		c.Assert(err, gc.IsNil)
-		// When relations are destroyed they don't go away immediately but
-		// instead are set to 'Dying', due to references held by the user
-		// agent.
-		for _, rel := range rels {
-			c.Assert(rel.Life(), gc.Equals, state.Dying)
-		}
-	}
+	endpoints := []string{"wordpress", "mysql"}
+	s.assertDestroyRelation(c, endpoints)
+}
+
+func (s *clientSuite) TestSuccessfullyDestroyRelationSwapped(c *gc.C) {
+	// Show that the order of the services listed in the DestroyRelation call
+	// does not matter.  This is a repeat of the previous test with the service
+	// names swapped.
+	endpoints := []string{"mysql", "wordpress"}
+	s.assertDestroyRelation(c, endpoints)
 }
 
 func (s *clientSuite) TestNoRelation(c *gc.C) {
 	s.setUpScenario(c)
-	err := s.APIState.Client().DestroyRelation("wordpress", "mysql")
+	endpoints := []string{"wordpress", "mysql"}
+	err := s.APIState.Client().DestroyRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
+}
+
+func (s *clientSuite) TestAttemptDestroyingNonExistentRelation(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	c.Assert(err, gc.IsNil)
+	endpoints := []string{"riak", "wordpress"}
+	err = s.APIState.Client().DestroyRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *clientSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *gc.C) {
+	s.setUpScenario(c)
+	endpoints := []string{"wordpress"}
+	err := s.APIState.Client().DestroyRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *clientSuite) TestAttemptDestroyingPeerRelation(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	c.Assert(err, gc.IsNil)
+
+	endpoints := []string{"riak:ring"}
+	err = s.APIState.Client().DestroyRelation(endpoints...)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
+}
+
+func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
+	s.setUpScenario(c)
+
+	// Add a relation between wordpress and mysql.
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+
+	endpoints := []string{"wordpress", "mysql"}
+	err = s.APIState.Client().DestroyRelation(endpoints...)
+	// Show that the relation was removed.
+	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFoundError)
+
+	// And try to destroy it again.
+	err = s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
