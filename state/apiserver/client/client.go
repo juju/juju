@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 type API struct {
@@ -124,13 +123,21 @@ func (c *Client) Resolved(p params.Resolved) error {
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
-	return statecmd.ServiceExpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetExposed()
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
-	return statecmd.ServiceUnexpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.ClearExposed()
 }
 
 var CharmStore charm.Repository = charm.Store
