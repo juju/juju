@@ -20,65 +20,6 @@ type utilsSuite struct{}
 
 var _ = gc.Suite(utilsSuite{})
 
-func (utilsSuite) TestRandomBytes(c *gc.C) {
-	b, err := utils.RandomBytes(16)
-	c.Assert(err, gc.IsNil)
-	c.Assert(b, gc.HasLen, 16)
-	x0 := b[0]
-	for _, x := range b {
-		if x != x0 {
-			return
-		}
-	}
-	c.Errorf("all same bytes in result of RandomBytes")
-}
-
-func (utilsSuite) TestRandomPassword(c *gc.C) {
-	p, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	if len(p) < 18 {
-		c.Errorf("password too short: %q", p)
-	}
-	// check we're not adding base64 padding.
-	c.Assert(p[len(p)-1], gc.Not(gc.Equals), '=')
-}
-
-var testPasswords = []string{"", "a", "a longer password than i would usually bother with"}
-
-func (utilsSuite) TestPasswordHash(c *gc.C) {
-	hs := make(map[string]bool)
-	for i, t := range testPasswords {
-		c.Logf("test %d", i)
-		h := utils.PasswordHash(t)
-		c.Logf("hash %q", h)
-		c.Assert(len(h), gc.Equals, 24)
-		c.Assert(hs[h], gc.Equals, false)
-		// check we're not adding base64 padding.
-		c.Assert(h[len(h)-1], gc.Not(gc.Equals), '=')
-		hs[h] = true
-		// check it's deterministic
-		h1 := utils.PasswordHash(t)
-		c.Assert(h1, gc.Equals, h)
-	}
-}
-
-func (utilsSuite) TestSlowPasswordHash(c *gc.C) {
-	hs := make(map[string]bool)
-	for i, t := range testPasswords {
-		c.Logf("test %d", i)
-		h := utils.SlowPasswordHash(t)
-		c.Logf("hash %q", h)
-		c.Assert(len(h), gc.Equals, 24)
-		c.Assert(hs[h], gc.Equals, false)
-		// check we're not adding base64 padding.
-		c.Assert(h[len(h)-1], gc.Not(gc.Equals), '=')
-		hs[h] = true
-		// check it's deterministic
-		h1 := utils.SlowPasswordHash(t)
-		c.Assert(h1, gc.Equals, h)
-	}
-}
-
 var (
 	data = []byte(strings.Repeat("some data to be compressed\n", 100))
 	// compressedData was produced by the gzip command.
