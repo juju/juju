@@ -29,6 +29,9 @@ import (
 
 type D []bson.DocElem
 
+var goodPassword = "foo-12345678901234567890"
+var alternatePassword = "bar-12345678901234567890"
+
 // preventUnitDestroyRemove sets a non-pending status on the unit, and hence
 // prevents it from being unceremoniously removed from state on Destroy. This
 // is useful because several tests go through a unit's lifecycle step by step,
@@ -1359,25 +1362,25 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 	e, err := getEntity()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(e.PasswordValid("foo"), gc.Equals, false)
-	err = e.SetPassword("foo")
+	c.Assert(e.PasswordValid(goodPassword), gc.Equals, false)
+	err = e.SetPassword(goodPassword)
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(e.PasswordValid(goodPassword), gc.Equals, true)
 
 	// Check a newly-fetched entity has the same password.
 	e2, err := getEntity()
 	c.Assert(err, gc.IsNil)
-	c.Assert(e2.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(e2.PasswordValid(goodPassword), gc.Equals, true)
 
-	err = e.SetPassword("bar")
+	err = e.SetPassword(alternatePassword)
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.PasswordValid("foo"), gc.Equals, false)
-	c.Assert(e.PasswordValid("bar"), gc.Equals, true)
+	c.Assert(e.PasswordValid(goodPassword), gc.Equals, false)
+	c.Assert(e.PasswordValid(alternatePassword), gc.Equals, true)
 
 	// Check that refreshing fetches the new password
 	err = e2.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(e2.PasswordValid("bar"), gc.Equals, true)
+	c.Assert(e2.PasswordValid(alternatePassword), gc.Equals, true)
 
 	if le, ok := e.(lifer); ok {
 		testWhenDying(c, le, noErr, deadErr, func() error {
@@ -1386,29 +1389,33 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 	}
 }
 
-func testSetSlowAgentPassword(c *gc.C, entity state.Authenticator) {
-	// In Juju versions 1.16 and older we used SlowPasswordHash for Unit
+func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
+	//TODO: Test that we *cannot* set agent passwords that are too short.
+
+	// In Juju versions 1.16 and older we used CompatPasswordHash for Unit
 	// agents. This was determined to be overkill (since we know that Unit
 	// agents will actually use utils.RandomPassword() and get 18 bytes of
 	// entropy, and thus won't be brute-forced.)
-	c.Assert(entity.PasswordValid("foo"), jc.IsFalse)
-	expectedHash := utils.PasswordHash("foo")
-	err := state.SetPasswordHash(entity, expectedHash)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsFalse)
+	agentHash, err := utils.AgentPasswordHash(goodPassword)
 	c.Assert(err, gc.IsNil)
-	c.Assert(entity.PasswordValid("foo"), jc.IsTrue)
-	c.Assert(entity.PasswordValid("bar"), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, expectedHash)
+	err = state.SetPasswordHash(entity, agentHash)
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
+	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
 
-	backwardsCompatibleHash := utils.SlowPasswordHash("foo")
-	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), expectedHash)
+	backwardsCompatibleHash := utils.CompatPasswordHash(goodPassword)
+	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), agentHash)
 	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
 	c.Assert(err, gc.IsNil)
-	c.Assert(entity.PasswordValid("bar"), jc.IsFalse)
+	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
 	c.Assert(state.GetPasswordHash(entity), gc.Equals, backwardsCompatibleHash)
 	// After succeeding to log in with the old compatible hash, the db
 	// should be updated with the new hash
-	c.Assert(entity.PasswordValid("foo"), jc.IsTrue)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, expectedHash)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
 
 }
 

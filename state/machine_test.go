@@ -275,10 +275,10 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestSetSlowPassword(c *gc.C) {
+func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
 	e, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, gc.IsNil)
-	testSetSlowAgentPassword(c, e)
+	testSetAgentCompatPassword(c, e)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {

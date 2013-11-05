@@ -35,36 +35,9 @@ func RandomPassword() (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-// PasswordHash returns base64-encoded one-way hash password that is
-// computationally hard to crack by iterating through possible passwords.
-// This is for backwards compatibility with Juju 1.16 and older. Newer versions
-// of Juju use UserPasswordHash with a Salt value or AgentPasswordHash with a
-// required longer password.
-func PasswordHash(password string) string {
-	if len(password) < 24 {
-		// This doesn't increase security, it just makes testing easier
-		password = password + "123456789012345678901234"
-	}
-	hash, err := AgentPasswordHash(password)
-	if err != nil {
-		panic(err)
-	}
-	return hash
-}
-
-// FastInsecureHash specifies whether a fast, insecure version of the hash
-// algorithm will be used.  Changing this will cause PasswordHash to
-// produce incompatible passwords.  It should only be changed for
-// testing purposes - to make tests run faster.
-var FastInsecureHash = false
-
 // UserPasswordHash returns base64-encoded one-way hash password that is
 // computationally hard to crack by iterating through possible passwords.
 func UserPasswordHash(password string, salt string) string {
-	iter := 8192
-	if FastInsecureHash {
-		iter = 1
-	}
 	if salt == "" {
 		panic("salt is not allowed to be empty")
 	}
@@ -72,11 +45,15 @@ func UserPasswordHash(password string, salt string) string {
 	// uses the MD5 sum of the password anyway, so there's
 	// no point in using more bytes. (18 so we don't get base 64
 	// padding characters).
-	h := pbkdf2.Key([]byte(password), []byte(salt), iter, 18, sha512.New)
+	h := pbkdf2.Key([]byte(password), []byte(salt), 8192, 18, sha512.New)
 	return base64.StdEncoding.EncodeToString(h)
 }
 
-func SlowPasswordHash(password string) string {
+// CompatPasswordHash returns the UserPasswordHash hashed with the old default
+// salt. This is the password hash that was always generated for Juju 1.16 and
+// older. Newer versions of Juju use UserPasswordHash with a Salt value or
+// AgentPasswordHash with a required longer password for machine/unit agents.
+func CompatPasswordHash(password string) string {
 	return UserPasswordHash(password, string(oldDefaultSalt))
 }
 

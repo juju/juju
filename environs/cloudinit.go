@@ -94,7 +94,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if password == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	passwordHash := utils.PasswordHash(password)
+	passwordHash := utils.CompatPasswordHash(password)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StatePort = cfg.StatePort()

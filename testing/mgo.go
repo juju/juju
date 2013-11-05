@@ -168,8 +168,6 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
-	// Make tests that use password authentication faster.
-	utils.FastInsecureHash = true
 }
 
 // readLines reads lines from the given reader and returns
@@ -198,10 +196,6 @@ func readLines(r io.Reader, n int) []string {
 		}
 	}
 	return final
-}
-
-func (s *MgoSuite) TearDownSuite(c *gc.C) {
-	utils.FastInsecureHash = false
 }
 
 // MgoDial returns a new connection to the shared MongoDB server.
@@ -281,7 +275,7 @@ func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
 	// Then try the two most likely passwords in turn.
 	for _, password := range []string{
 		DefaultMongoPassword,
-		utils.PasswordHash(DefaultMongoPassword),
+		utils.CompatPasswordHash(DefaultMongoPassword),
 	} {
 		admin := session.DB("admin")
 		if err := admin.Login("admin", password); err != nil {

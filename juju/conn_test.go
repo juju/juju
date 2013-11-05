@@ -129,7 +129,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	info.Password = utils.PasswordHash("side-effect secret")
+	info.Password = utils.CompatPasswordHash("side-effect secret")
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 
@@ -204,7 +204,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 	// of the admin password.
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	info.Password = utils.PasswordHash("nutkin")
+	info.Password = utils.CompatPasswordHash("nutkin")
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	st.Close()

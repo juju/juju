@@ -67,7 +67,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
-		info.Password = utils.PasswordHash(password)
+		info.Password = utils.CompatPasswordHash(password)
 
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been

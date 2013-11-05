@@ -679,10 +679,10 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestSetSlowPassword(c *gc.C) {
+func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
 	e, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
-	testSetSlowAgentPassword(c, e)
+	testSetAgentCompatPassword(c, e)
 }
 
 func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *gc.C) {

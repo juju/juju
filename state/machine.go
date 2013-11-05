@@ -240,8 +240,13 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	hp := utils.PasswordHash(password)
-	return m.setPasswordHash(hp)
+	agentHash := utils.PaddedAgentPasswordHash(password)
+	//agentHash, err := utils.AgentPasswordHash(password)
+	//if err != nil {
+	//	// This password is too short to be used as an agent password
+	//	return err
+	//}
+	return m.setPasswordHash(agentHash)
 }
 
 // setPasswordHash sets the underlying password hash in the database directly
@@ -271,14 +276,18 @@ func (m *Machine) getPasswordHash() string {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	agentHash := utils.PasswordHash(password)
-	if agentHash == m.doc.PasswordHash {
+	agentHash, err := utils.AgentPasswordHash(password)
+	if err == nil && agentHash == m.doc.PasswordHash {
 		return true
+	}
+	if err != nil {
+		// This password is too short to be used as an agent password, what do we do?
+		panic(err)
 	}
 	// In Juju 1.16 and older we used the slower password hash for unit
 	// agents. So check to see if the supplied password matches the old
 	// path, and if so, update it to the new mechanism.
-	if utils.SlowPasswordHash(password) == m.doc.PasswordHash {
+	if utils.CompatPasswordHash(password) == m.doc.PasswordHash {
 		m.setPasswordHash(agentHash)
 		return true
 	}

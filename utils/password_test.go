@@ -39,11 +39,11 @@ func (passwordSuite) TestRandomPassword(c *gc.C) {
 
 var testPasswords = []string{"", "a", "a longer password than i would usually bother with"}
 
-func (passwordSuite) TestPasswordHash(c *gc.C) {
+func (passwordSuite) TestCompatPasswordHash(c *gc.C) {
 	seenHashes := make(map[string]bool)
 	for i, t := range testPasswords {
 		c.Logf("test %d", i)
-		hashed := utils.PasswordHash(t)
+		hashed := utils.CompatPasswordHash(t)
 		c.Logf("hash %q", hashed)
 		c.Assert(len(hashed), gc.Equals, 24)
 		c.Assert(seenHashes[hashed], gc.Equals, false)
@@ -51,7 +51,7 @@ func (passwordSuite) TestPasswordHash(c *gc.C) {
 		c.Assert(hashed[len(hashed)-1], gc.Not(gc.Equals), '=')
 		seenHashes[hashed] = true
 		// check it's deterministic
-		h1 := utils.PasswordHash(t)
+		h1 := utils.CompatPasswordHash(t)
 		c.Assert(h1, gc.Equals, hashed)
 	}
 }
