@@ -198,3 +198,8 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 func ParseTag(st *State, tag string) (string, string, error) {
 	return st.parseTag(tag)
 }
+
+// Return the PasswordSalt that goes along with the PasswordHash
+func GetUserPasswordSaltAndHash(u *User) (string, string) {
+	return u.doc.PasswordSalt, u.doc.PasswordHash
+}

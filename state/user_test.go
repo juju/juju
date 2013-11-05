@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type UserSuite struct {
@@ -34,14 +35,14 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u.Name(), gc.Equals, "a")
-	c.Assert(u.PasswordValid("b"), gc.Equals, true)
+	c.Assert(u.PasswordValid("b"), jc.IsTrue)
 
 	u1, err := s.State.User("a")
 	c.Check(u1, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u1.Name(), gc.Equals, "a")
-	c.Assert(u1.PasswordValid("b"), gc.Equals, true)
+	c.Assert(u1.PasswordValid("b"), jc.IsTrue)
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
@@ -53,26 +54,89 @@ func (s *UserSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *UserSuite) TestSetPasswordTracksSalt(c *gc.C) {
+func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
+	u, err := s.State.AddUser("someuser", "a-password")
+	c.Assert(err, gc.IsNil)
+	salt, hash := state.GetUserPasswordSaltAndHash(u)
+	c.Check(hash, gc.Not(gc.Equals), "")
+	c.Check(salt, gc.Not(gc.Equals), "")
+	c.Check(utils.UserPasswordHash("a-password", salt), gc.Equals, hash)
+	c.Check(u.PasswordValid("a-password"), jc.IsTrue)
+}
+
+func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
+	u, err := s.State.AddUser("someuser", "a-password")
+	c.Assert(err, gc.IsNil)
+	origSalt, origHash := state.GetUserPasswordSaltAndHash(u)
+	c.Check(origSalt, gc.Not(gc.Equals), "")
+	// Even though the password is the same, we take this opportunity to
+	// update the salt
+	u.SetPassword("a-password")
+	newSalt, newHash := state.GetUserPasswordSaltAndHash(u)
+	c.Check(newSalt, gc.Not(gc.Equals), "")
+	c.Check(newSalt, gc.Not(gc.Equals), origSalt)
+	c.Check(newHash, gc.Not(gc.Equals), origHash)
+	c.Check(u.PasswordValid("a-password"), jc.IsTrue)
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, gc.IsNil)
 
-	err = u.SetPasswordHash(utils.CompatPasswordHash("foo"))
+	err = u.SetPasswordHash(utils.CompatPasswordHash("foo"), "")
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.PasswordValid("foo"), gc.Equals, true)
-	c.Assert(u.PasswordValid("bar"), gc.Equals, false)
+	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
+	c.Assert(u.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
 	hash, err := utils.AgentPasswordHash("foo-12345678901234567890")
 	c.Assert(err, gc.IsNil)
-	err = u.SetPasswordHash(hash)
+	err = u.SetPasswordHash(hash, "")
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.PasswordValid("foo"), gc.Equals, false)
+	c.Assert(u.PasswordValid("foo"), jc.IsFalse)
+}
+
+func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
+	u, err := s.State.AddUser("someuser", "")
+	c.Assert(err, gc.IsNil)
+
+	err = u.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
+	salt, hash := state.GetUserPasswordSaltAndHash(u)
+	c.Assert(salt, gc.Equals, "salted")
+	c.Assert(hash, gc.Not(gc.Equals), utils.CompatPasswordHash("foo"))
+}
+
+func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
+	u, err := s.State.AddUser("someuser", "")
+	c.Assert(err, gc.IsNil)
+
+	compatHash := utils.CompatPasswordHash("foo")
+	err = u.SetPasswordHash(compatHash, "")
+	c.Assert(err, gc.IsNil)
+	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(u)
+	c.Assert(beforeSalt, gc.Equals, "")
+	c.Assert(beforeHash, gc.Equals, compatHash)
+	c.Assert(u.PasswordValid("bar"), jc.IsFalse)
+	// A bad password doesn't trigger a rewrite
+	afterBadSalt, afterBadHash := state.GetUserPasswordSaltAndHash(u)
+	c.Assert(afterBadSalt, gc.Equals, "")
+	c.Assert(afterBadHash, gc.Equals, compatHash)
+	// When we get a valid check, we then add a salt and rewrite the hash
+	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
+	afterSalt, afterHash := state.GetUserPasswordSaltAndHash(u)
+	c.Assert(afterSalt, gc.Not(gc.Equals), "")
+	c.Assert(afterHash, gc.Not(gc.Equals), compatHash)
+	c.Assert(afterHash, gc.Equals, utils.UserPasswordHash("foo", afterSalt))
+	// running PasswordValid again doesn't trigger another rewrite
+	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
+	lastSalt, lastHash := state.GetUserPasswordSaltAndHash(u)
+	c.Assert(lastSalt, gc.Equals, afterSalt)
+	c.Assert(lastHash, gc.Equals, afterHash)
 }
 
 func (s *UserSuite) TestName(c *gc.C) {
