@@ -1400,6 +1400,7 @@ func testSetSlowAgentPassword(c *gc.C, entity state.Authenticator) {
 	c.Assert(state.GetPasswordHash(entity), gc.Equals, expectedHash)
 
 	backwardsCompatibleHash := utils.SlowPasswordHash("foo")
+	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), expectedHash)
 	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
 	c.Assert(err, gc.IsNil)
 	c.Assert(entity.PasswordValid("bar"), jc.IsFalse)
