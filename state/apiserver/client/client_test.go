@@ -90,6 +90,31 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 	})
 }
 
+func (s *clientSuite) TestClientServerUnset(c *gc.C) {
+	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "foobar",
+		"username": "user name",
+	})
+	c.Assert(err, gc.IsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": "user name",
+	})
+
+	err = s.APIState.Client().ServiceUnset("dummy", []string{"username"})
+	c.Assert(err, gc.IsNil)
+	settings, err = dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title": "foobar",
+	})
+}
+
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
@@ -341,18 +366,86 @@ func (s *clientSuite) TestClientServiceUnexpose(c *gc.C) {
 	c.Assert(service.IsExposed(), gc.Equals, false)
 }
 
+var serviceDestroyTests = []struct {
+	about   string
+	service string
+	err     string
+}{
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
+	{
+		about:   "destroy a service",
+		service: "dummy-service",
+	},
+	{
+		about:   "destroy an already destroyed service",
+		service: "dummy-service",
+		err:     `service "dummy-service" not found`,
+	},
+}
+
 func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
-	// Setup:
+	_, err := s.State.AddService("dummy-service", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+	for i, t := range serviceDestroyTests {
+		c.Logf("test %d. %s", i, t.about)
+		err = s.APIState.Client().ServiceDestroy(t.service)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+	}
+
+	// Now do ServiceDestroy on a service with units. Destroy will
+	// cause the service to be not-Alive, but will not remove its
+	// document.
 	s.setUpScenario(c)
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
 	c.Assert(err, gc.IsNil)
-	// Code under test:
 	err = s.APIState.Client().ServiceDestroy(serviceName)
 	c.Assert(err, gc.IsNil)
 	err = service.Refresh()
-	// The test actual assertion: the service should no-longer be Alive.
+	c.Assert(err, gc.IsNil)
 	c.Assert(service.Life(), gc.Not(gc.Equals), state.Alive)
+}
+
+func (s *clientSuite) TestClientDestroyMachines(c *gc.C) {
+	s.setUpScenario(c)
+	err := s.APIState.Client().DestroyMachines("1")
+	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 1 has unit "wordpress/0" assigned`)
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().DestroyMachines(m.Id())
+	c.Assert(err, gc.IsNil)
+	err = m.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Life(), gc.Not(gc.Equals), state.Alive)
+}
+
+func (s *clientSuite) TestClientDestroyUnits(c *gc.C) {
+	// Setup:
+	s.setUpScenario(c)
+	service, err := s.State.Service("wordpress")
+	c.Assert(err, gc.IsNil)
+	_, err = service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	// Destroy some units and check the result.
+	err = s.APIState.Client().DestroyServiceUnits([]string{"wordpress/1", "wordpress/2"})
+	c.Assert(err, gc.IsNil)
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	for i, u := range units {
+		if i == 0 {
+			c.Assert(u.Life(), gc.Equals, state.Alive)
+		} else {
+			c.Assert(u.Life(), gc.Equals, state.Dying)
+		}
+	}
 }
 
 func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolvedMode state.ResolvedMode) {
@@ -883,4 +976,62 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
+}
+
+func (s *clientSuite) TestClientSetServiceConstraints(c *gc.C) {
+	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	// Update constraints for the service.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().SetServiceConstraints("dummy", cons)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the constraints have been correctly updated.
+	obtained, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientGetServiceConstraints(c *gc.C) {
+	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	// Set constraints for the service.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = service.SetConstraints(cons)
+	c.Assert(err, gc.IsNil)
+
+	// Check we can get the constraints.
+	obtained, err := s.APIState.Client().GetServiceConstraints("dummy")
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientSetEnvironmentConstraints(c *gc.C) {
+	// Set constraints for the environment.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the constraints have been correctly updated.
+	obtained, err := s.State.EnvironConstraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
+	// Set constraints for the environment.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConstraints(cons)
+	c.Assert(err, gc.IsNil)
+
+	// Check we can get the constraints.
+	obtained, err := s.APIState.Client().GetEnvironmentConstraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
 }

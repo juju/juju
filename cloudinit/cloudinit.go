@@ -37,8 +37,9 @@ func (cfg *Config) set(opt string, yes bool, value interface{}) {
 	}
 }
 
-// source is a Source and a Key
-type source struct {
+// AptSource is an apt(8) source, comprising a source location,
+// with an optional Key.
+type AptSource struct {
 	Source string `yaml:"source"`
 	Key    string `yaml:"key,omitempty"`
 }
