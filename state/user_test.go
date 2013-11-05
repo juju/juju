@@ -53,6 +53,9 @@ func (s *UserSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
+func (s *UserSuite) TestSetPasswordTracksSalt(c *gc.C) {
+}
+
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, gc.IsNil)

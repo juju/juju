@@ -35,6 +35,18 @@ func RandomPassword() (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
+// RandomSalt generates a random base64 data suitable for using as a password
+// salt The pbkdf2 guideline is to use 8 bytes of salt, so we do 12 raw bytes
+// into 16 base64 bytes. (The alternative is 6 raw into 8 base64).
+func RandomSalt() (string, error) {
+	b, err := RandomBytes(12)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+
 // FastInsecureHash specifies whether a fast, insecure version of the hash
 // algorithm will be used.  Changing this will cause PasswordHash to
 // produce incompatible passwords.  It should only be changed for

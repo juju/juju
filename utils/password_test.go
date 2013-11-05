@@ -14,6 +14,10 @@ type passwordSuite struct{}
 
 var _ = gc.Suite(passwordSuite{})
 
+// Base64 *can* include a tail of '=' characters, but all the tests here
+// explicitly *don't* want those because it is wasteful.
+var base64Chars = "^[A-Za-z0-9+/]+$"
+
 func (passwordSuite) TestRandomBytes(c *gc.C) {
 	b, err := utils.RandomBytes(16)
 	c.Assert(err, gc.IsNil)
@@ -33,8 +37,17 @@ func (passwordSuite) TestRandomPassword(c *gc.C) {
 	if len(p) < 18 {
 		c.Errorf("password too short: %q", p)
 	}
+	c.Assert(p, gc.Matches, base64Chars)
+}
+
+func (passwordSuite) TestRandomSalt(c *gc.C) {
+	salt, err := utils.RandomSalt()
+	c.Assert(err, gc.IsNil)
+	if len(salt) < 12 {
+		c.Errorf("salt too short: %q", salt)
+	}
 	// check we're not adding base64 padding.
-	c.Assert(p[len(p)-1], gc.Not(gc.Equals), '=')
+	c.Assert(salt, gc.Matches, base64Chars)
 }
 
 var testPasswords = []string{"", "a", "a longer password than i would usually bother with"}
@@ -48,7 +61,7 @@ func (passwordSuite) TestCompatPasswordHash(c *gc.C) {
 		c.Assert(len(hashed), gc.Equals, 24)
 		c.Assert(seenHashes[hashed], gc.Equals, false)
 		// check we're not adding base64 padding.
-		c.Assert(hashed[len(hashed)-1], gc.Not(gc.Equals), '=')
+		c.Assert(hashed, gc.Matches, base64Chars)
 		seenHashes[hashed] = true
 		// check it's deterministic
 		h1 := utils.CompatPasswordHash(t)
@@ -68,7 +81,7 @@ func (passwordSuite) TestUserPasswordHash(c *gc.C) {
 			c.Assert(len(hashed), gc.Equals, 24)
 			c.Assert(seenHashes[hashed], gc.Equals, false)
 			// check we're not adding base64 padding.
-			c.Assert(hashed[len(hashed)-1], gc.Not(gc.Equals), '=')
+			c.Assert(hashed, gc.Matches, base64Chars)
 			seenHashes[hashed] = true
 			// check it's deterministic
 			altHashed := utils.UserPasswordHash(password, salt)
@@ -99,6 +112,6 @@ func (passwordSuite) TestAgentPasswordHash(c *gc.C) {
 		seenValues[hashed] = true
 		c.Assert(len(hashed), gc.Equals, 24)
 		// check we're not adding base64 padding.
-		c.Assert(hashed[len(hashed)-1], gc.Not(gc.Equals), '=')
+		c.Assert(hashed, gc.Matches, base64Chars)
 	}
 }
