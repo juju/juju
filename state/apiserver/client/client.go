@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -313,7 +312,7 @@ func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
-		return params.GetConstraintsResults{constraints.Value{}}, err
+		return params.GetConstraintsResults{}, err
 	}
 	cons, err := svc.Constraints()
 	return params.GetConstraintsResults{cons}, err
@@ -323,7 +322,7 @@ func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (param
 func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
 	cons, err := c.api.state.EnvironConstraints()
 	if err != nil {
-		return params.GetConstraintsResults{cons}, err
+		return params.GetConstraintsResults{}, err
 	}
 	return params.GetConstraintsResults{cons}, nil
 }
