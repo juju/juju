@@ -62,7 +62,7 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
-func (s *clientSuite) TestClientServerSet(c *gc.C) {
+func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
 
@@ -86,7 +86,8 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 	settings, err = dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"title": "barfoo",
+		"title":    "barfoo",
+		"username": "",
 	})
 }
 
