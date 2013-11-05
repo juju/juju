@@ -680,7 +680,6 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *UnitSuite) TestSetSlowPassword(c *gc.C) {
-	//preventUnitDestroyRemove(c, s.unit)
 	e, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
 	testSetSlowAgentPassword(c, e)
