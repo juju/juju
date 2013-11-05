@@ -204,12 +204,11 @@ func (u *Unit) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
-	agentHash := utils.PaddedAgentPasswordHash(password)
-	//agentHash, err := utils.AgentPasswordHash(password)
-	//if err != nil {
-	//	// This password is too short to be used as an agent password
-	//	return err
-	//}
+	agentHash, err := utils.AgentPasswordHash(password)
+	if err != nil {
+		// This password is too short to be used as an agent password
+		return err
+	}
 	return u.setPasswordHash(agentHash)
 }
 

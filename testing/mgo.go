@@ -198,6 +198,9 @@ func readLines(r io.Reader, n int) []string {
 	return final
 }
 
+func (s *MgoSuite) TearDownSuite(c *gc.C) {
+}
+
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {
 	pool := x509.NewCertPool()
