@@ -309,9 +309,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		toolsDir := c.MkDir()
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": test.agentVersion,
-			"development":   test.development,
-			"tools-url":     "file://" + toolsDir,
+			"agent-version":      test.agentVersion,
+			"development":        test.development,
+			"tools-metadata-url": "file://" + toolsDir,
 		})
 		c.Assert(err, gc.IsNil)
 		err = s.State.SetEnvironConfig(cfg)

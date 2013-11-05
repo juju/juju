@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 type API struct {
@@ -109,6 +108,19 @@ func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 	return newServiceSetSettingsStringsForClientAPI(svc, p.Options)
 }
 
+// ServiceUnset implements the server side of Client.ServiceUnset.
+func (c *Client) ServiceUnset(p params.ServiceUnset) error {
+	svc, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	settings := make(charm.Settings)
+	for _, option := range p.Options {
+		settings[option] = nil
+	}
+	return svc.UpdateConfigSettings(settings)
+}
+
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	svc, err := c.api.state.Service(p.ServiceName)
@@ -130,13 +142,21 @@ func (c *Client) Resolved(p params.Resolved) error {
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
-	return statecmd.ServiceExpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetExposed()
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
-	return statecmd.ServiceUnexpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.ClearExposed()
 }
 
 var CharmStore charm.Repository = charm.Store
@@ -339,32 +359,88 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	return statecmd.DestroyServiceUnits(c.api.state, args)
+	return c.api.state.DestroyUnits(args.UnitNames...)
 }
 
 // ServiceDestroy destroys a given service.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
-	return statecmd.ServiceDestroy(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.Destroy()
 }
 
 // GetServiceConstraints returns the constraints for a given service.
-func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
-	return statecmd.GetServiceConstraints(c.api.state, args)
+func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return params.GetConstraintsResults{}, err
+	}
+	cons, err := svc.Constraints()
+	return params.GetConstraintsResults{cons}, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
+	cons, err := c.api.state.EnvironConstraints()
+	if err != nil {
+		return params.GetConstraintsResults{}, err
+	}
+	return params.GetConstraintsResults{cons}, nil
 }
 
 // SetServiceConstraints sets the constraints for a given service.
-func (c *Client) SetServiceConstraints(args params.SetServiceConstraints) error {
-	return statecmd.SetServiceConstraints(c.api.state, args)
+func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConstraints(args.Constraints)
+}
+
+// SetEnvironmentConstraints sets the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
+	return c.api.state.SetEnvironConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	return statecmd.AddRelation(c.api.state, args)
+	inEps, err := c.api.state.InferEndpoints(args.Endpoints)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	rel, err := c.api.state.AddRelation(inEps...)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	outEps := make(map[string]charm.Relation)
+	for _, inEp := range inEps {
+		outEp, err := rel.Endpoint(inEp.ServiceName)
+		if err != nil {
+			return params.AddRelationResults{}, err
+		}
+		outEps[inEp.ServiceName] = outEp.Relation
+	}
+	return params.AddRelationResults{Endpoints: outEps}, nil
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	return statecmd.DestroyRelation(c.api.state, args)
+	eps, err := c.api.state.InferEndpoints(args.Endpoints)
+	if err != nil {
+		return err
+	}
+	rel, err := c.api.state.EndpointsRelation(eps...)
+	if err != nil {
+		return err
+	}
+	return rel.Destroy()
+}
+
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(args params.DestroyMachines) error {
+	return c.api.state.DestroyMachines(args.MachineNames...)
 }
 
 // CharmInfo returns information about the requested charm.

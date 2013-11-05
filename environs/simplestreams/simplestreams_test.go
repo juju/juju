@@ -300,6 +300,49 @@ func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *gc.C) {
 	c.Check(dotOFormats, gc.DeepEquals, simplestreams.IndexMetadataSlice{array[0], array[2]})
 }
 
+// countingSource is used to check that a DataSource has been queried.
+type countingSource struct {
+	simplestreams.DataSource
+	count int
+}
+
+func (s *countingSource) URL(path string) (string, error) {
+	s.count++
+	return s.DataSource.URL(path)
+}
+
+func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
+	source := &countingSource{
+		DataSource: simplestreams.NewURLDataSource(
+			"test:/daily", simplestreams.VerifySSLHostnames,
+		),
+	}
+	sources := []simplestreams.DataSource{source, source, source}
+	params := simplestreams.ValueParams{DataType: "image-ids"}
+	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Series: []string{"precise"},
+		Arches: []string{"not-a-real-arch"}, // never matches
+	})
+
+	items, err := simplestreams.GetMetadata(
+		sources,
+		simplestreams.DefaultIndexPath,
+		constraint,
+		false,
+		params,
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(items, gc.HasLen, 0)
+
+	// There should be 2 calls to each data-source:
+	// one for .sjson, one for .json.
+	c.Assert(source.count, gc.Equals, 2*len(sources))
+}
+
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
 	metadata := s.AssertGetMetadata(c)
 	c.Check(len(metadata.Products), gc.Equals, 2)

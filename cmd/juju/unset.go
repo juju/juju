@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
@@ -23,7 +22,7 @@ type UnsetCommand struct {
 
 const unsetDoc = `
 Set one or more configuration options for the specified service to their
-default. See also the set commmand to set one or more  configuration options for
+default. See also the set commmand to set one or more configuration options for
 a specified service.
 `
 
@@ -46,27 +45,18 @@ func (c *UnsetCommand) Init(args []string) error {
 	}
 	c.ServiceName = args[0]
 	c.Options = args[1:]
+	if len(c.Options) == 0 {
+		return errors.New("no configuration options specified")
+	}
 	return nil
 }
 
 // Run resets the configuration of a service.
 func (c *UnsetCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	service, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	if len(c.Options) > 0 {
-		settings := make(charm.Settings)
-		for _, option := range c.Options {
-			settings[option] = nil
-		}
-		return service.UpdateConfigSettings(settings)
-	} else {
-		return nil
-	}
+	defer apiclient.Close()
+	return apiclient.ServiceUnset(c.ServiceName, c.Options)
 }
