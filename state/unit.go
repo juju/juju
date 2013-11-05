@@ -241,12 +241,13 @@ func (u *Unit) getPasswordHash() string {
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {
 	agentHash, err := utils.AgentPasswordHash(password)
-	if err == nil && agentHash == u.doc.PasswordHash {
-		return true
-	}
 	if err != nil {
-		// This password is too short to be used as an agent password, what do we do?
-		panic(err)
+		// This password is too short to be used as an agent password,
+		// so it will never be valid
+		return false
+	}
+	if agentHash == u.doc.PasswordHash {
+		return true
 	}
 	// In Juju 1.16 and older we used the slower password hash for unit
 	// agents. So check to see if the supplied password matches the old
