@@ -255,6 +255,7 @@ var commandNames = []string{
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
+	"unset",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
@@ -279,9 +280,11 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 }
 
 var topicNames = []string{
-	"aws",
+	"azure",
 	"basics",
 	"commands",
+	"constraints",
+	"ec2",
 	"global-options",
 	"glossary",
 	"hpcloud",

@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 )
@@ -28,15 +29,14 @@ func (inst *localInstance) Status() string {
 }
 
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("localInstance.Addresses not implemented")
-	return nil, nil
+	return nil, errors.NewNotImplementedError("localInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.
 func (inst *localInstance) DNSName() (string, error) {
 	if string(inst.id) == "localhost" {
 		// get the bridge address from the environment
-		addr, err := inst.env.findBridgeAddress()
+		addr, err := inst.env.findBridgeAddress(inst.env.config.networkBridge())
 		if err != nil {
 			logger.Errorf("failed to get bridge address: %v", err)
 			return "", instance.ErrNoDNSName

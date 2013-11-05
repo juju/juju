@@ -44,16 +44,16 @@ or a nonzero build component (for example version 2.1.1, 3.3.0 and 2.0.0.1 are
 development versions; 2.0.3 and 3.4.1 are not). A development version may be
 chosen if any of the following conditions hold:
 
-  * the current juju tool has a development version.
-  * the juju environment has a development version
-  * the environment "development" setting is true
-  * the --dev flag is specified
+ - the current juju tool has a development version.
+ - the juju environment has a development version
+ - the environment "development" setting is true
+ - the --dev flag is specified
 
 For development use, the --upload-tools flag specifies that the juju tools will
 be compiled locally and uploaded before the version is set. Currently the tools
 will be uploaded as if they had the version of the current juju tool, unless
 specified otherwise by the --version flag.
-`[1:]
+`
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{

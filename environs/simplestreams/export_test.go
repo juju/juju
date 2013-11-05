@@ -3,13 +3,6 @@
 
 package simplestreams
 
-// SetSigningKey sets a new signing key for testing and returns the original key.
-func SetSigningKey(key string) string {
-	oldKey := simpleStreamSigningKey
-	simpleStreamSigningKey = key
-	return oldKey
-}
-
 func ExtractCatalogsForProducts(metadata CloudMetadata, productIds []string) []MetadataCatalog {
 	return metadata.extractCatalogsForProducts(productIds)
 }

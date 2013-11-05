@@ -8,13 +8,10 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
@@ -42,17 +39,11 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	err := verifyBootstrapInit(environ)
-	if err != nil {
+	// Write out the bootstrap-init file, and confirm storage is writeable.
+	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
 
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids.  Juju assigns the machine ID.
-	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	var vers *version.Number
 	if agentVersion, ok := cfg.AgentVersion(); ok {
@@ -89,70 +80,19 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if len(newestTools) == 0 {
 		return fmt.Errorf("No bootstrap tools found")
 	}
-	return environ.Bootstrap(cons, newestTools, machineID)
+	return environ.Bootstrap(cons, newestTools)
 }
 
-// verifyBootstrapInit does the common initial check before bootstrapping, to
-// confirm that the environment isn't already running, and that the storage
-// works.
-func verifyBootstrapInit(env environs.Environ) error {
-	stor := env.Storage()
-	_, err := common.LoadState(stor)
+// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
+// and an error if it is or if the function was not able to tell.
+func EnsureNotBootstrapped(env environs.Environ) error {
+	_, err := common.LoadState(env.Storage())
+	// If there is no error loading the bootstrap state, then we are bootstrapped.
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if err != environs.ErrNotBootstrapped {
-		return fmt.Errorf("cannot query old bootstrap state: %v", err)
+	if err == environs.ErrNotBootstrapped {
+		return nil
 	}
-
-	return environs.VerifyStorage(stor)
-}
-
-// ConfigureBootstrapMachine adds the initial machine into state.  As a part
-// of this process the environmental constraints are saved as constraints used
-// when bootstrapping are considered constraints for the entire environment.
-func ConfigureBootstrapMachine(
-	st *state.State,
-	cons constraints.Value,
-	datadir string,
-	jobs []state.MachineJob,
-	instId instance.Id,
-	characteristics instance.HardwareCharacteristics,
-) error {
-	logger.Debugf("setting environment constraints")
-	if err := st.SetEnvironConstraints(cons); err != nil {
-		return err
-	}
-
-	logger.Debugf("create bootstrap machine in state")
-	m, err := st.InjectMachine(&state.AddMachineParams{
-		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
-		Constraints:             cons,
-		InstanceId:              instId,
-		HardwareCharacteristics: characteristics,
-		Jobs: jobs,
-	})
-	if err != nil {
-		return err
-	}
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	logger.Debugf("create new random password for machine %v", m.Id())
-	mconf, err := agent.ReadConf(datadir, m.Tag())
-	if err != nil {
-		return err
-	}
-	newPassword, err := mconf.GenerateNewPassword()
-	if err != nil {
-		return err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
-		return err
-	}
-	if err := m.SetPassword(newPassword); err != nil {
-		return err
-	}
-	return nil
+	return err
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
@@ -50,6 +51,10 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 }
 
 func (s *stateSuite) TestPing(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("ping-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("ping-tester")
+
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, gc.IsNil)
@@ -57,4 +62,10 @@ func (s *stateSuite) TestPing(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = st.Ping()
 	c.Assert(err, gc.Equals, rpc.ErrShutdown)
+
+	// Make sure that ping messages have not been logged.
+	for _, m := range tw.Log {
+		c.Logf("checking %q", m.Message)
+		c.Check(m.Message, gc.Not(gc.Matches), ".*Ping.*")
+	}
 }

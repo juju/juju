@@ -53,22 +53,47 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
+func (s *BootstrapSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
+}
+
 type bootstrapRetryTest struct {
 	info               string
 	args               []string
 	expectedAllowRetry []bool
 	err                string
+	// If version != "", version.Current will be
+	// set to it for the duration of the test.
+	version string
+	// If addVersionToSource is true, then "version"
+	// above will be populated in the tools source.
+	addVersionToSource bool
 }
 
 var bootstrapRetryTests = []bootstrapRetryTest{{
-	info:               "no tools uploaded, first check has no retries; check after upload has retries",
+	info:               "no tools uploaded, first check has no retries; no matching binary in source; sync fails with no second attempt",
+	expectedAllowRetry: []bool{false},
+	err:                "no tools available",
+	version:            "1.16.0-precise-amd64",
+}, {
+	info:               "no tools uploaded, first check has no retries; matching binary in source; check after sync has retries",
 	expectedAllowRetry: []bool{false, true},
 	err:                "tools not found",
+	version:            "1.16.0-precise-amd64",
+	addVersionToSource: true,
+}, {
+	info:               "no tools uploaded, first check has no retries; no matching binary in source; check after upload has retries",
+	expectedAllowRetry: []bool{false, true},
+	err:                "tools not found",
+	version:            "1.15.1-precise-amd64", // dev version to force upload
 }, {
 	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
 	args:               []string{"--upload-tools"},
 	expectedAllowRetry: []bool{true},
-	err:                "no matching tools available",
+	err:                "tools not found",
 }}
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
@@ -80,12 +105,22 @@ func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
 }
 
 func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
+	var extraVersions []version.Binary
+	if test.version != "" {
+		testVersion := version.MustParseBinary(test.version)
+		restore := testbase.PatchValue(&version.Current, testVersion)
+		defer restore()
+		if test.addVersionToSource {
+			extraVersions = append(extraVersions, testVersion)
+		}
+	}
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
-	defer createToolsStore(c)()
+	// Create some source tools in a local directory.
+	sourceDir := createToolsSource(c, extraVersions)
+	test.args = append(test.args, []string{"--source", sourceDir}...)
 
 	var findToolsRetryValues []bool
-
 	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
 		filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
 		findToolsRetryValues = append(findToolsRetryValues, allowRetry)
@@ -95,17 +130,10 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
 	defer restore()
 
-	_, errc := runCommand(nil, new(BootstrapCommand), test.args...)
+	_, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
-	c.Assert(err, gc.ErrorMatches, test.err)
-}
-
-func (s *BootstrapSuite) TearDownTest(c *gc.C) {
-	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
-	dummy.Reset()
+	c.Check(err, gc.ErrorMatches, test.err)
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
@@ -133,8 +161,7 @@ type bootstrapTest struct {
 
 func (test bootstrapTest) run(c *gc.C) {
 	// Prepare a mock storage for testing.
-	restore := createToolsStore(c)
-	defer restore()
+	sourceDir := createToolsSource(c, vAll)
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -155,7 +182,8 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nil, new(BootstrapCommand), test.args...)
+	test.args = append(test.args, []string{"--source", sourceDir}...)
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
@@ -190,7 +218,11 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, "bootstrap-verify")
+	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
+
+	opPutBootstrapInitFile := (<-opc).(dummy.OpPutFile)
+	c.Check(opPutBootstrapInitFile.Env, gc.Equals, "peckham")
+	c.Check(opPutBootstrapInitFile.FileName, gc.Equals, "provider-state")
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
@@ -226,9 +258,10 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--series", "fine"},
 	err:  `--series requires --upload-tools`,
 }, {
-	info: "bad environment",
-	args: []string{"-e", "brokenenv"},
-	err:  `environment configuration has no admin-secret`,
+	info:    "bad environment",
+	version: "1.2.3-precise-amd64",
+	args:    []string{"-e", "brokenenv"},
+	err:     `dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -265,38 +298,28 @@ var bootstrapTests = []bootstrapTest{{
 	},
 }}
 
-func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
-	// Prepare a mock storage for testing and store the
-	// dummy tools in there.
-	restore := createToolsStore(c)
-	defer restore()
-
-	// Change the tools location to be the test location and also
-	// the version and ensure their later restoring.
-	origVersion := version.Current
-	version.Current.Number = version.MustParse("1.2.0")
-	defer func() { version.Current = origVersion }()
-
-	// Create home with dummy provider and remove all
-	// of its envtools.
+func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	sourceDir := createToolsSource(c, append(vAll, defaultSeriesVersion))
 
-	// Bootstrap the environment now detects the missing
-	// tools and automatically synchronizes them from the
-	// storage above.
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", sourceDir})
 	c.Check(code, gc.Equals, 0)
 
-	// Now check the available tools which are the 1.2.0 envtools.
-	checkTools(c, env, v120All)
+	ctx2 := coretesting.Context(c)
+	code2 := cmd.Main(&BootstrapCommand{}, ctx2, nil)
+	c.Check(code2, gc.Equals, 1)
+	c.Check(coretesting.Stderr(ctx2), gc.Equals, "error: environment is already bootstrapped\n")
+	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Prepare a tools directory for testing and store the
 	// dummy tools in there.
-	source := createToolsSource(c)
+	sourceDir := createToolsSource(c, vAll)
 
 	// Change the version and ensure its later restoring.
 	origVersion := version.Current
@@ -325,21 +348,19 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// the bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
 	ctx = coretesting.Context(c)
-	code = cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", source})
+	code = cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", sourceDir})
 	c.Check(code, gc.Equals, 0)
 
 	// Now check the available tools which are the 1.2.0 envtools.
 	checkTools(c, env, v120All)
 }
 
-func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
+func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) (environs.Environ, string) {
 	uploadTools = mockUploadTools
 	s.AddCleanup(func(*gc.C) { uploadTools = sync.Upload })
 
-	// Prepare a mock storage for testing and store the
-	// dummy tools in there.
-	restore := createToolsStore(c)
-	s.AddCleanup(func(*gc.C) { restore() })
+	// Set up a local source with tools.
+	sourceDir := createToolsSource(c, vAll)
 
 	// Change the tools location to be the test location and also
 	// the version and ensure their later restoring.
@@ -354,7 +375,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 	// of its envtools.
 	env, fake := makeEmptyFakeHome(c)
 	s.AddCleanup(func(*gc.C) { fake.Restore() })
-	return env
+	return env, sourceDir
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
@@ -362,9 +383,9 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	if otherSeries == version.Current.Series {
 		otherSeries = "raring"
 	}
-	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
+	env, sourceDir := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
-	opc, errc := runCommand(nil, new(BootstrapCommand))
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand), "--source", sourceDir)
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
@@ -384,16 +405,16 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nil, new(BootstrapCommand))
+	_, sourceDir := s.setupAutoUploadTest(c, "1.8.3", "precise")
+	_, errc := runCommand(nullContext(), new(BootstrapCommand), "--source", sourceDir)
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "precise")
+	_, sourceDir := s.setupAutoUploadTest(c, "1.8.3", "precise")
 	context := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, context, nil)
+	code := cmd.Main(&BootstrapCommand{}, context, []string{"--source", sourceDir})
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
@@ -406,10 +427,10 @@ func uploadToolsAlwaysFails(stor storage.Storage, forceVersion *version.Number, 
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.7.3", "precise")
+	_, sourceDir := s.setupAutoUploadTest(c, "1.7.3", "precise")
 	uploadTools = uploadToolsAlwaysFails
 	context := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, context, nil)
+	code := cmd.Main(&BootstrapCommand{}, context, []string{"--source", sourceDir})
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
@@ -417,26 +438,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
-// createToolsStore creates the fake tools store.
-func createToolsStore(c *gc.C) func() {
-	stor, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	origLocation := sync.DefaultToolsLocation
-	sync.DefaultToolsLocation = stor.Location()
-	for _, vers := range vAll {
-		stor.PutBinary(vers)
-	}
-	restore := func() {
-		sync.DefaultToolsLocation = origLocation
-	}
-	return restore
-}
-
 // createToolsSource writes the mock tools into a temporary
 // directory and returns it.
-func createToolsSource(c *gc.C) string {
+func createToolsSource(c *gc.C, versions []version.Binary) string {
 	source := c.MkDir()
-	for _, vers := range vAll {
+	for _, vers := range versions {
 		data := vers.String()
 		name := envtools.StorageName(vers)
 		filename := filepath.Join(source, name)

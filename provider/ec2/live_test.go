@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	amzec2 "launchpad.net/goamz/ec2"
@@ -19,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
@@ -54,7 +52,6 @@ func registerAmazonTests() {
 		"name":           "sample-" + uniqueName,
 		"type":           "ec2",
 		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
 		"agent-version":  version.Current.Number.String(),
@@ -147,6 +144,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
+	t.PrepareOnce(c)
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
@@ -235,20 +233,35 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	for _, r := range resp.Reservations {
 		c.Assert(r.Instances, gc.HasLen, 1)
 		// each instance must be part of the general juju group.
-		msg := gc.Commentf("reservation %#v", r)
-		c.Assert(hasSecurityGroup(r, groups[0]), gc.Equals, true, msg)
 		inst := r.Instances[0]
+		msg := gc.Commentf("instance %#v", inst)
+		c.Assert(hasSecurityGroup(inst, groups[0]), gc.Equals, true, msg)
 		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, false, msg)
+			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, false, msg)
 		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, false, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
+
+	// Check that listing those instances finds them using the groups
+	instIds := []instance.Id{inst0.Id(), inst1.Id()}
+	idsFromInsts := func(insts []instance.Instance) (ids []instance.Id) {
+		for _, inst := range insts {
+			ids = append(ids, inst.Id())
+		}
+		return ids
+	}
+	insts, err := t.Env.Instances(instIds)
+	c.Assert(err, gc.IsNil)
+	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
+	allInsts, err := t.Env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
 }
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
@@ -349,26 +362,6 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	}
 }
 
-func (t *LiveTests) TestPublicStorage(c *gc.C) {
-	s := ec2.WritablePublicStorage(t.Env)
-
-	contents := "test"
-	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
-	c.Assert(err, gc.IsNil)
-
-	r, err := storage.Get(s, "test-object")
-	c.Assert(err, gc.IsNil)
-	defer r.Close()
-
-	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, contents)
-
-	// Check that the public storage isn't aliased to the private storage.
-	r, err = storage.Get(t.Env.Storage(), "test-object")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-}
-
 func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	s3inst := ec2.EnvironS3(t.Env)
 	b := s3inst.Bucket("test-once-" + uniqueName)
@@ -416,9 +409,9 @@ func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.Securi
 	return gi.SecurityGroup
 }
 
-func hasSecurityGroup(r amzec2.Reservation, g amzec2.SecurityGroup) bool {
-	for _, rg := range r.SecurityGroups {
-		if rg.Id == g.Id {
+func hasSecurityGroup(inst amzec2.Instance, group amzec2.SecurityGroup) bool {
+	for _, instGroup := range inst.SecurityGroups {
+		if instGroup.Id == group.Id {
 			return true
 		}
 	}

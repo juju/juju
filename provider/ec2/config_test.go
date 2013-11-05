@@ -93,9 +93,6 @@ func (t configTest) check(c *gc.C) {
 	if t.region != "" {
 		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
-	if t.pbucket != "" {
-		c.Assert(ecfg.publicBucket(), gc.Equals, t.pbucket)
-	}
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
@@ -120,16 +117,14 @@ func (t configTest) check(c *gc.C) {
 		c.Check(actual, gc.Equals, expect)
 	}
 
-	// check storage buckets are configured correctly
+	// check storage bucket is configured correctly
 	env := e.(*environ)
 	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
-	c.Assert(env.PublicStorage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
 }
 
 var configTests = []configTest{
 	{
-		config:  attrs{},
-		pbucket: "juju-dist",
+		config: attrs{},
 	}, {
 		// check that region defaults to us-east-1
 		config: attrs{},
@@ -182,42 +177,6 @@ var configTests = []configTest{
 			"control-bucket": "new-x",
 		},
 		err: `cannot change control-bucket from "x" to "new-x"`,
-	}, {
-		config: attrs{
-			"public-bucket": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		// check that the public-bucket defaults to juju-dist
-		config:  attrs{},
-		pbucket: "juju-dist",
-	}, {
-		config: attrs{
-			"public-bucket": "foo",
-		},
-		pbucket: "foo",
-	}, {
-		// check that public-bucket-region defaults to
-		// us-east-1, the S3 endpoint that owns juju-dist
-		config:        attrs{},
-		pbucketRegion: "us-east-1",
-	}, {
-		config: attrs{
-			"public-bucket-region": "foo",
-		},
-		err: ".*invalid public-bucket-region name.*",
-	}, {
-		config: attrs{
-			"public-bucket-region": "ap-southeast-1",
-		},
-		pbucketRegion: "ap-southeast-1",
-	}, {
-		config: attrs{
-			"region":               "us-west-1",
-			"public-bucket-region": "ap-southeast-1",
-		},
-		region:        "us-west-1",
-		pbucketRegion: "us-east-1",
 	}, {
 		config: attrs{
 			"access-key": "jujuer",
@@ -326,4 +285,38 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test := configTests[0]
 	test.err = "environment has no access-key or secret-key"
 	test.check(c)
+}
+
+func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "ec2",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env0, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket0 := env0.(*environ).ecfg().controlBucket()
+	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
+
+	env1, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket1 := env1.(*environ).ecfg().controlBucket()
+	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
+
+	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
+}
+
+func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "ec2",
+		"control-bucket": "burblefoo",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env, err := providerInstance.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	bucket := env.(*environ).ecfg().controlBucket()
+	c.Assert(bucket, gc.Equals, "burblefoo")
 }

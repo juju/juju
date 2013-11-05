@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -429,12 +428,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentTools(&tools.Tools{
-		URL:     "foo",
-		Version: version.MustParseBinary("0.0.3-series-arch"),
-		Size:    10,
-		SHA256:  "1234",
-	})
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -594,12 +588,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentTools(&tools.Tools{
-		URL:     "foo",
-		Version: version.MustParseBinary("0.0.3-series-arch"),
-		Size:    10,
-		SHA256:  "1234",
-	})
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()
 	c.Assert(err, gc.IsNil)

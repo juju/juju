@@ -10,24 +10,23 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 )
 
-type suite struct {
+type waitForEnvironSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&suite{})
+var _ = gc.Suite(&waitForEnvironSuite{})
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-func (s *suite) TestStop(c *gc.C) {
+func (s *waitForEnvironSuite) TestStop(c *gc.C) {
 	w := s.State.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
@@ -46,19 +45,14 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 	c.Check(err, gc.IsNil)
 }
 
-func (s *suite) TestInvalidConfig(c *gc.C) {
+func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	m := cfg.AllAttrs()
-	m["type"] = "unknown"
-	invalidCfg, err := config.New(config.NoDefaults, m)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(invalidCfg)
-	c.Assert(err, gc.IsNil)
-
+	var oldType string
+	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
+		oldType = attrs["type"].(string)
+		return attrs.Merge(coretesting.Attrs{"type": "unknown"})
+	})
 	w := s.State.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
@@ -70,15 +64,12 @@ func (s *suite) TestInvalidConfig(c *gc.C) {
 	// Wait for the loop to process the invalid configuratrion
 	<-worker.LoadedInvalid
 
-	// Then load a valid configuration back in.
-	m = cfg.AllAttrs()
-	m["secret"] = "environ_test"
-	validCfg, err := config.New(config.NoDefaults, m)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(validCfg)
-	c.Assert(err, gc.IsNil)
-	s.State.StartSync()
+	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
+		return attrs.Merge(coretesting.Attrs{
+			"type":   oldType,
+			"secret": "environ_test",
+		})
+	})
 
 	env := <-done
 	c.Assert(env, gc.NotNil)

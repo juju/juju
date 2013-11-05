@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -26,7 +27,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/common"
-	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -36,6 +36,10 @@ import (
 type environSuite struct {
 	providerSuite
 }
+
+const (
+	allocatedNode = `{"system_id": "test-allocated"}`
+)
 
 var _ = gc.Suite(&environSuite{})
 
@@ -54,32 +58,19 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *environSuite) makeEnviron() *maasEnviron {
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":        suite.environ.Name(),
-		"type":        "maas",
-		"maas-oauth":  "a:b:c",
-		"maas-server": suite.testMAASObject.TestServer.URL,
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		panic(err)
-	}
-	env, err := NewEnviron(cfg)
-	if err != nil {
-		panic(err)
-	}
-	return env
-}
-
 func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
 	suite.testMAASObject.TestServer.NewFile(common.StateFile, []byte("test file content"))
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
-	stor := NewStorage(suite.environ)
+	stor := NewStorage(suite.makeEnviron())
 	envtesting.UploadFakeTools(c, stor)
+}
+
+func (suite *environSuite) addNode(jsonText string) instance.Id {
+	node := suite.testMAASObject.TestServer.NewNode(jsonText)
+	resourceURI, _ := node.GetField("resource_uri")
+	return instance.Id(resourceURI)
 }
 
 func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
@@ -134,75 +125,62 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 }
 
 func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
-	input := `{"system_id": "test"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	resourceURI, _ := node.GetField("resource_uri")
-	instanceIds := []instance.Id{instance.Id(resourceURI)}
-
-	instances, err := suite.environ.Instances(instanceIds)
+	id := suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().Instances([]instance.Id{id})
 
 	c.Check(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Id(), gc.Equals, id)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
-	input := `{"system_id": "test"}`
-	suite.testMAASObject.TestServer.NewNode(input)
-	instances, err := suite.environ.Instances([]instance.Id{})
+	suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().Instances([]instance.Id{})
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
-	input := `{"system_id": "test"}`
-	suite.testMAASObject.TestServer.NewNode(input)
-	instances, err := suite.environ.Instances(nil)
+	suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().Instances(nil)
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
-	_, err := suite.environ.Instances([]instance.Id{"unknown"})
+	instances, err := suite.makeEnviron().Instances([]instance.Id{"unknown"})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
+	c.Check(instances, gc.IsNil)
 }
 
-func (suite *environSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
-	input := `{"system_id": "test"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	resourceURI, _ := node.GetField("resource_uri")
-
-	instances, err := suite.environ.AllInstances()
+func (suite *environSuite) TestAllInstances(c *gc.C) {
+	id := suite.addNode(allocatedNode)
+	instances, err := suite.makeEnviron().AllInstances()
 
 	c.Check(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Id(), gc.Equals, id)
 }
 
 func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
-	instances, err := suite.environ.AllInstances()
+	instances, err := suite.makeEnviron().AllInstances()
 
 	c.Check(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 0)
+	c.Check(instances, gc.HasLen, 0)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
-	input1 := `{"system_id": "test"}`
-	node1 := suite.testMAASObject.TestServer.NewNode(input1)
-	resourceURI1, _ := node1.GetField("resource_uri")
-	input2 := `{"system_id": "test2"}`
-	suite.testMAASObject.TestServer.NewNode(input2)
-	instanceId1 := instance.Id(resourceURI1)
-	instanceId2 := instance.Id("unknown systemID")
-	instanceIds := []instance.Id{instanceId1, instanceId2}
-
-	instances, err := suite.environ.Instances(instanceIds)
+	known := suite.addNode(allocatedNode)
+	suite.addNode(`{"system_id": "test2"}`)
+	unknown := instance.Id("unknown systemID")
+	instances, err := suite.makeEnviron().Instances([]instance.Id{known, unknown})
 
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(string(instances[0].Id()), gc.Equals, resourceURI1)
+	c.Assert(instances, gc.HasLen, 2)
+	c.Check(instances[0].Id(), gc.Equals, known)
+	c.Check(instances[1], gc.IsNil)
 }
 
 func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
@@ -213,13 +191,6 @@ func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	specificStorage := stor.(*maasStorage)
 	// Its environment pointer refers back to its environment.
 	c.Check(specificStorage.environUnlocked, gc.Equals, env)
-}
-
-func (suite *environSuite) TestPublicStorageReturnsEmptyStorage(c *gc.C) {
-	env := suite.makeEnviron()
-	stor := env.PublicStorage()
-	c.Assert(stor, gc.NotNil)
-	c.Check(stor, gc.Equals, environs.EmptyStorage)
 }
 
 func decodeUserData(userData string) ([]byte, error) {
@@ -298,7 +269,7 @@ func stringp(val string) *string {
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
-	stor := NewStorage(suite.environ)
+	stor := NewStorage(suite.makeEnviron())
 	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
@@ -313,7 +284,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
-	stor := NewStorage(suite.environ)
+	stor := NewStorage(suite.makeEnviron())
 	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
@@ -327,6 +298,21 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	c.Assert(found, gc.Equals, true)
 	c.Assert(nodeRequestValues[0].Get("arch"), gc.Equals, "arm")
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
+}
+
+func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
+	stor := NewStorage(suite.makeEnviron())
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, _, err := env.acquireNode(constraints.Value{}, tools.List{fakeTools})
+
+	c.Check(err, gc.IsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, gc.Equals, true)
+	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
@@ -352,13 +338,13 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	input := `{"system_id": "` + systemId + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{&node, suite.environ}
+	return &maasInstance{&node, suite.makeEnviron()}
 }
 
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
-	err := suite.environ.StopInstances([]instance.Instance{})
+	err := suite.makeEnviron().StopInstances([]instance.Instance{})
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
@@ -370,7 +356,7 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	suite.getInstance("test3")
 	instances := []instance.Instance{instance1, instance2}
 
-	err := suite.environ.StopInstances(instances)
+	err := suite.makeEnviron().StopInstances(instances)
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -383,7 +369,7 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	testInstance := &maasInstance{&node, suite.environ}
+	testInstance := &maasInstance{&node, suite.makeEnviron()}
 	err := common.SaveState(
 		env.Storage(),
 		&common.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
@@ -480,7 +466,9 @@ func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("filename", data)
+	stor := NewStorage(env)
+	err := stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
@@ -495,7 +483,9 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
-	suite.testMAASObject.TestServer.NewFile("tools/filename", data)
+	stor := NewStorage(env)
+	err := stor.Put("tools/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	c.Assert(err, gc.IsNil)
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)

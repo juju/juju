@@ -16,6 +16,47 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
+var PrivateKeyPassphrase = "12345"
+
+var SignedMetadataPrivateKey = `
+-----BEGIN PGP PRIVATE KEY BLOCK-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+lQH+BFJCk2EBBAC4wo3+aJ0PSeE54sv+GYNYckqysjazcZfJSdPK1GCN+Teat7ey
+9dwlLhUIS34H29V+0/RcXmmRV+dObSkXzCx5ltKPSnuDsxvqiDEP0CgWdyFxhDf0
+TbQuKK5OXcZ9rOTSFmnMxGaAzaV7T1IyuqA9HqntTIfC2tL4Y+QN41gS+QARAQAB
+/gMDAjYGIOoxe8CYYGwpat1V7NGuphvvZRpqeP0RrJ6h4vHV3hXu5NK3tn6LZF0n
+Qp31LfTH4BHF091UTiebexuuF1/ixLVihtv45mEVejFG1U3G298+WkWUP6AYA/5c
+QRzXGiuTXlsBUuFVTGn1mvxRmG3yVoLkDj0l5rN9Tq3Ir4BACIWyxjBv1n8fqw+x
+ti4b7YoE35FpIXQqLOdfdcKTOqUJt+5c+bed4Yx82BsLiY2/huqG2dLnbwln80Dz
+iYudtG8xLJ1AeHBBFB0nVdyO+mPzXgLNEbP3zle2W+rUfz+s6te7y+rlV0gad2VG
+tBAvUy08T9rDk0DNQl7jMq/3cGfDI1Zi/nzf2BuuBu2ddgIRmsXgKYly+Fq6eIpa
+nM+P1hd1Fa3rQwUSJc/zrl48tukf8sdPLDk/+nMhLHy86jp+NeXyXPLvsMAlF5kR
+eFjxEjHOnJlo4uIUxvlUuePyEOEl0XkQfZs+VWAPo+l2tB5UZXN0IFVzZXIgPHRl
+c3RAc29tZXdoZXJlLmNvbT6IuAQTAQIAIgUCUkKTYQIbAwYLCQgHAwIGFQgCCQoL
+BBYCAwECHgECF4AACgkQuK3uqWB66vCVugP/eJFir6Qdcvl+y9/HuP4q2iECi8ny
+z9tC3YC9DcJePyoBnt1LJO3HvaquZh1AIr6hgMFaujjx6cCb7YEgE0pJ4m74dvtS
+Y03MUPQ+Ok4cYV66zaDZLk6zpYJXZhxP7ZhlBvwQRES/rudBEQMfBcU9PrduFU39
+iI+2ojHI4lsnMQE=
+=UUIf
+-----END PGP PRIVATE KEY BLOCK-----
+`
+
+var SignedMetadataPublicKey = `
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+mI0EUkKTYQEEALjCjf5onQ9J4Tniy/4Zg1hySrKyNrNxl8lJ08rUYI35N5q3t7L1
+3CUuFQhLfgfb1X7T9FxeaZFX505tKRfMLHmW0o9Ke4OzG+qIMQ/QKBZ3IXGEN/RN
+tC4ork5dxn2s5NIWaczEZoDNpXtPUjK6oD0eqe1Mh8La0vhj5A3jWBL5ABEBAAG0
+HlRlc3QgVXNlciA8dGVzdEBzb21ld2hlcmUuY29tPoi4BBMBAgAiBQJSQpNhAhsD
+BgsJCAcDAgYVCAIJCgsEFgIDAQIeAQIXgAAKCRC4re6pYHrq8JW6A/94kWKvpB1y
++X7L38e4/iraIQKLyfLP20LdgL0Nwl4/KgGe3Usk7ce9qq5mHUAivqGAwVq6OPHp
+wJvtgSATSknibvh2+1JjTcxQ9D46ThxhXrrNoNkuTrOlgldmHE/tmGUG/BBERL+u
+50ERAx8FxT0+t24VTf2Ij7aiMcjiWycxAQ==
+=zBYH
+-----END PGP PUBLIC KEY BLOCK-----`
+
 var imageData = map[string]string{
 	"/daily/streams/v1/index.json": `
         {
@@ -100,6 +141,12 @@ var imageData = map[string]string{
 		   "path": "streams/v1/tools_metadata.json"
 		  }
 		 },
+		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		 "format": "index:1.0"
+		}
+`,
+	"/streams/v1/mirrors.json": `
+        {
          "mirrors": {
           "com.ubuntu.juju:released:tools": [
              {
@@ -124,11 +171,11 @@ var imageData = map[string]string{
               "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
               "format": "mirrors:1.0"
              }
-		  ]
-		 },
-		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		 "format": "index:1.0"
-		}
+          ]
+         },
+         "updated": "Wed, 01 May 2013 13:31:26 +0000",
+         "format": "index:1.0"
+        }
 `,
 	"/streams/v1/tools_metadata.json": `
 {

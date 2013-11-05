@@ -31,8 +31,8 @@ type SSHCommon struct {
 
 const sshDoc = `
 Launch an ssh shell on the machine identified by the <service> parameter.
-<service> can be either a machine id or a unit name.  Any extra parameters
-are treated as extra parameters for the ssh command.
+<service> can be either a machine id or a unit name.  Any extra parameters are
+passsed as extra parameters to the ssh command.
 `
 
 func (c *SSHCommand) Info() *cmd.Info {

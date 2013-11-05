@@ -49,6 +49,8 @@ const (
 	EnvDefault    = "default:\n  " + SampleEnvName + "\n"
 )
 
+const DefaultMongoPassword = "conn-from-name-secret"
+
 // Environment names below are explicit as it makes them more readable.
 const SingleEnvConfigNoDefault = `
 environments:
@@ -56,7 +58,7 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
+        admin-secret: ` + DefaultMongoPassword + `
 `
 
 const SingleEnvConfig = EnvDefault + SingleEnvConfigNoDefault
@@ -67,12 +69,12 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
+        admin-secret: ` + DefaultMongoPassword + `
     erewhemos-2:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
+        admin-secret: ` + DefaultMongoPassword + `
 `
 
 const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault

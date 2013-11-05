@@ -16,10 +16,10 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
@@ -65,19 +65,17 @@ var (
 )
 
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
-	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	network := lxc.BridgeNetworkConfig("nic42")
-
-	series := "series"
-	nonce := "fake-nonce"
-	tools := &tools.Tools{
+	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", stateInfo, apiInfo)
+	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 
-	inst, err := manager.StartContainer(machineId, series, nonce, network, tools, config, stateInfo, apiInfo)
+	series := "series"
+	network := lxc.BridgeNetworkConfig("nic42")
+	inst, err := manager.StartContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
 	return inst
 }

@@ -53,12 +53,11 @@ type environ struct {
 	name string
 
 	// ecfgMutex protects the *Unlocked fields below.
-	ecfgMutex             sync.Mutex
-	ecfgUnlocked          *environConfig
-	ec2Unlocked           *ec2.EC2
-	s3Unlocked            *s3.S3
-	storageUnlocked       storage.Storage
-	publicStorageUnlocked storage.StorageReader // optional.
+	ecfgMutex       sync.Mutex
+	ecfgUnlocked    *environConfig
+	ec2Unlocked     *ec2.EC2
+	s3Unlocked      *s3.S3
+	storageUnlocked storage.Storage
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -69,8 +68,6 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 type ec2Instance struct {
 	e *environ
 	*ec2.Instance
-	arch     *string
-	instType *instances.InstanceType
 }
 
 func (inst *ec2Instance) String() string {
@@ -85,18 +82,6 @@ func (inst *ec2Instance) Id() instance.Id {
 
 func (inst *ec2Instance) Status() string {
 	return inst.State.Name
-}
-
-func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteristics {
-	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
-	if inst.instType != nil {
-		hc.Mem = &inst.instType.Mem
-		hc.RootDisk = &inst.instType.RootDisk
-		hc.CpuCores = &inst.instType.CpuCores
-		hc.CpuPower = inst.instType.CpuPower
-		// Tags currently not supported by EC2
-	}
-	return hc
 }
 
 // refreshInstance requeries the Instance details over the ec2 api
@@ -171,20 +156,18 @@ func (inst *ec2Instance) WaitDNSName() (string, error) {
 
 func (p environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-aws.html
+# https://juju.ubuntu.com/docs/config-aws.html
 amazon:
-  type: ec2
-  admin-secret: {{rand}}
-  # globally unique S3 bucket name
-  control-bucket: juju-{{rand}}
-  # override if your workstation is running a different series to which you are deploying
-  # default-series: precise
-  # region defaults to us-east-1, override if required
-  # region: us-east-1
-  # Usually set via the env variable AWS_ACCESS_KEY_ID, but can be specified here
-  # access-key: <secret>
-  # Usually set via the env variable AWS_SECRET_ACCESS_KEY, but can be specified here
-  # secret-key: <secret>
+    type: ec2
+    # region specifies the ec2 region. It defaults to us-east-1.
+    # region: us-east-1
+    #
+    # access-key holds the ec2 access key. It defaults to the environment
+    # variable AWS_ACCESS_KEY_ID.
+    # access-key: <secret>
+    #
+    # secret-key holds the ec2 secret key. It defaults to the environment
+    # variable AWS_SECRET_ACCESS_KEY.
 
 `[1:]
 }
@@ -192,28 +175,27 @@ amazon:
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
+	e.name = cfg.Name()
 	err := e.SetConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	e.name = cfg.Name()
-	if err := e.verifyAllConfig(); err != nil {
-		return nil, err
-	}
-	// Make sure that external clients can't get access to
-	// methods provided to bootstrapper only.
 	return e, nil
 }
 
-func (e *environ) verifyAllConfig() error {
-	// TODO: verify that we have all the configuration data
-	// created by Prepare.
-	return nil
-}
-
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("preparing environment %q", cfg.Name())
-	// TODO create/verify control bucket if necessary.
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["control-bucket"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
@@ -268,7 +250,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
-	publicBucketRegion := aws.Regions[ecfg.publicBucketRegion()]
 	e.ec2Unlocked = ec2.New(auth, region)
 	e.s3Unlocked = s3.New(auth, region)
 
@@ -276,13 +257,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	e.storageUnlocked = &ec2storage{
 		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
-	}
-	if ecfg.publicBucket() != "" {
-		e.publicStorageUnlocked = &ec2storage{
-			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
-		}
-	} else {
-		e.publicStorageUnlocked = nil
 	}
 	return nil
 }
@@ -331,17 +305,8 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) PublicStorage() storage.StorageReader {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	if e.publicStorageUnlocked == nil {
-		return environs.EmptyStorage
-	}
-	return e.publicStorageUnlocked
-}
-
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
-	return common.Bootstrap(e, cons, possibleTools, machineID)
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+	return common.Bootstrap(e, cons, possibleTools)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -390,6 +355,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if err != nil {
 		return nil, nil, err
 	}
+
 	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
@@ -423,14 +389,16 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	var instResp *ec2.RunInstancesResp
 
+	device, diskSize := getDiskSize(cons)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.Image.Id,
-			MinCount:       1,
-			MaxCount:       1,
-			UserData:       userData,
-			InstanceType:   spec.InstanceType.Name,
-			SecurityGroups: groups,
+			ImageId:             spec.Image.Id,
+			MinCount:            1,
+			MaxCount:            1,
+			UserData:            userData,
+			InstanceType:        spec.InstanceType.Name,
+			SecurityGroups:      groups,
+			BlockDeviceMappings: []ec2.BlockDeviceMapping{device},
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
 			break
@@ -442,14 +410,22 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	if len(instResp.Instances) != 1 {
 		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
+
 	inst := &ec2Instance{
 		e:        e,
 		Instance: &instResp.Instances[0],
-		arch:     &spec.Image.Arch,
-		instType: &spec.InstanceType,
 	}
 	logger.Infof("started instance %q", inst.Id())
-	return inst, inst.hardwareCharacteristics(), nil
+
+	hc := instance.HardwareCharacteristics{
+		Arch:     &spec.Image.Arch,
+		Mem:      &spec.InstanceType.Mem,
+		CpuCores: &spec.InstanceType.CpuCores,
+		CpuPower: spec.InstanceType.CpuPower,
+		RootDisk: &diskSize,
+		// Tags currently not supported by EC2
+	}
+	return inst, &hc, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
@@ -458,6 +434,77 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 		ids[i] = inst.(*ec2Instance).Id()
 	}
 	return e.terminateInstances(ids)
+}
+
+// minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
+const minDiskSize uint64 = 8 * 1024
+
+// getDiskSize translates a RootDisk constraint (or lackthereof) into a
+// BlockDeviceMapping request for EC2.  megs is the size in megabytes of
+// the disk that was requested.
+func getDiskSize(cons constraints.Value) (dvc ec2.BlockDeviceMapping, megs uint64) {
+	diskSize := minDiskSize
+
+	if cons.RootDisk != nil {
+		if *cons.RootDisk >= minDiskSize {
+			diskSize = *cons.RootDisk
+		} else {
+			logger.Infof("Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
+				*cons.RootDisk, minDiskSize)
+		}
+	}
+
+	// AWS's volume size is in gigabytes, root-disk is in megabytes,
+	// so round up to the nearest gigabyte.
+	volsize := int64((diskSize + 1023) / 1024)
+	return ec2.BlockDeviceMapping{
+			DeviceName: "/dev/sda1",
+			VolumeSize: volsize,
+		},
+		uint64(volsize * 1024)
+}
+
+// groupInfoByName returns information on the security group
+// with the given name including rules and other details.
+func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
+	// Non-default VPC does not support name-based group lookups, can
+	// use a filter by group name instead when support is needed.
+	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
+	resp, err := e.ec2().SecurityGroups(limitToGroups, nil)
+	if err != nil {
+		return ec2.SecurityGroupInfo{}, err
+	}
+	if len(resp.Groups) != 1 {
+		return ec2.SecurityGroupInfo{}, fmt.Errorf("expected one security group named %q, got %v", groupName, resp.Groups)
+	}
+	return resp.Groups[0], nil
+}
+
+// groupByName returns the security group with the given name.
+func (e *environ) groupByName(groupName string) (ec2.SecurityGroup, error) {
+	groupInfo, err := e.groupInfoByName(groupName)
+	return groupInfo.SecurityGroup, err
+}
+
+// addGroupFilter sets a limit an instance filter so only those machines
+// with the juju environment wide security group associated will be listed.
+//
+// An EC2 API call is required to resolve the group name to an id, as VPC
+// enabled accounts do not support name based filtering.
+// TODO: Detect classic accounts and just filter by name for those.
+//
+// Callers must handle InvalidGroup.NotFound errors to mean the same as no
+// matching instances.
+func (e *environ) addGroupFilter(filter *ec2.Filter) error {
+	groupName := e.jujuGroupName()
+	group, err := e.groupByName(groupName)
+	if err != nil {
+		return err
+	}
+	// EC2 should support filtering with and without the 'instance.'
+	// prefix, but only the form with seems to work with default VPC.
+	filter.Add("instance.group-id", group.Id)
+	return nil
 }
 
 // gatherInstances tries to get information on each instance
@@ -476,7 +523,13 @@ func (e *environ) gatherInstances(ids []instance.Id, insts []instance.Instance) 
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.jujuGroupName())
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return environs.ErrPartialInstances
+		}
+		return err
+	}
 	filter.Add("instance-id", need...)
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
@@ -539,7 +592,13 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add("group-name", e.jujuGroupName())
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, nil
+		}
+		return nil, err
+	}
 	resp, err := e.ec2().Instances(nil, filter)
 	if err != nil {
 		return nil, err
@@ -556,21 +615,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy() error {
-	logger.Infof("destroying environment %q", e.name)
-	insts, err := e.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	var ids []instance.Id
-	for _, inst := range insts {
-		ids = append(ids, inst.Id())
-	}
-	err = e.terminateInstances(ids)
-	if err != nil {
-		return err
-	}
-
-	return e.Storage().RemoveAll()
+	return common.Destroy(e)
 }
 
 func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
@@ -591,9 +636,12 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
+	g, err := e.groupByName(name)
+	if err != nil {
+		return err
+	}
 	ipPerms := portsToIPPerms(ports)
-	g := ec2.SecurityGroup{Name: name}
-	_, err := e.ec2().AuthorizeSecurityGroup(g, ipPerms)
+	_, err = e.ec2().AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
 		if len(ports) == 1 {
 			return nil
@@ -623,8 +671,11 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	// Revoke permissions for anyone to access the given ports.
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
-	g := ec2.SecurityGroup{Name: name}
-	_, err := e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
+	g, err := e.groupByName(name)
+	if err != nil {
+		return err
+	}
+	_, err = e.ec2().RevokeSecurityGroup(g, portsToIPPerms(ports))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
@@ -632,15 +683,11 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 }
 
 func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
-	g := ec2.SecurityGroup{Name: name}
-	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
+	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.Groups) != 1 {
-		return nil, fmt.Errorf("expected one security group, got %d", len(resp.Groups))
-	}
-	for _, p := range resp.Groups[0].IPPerms {
+	for _, p := range group.IPPerms {
 		if len(p.SourceIPs) != 1 {
 			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
@@ -782,7 +829,6 @@ func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.SecurityGroup, error) {
-	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
 			{
@@ -804,22 +850,19 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.S
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{
-				Protocol:     "tcp",
-				FromPort:     0,
-				ToPort:       65535,
-				SourceGroups: sourceGroups,
+				Protocol: "tcp",
+				FromPort: 0,
+				ToPort:   65535,
 			},
 			{
-				Protocol:     "udp",
-				FromPort:     0,
-				ToPort:       65535,
-				SourceGroups: sourceGroups,
+				Protocol: "udp",
+				FromPort: 0,
+				ToPort:   65535,
 			},
 			{
-				Protocol:     "icmp",
-				FromPort:     -1,
-				ToPort:       -1,
-				SourceGroups: sourceGroups,
+				Protocol: "icmp",
+				FromPort: -1,
+				ToPort:   -1,
 			},
 		})
 	if err != nil {
@@ -844,6 +887,8 @@ var zeroGroup ec2.SecurityGroup
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
+// Any entries in perms without SourceIPs will be granted for
+// the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
@@ -864,10 +909,10 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		// description here, but if it does it's probably due
 		// to something deliberately playing games with juju,
 		// so we ignore it.
-		have = newPermSet(info.IPPerms)
 		g = info.SecurityGroup
+		have = newPermSetForGroup(info.IPPerms, g)
 	}
-	want := newPermSet(perms)
+	want := newPermSetForGroup(perms, g)
 	revoke := make(permSet)
 	for p := range have {
 		if !want[p] {
@@ -900,19 +945,20 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 // to access the given range of ports. Only one of groupName or ipAddr
 // should be non-empty.
 type permKey struct {
-	protocol  string
-	fromPort  int
-	toPort    int
-	groupName string
-	ipAddr    string
+	protocol string
+	fromPort int
+	toPort   int
+	groupId  string
+	ipAddr   string
 }
 
 type permSet map[permKey]bool
 
-// newPermSet returns a set of all the permissions in the
+// newPermSetForGroup returns a set of all the permissions in the
 // given slice of IPPerms. It ignores the name and owner
-// id in source groups, using group ids only.
-func newPermSet(ps []ec2.IPPerm) permSet {
+// id in source groups, and any entry with no source ips will
+// be granted for the given group only.
+func newPermSetForGroup(ps []ec2.IPPerm, group ec2.SecurityGroup) permSet {
 	m := make(permSet)
 	for _, p := range ps {
 		k := permKey{
@@ -920,13 +966,13 @@ func newPermSet(ps []ec2.IPPerm) permSet {
 			fromPort: p.FromPort,
 			toPort:   p.ToPort,
 		}
-		for _, g := range p.SourceGroups {
-			k.groupName = g.Name
-			m[k] = true
-		}
-		k.groupName = ""
-		for _, ip := range p.SourceIPs {
-			k.ipAddr = ip
+		if len(p.SourceIPs) > 0 {
+			for _, ip := range p.SourceIPs {
+				k.ipAddr = ip
+				m[k] = true
+			}
+		} else {
+			k.groupId = group.Id
 			m[k] = true
 		}
 	}
@@ -947,7 +993,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Name: p.groupName}}
+			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
 		}
 		ps = append(ps, ipp)
 	}
@@ -998,15 +1044,15 @@ func fetchMetadata(name string) (value string, err error) {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+	return sources, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket and public location.
+	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
-		simplestreams.NewURLDataSource(
-			"https://juju-dist.s3.amazonaws.com/tools", simplestreams.VerifySSLHostnames)}
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

@@ -4,17 +4,14 @@
 package provisioner_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
@@ -25,6 +22,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
@@ -67,7 +65,6 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	config := coretesting.EnvironConfig(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -79,7 +76,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:       []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewLxcBroker(config, tools, s.agentConfig)
+	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -184,22 +181,19 @@ func (s *lxcProvisionerSuite) TearDownSuite(c *gc.C) {
 func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
-	// Write the tools file.
-	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
-	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
-	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
-	data, err := json.Marshal(testTools)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(toolsPath, data, 0644)
-	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	err = m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
@@ -282,4 +276,10 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
+}
+
+type fakeAPI struct{}
+
+func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+	return params.ContainerConfig{"fake", "my-keys", true}, nil
 }

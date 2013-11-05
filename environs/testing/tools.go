@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -55,10 +56,11 @@ func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 // the obtained tools may not have size and checksum set.
 func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 	c.Assert(obtained.Version, gc.Equals, expected.Version)
-	c.Assert(obtained.URL, gc.Equals, expected.URL)
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When tools are located using the legacy code (prior to simplestreams),
-	// the size and checksum information is not known.
+	// TODO(dimitern) 2013-10-02 bug #1234217
+	// Are these used at at all? If not we should drop them.
+	if obtained.URL != "" {
+		c.Assert(obtained.URL, gc.Equals, expected.URL)
+	}
 	if obtained.Size > 0 {
 		c.Assert(obtained.Size, gc.Equals, expected.Size)
 		c.Assert(obtained.SHA256, gc.Equals, expected.SHA256)
@@ -68,9 +70,6 @@ func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 // CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
 // the error's tools attributes may not have size and checksum set.
 func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
-	// TODO(wallyworld) - 2013-09-24 bug=1229512
-	// When tools are located using the legacy code (prior to simplestreams),
-	// the size and checksum information is not known.
 	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
 	err := obtained.(*upgrader.UpgradeReadyError)
 	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
@@ -113,16 +112,25 @@ func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretoo
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
 func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) ([]*coretools.Tools, error) {
+	// Leave existing tools alone.
+	existingTools := make(map[version.Binary]*coretools.Tools)
+	existing, _ := envtools.ReadList(stor, 1, -1)
+	for _, tools := range existing {
+		existingTools[tools.Version] = tools
+	}
 	var agentTools coretools.List = make(coretools.List, len(versions))
 	for i, version := range versions {
-		t, err := uploadFakeToolsVersion(stor, version)
-		if err != nil {
-			return nil, err
+		if tools, ok := existingTools[version]; ok {
+			agentTools[i] = tools
+		} else {
+			t, err := uploadFakeToolsVersion(stor, version)
+			if err != nil {
+				return nil, err
+			}
+			agentTools[i] = t
 		}
-		agentTools[i] = t
 	}
-	err := envtools.WriteMetadata(agentTools, true, stor)
-	if err != nil {
+	if err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
 	return agentTools, nil
@@ -145,7 +153,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 		}
 		agentTools[i] = t
 	}
-	err := envtools.WriteMetadata(agentTools, true, stor)
+	err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors)
 	if err != nil {
 		panic(err)
 	}
@@ -183,6 +191,7 @@ func MustUploadFakeTools(stor storage.Storage) {
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
 func RemoveFakeTools(c *gc.C, stor storage.Storage) {
+	c.Logf("removing fake tools")
 	toolsVersion := version.Current
 	name := envtools.StorageName(toolsVersion)
 	err := stor.Remove(name)
@@ -212,8 +221,6 @@ func RemoveTools(c *gc.C, stor storage.Storage) {
 func RemoveAllTools(c *gc.C, env environs.Environ) {
 	c.Logf("clearing private storage")
 	RemoveTools(c, env.Storage())
-	c.Logf("clearing public storage")
-	RemoveTools(c, env.PublicStorage().(storage.Storage))
 }
 
 var (
@@ -433,3 +440,14 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{V1001p64},
 	}}
+
+func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
+	envConfig, err := st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	attrs := envConfig.AllAttrs()
+	attrs["ssl-hostname-verification"] = SSLHostnameVerification
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = st.SetEnvironConfig(newConfig)
+	c.Assert(err, gc.IsNil)
+}

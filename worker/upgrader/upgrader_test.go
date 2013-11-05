@@ -83,7 +83,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	stor := s.Conn.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
-	err = envtools.WriteMetadata(coretools.List{agentTools}, true, stor)
+	err = envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
@@ -95,7 +95,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	envtesting.CheckTools(c, gotTools, agentTools)
 }
 
-func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-precise-amd64")
 	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
@@ -119,7 +119,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.WriteMetadata(coretools.List{oldTools, newTools}, true, stor)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -147,7 +147,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.WriteMetadata(coretools.List{oldTools, newTools}, true, stor)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
@@ -202,7 +202,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	stor := s.Conn.Environ.Storage()
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
-	err := envtools.WriteMetadata(coretools.List{newTools}, true, stor)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",
@@ -215,4 +215,16 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	link, err := os.Readlink(agenttools.ToolsDir(s.DataDir(), "anAgent"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(link, gc.Equals, newTools.Version.String())
+}
+
+func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
+	stor := s.Conn.Environ.Storage()
+	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	// We've already downloaded the tools, so change the URL to be
+	// something invalid and ensure we don't actually get an error, because
+	// it doesn't actually do an HTTP request
+	u := s.makeUpgrader()
+	newTools.URL = "http://localhost:999999/invalid/path/tools.tgz"
+	err := upgrader.EnsureTools(u, newTools, true)
+	c.Assert(err, gc.IsNil)
 }

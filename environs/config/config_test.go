@@ -32,6 +32,11 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	loggo.ResetLoggers()
+}
+
 // sampleConfig holds a configuration with all required
 // attributes set.
 var sampleConfig = testing.Attrs{
@@ -71,7 +76,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"tools-url":          "tools-url",
+			"tools-metadata-url": "tools-metadata-url",
 		},
 	}, {
 		about:       "Explicit series",
@@ -88,6 +93,14 @@ var configTests = []configTest{
 			"type":           "my-type",
 			"name":           "my-name",
 			"default-series": "",
+		},
+	}, {
+		about:       "Explicit logging",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"logging-config": "juju=INFO",
 		},
 	}, {
 		about:       "Explicit authorized-keys",
@@ -462,8 +475,6 @@ var configTests = []configTest{
 		about:       "Config settings from juju 1.13.3 actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
-			"public-bucket":             "juju-dist",
-			"public-bucket-region":      "us-east-1",
 			"name":                      "sample",
 			"development":               false,
 			"admin-secret":              "",
@@ -474,7 +485,7 @@ var configTests = []configTest{
 			"image-metadata-url":        "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
-			"tools-url":                 "",
+			"tools-metadata-url":        "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
@@ -721,6 +732,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
+	if v, ok := test.attrs["logging-config"]; ok {
+		c.Assert(cfg.LoggingConfig(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.LoggingConfig(), gc.Equals, "<root>=DEBUG")
+	}
+
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -729,7 +746,7 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
 	url, urlPresent = cfg.ToolsURL()
-	if v, _ := test.attrs["tools-url"].(string); v != "" {
+	if v, _ := test.attrs["tools-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
@@ -763,7 +780,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["logging-config"] = loggo.LoggerInfo()
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
-	attrs["tools-url"] = ""
+	attrs["tools-metadata-url"] = ""
+	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)

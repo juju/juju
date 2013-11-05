@@ -23,7 +23,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -254,16 +253,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", &tools.Tools{
-			Version: version.Binary{
-				Number: version.MustParse("1.2.3"),
-				Series: "gutsy",
-				Arch:   "ppc",
-			},
-			URL:    "http://canonical.com/",
-			Size:   10,
-			SHA256: "1234",
-		}},
+		setTools{"0", version.MustParseBinary("1.2.3-gutsy-ppc")},
 		expect{
 			"simulate the MA setting the version",
 			M{
@@ -1316,13 +1306,13 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 
 type setTools struct {
 	machineId string
-	tools     *tools.Tools
+	version   version.Binary
 }
 
 func (st setTools) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(st.machineId)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAgentTools(st.tools)
+	err = m.SetAgentVersion(st.version)
 	c.Assert(err, gc.IsNil)
 }
 

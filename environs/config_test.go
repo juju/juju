@@ -214,18 +214,6 @@ environments:
 	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
-func (suite) TestConfigRoundTrip(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
-	c.Assert(err, gc.IsNil)
-	provider, err := environs.Provider(cfg.Type())
-	c.Assert(err, gc.IsNil)
-	cfg, err = provider.Validate(cfg, nil)
-	c.Assert(err, gc.IsNil)
-	env, err := environs.New(cfg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, env.Config().AllAttrs())
-}
-
 func inMap(attrs testing.Attrs, attr string) bool {
 	_, ok := attrs[attr]
 	return ok

@@ -19,7 +19,6 @@ type baseProviderSuite struct {
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.home = testing.MakeFakeHomeNoEnvironments(c, "test")
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
@@ -30,5 +29,4 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 	s.restore()
 	s.home.Restore()
 	s.TestSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
 }

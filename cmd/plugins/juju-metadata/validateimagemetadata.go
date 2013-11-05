@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -28,27 +29,33 @@ type ValidateImageMetadataCommand struct {
 }
 
 var validateImagesMetadataDoc = `
-validate-images loads simplestreams metadata and validates the contents by looking for images
-belonging to the specified cloud.
+validate-images loads simplestreams metadata and validates the contents by
+looking for images belonging to the specified cloud.
 
-The cloud specificaton comes from the current Juju environment, as specified in the usual way
-from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV. Series, Region, and Endpoint
-are the key attributes.
+The cloud specification comes from the current Juju environment, as specified in
+the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+Series, Region, and Endpoint are the key attributes.
 
-The key environment attributes may be overridden using command arguments, so that the validation
-may be peformed on arbitary metadata.
+The key environment attributes may be overridden using command arguments, so
+that the validation may be peformed on arbitary metadata.
 
 Examples:
 
-- validate using the current environment settings but with series raring
- juju metadata validate-images -s raring
+ - validate using the current environment settings but with series raring
 
-- validate using the current environment settings but with series raring and using metadata from local directory
- juju metadata validate-images -s raring -d <some directory>
+  juju metadata validate-images -s raring
 
-A key use case is to validate newly generated metadata prior to deployment to production.
-In this case, the metadata is placed in a local directory, a cloud provider type is specified (ec2, openstack etc),
-and the validation is performed for each supported region and series.
+ - validate using the current environment settings but with series raring and
+ using metadata from local directory (the directory is expected to have an
+ "images" subdirectory containing the metadata, and corresponds to the parameter
+ passed to the image metadata generatation command).
+
+  juju metadata validate-images -s raring -d <some directory>
+
+A key use case is to validate newly generated metadata prior to deployment to
+production. In this case, the metadata is placed in a local directory, a cloud
+provider type is specified (ec2, openstack etc), and the validation is performed
+for each supported region and series.
 
 Example bash snippet:
 
@@ -100,7 +107,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := environs.NewFromName(c.EnvName, store)
+		environ, err := environs.PrepareFromName(c.EnvName, store)
 		if err != nil {
 			return err
 		}
@@ -141,10 +148,11 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		params.Endpoint = c.endpoint
 	}
 	if c.metadataDir != "" {
-		if _, err := os.Stat(c.metadataDir); err != nil {
+		dir := filepath.Join(c.metadataDir, "images")
+		if _, err := os.Stat(dir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+c.metadataDir, simplestreams.VerifySSLHostnames)}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
 	}
 
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

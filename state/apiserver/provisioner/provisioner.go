@@ -24,6 +24,7 @@ type ProvisionerAPI struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.Addresser
+	*common.ToolsGetter
 
 	st          *state.State
 	resources   *common.Resources
@@ -72,6 +73,7 @@ func NewProvisionerAPI(
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
 		Addresser:       common.NewAddresser(st),
+		ToolsGetter:     common.NewToolsGetter(st, getAuthFunc),
 		st:              st,
 		resources:       resources,
 		authorizer:      authorizer,
@@ -177,6 +179,20 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 		}
 	}
 	result.Config = allAttrs
+	return result, nil
+}
+
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
+func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+	result := params.ContainerConfig{}
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.ProviderType = config.Type()
+	result.AuthorizedKeys = config.AuthorizedKeys()
+	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	return result, nil
 }
 
