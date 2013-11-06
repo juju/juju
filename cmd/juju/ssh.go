@@ -5,15 +5,14 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os/exec"
+	"time"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 )
 
 // SSHCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -24,9 +23,9 @@ type SSHCommand struct {
 // SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
 	cmd.EnvCommandBase
-	Target string
-	Args   []string
-	*juju.Conn
+	Target    string
+	Args      []string
+	apiClient *api.Client
 }
 
 const sshDoc = `
@@ -55,13 +54,13 @@ func (c *SSHCommand) Init(args []string) error {
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *SSHCommand) Run(ctx *cmd.Context) error {
-	if c.Conn == nil {
+	if c.apiClient == nil {
 		var err error
-		c.Conn, err = c.initConn()
+		c.apiClient, err = c.initAPIClient()
 		if err != nil {
 			return err
 		}
-		defer c.Close()
+		defer c.apiClient.Close()
 	}
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
@@ -73,62 +72,38 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
-	c.Close()
 	return cmd.Run()
 }
 
-// initConn initialises the state connection.
+// initAPIClient initialises the state connection.
 // It is the caller's responsibility to close the connection.
-func (c *SSHCommon) initConn() (*juju.Conn, error) {
+func (c *SSHCommon) initAPIClient() (*api.Client, error) {
 	var err error
-	c.Conn, err = juju.NewConnFromName(c.EnvName)
-	return c.Conn, err
+	c.apiClient, err = juju.NewAPIClientFromName(c.EnvName)
+	return c.apiClient, err
 }
 
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
-	// is the target the id of a machine ?
-	if names.IsMachine(target) {
-		log.Infof("looking up address for machine %s...", target)
-		// TODO(dfc) maybe we should have machine.PublicAddress() ?
-		return c.machinePublicAddress(target)
+	var results *params.PublicAddressResults
+	var err error
+	// A target may not initially have an address (e.g. the
+	// address updater hasn't yet run), so we must do this in
+	// a loop.
+	attempt := utils.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 500 * time.Millisecond,
 	}
-	// maybe the target is a unit ?
-	if names.IsUnit(target) {
-		log.Infof("looking up address for unit %q...", c.Target)
-		unit, err := c.State.Unit(target)
-		if err != nil {
-			return "", err
+	for a := attempt.Start(); a.Next(); {
+		results, err = c.apiClient.PublicAddress(target)
+		if err == nil {
+			break
 		}
-		addr, ok := unit.PublicAddress()
-		if !ok {
-			return "", fmt.Errorf("unit %q has no public address", unit)
-		}
-		return addr, nil
 	}
-	return "", fmt.Errorf("unknown unit or machine %q", target)
-}
-
-func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
-	machine, err := c.State.Machine(id)
 	if err != nil {
 		return "", err
 	}
-	// wait for instance id
-	w := machine.Watch()
-	for _ = range w.Changes() {
-		if instid, err := machine.InstanceId(); err == nil {
-			w.Stop()
-			inst, err := c.Environ.Instances([]instance.Id{instid})
-			if err != nil {
-				return "", err
-			}
-			return inst[0].WaitDNSName()
-		} else if !state.IsNotProvisionedError(err) {
-			return "", err
-		}
-	}
-	// oops, watcher closed before we could get an answer
-	return "", w.Stop()
+	logger.Infof("Resolved public address of %q: %q", target, results.PublicAddress)
+	return results.PublicAddress, nil
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that

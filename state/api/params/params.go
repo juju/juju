@@ -134,9 +134,29 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
+// ServiceEndpoints holds parameters for making the ServiceEndpoints call.
+type ServiceEndpoints struct {
+	ServiceName string
+}
+
+// ServiceEndpointsResults holds the result of the ServiceEndpoints call.
+type ServiceEndpointsResults struct {
+	Endpoints []string
+}
+
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
+}
+
+// PublicAddress holds parameters for the PublicAddress call.
+type PublicAddress struct {
+	Target string
+}
+
+// PublicAddressResults holds results of the PublicAddress call.
+type PublicAddressResults struct {
+	PublicAddress string
 }
 
 // Resolved holds parameters for the Resolved call.

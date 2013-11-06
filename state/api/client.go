@@ -61,6 +61,15 @@ func (c *Client) Resolved(unit string, retry bool) error {
 	return c.st.Call("Client", "", "Resolved", p, nil)
 }
 
+// PublicAddress returns the public address of the specified
+// machine or unit.
+func (c *Client) PublicAddress(target string) (*params.PublicAddressResults, error) {
+	var results params.PublicAddressResults
+	p := params.PublicAddress{Target: target}
+	err := c.st.Call("Client", "", "PublicAddress", p, &results)
+	return &results, err
+}
+
 // ServiceSetYAML sets configuration options on a service
 // given options in YAML format.
 func (c *Client) ServiceSetYAML(service string, yaml string) error {
@@ -91,6 +100,14 @@ func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, e
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
+}
+
+// ServiceEndpoints returns the service's endpoint relation names.
+func (c *Client) ServiceEndpoints(service string) (*params.ServiceEndpointsResults, error) {
+	var results params.ServiceEndpointsResults
+	params := params.ServiceEndpoints{ServiceName: service}
+	err := c.st.Call("Client", "", "ServiceEndpoints", params, &results)
+	return &results, err
 }
 
 // DestroyMachines removes a given set of machines.
