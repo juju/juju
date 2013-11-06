@@ -273,3 +273,16 @@ func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 func (c *Client) Close() error {
 	return c.st.Close()
 }
+
+// EnvironmentGet returns all environment settings.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentGetResults{}
+	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// EnvironmentSet sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentSet(config map[string]interface{}) error {
+	args := params.EnvironmentSet{Config: config}
+	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
+}
