@@ -30,7 +30,7 @@ func writeInternal(writer io.Writer, format string, params ...interface{}) {
 		if !strings.HasSuffix(output, "\n") {
 			output = output + "\n"
 		}
-		io.WriteString(writer, output)
+		fmt.Fprintf(writer, output)
 	}
 }
 
