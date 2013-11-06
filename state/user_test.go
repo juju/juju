@@ -83,7 +83,7 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, gc.IsNil)
 
-	err = u.SetPasswordHash(utils.CompatPasswordHash("foo"), "")
+	err = u.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
@@ -108,14 +108,14 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
 	salt, hash := state.GetUserPasswordSaltAndHash(u)
 	c.Assert(salt, gc.Equals, "salted")
-	c.Assert(hash, gc.Not(gc.Equals), utils.CompatPasswordHash("foo"))
+	c.Assert(hash, gc.Not(gc.Equals), utils.UserPasswordHash("foo", utils.CompatSalt))
 }
 
 func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, gc.IsNil)
 
-	compatHash := utils.CompatPasswordHash("foo")
+	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
 	err = u.SetPasswordHash(compatHash, "")
 	c.Assert(err, gc.IsNil)
 	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(u)

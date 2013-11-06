@@ -252,7 +252,9 @@ func (u *Unit) PasswordValid(password string) bool {
 	// In Juju 1.16 and older we used the slower password hash for unit
 	// agents. So check to see if the supplied password matches the old
 	// path, and if so, update it to the new mechanism.
-	if utils.CompatPasswordHash(password) == u.doc.PasswordHash {
+	// We ignore any error in setting the password, as we'll just try again
+	// next time
+	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
 		u.setPasswordHash(agentHash)
 		return true
 	}

@@ -104,7 +104,6 @@ func (u *User) SetPassword(password string) error {
 // inverse of pwHash = utils.UserPasswordHash(pw, pwSalt).
 // It can be used when we know only the hash
 // of the password, but not the clear text.
-// If pwSalt is empty, then pwHash should match utils.CompatPasswordHash(pw)
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
@@ -130,9 +129,11 @@ func (u *User) PasswordValid(password string) bool {
 		return utils.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
 	}
 	// In Juju 1.16 and older, we did not set a Salt for the user password,
-	// so check if the password hash matches CompatPasswordHash(). if it
-	// does, then set the password again so that we get a salt
-	if utils.CompatPasswordHash(password) == u.doc.PasswordHash {
+	// so check if the password hash matches using CompatSalt. if it
+	// does, then set the password again so that we get a proper salt
+	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
+		// This will set a new Salt for the password. We ignore if it
+		// fails because we will try again at the next request
 		u.SetPassword(password)
 		return true
 	}

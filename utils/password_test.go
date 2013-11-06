@@ -52,24 +52,7 @@ func (passwordSuite) TestRandomSalt(c *gc.C) {
 
 var testPasswords = []string{"", "a", "a longer password than i would usually bother with"}
 
-func (passwordSuite) TestCompatPasswordHash(c *gc.C) {
-	seenHashes := make(map[string]bool)
-	for i, t := range testPasswords {
-		c.Logf("test %d", i)
-		hashed := utils.CompatPasswordHash(t)
-		c.Logf("hash %q", hashed)
-		c.Assert(len(hashed), gc.Equals, 24)
-		c.Assert(seenHashes[hashed], gc.Equals, false)
-		// check we're not adding base64 padding.
-		c.Assert(hashed, gc.Matches, base64Chars)
-		seenHashes[hashed] = true
-		// check it's deterministic
-		h1 := utils.CompatPasswordHash(t)
-		c.Assert(h1, gc.Equals, hashed)
-	}
-}
-
-var testSalts = []string{"abcd", "abcdefgh", "abcdefghijklmnop"}
+var testSalts = []string{"abcd", "abcdefgh", "abcdefghijklmnop", utils.CompatSalt}
 
 func (passwordSuite) TestUserPasswordHash(c *gc.C) {
 	seenHashes := make(map[string]bool)

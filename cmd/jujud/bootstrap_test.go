@@ -76,7 +76,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 var testPassword = "my-admin-secret"
 
 func testPasswordHash() string {
-	return utils.CompatPasswordHash(testPassword)
+	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
 func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {

@@ -13,8 +13,9 @@ import (
 	"launchpad.net/juju-core/thirdparty/pbkdf2"
 )
 
-// In Juju 1.16 and older we used a hard-coded salt for all Users
-var oldDefaultSalt = []byte{0x75, 0x82, 0x81, 0xca}
+// CompatSalt is because Juju 1.16 and older used a hard-coded salt to compute
+// the password hash for all users and agents
+var CompatSalt = string([]byte{0x75, 0x82, 0x81, 0xca})
 
 // RandomBytes returns n random bytes.
 func RandomBytes(n int) ([]byte, error) {
@@ -68,14 +69,6 @@ func UserPasswordHash(password string, salt string) string {
 	// padding characters).
 	h := pbkdf2.Key([]byte(password), []byte(salt), iter, 18, sha512.New)
 	return base64.StdEncoding.EncodeToString(h)
-}
-
-// CompatPasswordHash returns the UserPasswordHash hashed with the old default
-// salt. This is the password hash that was always generated for Juju 1.16 and
-// older. Newer versions of Juju use UserPasswordHash with a Salt value or
-// AgentPasswordHash with a required longer password for machine/unit agents.
-func CompatPasswordHash(password string) string {
-	return UserPasswordHash(password, string(oldDefaultSalt))
 }
 
 // AgentPasswordHash returns base64-encoded one-way hash of password. This is

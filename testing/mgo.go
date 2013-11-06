@@ -281,7 +281,7 @@ func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
 	// Then try the two most likely passwords in turn.
 	for _, password := range []string{
 		DefaultMongoPassword,
-		utils.CompatPasswordHash(DefaultMongoPassword),
+		utils.UserPasswordHash(DefaultMongoPassword, utils.CompatSalt),
 	} {
 		admin := session.DB("admin")
 		if err := admin.Login("admin", password); err != nil {
