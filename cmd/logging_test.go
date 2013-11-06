@@ -158,3 +158,39 @@ func (s *LogSuite) TestQuietAndVerbose(c *gc.C) {
 	err := l.Start(ctx)
 	c.Assert(err, gc.ErrorMatches, `"verbose" and "quiet" flags clash`)
 }
+
+func (s *LogSuite) TestOutputDefault(c *gc.C) {
+	l := &cmd.Log{}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	cmd.Infof("Writing info output")
+	cmd.Verbosef("Writing verbose output")
+
+	c.Assert(testing.Stderr(ctx), gc.Equals, "Writing info output\n")
+}
+
+func (s *LogSuite) TestOutputVerbose(c *gc.C) {
+	l := &cmd.Log{Verbose: true}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	cmd.Infof("Writing info output")
+	cmd.Verbosef("Writing verbose output")
+
+	c.Assert(testing.Stderr(ctx), gc.Equals, "Writing info output\nWriting verbose output\n")
+}
+
+func (s *LogSuite) TestOutputQuiet(c *gc.C) {
+	l := &cmd.Log{Quiet: true}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	cmd.Infof("Writing info output")
+	cmd.Verbosef("Writing verbose output")
+
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+}
