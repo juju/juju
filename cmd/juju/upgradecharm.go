@@ -134,16 +134,9 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
 	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath), conf.CharmStoreAuth())
 	if err != nil {
 		return err
-	}
-
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth := conf.CharmStoreAuth(); auth != "" {
-		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			CS.SetAuthToken(auth)
-		}
 	}
 
 	// If no explicit revision was set with either SwitchURL

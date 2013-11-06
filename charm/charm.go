@@ -32,10 +32,18 @@ func Read(path string) (Charm, error) {
 
 // InferRepository returns a charm repository inferred from
 // the provided URL. Local URLs will use the provided path.
-func InferRepository(curl *URL, localRepoPath string) (repo Repository, err error) {
+// If provided, an authentication token is set for the charm store.
+func InferRepository(curl *URL, localRepoPath, authToken string) (repo Repository, err error) {
 	switch curl.Schema {
 	case "cs":
-		repo = Store
+		if authToken == "" {
+			repo = Store
+		} else {
+			// create a local copy of the charm store with token set
+			modCS := *Store
+			modCS.setAuthToken(authToken)
+			repo = &modCS
+		}
 	case "local":
 		if localRepoPath == "" {
 			return nil, errors.New("path to local repository not specified")

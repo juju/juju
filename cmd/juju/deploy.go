@@ -124,16 +124,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath), conf.CharmStoreAuth())
 	if err != nil {
 		return err
-	}
-
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth := conf.CharmStoreAuth(); auth != "" {
-		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			CS.SetAuthToken(auth)
-		}
 	}
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client

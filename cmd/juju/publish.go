@@ -110,7 +110,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		pushLocation = c.changePushLocation(pushLocation)
 	}
 
-	repo, err := charm.InferRepository(curl, "/not/important")
+	repo, err := charm.InferRepository(curl, "/not/important", "")
 	if err != nil {
 		return err
 	}
