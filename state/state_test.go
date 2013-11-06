@@ -1390,17 +1390,14 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 }
 
 func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
-	//TODO: Test that we *cannot* set agent passwords that are too short.
-
 	// In Juju versions 1.16 and older we used UserPasswordHash(password,CompatSalt)
 	// for Machine and Unit agents. This was determined to be overkill
 	// (since we know that Unit agents will actually use
 	// utils.RandomPassword() and get 18 bytes of entropy, and thus won't
 	// be brute-forced.)
 	c.Assert(entity.PasswordValid(goodPassword), jc.IsFalse)
-	agentHash, err := utils.AgentPasswordHash(goodPassword)
-	c.Assert(err, gc.IsNil)
-	err = state.SetPasswordHash(entity, agentHash)
+	agentHash := utils.AgentPasswordHash(goodPassword)
+	err := state.SetPasswordHash(entity, agentHash)
 	c.Assert(err, gc.IsNil)
 	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
 	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
@@ -1418,6 +1415,22 @@ func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
 	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
 	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
 
+
+	// Agents are unable to set short passwords
+	err = entity.SetPassword("short")
+	c.Check(err, gc.ErrorMatches, "password is only 5 bytes long, and is not a valid Agent password")
+	// Grandfather clause. Agents that have short passwords are allowed if
+	// it was done in the compatHash form
+	agentHash = utils.AgentPasswordHash("short")
+	backwardsCompatibleHash = utils.UserPasswordHash("short", utils.CompatSalt)
+	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
+	// We'll still update the hash, but now it points to the hash of the
+	// shorter password. Agents still can't set the password to it
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
+	// Still valid with the shorter password
+	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
 }
 
 type entity interface {

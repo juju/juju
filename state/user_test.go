@@ -90,12 +90,12 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	c.Assert(u.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
-	hash, err := utils.AgentPasswordHash("foo-12345678901234567890")
+	hash := utils.AgentPasswordHash("foo-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	err = u.SetPasswordHash(hash, "")
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.PasswordValid("foo"), jc.IsFalse)
+	c.Assert(u.PasswordValid("foo-12345678901234567890"), jc.IsFalse)
 }
 
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {

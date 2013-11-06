@@ -17,6 +17,11 @@ import (
 // the password hash for all users and agents
 var CompatSalt = string([]byte{0x75, 0x82, 0x81, 0xca})
 
+// MinAgentPasswordLength describes how long agent passwords should be. We
+// require this length because we assume enough entropy in the Agent password
+// that it is safe to not do as much 
+const MinAgentPasswordLength = 24
+
 // RandomBytes returns n random bytes.
 func RandomBytes(n int) ([]byte, error) {
 	buf := make([]byte, n)
@@ -77,15 +82,10 @@ func UserPasswordHash(password string, salt string) string {
 // agents, we can trust that there is sufficient entropy to prevent brute force
 // search. And using a faster hash allows us to restart the state machines and
 // have 1000s of agents log in in a reasonable amount of time.
-// As a sanity check that AgentPasswordHash is being used correctly, we require
-// the minimum length of password to be 18 characters.
-func AgentPasswordHash(password string) (string, error) {
-	if len(password) < 24 {
-		return "", fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
+func AgentPasswordHash(password string) string {
 	sum := sha512.New()
 	sum.Write([]byte(password))
 	h := make([]byte, 0, sum.Size())
 	h = sum.Sum(h)
-	return base64.StdEncoding.EncodeToString(h[:18]), nil
+	return base64.StdEncoding.EncodeToString(h[:18])
 }

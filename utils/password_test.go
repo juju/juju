@@ -73,14 +73,6 @@ func (passwordSuite) TestUserPasswordHash(c *gc.C) {
 	}
 }
 
-func (passwordSuite) TestAgentPasswordHashRefusesShortPasswords(c *gc.C) {
-	// The passwords we have been creating have all been 18 bytes of random
-	// data base64 encoded into 24 actual bytes.
-	_, err := utils.AgentPasswordHash("not quite 24 chars")
-	c.Assert(err, gc.ErrorMatches,
-		"password is only 18 bytes long, and is not a valid Agent password")
-}
-
 func (passwordSuite) TestAgentPasswordHash(c *gc.C) {
 	seenValues := make(map[string]bool)
 	for i := 0; i < 1000; i++ {
@@ -88,8 +80,7 @@ func (passwordSuite) TestAgentPasswordHash(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(seenValues[password], jc.IsFalse)
 		seenValues[password] = true
-		hashed, err := utils.AgentPasswordHash(password)
-		c.Assert(err, gc.IsNil)
+		hashed := utils.AgentPasswordHash(password)
 		c.Assert(hashed, gc.Not(gc.Equals), password)
 		c.Assert(seenValues[hashed], jc.IsFalse)
 		seenValues[hashed] = true

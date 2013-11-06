@@ -240,12 +240,10 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	agentHash, err := utils.AgentPasswordHash(password)
-	if err != nil {
-		// This password is too short to be used as an agent password
-		return err
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	return m.setPasswordHash(agentHash)
+	return m.setPasswordHash(utils.AgentPasswordHash(password))
 }
 
 // setPasswordHash sets the underlying password hash in the database directly
@@ -275,12 +273,7 @@ func (m *Machine) getPasswordHash() string {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	agentHash, err := utils.AgentPasswordHash(password)
-	if err != nil {
-		// This password is too short to be used as an agent password,
-		// so it will never be valid
-		return false
-	}
+	agentHash := utils.AgentPasswordHash(password)
 	if agentHash == m.doc.PasswordHash {
 		return true
 	}
