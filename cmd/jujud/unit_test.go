@@ -10,16 +10,17 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
 )
 
 type UnitSuite struct {
-	testing.GitSuite
+	coretesting.GitSuite
 	agentSuite
 }
 
@@ -97,7 +98,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		select {
 		case <-timeout:
 			c.Fatalf("no activity detected")
-		case <-time.After(testing.ShortWait):
+		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, gc.IsNil)
 			st, info, data, err := unit.Status()
@@ -181,6 +182,7 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
+	jujutesting.AddStateServerMachine(c, s.State)
 	// Start a unit agent and make sure it doesn't set a mongo password
 	// we can use to connect to state with.
 	unit, conf, _ := s.primeAgent(c)
