@@ -274,12 +274,10 @@ func (c *Client) Close() error {
 	return c.st.Close()
 }
 
-// EnvironmentGet returns a single named environment setting, if key
-// is not empty, or all settings otherwise.
-func (c *Client) EnvironmentGet(key string) (map[string]interface{}, error) {
-	args := params.EnvironmentGet{Key: key}
+// EnvironmentGet returns all environment settings.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 	result := params.EnvironmentGetResults{}
-	err := c.st.Call("Client", "", "EnvironmentGet", args, &result)
+	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
 	return result.Results, err
 }
 

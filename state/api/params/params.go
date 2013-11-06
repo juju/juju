@@ -427,13 +427,6 @@ type ContainerConfig struct {
 	SSLHostnameVerification bool
 }
 
-// EnvironmentGet contains the arguments for EnvironmentGet client API
-// call. Key can be empty, which will cause the call to return all
-// environment keys and their values.
-type EnvironmentGet struct {
-	Key string
-}
-
 // EnvironmentGetResults contains the result of EnvironmentGet client
 // API call.
 type EnvironmentGetResults struct {

@@ -555,24 +555,14 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 
 // EnvironmentGet implements the server-side part of the
 // get-environment CLI command.
-func (c *Client) EnvironmentGet(args params.EnvironmentGet) (params.EnvironmentGetResults, error) {
+func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 	result := params.EnvironmentGetResults{}
 	// Get the existing environment config from the state.
 	config, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return result, err
 	}
-	attrs := config.AllAttrs()
-
-	// If no key specified, return the whole lot.
-	if args.Key == "" {
-		result.Results = attrs
-	} else if value, found := attrs[args.Key]; found {
-		result.Results = make(map[string]interface{})
-		result.Results[args.Key] = value
-	} else {
-		return result, fmt.Errorf("Key %q not found in %q environment.", args.Key, config.Name())
-	}
+	result.Results = config.AllAttrs()
 	return result, nil
 }
 

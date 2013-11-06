@@ -60,15 +60,18 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	attrs, err := client.EnvironmentGet(c.key)
+	attrs, err := client.EnvironmentGet()
 	if err != nil {
 		return err
 	}
 
-	// If key is empty, write out the whole lot.
 	if c.key != "" {
-		return c.out.Write(ctx, attrs[c.key])
+		if value, found := attrs[c.key]; found {
+			return c.out.Write(ctx, value)
+		}
+		return fmt.Errorf("Key %q not found in %q environment.", c.key, attrs["name"])
 	}
+	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
 }
 
