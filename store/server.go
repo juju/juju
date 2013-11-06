@@ -79,6 +79,12 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	// Check for authentication token and just log it for now
+	if token := r.Header.Get("juju-auth"); token != "" {
+		log.Infof("Authentication token received: %s", token)
+	}
+
 	r.ParseForm()
 	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
@@ -166,9 +172,16 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
+
 	if !strings.HasPrefix(r.URL.Path, "/charm/") {
 		panic("serveCharm: bad url")
 	}
+
+	// Check for authentication token and just log it for now
+	if token := r.Header.Get("juju-auth"); token != "" {
+		log.Infof("Authentication token received: %s", token)
+	}
+
 	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
