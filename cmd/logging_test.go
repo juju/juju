@@ -29,6 +29,7 @@ func (s *LogSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
+		cmd.ResetCommandWriters()
 	})
 }
 
@@ -193,4 +194,19 @@ func (s *LogSuite) TestOutputQuiet(c *gc.C) {
 	cmd.Verbosef("Writing verbose output")
 
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *LogSuite) TestOutputQuietLogs(c *gc.C) {
+	l := &cmd.Log{Quiet: true, Path: "foo.log", Config: "<root>=INFO"}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	cmd.Infof("Writing info output")
+	cmd.Verbosef("Writing verbose output")
+
+	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(string(content), gc.Matches, `^.*INFO .* Writing info output\n.*INFO .*Writing verbose output\n.*`)
 }
