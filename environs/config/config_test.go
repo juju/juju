@@ -493,6 +493,14 @@ var configTests = []configTest{
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
 		},
+	}, {
+		about:       "Auth token present.",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"charm-store-auth": "some auth token",
+			"type":             "my-type",
+			"name":             "my-name",
+		},
 	},
 	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),

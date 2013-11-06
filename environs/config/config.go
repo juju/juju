@@ -495,6 +495,7 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"logging-config":            schema.String(),
+	"charm-store-auth":          schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -528,6 +529,9 @@ var alwaysOptional = schema.Defaults{
 	// not filled out in previous versions of the configuration.
 	"state-port": DefaultStatePort,
 	"api-port":   DefaultAPIPort,
+
+	// Authentication string sent with requests to the charm store
+	"charm-store-auth": schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
