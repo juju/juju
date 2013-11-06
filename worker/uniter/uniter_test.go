@@ -365,7 +365,6 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 var multipleErrorsTests = []uniterTest{
 	ut(
 		"resolved is cleared before moving on to next hook",
-		ensureStateWorker{},
 		createCharm{badHooks: []string{"install", "config-changed", "start"}},
 		serveCharm{},
 		createUniter{},
@@ -444,7 +443,6 @@ var configChangedHookTests = []uniterTest{
 	),
 	ut(
 		"steady state config change with config-get verification",
-		ensureStateWorker{},
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
@@ -491,9 +489,9 @@ var hookSynchronizationTests = []uniterTest{
 		"verify held lock by another unit is not broken",
 		acquireHookSyncLock{"u/1:fake"},
 		// Can't use quickstart as it has a built in waitHooks.
-		ensureStateWorker{},
 		createCharm{},
 		serveCharm{},
+		ensureStateWorker{},
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
@@ -531,7 +529,6 @@ var dyingReactionTests = []uniterTest{
 		waitHooks{},
 	), ut(
 		"hook error service dying",
-		ensureStateWorker{},
 		startupError{"start"},
 		serviceDying,
 		verifyWaiting{},
@@ -541,7 +538,6 @@ var dyingReactionTests = []uniterTest{
 		waitUniterDead{},
 	), ut(
 		"hook error unit dying",
-		ensureStateWorker{},
 		startupError{"start"},
 		unitDying,
 		verifyWaiting{},
@@ -551,7 +547,6 @@ var dyingReactionTests = []uniterTest{
 		waitUniterDead{},
 	), ut(
 		"hook error unit dead",
-		ensureStateWorker{},
 		startupError{"start"},
 		unitDead,
 		waitUniterDead{},
@@ -762,7 +757,6 @@ var upgradeConflictsTests = []uniterTest{
 		verifyCharm{revision: 1},
 	), ut(
 		`upgrade: conflicting directories`,
-		ensureStateWorker{},
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				err := os.Mkdir(filepath.Join(path, "data"), 0755)
@@ -1211,6 +1205,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 type createUniter struct{}
 
 func (createUniter) step(c *gc.C, ctx *context) {
+	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
 	step(c, ctx, waitAddresses{})
@@ -1355,7 +1350,6 @@ type startupError struct {
 }
 
 func (s startupError) step(c *gc.C, ctx *context) {
-	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -1376,7 +1370,6 @@ func (s startupError) step(c *gc.C, ctx *context) {
 type quickStart struct{}
 
 func (s quickStart) step(c *gc.C, ctx *context) {
-	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -1400,7 +1393,6 @@ type startupRelationError struct {
 }
 
 func (s startupRelationError) step(c *gc.C, ctx *context) {
-	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
@@ -1578,7 +1570,6 @@ type startUpgradeError struct{}
 
 func (s startUpgradeError) step(c *gc.C, ctx *context) {
 	steps := []stepper{
-		ensureStateWorker{},
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				appendHook(c, path, "start", "echo STARTDATA > data")
