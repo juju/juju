@@ -1256,3 +1256,9 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, "value")
 }
+
+func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
+	args := map[string]interface{}{"agent-version": "9.9.9"}
+	err := s.APIState.Client().EnvironmentSet(args)
+	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
+}

@@ -278,11 +278,11 @@ func (c *Client) Close() error {
 func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 	result := params.EnvironmentGetResults{}
 	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
-	return result.Results, err
+	return result.Config, err
 }
 
 // EnvironmentSet sets the given key-value pairs in the environment.
-func (c *Client) EnvironmentSet(items map[string]interface{}) error {
-	args := params.EnvironmentSet{Items: items}
+func (c *Client) EnvironmentSet(config map[string]interface{}) error {
+	args := params.EnvironmentSet{Config: config}
 	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
 }
