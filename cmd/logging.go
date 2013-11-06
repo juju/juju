@@ -74,7 +74,7 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 // Start starts logging using the given Context.
 func (log *Log) Start(ctx *Context) error {
 	if log.Verbose && log.Quiet {
-		return fmt.Errorf("Verbose and Quiet flags clash")
+		return fmt.Errorf(`"verbose" and "quiet" flags clash`)
 	}
 	if !log.Quiet {
 		infoWriter = ctx.Stderr
