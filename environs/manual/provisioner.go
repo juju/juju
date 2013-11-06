@@ -13,12 +13,12 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/provisioner"
-	"launchpad.net/juju-core/juju"
 )
 
 const manualInstancePrefix = "manual:"
@@ -33,8 +33,8 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// Client is the API client to use to get the environment configuration.
-	Client *api.Client
+	// EnvName is the name of the environment for which the machine will be provisioned.
+	EnvName string
 
 	// Tools to install on the machine. If nil, tools will be automatically
 	// chosen using environs/tools FindInstanceTools.
@@ -52,6 +52,10 @@ var ErrProvisioned = errors.New("machine is already provisioned")
 // On successful completion, this function will return the state.Machine
 // that was entered into state.
 func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
+	conn, err := juju.NewConnFromName(args.EnvName)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if m != nil && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", m, err)
@@ -59,13 +63,9 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 			m.Remove()
 			m = nil
 		}
+		conn.Close()
 	}()
 
-	conn, err := juju.NewConnFromName("TODO")//EnvName
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
 	cfg, err := conn.State.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	instanceId := instance.Id(manualInstancePrefix + sshHostWithoutUser)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	m, err = injectMachine(injectMachineArgs{
-		st:         args.State,
+		st:         conn.State,
 		instanceId: instanceId,
 		addrs:      addrs,
 		series:     series,

@@ -6,8 +6,8 @@ package api
 import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // Client represents the client-accessible part of the state.

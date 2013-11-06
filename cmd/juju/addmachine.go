@@ -115,8 +115,8 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 
 	if c.SSHHost != "" {
 		args := manual.ProvisionMachineArgs{
-			Host: c.SSHHost,
-			Client: client,
+			Host:    c.SSHHost,
+			EnvName: c.EnvName,
 		}
 		_, err = manual.ProvisionMachine(args)
 		return err
