@@ -41,6 +41,7 @@ const initialUnitPassword = "unit-password"
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools) {
+	jujutesting.AddStateServerMachine(c, s.State)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
@@ -182,7 +183,6 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
-	jujutesting.AddStateServerMachine(c, s.State)
 	// Start a unit agent and make sure it doesn't set a mongo password
 	// we can use to connect to state with.
 	unit, conf, _ := s.primeAgent(c)
