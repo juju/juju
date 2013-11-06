@@ -14,9 +14,8 @@ import (
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -108,16 +107,16 @@ func (c *AddMachineCommand) Init(args []string) error {
 }
 
 func (c *AddMachineCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 
 	if c.SSHHost != "" {
 		args := manual.ProvisionMachineArgs{
-			Host:  c.SSHHost,
-			State: conn.State,
+			Host: c.SSHHost,
+			Client: client,
 		}
 		_, err = manual.ProvisionMachine(args)
 		return err
@@ -125,26 +124,32 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 
 	series := c.Series
 	if series == "" {
-		conf, err := conn.State.EnvironConfig()
+		info, err := client.EnvironmentInfo()
 		if err != nil {
 			return err
 		}
-		series = conf.DefaultSeries()
+		series = info.DefaultSeries
 	}
-	params := state.AddMachineParams{
+	machineParams := params.AddMachineParams{
 		ParentId:      c.MachineId,
 		ContainerType: c.ContainerType,
 		Series:        series,
 		Constraints:   c.Constraints,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}
-	m, err := conn.State.AddMachineWithConstraints(&params)
-	if err == nil {
-		if c.ContainerType == "" {
-			log.Infof("created machine %v", m)
-		} else {
-			log.Infof("created %q container on machine %v", c.ContainerType, m)
-		}
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	if err != nil {
+		return err
 	}
-	return err
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return machineInfo.Error
+	}
+	if c.ContainerType == "" {
+		logger.Infof("created machine %v", machineInfo.Machine)
+	} else {
+		logger.Infof("created %q container on machine %v", c.ContainerType, machineInfo.Machine)
+	}
+	return nil
 }

@@ -28,7 +28,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
 	c.Assert(err, gc.IsNil)
 	return ProvisionMachineArgs{
 		Host:  hostname,
-		State: s.State,
+		Client: s.State.Client(),
 	}
 }
 

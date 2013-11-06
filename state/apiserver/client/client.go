@@ -439,6 +439,39 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	results := params.AddMachinesResults{
+		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+	for i, machineParams := range args.MachineParams {
+		stateMachineParams := state.AddMachineParams{
+			Series:        machineParams.Series,
+			Constraints:   machineParams.Constraints,
+			ParentId:      machineParams.ParentId,
+			ContainerType: machineParams.ContainerType,
+		}
+		// Convert params.MachineJob to state.MachineJob
+		stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
+		var jobError error
+		for j, job := range machineParams.Jobs {
+			if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
+				break
+			}
+		}
+		if jobError != nil {
+			results.Machines[i].Error = common.ServerError(jobError)
+			continue
+		}
+		machine, err := c.api.state.AddMachineWithConstraints(&stateMachineParams)
+		results.Machines[i].Error = common.ServerError(err)
+		if err == nil {
+			results.Machines[i].Machine = machine.String()
+		}
+	}
+	return results, nil
+}
+
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return c.api.state.DestroyMachines(args.MachineNames...)

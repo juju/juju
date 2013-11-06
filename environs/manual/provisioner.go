@@ -13,12 +13,12 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/provisioner"
+	"launchpad.net/juju-core/juju"
 )
 
 const manualInstancePrefix = "manual:"
@@ -33,8 +33,8 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// State is the *state.State object to register the machine with.
-	State *state.State
+	// Client is the API client to use to get the environment configuration.
+	Client *api.Client
 
 	// Tools to install on the machine. If nil, tools will be automatically
 	// chosen using environs/tools FindInstanceTools.
@@ -61,11 +61,18 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		}
 	}()
 
-	var env environs.Environ
-	if conn, err := juju.NewConnFromState(args.State); err != nil {
+	conn, err := juju.NewConnFromName("TODO")//EnvName
+	if err != nil {
 		return nil, err
-	} else {
-		env = conn.Environ
+	}
+	defer conn.Close()
+	cfg, err := conn.State.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	sshHostWithoutUser := args.Host

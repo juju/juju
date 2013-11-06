@@ -181,3 +181,5 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 func ParseTag(st *State, tag string) (string, string, error) {
 	return st.parseTag(tag)
 }
+
+var JobNames = jobNames

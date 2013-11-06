@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/environs/config"
 )
 
 // Client represents the client-accessible part of the state.
@@ -23,6 +24,13 @@ type MachineInfo struct {
 type Status struct {
 	Machines map[string]MachineInfo
 	// TODO the rest
+}
+
+// EnvironConfig returns the environment config stored in state.
+// This method will disappear when more API migration is complete.
+// TODO - when get-environment is migrated to use the api, this can be refactored.
+func (c *Client) EnvironConfig() (*config.Config, error) {
+	return nil, nil
 }
 
 // Status returns the status of the juju environment.
@@ -93,6 +101,16 @@ func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, e
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
+}
+
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "AddMachines", args, results)
+	return results.Machines, err
 }
 
 // DestroyMachines removes a given set of machines.

@@ -40,6 +40,16 @@ func (s *MachineSuite) TestContainerDefaults(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []string(nil))
 }
 
+func (s *MachineSuite) TestMachineJobFromParams(c *gc.C) {
+	for stateMachineJob, paramsMachineJob := range state.JobNames {
+		job, err := state.MachineJobFromParams(paramsMachineJob)
+		c.Assert(err, gc.IsNil)
+		c.Assert(job, gc.Equals, stateMachineJob)
+	}
+	_, err := state.MachineJobFromParams("invalid")
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *MachineSuite) TestParentId(c *gc.C) {
 	parentId, ok := s.machine.ParentId()
 	c.Assert(parentId, gc.Equals, "")
