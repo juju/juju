@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -457,4 +458,54 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// EnvironmentGet implements the server-side part of the
+// get-environment CLI command.
+func (c *Client) EnvironmentGet(args params.EnvironmentGet) (params.EnvironmentGetResults, error) {
+	result := params.EnvironmentGetResults{}
+	// Get the existing environment config from the state.
+	config, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	attrs := config.AllAttrs()
+
+	// If no key specified, return the whole lot.
+	if args.Key == "" {
+		result.Results = attrs
+	} else if value, found := attrs[args.Key]; found {
+		result.Results = make(map[string]interface{})
+		result.Results[args.Key] = value
+	} else {
+		return result, fmt.Errorf("Key %q not found in %q environment.", args.Key, config.Name())
+	}
+	return result, nil
+}
+
+// EnvironmentSet implements the server-side part of the
+// set-environment CLI command.
+func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
+	// Get the existing environment config from the state.
+	oldConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// Apply the attributes specified for the command to the state config.
+	newConfig, err := oldConfig.Apply(args.Items)
+	if err != nil {
+		return err
+	}
+	env, err := environs.New(oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now validate this new config against the existing config via the provider.
+	provider := env.Provider()
+	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now try to apply the new validated config.
+	return c.api.state.SetEnvironConfig(newProviderConfig)
 }

@@ -54,30 +54,22 @@ func (c *GetEnvironmentCommand) Init(args []string) (err error) {
 }
 
 func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 
-	// Get the existing environment config from the state.
-	config, err := conn.State.EnvironConfig()
+	attrs, err := client.EnvironmentGet(c.key)
 	if err != nil {
 		return err
 	}
-	attrs := config.AllAttrs()
 
-	// If no key specified, write out the whole lot.
-	if c.key == "" {
-		return c.out.Write(ctx, attrs)
+	// If key is empty, write out the whole lot.
+	if c.key != "" {
+		return c.out.Write(ctx, attrs[c.key])
 	}
-
-	value, found := attrs[c.key]
-	if found {
-		return c.out.Write(ctx, value)
-	}
-
-	return fmt.Errorf("Key %q not found in %q environment.", c.key, config.Name())
+	return c.out.Write(ctx, attrs)
 }
 
 type attributes map[string]interface{}
@@ -130,30 +122,11 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 }
 
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 
-	// Here is the magic around setting the attributes:
-	// TODO(thumper): get this magic under test somewhere, and update other call-sites to use it.
-	// Get the existing environment config from the state.
-	oldConfig, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	// Apply the attributes specified for the command to the state config.
-	newConfig, err := oldConfig.Apply(c.values)
-	if err != nil {
-		return err
-	}
-	// Now validate this new config against the existing config via the provider.
-	provider := conn.Environ.Provider()
-	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now try to apply the new validated config.
-	return conn.State.SetEnvironConfig(newProviderConfig)
+	return client.EnvironmentSet(c.values)
 }
