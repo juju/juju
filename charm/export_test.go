@@ -8,5 +8,5 @@ package charm
 var IfaceExpander = ifaceExpander
 
 func NewStore(url string) *CharmStore {
-	return &CharmStore{url}
+	return &CharmStore{BaseURL: url}
 }

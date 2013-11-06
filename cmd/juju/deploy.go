@@ -128,6 +128,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// If a charm store auth token is set, pass it on to the charm store
+	if auth := conf.CharmStoreAuth(); auth != "" {
+		if CS, isCS := repo.(*charm.CharmStore); isCS {
+			CS.SetAuthToken(auth)
+		}
+	}
+
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.
 	// PutCharm will always be required in some form for local charms; and we

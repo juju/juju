@@ -778,6 +778,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"default-series":            "precise",
+		"charm-store-auth":          "auth-token",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

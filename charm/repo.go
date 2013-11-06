@@ -59,15 +59,33 @@ func (e *NotFoundError) Error() string {
 
 // CharmStore is a Repository that provides access to the public juju charm store.
 type CharmStore struct {
-	BaseURL string
+	BaseURL   string
+	authToken string
 }
 
-var Store = &CharmStore{"https://store.juju.ubuntu.com"}
+var Store = &CharmStore{BaseURL: "https://store.juju.ubuntu.com"}
+
+// Set auth token to be sent to the charm store.
+func (s *CharmStore) SetAuthToken(token string) {
+	s.authToken = token
+}
+
+// Perform an http get, adding custom auth header if necessary.
+func (s *CharmStore) get(url string) (resp *http.Response, err error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if s.authToken != "" {
+		req.Header.Add("juju-auth", s.authToken)
+	}
+	return http.DefaultClient.Do(req)
+}
 
 // Info returns details for a charm in the charm store.
 func (s *CharmStore) Info(curl *URL) (*InfoResponse, error) {
 	key := curl.String()
-	resp, err := http.Get(s.BaseURL + "/charm-info?charms=" + url.QueryEscape(key))
+	resp, err := s.get(s.BaseURL + "/charm-info?charms=" + url.QueryEscape(key))
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +117,7 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 	if digest != "" {
 		query += "@" + digest
 	}
-	resp, err := http.Get(s.BaseURL + "/charm-event?charms=" + url.QueryEscape(query))
+	resp, err := s.get(s.BaseURL + "/charm-event?charms=" + url.QueryEscape(query))
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +258,7 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	}
 	path := filepath.Join(CacheDir, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
-		resp, err := http.Get(s.BaseURL + "/charm/" + url.QueryEscape(curl.Path()))
+		resp, err := s.get(s.BaseURL + "/charm/" + url.QueryEscape(curl.Path()))
 		if err != nil {
 			return nil, err
 		}

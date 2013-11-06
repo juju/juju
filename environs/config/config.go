@@ -445,6 +445,11 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// Auth token sent to charm store
+func (c *Config) CharmStoreAuth() string {
+	return c.asString("charm-store-auth")
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
