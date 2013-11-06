@@ -491,6 +491,7 @@ var hookSynchronizationTests = []uniterTest{
 		// Can't use quickstart as it has a built in waitHooks.
 		createCharm{},
 		serveCharm{},
+		ensureStateWorker{},
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
@@ -1048,6 +1049,8 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		charms:  coretesting.ResponseMap{},
 	}
 
+	testing.AddStateServerMachine(c, ctx.st)
+
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
 	curl, err := charm.ParseURL("cs:quantal/logging")
@@ -1092,6 +1095,19 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 func step(c *gc.C, ctx *context, s stepper) {
 	c.Logf("%#v", s)
 	s.step(c, ctx)
+}
+
+type ensureStateWorker struct {
+}
+
+func (s ensureStateWorker) step(c *gc.C, ctx *context) {
+	addresses, err := ctx.st.Addresses()
+	if err != nil || len(addresses) == 0 {
+		testing.AddStateServerMachine(c, ctx.st)
+	}
+	addresses, err = ctx.st.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.HasLen, 1)
 }
 
 type createCharm struct {
@@ -1189,6 +1205,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 type createUniter struct{}
 
 func (createUniter) step(c *gc.C, ctx *context) {
+	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createServiceAndUnit{})
 	step(c, ctx, startUniter{})
 	step(c, ctx, waitAddresses{})
