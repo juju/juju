@@ -103,7 +103,13 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 	// connects to mongo, it changes the mongo password
 	// to the original password.
 	logger.Debugf("setting password hash for admin user")
-	if err := u.SetPasswordHash(passwordHash, utils.CompatSalt); err != nil {
+	// TODO(jam): http://pad.lv/1248839
+	// We could teach bootstrap how to generate a custom salt and apply
+	// that to the hash that was generated. At which point we'd need to set
+	// it here. For now, we pass "" so that on first login we will create a
+	// new salt, but the fixed-salt password is still available from
+	// cloud-init.
+	if err := u.SetPasswordHash(passwordHash, ""); err != nil {
 		return err
 	}
 	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
