@@ -5,9 +5,6 @@
 # Extract the jujud from the packages.
 # Generate the streams data.
 
-# TODO: The rules to identify series packages built for Ubuntu devel need
-# improvement.
-
 set -eu
 
 
@@ -25,8 +22,8 @@ check_deps() {
     has_deps=1
     which lftp || has_deps=0
     which s3cmd || has_deps=0
-    test -f ~/.s3cfg || has_deps=0
-    test -f ~/.juju/environments.yaml || has_deps=0
+    test -f $JUJU_DIR/.s3cfg || has_deps=0
+    test -f $JUJU_DIR/environments.yaml || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install lftp, s3cmd, configure s3cmd, and configure juju."
         exit 2
@@ -54,7 +51,7 @@ retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
-    s3cmd sync s3://juju-dist/tools/releases/ $DEST_TOOLS/
+    s3cmd -c $JUJU_DIR/.s3cfg sync s3://juju-dist/tools/releases/ $DEST_TOOLS/
 }
 
 
@@ -194,6 +191,9 @@ generate_streams() {
 }
 
 
+# The location of environments.yaml and rc files.
+JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
+
 # These are the archives that are search for matching releases.
 UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
 STABLE_ARCH="http://ppa.launchpad.net/juju/stable/ubuntu/pool/main/j/juju-core/"
@@ -201,8 +201,8 @@ DEVEL_ARCH="http://ppa.launchpad.net/juju/devel/ubuntu/pool/main/j/juju-core/"
 ARM_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
 ALL_ARCHIVES="$UBUNTU_ARCH $STABLE_ARCH $DEVEL_ARCH $ARM_ARCH"
 
-if [ -f "~.juju/buildarchrc" ]; then
-    source "~.juju/buildarchrc"
+if [ -f $JUJU_DIR/buildarchrc ]; then
+    source $JUJU_DIR/buildarchrc
     ALL_ARCHIVES="$ALL_ARCHIVES $BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH"
 fi
 
