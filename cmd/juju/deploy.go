@@ -132,7 +132,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth := conf.CharmStoreAuth(); auth != "" {
 		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			CS.SetAuthToken(auth)
+			repo = CS.WithAuthToken(auth)
 		}
 	}
 

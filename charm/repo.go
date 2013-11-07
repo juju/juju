@@ -65,9 +65,11 @@ type CharmStore struct {
 
 var Store = &CharmStore{BaseURL: "https://store.juju.ubuntu.com"}
 
-// Set auth token to be sent to the charm store.
-func (s *CharmStore) SetAuthToken(token string) {
-	s.authToken = token
+// Return a copy of the store with auth token set
+func (s CharmStore) WithAuthToken(token string) Repository {
+	authCS := *Store
+	authCS.authToken = token
+	return &authCS
 }
 
 // Perform an http get, adding custom auth header if necessary.
