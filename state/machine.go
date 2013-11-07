@@ -240,24 +240,55 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	hp := utils.PasswordHash(password)
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	return m.setPasswordHash(utils.AgentPasswordHash(password))
+}
+
+// setPasswordHash sets the underlying password hash in the database directly
+// to the value supplied. This is split out from SetPassword to allow direct
+// manipulation in tests (to check for backwards compatibility).
+func (m *Machine) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: D{{"$set", D{{"passwordhash", passwordHash}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
-	m.doc.PasswordHash = hp
+	m.doc.PasswordHash = passwordHash
 	return nil
+}
+
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func (m *Machine) getPasswordHash() string {
+	return m.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == m.doc.PasswordHash
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == m.doc.PasswordHash {
+		return true
+	}
+	// In Juju 1.16 and older we used the slower password hash for unit
+	// agents. So check to see if the supplied password matches the old
+	// path, and if so, update it to the new mechanism.
+	// We ignore any error in setting the password, as we'll just try again
+	// next time
+	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
+		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
+			m.Tag())
+		m.setPasswordHash(agentHash)
+		return true
+	}
+	return false
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does

@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -24,6 +23,7 @@ type UniterAPI struct {
 	*common.StatusSetter
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
+	*common.APIAddresser
 
 	st            *state.State
 	auth          common.Authorizer
@@ -55,6 +55,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
+		APIAddresser:       common.NewAPIAddresser(st),
 		st:                 st,
 		auth:               authorizer,
 		resources:          resources,
@@ -950,30 +951,4 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (u *UniterAPI) APIAddresses() (params.StringsResult, error) {
-	nothing := params.StringsResult{}
-	cfg, err := u.st.EnvironConfig()
-	if err != nil {
-		return nothing, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nothing, err
-	}
-	_, apiInfo, err := env.StateInfo()
-	if err != nil {
-		return nothing, err
-	}
-	return params.StringsResult{
-		Result: apiInfo.Addrs,
-	}, nil
 }

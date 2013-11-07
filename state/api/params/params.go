@@ -426,3 +426,15 @@ type ContainerConfig struct {
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
 }
+
+// EnvironmentGetResults contains the result of EnvironmentGet client
+// API call.
+type EnvironmentGetResults struct {
+	Config map[string]interface{}
+}
+
+// EnvironmentSet contains the arguments for EnvironmentSet client API
+// call.
+type EnvironmentSet struct {
+	Config map[string]interface{}
+}

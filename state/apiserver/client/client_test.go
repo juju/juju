@@ -62,7 +62,7 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
-func (s *clientSuite) TestClientServerSet(c *gc.C) {
+func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
 
@@ -86,7 +86,8 @@ func (s *clientSuite) TestClientServerSet(c *gc.C) {
 	settings, err = dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
-		"title": "barfoo",
+		"title":    "barfoo",
+		"username": "",
 	})
 }
 
@@ -1216,4 +1217,54 @@ func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
 	obtained, err := s.APIState.Client().GetEnvironmentConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	attrs, err := s.APIState.Client().EnvironmentGet()
+	c.Assert(err, gc.IsNil)
+	allAttrs := envConfig.AllAttrs()
+	// We cannot simply use DeepEquals, because after the
+	// map[string]interface{} result of EnvironmentGet is
+	// serialized to JSON, integers are converted to floats.
+	for key, apiValue := range attrs {
+		envValue, found := allAttrs[key]
+		c.Check(found, jc.IsTrue)
+		switch apiValue.(type) {
+		case float64, float32:
+			c.Check(fmt.Sprintf("%v", envValue), gc.Equals, fmt.Sprintf("%v", apiValue))
+		default:
+			c.Check(envValue, gc.Equals, apiValue)
+		}
+	}
+}
+
+func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["some-key"]
+	c.Assert(found, jc.IsFalse)
+
+	args := map[string]interface{}{"some-key": "value"}
+	err = s.APIState.Client().EnvironmentSet(args)
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	value, found := envConfig.AllAttrs()["some-key"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(value, gc.Equals, "value")
+}
+
+func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
+	args := map[string]interface{}{"agent-version": "9.9.9"}
+	err := s.APIState.Client().EnvironmentSet(args)
+	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
+	// It's okay to pass env back with the same agent-version.
+	cfg, err := s.APIState.Client().EnvironmentGet()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg["agent-version"], gc.NotNil)
+	err = s.APIState.Client().EnvironmentSet(cfg)
+	c.Assert(err, gc.IsNil)
 }

@@ -5,6 +5,8 @@ package local
 
 import (
 	"fmt"
+	"net"
+	"syscall"
 
 	"launchpad.net/loggo"
 
@@ -53,8 +55,39 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO prepare environment
+	err := checkLocalPort(cfg.StatePort(), "state port")
+	if err != nil {
+		return nil, err
+	}
+	err = checkLocalPort(cfg.APIPort(), "API port")
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
+}
+
+// checkLocalPort checks that the passed port is not used so far.
+func checkLocalPort(port int, description string) error {
+	logger.Infof("checking %s", description)
+	// Try to connect the port on localhost.
+	address := fmt.Sprintf("localhost:%d", port)
+	// TODO(mue) Add a timeout?
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		if nerr, ok := err.(*net.OpError); ok {
+			if nerr.Err == syscall.ECONNREFUSED {
+				// No connection, so everything is fine.
+				return nil
+			}
+		}
+		return err
+	}
+	// Connected, so port is in use.
+	err = conn.Close()
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("cannot use %d as %s, already in use", port, description)
 }
 
 // Validate implements environs.EnvironProvider.Validate.

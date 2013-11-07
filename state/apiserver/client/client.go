@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -80,13 +81,32 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	}, nil
 }
 
-// ServiceSet implements the server side of Client.ServiceSet.
+// ServiceSet implements the server side of Client.ServiceSet. Values set to an
+// empty string will be unset.
+//
+// (Deprecated) Use NewServiceSetForClientAPI instead, to preserve values set to
+// an empty string, and use ServiceUnset to unset values.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
 	return serviceSetSettingsStrings(svc, p.Options)
+}
+
+// NewServiceSetForClientAPI implements the server side of
+// Client.NewServiceSetForClientAPI. This is exactly like ServiceSet except that
+// it does not unset values that are set to an empty string.  ServiceUnset
+// should be used for that.
+//
+// TODO(Nate): rename this to ServiceSet (and remove the deprecated ServiceSet)
+// when the GUI handles the new behavior.
+func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
+	svc, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return newServiceSetSettingsStringsForClientAPI(svc, p.Options)
 }
 
 // ServiceUnset implements the server side of Client.ServiceUnset.
@@ -270,6 +290,26 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	if err != nil {
 		return err
 	}
+	return service.UpdateConfigSettings(changes)
+}
+
+// newServiceSetSettingsStringsForClientAPI updates the settings for the given
+// service, taking the configuration from a map of strings.
+//
+// TODO(Nate): replace serviceSetSettingsStrings with this onces the GUI no
+// longer expects to be able to unset values by sending an empty string.
+func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings map[string]string) error {
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
+	}
+
+	// Validate the settings.
+	changes, err := ch.Config().ParseSettingsStrings(settings)
+	if err != nil {
+		return err
+	}
+
 	return service.UpdateConfigSettings(changes)
 }
 
@@ -511,4 +551,54 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// EnvironmentGet implements the server-side part of the
+// get-environment CLI command.
+func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
+	result := params.EnvironmentGetResults{}
+	// Get the existing environment config from the state.
+	config, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = config.AllAttrs()
+	return result, nil
+}
+
+// EnvironmentSet implements the server-side part of the
+// set-environment CLI command.
+func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
+	// TODO(dimitern,thumper): 2013-11-06 bug #1167616
+	// SetEnvironConfig should take both new and old configs.
+
+	// Get the existing environment config from the state.
+	oldConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// Make sure we don't allow changing agent-version.
+	if v, found := args.Config["agent-version"]; found {
+		oldVersion, _ := oldConfig.AgentVersion()
+		if v != oldVersion.String() {
+			return fmt.Errorf("agent-version cannot be changed")
+		}
+	}
+	// Apply the attributes specified for the command to the state config.
+	newConfig, err := oldConfig.Apply(args.Config)
+	if err != nil {
+		return err
+	}
+	env, err := environs.New(oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now validate this new config against the existing config via the provider.
+	provider := env.Provider()
+	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now try to apply the new validated config.
+	return c.api.state.SetEnvironConfig(newProviderConfig)
 }

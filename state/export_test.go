@@ -164,6 +164,23 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
 }
 
+func SetPasswordHash(e Authenticator, passwordHash string) error {
+	type hasSetPasswordHash interface {
+		setPasswordHash(string) error
+	}
+	return e.(hasSetPasswordHash).setPasswordHash(passwordHash)
+}
+
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func GetPasswordHash(e Authenticator) string {
+	type hasGetPasswordHash interface {
+		getPasswordHash() string
+	}
+	return e.(hasGetPasswordHash).getPasswordHash()
+}
+
 func init() {
 	logSize = logSizeTests
 }
@@ -180,4 +197,9 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 
 func ParseTag(st *State, tag string) (string, string, error) {
 	return st.parseTag(tag)
+}
+
+// Return the PasswordSalt that goes along with the PasswordHash
+func GetUserPasswordSaltAndHash(u *User) (string, string) {
+	return u.doc.PasswordSalt, u.doc.PasswordHash
 }

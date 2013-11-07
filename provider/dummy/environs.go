@@ -571,7 +571,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
 			panic(err)
 		}
 		_, err = st.AddUser("admin", password)
