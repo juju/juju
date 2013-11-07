@@ -69,8 +69,9 @@ class JujuClientDevel:
 
     @classmethod
     def destroy_environment(cls, environment):
-        cls.juju(None, 'destroy-environment', environment.needs_sudo(),
-                 (environment.environment, '-y'), check=False)
+        cls.juju(
+            None, 'destroy-environment', (environment.environment, '-y'),
+            environment.needs_sudo(), check=False)
 
     @classmethod
     def get_juju_output(cls, environment, command):
@@ -97,8 +98,8 @@ class JujuClient16(JujuClientDevel):
 
     @classmethod
     def destroy_environment(cls, environment):
-        cls.juju(environment, 'destroy-environment', environment.needs_sudo(),
-                 ('-y',), check=False)
+        cls.juju(environment, 'destroy-environment', ('-y',),
+                 environment.needs_sudo(), check=False)
 
 
 class Environment:
