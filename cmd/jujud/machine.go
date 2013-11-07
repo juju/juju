@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"launchpad.net/gnuflag"
@@ -38,6 +39,8 @@ import (
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/upgrader"
 )
+
+var machineLogger = loggo.GetLogger("juju.jujud.machine")
 
 type workerRunner interface {
 	worker.Worker
@@ -253,6 +256,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return addressupdater.NewWorker(st), nil
 			})
 		case state.JobManageState:
+			machineLogger.Debugf("setting GOMAXPROCS to %d to run the apiserver", runtime.NumCPU())
+			runtime.GOMAXPROCS(runtime.NumCPU())
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
