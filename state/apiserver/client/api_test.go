@@ -93,7 +93,7 @@ func setDefaultPassword(c *gc.C, e apiAuthenticator) {
 }
 
 func defaultPassword(e apiAuthenticator) string {
-	return e.Tag() + " password"
+	return e.Tag() + " password-1234567890"
 }
 
 type setStatuser interface {
@@ -124,7 +124,8 @@ func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Tag = tag
-	info.Password = fmt.Sprintf("%s password", tag)
+	// Must match defaultPassword()
+	info.Password = fmt.Sprintf("%s password-1234567890", tag)
 	// Set this always, so that the login attempts as a machine will
 	// not fail with ErrNotProvisioned; it's not used otherwise.
 	info.Nonce = "fake_nonce"

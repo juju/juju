@@ -8,12 +8,12 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 type API struct {
@@ -81,13 +81,45 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	}, nil
 }
 
-// ServiceSet implements the server side of Client.ServiceSet.
+// ServiceSet implements the server side of Client.ServiceSet. Values set to an
+// empty string will be unset.
+//
+// (Deprecated) Use NewServiceSetForClientAPI instead, to preserve values set to
+// an empty string, and use ServiceUnset to unset values.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
 	return serviceSetSettingsStrings(svc, p.Options)
+}
+
+// NewServiceSetForClientAPI implements the server side of
+// Client.NewServiceSetForClientAPI. This is exactly like ServiceSet except that
+// it does not unset values that are set to an empty string.  ServiceUnset
+// should be used for that.
+//
+// TODO(Nate): rename this to ServiceSet (and remove the deprecated ServiceSet)
+// when the GUI handles the new behavior.
+func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
+	svc, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return newServiceSetSettingsStringsForClientAPI(svc, p.Options)
+}
+
+// ServiceUnset implements the server side of Client.ServiceUnset.
+func (c *Client) ServiceUnset(p params.ServiceUnset) error {
+	svc, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return err
+	}
+	settings := make(charm.Settings)
+	for _, option := range p.Options {
+		settings[option] = nil
+	}
+	return svc.UpdateConfigSettings(settings)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
@@ -111,13 +143,21 @@ func (c *Client) Resolved(p params.Resolved) error {
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
-	return statecmd.ServiceExpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetExposed()
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
-	return statecmd.ServiceUnexpose(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.ClearExposed()
 }
 
 var CharmStore charm.Repository = charm.Store
@@ -253,6 +293,26 @@ func serviceSetSettingsStrings(service *state.Service, settings map[string]strin
 	return service.UpdateConfigSettings(changes)
 }
 
+// newServiceSetSettingsStringsForClientAPI updates the settings for the given
+// service, taking the configuration from a map of strings.
+//
+// TODO(Nate): replace serviceSetSettingsStrings with this onces the GUI no
+// longer expects to be able to unset values by sending an empty string.
+func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings map[string]string) error {
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
+	}
+
+	// Validate the settings.
+	changes, err := ch.Config().ParseSettingsStrings(settings)
+	if err != nil {
+		return err
+	}
+
+	return service.UpdateConfigSettings(changes)
+}
+
 // ServiceSetCharm sets the charm for a given service.
 func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	service, err := c.api.state.Service(args.ServiceName)
@@ -279,9 +339,9 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
-	//if args.NumUnits > 1 && args.ToMachineSpec != "" {
-	//	return nil, errors.New("cannot use NumUnits with ToMachineSpec")
-	//}
+	if args.NumUnits > 1 && args.ToMachineSpec != "" {
+		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+	}
 	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
 }
 
@@ -300,32 +360,88 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	return statecmd.DestroyServiceUnits(c.api.state, args)
+	return c.api.state.DestroyUnits(args.UnitNames...)
 }
 
 // ServiceDestroy destroys a given service.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
-	return statecmd.ServiceDestroy(c.api.state, args)
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.Destroy()
 }
 
 // GetServiceConstraints returns the constraints for a given service.
-func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
-	return statecmd.GetServiceConstraints(c.api.state, args)
+func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return params.GetConstraintsResults{}, err
+	}
+	cons, err := svc.Constraints()
+	return params.GetConstraintsResults{cons}, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
+	cons, err := c.api.state.EnvironConstraints()
+	if err != nil {
+		return params.GetConstraintsResults{}, err
+	}
+	return params.GetConstraintsResults{cons}, nil
 }
 
 // SetServiceConstraints sets the constraints for a given service.
-func (c *Client) SetServiceConstraints(args params.SetServiceConstraints) error {
-	return statecmd.SetServiceConstraints(c.api.state, args)
+func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
+	svc, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.SetConstraints(args.Constraints)
+}
+
+// SetEnvironmentConstraints sets the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
+	return c.api.state.SetEnvironConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	return statecmd.AddRelation(c.api.state, args)
+	inEps, err := c.api.state.InferEndpoints(args.Endpoints)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	rel, err := c.api.state.AddRelation(inEps...)
+	if err != nil {
+		return params.AddRelationResults{}, err
+	}
+	outEps := make(map[string]charm.Relation)
+	for _, inEp := range inEps {
+		outEp, err := rel.Endpoint(inEp.ServiceName)
+		if err != nil {
+			return params.AddRelationResults{}, err
+		}
+		outEps[inEp.ServiceName] = outEp.Relation
+	}
+	return params.AddRelationResults{Endpoints: outEps}, nil
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	return statecmd.DestroyRelation(c.api.state, args)
+	eps, err := c.api.state.InferEndpoints(args.Endpoints)
+	if err != nil {
+		return err
+	}
+	rel, err := c.api.state.EndpointsRelation(eps...)
+	if err != nil {
+		return err
+	}
+	return rel.Destroy()
+}
+
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(args params.DestroyMachines) error {
+	return c.api.state.DestroyMachines(args.MachineNames...)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -435,4 +551,51 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// EnvironmentGet implements the server-side part of the
+// get-environment CLI command.
+func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
+	result := params.EnvironmentGetResults{}
+	// Get the existing environment config from the state.
+	config, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = config.AllAttrs()
+	return result, nil
+}
+
+// EnvironmentSet implements the server-side part of the
+// set-environment CLI command.
+func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
+	// TODO(dimitern,thumper): 2013-11-06 bug #1167616
+	// SetEnvironConfig should take both new and old configs.
+
+	// Get the existing environment config from the state.
+	oldConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// Make sure we don't allow changing agent-version.
+	if _, found := args.Config["agent-version"]; found {
+		return fmt.Errorf("agent-version cannot be changed")
+	}
+	// Apply the attributes specified for the command to the state config.
+	newConfig, err := oldConfig.Apply(args.Config)
+	if err != nil {
+		return err
+	}
+	env, err := environs.New(oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now validate this new config against the existing config via the provider.
+	provider := env.Provider()
+	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
+	if err != nil {
+		return err
+	}
+	// Now try to apply the new validated config.
+	return c.api.state.SetEnvironConfig(newProviderConfig)
 }

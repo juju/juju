@@ -18,12 +18,12 @@ type DeployerAPI struct {
 	*common.Remover
 	*common.PasswordChanger
 	*common.LifeGetter
-	*common.Addresser
+	*common.StateAddresser
+	*common.APIAddresser
 
 	st         *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
-	cache      map[string]interface{}
 }
 
 // getAllUnits returns a list of all principal and subordinate units
@@ -76,7 +76,8 @@ func NewDeployerAPI(
 		Remover:         common.NewRemover(st, true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		Addresser:       common.NewAddresser(st),
+		StateAddresser:  common.NewStateAddresser(st),
+		APIAddresser:    common.NewAPIAddresser(st),
 		st:              st,
 		resources:       resources,
 		authorizer:      authorizer,

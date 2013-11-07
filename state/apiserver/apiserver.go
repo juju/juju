@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
@@ -84,14 +85,9 @@ type requestNotifier struct {
 }
 
 var globalCounter int64
-var globalCounterMu = sync.Mutex{}
 
 func nextCounter() int64 {
-	globalCounterMu.Lock()
-	globalCounter++
-	val := globalCounter
-	globalCounterMu.Unlock()
-	return val
+	return atomic.AddInt64(&globalCounter, 1)
 }
 
 func (n *requestNotifier) SetIdentifier(identifier string) {
@@ -159,7 +155,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	var notifier rpc.RequestNotifier
 	var loginCallback func(string)
 	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		reqNotifier := &requestNotifier{nextCounter(), ""}
+		reqNotifier := &requestNotifier{nextCounter(), "<unknown>"}
 		loginCallback = reqNotifier.SetIdentifier
 		notifier = reqNotifier
 	}

@@ -7,14 +7,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"runtime"
-	"runtime/pprof"
-	"syscall"
-	"time"
-
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -34,8 +27,6 @@ juju unit agent. When used in this way, it expects to be called via a symlink
 named for the desired remote command, and expects JUJU_AGENT_SOCKET and
 JUJU_CONTEXT_ID be set in its environment.
 `
-
-var logger = loggo.GetLogger("juju.jujud.main")
 
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
@@ -95,82 +86,9 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	return resp.Code, nil
 }
 
-func captureMemoryProfile(agentTag string) {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	now := time.Now()
-	fname := fmt.Sprintf("/tmp/agent-mem-%s-%s-%.3fGB.mprof",
-		agentTag, now.Format("2006-01-02-15_04_05"),
-		float64(m.Alloc)/(1024.0*1024*1024))
-	f, err := os.Create(fname)
-	if err != nil {
-		return
-	}
-	logger.Debugf("logging memory profile to %s", fname)
-	pprof.WriteHeapProfile(f)
-	f.Close()
-}
-
-func profileMemory(agentTag string, stop chan struct{}) {
-	for {
-		select {
-		case <-stop:
-			return
-		case <-time.After(1 * time.Minute):
-			captureMemoryProfile(agentTag)
-		}
-	}
-}
-
-// enable the CPU and Memory profiling for this agent
-func enableProfiling(agentTag string) func() {
-	var fname string
-	for i := 0; i < 10; i++ {
-		fname = fmt.Sprintf("/tmp/agent-cpu-%s-%d.prof", agentTag, i)
-		if f, err := os.Open(fname); err == nil {
-			// File already exists, don't use it
-			logger.Debugf("not using %s for cpu logging file already exists", fname)
-			f.Close()
-		} else {
-			break
-		}
-	}
-	f, err := os.Create(fname)
-	if err != nil {
-		logger.Warningf("error creating cpu profiling file: %s: %s", fname, err)
-		return func() {}
-	}
-	err = pprof.StartCPUProfile(f)
-	if err != nil {
-		logger.Warningf("Failed to start CPU Profiling: %s", err)
-	} else {
-		logger.Debugf("logging CPU profile to %s", fname)
-	}
-	stopChan := make(chan struct{})
-	//go profileMemory(agentTag, stopChan)
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGUSR1, syscall.SIGTERM)
-	go func() {
-		for sig := range signalChan {
-			logger.Infof("got signal: %v, dumping profiles", sig)
-			pprof.StopCPUProfile()
-			captureMemoryProfile(agentTag)
-			os.Exit(1)
-		}
-	}()
-	return func() {
-		close(stopChan)
-		logger.Debugf("flushing CPUProfile")
-		pprof.StopCPUProfile()
-		f.Close()
-	}
-}
-
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string) (code int, err error) {
-	logger.Debugf("setting GOMAXPROCS = %d", runtime.NumCPU())
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,

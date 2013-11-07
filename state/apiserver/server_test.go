@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -43,14 +44,16 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = stm.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = stm.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
 	// Note we can't use openAs because we're not connecting to
 	// s.APIConn.
 	apiInfo := &api.Info{
 		Tag:      stm.Tag(),
-		Password: "password",
+		Password: password,
 		Nonce:    "fake_nonce",
 		Addrs:    []string{srv.Addr()},
 		CACert:   []byte(coretesting.CACert),
@@ -87,14 +90,16 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = stm.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = stm.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
 	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
 	_, info, err := s.APIConn.Environ.StateInfo()
 	info.Tag = stm.Tag()
-	info.Password = "password"
+	info.Password = password
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
@@ -116,7 +121,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	// Now add another machine, intentionally unprovisioned.
 	stm1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = stm1.SetPassword("password")
+	err = stm1.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
 	// Try connecting, it will fail.
@@ -128,19 +133,23 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
+	// This is the same steps as OpenAPIAsNewMachine but we need to assert
+	// the agent is not alive before we actually open the API.
 	// Create a new machine to verify "agent alive" behavior.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
 	// Not alive yet.
 	s.assertAlive(c, machine, false)
 
 	// Login as the machine agent of the created machine.
-	st := s.OpenAPIAsMachine(c, machine.Tag(), "password", "fake_nonce")
+	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
@@ -162,14 +171,16 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
 	// Not alive yet.
 	s.assertAlive(c, unit, false)
 
 	// Login as the unit agent of the created unit.
-	st := s.OpenAPIAs(c, unit.Tag(), "password")
+	st := s.OpenAPIAs(c, unit.Tag(), password)
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)

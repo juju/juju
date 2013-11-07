@@ -167,11 +167,11 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
-	openstack.UseTestImageData(s.Env, s.cred)
+	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
-	openstack.RemoveTestImageData(s.Env)
+	openstack.RemoveTestImageData(openstack.ImageMetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.srv.stop()
 	s.LoggingSuite.TearDownSuite(c)
@@ -180,6 +180,7 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
@@ -194,9 +195,10 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 type localServerSuite struct {
 	testbase.LoggingSuite
 	jujutest.Tests
-	cred            *identity.Credentials
-	srv             localServer
-	metadataStorage storage.Storage
+	cred                 *identity.Credentials
+	srv                  localServer
+	toolsMetadataStorage storage.Storage
+	imageMetadataStorage storage.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -219,25 +221,28 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-url":          containerURL + "/juju-dist-test/tools",
+		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	env := s.Prepare(c)
-	s.metadataStorage = openstack.MetadataStorage(env)
+	s.toolsMetadataStorage = openstack.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.metadataStorage)
-	openstack.UseTestImageData(env, s.cred)
+	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
+	s.imageMetadataStorage = openstack.ImageMetadataStorage(env)
+	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
-	openstack.RemoveTestImageData(s.Open(c))
-	if s.metadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, s.metadataStorage)
+	if s.imageMetadataStorage != nil {
+		openstack.RemoveTestImageData(s.imageMetadataStorage)
+	}
+	if s.toolsMetadataStorage != nil {
+		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
@@ -508,7 +513,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)), jc.IsTrue)
+	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/images"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
 	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
@@ -525,7 +530,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The tools-url ends with "/juju-dist-test/tools/".
+	// The tools-metadata-url ends with "/juju-dist-test/tools/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
 	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
@@ -535,7 +540,11 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
 	env := s.Open(c)
+
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
@@ -665,8 +674,8 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(containerURL[:8], gc.Equals, "https://")
-	attrs["tools-url"] = containerURL + "/juju-dist-test/tools"
-	c.Logf("Set tools-url=%q", attrs["tools-url"])
+	attrs["tools-metadata-url"] = containerURL + "/juju-dist-test/tools"
+	c.Logf("Set tools-metadata-url=%q", attrs["tools-metadata-url"])
 	attrs["image-metadata-url"] = containerURL + "/juju-dist-test"
 	c.Logf("Set image-metadata-url=%q", attrs["image-metadata-url"])
 	return attrs
@@ -739,8 +748,8 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	c.Logf("Generating fake tools for: %v", url)
 	envtesting.UploadFakeTools(c, metadataStorage)
 	defer envtesting.RemoveFakeTools(c, metadataStorage)
-	openstack.UseTestImageData(s.env, s.cred)
-	defer openstack.RemoveTestImageData(s.env)
+	openstack.UseTestImageData(metadataStorage, s.cred)
+	defer openstack.RemoveTestImageData(metadataStorage)
 
 	err = bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -765,7 +774,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 
 	// Make sure there is something to download from each location
 	private := "private-content"
-	err = s.env.Storage().Put(private, bytes.NewBufferString(private), int64(len(private)))
+	err = s.env.Storage().Put("images/"+private, bytes.NewBufferString(private), int64(len(private)))
 	c.Assert(err, gc.IsNil)
 
 	metadata := "metadata-content"
@@ -818,7 +827,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Check(customURL[:8], gc.Equals, "https://")
 
 	config, err := s.env.Config().Apply(
-		map[string]interface{}{"tools-url": customURL},
+		map[string]interface{}{"tools-metadata-url": customURL},
 	)
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
@@ -847,7 +856,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the Config entry's tools-url
+	// Read from the Config entry's tools-metadata-url
 	contentReader, url, err := sources[0].Fetch(custom)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()

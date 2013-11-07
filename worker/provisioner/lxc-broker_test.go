@@ -22,6 +22,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
@@ -64,7 +65,6 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	config := coretesting.EnvironConfig(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -76,7 +76,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:       []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewLxcBroker(config, tools, s.agentConfig)
+	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -276,4 +276,10 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
+}
+
+type fakeAPI struct{}
+
+func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+	return params.ContainerConfig{"fake", "my-keys", true}, nil
 }

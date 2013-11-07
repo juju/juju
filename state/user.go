@@ -21,11 +21,16 @@ func (st *State) AddUser(name, password string) (*User, error) {
 	if !validUser.MatchString(name) {
 		return nil, fmt.Errorf("invalid user name %q", name)
 	}
+	salt, err := utils.RandomSalt()
+	if err != nil {
+		return nil, err
+	}
 	u := &User{
 		st: st,
 		doc: userDoc{
 			Name:         name,
-			PasswordHash: utils.SlowPasswordHash(password),
+			PasswordHash: utils.UserPasswordHash(password, salt),
+			PasswordSalt: salt,
 		},
 	}
 	ops := []txn.Op{{
@@ -34,7 +39,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 		Assert: txn.DocMissing,
 		Insert: &u.doc,
 	}}
-	err := st.runTransaction(ops)
+	err = st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = fmt.Errorf("user already exists")
 	}
@@ -72,6 +77,7 @@ type User struct {
 type userDoc struct {
 	Name         string `bson:"_id_"`
 	PasswordHash string
+	PasswordSalt string
 }
 
 // Name returns the user name,
@@ -87,23 +93,28 @@ func (u *User) Tag() string {
 
 // SetPassword sets the password associated with the user.
 func (u *User) SetPassword(password string) error {
-	return u.SetPasswordHash(utils.SlowPasswordHash(password))
+	salt, err := utils.RandomSalt()
+	if err != nil {
+		return err
+	}
+	return u.SetPasswordHash(utils.UserPasswordHash(password, salt), salt)
 }
 
 // SetPasswordHash sets the password to the
-// inverse of utils.PasswordHash(pwHash).
+// inverse of pwHash = utils.UserPasswordHash(pw, pwSalt).
 // It can be used when we know only the hash
 // of the password, but not the clear text.
-func (u *User) SetPasswordHash(pwHash string) error {
+func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
 		Id:     u.Name(),
-		Update: D{{"$set", D{{"passwordhash", pwHash}}}},
+		Update: D{{"$set", D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
 	}
 	u.doc.PasswordHash = pwHash
+	u.doc.PasswordSalt = pwSalt
 	return nil
 }
 
@@ -114,7 +125,21 @@ func (u *User) PasswordValid(password string) bool {
 	// slower pbkdf2 style hashing. Also, we don't expect to have thousands
 	// of Users trying to log in at the same time (which we *do* expect of
 	// Unit and Machine agents.)
-	return utils.SlowPasswordHash(password) == u.doc.PasswordHash
+	if u.doc.PasswordSalt != "" {
+		return utils.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
+	}
+	// In Juju 1.16 and older, we did not set a Salt for the user password,
+	// so check if the password hash matches using CompatSalt. if it
+	// does, then set the password again so that we get a proper salt
+	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
+		// This will set a new Salt for the password. We ignore if it
+		// fails because we will try again at the next request
+		logger.Debugf("User %s logged in with CompatSalt resetting password for new salt",
+			u.Name())
+		u.SetPassword(password)
+		return true
+	}
+	return false
 }
 
 // Refresh refreshes information about the user

@@ -31,7 +31,7 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/localstorage"
-	logworker "launchpad.net/juju-core/worker/logger"
+	"launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -102,8 +102,6 @@ func (a *MachineAgent) Stop() error {
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old
 	// environments that have been upgraded, we need to explicitly remove the
-	cleanup := enableProfiling(a.Tag())
-	defer cleanup()
 	// file writer if one has been added, otherwise we will get duplicate
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
@@ -173,7 +171,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
-		return logworker.NewLogger(st.Logger(), agentConfig), nil
+		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	// At this stage, since we don't embed LXC containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC

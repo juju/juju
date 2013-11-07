@@ -41,10 +41,10 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 }
 
 func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	return conn.State.DestroyMachines(c.MachineIds...)
+	defer apiclient.Close()
+	return apiclient.DestroyMachines(c.MachineIds...)
 }

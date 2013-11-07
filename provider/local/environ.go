@@ -261,17 +261,16 @@ func (env *localEnviron) setupLocalStorage() error {
 func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	machineId := machineConfig.MachineId
 	series := possibleTools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	agenttools := possibleTools[0]
-	logger.Debugf("tools: %#v", agenttools)
-
+	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
+	machineConfig.Tools = possibleTools[0]
+	machineConfig.MachineContainerType = instance.LXC
+	logger.Debugf("tools: %#v", machineConfig.Tools)
 	network := lxc.BridgeNetworkConfig(env.config.networkBridge())
-	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineConfig.MachineNonce, network,
-		agenttools, env.config.Config,
-		machineConfig.StateInfo, machineConfig.APIInfo)
+	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
+		return nil, nil, err
+	}
+	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -489,7 +488,7 @@ func (env *localEnviron) findBridgeAddress(networkBridge string) (string, error)
 
 func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
 	tag := names.MachineTag("0")
-	passwordHash := utils.PasswordHash(secret)
+	passwordHash := utils.UserPasswordHash(secret, utils.CompatSalt)
 	// We don't check the existance of the CACert here as if it wasn't set, we
 	// wouldn't get this far.
 	cfg := env.config.Config
