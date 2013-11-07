@@ -178,8 +178,13 @@ generate_streams() {
     echo "Phase 5: Generating streams data."
     cd $DESTINATION
     # XXX sinzui 2013-10-25: Ian is adding a --public option soon.
-    juju sync-tools --all --dev \
-        --source=${DESTINATION} --destination=${DEST_DIST}
+    # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
+    # incompatibility
+    if ! juju sync-tools --all --dev \
+        --source=${DESTINATION} --destination=${DEST_DIST}; then
+        juju sync-tools --all --dev \
+            --source=${DESTINATION} --local-dir=${DEST_DIST}
+    fi
     if [[ $IS_TESTING == "true" ]]; then
         # Remove testing tools so that they are not reused in future runs.
         for tool in "${added_tools[@]}"; do
