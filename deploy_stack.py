@@ -23,7 +23,7 @@ def deploy_stack(environments):
     for env in envs:
         status = env.wait_for_started()
         wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
-        check_wordpress(wp_unit_0['public-address'])
+        check_wordpress(env.environment, wp_unit_0['public-address'])
 
 
 def main():

@@ -15,8 +15,8 @@ import urllib2
 
 class ErroredUnit(Exception):
 
-    def __init__(self, unit_name, state):
-        msg = 'Unit %s is in state %s' % (unit_name, state)
+    def __init__(self, environment, unit_name, state):
+        msg = 'Unit <%s> %s is in state %s' % (environment, unit_name, state)
         Exception.__init__(self, msg)
 
 
@@ -148,7 +148,7 @@ class Environment:
                 break
             for state, entries in states.items():
                 if 'error' in state:
-                    raise ErroredUnit(entries[0],  state)
+                    raise ErroredUnit(self.environment, entries[0],  state)
             print format_listing(states, 'started', self.environment)
             sys.stdout.flush()
         else:
@@ -165,7 +165,7 @@ def format_listing(listing, expected, environment):
     return ('<%s> ' % environment) + ' | '.join(value_listing)
 
 
-def check_wordpress(host):
+def check_wordpress(environment, host):
     """"Check whether Wordpress has come up successfully.
 
     Times out after 30 seconds.
@@ -184,4 +184,5 @@ def check_wordpress(host):
         # Let's not DOS wordpress
         sleep(1)
     else:
-        raise Exception('Cannot get welcome screen at %s' % url)
+        raise Exception(
+            'Cannot get welcome screen at %s %s' % (url, environment))
