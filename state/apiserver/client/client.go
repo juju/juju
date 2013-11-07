@@ -578,8 +578,11 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Make sure we don't allow changing agent-version.
-	if _, found := args.Config["agent-version"]; found {
-		return fmt.Errorf("agent-version cannot be changed")
+	if v, found := args.Config["agent-version"]; found {
+		oldVersion, _ := oldConfig.AgentVersion()
+		if v != oldVersion.String() {
+			return fmt.Errorf("agent-version cannot be changed")
+		}
 	}
 	// Apply the attributes specified for the command to the state config.
 	newConfig, err := oldConfig.Apply(args.Config)
