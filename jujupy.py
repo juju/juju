@@ -113,6 +113,9 @@ class Environment:
     def bootstrap(self):
         return self.client.bootstrap(self)
 
+    def destroy_environment(self):
+        return self.client.destroy_environment(self)
+
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
