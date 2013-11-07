@@ -329,9 +329,9 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
 		if machineIdSpec != "" {
-			if n != 1 {
-				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
-			}
+			/// if n != 1 {
+			/// 	return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
+			/// }
 			// machineIdSpec may be an existing machine or container, eg 3/lxc/2
 			// or a new container on a machine, eg lxc:3
 			mid := machineIdSpec
