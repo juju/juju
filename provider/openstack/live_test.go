@@ -92,7 +92,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
-		"tools-url":          containerURL + "/juju-dist-test/tools",
+		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           t.cred.URL,
 	})

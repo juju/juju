@@ -59,6 +59,11 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// DestroyMachines holds parameters for the DestroyMachines call.
+type DestroyMachines struct {
+	MachineNames []string
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
@@ -106,6 +111,14 @@ type ServiceSet struct {
 type ServiceSetYAML struct {
 	ServiceName string
 	Config      string
+}
+
+// ServiceUnset holds the parameters for a ServiceUnset
+// command. Options contains the option attribute names
+// to unset.
+type ServiceUnset struct {
+	ServiceName string
+	Options     []string
 }
 
 // ServiceGet holds parameters for making the ServiceGet call.
@@ -190,14 +203,14 @@ type GetServiceConstraints struct {
 	ServiceName string
 }
 
-// GetServiceConstraintsResults holds results of the GetServiceConstraints call.
-type GetServiceConstraintsResults struct {
+// GetConstraintsResults holds results of the GetConstraints call.
+type GetConstraintsResults struct {
 	Constraints constraints.Value
 }
 
-// SetServiceConstraints stores parameters for making the SetServiceConstraints call.
-type SetServiceConstraints struct {
-	ServiceName string
+// SetConstraints stores parameters for making the SetConstraints call.
+type SetConstraints struct {
+	ServiceName string //optional, if empty, environment constraints are set.
 	Constraints constraints.Value
 }
 
@@ -404,4 +417,24 @@ func (i *AnnotationInfo) EntityId() EntityId {
 		Kind: "annotation",
 		Id:   i.Tag,
 	}
+}
+
+// ContainerConfig contains information from the environment config that are
+// needed for container cloud-init.
+type ContainerConfig struct {
+	ProviderType            string
+	AuthorizedKeys          string
+	SSLHostnameVerification bool
+}
+
+// EnvironmentGetResults contains the result of EnvironmentGet client
+// API call.
+type EnvironmentGetResults struct {
+	Config map[string]interface{}
+}
+
+// EnvironmentSet contains the arguments for EnvironmentSet client API
+// call.
+type EnvironmentSet struct {
+	Config map[string]interface{}
 }

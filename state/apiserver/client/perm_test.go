@@ -104,6 +104,18 @@ var operationPermTests = []struct {
 	op:    opClientSetServiceConstraints,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.SetEnvironmentConstraints",
+	op:    opClientSetEnvironmentConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.EnvironmentGet",
+	op:    opClientEnvironmentGet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.EnvironmentSet",
+	op:    opClientEnvironmentSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
 	allow: []string{"user-admin", "user-other"},
@@ -363,6 +375,35 @@ func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (fu
 		return func() {}, err
 	}
 	return func() {}, nil
+}
+
+func opClientSetEnvironmentConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetEnvironmentConstraints(nullConstraints)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientEnvironmentGet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	_, err := st.Client().EnvironmentGet()
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientEnvironmentSet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	args := map[string]interface{}{"some-key": "some-value"}
+	err := st.Client().EnvironmentSet(args)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		args["some-key"] = nil
+		st.Client().EnvironmentSet(args)
+	}, nil
 }
 
 func opClientWatchAll(c *gc.C, st *api.State, mst *state.State) (func(), error) {
