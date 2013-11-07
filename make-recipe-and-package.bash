@@ -37,9 +37,11 @@ check_deps() {
 create_recipe() {
     echo "Phase 1: Creating a recipe for juju-core r${REVNO}."
     echo "Retrieving dependencies.tsv from $JUJU_CORE_BRANCH r$REVNO"
+    VERSION=$(bzr cat -q -d $JUJU_CORE_BRANCH -r $REVNO version/version.go |
+        sed -n 's/^const version = "\(.*\)"/\1/p')
     DEPENDENCIES=$(bzr cat -d $JUJU_CORE_BRANCH -r $REVNO dependencies.tsv)
     BASE="\
-# bzr-builder format 0.3 deb-version {debupstream}-0~{revno:juju-core}
+# bzr-builder format 0.3 deb-version ${VERSION}-0~${REVNO}
 ${PACKAGING_BRANCH}
 nest juju-core ${JUJU_CORE_BRANCH} src/launchpad.net/juju-core revno:${REVNO}
 "
@@ -67,7 +69,7 @@ create_binary_package() {
     echo "Phase 3: creating a binary package."
     cd ${TESTING_DIR}
     tar zxf *.tar.gz
-    cd juju-core-00000000/
+    cd juju-core-$VERSION/
     fakeroot debian/rules binary
     PACKAGES=$(ls ${TESTING_DIR}/*.deb)
     echo "Created $PACKAGES"
