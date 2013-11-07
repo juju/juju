@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -102,7 +103,7 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 	// connects to mongo, it changes the mongo password
 	// to the original password.
 	logger.Debugf("setting password hash for admin user")
-	if err := u.SetPasswordHash(passwordHash, ""); err != nil {
+	if err := u.SetPasswordHash(passwordHash, utils.CompatSalt); err != nil {
 		return err
 	}
 	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
