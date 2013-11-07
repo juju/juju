@@ -510,7 +510,8 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.

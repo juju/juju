@@ -352,7 +352,7 @@ func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)+"/images"), jc.IsTrue)
 	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 

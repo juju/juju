@@ -210,7 +210,7 @@ var imagesData = `
 
 const productMetadatafile = "image-metadata/products.json"
 
-func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
+func UseTestImageData(stor storage.Storage, cred *identity.Credentials) {
 	// Put some image metadata files into the public storage.
 	t := template.Must(template.New("").Parse(indexData))
 	var metadata bytes.Buffer
@@ -218,14 +218,12 @@ func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	stor := MetadataStorage(e)
 	stor.Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
-func RemoveTestImageData(e environs.Environ) {
-	stor := MetadataStorage(e)
+func RemoveTestImageData(stor storage.Storage) {
 	stor.Remove(simplestreams.DefaultIndexPath + ".json")
 	stor.Remove(productMetadatafile)
 }

@@ -414,7 +414,7 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 // ToolsURL returns the URL that locates the tools tarballs and metadata,
 // and whether it has been set.
 func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.m["tools-url"]; ok && url != "" {
+	if url, ok := c.m["tools-metadata-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -479,7 +479,7 @@ var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
 	"default-series":            schema.String(),
-	"tools-url":                 schema.String(),
+	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
@@ -522,7 +522,7 @@ var alwaysOptional = schema.Defaults{
 	"admin-secret":       "", // TODO(rog) omit
 	"ca-private-key":     "", // TODO(rog) omit
 	"image-metadata-url": "", // TODO(rog) omit
-	"tools-url":          "", // TODO(rog) omit
+	"tools-metadata-url": "", // TODO(rog) omit
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
