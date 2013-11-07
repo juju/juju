@@ -1,12 +1,10 @@
 #!/bin/bash
 set -eu
-export ENVS="test-release-aws test-release-canonistackk test-release-hp"
-export SCRIPTS=~jenkins/ci-cd-scripts
 CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
-source $SCRIPTS/make-recipe-and-package.bash $(bzr revno .) lp:juju-core
+source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   for env in $ENVS; do
-    juju destroy-environment -e $env -y || true
+    $SCRIPTS/destroy-environment $env
   done
   exit 1
 fi
@@ -32,7 +30,7 @@ then
 else
   # test deploying on the new version
   for env in $ENVS; do
-      juju destroy-environment -e $env -y
+    $SCRIPTS/destroy-environment $env
   done
   sleep 5
   if ! $SCRIPTS/deploy_stack.py $ENVS; then
@@ -41,6 +39,6 @@ else
 fi
 sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
 for env in $ENVS; do
-    juju destroy-environment -e $env -y || true
+    $SCRIPTS/destroy-environment $env
 done
 exit $EXIT_STATUS
