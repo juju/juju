@@ -41,6 +41,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		}
 		cfg = newCfg
 	}
+	// TODO: make verify prereq's check based on container type
 	if err := VerifyPrerequisites(); err != nil {
 		logger.Errorf("failed verification of local provider prerequisites: %v", err)
 		return nil, err
@@ -109,6 +110,11 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		if err != nil {
 			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
 		}
+		if localConfig.container() != oldLocalConfig.container() {
+			return nil, fmt.Errorf("cannot change container from %q to %q",
+				oldLocalConfig.container(),
+				localConfig.container())
+		}
 		if localConfig.rootDir() != oldLocalConfig.rootDir() {
 			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
 				oldLocalConfig.rootDir(),
@@ -129,6 +135,10 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.sharedStoragePort(),
 				localConfig.sharedStoragePort())
 		}
+	}
+	// Currently only supported containers are "lxc" and "kvm".
+	if localConfig.container() != "lxc" && localConfig.container() != "kvm" {
+		return nil, fmt.Errorf("unsupported container type: %q", localConfig.container())
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {

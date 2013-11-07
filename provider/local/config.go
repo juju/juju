@@ -22,6 +22,7 @@ var (
 		"root-dir":            schema.String(),
 		"bootstrap-ip":        schema.String(),
 		"network-bridge":      schema.String(),
+		"container":           schema.String(),
 		"storage-port":        schema.ForceInt(),
 		"shared-storage-port": schema.ForceInt(),
 	}
@@ -32,6 +33,7 @@ var (
 	configDefaults = schema.Defaults{
 		"root-dir":            "",
 		"network-bridge":      "lxcbr0",
+		"container":           "lxc",
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,
@@ -64,13 +66,17 @@ func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *envi
 
 // Since it is technically possible for two different users on one machine to
 // have the same local provider name, we need to have a simple way to
-// namespace the file locations, but more importantly the lxc containers.
+// namespace the file locations, but more importantly the containers.
 func (c *environConfig) namespace() string {
 	return fmt.Sprintf("%s-%s", c.user, c.Name())
 }
 
 func (c *environConfig) rootDir() string {
 	return c.attrs["root-dir"].(string)
+}
+
+func (c *environConfig) container() instance.ContainerType {
+	return instance.ContainerType(c.attrs["container"].(string))
 }
 
 func (c *environConfig) networkBridge() string {
