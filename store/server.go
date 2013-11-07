@@ -4,6 +4,7 @@
 package store
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -81,8 +82,16 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for authentication token and just log it for now
-	if token := r.Header.Get("juju-auth"); token != "" {
-		log.Infof("Authentication token received: %s", token)
+	if token := r.Header.Get("Authorization"); token != "" {
+		tokenParts := strings.SplitN(token, " ", 2)
+		authToken, err := base64.StdEncoding.DecodeString(tokenParts[1])
+		if err != nil {
+			log.Errorf("Failed to decode auth token: %v", err)
+		} else {
+			log.Infof("Authentication received: scheme - %s, token - %s ",
+				tokenParts[0],
+				string(authToken))
+		}
 	}
 
 	r.ParseForm()
@@ -178,8 +187,16 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for authentication token and just log it for now
-	if token := r.Header.Get("juju-auth"); token != "" {
-		log.Infof("Authentication token received: %s", token)
+	if token := r.Header.Get("Authorization"); token != "" {
+		tokenParts := strings.SplitN(token, " ", 2)
+		authToken, err := base64.StdEncoding.DecodeString(tokenParts[1])
+		if err != nil {
+			log.Errorf("Failed to decode auth token: %v", err)
+		} else {
+			log.Infof("Authentication received: scheme - %s, token - %s ",
+				tokenParts[0],
+				string(authToken))
+		}
 	}
 
 	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])

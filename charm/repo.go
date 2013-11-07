@@ -5,6 +5,7 @@ package charm
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -79,7 +80,12 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 		return nil, err
 	}
 	if s.authToken != "" {
-		req.Header.Add("juju-auth", s.authToken)
+		/* To comply with RFC 2617, we send the auth token in
+		   the Authorization header with a custom auth scheme
+		   and a base64-encoded token. */
+		authHeader := fmt.Sprintf("\"CSAuth\" %s",
+			base64.StdEncoding.EncodeToString([]byte(s.authToken)))
+		req.Header.Add("Authorization", authHeader)
 	}
 	return http.DefaultClient.Do(req)
 }
