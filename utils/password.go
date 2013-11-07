@@ -17,10 +17,12 @@ import (
 // the password hash for all users and agents
 var CompatSalt = string([]byte{0x75, 0x82, 0x81, 0xca})
 
+const randomPasswordBytes = 18
+
 // MinAgentPasswordLength describes how long agent passwords should be. We
 // require this length because we assume enough entropy in the Agent password
-// that it is safe to not do as much
-const MinAgentPasswordLength = 24
+// that it is safe to not do extra rounds of iterated hashing.
+var MinAgentPasswordLength = base64.StdEncoding.EncodedLen(randomPasswordBytes)
 
 // RandomBytes returns n random bytes.
 func RandomBytes(n int) ([]byte, error) {
@@ -34,7 +36,7 @@ func RandomBytes(n int) ([]byte, error) {
 
 // RandomPassword generates a random base64-encoded password.
 func RandomPassword() (string, error) {
-	b, err := RandomBytes(18)
+	b, err := RandomBytes(randomPasswordBytes)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +87,6 @@ func UserPasswordHash(password string, salt string) string {
 func AgentPasswordHash(password string) string {
 	sum := sha512.New()
 	sum.Write([]byte(password))
-	h := make([]byte, 0, sum.Size())
-	h = sum.Sum(h)
+	h := sum.Sum(nil)
 	return base64.StdEncoding.EncodeToString(h[:18])
 }
