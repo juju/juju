@@ -30,30 +30,53 @@ def until_timeout(timeout):
         yield None
 
 
+class JujuClient:
+
+    @staticmethod
+    def _full_args(environment, command, sudo, args):
+        full_args = ('juju', command, '-e', environment.environment) + args
+        if sudo:
+            full_args = ('sudo',) + full_args
+        return full_args
+
+    @classmethod
+    def bootstrap(cls, environment):
+        """Bootstrap, using sudo if necessary."""
+        cls.juju(environment, 'bootstrap', ('--constraints', 'mem=2G'),
+                 environment.needs_sudo())
+
+    @classmethod
+    def get_status(cls, environment):
+        """Get the current status as a dict."""
+        args = cls._full_args(environment, 'status', False, ())
+        return yaml.safe_load(StringIO(subprocess.check_output(args)))
+
+    @classmethod
+    def juju(cls, environment, command, args, sudo=False):
+        """Run a command under juju for the current environment."""
+        args = cls._full_args(environment, command, sudo, args)
+        print ' '.join(args)
+        sys.stdout.flush()
+        return subprocess.check_call(args)
+
+
 class Environment:
 
     def __init__(self, environment):
         self.environment = environment
+        self.client = JujuClient
 
-    def _full_args(self, command, *args):
-        return ('juju', command, '-e', self.environment) + args
+    def needs_sudo(self):
+        return bool(self.environment == 'local')
 
     def bootstrap(self):
-        """Bootstrap, using sudo if necessary."""
-        if self.environment == 'local':
-            args = ('sudo',) + self._full_args('bootstrap')
-            print ' '.join(args)
-            sys.stdout.flush()
-            return subprocess.check_call(args)
-        else:
-            self.juju('bootstrap', '--constraints', 'mem=2G')
+        return self.client.bootstrap(self)
 
     def juju(self, command, *args):
-        """Run a command under juju for the current environment."""
-        args = self._full_args(command, *args)
-        print ' '.join(args)
-        sys.stdout.flush()
-        return subprocess.check_call(args)
+        return self.client.juju(self, command, args)
+
+    def get_status(self):
+        return self.client.get_status(self)
 
     @staticmethod
     def agent_items(status):
@@ -70,11 +93,6 @@ class Environment:
         for item_name, item in cls.agent_items(status):
             states[item.get('agent-state', 'no-agent')].append(item_name)
         return states
-
-    def get_status(self):
-        """Get the current status as a dict."""
-        args = self._full_args('status')
-        return yaml.safe_load(StringIO(subprocess.check_output(args)))
 
     def wait_for_started(self):
         """Wait until all unit/machine agents are 'started'."""
