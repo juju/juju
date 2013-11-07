@@ -66,7 +66,7 @@ retrieve_packages() {
         cp $RELEASE $DEST_DEBS
     else
         cd $DEST_DEBS
-        for archive in $UBUNTU_ARCH $STABLE_ARCH $DEVEL_ARCH; do
+        for archive in $ALL_ARCHIVES; do
             echo "checking $archive for $RELEASE."
             lftp -c mirror -I "juju-core_${RELEASE}*.deb" $archive;
         done
@@ -198,6 +198,13 @@ generate_streams() {
 UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
 STABLE_ARCH="http://ppa.launchpad.net/juju/stable/ubuntu/pool/main/j/juju-core/"
 DEVEL_ARCH="http://ppa.launchpad.net/juju/devel/ubuntu/pool/main/j/juju-core/"
+ARM_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
+ALL_ARCHIVES="$UBUNTU_ARCH $STABLE_ARCH $DEVEL_ARCH $ARM_ARCH"
+
+if [ -f "~.juju/buildarchrc" ]; then
+    source "~.juju/buildarchrc"
+    ALL_ARCHIVES="$ALL_ARCHIVES $BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH"
+fi
 
 # We need to update this constant to ensure ubuntu devel series packages
 # are properly identified
