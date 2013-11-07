@@ -15,6 +15,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
@@ -64,7 +65,7 @@ var (
 	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
 )
 
-func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
+func StartContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", stateInfo, apiInfo)
@@ -74,7 +75,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 	}
 
 	series := "series"
-	network := lxc.BridgeNetworkConfig("nic42")
+	network := container.BridgeNetworkConfig("nic42")
 	inst, err := manager.StartContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
 	return inst
@@ -224,7 +225,7 @@ var _ = gc.Suite(&NetworkSuite{})
 
 func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 	for _, test := range []struct {
-		config *lxc.NetworkConfig
+		config *container.NetworkConfig
 		net    string
 		link   string
 	}{{
@@ -236,11 +237,11 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		net:    "veth",
 		link:   "lxcbr0",
 	}, {
-		config: lxc.BridgeNetworkConfig("foo"),
+		config: container.BridgeNetworkConfig("foo"),
 		net:    "veth",
 		link:   "foo",
 	}, {
-		config: lxc.PhysicalNetworkConfig("foo"),
+		config: container.PhysicalNetworkConfig("foo"),
 		net:    "phys",
 		link:   "foo",
 	}} {
