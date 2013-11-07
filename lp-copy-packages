@@ -1,0 +1,39 @@
+#!/usr/bin/python
+
+from __future__ import print_function
+
+import sys
+
+from launchpadlib.launchpad import Launchpad
+
+
+def copy_packages(lp, version, archive_name):
+    packaging_team = lp.people['juju-packaging']
+    build_archive = packaging_team.getPPAByName(name=archive_name)
+    package_histories = build_archive.getPublishedSources(
+        source_name='juju-core', status='Published')
+    package_histories = [
+        package for package in package_histories
+        if package.source_package_version.startswith(version)]
+    juju_team = lp.people['juju']
+    stable_archive = juju_team.getPPAByName(name=archive_name)
+    return
+    for package in package_histories:
+        stable_archive.copyPackage(
+            from_archive=build_archive,
+            source_name=package.source_package_name,
+            version=package.source_package_version,
+            to_pocket='Release', include_binaries=True, unembargo=True)
+    return 0
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print('Usage: %s <version> <devel|stable>')
+        sys.exit(1)
+    version = sys.argv[1]
+    archive_name= sys.argv[2]
+    lp = Launchpad.login_with(
+        'lp-copy-packages', service_root='https://api.launchpad.net',
+        version='devel')
+    sys.exit(copy_packages(lp, version, archive_name))
