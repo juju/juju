@@ -30,11 +30,33 @@ def until_timeout(timeout):
         yield None
 
 
-class JujuClient:
+def yaml_loads(yaml_str):
+    return yaml.safe_load(StringIO(yaml_str))
+
+
+class JujuClientDevel:
+    # This client is meant to work with the latest version of juju.
+    # Subclasses will retain support for older versions of juju, so that the
+    # latest version is easy to read, and older versions can be trivially
+    # deleted.
+
+    @classmethod
+    def get_version(cls):
+        return cls.get_juju_output(None, '--version').strip()
+
+    @classmethod
+    def by_version(cls):
+        version = cls.get_version()
+        if version.startswith('1.16'):
+            return JujuClient16
+        else:
+            return JujuClientDevel
 
     @staticmethod
     def _full_args(environment, command, sudo, args):
-        full_args = ('juju', command, '-e', environment.environment) + args
+        full_args = ('juju', command) + args
+        if environment is not None:
+            full_args = full_args + ('-e', environment.environment)
         if sudo:
             full_args = ('sudo',) + full_args
         return full_args
@@ -46,10 +68,19 @@ class JujuClient:
                  environment.needs_sudo())
 
     @classmethod
+    def destroy_environment(cls, environment):
+        cls.juju(None, 'destroy-environment', environment.needs_sudo(),
+                 (environment.environment, '-y'))
+
+    @classmethod
+    def get_juju_output(cls, environment, command):
+        args = cls._full_args(environment, command, False, ())
+        return subprocess.check_output(args)
+
+    @classmethod
     def get_status(cls, environment):
         """Get the current status as a dict."""
-        args = cls._full_args(environment, 'status', False, ())
-        return yaml.safe_load(StringIO(subprocess.check_output(args)))
+        return yaml_loads(cls.get_juju_output(environment, 'status'))
 
     @classmethod
     def juju(cls, environment, command, args, sudo=False):
@@ -60,11 +91,19 @@ class JujuClient:
         return subprocess.check_call(args)
 
 
+class JujuClient16(JujuClientDevel):
+
+    @classmethod
+    def destroy_environment(cls, environment):
+        cls.juju(environment, 'destroy-environment', environment.needs_sudo(),
+                 ('-y',))
+
+
 class Environment:
 
     def __init__(self, environment):
         self.environment = environment
-        self.client = JujuClient
+        self.client = JujuClientDevel.by_version()
 
     def needs_sudo(self):
         return bool(self.environment == 'local')
