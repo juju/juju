@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 type loginSuite struct {
@@ -105,7 +106,9 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machineInState.SetPassword("test-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machineInState.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineInState.Tag(), gc.Equals, "machine-0")
 
@@ -114,7 +117,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	defer loggo.RemoveWriter("login-tester")
 
 	info.Tag = machineInState.Tag()
-	info.Password = "test-password"
+	info.Password = password
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
@@ -126,7 +129,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
 		`<- \[\d+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
-			`{"AuthTag":"machine-0","Password":"test-password","Nonce":"fake_nonce"}` +
+			`{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s

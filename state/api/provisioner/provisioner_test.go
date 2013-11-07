@@ -21,6 +21,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -44,11 +45,13 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 
 	// Create the provisioner API facade.
