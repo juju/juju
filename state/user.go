@@ -134,6 +134,8 @@ func (u *User) PasswordValid(password string) bool {
 	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
 		// This will set a new Salt for the password. We ignore if it
 		// fails because we will try again at the next request
+		logger.Debugf("User %s logged in with CompatSalt resetting password for new salt",
+			u.Name())
 		u.SetPassword(password)
 		return true
 	}

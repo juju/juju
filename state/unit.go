@@ -248,6 +248,8 @@ func (u *Unit) PasswordValid(password string) bool {
 	// We ignore any error in setting the password hash, as we'll just try
 	// again next time
 	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
+		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
+			u.Tag())
 		u.setPasswordHash(agentHash)
 		return true
 	}
