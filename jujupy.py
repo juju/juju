@@ -70,7 +70,7 @@ class JujuClientDevel:
     @classmethod
     def destroy_environment(cls, environment):
         cls.juju(None, 'destroy-environment', environment.needs_sudo(),
-                 (environment.environment, '-y'))
+                 (environment.environment, '-y'), check=False)
 
     @classmethod
     def get_juju_output(cls, environment, command):
@@ -83,12 +83,14 @@ class JujuClientDevel:
         return yaml_loads(cls.get_juju_output(environment, 'status'))
 
     @classmethod
-    def juju(cls, environment, command, args, sudo=False):
+    def juju(cls, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
         args = cls._full_args(environment, command, sudo, args)
         print ' '.join(args)
         sys.stdout.flush()
-        return subprocess.check_call(args)
+        if check:
+            subprocess.check_call(args)
+        return subprocess.call(args)
 
 
 class JujuClient16(JujuClientDevel):
@@ -96,7 +98,7 @@ class JujuClient16(JujuClientDevel):
     @classmethod
     def destroy_environment(cls, environment):
         cls.juju(environment, 'destroy-environment', environment.needs_sudo(),
-                 ('-y',))
+                 ('-y',), check=False)
 
 
 class Environment:
