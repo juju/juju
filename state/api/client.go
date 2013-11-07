@@ -6,7 +6,6 @@ package api
 import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -24,13 +23,6 @@ type MachineInfo struct {
 type Status struct {
 	Machines map[string]MachineInfo
 	// TODO the rest
-}
-
-// EnvironConfig returns the environment config stored in state.
-// This method will disappear when more API migration is complete.
-// TODO - when get-environment is migrated to use the api, this can be refactored.
-func (c *Client) EnvironConfig() (*config.Config, error) {
-	return nil, nil
 }
 
 // Status returns the status of the juju environment.
