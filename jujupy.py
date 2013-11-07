@@ -90,7 +90,7 @@ class JujuClientDevel:
         print ' '.join(args)
         sys.stdout.flush()
         if check:
-            subprocess.check_call(args)
+            return subprocess.check_call(args)
         return subprocess.call(args)
 
 
