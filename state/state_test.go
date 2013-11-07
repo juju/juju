@@ -1415,7 +1415,6 @@ func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
 	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
 	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
 
-
 	// Agents are unable to set short passwords
 	err = entity.SetPassword("short")
 	c.Check(err, gc.ErrorMatches, "password is only 5 bytes long, and is not a valid Agent password")

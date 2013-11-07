@@ -19,7 +19,7 @@ var CompatSalt = string([]byte{0x75, 0x82, 0x81, 0xca})
 
 // MinAgentPasswordLength describes how long agent passwords should be. We
 // require this length because we assume enough entropy in the Agent password
-// that it is safe to not do as much 
+// that it is safe to not do as much
 const MinAgentPasswordLength = 24
 
 // RandomBytes returns n random bytes.
