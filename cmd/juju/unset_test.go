@@ -65,6 +65,7 @@ func (s *UnsetSuite) TestUnsetOptionMultipleAtOnceSuccess(c *gc.C) {
 }
 
 func (s *UnsetSuite) TestUnsetOptionFail(c *gc.C) {
+	assertUnsetFail(c, s.dir, []string{}, "error: no configuration options specified\n")
 	assertUnsetFail(c, s.dir, []string{"invalid"}, "error: unknown option \"invalid\"\n")
 	assertUnsetFail(c, s.dir, []string{"username=bar"}, "error: unknown option \"username=bar\"\n")
 	assertUnsetFail(c, s.dir, []string{

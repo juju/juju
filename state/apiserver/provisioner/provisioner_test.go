@@ -692,6 +692,14 @@ func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
 	c.Check(results.Results, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+	results, err := s.provisioner.ContainerConfig()
+	c.Check(err, gc.IsNil)
+	c.Check(results.ProviderType, gc.Equals, "dummy")
+	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+}
+
 func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"

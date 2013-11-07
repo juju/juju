@@ -36,7 +36,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
-			"tools-url": toolsMetadataURL,
+			"tools-metadata-url": toolsMetadataURL,
 		})
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -57,13 +57,13 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
-	env := s.env(c, "config-tools-url")
+	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-url/", privateStorageURL, "https://streams.canonical.com/juju/tools/"})
+		"config-tools-metadata-url/", privateStorageURL, "https://streams.canonical.com/juju/tools/"})
 	haveExpectedSources := false
 	for _, source := range sources {
 		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {

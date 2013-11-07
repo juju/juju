@@ -40,7 +40,18 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.st.Call("Client", "", "ServiceSet", p, nil)
+	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
+	// ServiceSet to unset values set to an empty string.
+	return c.st.Call("Client", "", "NewServiceSetForClientAPI", p, nil)
+}
+
+// ServiceUnset resets configuration options on a service.
+func (c *Client) ServiceUnset(service string, options []string) error {
+	p := params.ServiceUnset{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.st.Call("Client", "", "ServiceUnset", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -82,6 +93,12 @@ func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, e
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
+}
+
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
@@ -156,18 +173,33 @@ func (c *Client) ServiceDestroy(service string) error {
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetServiceConstraintsResults)
+	results := new(params.GetConstraintsResults)
 	err := c.st.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.st.Call("Client", "", "GetEnvironmentConstraints", nil, results)
 	return results.Constraints, err
 }
 
 // SetServiceConstraints specifies the constraints for the given service.
 func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetServiceConstraints{
+	params := params.SetConstraints{
 		ServiceName: service,
 		Constraints: constraints,
 	}
 	return c.st.Call("Client", "", "SetServiceConstraints", params, nil)
+}
+
+// SetEnvironmentConstraints specifies the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error {
+	params := params.SetConstraints{
+		Constraints: constraints,
+	}
+	return c.st.Call("Client", "", "SetEnvironmentConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -240,4 +272,17 @@ func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
+}
+
+// EnvironmentGet returns all environment settings.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentGetResults{}
+	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// EnvironmentSet sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentSet(config map[string]interface{}) error {
+	args := params.EnvironmentSet{Config: config}
+	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
 }
