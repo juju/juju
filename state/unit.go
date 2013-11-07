@@ -387,6 +387,28 @@ func (u *Unit) Remove() (err error) {
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
+
+	// Now the unit is Dead, we can be sure that it's impossible for it to
+	// enter relation scopes (once it's Dying, we can be sure of this; but
+	// EnsureDead does not require that it already be Dying, so this is the
+	// only point at which we can safely backstop lp:1233457 and mitigate
+	// the impact of unit agent bugs that leave relation scopes occupied).
+	relations, err := serviceRelations(u.st, u.doc.Service)
+	if err != nil {
+		return err
+	}
+	for _, rel := range relations {
+		ru, err := rel.Unit(u)
+		if err != nil {
+			return err
+		}
+		if err := ru.LeaveScope(); err != nil {
+			return err
+		}
+	}
+
+	// Now we're sure we haven't left any scopes occupied by this unit, we
+	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
 		switch ops, err := unit.removeOps(isDeadDoc); err {
