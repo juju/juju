@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -58,7 +59,7 @@ type localEnviron struct {
 	name                  string
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
-	containerManager      lxc.ContainerManager
+	containerManager      container.Manager
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -266,7 +267,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	machineConfig.Tools = possibleTools[0]
 	machineConfig.MachineContainerType = instance.LXC
 	logger.Debugf("tools: %#v", machineConfig.Tools)
-	network := lxc.BridgeNetworkConfig(env.config.networkBridge())
+	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
 		return nil, nil, err
 	}
