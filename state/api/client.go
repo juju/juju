@@ -95,6 +95,16 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
 }
 
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "AddMachines", args, results)
+	return results.Machines, err
+}
+
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{MachineNames: machines}

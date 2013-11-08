@@ -158,6 +158,8 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 
 var MachineIdLessThan = machineIdLessThan
 
+var JobNames = jobNames
+
 // SCHEMACHANGE
 // This method is used to reset a deprecated machine attriute.
 func SetMachineInstanceId(m *Machine, instanceId string) {

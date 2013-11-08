@@ -59,6 +59,32 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	Series        string
+	ContainerType instance.ContainerType
+	Constraints   constraints.Value
+	ParentId      string
+	Jobs          []MachineJob
+}
+
+// AddMachines holds the parameters for making the AddMachines call.
+type AddMachines struct {
+	MachineParams []AddMachineParams
+}
+
+// AddMachinesResults holds the results of an AddMachines call.
+type AddMachinesResults struct {
+	Machines []AddMachinesResult
+}
+
+// AddMachinesResults holds the name of a machine added by the
+// state.api.client.AddMachine call for a single machine.
+type AddMachinesResult struct {
+	Machine string
+	Error   *Error
+}
+
 // DestroyMachines holds parameters for the DestroyMachines call.
 type DestroyMachines struct {
 	MachineNames []string
