@@ -20,14 +20,27 @@ class ErroredUnit(Exception):
         Exception.__init__(self, msg)
 
 
-def until_timeout(timeout):
+class until_timeout:
+
     """Yields None until timeout is reached.
 
-    :param timeout: Number of seconds to wait.
+    :ivar timeout: Number of seconds to wait.
     """
-    start = datetime.now()
-    while datetime.now() - start  < timedelta(0, timeout):
-        yield None
+    def __init__(self, timeout):
+        self.timeout = timeout
+        self.start = self.now()
+
+    def __iter__(self):
+        return self
+
+    @staticmethod
+    def now():
+        return datetime.now()
+
+    def next(self):
+        if self.now() - self.start  >= timedelta(0, self.timeout):
+            raise StopIteration
+        return None
 
 
 def yaml_loads(yaml_str):
