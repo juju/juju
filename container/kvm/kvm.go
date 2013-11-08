@@ -10,18 +10,15 @@ import (
 
 	"launchpad.net/loggo"
 
-	base "launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 )
 
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
-	kvmObjectFactory base.ContainerFactory = &containerFactory{}
+	kvmObjectFactory container.ContainerFactory = &containerFactory{}
 
 	containerDir        = "/var/lib/juju/containers"
 	removedContainerDir = "/var/lib/juju/removed-containers"
@@ -43,49 +40,33 @@ var IsKVMSupported = func() bool {
 	return command.ProcessState.Success()
 }
 
-// ContainerManager is responsible for starting containers, and stopping and
-// listing containers that it has started.  The name of the manager is used to
-// namespace the kvm containers on the machine.
-type ContainerManager interface {
-	// StartContainer creates and starts a new kvm container for the specified machine.
-	StartContainer(
-		machineId, series, nonce string,
-		tools *tools.Tools,
-		environConfig *config.Config,
-		stateInfo *state.Info,
-		apiInfo *api.Info) (instance.Instance, error)
-	// StopContainer stops and destroyes the kvm container identified by Instance.
-	StopContainer(instance.Instance) error
-	// ListContainers return a list of containers that have been started by
-	// this manager.
-	ListContainers() ([]instance.Instance, error)
-}
-
 // NewContainerManager returns a manager object that can start and stop kvm
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(name string) (ContainerManager, error) {
-	if name == "" {
+func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
+	if conf.Name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
-	return &containerManager{name: name}, nil
+	if conf.LogDir == "" {
+		conf.LogDir = "/var/log/juju"
+	}
+	return &containerManager{name: conf.Name, logdir: conf.LogDir}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific
 // level. It makes sure that the necessary directories are in place, that the
 // user-data is written out in the right place.
 type containerManager struct {
-	name string
+	name   string
+	logdir string
 }
 
-var _ ContainerManager = (*containerManager)(nil)
+var _ container.Manager = (*containerManager)(nil)
 
 func (manager *containerManager) StartContainer(
-	machineId, series, nonce string,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info) (instance.Instance, error) {
+	machineConfig *cloudinit.MachineConfig,
+	series string,
+	network *container.NetworkConfig) (instance.Instance, error) {
 	return nil, fmt.Errorf("not yet implemented")
 }
 

@@ -6,33 +6,33 @@ package kvm
 import (
 	"fmt"
 
-	base "launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container"
 )
 
-type container struct {
+type kvmContainer struct {
 	factory *containerFactory
 	name    string
 	started bool
 }
 
-var _ base.Container = (*container)(nil)
+var _ container.Container = (*kvmContainer)(nil)
 
-func (c *container) Name() string {
+func (c *kvmContainer) Name() string {
 	return c.name
 }
 
-func (c *container) Start() error {
+func (c *kvmContainer) Start() error {
 	return fmt.Errorf("not implemented")
 }
 
-func (c *container) Stop() error {
+func (c *kvmContainer) Stop() error {
 	return fmt.Errorf("not implemented")
 }
 
-func (c *container) IsRunning() bool {
+func (c *kvmContainer) IsRunning() bool {
 	return c.started
 }
 
-func (c *container) String() string {
+func (c *kvmContainer) String() string {
 	return fmt.Sprintf("<KVM container %v>", *c)
 }

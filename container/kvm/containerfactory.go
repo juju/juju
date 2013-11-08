@@ -6,21 +6,21 @@ package kvm
 import (
 	"fmt"
 
-	base "launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container"
 )
 
 type containerFactory struct {
 }
 
-var _ base.ContainerFactory = (*containerFactory)(nil)
+var _ container.ContainerFactory = (*containerFactory)(nil)
 
-func (factory *containerFactory) New(name string) base.Container {
-	return &container{
+func (factory *containerFactory) New(name string) container.Container {
+	return &kvmContainer{
 		factory: factory,
 		name:    name,
 	}
 }
 
-func (factory *containerFactory) List() ([]base.Container, error) {
+func (factory *containerFactory) List() ([]container.Container, error) {
 	return nil, fmt.Errorf("Not yet implemented")
 }
