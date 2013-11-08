@@ -27,7 +27,12 @@ if ! bash <<"EOT"
     juju upgrade-juju $extra_args--show-log -e $env --version $version
   done
   for env in $ENVS; do
-    $SCRIPTS/wait_for_agent_update.py $env $version
+    if [ "$env" == "local" ]; then
+      full_version="$version.1"
+    else
+      full_version="$version"
+    fi
+    $SCRIPTS/wait_for_agent_update.py $env $full_version
   done
 EOT
 then
