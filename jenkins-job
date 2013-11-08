@@ -19,7 +19,7 @@ if ! bash <<"EOT"
   set -e
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
-    if "$env" == "local"; then
+    if [ "$env" == "local" ]; then
       extra_args="--upload-tools "
     else
       extra_args=""
