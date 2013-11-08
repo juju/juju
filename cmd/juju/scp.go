@@ -38,11 +38,11 @@ func (c *SCPCommand) Init(args []string) error {
 // forks ssh with c.Args, if provided.
 func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	var err error
-	c.Conn, err = c.initConn()
+	c.apiClient, err = c.initAPIClient()
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer c.apiClient.Close()
 
 	// translate arguments in the form 0:/somepath or service/0:/somepath into
 	// ubuntu@machine:/somepath so they can be presented to scp.
@@ -63,6 +63,5 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
-	c.Close()
 	return cmd.Run()
 }

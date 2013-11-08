@@ -9,7 +9,9 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -131,6 +133,24 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
+// ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
+func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
+	var results params.ServiceCharmRelationsResults
+	service, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return results, err
+	}
+	endpoints, err := service.Endpoints()
+	if err != nil {
+		return results, err
+	}
+	results.CharmRelations = make([]string, len(endpoints))
+	for i, endpoint := range endpoints {
+		results.CharmRelations[i] = endpoint.Relation.Name
+	}
+	return results, nil
+}
+
 // Resolved implements the server side of Client.Resolved.
 func (c *Client) Resolved(p params.Resolved) error {
 	unit, err := c.api.state.Unit(p.UnitName)
@@ -138,6 +158,34 @@ func (c *Client) Resolved(p params.Resolved) error {
 		return err
 	}
 	return unit.Resolve(p.Retry)
+}
+
+// PublicAddress implements the server side of Client.PublicAddress.
+func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
+	switch {
+	case names.IsMachine(p.Target):
+		machine, err := c.api.state.Machine(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr := instance.SelectPublicAddress(machine.Addresses())
+		if addr == "" {
+			return results, fmt.Errorf("machine %q has no public address", machine)
+		}
+		return params.PublicAddressResults{PublicAddress: addr}, nil
+
+	case names.IsUnit(p.Target):
+		unit, err := c.api.state.Unit(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr, ok := unit.PublicAddress()
+		if !ok {
+			return results, fmt.Errorf("unit %q has no public address", unit)
+		}
+		return params.PublicAddressResults{PublicAddress: addr}, nil
+	}
+	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
