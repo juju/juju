@@ -532,19 +532,21 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 	return results, nil
 }
 
-// MachineConfig returns information from the environment config that are
-// needed for machine cloud-init.
+// MachineConfig returns information from the environment config that is
+// needed for machine cloud-init (both state servers and host nodes).
 func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
 	result := params.MachineConfig{}
 	environConfig, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return result, err
 	}
+	// The basic information.
 	result.ProviderType = environConfig.Type()
 	result.AuthorizedKeys = environConfig.AuthorizedKeys()
 	result.SSLHostnameVerification = environConfig.SSLHostnameVerification()
 	result.EnvironAttrs = environConfig.AllAttrs()
 
+	// Find the appropriate tools information.
 	env, err := environs.New(environConfig)
 	if err != nil {
 		return result, err
@@ -555,6 +557,7 @@ func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineC
 	}
 	result.Tools = tools
 
+	// Find the secrets and API endpoints.
 	auth, err := provisioner.NewEnvironAuthenticator(env)
 	if err != nil {
 		return result, err
