@@ -103,11 +103,11 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 }
 
 // ServiceCharmRelations returns the service's charms relation names.
-func (c *Client) ServiceCharmRelations(service string) (*params.ServiceCharmRelationsResults, error) {
+func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 	var results params.ServiceCharmRelationsResults
 	params := params.ServiceCharmRelations{ServiceName: service}
 	err := c.st.Call("Client", "", "ServiceCharmRelations", params, &results)
-	return &results, err
+	return results.CharmRelations, err
 }
 
 // DestroyMachines removes a given set of machines.

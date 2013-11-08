@@ -1224,24 +1224,25 @@ func (s *clientSuite) TestClientServiceCharmRelations(c *gc.C) {
 	_, err := s.APIState.Client().ServiceCharmRelations("blah")
 	c.Assert(err, gc.ErrorMatches, `service "blah" not found`)
 
-	results, err := s.APIState.Client().ServiceCharmRelations("wordpress")
+	relations, err := s.APIState.Client().ServiceCharmRelations("wordpress")
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.NotNil)
-	c.Assert(results.CharmRelations, gc.DeepEquals, []string{
+	c.Assert(relations, gc.DeepEquals, []string{
 		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
 	})
 }
 
-func (s *clientSuite) TestClientPublicAddress(c *gc.C) {
+func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	s.setUpScenario(c)
 	_, err := s.APIState.Client().PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
-
-	addr, err := s.APIState.Client().PublicAddress("0")
+	_, err = s.APIState.Client().PublicAddress("0")
 	c.Assert(err, gc.ErrorMatches, `machine "0" has no public address`)
-
-	addr, err = s.APIState.Client().PublicAddress("wordpress/0")
+	_, err = s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no public address`)
+}
+
+func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
+	s.setUpScenario(c)
 
 	// Internally, instance.SelectPublicAddress is used; the "most public"
 	// address is returned.
@@ -1253,27 +1254,39 @@ func (s *clientSuite) TestClientPublicAddress(c *gc.C) {
 	publicAddress.NetworkScope = instance.NetworkPublic
 	err = m1.SetAddresses([]instance.Address{cloudLocalAddress})
 	c.Assert(err, gc.IsNil)
-	addr, err = s.APIState.Client().PublicAddress("1")
+	addr, err := s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
+}
+
+func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
+	s.setUpScenario(c)
 
 	// Public address of unit is taken from its machine
 	// (if its machine has addresses).
-	addr, err = s.APIState.Client().PublicAddress("wordpress/0")
+	m1, err := s.State.Machine("1")
+	publicAddress := instance.NewAddress("public")
+	publicAddress.NetworkScope = instance.NetworkPublic
+	err = m1.SetAddresses([]instance.Address{publicAddress})
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
+}
 
+func (s *clientSuite) TestClientPublicAddressUnitWithoutMachine(c *gc.C) {
+	s.setUpScenario(c)
 	// If the unit's machine has no addresses, the public address
 	// comes from the unit's document.
 	u, err := s.State.Unit("wordpress/1")
 	c.Assert(err, gc.IsNil)
 	err = u.SetPublicAddress("127.0.0.1")
 	c.Assert(err, gc.IsNil)
-	addr, err = s.APIState.Client().PublicAddress("wordpress/1")
+	addr, err := s.APIState.Client().PublicAddress("wordpress/1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "127.0.0.1")
 }

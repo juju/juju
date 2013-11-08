@@ -82,17 +82,33 @@ func (c *SSHCommon) initAPIClient() (*api.Client, error) {
 	return c.apiClient, err
 }
 
+// attemptStarter is an interface corresponding to utils.AttemptStrategy
+type attemptStarter interface {
+	Start() attempt
+}
+
+type attempt interface {
+	Next() bool
+}
+
+type attemptStrategy utils.AttemptStrategy
+
+func (s attemptStrategy) Start() attempt {
+	return utils.AttemptStrategy(s).Start()
+}
+
+var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 500 * time.Millisecond,
+}
+
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	var addr string
 	var err error
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
-	attempt := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 500 * time.Millisecond,
-	}
-	for a := attempt.Start(); a.Next(); {
+	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
 		addr, err = c.apiClient.PublicAddress(target)
 		if err == nil {
 			break
