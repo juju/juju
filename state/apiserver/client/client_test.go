@@ -1492,9 +1492,6 @@ func (s *clientSuite) TestMachineConfig(c *gc.C) {
 	caCert, _ := envConfig.CACert()
 	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
 	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.ProviderType, gc.Equals, envConfig.Type())
-	c.Assert(machineConfig.AuthorizedKeys, gc.Equals, envConfig.AuthorizedKeys())
-	c.Assert(machineConfig.SSLHostnameVerification, gc.Equals, envConfig.SSLHostnameVerification())
 	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
 	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
 }

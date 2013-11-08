@@ -541,9 +541,6 @@ func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineC
 		return result, err
 	}
 	// The basic information.
-	result.ProviderType = environConfig.Type()
-	result.AuthorizedKeys = environConfig.AuthorizedKeys()
-	result.SSLHostnameVerification = environConfig.SSLHostnameVerification()
 	result.EnvironAttrs = environConfig.AllAttrs()
 
 	// Find the appropriate tools information.

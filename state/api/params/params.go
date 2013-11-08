@@ -467,7 +467,6 @@ type MachineConfigParams struct {
 // MachineConfig contains information from the environment config that is
 // needed for a machine cloud-init.
 type MachineConfig struct {
-	ContainerConfig
 	EnvironAttrs map[string]interface{}
 	Tools        *tools.Tools
 	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
