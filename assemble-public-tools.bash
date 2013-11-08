@@ -22,7 +22,7 @@ check_deps() {
     has_deps=1
     which lftp || has_deps=0
     which s3cmd || has_deps=0
-    test -f $JUJU_DIR/.s3cfg || has_deps=0
+    test -f $JUJU_DIR/s3cfg || has_deps=0
     test -f $JUJU_DIR/environments.yaml || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install lftp, s3cmd, configure s3cmd, and configure juju."
@@ -51,7 +51,7 @@ retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
-    s3cmd -c $JUJU_DIR/.s3cfg sync s3://juju-dist/tools/releases/ $DEST_TOOLS/
+    s3cmd -c $JUJU_DIR/s3cfg sync s3://juju-dist/tools/releases/ $DEST_TOOLS/
 }
 
 
