@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/tools"
 )
 
 // ErrorResults holds the results of calling a bulk operation which
@@ -61,11 +62,15 @@ type DestroyRelation struct {
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
-	Series        string
-	ContainerType instance.ContainerType
-	Constraints   constraints.Value
-	ParentId      string
-	Jobs          []MachineJob
+	Series                  string
+	ContainerType           instance.ContainerType
+	Constraints             constraints.Value
+	ParentId                string
+	Jobs                    []MachineJob
+	InstanceId              instance.Id
+	Nonce                   string
+	HardwareCharacteristics instance.HardwareCharacteristics
+	Addrs                   []instance.Address
 }
 
 // AddMachines holds the parameters for making the AddMachines call.
@@ -445,12 +450,32 @@ func (i *AnnotationInfo) EntityId() EntityId {
 	}
 }
 
-// ContainerConfig contains information from the environment config that are
+// ContainerConfig contains information from the environment config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
+}
+
+type MachineConfigParams struct {
+	MachineId string
+	Series    string
+	Arch      string
+}
+
+// MachineConfig contains information from the environment config that is
+// needed for a machine cloud-init.
+type MachineConfig struct {
+	ContainerConfig
+	EnvironAttrs map[string]interface{}
+	Tools        *tools.Tools
+	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
+	StateAddrs []string
+	APIAddrs   []string
+	CACert     []byte
+	Tag        string
+	Password   string
 }
 
 // EnvironmentGetResults contains the result of EnvironmentGet client

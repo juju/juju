@@ -6,8 +6,9 @@ package api
 import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/params"
+
+//	"launchpad.net/juju-core/environs/cloudinit"
 )
 
 // Client represents the client-accessible part of the state.
@@ -24,13 +25,6 @@ type MachineInfo struct {
 type Status struct {
 	Machines map[string]MachineInfo
 	// TODO the rest
-}
-
-// EnvironConfig returns the environment config stored in state.
-// This method will disappear when more API migration is complete.
-// TODO - when get-environment is migrated to use the api, this can be refactored.
-func (c *Client) EnvironConfig() (*config.Config, error) {
-	return nil, nil
 }
 
 // Status returns the status of the juju environment.
@@ -111,6 +105,28 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 	results := new(params.AddMachinesResults)
 	err := c.st.Call("Client", "", "AddMachines", args, results)
 	return results.Machines, err
+}
+
+// InjectMachines injects new machines with the supplied parameters.
+func (c *Client) InjectMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "InjectMachines", args, results)
+	return results.Machines, err
+}
+
+// MachineConfig returns information from the environment config that are
+// needed for machine cloud-init.
+func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
+	args := params.MachineConfigParams{
+		MachineId: machineId,
+		Series:    series,
+		Arch:      arch,
+	}
+	err = c.st.Call("Client", "", "MachineConfig", args, &result)
+	return result, err
 }
 
 // DestroyMachines removes a given set of machines.

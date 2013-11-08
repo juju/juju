@@ -10,9 +10,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -44,9 +44,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	defer fakeSSH{
 		series: series, arch: arch, skipProvisionAgent: true,
 	}.install(c).Restore()
-	m, err := ProvisionMachine(args)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(m, gc.IsNil)
+	// Attempt to provision a machine with no tools available, expect it to fail.
+	machineId, err := ProvisionMachine(args)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(machineId, gc.Equals, "")
 
 	cfg := s.Conn.Environ.Config()
 	number, ok := cfg.AgentVersion()
@@ -61,16 +62,18 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			arch:   arch,
 			provisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		m, err = ProvisionMachine(args)
+		machineId, err = ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
-			c.Assert(m, gc.IsNil)
+			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, gc.IsNil)
-			c.Assert(m, gc.NotNil)
+			c.Assert(machineId, gc.Not(gc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
-			c.Assert(m.Id(), gc.Equals, fmt.Sprint(i))
+			c.Assert(machineId, gc.Equals, fmt.Sprint(i+1))
+			m, err := s.State.Machine(machineId)
+			c.Assert(err, gc.IsNil)
 			instanceId, err := m.InstanceId()
 			c.Assert(err, gc.IsNil)
 			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))
