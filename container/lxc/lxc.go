@@ -44,13 +44,6 @@ func DefaultNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig(DefaultLxcBridge)
 }
 
-// ManagerConfig contains the initialization parameters for the ContainerManager.
-// The name of the manager is used to namespace the containers on the machine.
-type ManagerConfig struct {
-	Name   string
-	LogDir string
-}
-
 type containerManager struct {
 	name   string
 	logdir string
@@ -62,7 +55,7 @@ var _ container.Manager = (*containerManager)(nil)
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf ManagerConfig) container.Manager {
+func NewContainerManager(conf container.ManagerConfig) container.Manager {
 	logdir := "/var/log/juju"
 	if conf.LogDir != "" {
 		logdir = conf.LogDir
