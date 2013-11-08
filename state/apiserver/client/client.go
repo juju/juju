@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
@@ -16,7 +18,10 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/worker/provisioner"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.client")
 
 type API struct {
 	state     *state.State
@@ -487,6 +492,32 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
+func createAddMachineParameters(machineParams params.AddMachineParams,
+	defaultSeries string) (*state.AddMachineParams, error) {
+
+	stateMachineParams := &state.AddMachineParams{
+		Series:        machineParams.Series,
+		Constraints:   machineParams.Constraints,
+		ParentId:      machineParams.ParentId,
+		ContainerType: machineParams.ContainerType,
+		InstanceId:    machineParams.InstanceId,
+		Nonce:         machineParams.Nonce,
+		HardwareCharacteristics: machineParams.HardwareCharacteristics,
+	}
+	if stateMachineParams.Series == "" {
+		stateMachineParams.Series = defaultSeries
+	}
+	// Convert params.MachineJob to state.MachineJob
+	stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
+	var jobError error
+	for j, job := range machineParams.Jobs {
+		if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
+			return nil, jobError
+		}
+	}
+	return stateMachineParams, nil
+}
+
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
@@ -501,35 +532,95 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	defaultSeries = conf.DefaultSeries()
 
 	for i, machineParams := range args.MachineParams {
-		series := machineParams.Series
-		if series == "" {
-			series = defaultSeries
-		}
-		stateMachineParams := state.AddMachineParams{
-			Series:        series,
-			Constraints:   machineParams.Constraints,
-			ParentId:      machineParams.ParentId,
-			ContainerType: machineParams.ContainerType,
-		}
-		// Convert params.MachineJob to state.MachineJob
-		stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
-		var jobError error
-		for j, job := range machineParams.Jobs {
-			if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
-				break
-			}
-		}
-		if jobError != nil {
-			results.Machines[i].Error = common.ServerError(jobError)
+		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+		if err != nil {
+			results.Machines[i].Error = common.ServerError(err)
 			continue
 		}
-		machine, err := c.api.state.AddMachineWithConstraints(&stateMachineParams)
+		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = machine.String()
 		}
 	}
 	return results, nil
+}
+
+// InjectMachines injects a machine into state with provisioned status.
+func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	results := params.AddMachinesResults{
+		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+
+	var defaultSeries string
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return results, err
+	}
+	defaultSeries = conf.DefaultSeries()
+
+	for i, machineParams := range args.MachineParams {
+		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+		if err != nil {
+			results.Machines[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := c.api.state.InjectMachine(stateMachineParams)
+		results.Machines[i].Error = common.ServerError(err)
+		if err == nil {
+			results.Machines[i].Machine = machine.String()
+			if err = machine.SetAddresses(machineParams.Addrs); err != nil {
+				results.Machines[i].Error = common.ServerError(err)
+				logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
+				machine.EnsureDead()
+				machine.Remove()
+			}
+		}
+	}
+	return results, nil
+}
+
+// MachineConfig returns information from the environment config that is
+// needed for machine cloud-init (both state servers and host nodes).
+func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
+	result := params.MachineConfig{}
+	environConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	// The basic information.
+	result.EnvironAttrs = environConfig.AllAttrs()
+
+	// Find the appropriate tools information.
+	env, err := environs.New(environConfig)
+	if err != nil {
+		return result, err
+	}
+	tools, err := findInstanceTools(env, args.Series, args.Arch)
+	if err != nil {
+		return result, err
+	}
+	result.Tools = tools
+
+	// Find the secrets and API endpoints.
+	auth, err := provisioner.NewEnvironAuthenticator(env)
+	if err != nil {
+		return result, err
+	}
+	machine, err := c.api.state.Machine(args.MachineId)
+	if err != nil {
+		return result, err
+	}
+	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	if err != nil {
+		return result, err
+	}
+	result.APIAddrs = apiInfo.Addrs
+	result.StateAddrs = stateInfo.Addrs
+	result.CACert = stateInfo.CACert
+	result.Password = stateInfo.Password
+	result.Tag = stateInfo.Tag
+	return result, nil
 }
 
 // DestroyMachines removes a given set of machines.

@@ -122,6 +122,28 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 	return results.Machines, err
 }
 
+// InjectMachines injects new machines with the supplied parameters.
+func (c *Client) InjectMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "InjectMachines", args, results)
+	return results.Machines, err
+}
+
+// MachineConfig returns information from the environment config that are
+// needed for machine cloud-init.
+func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
+	args := params.MachineConfigParams{
+		MachineId: machineId,
+		Series:    series,
+		Arch:      arch,
+	}
+	err = c.st.Call("Client", "", "MachineConfig", args, &result)
+	return result, err
+}
+
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{MachineNames: machines}
