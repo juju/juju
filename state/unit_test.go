@@ -679,6 +679,12 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
+func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
+	e, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	testSetAgentCompatPassword(c, e)
+}
+
 func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *gc.C) {
 	// Make a second unit to use later. (Subordinate units can only be created
 	// as a side-effect of a principal entering relation scope.)

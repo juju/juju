@@ -31,7 +31,7 @@ func isAgent(e state.Authenticator) bool {
 }
 
 func setPassword(e state.Authenticator, password string) error {
-	// Catch expected common case of mispelled
+	// Catch expected common case of misspelled
 	// or missing Password parameter.
 	if password == "" {
 		return fmt.Errorf("password is empty")

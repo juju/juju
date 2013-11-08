@@ -40,7 +40,9 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.st.Call("Client", "", "ServiceSet", p, nil)
+	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
+	// ServiceSet to unset values set to an empty string.
+	return c.st.Call("Client", "", "NewServiceSetForClientAPI", p, nil)
 }
 
 // ServiceUnset resets configuration options on a service.
@@ -108,6 +110,16 @@ func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 	params := params.ServiceCharmRelations{ServiceName: service}
 	err := c.st.Call("Client", "", "ServiceCharmRelations", params, &results)
 	return results.CharmRelations, err
+}
+
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "AddMachines", args, results)
+	return results.Machines, err
 }
 
 // DestroyMachines removes a given set of machines.
@@ -287,4 +299,17 @@ func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
+}
+
+// EnvironmentGet returns all environment settings.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentGetResults{}
+	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// EnvironmentSet sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentSet(config map[string]interface{}) error {
+	args := params.EnvironmentSet{Config: config}
+	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
 }
