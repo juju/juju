@@ -6,7 +6,7 @@ package kvm_test
 import (
 	gc "launchpad.net/gocheck"
 
-	base "launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -21,21 +21,21 @@ var _ = gc.Suite(&KVMSuite{})
 // TODO: work out how to test the actual kvm implementations.
 
 func (*KVMSuite) TestListInitiallyEmpty(c *gc.C) {
-	manager, err := kvm.NewContainerManager("test")
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
 	c.Assert(err, gc.IsNil)
 	containers, err := manager.ListContainers()
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.HasLen, 0)
 }
 
-func (s *KVMSuite) createRunningContainer(c *gc.C, name string) base.Container {
+func (s *KVMSuite) createRunningContainer(c *gc.C, name string) container.Container {
 	container := s.Factory.New(name)
 	c.Assert(container.Start(), gc.IsNil)
 	return container
 }
 
 func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
-	manager, err := kvm.NewContainerManager("test")
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
 	c.Assert(err, gc.IsNil)
 	s.createRunningContainer(c, "test-match1")
 	s.createRunningContainer(c, "test-match2")
@@ -50,7 +50,7 @@ func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
 }
 
 func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
-	manager, err := kvm.NewContainerManager("test")
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
 	c.Assert(err, gc.IsNil)
 	running := s.createRunningContainer(c, "test-running")
 	s.Factory.New("test-stopped")
