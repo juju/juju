@@ -139,12 +139,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth := conf.CharmStoreAuth(); auth != "" {
-		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			repo = CS.WithAuthToken(auth)
-		}
-	}
+	repo = AuthorizeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

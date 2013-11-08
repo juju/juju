@@ -129,12 +129,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth := conf.CharmStoreAuth(); auth != "" {
-		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			repo = CS.WithAuthToken(auth)
-		}
-	}
+	repo = AuthorizeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.

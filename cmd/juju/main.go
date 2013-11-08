@@ -9,8 +9,10 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 
 	// Import the providers.
@@ -155,6 +157,20 @@ func (c envCmdWrapper) Run(ctx *cmd.Context) error {
 	}
 
 	return err
+}
+
+/*
+Authorize charm store repository with authorization token (if any)
+in the configuration.
+*/
+func AuthorizeCharmRepo(repo charm.Repository, cfg *config.Config) charm.Repository {
+	// If a charm store auth token is set, pass it on to the charm store
+	if auth := cfg.CharmStoreAuth(); auth != "" {
+		if CS, isCS := repo.(*charm.CharmStore); isCS {
+			repo = CS.WithAuthToken(auth)
+		}
+	}
+	return repo
 }
 
 func main() {
