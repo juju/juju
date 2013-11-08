@@ -19,7 +19,12 @@ if ! bash <<"EOT"
   set -e
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
-    juju upgrade-juju --show-log -e $env
+    if "$env" == "local"; then
+      extra_args="--upload-tools "
+    else
+      extra_args=""
+    fi
+    juju upgrade-juju $extra_args--show-log -e $env --version $version
   done
   for env in $ENVS; do
     $SCRIPTS/wait_for_agent_update.py $env $version
