@@ -125,7 +125,7 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	machineParams := params.AddMachineParams{
 		ParentId:      c.MachineId,
 		ContainerType: c.ContainerType,
-		Series:        c.series,
+		Series:        c.Series,
 		Constraints:   c.Constraints,
 		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}
