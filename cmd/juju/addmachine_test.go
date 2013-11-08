@@ -84,12 +84,13 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	err := runAddMachine(c)
 	c.Assert(err, gc.IsNil)
-	err = runAddMachine(c)
-	c.Assert(err, gc.IsNil)
 	for i, container := range instance.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("%s:1", container))
+		machineNum := strconv.Itoa(i + 1)
+		err = runAddMachine(c)
 		c.Assert(err, gc.IsNil)
-		s._assertAddContainer(c, "1", fmt.Sprintf("1/%s/%d", container, i), container)
+		err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
+		c.Assert(err, gc.IsNil)
+		s._assertAddContainer(c, machineNum, fmt.Sprintf("%s/%s/0", machineNum, container), container)
 	}
 }
 
