@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/utils"
 )

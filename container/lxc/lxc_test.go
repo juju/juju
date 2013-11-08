@@ -82,7 +82,7 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 }
 
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -130,7 +130,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 }
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
@@ -144,7 +144,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 }
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	err := manager.StopContainer(instance)
@@ -158,7 +158,7 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -176,14 +176,14 @@ func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{Name: "eric"})
+	manager := lxc.NewContainerManager(container.ManagerConfig{Name: "eric"})
 	instance := StartContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), gc.Equals, "eric-machine-1-lxc-0")
 }
 
 func (s *LxcSuite) TestListContainers(c *gc.C) {
-	foo := lxc.NewContainerManager(lxc.ManagerConfig{Name: "foo"})
-	bar := lxc.NewContainerManager(lxc.ManagerConfig{Name: "bar"})
+	foo := lxc.NewContainerManager(container.ManagerConfig{Name: "foo"})
+	bar := lxc.NewContainerManager(container.ManagerConfig{Name: "bar"})
 
 	foo1 := StartContainer(c, foo, "1/lxc/0")
 	foo2 := StartContainer(c, foo, "1/lxc/1")
@@ -202,14 +202,14 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 }
 
 func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
 func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)

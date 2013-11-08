@@ -176,7 +176,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.name = ecfg.Name()
 
 	env.containerManager = lxc.NewContainerManager(
-		lxc.ManagerConfig{
+		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
 		})
