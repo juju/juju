@@ -1263,6 +1263,12 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	args := map[string]interface{}{"agent-version": "9.9.9"}
 	err := s.APIState.Client().EnvironmentSet(args)
 	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
+	// It's okay to pass env back with the same agent-version.
+	cfg, err := s.APIState.Client().EnvironmentGet()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg["agent-version"], gc.NotNil)
+	err = s.APIState.Client().EnvironmentSet(cfg)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *clientSuite) checkMachine(c *gc.C, id, cons string) {

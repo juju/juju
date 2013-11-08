@@ -152,10 +152,10 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{
-			{Tag: "unit-mysql-0", Password: "xxx"},
-			{Tag: "unit-mysql-1", Password: "yyy"},
-			{Tag: "unit-logging-0", Password: "zzz"},
-			{Tag: "unit-fake-42", Password: "abc"},
+			{Tag: "unit-mysql-0", Password: "xxx-12345678901234567890"},
+			{Tag: "unit-mysql-1", Password: "yyy-12345678901234567890"},
+			{Tag: "unit-logging-0", Password: "zzz-12345678901234567890"},
+			{Tag: "unit-fake-42", Password: "abc-12345678901234567890"},
 		},
 	}
 	results, err := s.deployer.SetPasswords(args)
@@ -170,11 +170,11 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	})
 	err = s.principal0.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed := s.principal0.PasswordValid("xxx")
+	changed := s.principal0.PasswordValid("xxx-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed = s.subordinate0.PasswordValid("zzz")
+	changed = s.subordinate0.PasswordValid("zzz-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 
 	// Remove the subordinate and make sure it's detected.
@@ -187,7 +187,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 
 	results, err = s.deployer.SetPasswords(params.PasswordChanges{
 		Changes: []params.PasswordChange{
-			{Tag: "unit-logging-0", Password: "blah"},
+			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
 	})
 	c.Assert(err, gc.IsNil)

@@ -97,9 +97,9 @@ func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser
 func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{
-			{Tag: s.machines[0].Tag(), Password: "xxx0"},
-			{Tag: s.machines[1].Tag(), Password: "xxx1"},
-			{Tag: s.machines[2].Tag(), Password: "xxx2"},
+			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
+			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
+			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
 			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
 			{Tag: "service-bar", Password: "abc"},
@@ -123,9 +123,22 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 		c.Logf("trying %q password", machine.Tag())
 		err = machine.Refresh()
 		c.Assert(err, gc.IsNil)
-		changed := machine.PasswordValid(fmt.Sprintf("xxx%d", i))
+		changed := machine.PasswordValid(fmt.Sprintf("xxx%d-1234567890123457890", i))
 		c.Assert(changed, jc.IsTrue)
 	}
+}
+
+func (s *provisionerSuite) TestShortSetPasswords(c *gc.C) {
+	args := params.PasswordChanges{
+		Changes: []params.PasswordChange{
+			{Tag: s.machines[1].Tag(), Password: "xxx1"},
+		},
+	}
+	results, err := s.provisioner.SetPasswords(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"password is only 4 bytes long, and is not a valid Agent password")
 }
 
 func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {

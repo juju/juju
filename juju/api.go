@@ -55,17 +55,45 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog): implement updateSecrets (see Conn.updateSecrets)
+	// TODO(axw) remove this once we have synchronous bootstrap.
+	if err := updateSecrets(environ, st); err != nil {
+		apiClose(st)
+		return nil, err
+	}
 	return &APIConn{
 		Environ: environ,
 		State:   st,
 	}, nil
 }
 
+// updateSecrets pushes environment secrets to the API server.
+// NOTE: this is a temporary hack, and will disappear when we
+// have synchronous bootstrap.
+var updateSecrets = func(environ environs.Environ, st *api.State) error {
+	secrets, err := environ.Provider().SecretAttrs(environ.Config())
+	if err != nil {
+		return err
+	}
+	client := st.Client()
+	cfg, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	for k, v := range secrets {
+		if _, exists := cfg[k]; exists {
+			// Environment already has secrets. Won't send again.
+			return nil
+		} else {
+			cfg[k] = v
+		}
+	}
+	return client.EnvironmentSet(cfg)
+}
+
 // Close terminates the connection to the environment and releases
 // any associated resources.
 func (c *APIConn) Close() error {
-	return c.State.Close()
+	return apiClose(c.State)
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for

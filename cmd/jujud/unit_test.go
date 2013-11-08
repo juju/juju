@@ -36,7 +36,7 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 	s.GitSuite.TearDownTest(c)
 }
 
-const initialUnitPassword = "unit-password"
+const initialUnitPassword = "unit-password-1234567890"
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
