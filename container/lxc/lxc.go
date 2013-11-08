@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"launchpad.net/golxc"
@@ -18,7 +17,6 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -30,7 +28,6 @@ var (
 	lxcContainerDir     = "/var/lib/lxc"
 	lxcRestartDir       = "/etc/lxc/auto"
 	lxcObjectFactory    = golxc.Factory()
-	aptHTTPProxyRE      = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
 )
 
 const (
@@ -75,7 +72,7 @@ func (manager *containerManager) StartContainer(
 	// Note here that the lxcObjectFacotry only returns a valid container
 	// object, and doesn't actually construct the underlying lxc container on
 	// disk.
-	container := lxcObjectFactory.New(name)
+	lxcContainer := lxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -85,7 +82,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := writeUserData(machineConfig, directory)
+	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
 		logger.Errorf("failed to write user data: %v", err)
 		return nil, err
@@ -104,7 +101,7 @@ func (manager *containerManager) StartContainer(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := container.Create(configFile, defaultTemplate, templateParams...); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, err
 	}
@@ -125,18 +122,18 @@ func (manager *containerManager) StartContainer(
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
-	container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
+	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = container.Start("", consoleFile); err != nil {
+	if err = lxcContainer.Start("", consoleFile); err != nil {
 		logger.Errorf("container failed to start: %v", err)
 		return nil, err
 	}
 	logger.Tracef("container started")
-	return &lxcInstance{container, name}, nil
+	return &lxcInstance{lxcContainer, name}, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -246,65 +243,6 @@ func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) 
 		return "", err
 	}
 	return configFilename, nil
-}
-
-func writeUserData(machineConfig *cloudinit.MachineConfig, directory string) (string, error) {
-	userData, err := cloudInitUserData(machineConfig)
-	if err != nil {
-		logger.Errorf("failed to create user data: %v", err)
-		return "", err
-	}
-	userDataFilename := filepath.Join(directory, "cloud-init")
-	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
-		logger.Errorf("failed to write user data: %v", err)
-		return "", err
-	}
-	return userDataFilename, nil
-}
-
-func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
-	machineConfig.DataDir = "/var/lib/juju"
-	cloudConfig, err := cloudinit.New(machineConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Run apt-config to fetch proxy settings from host. If no proxy
-	// settings are configured, then we don't set up any proxy information
-	// on the container.
-	proxyConfig, err := utils.AptConfigProxy()
-	if err != nil {
-		return nil, err
-	}
-	if proxyConfig != "" {
-		var proxyLines []string
-		for _, line := range strings.Split(proxyConfig, "\n") {
-			line = strings.TrimSpace(line)
-			if len(line) > 0 {
-				if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
-					cloudConfig.SetAptProxy(m[1])
-				} else {
-					proxyLines = append(proxyLines, line)
-				}
-			}
-		}
-		if len(proxyLines) > 0 {
-			cloudConfig.AddFile(
-				"/etc/apt/apt.conf.d/99proxy-extra",
-				strings.Join(proxyLines, "\n"),
-				0644)
-		}
-	}
-
-	// Run ifconfig to get the addresses of the internal container at least
-	// logged in the host.
-	cloudConfig.AddRunCmd("ifconfig")
-
-	data, err := cloudConfig.Render()
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
 
 // uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
