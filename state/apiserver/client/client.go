@@ -470,11 +470,22 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
+
+	var defaultSeries string
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return results, err
+	}
+	defaultSeries = conf.DefaultSeries()
+
 	for i, machineParams := range args.MachineParams {
 		stateMachineParams, err := createAddMachineParameters(machineParams)
 		if err != nil {
 			results.Machines[i].Error = common.ServerError(err)
 			continue
+		}
+		if stateMachineParams.Series == "" {
+			stateMachineParams.Series = defaultSeries
 		}
 		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
 		results.Machines[i].Error = common.ServerError(err)
@@ -500,12 +511,12 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = machine.String()
-		}
-		if err = machine.SetAddresses(machineParams.Addrs); err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
-			machine.EnsureDead()
-			machine.Remove()
+			if err = machine.SetAddresses(machineParams.Addrs); err != nil {
+				results.Machines[i].Error = common.ServerError(err)
+				logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
+				machine.EnsureDead()
+				machine.Remove()
+			}
 		}
 	}
 	return results, nil
@@ -693,8 +704,11 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Make sure we don't allow changing agent-version.
-	if _, found := args.Config["agent-version"]; found {
-		return fmt.Errorf("agent-version cannot be changed")
+	if v, found := args.Config["agent-version"]; found {
+		oldVersion, _ := oldConfig.AgentVersion()
+		if v != oldVersion.String() {
+			return fmt.Errorf("agent-version cannot be changed")
+		}
 	}
 	// Apply the attributes specified for the command to the state config.
 	newConfig, err := oldConfig.Apply(args.Config)

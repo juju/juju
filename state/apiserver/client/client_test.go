@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -1263,23 +1264,46 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	args := map[string]interface{}{"agent-version": "9.9.9"}
 	err := s.APIState.Client().EnvironmentSet(args)
 	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
+	// It's okay to pass env back with the same agent-version.
+	cfg, err := s.APIState.Client().EnvironmentGet()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg["agent-version"], gc.NotNil)
+	err = s.APIState.Client().EnvironmentSet(cfg)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *clientSuite) checkMachine(c *gc.C, id, cons string) {
+func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
 	// Ensure the machine was actually created.
 	machine, err := s.BackingState.Machine(id)
 	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Series(), gc.Equals, series)
 	c.Assert(machine.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
 	machineConstraints, err := machine.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineConstraints.String(), gc.Equals, cons)
 }
 
-func (s *clientSuite) TestClientAddMachinesNoErrors(c *gc.C) {
+func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Series: "precise",
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Series: "quantal",
 			Jobs:   []params.MachineJob{params.JobHostUnits},
 		}
 	}
@@ -1288,7 +1312,7 @@ func (s *clientSuite) TestClientAddMachinesNoErrors(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, "quantal", apiParams[i].Constraints.String())
 	}
 }
 
@@ -1296,8 +1320,7 @@ func (s *clientSuite) TestClientAddMachinesWithContainers(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Series: "precise",
-			Jobs:   []params.MachineJob{params.JobHostUnits},
+			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
 	// The last machine is to be a container.
@@ -1311,7 +1334,7 @@ func (s *clientSuite) TestClientAddMachinesWithContainers(c *gc.C) {
 			expectedId = "2/lxc/0"
 		}
 		c.Assert(machineResult.Machine, gc.DeepEquals, expectedId)
-		s.checkMachine(c, machineResult.Machine, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
@@ -1319,8 +1342,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Series: "precise",
-			Jobs:   []params.MachineJob{params.JobHostUnits},
+			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
 	// The last machine has some constraints.
@@ -1330,7 +1352,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
@@ -1338,8 +1360,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Series: "precise",
-			Jobs:   []params.MachineJob{params.JobHostUnits},
+			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
 	// This will cause the last machine add to fail.
@@ -1352,7 +1373,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
 		}
 	}
 }
