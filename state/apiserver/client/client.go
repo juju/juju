@@ -444,7 +444,9 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
-func createAddMachineParameters(machineParams params.AddMachineParams) (*state.AddMachineParams, error) {
+func createAddMachineParameters(machineParams params.AddMachineParams,
+	defaultSeries string) (*state.AddMachineParams, error) {
+
 	stateMachineParams := &state.AddMachineParams{
 		Series:        machineParams.Series,
 		Constraints:   machineParams.Constraints,
@@ -453,6 +455,9 @@ func createAddMachineParameters(machineParams params.AddMachineParams) (*state.A
 		InstanceId:    machineParams.InstanceId,
 		Nonce:         machineParams.Nonce,
 		HardwareCharacteristics: machineParams.HardwareCharacteristics,
+	}
+	if stateMachineParams.Series == "" {
+		stateMachineParams.Series = defaultSeries
 	}
 	// Convert params.MachineJob to state.MachineJob
 	stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
@@ -479,13 +484,10 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	defaultSeries = conf.DefaultSeries()
 
 	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams)
+		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
 		if err != nil {
 			results.Machines[i].Error = common.ServerError(err)
 			continue
-		}
-		if stateMachineParams.Series == "" {
-			stateMachineParams.Series = defaultSeries
 		}
 		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
 		results.Machines[i].Error = common.ServerError(err)
@@ -501,8 +503,16 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
+
+	var defaultSeries string
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return results, err
+	}
+	defaultSeries = conf.DefaultSeries()
+
 	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams)
+		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
 		if err != nil {
 			results.Machines[i].Error = common.ServerError(err)
 			continue

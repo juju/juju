@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -20,6 +21,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 )
 
 type clientSuite struct {
@@ -1376,4 +1378,140 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
 		}
 	}
+}
+
+func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
+	hc instance.HardwareCharacteristics, addr []instance.Address) {
+
+	machine, err := s.BackingState.Machine(id)
+	c.Assert(err, gc.IsNil)
+	machineInstanceId, err := machine.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
+	c.Assert(machineInstanceId, gc.Equals, instance.Id(instanceId))
+	machineHardware, err := machine.HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineHardware.String(), gc.Equals, hc.String())
+	c.Assert(machine.Addresses(), gc.DeepEquals, addr)
+}
+
+func (s *clientSuite) assertClientInjectMachinesDefaultSeries(c *gc.C, series string) {
+	apiParams := make([]params.AddMachineParams, 3)
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Series:     series,
+			Jobs:       []params.MachineJob{params.JobHostUnits},
+			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
+			Nonce:      "foo",
+			HardwareCharacteristics: hc,
+			Addrs: addrs,
+		}
+	}
+	machines, err := s.APIState.Client().InjectMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	seriesToCheck := series
+	if seriesToCheck == "" {
+		seriesToCheck = config.DefaultSeries
+	}
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, seriesToCheck, apiParams[i].Constraints.String())
+		instanceId := fmt.Sprintf("1234-%d", i)
+		s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
+	}
+}
+
+func (s *clientSuite) TestClientInjectMachinesDefaultSeries(c *gc.C) {
+	s.assertClientInjectMachinesDefaultSeries(c, "")
+}
+
+func (s *clientSuite) TestClientInjectMachinesWithSeries(c *gc.C) {
+	s.assertClientInjectMachinesDefaultSeries(c, "quantal")
+}
+
+func (s *clientSuite) TestClientInjectMachinesSomeErrors(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs:       []params.MachineJob{params.JobHostUnits},
+			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
+			Nonce:      "foo",
+			HardwareCharacteristics: hc,
+			Addrs: addrs,
+		}
+	}
+	// This will cause the last machine add to fail.
+	apiParams[2].Nonce = ""
+	machines, err := s.APIState.Client().InjectMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		if i == 2 {
+			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot inject a machine without a nonce")
+		} else {
+			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+			instanceId := fmt.Sprintf("1234-%d", i)
+			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
+		}
+	}
+}
+
+func (s *clientSuite) TestMachineConfig(c *gc.C) {
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	apiParams := params.AddMachineParams{
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: hc,
+		Addrs: addrs,
+	}
+	machines, err := s.APIState.Client().InjectMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+
+	machineId := machines[0].Machine
+	machineConfig, err := s.APIState.Client().MachineConfig(machineId, config.DefaultSeries, "amd64")
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(envConfig)
+	c.Assert(err, gc.IsNil)
+	stateInfo, apiInfo, err := env.StateInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineConfig.StateAddrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Assert(machineConfig.APIAddrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Assert(machineConfig.Tag, gc.Equals, "machine-0")
+	caCert, _ := envConfig.CACert()
+	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
+	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
+	c.Assert(machineConfig.ProviderType, gc.Equals, envConfig.Type())
+	c.Assert(machineConfig.AuthorizedKeys, gc.Equals, envConfig.AuthorizedKeys())
+	c.Assert(machineConfig.SSLHostnameVerification, gc.Equals, envConfig.SSLHostnameVerification())
+	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
+	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
+}
+
+func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	apiParams := params.AddMachineParams{
+		Series:     "quantal",
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: hc,
+		Addrs: addrs,
+	}
+	machines, err := s.APIState.Client().InjectMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
+	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
 }
