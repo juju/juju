@@ -107,33 +107,25 @@ func (c *AddMachineCommand) Init(args []string) error {
 }
 
 func (c *AddMachineCommand) Run(_ *cmd.Context) error {
+	if c.SSHHost != "" {
+		args := manual.ProvisionMachineArgs{
+			Host:    c.SSHHost,
+			EnvName: c.EnvName,
+		}
+		_, err := manual.ProvisionMachine(args)
+		return err
+	}
+
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	if c.SSHHost != "" {
-		args := manual.ProvisionMachineArgs{
-			Host:    c.SSHHost,
-			EnvName: c.EnvName,
-		}
-		_, err = manual.ProvisionMachine(args)
-		return err
-	}
-
-	series := c.Series
-	if series == "" {
-		info, err := client.EnvironmentInfo()
-		if err != nil {
-			return err
-		}
-		series = info.DefaultSeries
-	}
 	machineParams := params.AddMachineParams{
 		ParentId:      c.MachineId,
 		ContainerType: c.ContainerType,
-		Series:        series,
+		Series:        c.series,
 		Constraints:   c.Constraints,
 		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}

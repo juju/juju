@@ -444,9 +444,21 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
+
+	var defaultSeries string
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return results, err
+	}
+	defaultSeries = conf.DefaultSeries()
+
 	for i, machineParams := range args.MachineParams {
+		series := machineParams.Series
+		if series == "" {
+			series = defaultSeries
+		}
 		stateMachineParams := state.AddMachineParams{
-			Series:        machineParams.Series,
+			Series:        series,
 			Constraints:   machineParams.Constraints,
 			ParentId:      machineParams.ParentId,
 			ContainerType: machineParams.ContainerType,
