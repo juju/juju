@@ -133,6 +133,10 @@ func (s *SSHCommonSuite) makeMachines(n int, c *gc.C) []*state.Machine {
 	for i := 0; i < n; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
+		addr := instance.NewAddress(fmt.Sprintf("dummyenv-%d.dns", i))
+		addr.NetworkScope = instance.NetworkPublic
+		err = m.SetAddresses([]instance.Address{addr})
+		c.Assert(err, gc.IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
 		inst, md := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())

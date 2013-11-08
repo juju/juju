@@ -52,7 +52,7 @@ var debugHooksTests = []struct {
 }, {
 	info:   `invalid unit syntax`,
 	args:   []string{"mysql"},
-	code:   1,
+	code:   2,
 	stderr: `error: "mysql" is not a valid unit name` + "\n",
 }, {
 	info:   `invalid unit`,

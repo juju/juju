@@ -6,7 +6,6 @@ package client
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/instance"
@@ -16,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/utils"
 )
 
 type API struct {
@@ -115,19 +113,20 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
-// ServiceEndpoints implements the server side of Client.ServiceEndpoints.
-func (c *Client) ServiceEndpoints(p params.ServiceEndpoints) (*params.ServiceEndpointsResults, error) {
+// ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
+func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
+	var results params.ServiceCharmRelationsResults
 	service, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 	endpoints, err := service.Endpoints()
 	if err != nil {
-		return nil, err
+		return results, err
 	}
-	results := &params.ServiceEndpointsResults{Endpoints: make([]string, len(endpoints))}
+	results.CharmRelations = make([]string, len(endpoints))
 	for i, endpoint := range endpoints {
-		results.Endpoints[i] = endpoint.Relation.Name
+		results.CharmRelations[i] = endpoint.Relation.Name
 	}
 	return results, nil
 }

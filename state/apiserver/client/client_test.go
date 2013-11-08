@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -1216,4 +1217,63 @@ func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
 	obtained, err := s.APIState.Client().GetEnvironmentConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientServiceCharmRelations(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.APIState.Client().ServiceCharmRelations("blah")
+	c.Assert(err, gc.ErrorMatches, `service "blah" not found`)
+
+	results, err := s.APIState.Client().ServiceCharmRelations("wordpress")
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(results.CharmRelations, gc.DeepEquals, []string{
+		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
+	})
+}
+
+func (s *clientSuite) TestClientPublicAddress(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.APIState.Client().PublicAddress("wordpress")
+	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
+
+	addr, err := s.APIState.Client().PublicAddress("0")
+	c.Assert(err, gc.ErrorMatches, `machine "0" has no public address`)
+
+	addr, err = s.APIState.Client().PublicAddress("wordpress/0")
+	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no public address`)
+
+	// Internally, instance.SelectPublicAddress is used; the "most public"
+	// address is returned.
+	m1, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	cloudLocalAddress := instance.NewAddress("cloudlocal")
+	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
+	publicAddress := instance.NewAddress("public")
+	publicAddress.NetworkScope = instance.NetworkPublic
+	err = m1.SetAddresses([]instance.Address{cloudLocalAddress})
+	c.Assert(err, gc.IsNil)
+	addr, err = s.APIState.Client().PublicAddress("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "cloudlocal")
+	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	addr, err = s.APIState.Client().PublicAddress("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public")
+
+	// Public address of unit is taken from its machine
+	// (if its machine has addresses).
+	addr, err = s.APIState.Client().PublicAddress("wordpress/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public")
+
+	// If the unit's machine has no addresses, the public address
+	// comes from the unit's document.
+	u, err := s.State.Unit("wordpress/1")
+	c.Assert(err, gc.IsNil)
+	err = u.SetPublicAddress("127.0.0.1")
+	c.Assert(err, gc.IsNil)
+	addr, err = s.APIState.Client().PublicAddress("wordpress/1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "127.0.0.1")
 }

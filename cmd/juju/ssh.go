@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -84,7 +83,7 @@ func (c *SSHCommon) initAPIClient() (*api.Client, error) {
 }
 
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
-	var results *params.PublicAddressResults
+	var addr string
 	var err error
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
@@ -94,7 +93,7 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 		Delay: 500 * time.Millisecond,
 	}
 	for a := attempt.Start(); a.Next(); {
-		results, err = c.apiClient.PublicAddress(target)
+		addr, err = c.apiClient.PublicAddress(target)
 		if err == nil {
 			break
 		}
@@ -102,8 +101,8 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	logger.Infof("Resolved public address of %q: %q", target, results.PublicAddress)
-	return results.PublicAddress, nil
+	logger.Infof("Resolved public address of %q: %q", target, addr)
+	return addr, nil
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that

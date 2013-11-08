@@ -63,11 +63,11 @@ func (c *Client) Resolved(unit string, retry bool) error {
 
 // PublicAddress returns the public address of the specified
 // machine or unit.
-func (c *Client) PublicAddress(target string) (*params.PublicAddressResults, error) {
+func (c *Client) PublicAddress(target string) (string, error) {
 	var results params.PublicAddressResults
 	p := params.PublicAddress{Target: target}
 	err := c.st.Call("Client", "", "PublicAddress", p, &results)
-	return &results, err
+	return results.PublicAddress, err
 }
 
 // ServiceSetYAML sets configuration options on a service
@@ -102,11 +102,11 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
 }
 
-// ServiceEndpoints returns the service's endpoint relation names.
-func (c *Client) ServiceEndpoints(service string) (*params.ServiceEndpointsResults, error) {
-	var results params.ServiceEndpointsResults
-	params := params.ServiceEndpoints{ServiceName: service}
-	err := c.st.Call("Client", "", "ServiceEndpoints", params, &results)
+// ServiceCharmRelations returns the service's charms relation names.
+func (c *Client) ServiceCharmRelations(service string) (*params.ServiceCharmRelationsResults, error) {
+	var results params.ServiceCharmRelationsResults
+	params := params.ServiceCharmRelations{ServiceName: service}
+	err := c.st.Call("Client", "", "ServiceCharmRelations", params, &results)
 	return &results, err
 }
 

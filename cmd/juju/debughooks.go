@@ -58,19 +58,18 @@ func (c *DebugHooksCommand) validateHooks() error {
 		return nil
 	}
 	service := names.UnitService(c.Target)
-	results, err := c.apiClient.ServiceEndpoints(service)
+	results, err := c.apiClient.ServiceCharmRelations(service)
 	if err != nil {
 		return err
 	}
-	endpoints := results.Endpoints
 
 	validHooks := make(map[string]bool)
 	for _, hook := range hooks.UnitHooks() {
 		validHooks[string(hook)] = true
 	}
-	for _, ep := range endpoints {
+	for _, relname := range results.CharmRelations {
 		for _, hook := range hooks.RelationHooks() {
-			hook := fmt.Sprintf("%s-%s", ep, hook)
+			hook := fmt.Sprintf("%s-%s", relname, hook)
 			validHooks[hook] = true
 		}
 	}

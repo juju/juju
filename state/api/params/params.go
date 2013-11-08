@@ -134,14 +134,14 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
-// ServiceEndpoints holds parameters for making the ServiceEndpoints call.
-type ServiceEndpoints struct {
+// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+type ServiceCharmRelations struct {
 	ServiceName string
 }
 
-// ServiceEndpointsResults holds the result of the ServiceEndpoints call.
-type ServiceEndpointsResults struct {
-	Endpoints []string
+// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+type ServiceCharmRelationsResults struct {
+	CharmRelations []string
 }
 
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
