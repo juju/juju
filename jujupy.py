@@ -143,6 +143,11 @@ class Environment:
         """Wait until all unit/machine agents are 'started'."""
         for ignored in until_timeout(300):
             status = self.get_status()
+            # Look for errors preventing an agent from being installed
+            for item_name, item in self.agent_items(status):
+                state_info = item.get('agent-state-info', '')
+                if 'error' in state_info:
+                    raise ErroredUnit(self.environment, item_name, state_info)
             states = self.agent_states(status)
             if states.keys() == ['started']:
                 break
