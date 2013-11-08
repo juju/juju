@@ -16,7 +16,7 @@ import urllib2
 class ErroredUnit(Exception):
 
     def __init__(self, environment, unit_name, state):
-        msg = 'Unit <%s> %s is in state %s' % (environment, unit_name, state)
+        msg = '<%s> %s is in state %s' % (environment, unit_name, state)
         Exception.__init__(self, msg)
 
 
