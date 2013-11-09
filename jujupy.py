@@ -15,74 +15,172 @@ import urllib2
 
 class ErroredUnit(Exception):
 
-    def __init__(self, unit_name, state):
-        Exception.__init__('Unit %s is in state %s' % unit_name, state)
+    def __init__(self, environment, unit_name, state):
+        msg = '<%s> %s is in state %s' % (environment, unit_name, state)
+        Exception.__init__(self, msg)
 
 
-def until_timeout(timeout):
+class until_timeout:
+
     """Yields None until timeout is reached.
 
-    :param timeout: Number of seconds to wait.
+    :ivar timeout: Number of seconds to wait.
     """
-    start = datetime.now()
-    while datetime.now() - start  < timedelta(0, timeout):
-        yield None
+    def __init__(self, timeout):
+        self.timeout = timeout
+        self.start = self.now()
+
+    def __iter__(self):
+        return self
+
+    @staticmethod
+    def now():
+        return datetime.now()
+
+    def next(self):
+        if self.now() - self.start  >= timedelta(0, self.timeout):
+            raise StopIteration
+        return None
+
+
+def yaml_loads(yaml_str):
+    return yaml.safe_load(StringIO(yaml_str))
+
+
+class JujuClientDevel:
+    # This client is meant to work with the latest version of juju.
+    # Subclasses will retain support for older versions of juju, so that the
+    # latest version is easy to read, and older versions can be trivially
+    # deleted.
+
+    @classmethod
+    def get_version(cls):
+        return cls.get_juju_output(None, '--version').strip()
+
+    @classmethod
+    def by_version(cls):
+        version = cls.get_version()
+        if version.startswith('1.16'):
+            return JujuClient16
+        else:
+            return JujuClientDevel
+
+    @staticmethod
+    def _full_args(environment, command, sudo, args):
+        e_arg = () if environment is None else ('-e', environment.environment)
+        sudo_arg = ('sudo',) if sudo else ()
+        return sudo_arg + ('juju', command) + e_arg + args
+
+    @classmethod
+    def bootstrap(cls, environment):
+        """Bootstrap, using sudo if necessary."""
+        cls.juju(environment, 'bootstrap', ('--constraints', 'mem=2G'),
+                 environment.needs_sudo())
+
+    @classmethod
+    def destroy_environment(cls, environment):
+        cls.juju(
+            None, 'destroy-environment', (environment.environment, '-y'),
+            environment.needs_sudo(), check=False)
+
+    @classmethod
+    def get_juju_output(cls, environment, command):
+        args = cls._full_args(environment, command, False, ())
+        return subprocess.check_output(args)
+
+    @classmethod
+    def get_status(cls, environment):
+        """Get the current status as a dict."""
+        return yaml_loads(cls.get_juju_output(environment, 'status'))
+
+    @classmethod
+    def juju(cls, environment, command, args, sudo=False, check=True):
+        """Run a command under juju for the current environment."""
+        args = cls._full_args(environment, command, sudo, args)
+        print ' '.join(args)
+        sys.stdout.flush()
+        if check:
+            return subprocess.check_call(args)
+        return subprocess.call(args)
+
+
+class JujuClient16(JujuClientDevel):
+
+    @classmethod
+    def destroy_environment(cls, environment):
+        cls.juju(environment, 'destroy-environment', ('-y',),
+                 environment.needs_sudo(), check=False)
 
 
 class Environment:
 
     def __init__(self, environment):
         self.environment = environment
+        self.client = JujuClientDevel.by_version()
 
-    def _full_args(self, command, *args):
-        return ('juju', command, '-e', self.environment) + args
+    def needs_sudo(self):
+        return bool(self.environment == 'local')
+
+    def bootstrap(self):
+        return self.client.bootstrap(self)
+
+    def destroy_environment(self):
+        return self.client.destroy_environment(self)
 
     def juju(self, command, *args):
-        """Run a command under juju for the current environment."""
-        args = self._full_args(command, *args)
-        print ' '.join(args)
-        sys.stdout.flush()
-        return subprocess.check_call(args)
-
-    @staticmethod
-    def agent_states(status):
-        """Map agent states to the units and machines in those states."""
-        states = defaultdict(list)
-        for machine_name, machine in sorted(status['machines'].items()):
-            states[machine.get('agent-state', 'no-agent')].append(machine_name)
-        for service in sorted(status['services'].values()):
-            for unit_name, unit in service['units'].items():
-                states[unit['agent-state']].append(unit_name)
-        return states
+        return self.client.juju(self, command, args)
 
     def get_status(self):
-        """Get the current status as a dict."""
-        args = self._full_args('status')
-        return yaml.safe_load(StringIO(subprocess.check_output(args)))
+        return self.client.get_status(self)
+
+    @staticmethod
+    def agent_items(status):
+        for machine_name, machine in sorted(status['machines'].items()):
+            yield machine_name, machine
+        for service in sorted(status['services'].values()):
+            for unit_name, unit in service.get('units', {}).items():
+                yield unit_name, unit
+
+    @classmethod
+    def agent_states(cls, status):
+        """Map agent states to the units and machines in those states."""
+        states = defaultdict(list)
+        for item_name, item in cls.agent_items(status):
+            states[item.get('agent-state', 'no-agent')].append(item_name)
+        return states
 
     def wait_for_started(self):
         """Wait until all unit/machine agents are 'started'."""
-        for ignored in until_timeout(300):
+        for ignored in until_timeout(1200):
             status = self.get_status()
+            # Look for errors preventing an agent from being installed
+            for item_name, item in self.agent_items(status):
+                state_info = item.get('agent-state-info', '')
+                if 'error' in state_info:
+                    raise ErroredUnit(self.environment, item_name, state_info)
             states = self.agent_states(status)
-            pending = False
-            state_listing = []
+            if states.keys() == ['started']:
+                break
             for state, entries in states.items():
-                if state == 'started':
-                    continue
                 if 'error' in state:
-                    raise ErroredUnit(entries[0],  state)
-                pending = True
-                state_listing.append('%s: %s' % (state, ' '.join(entries)))
-            print ' | '.join(state_listing)
+                    raise ErroredUnit(self.environment, entries[0],  state)
+            print format_listing(states, 'started', self.environment)
             sys.stdout.flush()
-            if not pending:
-                return status
         else:
             raise Exception('Timed out!')
+        return status
 
 
-def check_wordpress(host):
+def format_listing(listing, expected, environment):
+    value_listing = []
+    for value, entries in listing.items():
+        if value == expected:
+            continue
+        value_listing.append('%s: %s' % (value, ', '.join(entries)))
+    return ('<%s> ' % environment) + ' | '.join(value_listing)
+
+
+def check_wordpress(environment, host):
     """"Check whether Wordpress has come up successfully.
 
     Times out after 30 seconds.
@@ -101,4 +199,5 @@ def check_wordpress(host):
         # Let's not DOS wordpress
         sleep(1)
     else:
-        raise Exception('Cannot get welcome screen at %s' % url)
+        raise Exception(
+            'Cannot get welcome screen at %s %s' % (url, environment))

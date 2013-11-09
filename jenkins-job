@@ -1,0 +1,54 @@
+#!/bin/bash
+set -eu
+CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
+source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
+if ! $SCRIPTS/deploy_stack.py $ENVS; then
+  for env in $ENVS; do
+    $SCRIPTS/destroy-environment $env
+  done
+  exit 1
+fi
+sudo dpkg -i $TESTING_DIR/juju-core*.deb
+mkdir -p new-tools
+source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
+export GOPATH=$(dirname $(pwd))
+source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
+EXIT_STATUS=0
+# Test upgrading an existing environment
+if ! bash <<"EOT"
+  set -e
+  version=$(juju --version|sed -r 's/([^-]*).*/\1/')
+  for env in $ENVS; do
+    if [ "$env" == "local" ]; then
+      extra_args="--upload-tools "
+    else
+      extra_args=""
+    fi
+    juju upgrade-juju $extra_args--show-log -e $env --version $version
+  done
+  for env in $ENVS; do
+    if [ "$env" == "local" ]; then
+      full_version="$version.1"
+    else
+      full_version="$version"
+    fi
+    $SCRIPTS/wait_for_agent_update.py $env $full_version
+  done
+EOT
+then
+  EXIT_STATUS=1
+else
+  # test deploying on the new version
+  for env in $ENVS; do
+    $SCRIPTS/destroy-environment $env
+  done
+  sleep 5
+  if ! $SCRIPTS/deploy_stack.py $ENVS; then
+    EXIT_STATUS=1
+  fi
+fi
+sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
+for env in $ENVS; do
+    $SCRIPTS/destroy-environment $env
+done
+exit $EXIT_STATUS

@@ -1,0 +1,18 @@
+#!/bin/bash
+set -eu
+CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
+source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
+sudo dpkg -i $TESTING_DIR/juju-core*.deb
+mkdir -p new-tools
+source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
+export GOPATH=$(dirname $(pwd))
+source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
+EXIT_STATUS=0
+if ! $SCRIPTS/deploy_stack.py $ENVS; then
+  EXIT_STATUS=1
+fi
+sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
+for env in $ENVS; do
+    $SCRIPTS/destroy-environment $env
+done
+exit $EXIT_STATUS
