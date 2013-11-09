@@ -42,8 +42,10 @@ check_deps() {
 publish_to_canonistack() {
     echo "Phase 1: Publish to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
-    juju --show-log \
-        sync-tools -e public-tools-canonistack --dev --source=${JUJU_DIST}
+    cd $JUJU_DIST/tools/releases/
+    swift upload --changed juju-dist/tools/releases/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    swift upload --changed juju-dist/tools/streams/v1/ *.json
     # This needed to allow old deployments upgrade.
     cd ${JUJU_DIST}
     swift upload --changed juju-dist tools/juju-1.16*.tgz
@@ -63,8 +65,10 @@ testing_to_canonistack() {
 publish_to_hp() {
     echo "Phase 2: Publish to HP Cloud."
     source $JUJU_DIR/hptoolsrc
-    juju --show-log \
-        sync-tools -e public-tools-hp --dev --source=${JUJU_DIST}
+    cd $JUJU_DIST/tools/releases/
+    swift upload --changed juju-dist/tools/releases/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    swift upload --changed juju-dist/tools/streams/v1/ *.json
     # Support old tools location so that deployments can upgrade to new tools.
     cd ${JUJU_DIST}
     swift upload --changed juju-dist tools/juju-1.16*.tgz
@@ -98,27 +102,9 @@ testing_to_aws() {
 
 
 publish_to_azure() {
-    # This command sets the tool name from the local path! The local path for
-    # each public file MUST match the destination path :(.
     echo "Phase 4: Publish to Azure."
     source $JUJU_DIR/azuretoolsrc
-    cd ${JUJU_DIST}
-    public_files=$(find tools -name "*.tgz" -o -name "*.json")
-    published_files=$(go run
-        $GOPATH/src/launchpad.net/gwacl/example/storage/run.go
-        -account=${AZURE_ACCOUNT} -container=juju-tools -location="West US"
-        -key=${AZURE_JUJU_TOOLS_KEY} list |
-        sed -n 's,.*\(juju.*tgz\),\1,p')
-    for public_file in $public_files; do
-        [[ $published_files =~ $public_file ]] && continue
-        echo "Uploading $public_file to Azure West US."
-        go run $GOPATH/src/launchpad.net/gwacl/example/storage/run.go \
-            -account=${AZURE_ACCOUNT} -container=juju-tools \
-            -location="West US" \
-            -key=${AZURE_JUJU_TOOLS_KEY} \
-            -filename=$public_file \
-            addblock
-    done
+    ./azure-publish-tools.py publish release ${JUJU_DIST}
 }
 
 
@@ -127,23 +113,7 @@ testing_to_azure() {
     # different.
     echo "Phase 4: Testing to Azure."
     source $JUJU_DIR/azuretoolsrc
-    cd ${JUJU_DIST}
-    public_files=$(find tools -name "*.tgz" -o -name "*.json")
-    published_files=$(go run
-        $GOPATH/src/launchpad.net/gwacl/example/storage/run.go
-        -account=${AZURE_ACCOUNT} -container=juju-tools -location="West US"
-        -key=${AZURE_JUJU_TOOLS_KEY} list |
-        sed -n 's,.*\(juju.*tgz\),\1,p')
-    for public_file in $public_files; do
-        [[ $published_files =~ $public_file ]] && continue
-        echo "Uploading $public_file to Azure West US."
-        go run $GOPATH/src/launchpad.net/gwacl/example/storage/run.go \
-            -account=${AZURE_ACCOUNT} -container=juju-tools/testing \
-            -location="West US" \
-            -key=${AZURE_JUJU_TOOLS_KEY} \
-            -filename=$public_file \
-            addblock
-    done
+    ./azure-publish-tools.py publish testing ${JUJU_DIST}
 }
 
 
