@@ -19,6 +19,7 @@ from azure.storage import BlobService
 
 mimetypes.init()
 
+
 OK = 0
 BAD_ARGS = 1
 UNKNOWN_COMMAND = 2
@@ -39,6 +40,7 @@ SyncFile = namedtuple(
 
 
 def get_published_files(purpose, blob_service):
+    """Return the SyncFile info about the published files."""
     if purpose == TESTING:
         prefix = TESTING
     else:
@@ -57,7 +59,7 @@ def get_published_files(purpose, blob_service):
 
 
 def get_local_files(purpose, local_dir):
-    """Get the path paths in local tools tree."""
+    """Return SyncFile info about the files in the local tools tree."""
     if not os.path.isdir(local_dir):
         print('%s not found.' % local_dir)
         return None
@@ -91,34 +93,12 @@ def get_md5content(local_path):
     return base64_md5
 
 
-def upload_block(blob_service, sync_file):
-    blob_service.put_blob(
-        JUJU_DIST, sync_file.path, '', 'BlockBlob')
-    block_ids = []
-    index = 0
-    with open(sync_file.local_path, 'rb') as local_file:
-        while True:
-            data = local_file.read(CHUNK_SIZE)
-            if data:
-                block_id = base64.b64encode(str(index))
-                blob_service.put_block(
-                    JUJU_DIST, sync_file.path, data, block_id)
-                block_ids.append(block_id)
-                index += 1
-            else:
-                break
-    blob_service.put_block_list(
-        JUJU_DIST, sync_file.path, block_ids,
-        x_ms_blob_content_type=sync_file.mimetype,
-        x_ms_blob_content_md5=sync_file.md5content)
-
-
 def publish_local_file(purpose, blob_service, sync_file):
-    """Published the local to the release or testing location.
+    """Published the local file to the release or testing location.
 
     The file is broken down into blocks that can be uploaded within
     the azure restrictions. The blocks are then assembled into a blob
-    with the md5 content (base64 of digest).
+    with the md5 content (base64 encoded digest).
     """
     blob_service.put_blob(JUJU_DIST, sync_file.path, '', 'BlockBlob')
     block_ids = []
@@ -204,14 +184,6 @@ def get_option_parser():
     """Return the option parser for this program."""
     usage = "usage: %prog <list | publish> <testing | release> [local-tools]"
     parser = OptionParser(usage=usage)
-    parser.add_option(
-        "-v", "--verbose", action="store_true", dest="verbose")
-    parser.add_option(
-        "-q", "--quiet", action="store_true", dest="quiet")
-    parser.set_defaults(
-        verbose=False,
-        quiet=False,
-    )
     return parser
 
 
