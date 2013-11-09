@@ -186,7 +186,9 @@ generate_streams() {
     # Support old tools location so that deployments can upgrade to new tools.
     # Generate cpc mirrors.sjson based on template suggested by Ian.
     # https://bugs.launchpad.net/juju-core/+bug/1243470
-    cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
+    if [[ $IS_TESTING == "false" ]]; then
+        cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
+    fi
     echo "The tools are in ${DEST_DIST}."
 }
 
