@@ -100,10 +100,16 @@ testing_to_aws() {
     s3cmd -c $JUJU_DIR/s3cfg sync ${JUJU_DIST}/tools s3://juju-dist/testing/
 }
 
+shim_creds() {
+    # The azure library uses different vars than was defined for gwacl.
+    AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT:-$AZURE_ACCOUNT}
+    AZURE_STORAGE_ACCESS_KEY=${AZURE_STORAGE_ACCESS_KEY:-$AZURE_JUJU_TOOLS_KEY}
+}
 
 publish_to_azure() {
     echo "Phase 4: Publish to Azure."
     source $JUJU_DIR/azuretoolsrc
+    shim_creds
     ./azure-publish-tools.py publish release ${JUJU_DIST}
 }
 
@@ -113,6 +119,7 @@ testing_to_azure() {
     # different.
     echo "Phase 4: Testing to Azure."
     source $JUJU_DIR/azuretoolsrc
+    shim_creds
     ./azure-publish-tools.py publish testing ${JUJU_DIST}
 }
 
@@ -131,6 +138,7 @@ JUJU_DIST=$(cd $2; pwd)
 if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
     usage
 fi
+
 
 check_deps
 if [[ $PURPOSE == "RELEASE" ]]; then

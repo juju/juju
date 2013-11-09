@@ -1,5 +1,7 @@
 #!/usr/bin/python
 #
+# The azure lib checks the environment for two vars that can be sourced
+# or defined before the command.
 # export AZURE_STORAGE_ACCOUNT=tcontepub
 # export AZURE_STORAGE_ACCESS_KEY='secret key'
 
