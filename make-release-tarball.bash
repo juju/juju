@@ -10,7 +10,7 @@ DEFAULT_JUJU_CORE="lp:juju-core"
 
 
 usage() {
-    echo "usage: $0 TAG [JUJU_CORE_BRANCH]"
+    echo "usage: $0 REVNO [JUJU_CORE_BRANCH]"
     echo "  REVNO: The juju-core revno to build"
     echo "  JUJU_CORE_BRANCH: The juju-core branch; defaults to ${DEFAULT_JUJU_CORE}"
     exit 1
@@ -18,7 +18,7 @@ usage() {
 
 
 test $# -ge 1 ||  usage
-TAG=$1
+REVNO=$1
 JUJU_CORE_BRANCH=${2:-$DEFAULT_JUJU_CORE}
 TMP_DIR=$(mktemp -d)
 mkdir $TMP_DIR/RELEASE
@@ -27,10 +27,10 @@ WORK=$TMP_DIR/RELEASE
 echo "Getting juju-core and all its dependencies."
 GOPATH=$WORK go get -v -d launchpad.net/juju-core/...
 
-echo "Setting juju-core tree to $JUJU_CORE_BRANCH $TAG."
+echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 (cd "${WORK}/src/launchpad.net/juju-core/" &&
  bzr pull --remember --overwrite $JUJU_CORE_BRANCH &&
- bzr revert -r $TAG)
+ bzr revert -r $REVNO)
 
 echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK godeps -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
