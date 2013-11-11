@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 var _ = gc.Suite(&unitSuite{})
@@ -29,9 +30,11 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.unit, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetPassword("unit-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.SetPassword(password)
 
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), "unit-password")
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 }
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {

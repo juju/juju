@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/container/lxc"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -35,7 +35,7 @@ import (
 
 type MachineSuite struct {
 	agentSuite
-	lxc.TestSuite
+	lxctesting.TestSuite
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -62,7 +62,7 @@ func (s *MachineSuite) TearDownTest(c *gc.C) {
 	s.agentSuite.TearDownTest(c)
 }
 
-const initialMachinePassword = "machine-password"
+const initialMachinePassword = "machine-password-1234567890"
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the

@@ -489,7 +489,7 @@ func (env *localEnviron) findBridgeAddress(networkBridge string) (string, error)
 
 func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
 	tag := names.MachineTag("0")
-	passwordHash := utils.PasswordHash(secret)
+	passwordHash := utils.UserPasswordHash(secret, utils.CompatSalt)
 	// We don't check the existance of the CACert here as if it wasn't set, we
 	// wouldn't get this far.
 	cfg := env.config.Config

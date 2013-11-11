@@ -7,14 +7,21 @@ import (
 	"errors"
 	"fmt"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/worker/provisioner"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.client")
 
 type API struct {
 	state     *state.State
@@ -131,6 +138,24 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
+// ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
+func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
+	var results params.ServiceCharmRelationsResults
+	service, err := c.api.state.Service(p.ServiceName)
+	if err != nil {
+		return results, err
+	}
+	endpoints, err := service.Endpoints()
+	if err != nil {
+		return results, err
+	}
+	results.CharmRelations = make([]string, len(endpoints))
+	for i, endpoint := range endpoints {
+		results.CharmRelations[i] = endpoint.Relation.Name
+	}
+	return results, nil
+}
+
 // Resolved implements the server side of Client.Resolved.
 func (c *Client) Resolved(p params.Resolved) error {
 	unit, err := c.api.state.Unit(p.UnitName)
@@ -138,6 +163,34 @@ func (c *Client) Resolved(p params.Resolved) error {
 		return err
 	}
 	return unit.Resolve(p.Retry)
+}
+
+// PublicAddress implements the server side of Client.PublicAddress.
+func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
+	switch {
+	case names.IsMachine(p.Target):
+		machine, err := c.api.state.Machine(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr := instance.SelectPublicAddress(machine.Addresses())
+		if addr == "" {
+			return results, fmt.Errorf("machine %q has no public address", machine)
+		}
+		return params.PublicAddressResults{PublicAddress: addr}, nil
+
+	case names.IsUnit(p.Target):
+		unit, err := c.api.state.Unit(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr, ok := unit.PublicAddress()
+		if !ok {
+			return results, fmt.Errorf("unit %q has no public address", unit)
+		}
+		return params.PublicAddressResults{PublicAddress: addr}, nil
+	}
+	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
@@ -439,6 +492,137 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
+func createAddMachineParameters(machineParams params.AddMachineParams,
+	defaultSeries string) (*state.AddMachineParams, error) {
+
+	stateMachineParams := &state.AddMachineParams{
+		Series:        machineParams.Series,
+		Constraints:   machineParams.Constraints,
+		ParentId:      machineParams.ParentId,
+		ContainerType: machineParams.ContainerType,
+		InstanceId:    machineParams.InstanceId,
+		Nonce:         machineParams.Nonce,
+		HardwareCharacteristics: machineParams.HardwareCharacteristics,
+	}
+	if stateMachineParams.Series == "" {
+		stateMachineParams.Series = defaultSeries
+	}
+	// Convert params.MachineJob to state.MachineJob
+	stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
+	var jobError error
+	for j, job := range machineParams.Jobs {
+		if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
+			return nil, jobError
+		}
+	}
+	return stateMachineParams, nil
+}
+
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	results := params.AddMachinesResults{
+		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+
+	var defaultSeries string
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return results, err
+	}
+	defaultSeries = conf.DefaultSeries()
+
+	for i, machineParams := range args.MachineParams {
+		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+		if err != nil {
+			results.Machines[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
+		results.Machines[i].Error = common.ServerError(err)
+		if err == nil {
+			results.Machines[i].Machine = machine.String()
+		}
+	}
+	return results, nil
+}
+
+// InjectMachines injects a machine into state with provisioned status.
+func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	results := params.AddMachinesResults{
+		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+
+	var defaultSeries string
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return results, err
+	}
+	defaultSeries = conf.DefaultSeries()
+
+	for i, machineParams := range args.MachineParams {
+		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+		if err != nil {
+			results.Machines[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := c.api.state.InjectMachine(stateMachineParams)
+		results.Machines[i].Error = common.ServerError(err)
+		if err == nil {
+			results.Machines[i].Machine = machine.String()
+			if err = machine.SetAddresses(machineParams.Addrs); err != nil {
+				results.Machines[i].Error = common.ServerError(err)
+				logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
+				machine.EnsureDead()
+				machine.Remove()
+			}
+		}
+	}
+	return results, nil
+}
+
+// MachineConfig returns information from the environment config that is
+// needed for machine cloud-init (both state servers and host nodes).
+func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
+	result := params.MachineConfig{}
+	environConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	// The basic information.
+	result.EnvironAttrs = environConfig.AllAttrs()
+
+	// Find the appropriate tools information.
+	env, err := environs.New(environConfig)
+	if err != nil {
+		return result, err
+	}
+	tools, err := findInstanceTools(env, args.Series, args.Arch)
+	if err != nil {
+		return result, err
+	}
+	result.Tools = tools
+
+	// Find the secrets and API endpoints.
+	auth, err := provisioner.NewEnvironAuthenticator(env)
+	if err != nil {
+		return result, err
+	}
+	machine, err := c.api.state.Machine(args.MachineId)
+	if err != nil {
+		return result, err
+	}
+	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	if err != nil {
+		return result, err
+	}
+	result.APIAddrs = apiInfo.Addrs
+	result.StateAddrs = stateInfo.Addrs
+	result.CACert = stateInfo.CACert
+	result.Password = stateInfo.Password
+	result.Tag = stateInfo.Tag
+	return result, nil
+}
+
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return c.api.state.DestroyMachines(args.MachineNames...)
@@ -578,8 +762,11 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Make sure we don't allow changing agent-version.
-	if _, found := args.Config["agent-version"]; found {
-		return fmt.Errorf("agent-version cannot be changed")
+	if v, found := args.Config["agent-version"]; found {
+		oldVersion, _ := oldConfig.AgentVersion()
+		if v != oldVersion.String() {
+			return fmt.Errorf("agent-version cannot be changed")
+		}
 	}
 	// Apply the attributes specified for the command to the state config.
 	newConfig, err := oldConfig.Apply(args.Config)

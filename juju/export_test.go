@@ -5,4 +5,5 @@ var (
 	APIClose             = &apiClose
 	ProviderConnectDelay = &providerConnectDelay
 	NewAPIFromName       = newAPIFromName
+	UpdateSecrets        = &updateSecrets
 )

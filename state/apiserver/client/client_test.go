@@ -5,18 +5,23 @@ package client_test
 
 import (
 	"fmt"
+	"strconv"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 )
 
 type clientSuite struct {
@@ -1219,6 +1224,78 @@ func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
+func (s *clientSuite) TestClientServiceCharmRelations(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.APIState.Client().ServiceCharmRelations("blah")
+	c.Assert(err, gc.ErrorMatches, `service "blah" not found`)
+
+	relations, err := s.APIState.Client().ServiceCharmRelations("wordpress")
+	c.Assert(err, gc.IsNil)
+	c.Assert(relations, gc.DeepEquals, []string{
+		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
+	})
+}
+
+func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.APIState.Client().PublicAddress("wordpress")
+	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
+	_, err = s.APIState.Client().PublicAddress("0")
+	c.Assert(err, gc.ErrorMatches, `machine "0" has no public address`)
+	_, err = s.APIState.Client().PublicAddress("wordpress/0")
+	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no public address`)
+}
+
+func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
+	s.setUpScenario(c)
+
+	// Internally, instance.SelectPublicAddress is used; the "most public"
+	// address is returned.
+	m1, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	cloudLocalAddress := instance.NewAddress("cloudlocal")
+	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
+	publicAddress := instance.NewAddress("public")
+	publicAddress.NetworkScope = instance.NetworkPublic
+	err = m1.SetAddresses([]instance.Address{cloudLocalAddress})
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PublicAddress("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "cloudlocal")
+	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	addr, err = s.APIState.Client().PublicAddress("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public")
+}
+
+func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
+	s.setUpScenario(c)
+
+	// Public address of unit is taken from its machine
+	// (if its machine has addresses).
+	m1, err := s.State.Machine("1")
+	publicAddress := instance.NewAddress("public")
+	publicAddress.NetworkScope = instance.NetworkPublic
+	err = m1.SetAddresses([]instance.Address{publicAddress})
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public")
+}
+
+func (s *clientSuite) TestClientPublicAddressUnitWithoutMachine(c *gc.C) {
+	s.setUpScenario(c)
+	// If the unit's machine has no addresses, the public address
+	// comes from the unit's document.
+	u, err := s.State.Unit("wordpress/1")
+	c.Assert(err, gc.IsNil)
+	err = u.SetPublicAddress("127.0.0.1")
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PublicAddress("wordpress/1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "127.0.0.1")
+}
+
 func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -1261,4 +1338,249 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	args := map[string]interface{}{"agent-version": "9.9.9"}
 	err := s.APIState.Client().EnvironmentSet(args)
 	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
+	// It's okay to pass env back with the same agent-version.
+	cfg, err := s.APIState.Client().EnvironmentGet()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg["agent-version"], gc.NotNil)
+	err = s.APIState.Client().EnvironmentSet(cfg)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
+	// Ensure the machine was actually created.
+	machine, err := s.BackingState.Machine(id)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Series(), gc.Equals, series)
+	c.Assert(machine.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
+	machineConstraints, err := machine.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineConstraints.String(), gc.Equals, cons)
+}
+
+func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Series: "quantal",
+			Jobs:   []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, "quantal", apiParams[i].Constraints.String())
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithContainers(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	// The last machine is to be a container.
+	apiParams[2].ContainerType = instance.LXC
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		expectedId := strconv.Itoa(i)
+		if i == 2 {
+			expectedId = "2/lxc/0"
+		}
+		c.Assert(machineResult.Machine, gc.DeepEquals, expectedId)
+		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	// The last machine has some constraints.
+	apiParams[2].Constraints = constraints.MustParse("mem=4G")
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	// This will cause the last machine add to fail.
+	apiParams[2].ParentId = "123"
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		if i == 2 {
+			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
+		} else {
+			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+		}
+	}
+}
+
+func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
+	hc instance.HardwareCharacteristics, addr []instance.Address) {
+
+	machine, err := s.BackingState.Machine(id)
+	c.Assert(err, gc.IsNil)
+	machineInstanceId, err := machine.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
+	c.Assert(machineInstanceId, gc.Equals, instance.Id(instanceId))
+	machineHardware, err := machine.HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineHardware.String(), gc.Equals, hc.String())
+	c.Assert(machine.Addresses(), gc.DeepEquals, addr)
+}
+
+func (s *clientSuite) assertClientInjectMachinesDefaultSeries(c *gc.C, series string) {
+	apiParams := make([]params.AddMachineParams, 3)
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Series:     series,
+			Jobs:       []params.MachineJob{params.JobHostUnits},
+			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
+			Nonce:      "foo",
+			HardwareCharacteristics: hc,
+			Addrs: addrs,
+		}
+	}
+	machines, err := s.APIState.Client().InjectMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	seriesToCheck := series
+	if seriesToCheck == "" {
+		seriesToCheck = config.DefaultSeries
+	}
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, seriesToCheck, apiParams[i].Constraints.String())
+		instanceId := fmt.Sprintf("1234-%d", i)
+		s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
+	}
+}
+
+func (s *clientSuite) TestClientInjectMachinesDefaultSeries(c *gc.C) {
+	s.assertClientInjectMachinesDefaultSeries(c, "")
+}
+
+func (s *clientSuite) TestClientInjectMachinesWithSeries(c *gc.C) {
+	s.assertClientInjectMachinesDefaultSeries(c, "quantal")
+}
+
+func (s *clientSuite) TestClientInjectMachinesSomeErrors(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 3)
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs:       []params.MachineJob{params.JobHostUnits},
+			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
+			Nonce:      "foo",
+			HardwareCharacteristics: hc,
+			Addrs: addrs,
+		}
+	}
+	// This will cause the last machine add to fail.
+	apiParams[2].Nonce = ""
+	machines, err := s.APIState.Client().InjectMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		if i == 2 {
+			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot inject a machine without a nonce")
+		} else {
+			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+			instanceId := fmt.Sprintf("1234-%d", i)
+			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
+		}
+	}
+}
+
+func (s *clientSuite) TestMachineConfig(c *gc.C) {
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	apiParams := params.AddMachineParams{
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: hc,
+		Addrs: addrs,
+	}
+	machines, err := s.APIState.Client().InjectMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+
+	machineId := machines[0].Machine
+	machineConfig, err := s.APIState.Client().MachineConfig(machineId, config.DefaultSeries, "amd64")
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(envConfig)
+	c.Assert(err, gc.IsNil)
+	stateInfo, apiInfo, err := env.StateInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineConfig.StateAddrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Assert(machineConfig.APIAddrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Assert(machineConfig.Tag, gc.Equals, "machine-0")
+	caCert, _ := envConfig.CACert()
+	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
+	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
+	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
+	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
+}
+
+func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	hc := instance.MustParseHardware("mem=4G")
+	apiParams := params.AddMachineParams{
+		Series:     "quantal",
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: hc,
+		Addrs: addrs,
+	}
+	machines, err := s.APIState.Client().InjectMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
+	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
 }

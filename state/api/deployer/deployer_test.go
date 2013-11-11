@@ -115,6 +115,10 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
 	err = s.subordinate.SetPassword("foo")
+	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
+	wc.AssertNoChange()
+
+	err = s.subordinate.SetPassword("foo-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -212,20 +216,20 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Change the principal's password and verify.
-	err = unit.SetPassword("foobar")
+	err = unit.SetPassword("foobar-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	err = s.principal.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.principal.PasswordValid("foobar"), gc.Equals, true)
+	c.Assert(s.principal.PasswordValid("foobar-12345678901234567890"), gc.Equals, true)
 
 	// Then the subordinate.
 	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
-	err = unit.SetPassword("phony")
+	err = unit.SetPassword("phony-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.subordinate.PasswordValid("phony"), gc.Equals, true)
+	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), gc.Equals, true)
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
