@@ -18,12 +18,12 @@ type ManagerConfig struct {
 // Manager is responsible for starting containers, and stopping and listing
 // containers that it has started.
 type Manager interface {
-	// StartContainer creates and starts a new lxc container for the specified machine.
+	// StartContainer creates and starts a new container for the specified machine.
 	StartContainer(
 		machineConfig *cloudinit.MachineConfig,
 		series string,
 		network *NetworkConfig) (instance.Instance, error)
-	// StopContainer stops and destroyes the lxc container identified by Instance.
+	// StopContainer stops and destroyes the container identified by Instance.
 	StopContainer(instance.Instance) error
 	// ListContainers return a list of containers that have been started by
 	// this manager.
