@@ -48,5 +48,5 @@ func (c *DestroyUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return client.DestroyServiceUnits(c.UnitNames)
+	return client.DestroyServiceUnits(c.UnitNames...)
 }

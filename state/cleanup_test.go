@@ -90,6 +90,25 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
 }
 
+func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
+	stateManager, err := s.State.AddMachine("quantal", state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	s.assertDoesNotNeedCleanup(c)
+	err = stateManager.ForceDestroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	s.assertDoesNotNeedCleanup(c)
+	assertLife(c, stateManager, state.Alive)
+
+	environManager, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	err = environManager.ForceDestroy()
+	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
+	s.assertDoesNotNeedCleanup(c)
+	assertLife(c, environManager, state.Alive)
+}
+
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
@@ -106,7 +125,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force machine destruction, check cleanup queued.
-	err = s.State.ForceDestroyMachines(machine.Id())
+	err = machine.ForceDestroy()
 	c.Assert(err, gc.IsNil)
 	s.assertNeedsCleanup(c)
 
@@ -117,7 +136,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// ...and so has the unit...
-	assertUnitRemoved(c, pr.u0)
+	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope.
 	assertNotInScope(c, pr.ru0)
@@ -156,13 +175,13 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force removal of the top-level machine.
-	err = s.State.ForceDestroyMachines(machine.Id())
+	err = machine.ForceDestroy()
 	c.Assert(err, gc.IsNil)
 	s.assertNeedsCleanup(c)
 
 	// And do it again, just to check that the second cleanup doc for the same
 	// machine doesn't cause problems down the line.
-	err = s.State.ForceDestroyMachines(machine.Id())
+	err = machine.ForceDestroy()
 	c.Assert(err, gc.IsNil)
 	s.assertNeedsCleanup(c)
 
@@ -175,10 +194,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// ...and so have all the units...
-	assertUnitRemoved(c, prr.pu0)
-	assertUnitRemoved(c, prr.pu1)
-	assertUnitRemoved(c, prr.ru0)
-	assertUnitRemoved(c, prr.ru1)
+	assertRemoved(c, prr.pu0)
+	assertRemoved(c, prr.pu1)
+	assertRemoved(c, prr.ru0)
+	assertRemoved(c, prr.ru1)
 
 	// ...and none of the units have left relation scopes occupied.
 	assertNotInScope(c, prr.pru0)

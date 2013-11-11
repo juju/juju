@@ -6,6 +6,8 @@ package main
 import (
 	"fmt"
 
+	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -15,6 +17,7 @@ import (
 type DestroyMachineCommand struct {
 	cmd.EnvCommandBase
 	MachineIds []string
+	Force      bool
 }
 
 func (c *DestroyMachineCommand) Info() *cmd.Info {
@@ -22,9 +25,13 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 		Name:    "destroy-machine",
 		Args:    "<machine> ...",
 		Purpose: "destroy machines",
-		Doc:     "Machines that have assigned units, or are responsible for the environment, cannot be destroyed.",
+		Doc:     "Machines that are responsible for the environment cannot be destroyed. Machines running units or containers can only be destroyed with the --force flag.",
 		Aliases: []string{"terminate-machine"},
 	}
+}
+
+func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
 
 func (c *DestroyMachineCommand) Init(args []string) error {
@@ -46,5 +53,8 @@ func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+	if c.Force {
+		return apiclient.ForceDestroyMachines(c.MachineIds...)
+	}
 	return apiclient.DestroyMachines(c.MachineIds...)
 }
