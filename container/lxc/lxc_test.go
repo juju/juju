@@ -76,14 +76,14 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 	}
 
 	series := "series"
-	network := lxc.BridgeNetworkConfig("nic42")
+	network := container.BridgeNetworkConfig("nic42")
 	inst, err := manager.StartContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
 	return inst
 }
 
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -226,7 +226,7 @@ var _ = gc.Suite(&NetworkSuite{})
 
 func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 	for _, test := range []struct {
-		config *lxc.NetworkConfig
+		config *container.NetworkConfig
 		net    string
 		link   string
 	}{{
@@ -238,11 +238,11 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		net:    "veth",
 		link:   "lxcbr0",
 	}, {
-		config: lxc.BridgeNetworkConfig("foo"),
+		config: container.BridgeNetworkConfig("foo"),
 		net:    "veth",
 		link:   "foo",
 	}, {
-		config: lxc.PhysicalNetworkConfig("foo"),
+		config: container.PhysicalNetworkConfig("foo"),
 		net:    "phys",
 		link:   "foo",
 	}} {

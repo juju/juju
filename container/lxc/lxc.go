@@ -34,58 +34,14 @@ var (
 )
 
 const (
-	// BridgeNetwork will have the container use the lxc bridge.
-	bridgeNetwork = "bridge"
-	// PhyscialNetwork will have the container use a specified network device.
-	physicalNetwork = "physical"
 	// DefaultLxcBridge is the package created container bridge
 	DefaultLxcBridge = "lxcbr0"
 )
 
-// NetworkConfig defines how the container network will be configured.
-type NetworkConfig struct {
-	networkType string
-	device      string
-}
-
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
-func DefaultNetworkConfig() *NetworkConfig {
-	return &NetworkConfig{bridgeNetwork, DefaultLxcBridge}
-}
-
-// BridgeNetworkConfig returns a valid NetworkConfig to use the specified
-// device as a network bridge for the container.
-func BridgeNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{bridgeNetwork, device}
-}
-
-// PhysicalNetworkConfig returns a valid NetworkConfig to use the specified
-// device as the network device for the container.
-func PhysicalNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{physicalNetwork, device}
-}
-
-// ManagerConfig contains the initialization parameters for the ContainerManager.
-type ManagerConfig struct {
-	Name   string
-	LogDir string
-}
-
-// ContainerManager is responsible for starting containers, and stopping and
-// listing containers that it has started.  The name of the manager is used to
-// namespace the lxc containers on the machine.
-type ContainerManager interface {
-	// StartContainer creates and starts a new lxc container for the specified machine.
-	StartContainer(
-		machineConfig *cloudinit.MachineConfig,
-		series string,
-		network *NetworkConfig) (instance.Instance, error)
-	// StopContainer stops and destroyes the lxc container identified by Instance.
-	StopContainer(instance.Instance) error
-	// ListContainers return a list of containers that have been started by
-	// this manager.
-	ListContainers() ([]instance.Instance, error)
+func DefaultNetworkConfig() *container.NetworkConfig {
+	return container.BridgeNetworkConfig(DefaultLxcBridge)
 }
 
 type containerManager struct {
@@ -110,7 +66,7 @@ func NewContainerManager(conf container.ManagerConfig) container.Manager {
 func (manager *containerManager) StartContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *NetworkConfig) (instance.Instance, error) {
+	network *container.NetworkConfig) (instance.Instance, error) {
 
 	name := names.MachineTag(machineConfig.MachineId)
 	if manager.name != "" {
@@ -266,23 +222,23 @@ func networkConfigTemplate(networkType, networkLink string) string {
 	return fmt.Sprintf(networkTemplate, networkType, networkLink)
 }
 
-func generateNetworkConfig(network *NetworkConfig) string {
+func generateNetworkConfig(network *container.NetworkConfig) string {
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
 		network = DefaultNetworkConfig()
 	}
-	switch network.networkType {
-	case physicalNetwork:
-		return networkConfigTemplate("phys", network.device)
+	switch network.NetworkType {
+	case container.PhysicalNetwork:
+		return networkConfigTemplate("phys", network.Device)
 	default:
-		logger.Warningf("Unknown network config type %q: using bridge", network.networkType)
+		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
-	case bridgeNetwork:
-		return networkConfigTemplate("veth", network.device)
+	case container.BridgeNetwork:
+		return networkConfigTemplate("veth", network.Device)
 	}
 }
 
-func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, error) {
+func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
 	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
