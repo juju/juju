@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -27,7 +28,7 @@ type APICalls interface {
 
 func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
 	return &lxcBroker{
-		manager:     lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
+		manager:     lxc.NewContainerManager(container.ManagerConfig{Name: "juju"}),
 		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,
@@ -35,7 +36,7 @@ func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) en
 }
 
 type lxcBroker struct {
-	manager     lxc.ContainerManager
+	manager     container.Manager
 	api         APICalls
 	tools       *tools.Tools
 	agentConfig agent.Config

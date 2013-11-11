@@ -14,6 +14,7 @@ import (
 	"launchpad.net/golxc"
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -92,10 +93,13 @@ type containerManager struct {
 	logdir string
 }
 
+// containerManager implements container.Manager.
+var _ container.Manager = (*containerManager)(nil)
+
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf ManagerConfig) ContainerManager {
+func NewContainerManager(conf container.ManagerConfig) container.Manager {
 	logdir := "/var/log/juju"
 	if conf.LogDir != "" {
 		logdir = conf.LogDir
@@ -115,7 +119,7 @@ func (manager *containerManager) StartContainer(
 	// Note here that the lxcObjectFacotry only returns a valid container
 	// object, and doesn't actually construct the underlying lxc container on
 	// disk.
-	container := LxcObjectFactory.New(name)
+	lxcContainer := LxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -144,7 +148,7 @@ func (manager *containerManager) StartContainer(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := container.Create(configFile, defaultTemplate, templateParams...); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, err
 	}
@@ -165,18 +169,18 @@ func (manager *containerManager) StartContainer(
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
-	container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
+	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = container.Start("", consoleFile); err != nil {
+	if err = lxcContainer.Start("", consoleFile); err != nil {
 		logger.Errorf("container failed to start: %v", err)
 		return nil, err
 	}
 	logger.Tracef("container started")
-	return &lxcInstance{container, name}, nil
+	return &lxcInstance{lxcContainer, name}, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -58,7 +59,7 @@ type localEnviron struct {
 	name                  string
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
-	containerManager      lxc.ContainerManager
+	containerManager      container.Manager
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -175,7 +176,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.name = ecfg.Name()
 
 	env.containerManager = lxc.NewContainerManager(
-		lxc.ManagerConfig{
+		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
 		})
