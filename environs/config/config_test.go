@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"fmt"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -77,6 +78,23 @@ var configTests = []configTest{
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
 			"tools-metadata-url": "tools-metadata-url",
+		},
+	}, {
+		about:       "Deprecated tools metadata URL used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":      "my-type",
+			"name":      "my-name",
+			"tools-url": "tools-metadata-url",
+		},
+	}, {
+		about:       "Deprecated tools metadata URL ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"tools-metadata-url": "tools-metadata-url",
+			"tools-url":          "ignore-me",
 		},
 	}, {
 		about:       "Explicit series",
@@ -745,13 +763,21 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
-	url, urlPresent = cfg.ToolsURL()
-	if v, _ := test.attrs["tools-metadata-url"].(string); v != "" {
-		c.Assert(url, gc.Equals, v)
+	toolsURL, urlPresent := cfg.ToolsURL()
+	deprecatedToolsURLTestValue, deprecatedURLPresent := test.attrs["tools-url"]
+	toolsURLTestValue := test.attrs["tools-metadata-url"]
+	if toolsURLTestValue == nil {
+		toolsURLTestValue = deprecatedToolsURLTestValue
+	}
+	if toolsURLTestValue != nil && toolsURLTestValue != "" {
+		c.Assert(toolsURL, gc.Equals, toolsURLTestValue)
 		c.Assert(urlPresent, jc.IsTrue)
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
+		c.Assert(deprecatedURLPresent, jc.IsFalse)
 	}
+	_, urlPresent = cfg.AllAttrs()["tools-url"]
+	c.Assert(urlPresent, jc.IsFalse)
 }
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
@@ -1101,3 +1127,61 @@ var invalidCACert = `
 MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----
 `[1:]
+
+type ConfigDeprecationSuite struct {
+	ConfigSuite
+	writer *testWriter
+}
+
+var _ = gc.Suite(&ConfigDeprecationSuite{})
+
+func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
+	s.ConfigSuite.SetUpTest(c)
+}
+
+func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
+	s.ConfigSuite.TearDownTest(c)
+}
+
+func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) {
+	var err error
+	s.writer = &testWriter{}
+	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ConfigDeprecationSuite) resetLogger(c *gc.C) {
+	_, _, err := loggo.RemoveWriter("test")
+	c.Assert(err, gc.IsNil)
+}
+
+type testWriter struct {
+	messages []string
+}
+
+func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
+	t.messages = append(t.messages, message)
+}
+
+func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"name":        "testenv",
+		"type":        "openstack",
+		deprecatedKey: value,
+	})
+	_, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
+	for attr, value := range map[string]string{
+		"tools-url": "foo",
+	} {
+		s.setupLogger(c)
+		s.setupEnv(c, attr, value)
+		s.resetLogger(c)
+		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
+		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
+		c.Assert(stripped, gc.Matches, expected)
+	}
+}

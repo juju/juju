@@ -17,7 +17,7 @@ const (
 
 // SupportedContainerTypes is used to validate add-machine arguments.
 var SupportedContainerTypes []ContainerType = []ContainerType{
-	LXC,
+	LXC, KVM,
 }
 
 // ParseSupportedContainerTypeOrNone converts the specified string into a supported

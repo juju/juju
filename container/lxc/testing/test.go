@@ -1,15 +1,12 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Functions defined in this file should *ONLY* be used for testing.  These
-// functions are exported for testing purposes only, and shouldn't be called
-// from code that isn't in a test file.
-
-package lxc
+package testing
 
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -28,13 +25,13 @@ type TestSuite struct {
 func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ContainerDir = c.MkDir()
-	s.PatchValue(&containerDir, s.ContainerDir)
+	s.PatchValue(&lxc.ContainerDir, s.ContainerDir)
 	s.RemovedDir = c.MkDir()
-	s.PatchValue(&removedContainerDir, s.RemovedDir)
+	s.PatchValue(&lxc.RemovedContainerDir, s.RemovedDir)
 	s.LxcDir = c.MkDir()
-	s.PatchValue(&lxcContainerDir, s.LxcDir)
+	s.PatchValue(&lxc.LxcContainerDir, s.LxcDir)
 	s.RestartDir = c.MkDir()
-	s.PatchValue(&lxcRestartDir, s.RestartDir)
+	s.PatchValue(&lxc.LxcRestartDir, s.RestartDir)
 	s.Factory = mock.MockFactory()
-	s.PatchValue(&lxcObjectFactory, s.Factory)
+	s.PatchValue(&lxc.LxcObjectFactory, s.Factory)
 }
