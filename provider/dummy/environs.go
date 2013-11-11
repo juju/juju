@@ -159,20 +159,19 @@ const noStateId = 0
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	id            int
-	name          string
-	ops           chan<- Operation
-	mu            sync.Mutex
-	maxId         int // maximum instance id allocated so far.
-	insts         map[instance.Id]*dummyInstance
-	globalPorts   map[instance.Port]bool
-	bootstrapped  bool
-	storageDelay  time.Duration
-	storage       *storageServer
-	publicStorage *storageServer
-	httpListener  net.Listener
-	apiServer     *apiserver.Server
-	apiState      *state.State
+	id           int
+	name         string
+	ops          chan<- Operation
+	mu           sync.Mutex
+	maxId        int // maximum instance id allocated so far.
+	insts        map[instance.Id]*dummyInstance
+	globalPorts  map[instance.Port]bool
+	bootstrapped bool
+	storageDelay time.Duration
+	storage      *storageServer
+	httpListener net.Listener
+	apiServer    *apiserver.Server
+	apiState     *state.State
 }
 
 // environ represents a client's connection to a given environment's
@@ -269,7 +268,6 @@ func newState(name string, ops chan<- Operation) *environState {
 		globalPorts: make(map[instance.Port]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
-	s.publicStorage = newStorageServer(s, "/"+name+"/public")
 	s.listen()
 	return s
 }
@@ -284,7 +282,6 @@ func (s *environState) listen() {
 	s.httpListener = l
 	mux := http.NewServeMux()
 	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
-	mux.Handle(s.publicStorage.path+"/", http.StripPrefix(s.publicStorage.path+"/", s.publicStorage))
 	go http.Serve(l, mux)
 }
 
@@ -513,18 +510,14 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	private := storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)
-	publicURL, err := e.PublicStorage().URL(storage.BaseToolsPath)
-	if err != nil {
-		return nil, err
-	}
 	return []simplestreams.DataSource{
-		private, simplestreams.NewURLDataSource(publicURL, simplestreams.VerifySSLHostnames)}, nil
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List) error {
@@ -578,7 +571,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
 			panic(err)
 		}
 		_, err = st.AddUser("admin", password)

@@ -130,16 +130,16 @@ image metadata files have been written to:
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
 
-1. Use tools-url in $JUJU_HOME/environments.yaml
+1. Use image-metadata-url in $JUJU_HOME/environments.yaml
 Configure a http server to serve the contents of
 %s
-and set the value of tools-url accordingly.
+and set the value of image-metadata-url accordingly.
 
 2. Upload the contents of
 %s
 to your cloud's private storage (for ec2 and openstack).
 eg for openstack
-"cd %s; swift upload %s streams/v1/*"
+"cd %s; swift upload %s images/streams/v1/*"
 
 `
 
@@ -162,7 +162,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
-	dest := filepath.Join(c.Dir, "streams", "v1")
+	dest := filepath.Join(c.Dir, "images", "streams", "v1")
 	dir := utils.NormalizePath(c.Dir)
 	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir, dir, c.privateStorage))
 	return nil

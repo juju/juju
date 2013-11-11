@@ -21,6 +21,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -42,13 +43,15 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 
 	// Create the provisioner API facade.
@@ -341,6 +344,11 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
+	err := s.machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
 
@@ -350,11 +358,25 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	err := s.machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.provisioner.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
+	c.Assert(addresses, gc.DeepEquals, apiAddresses)
+}
+
+func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+	result, err := s.provisioner.ContainerConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.ProviderType, gc.Equals, "dummy")
+	c.Assert(result.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *provisionerSuite) TestCACert(c *gc.C) {

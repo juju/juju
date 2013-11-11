@@ -14,15 +14,9 @@ import (
 	"launchpad.net/golxc"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -83,12 +77,9 @@ type ManagerConfig struct {
 type ContainerManager interface {
 	// StartContainer creates and starts a new lxc container for the specified machine.
 	StartContainer(
-		machineId, series, nonce string,
-		network *NetworkConfig,
-		tools *tools.Tools,
-		environConfig *config.Config,
-		stateInfo *state.Info,
-		apiInfo *api.Info) (instance.Instance, error)
+		machineConfig *cloudinit.MachineConfig,
+		series string,
+		network *NetworkConfig) (instance.Instance, error)
 	// StopContainer stops and destroyes the lxc container identified by Instance.
 	StopContainer(instance.Instance) error
 	// ListContainers return a list of containers that have been started by
@@ -113,14 +104,11 @@ func NewContainerManager(conf ManagerConfig) ContainerManager {
 }
 
 func (manager *containerManager) StartContainer(
-	machineId, series, nonce string,
-	network *NetworkConfig,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info) (instance.Instance, error) {
+	machineConfig *cloudinit.MachineConfig,
+	series string,
+	network *NetworkConfig) (instance.Instance, error) {
 
-	name := names.MachineTag(machineId)
+	name := names.MachineTag(machineConfig.MachineId)
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
@@ -137,7 +125,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := writeUserData(directory, machineId, nonce, tools, environConfig, stateInfo, apiInfo)
+	userDataFilename, err := writeUserData(machineConfig, directory)
 	if err != nil {
 		logger.Errorf("failed to write user data: %v", err)
 		return nil, err
@@ -300,14 +288,8 @@ func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, e
 	return configFilename, nil
 }
 
-func writeUserData(
-	directory, machineId, nonce string,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) (string, error) {
-	userData, err := cloudInitUserData(machineId, nonce, tools, environConfig, stateInfo, apiInfo)
+func writeUserData(machineConfig *cloudinit.MachineConfig, directory string) (string, error) {
+	userData, err := cloudInitUserData(machineConfig)
 	if err != nil {
 		logger.Errorf("failed to create user data: %v", err)
 		return "", err
@@ -320,25 +302,8 @@ func writeUserData(
 	return userDataFilename, nil
 }
 
-func cloudInitUserData(
-	machineId, nonce string,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) ([]byte, error) {
-	machineConfig := &cloudinit.MachineConfig{
-		MachineId:            machineId,
-		MachineNonce:         nonce,
-		MachineContainerType: instance.LXC,
-		StateInfo:            stateInfo,
-		APIInfo:              apiInfo,
-		DataDir:              "/var/lib/juju",
-		Tools:                tools,
-	}
-	if err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{}); err != nil {
-		return nil, err
-	}
+func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
+	machineConfig.DataDir = "/var/lib/juju"
 	cloudConfig, err := cloudinit.New(machineConfig)
 	if err != nil {
 		return nil, err

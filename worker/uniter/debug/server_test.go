@@ -29,7 +29,7 @@ var _ = gc.Suite(&DebugHooksServerSuite{})
 
 // echocommand outputs its name and arguments to stdout for verification,
 // and exits with the value of $EXIT_CODE
-var echocommand = `#!/bin/bash
+var echocommand = `#!/bin/bash --norc
 echo $(basename $0) $@
 exit $EXIT_CODE
 `

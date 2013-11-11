@@ -37,6 +37,13 @@ func (cfg *Config) SetAptUpdate(yes bool) {
 	cfg.set("apt_update", yes, yes)
 }
 
+// AptUpdate returns the value set by SetAptUpdate, or
+// false if no call to SetAptUpdate has been made.
+func (cfg *Config) AptUpdate() bool {
+	update, _ := cfg.attrs["apt_update"].(bool)
+	return update
+}
+
 // SetAptProxy sets the URL to be used as the apt
 // proxy.
 func (cfg *Config) SetAptProxy(url string) {
@@ -60,25 +67,18 @@ func (cfg *Config) SetAptPreserveSourcesList(yes bool) {
 // AddAptSource adds an apt source. The key holds the
 // public key of the source, in the form expected by apt-key(8).
 func (cfg *Config) AddAptSource(name, key string) {
-	src, _ := cfg.attrs["apt_sources"].([]*source)
+	src, _ := cfg.attrs["apt_sources"].([]*AptSource)
 	cfg.attrs["apt_sources"] = append(src,
-		&source{
+		&AptSource{
 			Source: name,
 			Key:    key,
 		})
 }
 
-// AddAptSource adds an apt source. The public key for the
-// source is retrieved by fetching the given keyId from the
-// GPG key server at the given address.
-func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
-	src, _ := cfg.attrs["apt_sources"].([]*source)
-	cfg.attrs["apt_sources"] = append(src,
-		&source{
-			Source:    name,
-			KeyId:     keyId,
-			KeyServer: keyServer,
-		})
+// AptSources returns the apt sources added with AddAptSource.
+func (cfg *Config) AptSources() []*AptSource {
+	srcs, _ := cfg.attrs["apt_sources"].([]*AptSource)
+	return srcs
 }
 
 // SetDebconfSelections provides preseeded debconf answers
@@ -111,14 +111,11 @@ func (cfg *Config) getCmds(kind string) []*command {
 	return cmds
 }
 
-// RunCmds returns a list of commands that will be
-// run at first boot.
-//
-// Each element in the resultant slice is either a
-// string or []string, corresponding to how the command
-// was added.
-func (cfg *Config) RunCmds() []interface{} {
-	cmds := cfg.getCmds("runcmd")
+// getCmdStrings returns a slice of interface{}, where
+// each interface's dynamic value is either a string
+// or slice of strings.
+func (cfg *Config) getCmdStrings(kind string) []interface{} {
+	cmds := cfg.getCmds(kind)
 	result := make([]interface{}, len(cmds))
 	for i, cmd := range cmds {
 		if cmd.args != nil {
@@ -128,6 +125,26 @@ func (cfg *Config) RunCmds() []interface{} {
 		}
 	}
 	return result
+}
+
+// BootCmds returns a list of commands added with
+// AddBootCmd*.
+//
+// Each element in the resultant slice is either a
+// string or []string, corresponding to how the command
+// was added.
+func (cfg *Config) BootCmds() []interface{} {
+	return cfg.getCmdStrings("bootcmd")
+}
+
+// RunCmds returns a list of commands that will be
+// run at first boot.
+//
+// Each element in the resultant slice is either a
+// string or []string, corresponding to how the command
+// was added.
+func (cfg *Config) RunCmds() []interface{} {
+	return cfg.getCmdStrings("runcmd")
 }
 
 // AddRunCmd adds a command to be executed

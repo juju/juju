@@ -53,12 +53,11 @@ type environ struct {
 	name string
 
 	// ecfgMutex protects the *Unlocked fields below.
-	ecfgMutex             sync.Mutex
-	ecfgUnlocked          *environConfig
-	ec2Unlocked           *ec2.EC2
-	s3Unlocked            *s3.S3
-	storageUnlocked       storage.Storage
-	publicStorageUnlocked storage.StorageReader // optional.
+	ecfgMutex       sync.Mutex
+	ecfgUnlocked    *environConfig
+	ec2Unlocked     *ec2.EC2
+	s3Unlocked      *s3.S3
+	storageUnlocked storage.Storage
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -251,7 +250,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
-	publicBucketRegion := aws.Regions[ecfg.publicBucketRegion()]
 	e.ec2Unlocked = ec2.New(auth, region)
 	e.s3Unlocked = s3.New(auth, region)
 
@@ -259,13 +257,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	e.storageUnlocked = &ec2storage{
 		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
-	}
-	if ecfg.publicBucket() != "" {
-		e.publicStorageUnlocked = &ec2storage{
-			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
-		}
-	} else {
-		e.publicStorageUnlocked = nil
 	}
 	return nil
 }
@@ -312,15 +303,6 @@ func (e *environ) Storage() storage.Storage {
 	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
 	return stor
-}
-
-func (e *environ) PublicStorage() storage.StorageReader {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	if e.publicStorageUnlocked == nil {
-		return environs.EmptyStorage
-	}
-	return e.publicStorageUnlocked
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
@@ -1062,15 +1044,15 @@ func fetchMetadata(name string) (value string, err error) {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+	return sources, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket and public location.
+	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
-		simplestreams.NewURLDataSource(
-			"https://juju-dist.s3.amazonaws.com/tools", simplestreams.VerifySSLHostnames)}
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

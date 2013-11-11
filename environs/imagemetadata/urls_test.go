@@ -48,7 +48,7 @@ func (s *URLsSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	privateStorageURL, err := env.Storage().URL("")
+	privateStorageURL, err := env.Storage().URL("images")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		privateStorageURL, "http://cloud-images.ubuntu.com/releases/"})
@@ -58,7 +58,7 @@ func (s *URLsSuite) TestImageMetadataURLs(c *gc.C) {
 	env := s.env(c, "config-image-metadata-url")
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	privateStorageURL, err := env.Storage().URL("")
+	privateStorageURL, err := env.Storage().URL("images")
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-image-metadata-url/", privateStorageURL, "http://cloud-images.ubuntu.com/releases/"})

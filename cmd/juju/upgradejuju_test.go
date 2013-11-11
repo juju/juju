@@ -13,6 +13,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -306,9 +307,11 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		// Set up state and environ, and run the command.
 		cfg, err := s.State.EnvironConfig()
 		c.Assert(err, gc.IsNil)
+		toolsDir := c.MkDir()
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": test.agentVersion,
-			"development":   test.development,
+			"agent-version":      test.agentVersion,
+			"development":        test.development,
+			"tools-metadata-url": "file://" + toolsDir,
 		})
 		c.Assert(err, gc.IsNil)
 		err = s.State.SetEnvironConfig(cfg)
@@ -323,7 +326,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		for i, v := range test.public {
 			versions[i] = version.MustParseBinary(v)
 		}
-		stor := s.Conn.Environ.PublicStorage().(storage.Storage)
+		stor, err := filestorage.NewFileStorageWriter(toolsDir, "")
+		c.Assert(err, gc.IsNil)
 		envtesting.MustUploadFakeToolsVersions(stor, versions...)
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
@@ -388,7 +392,6 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.Storage))
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	cfg, err = cfg.Apply(map[string]interface{}{

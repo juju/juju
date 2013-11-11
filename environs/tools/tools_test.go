@@ -66,7 +66,7 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 	final := map[string]interface{}{
-		"tools-url": "file://" + s.customToolsDir,
+		"tools-metadata-url": "file://" + s.customToolsDir,
 	}
 	for k, v := range attrs {
 		final[k] = v
@@ -210,9 +210,10 @@ var findToolsTests = []struct {
 }, {
 	info:   "custom tools completely block public ones",
 	major:  1,
+	minor:  -1,
 	custom: envtesting.V220all,
 	public: envtesting.VAll,
-	err:    coretools.ErrNoMatches,
+	expect: envtesting.V1all,
 }, {
 	info:   "tools matching major version only",
 	major:  1,
@@ -235,14 +236,13 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 			continue
 		}
-		source := custom
-		if len(source) == 0 {
-			// We only use the public tools if there are *no* custom tools.
-			source = public
-		}
 		expect := map[version.Binary]string{}
 		for _, expected := range test.expect {
-			expect[expected] = source[expected]
+			// If the tools exist in custom, that's preferred.
+			var ok bool
+			if expect[expected], ok = custom[expected]; !ok {
+				expect[expected] = public[expected]
+			}
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}
@@ -302,10 +302,6 @@ func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
 		s.reset(c, attrs)
 		version.Current = test.CliVersion
 		available := s.uploadCustom(c, test.Available...)
-		if len(available) > 0 {
-			// These should never be chosen.
-			s.uploadPublic(c, envtesting.VAll...)
-		}
 
 		params := envtools.BootstrapToolsParams{
 			Version: agentVersion,
@@ -393,10 +389,6 @@ func (s *SimpleStreamsToolsSuite) TestFindInstanceTools(c *gc.C) {
 			"agent-version": test.agentVersion.String(),
 		})
 		available := s.uploadCustom(c, test.available...)
-		if len(available) > 0 {
-			// These should never be chosen.
-			s.uploadPublic(c, envtesting.VAll...)
-		}
 
 		agentVersion, _ := s.env.Config().AgentVersion()
 		actual, err := envtools.FindInstanceTools(s.env, agentVersion, test.series, &test.arch)
@@ -444,11 +436,10 @@ var findExactToolsTests = []struct {
 	public: []version.Binary{envtesting.V100p64},
 	seek:   envtesting.V100p64,
 }, {
-	info:   "exact match in public blocked by custom",
+	info:   "exact match in public not blocked by custom",
 	custom: envtesting.V110all,
 	public: []version.Binary{envtesting.V100p64},
 	seek:   envtesting.V100p64,
-	err:    coretools.ErrNoMatches,
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
@@ -463,12 +454,11 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 				continue
 			}
 			c.Check(actual.Version, gc.Equals, test.seek)
-			source := custom
-			if len(source) == 0 {
-				// We only use public tools if there are *no* private tools.
-				source = public
+			if _, ok := custom[actual.Version]; ok {
+				c.Check(actual.URL, gc.DeepEquals, custom[actual.Version])
+			} else {
+				c.Check(actual.URL, gc.DeepEquals, public[actual.Version])
 			}
-			c.Check(actual.URL, gc.DeepEquals, source[actual.Version])
 		} else {
 			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 		}

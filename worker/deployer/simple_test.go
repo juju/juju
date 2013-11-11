@@ -141,7 +141,7 @@ type SimpleToolsFixture struct {
 	syslogConfigDir string
 }
 
-var fakeJujud = "#!/bin/bash\n# fake-jujud\nexit 0\n"
+var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.LoggingSuite.SetUpTest(c)
@@ -178,7 +178,7 @@ func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
 
 func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 	path := filepath.Join(fix.binDir, name)
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash\n"+script), 0755)
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\n"+script), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -285,7 +285,7 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 
 func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) {
 	confPath := filepath.Join(fix.initDir, upstartConf)
-	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash\necho $0"), 0644)
+	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash --norc\necho $0"), 0644)
 	c.Assert(err, gc.IsNil)
 	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
 	err = os.MkdirAll(toolsDir, 0755)
