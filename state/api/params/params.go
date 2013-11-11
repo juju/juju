@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/tools"
 )
 
 // ErrorResults holds the results of calling a bulk operation which
@@ -57,6 +58,36 @@ type AddRelationResults struct {
 // The endpoints specified are unordered.
 type DestroyRelation struct {
 	Endpoints []string
+}
+
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	Series                  string
+	ContainerType           instance.ContainerType
+	Constraints             constraints.Value
+	ParentId                string
+	Jobs                    []MachineJob
+	InstanceId              instance.Id
+	Nonce                   string
+	HardwareCharacteristics instance.HardwareCharacteristics
+	Addrs                   []instance.Address
+}
+
+// AddMachines holds the parameters for making the AddMachines call.
+type AddMachines struct {
+	MachineParams []AddMachineParams
+}
+
+// AddMachinesResults holds the results of an AddMachines call.
+type AddMachinesResults struct {
+	Machines []AddMachinesResult
+}
+
+// AddMachinesResults holds the name of a machine added by the
+// state.api.client.AddMachine call for a single machine.
+type AddMachinesResult struct {
+	Machine string
+	Error   *Error
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.
@@ -134,9 +165,29 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
+// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+type ServiceCharmRelations struct {
+	ServiceName string
+}
+
+// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+type ServiceCharmRelationsResults struct {
+	CharmRelations []string
+}
+
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
+}
+
+// PublicAddress holds parameters for the PublicAddress call.
+type PublicAddress struct {
+	Target string
+}
+
+// PublicAddressResults holds results of the PublicAddress call.
+type PublicAddressResults struct {
+	PublicAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
@@ -419,12 +470,31 @@ func (i *AnnotationInfo) EntityId() EntityId {
 	}
 }
 
-// ContainerConfig contains information from the environment config that are
+// ContainerConfig contains information from the environment config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
+}
+
+type MachineConfigParams struct {
+	MachineId string
+	Series    string
+	Arch      string
+}
+
+// MachineConfig contains information from the environment config that is
+// needed for a machine cloud-init.
+type MachineConfig struct {
+	EnvironAttrs map[string]interface{}
+	Tools        *tools.Tools
+	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
+	StateAddrs []string
+	APIAddrs   []string
+	CACert     []byte
+	Tag        string
+	Password   string
 }
 
 // EnvironmentGetResults contains the result of EnvironmentGet client

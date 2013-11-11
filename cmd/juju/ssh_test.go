@@ -97,7 +97,7 @@ var sshTests = []struct {
 }
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
-	m := s.makeMachines(3, c)
+	m := s.makeMachines(3, c, true)
 	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
@@ -128,13 +128,69 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	}
 }
 
-func (s *SSHCommonSuite) makeMachines(n int, c *gc.C) []*state.Machine {
+type callbackAttemptStarter struct {
+	next func() bool
+}
+
+func (s *callbackAttemptStarter) Start() attempt {
+	return callbackAttempt{next: s.next}
+}
+
+type callbackAttempt struct {
+	next func() bool
+}
+
+func (a callbackAttempt) Next() bool {
+	return a.next()
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
+	m := s.makeMachines(1, c, false)
+	ctx := coretesting.Context(c)
+	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
+	jujucmd.Register(&SSHCommand{})
+
+	var called int
+	next := func() bool {
+		called++
+		return called < 2
+	}
+	attemptStarter := &callbackAttemptStarter{next: next}
+	s.PatchValue(&sshHostFromTargetAttemptStrategy, attemptStarter)
+
+	// Ensure that the ssh command waits for a public address, or the attempt
+	// strategy's Done method returns false.
+	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	c.Check(code, gc.Equals, 1)
+	c.Assert(called, gc.Equals, 2)
+	called = 0
+	attemptStarter.next = func() bool {
+		called++
+		s.setAddress(m[0], c)
+		return false
+	}
+	code = cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *SSHCommonSuite) setAddress(m *state.Machine, c *gc.C) {
+	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()))
+	addr.NetworkScope = instance.NetworkPublic
+	err := m.SetAddresses([]instance.Address{addr})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddress bool) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
-		// must set an instance id as the ssh command uses that as a signal the machine
-		// has been provisioned
+		if setAddress {
+			s.setAddress(m, c)
+		}
+		// must set an instance id as the ssh command uses that as a signal the
+		// machine has been provisioned
 		inst, md := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())
 		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", md), gc.IsNil)
 		machines[i] = m

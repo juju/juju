@@ -59,6 +59,16 @@ func (job MachineJob) ToParams() params.MachineJob {
 	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
+// MachineJobFromParams returns the job corresponding to params.MachineJob.
+func MachineJobFromParams(job params.MachineJob) (MachineJob, error) {
+	for machineJob, paramJob := range jobNames {
+		if paramJob == job {
+			return machineJob, nil
+		}
+	}
+	return -1, fmt.Errorf("invalid machine job %q", job)
+}
+
 func (job MachineJob) String() string {
 	return string(job.ToParams())
 }

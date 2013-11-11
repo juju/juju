@@ -16,6 +16,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
@@ -31,7 +32,7 @@ func Test(t *stdtesting.T) {
 }
 
 type LxcSuite struct {
-	lxc.TestSuite
+	lxctesting.TestSuite
 }
 
 var _ = gc.Suite(&LxcSuite{})
