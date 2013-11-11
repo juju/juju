@@ -1680,39 +1680,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *StateSuite) TestCleanup(c *gc.C) {
-	needed, err := s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, false)
-
-	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, gc.IsNil)
-	relM, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, false)
-
-	err = relM.Destroy()
-	c.Assert(err, gc.IsNil)
-
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, true)
-
-	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
-
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, false)
-}
-
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
