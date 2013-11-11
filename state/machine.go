@@ -76,19 +76,22 @@ func (job MachineJob) String() string {
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
-	Id                  string `bson:"_id"`
-	Nonce               string
-	Series              string
-	ContainerType       string
-	Principals          []string
-	Life                Life
-	Tools               *tools.Tools `bson:",omitempty"`
-	TxnRevno            int64        `bson:"txn-revno"`
-	Jobs                []MachineJob
-	PasswordHash        string
-	Clean               bool
-	Addresses           []address
-	SupportedContainers []instance.ContainerType `bson:",omitempty"`
+	Id            string `bson:"_id"`
+	Nonce         string
+	Series        string
+	ContainerType string
+	Principals    []string
+	Life          Life
+	Tools         *tools.Tools `bson:",omitempty"`
+	TxnRevno      int64        `bson:"txn-revno"`
+	Jobs          []MachineJob
+	PasswordHash  string
+	Clean         bool
+	Addresses     []address
+	// The SupportedContainers attributes are used to advertise what containers this
+	// machine is capable of hosting.
+	SupportedContainersKnown bool
+	SupportedContainers      []instance.ContainerType `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -795,22 +798,10 @@ func (m *Machine) Clean() bool {
 	return m.doc.Clean
 }
 
-// SupportedContainers returns any containers this machine is capable of hosting.
-// If nil is returned, then the supported containers are not yet known.
-// If an empty (non-nil) slice is returned, then no containers are supported (as opposed to not knowing yet).
-func (m *Machine) SupportedContainers() []instance.ContainerType {
-	var containers []instance.ContainerType
-	if m.doc.SupportedContainers != nil {
-		containers = []instance.ContainerType{}
-	}
-	for _, container := range m.doc.SupportedContainers {
-		// NONE is used to record in the database that no containers are supported,
-		// but we don't pass that back to the caller.
-		if container != instance.NONE {
-			containers = append(containers, container)
-		}
-	}
-	return containers
+// SupportedContainers returns any containers this machine is capable of hosting, and a bool
+// indicating if the supported containers have been determined or not.
+func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
+	return m.doc.SupportedContainers, m.doc.SupportedContainersKnown
 }
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
@@ -821,7 +812,11 @@ func (m *Machine) SupportsNoContainers() (err error) {
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(notDeadDoc, sameDoc...),
-			Update: D{{"$set", D{{"supportedcontainers", []instance.ContainerType{instance.NONE}}}}},
+			Update: D{
+				{"$set", D{
+					{"supportedcontainers", []instance.ContainerType{}},
+					{"supportedcontainersknown", true},
+				}}},
 		},
 	}
 
@@ -829,6 +824,7 @@ func (m *Machine) SupportsNoContainers() (err error) {
 		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.SupportedContainers = []instance.ContainerType{}
+	m.doc.SupportedContainersKnown = true
 	return nil
 }
 
@@ -848,7 +844,10 @@ func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (e
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(notDeadDoc, sameDoc...),
-			Update: D{{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}}},
+			Update: D{
+				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
+				{"$set", D{{"supportedcontainersknown", true}}},
+			},
 		},
 	}
 
@@ -859,6 +858,7 @@ func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (e
 	for _, container := range containers {
 		m.addContainerIfMissing(container)
 	}
+	m.doc.SupportedContainersKnown = true
 	return nil
 }
 
