@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"launchpad.net/golxc"
@@ -18,14 +17,12 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
 	defaultTemplate     = "ubuntu-cloud"
-	aptHTTPProxyRE      = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
 	ContainerDir        = "/var/lib/juju/containers"
 	RemovedContainerDir = "/var/lib/juju/removed-containers"
 	LxcContainerDir     = "/var/lib/lxc"
