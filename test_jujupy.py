@@ -2,6 +2,7 @@ __metaclass__ = type
 
 from datetime import timedelta
 from mock import patch
+from textwrap import dedent
 from unittest import TestCase
 
 from jujupy import (
@@ -100,3 +101,72 @@ class TestJujuClientDevel(TestCase):
                          full)
         full = JujuClientDevel._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', 'bar', 'baz', 'qux'), full)
+
+    def test_bootstrap_non_sudo(self):
+        env = Environment('foo')
+        with patch.object(env, 'needs_sudo', lambda: False):
+            with patch.object(JujuClientDevel, 'juju') as mock:
+                JujuClientDevel.bootstrap(env)
+            mock.assert_called_with(
+                env, 'bootstrap', ('--constraints', 'mem=2G'), False)
+
+    def test_bootstrap_sudo(self):
+        env = Environment('foo')
+        with patch.object(env, 'needs_sudo', lambda: True):
+            with patch.object(JujuClientDevel, 'juju') as mock:
+                JujuClientDevel.bootstrap(env)
+            mock.assert_called_with(
+                env, 'bootstrap', ('--constraints', 'mem=2G'), True)
+
+    def test_destroy_environment_non_sudo(self):
+        env = Environment('foo')
+        with patch.object(env, 'needs_sudo', lambda: False):
+            with patch.object(JujuClientDevel, 'juju') as mock:
+                JujuClientDevel.destroy_environment(env)
+            mock.assert_called_with(
+                None, 'destroy-environment', ('foo', '-y'), False, check=False)
+
+    def test_bootstrap_sudo(self):
+        env = Environment('foo')
+        with patch.object(env, 'needs_sudo', lambda: True):
+            with patch.object(JujuClientDevel, 'juju') as mock:
+                JujuClientDevel.destroy_environment(env)
+            mock.assert_called_with(
+                None, 'destroy-environment', ('foo', '-y'), True, check=False)
+
+    def test_get_juju_output(self):
+        env = Environment('foo')
+        asdf = lambda x: 'asdf'
+        with patch('subprocess.check_output', side_effect=asdf) as mock:
+            result = JujuClientDevel.get_juju_output(env, 'bar')
+        self.assertEqual('asdf', result)
+        mock.assert_called_with(('juju', 'bar', '-e', 'foo'))
+
+    def test_get_status(self):
+        def output_iterator():
+            args = yield
+            yield dedent("""\
+                - a
+                - b
+                - c
+                """)
+        JujuClientDevelFake.set_output(output_iterator())
+        env = Environment('foo')
+        result = JujuClientDevelFake.get_status(env)
+        self.assertEqual(['a', 'b', 'c'], result)
+
+    def test_juju(self):
+        env = Environment('qux')
+        with patch('sys.stdout') as stdout_mock:
+            with patch('subprocess.check_call') as mock:
+                JujuClientDevel.juju(env, 'foo', ('bar', 'baz'))
+        mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
+        stdout_mock.flush.assert_called_with()
+
+    def test_juju_no_check(self):
+        env = Environment('qux')
+        with patch('sys.stdout') as stdout_mock:
+            with patch('subprocess.call') as mock:
+                JujuClientDevel.juju(env, 'foo', ('bar', 'baz'), check=False)
+        mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
+        stdout_mock.flush.assert_called_with()
