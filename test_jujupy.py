@@ -126,7 +126,7 @@ class TestJujuClientDevel(TestCase):
             mock.assert_called_with(
                 None, 'destroy-environment', ('foo', '-y'), False, check=False)
 
-    def test_bootstrap_sudo(self):
+    def test_destroy_environment_sudo(self):
         env = Environment('foo')
         with patch.object(env, 'needs_sudo', lambda: True):
             with patch.object(JujuClientDevel, 'juju') as mock:
@@ -170,3 +170,22 @@ class TestJujuClientDevel(TestCase):
                 JujuClientDevel.juju(env, 'foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
+
+
+class TestJujuClient16(TestCase):
+
+    def test_destroy_environment_non_sudo(self):
+        env = Environment('foo')
+        with patch.object(env, 'needs_sudo', lambda: False):
+            with patch.object(JujuClient16, 'juju') as mock:
+                JujuClient16.destroy_environment(env)
+            mock.assert_called_with(
+                env, 'destroy-environment', ('-y',), False, check=False)
+
+    def test_destroy_environment_sudo(self):
+        env = Environment('foo')
+        with patch.object(env, 'needs_sudo', lambda: True):
+            with patch.object(JujuClient16, 'juju') as mock:
+                JujuClient16.destroy_environment(env)
+            mock.assert_called_with(
+                env, 'destroy-environment', ('-y',), True, check=False)
