@@ -102,8 +102,9 @@ testing_to_aws() {
 
 shim_creds() {
     # The azure library uses different vars than was defined for gwacl.
-    AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT:-$AZURE_ACCOUNT}
+    export AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT:-$AZURE_ACCOUNT}
     AZURE_STORAGE_ACCESS_KEY=${AZURE_STORAGE_ACCESS_KEY:-$AZURE_JUJU_TOOLS_KEY}
+    export AZURE_STORAGE_ACCOUNT AZURE_STORAGE_ACCESS_KEY
 }
 
 publish_to_azure() {
@@ -139,6 +140,10 @@ if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
     usage
 fi
 
+# XXX sinzui 2013-11-11: Migrate the s3cfg used by s3cmd.
+if [[ ! -f $JUJU_DIR/s3cfg && -f ~/.s3cfg ]]; then
+    cp ~/.s3cfg $JUJU_DIR/s3cfg
+fi
 
 check_deps
 if [[ $PURPOSE == "RELEASE" ]]; then
