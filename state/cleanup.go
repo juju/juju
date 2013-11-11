@@ -124,6 +124,11 @@ func (st *State) cleanupMachine(machineId string) error {
 	} else if err != nil {
 		return err
 	}
+	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
+	// new dependencies being added while we clean up the ones we know about.
+	// But machine destruction is unsophisticated, and doesn't allow for
+	// destruction while dependencies exist; so we just have to deal with that
+	// possibility below.
 	if err := st.cleanupContainers(machine); err != nil {
 		return err
 	}
@@ -132,9 +137,20 @@ func (st *State) cleanupMachine(machineId string) error {
 			return err
 		}
 	}
-	if err := machine.Refresh(); err != nil {
+	// We need to refresh the machine at this point, because the local copy
+	// of the document will not reflect changes caused by the unit cleanups
+	// above, and may thus fail immediately.
+	if err := machine.Refresh(); errors.IsNotFoundError(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
+	// TODO(fwereade): 2013-11-11 bug 1250104
+	// If this fails, it's *probably* due to a race in which new dependencies
+	// were added while we cleaned up the old ones. If the cleanup doesn't run
+	// again -- which it *probably* will anyway -- the issue can be resolved by
+	// force-destroying the machine again; that's better than adding layer
+	// upon layer of complication here.
 	if err := machine.EnsureDead(); err != nil {
 		return err
 	}
@@ -169,11 +185,16 @@ func (st *State) obliterateUnit(unitName string) error {
 	} else if err != nil {
 		return err
 	}
+	// Unlike the machine, we *can* always destroy the unit, and (at least)
+	// prevent further dependencies being added. If we're really lucky, the
+	// unit will be removed immediately.
 	if err := unit.Destroy(); err != nil {
 		return err
 	}
 	if err := unit.Refresh(); errors.IsNotFoundError(err) {
 		return nil
+	} else if err != nil {
+		return err
 	}
 	for _, subName := range unit.SubordinateNames() {
 		if err := st.obliterateUnit(subName); err != nil {
