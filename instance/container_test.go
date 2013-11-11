@@ -19,19 +19,19 @@ type InstanceSuite struct{}
 
 var _ = gc.Suite(&InstanceSuite{})
 
-func (s *InstanceSuite) TestParseSupportedContainerType(c *gc.C) {
-	ctype, err := instance.ParseSupportedContainerType("lxc")
+func (s *InstanceSuite) TestParseAllowedContainerType(c *gc.C) {
+	ctype, err := instance.ParseAllowedContainerType("lxc")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.ContainerType("lxc"))
-	ctype, err = instance.ParseSupportedContainerType("none")
+	ctype, err = instance.ParseAllowedContainerType("none")
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 
-func (s *InstanceSuite) TestParseSupportedContainerTypeOrNone(c *gc.C) {
-	ctype, err := instance.ParseSupportedContainerTypeOrNone("lxc")
+func (s *InstanceSuite) TestParseAllowedContainerTypeOrNone(c *gc.C) {
+	ctype, err := instance.ParseAllowedContainerTypeOrNone("lxc")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.ContainerType("lxc"))
-	ctype, err = instance.ParseSupportedContainerTypeOrNone("none")
+	ctype, err = instance.ParseAllowedContainerTypeOrNone("none")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.ContainerType("none"))
 }

@@ -1115,3 +1115,106 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.DeepEquals, addresses)
 }
+
+func (s *MachineSuite) setupMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.AddSupportedContainers([]instance.ContainerType{container})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 1)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	return machine
+}
+
+func (s *MachineSuite) TestSupportedContainersInitiallyNil(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.IsNil)
+}
+
+func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.NotNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 0)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.NotNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 0)
+}
+
+func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
+	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.NotNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 0)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.NotNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 0)
+}
+
+func (s *MachineSuite) TestAddSupportedContainersSingle(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 0)
+
+	err = machine.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC})
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC})
+}
+
+func (s *MachineSuite) TestAddSupportedContainersExisitng(c *gc.C) {
+	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC})
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC})
+}
+
+func (s *MachineSuite) TestAddSupportedContainersNew(c *gc.C) {
+	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *MachineSuite) TestAddSupportedContainersMultipeNew(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.HasLen, 0)
+
+	err = machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *MachineSuite) TestAddSupportedContainersMultipleExisting(c *gc.C) {
+	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.SupportedContainers(), gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}

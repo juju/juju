@@ -76,18 +76,19 @@ func (job MachineJob) String() string {
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
-	Id            string `bson:"_id"`
-	Nonce         string
-	Series        string
-	ContainerType string
-	Principals    []string
-	Life          Life
-	Tools         *tools.Tools `bson:",omitempty"`
-	TxnRevno      int64        `bson:"txn-revno"`
-	Jobs          []MachineJob
-	PasswordHash  string
-	Clean         bool
-	Addresses     []address
+	Id                  string `bson:"_id"`
+	Nonce               string
+	Series              string
+	ContainerType       string
+	Principals          []string
+	Life                Life
+	Tools               *tools.Tools `bson:",omitempty"`
+	TxnRevno            int64        `bson:"txn-revno"`
+	Jobs                []MachineJob
+	PasswordHash        string
+	Clean               bool
+	Addresses           []address
+	SupportedContainers []instance.ContainerType `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -792,4 +793,84 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
+}
+
+// SupportedContainers returns any containers this machine is capable of hosting.
+// If nil is returned, then the supported containers are not yet known.
+// If an empty (non-nil) slice is returned, then no containers are supported (as opposed to not knowing yet).
+func (m *Machine) SupportedContainers() []instance.ContainerType {
+	var containers []instance.ContainerType
+	if m.doc.SupportedContainers != nil {
+		containers = []instance.ContainerType{}
+	}
+	for _, container := range m.doc.SupportedContainers {
+		// NONE is used to record in the database that no containers are supported,
+		// but we don't pass that back to the caller.
+		if container != instance.NONE {
+			containers = append(containers, container)
+		}
+	}
+	return containers
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() (err error) {
+	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, sameDoc...),
+			Update: D{{"$set", D{{"supportedcontainers", []instance.ContainerType{instance.NONE}}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.SupportedContainers = []instance.ContainerType{}
+	return nil
+}
+
+// AddSupportedContainers updates the list of containers supported by this machine.
+func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (err error) {
+	if len(containers) == 0 {
+		return fmt.Errorf("at least one valid container type is required")
+	}
+	for _, container := range containers {
+		if container == instance.NONE {
+			return fmt.Errorf("%q is not a valid container type", container)
+		}
+	}
+	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, sameDoc...),
+			Update: D{{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+
+	for _, container := range containers {
+		m.addContainerIfMissing(container)
+	}
+	return nil
+}
+
+func (m *Machine) addContainerIfMissing(container instance.ContainerType) {
+	found := false
+	for _, c := range m.doc.SupportedContainers {
+		if c == container {
+			found = true
+			break
+		}
+	}
+	if !found {
+		m.doc.SupportedContainers = append(m.doc.SupportedContainers, container)
+	}
 }

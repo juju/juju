@@ -15,25 +15,26 @@ const (
 	KVM  = ContainerType("kvm")
 )
 
-// SupportedContainerTypes is used to validate add-machine arguments.
-var SupportedContainerTypes []ContainerType = []ContainerType{
+// AllowedContainerTypes is used to validate add-machine arguments.
+var AllowedContainerTypes []ContainerType = []ContainerType{
 	LXC,
+	KVM,
 }
 
-// ParseSupportedContainerTypeOrNone converts the specified string into a supported
+// ParseAllowedContainerTypeOrNone converts the specified string into a supported
 // ContainerType instance or returns an error if the container type is invalid.
 // For this version of the function, 'none' is a valid value.
-func ParseSupportedContainerTypeOrNone(ctype string) (ContainerType, error) {
+func ParseAllowedContainerTypeOrNone(ctype string) (ContainerType, error) {
 	if ContainerType(ctype) == NONE {
 		return NONE, nil
 	}
-	return ParseSupportedContainerType(ctype)
+	return ParseAllowedContainerType(ctype)
 }
 
-// ParseSupportedContainerType converts the specified string into a supported
+// ParseAllowedContainerType converts the specified string into a supported
 // ContainerType instance or returns an error if the container type is invalid.
-func ParseSupportedContainerType(ctype string) (ContainerType, error) {
-	for _, supportedType := range SupportedContainerTypes {
+func ParseAllowedContainerType(ctype string) (ContainerType, error) {
+	for _, supportedType := range AllowedContainerTypes {
 		if ContainerType(ctype) == supportedType {
 			return supportedType, nil
 		}

@@ -259,7 +259,7 @@ func (v *Value) setContainer(str string) error {
 		ctype := instance.ContainerType("")
 		v.Container = &ctype
 	} else {
-		ctype, err := instance.ParseSupportedContainerTypeOrNone(str)
+		ctype, err := instance.ParseAllowedContainerTypeOrNone(str)
 		if err != nil {
 			return err
 		}
