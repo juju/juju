@@ -4,6 +4,10 @@
 package apiserver
 
 import (
+	"time"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
 	"launchpad.net/juju-core/state/apiserver/client"
@@ -229,14 +233,9 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 }
 
 // Pinger returns object with a single "Ping" method that does nothing.
-func (r *srvRoot) Pinger(id string) (srvPinger, error) {
-	return srvPinger{}, nil
+func (r *srvRoot) Pinger(id string) (*srvPinger, error) {
+	return newSrvPinger(r, 3*time.Minute)
 }
-
-type srvPinger struct{}
-
-// Ping is a no-op used by client heartbeat monitor.
-func (r srvPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
@@ -276,4 +275,54 @@ func (r *srvRoot) GetAuthTag() string {
 // GetAuthEntity returns the authenticated entity.
 func (r *srvRoot) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// killer descibes a type that can be killed after a ping
+// timeout.
+type killer interface {
+	Kill()
+}
+
+// srvPinger tracks the pings of the connected agents and
+// kills their connection if has been no ping for too long.
+type srvPinger struct {
+	tomb    tomb.Tomb
+	timeout time.Duration
+	killer  killer
+	reset   chan interface{}
+}
+
+// newSrvPinger creates a new pinger with a running killer.
+func newSrvPinger(k killer, to time.Duration) (*srvPinger, error) {
+	pinger := &srvPinger{
+		killer:  k,
+		timeout: to,
+		reset:   make(chan interface{}),
+	}
+	go func() {
+		defer pinger.tomb.Done()
+		pinger.tomb.Kill(pinger.loop())
+	}()
+	return pinger, nil
+}
+
+// Ping is used by the client heartbeat monitor and resets
+// the killer.
+func (p *srvPinger) Ping() {
+	p.reset <- struct{}{}
+}
+
+// loop waits for a reset signal, otherwise it kills the
+// connection after the timeout.
+func (p *srvPinger) loop() error {
+	defer close(p.reset)
+	for {
+		select {
+		case <-p.tomb.Dying():
+			return nil
+		case <-time.After(p.timeout):
+			p.killer.Kill()
+		case <-p.reset:
+		}
+	}
 }

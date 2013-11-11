@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"time"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
@@ -40,4 +42,27 @@ func (*rootSuite) TestDiscardedAPIMethods(c *gc.C) {
 		// an RPC entry point.
 		c.Assert(m.ObjType.DiscardedMethods(), gc.HasLen, 0)
 	}
+}
+
+type testKiller struct {
+	killed time.Time
+}
+
+func (k *testKiller) Kill() {
+	k.killed = time.Now()
+}
+
+func (r *rootSuite) TestPingTimeout(c *gc.C) {
+	killer := &testKiller{}
+	pinger, err := apiserver.NewSrvPinger(killer, 5*time.Millisecond)
+	c.Assert(err, gc.IsNil)
+	for i := 0; i < 10; i++ {
+		time.Sleep(time.Millisecond)
+		pinger.Ping()
+	}
+	// Expect killer.killed to be set 5ms after last ping.
+	broken := time.Now()
+	time.Sleep(10 * time.Millisecond)
+	killDiff := killer.killed.Sub(broken).Nanoseconds() / 1000000
+	c.Assert(killDiff >= 5 && killDiff <= 6, gc.Equals, true)
 }
