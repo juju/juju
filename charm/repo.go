@@ -79,9 +79,9 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 		return nil, err
 	}
 	if s.authToken != "" {
-		/* To comply with RFC 2617, we send the auth token in
-		   the Authorization header with a custom auth scheme
-		   and the token. */
+		// To comply with RFC 2617, we send the auth token in
+		// the Authorization header with a custom auth scheme
+		// and the token.
 		req.Header.Add("Authorization", "charmstore "+s.authToken)
 	}
 	return http.DefaultClient.Do(req)
