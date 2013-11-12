@@ -57,24 +57,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://juju.ubuntu.com", http.StatusSeeOther)
 		return
 	}
-
-	// Check for authentication token and just log it for now
-	if token := r.Header.Get("Authorization"); token != "" {
-		tokenParts := strings.SplitN(token, " ", 2)
-		scheme, token := tokenParts[0], tokenParts[1]
-
-		if scheme != "charmstore" {
-			err := fmt.Sprintf("Invalid authentication scheme: %s", scheme)
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err))
-			log.Errorf(err)
-			return
-		} else {
-			log.Infof("Authentication received: scheme - %s, token - %s ",
-				scheme, token)
-		}
-	}
-
 	s.mux.ServeHTTP(w, r)
 }
 
@@ -97,7 +79,6 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-
 	r.ParseForm()
 	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
@@ -185,11 +166,9 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
-
 	if !strings.HasPrefix(r.URL.Path, "/charm/") {
 		panic("serveCharm: bad url")
 	}
-
 	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
