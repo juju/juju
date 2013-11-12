@@ -8,12 +8,13 @@ import (
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
+	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type KVMSuite struct {
-	kvm.TestSuite
+	kvmtesting.TestSuite
 }
 
 var _ = gc.Suite(&KVMSuite{})
@@ -28,7 +29,7 @@ func (*KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 	c.Assert(containers, gc.HasLen, 0)
 }
 
-func (s *KVMSuite) createRunningContainer(c *gc.C, name string) container.Container {
+func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	container := s.Factory.New(name)
 	c.Assert(container.Start(), gc.IsNil)
 	return container
