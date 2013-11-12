@@ -88,6 +88,10 @@ type machineDoc struct {
 	PasswordHash  string
 	Clean         bool
 	Addresses     []address
+	// The SupportedContainers attributes are used to advertise what containers this
+	// machine is capable of hosting.
+	SupportedContainersKnown bool
+	SupportedContainers      []instance.ContainerType `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -792,4 +796,81 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
+}
+
+// SupportedContainers returns any containers this machine is capable of hosting, and a bool
+// indicating if the supported containers have been determined or not.
+func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
+	return m.doc.SupportedContainers, m.doc.SupportedContainersKnown
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() (err error) {
+	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, sameDoc...),
+			Update: D{
+				{"$set", D{
+					{"supportedcontainers", []instance.ContainerType{}},
+					{"supportedcontainersknown", true},
+				}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.SupportedContainers = []instance.ContainerType{}
+	m.doc.SupportedContainersKnown = true
+	return nil
+}
+
+// AddSupportedContainers updates the list of containers supported by this machine.
+func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (err error) {
+	if len(containers) == 0 {
+		return fmt.Errorf("at least one valid container type is required")
+	}
+	for _, container := range containers {
+		if container == instance.NONE {
+			return fmt.Errorf("%q is not a valid container type", container)
+		}
+	}
+	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, sameDoc...),
+			Update: D{
+				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
+				{"$set", D{{"supportedcontainersknown", true}}},
+			},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+
+	for _, container := range containers {
+		m.addContainerIfMissing(container)
+	}
+	m.doc.SupportedContainersKnown = true
+	return nil
+}
+
+func (m *Machine) addContainerIfMissing(container instance.ContainerType) {
+	found := false
+	for _, c := range m.doc.SupportedContainers {
+		if c == container {
+			found = true
+			break
+		}
+	}
+	if !found {
+		m.doc.SupportedContainers = append(m.doc.SupportedContainers, container)
+	}
 }
