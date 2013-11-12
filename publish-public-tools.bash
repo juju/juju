@@ -142,10 +142,6 @@ if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
     usage
 fi
 
-# XXX sinzui 2013-11-11: Migrate the s3cfg used by s3cmd.
-if [[ ! -f $JUJU_DIR/s3cfg && -f ~/.s3cfg ]]; then
-    cp ~/.s3cfg $JUJU_DIR/s3cfg
-fi
 
 check_deps
 if [[ $PURPOSE == "RELEASE" ]]; then
