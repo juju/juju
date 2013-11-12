@@ -4,9 +4,10 @@
 package container
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+
+	"launchpad.net/juju-core/utils"
 )
 
 var (
@@ -35,7 +36,7 @@ func RemoveDirectory(containerName string) error {
 		logger.Errorf("failed to create removed container directory: %v", err)
 		return err
 	}
-	removedDir, err := uniqueDirectory(RemovedContainerDir, containerName)
+	removedDir, err := utils.UniqueDirectory(RemovedContainerDir, containerName)
 	if err != nil {
 		logger.Errorf("was not able to generate a unique directory: %v", err)
 		return err
@@ -50,23 +51,4 @@ func RemoveDirectory(containerName string) error {
 
 func dirForName(containerName string) string {
 	return filepath.Join(ContainerDir, containerName)
-}
-
-// uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
-// does, the method starts appending .1, .2, etc until a unique name is found.
-func uniqueDirectory(path, name string) (string, error) {
-	dir := filepath.Join(path, name)
-	_, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		return dir, nil
-	}
-	for i := 1; ; i++ {
-		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
-		_, err := os.Stat(dir)
-		if os.IsNotExist(err) {
-			return dir, nil
-		} else if err != nil {
-			return "", err
-		}
-	}
 }
