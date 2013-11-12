@@ -18,10 +18,7 @@ import (
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
-	kvmObjectFactory container.ContainerFactory = &containerFactory{}
-
-	containerDir        = "/var/lib/juju/containers"
-	removedContainerDir = "/var/lib/juju/removed-containers"
+	KvmObjectFactory ContainerFactory = &containerFactory{}
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
@@ -75,7 +72,7 @@ func (manager *containerManager) StopContainer(instance.Instance) error {
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	containers, err := kvmObjectFactory.List()
+	containers, err := KvmObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return

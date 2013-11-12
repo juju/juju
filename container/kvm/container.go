@@ -5,8 +5,6 @@ package kvm
 
 import (
 	"fmt"
-
-	"launchpad.net/juju-core/container"
 )
 
 type kvmContainer struct {
@@ -15,7 +13,7 @@ type kvmContainer struct {
 	started bool
 }
 
-var _ container.Container = (*kvmContainer)(nil)
+var _ Container = (*kvmContainer)(nil)
 
 func (c *kvmContainer) Name() string {
 	return c.name
