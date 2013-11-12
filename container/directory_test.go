@@ -4,6 +4,8 @@
 package container_test
 
 import (
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
@@ -31,4 +33,13 @@ func (*DirectorySuite) TestNewContainerDir(c *gc.C) {
 	dir, err := container.NewContainerDirectory("testing")
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
+}
+
+func (s *DirectorySuite) TestRemoveContainerDir(c *gc.C) {
+	dir, err := container.NewContainerDirectory("testing")
+	c.Assert(err, gc.IsNil)
+	err = container.RemoveContainerDirectory("testing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(dir, jc.DoesNotExist)
+	c.Assert(filepath.Join(s.removedDir, "testing"), jc.IsDirectory)
 }
