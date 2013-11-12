@@ -93,6 +93,7 @@ type AddMachinesResult struct {
 // DestroyMachines holds parameters for the DestroyMachines call.
 type DestroyMachines struct {
 	MachineNames []string
+	Force        bool
 }
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
