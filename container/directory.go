@@ -14,9 +14,9 @@ var (
 	RemovedContainerDir = "/var/lib/juju/removed-containers"
 )
 
-// NewContainerDirectory creates a new directory for the container name in the
+// NewDirectory creates a new directory for the container name in the
 // directory identified by `ContainerDir`.
-func NewContainerDirectory(containerName string) (directory string, err error) {
+func NewDirectory(containerName string) (directory string, err error) {
 	directory = jujuContainerDirectory(containerName)
 	logger.Tracef("create directory: %s", directory)
 	if err = os.MkdirAll(directory, 0755); err != nil {
