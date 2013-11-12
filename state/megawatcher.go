@@ -119,14 +119,16 @@ func (m *backingUnit) mongoId() interface{} {
 	return m.Name
 }
 
-type backingService serviceDoc
+type backingService struct {
+	serviceDoc
+}
 
 func (svc *backingService) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.ServiceInfo{
 		Name:     svc.Name,
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
-		OwnerTag: svc.OwnerTag,
+		OwnerTag: svc.GetOwnerTag(),
 		Life:     params.Life(svc.Life.String()),
 		MinUnits: svc.MinUnits,
 	}
