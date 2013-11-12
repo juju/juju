@@ -20,12 +20,19 @@ type DestroyMachineCommand struct {
 	Force      bool
 }
 
+const destroyMachineDoc = `
+Machines that are responsible for the environment cannot be destroyed. Machines
+running units or containers can only be destroyed with the --force flag; doing
+so will also destroy all those units and containers without giving them any
+opportunity to shut down cleanly.
+`
+
 func (c *DestroyMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-machine",
 		Args:    "<machine> ...",
 		Purpose: "destroy machines",
-		Doc:     "Machines that are responsible for the environment cannot be destroyed. Machines running units or containers can only be destroyed with the --force flag.",
+		Doc:     "",
 		Aliases: []string{"terminate-machine"},
 	}
 }

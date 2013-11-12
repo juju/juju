@@ -43,9 +43,8 @@ func (s *DestroyMachineSuite) TestDestroyMachineWithUnit(c *gc.C) {
 }
 
 func (s *DestroyMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
-	// Remove the unit, and try to destroy the machine along with another that
-	// doesn't exist; check that the machine is destroyed, but the missing one
-	// is warned about.
+	// Destroy an empty machine alongside a state server; only the empty machine
+	// gets destroyed.
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDestroyMachine(c, "0", "1")

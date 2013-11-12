@@ -1,6 +1,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -90,23 +92,20 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
 }
 
+func (s *CleanupSuite) testForceDestroyManagerError(c *gc.C, job state.MachineJob) {
+	manager, err := s.State.AddMachine("quantal", job)
+	c.Assert(err, gc.IsNil)
+	s.assertDoesNotNeedCleanup(c)
+	err = manager.ForceDestroy()
+	expect := fmt.Sprintf("machine %s is required by the environment", manager.Id())
+	c.Assert(err, gc.ErrorMatches, expect)
+	s.assertDoesNotNeedCleanup(c)
+	assertLife(c, manager, state.Alive)
+}
+
 func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
-	stateManager, err := s.State.AddMachine("quantal", state.JobManageState)
-	c.Assert(err, gc.IsNil)
-	s.assertDoesNotNeedCleanup(c)
-	err = stateManager.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
-	s.assertDoesNotNeedCleanup(c)
-	assertLife(c, stateManager, state.Alive)
-
-	environManager, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	s.assertDoesNotNeedCleanup(c)
-
-	err = environManager.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
-	s.assertDoesNotNeedCleanup(c)
-	assertLife(c, environManager, state.Alive)
+	s.testForceDestroyManagerError(c, state.JobManageState)
+	s.testForceDestroyManagerError(c, state.JobManageEnviron)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
