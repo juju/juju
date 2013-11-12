@@ -231,6 +231,20 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	// Ensure that the auth token is a set of key=value pairs.
+	authToken := cfg.CharmStoreAuth()
+	if authToken != "" {
+		kvset := strings.Split(authToken, ",")
+		for _, kv := range kvset {
+			kv = strings.TrimSpace(kv)
+			kv := strings.Split(kv, "=")
+			if len(kv) != 2 {
+				return fmt.Errorf("charm store auth token needs to be a set"+
+					" of key-value pairs, not '%s'", authToken)
+			}
+		}
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
