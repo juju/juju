@@ -19,32 +19,32 @@ type InstanceSuite struct{}
 
 var _ = gc.Suite(&InstanceSuite{})
 
-func (s *InstanceSuite) TestParseSupportedContainerType(c *gc.C) {
-	ctype, err := instance.ParseSupportedContainerType("lxc")
+func (s *InstanceSuite) TestParseAllowedContainerType(c *gc.C) {
+	ctype, err := instance.ParseContainerType("lxc")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
 
-	ctype, err = instance.ParseSupportedContainerType("kvm")
+	ctype, err = instance.ParseContainerType("kvm")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.KVM)
 
-	ctype, err = instance.ParseSupportedContainerType("none")
+	ctype, err = instance.ParseContainerType("none")
 	c.Assert(err, gc.ErrorMatches, `invalid container type "none"`)
 
-	ctype, err = instance.ParseSupportedContainerType("omg")
+	ctype, err = instance.ParseContainerType("omg")
 	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
 }
 
-func (s *InstanceSuite) TestParseSupportedContainerTypeOrNone(c *gc.C) {
-	ctype, err := instance.ParseSupportedContainerTypeOrNone("lxc")
+func (s *InstanceSuite) TestParseAllowedContainerTypeOrNone(c *gc.C) {
+	ctype, err := instance.ParseContainerTypeOrNone("lxc")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
 
-	ctype, err = instance.ParseSupportedContainerTypeOrNone("kvm")
+	ctype, err = instance.ParseContainerTypeOrNone("kvm")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.KVM)
 
-	ctype, err = instance.ParseSupportedContainerTypeOrNone("none")
+	ctype, err = instance.ParseContainerTypeOrNone("none")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.NONE)
 
