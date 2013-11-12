@@ -73,7 +73,7 @@ func (manager *containerManager) StartContainer(
 	lxcContainer := LxcObjectFactory.New(name)
 
 	// Create the cloud-init.
-	directory, err := container.NewContainerDirectory(name)
+	directory, err := container.NewDirectory(name)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		return err
 	}
 
-	return container.RemoveContainerDirectory(name)
+	return container.RemoveDirectory(name)
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
