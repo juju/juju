@@ -33,11 +33,9 @@ var _ = gc.Suite(&UpgradeJujuSuite{})
 
 var upgradeJujuTests = []struct {
 	about          string
-	private        []string
-	public         []string
+	tools          []string
 	currentVersion string
 	agentVersion   string
-	development    bool
 
 	args           []string
 	expectInitErr  string
@@ -50,10 +48,20 @@ var upgradeJujuTests = []struct {
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
+	about:          "deprecated --dev specified",
+	currentVersion: "1.0.0-quantal-amd64",
+	args:           []string{"--dev"},
+	expectInitErr:  "flag provided but not defined: --dev",
+}, {
 	about:          "invalid --version value",
 	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"--version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
+}, {
+	about:          "just major version, no minor specified",
+	currentVersion: "4.2.0-quantal-amd64",
+	args:           []string{"--version", "4"},
+	expectInitErr:  `invalid version "4"`,
 }, {
 	about:          "major version upgrade to incompatible version",
 	currentVersion: "2.0.0-quantal-amd64",
@@ -85,45 +93,38 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools", "--version", "3.1.0.4"},
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
-	about:          "latest release from private storage",
-	private:        []string{"2.0.0-quantal-amd64", "2.0.2-quantal-i386", "2.0.3-quantal-amd64"},
-	public:         []string{"2.0.0-quantal-amd64", "2.0.4-quantal-amd64", "2.0.5-quantal-amd64"},
+	about:          "latest supported stable release",
+	tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.0.3",
+	expectVersion:  "2.2.3",
 }, {
-	about:          "latest dev from private storage (because client is dev)",
-	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
-	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
+	about:          "latest current release",
+	tools:          []string{"2.0.5-quantal-amd64", "2.0.1-quantal-i386", "2.3.3-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.0.5",
+}, {
+	about:          "no next supported available",
+	tools:          []string{"2.1.0-quantal-amd64", "2.1.5-quantal-i386", "2.3.3-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	expectErr:      "no more recent supported versions available",
+}, {
+	about:          "latest supported stable, when client is dev",
+	tools:          []string{"2.1.1-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.1.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.3.0",
+	expectVersion:  "2.2.0",
 }, {
-	about:          "latest dev from private storage (because agent is dev)",
-	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
-	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
+	about:          "latest supported stable, when agent is dev",
+	tools:          []string{"2.1.1-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.1.0",
-	expectVersion:  "2.3.0",
-}, {
-	about:          "latest dev from private storage (because --dev flag)",
-	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64"},
-	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
-	currentVersion: "2.0.0-quantal-amd64",
-	args:           []string{"--dev"},
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.3.0",
-}, {
-	about:          "latest dev from private storage (because dev env setting)",
-	private:        []string{"2.0.0-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64"},
-	public:         []string{"2.0.0-quantal-amd64", "2.4.0-quantal-amd64", "2.5.0-quantal-amd64"},
-	currentVersion: "2.0.0-quantal-amd64",
-	development:    true,
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.3.0",
+	expectVersion:  "2.2.0",
 }, {
 	about:          "specified version",
-	private:        []string{"2.3.0-quantal-amd64"},
+	tools:          []string{"2.3.0-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--version", "2.3.0"},
@@ -142,62 +143,55 @@ var upgradeJujuTests = []struct {
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching major version",
-	private:        []string{"4.2.0-quantal-amd64"},
+	tools:          []string{"4.2.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching minor version",
-	private:        []string{"3.4.0-quantal-amd64"},
+	tools:          []string{"3.4.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching patch version",
-	private:        []string{"3.2.5-quantal-amd64"},
+	tools:          []string{"3.2.5-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching build version",
-	private:        []string{"3.2.0.2-quantal-amd64"},
+	tools:          []string{"3.2.0.2-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "major version downgrade to incompatible version",
-	private:        []string{"3.2.0-quantal-amd64"},
+	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "cannot change major version from 4 to 3",
 }, {
 	about:          "major version upgrade to compatible version",
-	private:        []string{"3.2.0-quantal-amd64"},
+	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "2.8.2",
 	args:           []string{"--version", "3.2.0"},
 	expectErr:      "major version upgrades are not supported yet",
 }, {
-	about:          "nothing available 1",
+	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
 	about:          "nothing available 2",
 	currentVersion: "2.0.0-quantal-amd64",
-	public:         []string{"3.2.0-quantal-amd64"},
-	agentVersion:   "2.0.0",
-	expectVersion:  "2.0.0",
-}, {
-	about:          "nothing available 3",
-	currentVersion: "2.0.0-quantal-amd64",
-	private:        []string{"3.2.0-quantal-amd64"},
-	public:         []string{"3.4.0-quantal-amd64"},
+	tools:          []string{"3.2.0-quantal-amd64"},
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.0",
 }, {
@@ -230,8 +224,7 @@ var upgradeJujuTests = []struct {
 	expectUploaded: []string{"2.1.0.1-quantal-amd64", "2.1.0.1-precise-amd64", "2.1.0.1-raring-amd64"},
 }, {
 	about:          "upload bumps version when necessary",
-	private:        []string{"2.4.6-quantal-amd64", "2.4.8-quantal-amd64"},
-	public:         []string{"2.4.6.4-quantal-amd64"}, //ignored
+	tools:          []string{"2.4.6-quantal-amd64", "2.4.8-quantal-amd64"},
 	currentVersion: "2.4.6-quantal-amd64",
 	agentVersion:   "2.4.0",
 	args:           []string{"--upload-tools"},
@@ -239,8 +232,7 @@ var upgradeJujuTests = []struct {
 	expectUploaded: []string{"2.4.6.1-quantal-amd64", "2.4.6.1-precise-amd64", "2.4.6.1-raring-amd64"},
 }, {
 	about:          "upload re-bumps version when necessary",
-	private:        []string{"2.4.6-quantal-amd64", "2.4.6.2-saucy-i386", "2.4.8-quantal-amd64"},
-	public:         []string{"2.4.6.10-quantal-amd64"}, //ignored
+	tools:          []string{"2.4.6-quantal-amd64", "2.4.6.2-saucy-i386", "2.4.8-quantal-amd64"},
 	currentVersion: "2.4.6-quantal-amd64",
 	agentVersion:   "2.4.6.2",
 	args:           []string{"--upload-tools"},
@@ -249,7 +241,7 @@ var upgradeJujuTests = []struct {
 }, {
 	about:          "upload with explicit version bumps when necessary",
 	currentVersion: "2.2.0-quantal-amd64",
-	private:        []string{"2.7.3.1-quantal-amd64"},
+	tools:          []string{"2.7.3.1-quantal-amd64"},
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
@@ -310,22 +302,17 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		toolsDir := c.MkDir()
 		cfg, err = cfg.Apply(map[string]interface{}{
 			"agent-version":      test.agentVersion,
-			"development":        test.development,
 			"tools-metadata-url": "file://" + toolsDir,
 		})
 		c.Assert(err, gc.IsNil)
 		err = s.State.SetEnvironConfig(cfg)
 		c.Assert(err, gc.IsNil)
-		versions := make([]version.Binary, len(test.private))
-		for i, v := range test.private {
+		versions := make([]version.Binary, len(test.tools))
+		for i, v := range test.tools {
 			versions[i] = version.MustParseBinary(v)
 
 		}
 		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
-		versions = make([]version.Binary, len(test.public))
-		for i, v := range test.public {
-			versions[i] = version.MustParseBinary(v)
-		}
 		stor, err := filestorage.NewFileStorageWriter(toolsDir, "")
 		c.Assert(err, gc.IsNil)
 		envtesting.MustUploadFakeToolsVersions(stor, versions...)
@@ -343,7 +330,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, gc.Equals, true)
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
-		c.Check(cfg.Development(), gc.Equals, test.development)
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)

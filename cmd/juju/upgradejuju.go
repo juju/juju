@@ -27,7 +27,6 @@ type UpgradeJujuCommand struct {
 	cmd.EnvCommandBase
 	vers        string
 	Version     version.Number
-	Development bool
 	UploadTools bool
 	Series      []string
 }
@@ -36,18 +35,38 @@ var uploadTools = sync.Upload
 
 var upgradeJujuDoc = `
 The upgrade-juju command upgrades a running environment by setting a version
-number for all juju agents to run. By default, it chooses the most recent non-
-development version compatible with the command-line envtools.
+number for all juju agents to run. By default, it chooses the most recent
+supported version compatible with the command-line tools version (currently
+%s).
 
-A development version is defined to be any version with an odd minor version
-or a nonzero build component (for example version 2.1.1, 3.3.0 and 2.0.0.1 are
-development versions; 2.0.3 and 3.4.1 are not). A development version may be
-chosen if any of the following conditions hold:
+A development version is defined to be any version with an odd minor
+version or a nonzero build component (for example version 2.1.1, 3.3.0
+and 2.0.0.1 are development versions; 2.0.3 and 3.4.1 are not). A
+development version may be chosen only if an explicit --version
+major.minor is given (e.g. --version 1.17, or 1.17.2, but not just 1)
 
- - the current juju tool has a development version.
- - the juju environment has a development version
- - the environment "development" setting is true
- - the --dev flag is specified
+For development use, the --upload-tools flag specifies that the juju tools will
+packaged (or compiled locally, if no jujud binaries exists, for which you will
+need the golang packages installed) and uploaded before the version is set.
+Currently the tools will be uploaded as if they had the version of the current
+juju tool, unless specified otherwise by the --version flag.
+
+When run without arguments. upgrade-juju will try to upgrade to the
+following versions, in order of preference, depending on the current
+value of the environment's agent-version setting:
+
+ - The highest patch.build version of the *next* stable major.minor version.
+   Any version with an even minor version number is a stable version.
+ - The highest patch.build version of the *current* major.minor version.
+
+Both of these depend on tools availability, which some situations (no
+outgoing internet access) and provider types (such as maas) require that
+you manage yourself; see the documentation for "sync-tools".
+
+The last stable release of a major version series, must be able to upgrade
+to the next stable major version. No such requirement is imposed on the other
+stable versions (i.e. 1.18 -> 2.0 is ok, provided there is no 1.20 available,
+but 1.16 -> 2.0 is not officially supported, although it might work).
 
 For development use, the --upload-tools flag specifies that the juju tools will
 be compiled locally and uploaded before the version is set. Currently the tools
@@ -59,14 +78,13 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-juju",
 		Purpose: "upgrade the tools in a juju environment",
-		Doc:     upgradeJujuDoc,
+		Doc:     fmt.Sprintf(upgradeJujuDoc, version.Current.String()),
 	}
 }
 
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
-	f.BoolVar(&c.Development, "dev", false, "allow development versions to be chosen")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
 }
@@ -136,19 +154,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
 	log.Infof("available tools: %s", v.tools)
 
-	// Write updated config back to state if necessary. Note that this is
-	// crackful and racy, because we have no idea what incompatible agent-
-	// version might be set by another administrator in the meantime. If
-	// this happens, tough: I'm not going to pretend to do it right when
-	// I'm not.
-	// TODO(fwereade): Do this right. Warning: scope unclear.
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": v.chosen.String(),
-	})
-	if err != nil {
-		return err
-	}
-	if err := conn.State.SetEnvironConfig(cfg); err != nil {
+	if err := conn.State.SetEnvironAgentVersion(v.chosen); err != nil {
 		return err
 	}
 	log.Noticef("started upgrade to %s", v.chosen)
@@ -175,15 +181,15 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 			return nil, err
 		}
 		if !c.UploadTools {
+			// No tools found and we shouldn't upload any, so pretend
+			// there is no more recent version available.
 			if c.Version == version.Zero {
 				return nil, errUpToDate
 			}
 			return nil, err
 		}
 	}
-	dev := c.Development || cfg.Development() || agent.IsDev() || client.IsDev()
 	return &upgradeVersions{
-		dev:    dev,
 		agent:  agent,
 		client: client,
 		chosen: c.Version,
@@ -193,7 +199,6 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 
 // upgradeVersions holds the version information for making upgrade decisions.
 type upgradeVersions struct {
-	dev    bool
 	agent  version.Number
 	client version.Number
 	chosen version.Number
@@ -242,13 +247,56 @@ func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) 
 // If validate returns no error, the environment agent-version can be set to
 // the value of the chosen field.
 func (v *upgradeVersions) validate() (err error) {
-	// If not completely specified already, pick a single tools version.
-	v.dev = v.dev || v.chosen.IsDev()
-	filter := coretools.Filter{Number: v.chosen, Released: !v.dev}
-	if v.tools, err = v.tools.Match(filter); err != nil {
-		return err
+	if v.chosen == version.Zero {
+		// No explicitly specified version, so find the next available
+		// stable release to upgrade to, starting from the current agent
+		// version and doing major.minor+1 or +2 as needed.
+		nextStable := v.agent
+		if v.agent.IsDev() {
+			nextStable.Minor += 1
+		} else {
+			nextStable.Minor += 2
+		}
+		nextStable.Patch = 0
+		nextStable.Build = 0
+		// Use this to limit the search.
+		nextUnsupported := nextStable
+		nextUnsupported.Minor += 1
+
+		var compatibleVersions coretools.List
+		for _, tool := range v.tools {
+			toolVersion := tool.Version.Number
+			if !toolVersion.Less(nextUnsupported) {
+				// Skip unsupported more recent versions.
+				log.Debugf("skipping unsupported version %s (next proposed %s, next unsupported %s)", toolVersion, nextStable, nextUnsupported)
+				continue
+			}
+			if !toolVersion.Less(nextStable) {
+				// Next stable is available.
+				compatibleVersions = append(compatibleVersions, tool)
+				log.Debugf("found a supported more recent stable version %s", toolVersion)
+				continue
+			}
+			if v.agent.Less(toolVersion) && toolVersion.Minor == v.agent.Minor {
+				// More recent current is available.
+				compatibleVersions = append(compatibleVersions, tool)
+				log.Debugf("found more recent current version %s", toolVersion)
+			}
+		}
+
+		if len(compatibleVersions) == 0 {
+			return fmt.Errorf("no more recent supported versions available")
+		}
+		v.chosen, v.tools = compatibleVersions.Newest()
+		log.Debugf("found more recent supported version: %s", v.chosen)
+	} else {
+		// If not completely specified already, pick a single tools version.
+		filter := coretools.Filter{Number: v.chosen, Released: !v.chosen.IsDev()}
+		if v.tools, err = v.tools.Match(filter); err != nil {
+			return err
+		}
+		v.chosen, v.tools = v.tools.Newest()
 	}
-	v.chosen, v.tools = v.tools.Newest()
 	if v.chosen == v.agent {
 		return errUpToDate
 	}
