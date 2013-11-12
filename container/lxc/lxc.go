@@ -14,6 +14,7 @@ import (
 	"launchpad.net/golxc"
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -33,58 +34,14 @@ var (
 )
 
 const (
-	// BridgeNetwork will have the container use the lxc bridge.
-	bridgeNetwork = "bridge"
-	// PhyscialNetwork will have the container use a specified network device.
-	physicalNetwork = "physical"
 	// DefaultLxcBridge is the package created container bridge
 	DefaultLxcBridge = "lxcbr0"
 )
 
-// NetworkConfig defines how the container network will be configured.
-type NetworkConfig struct {
-	networkType string
-	device      string
-}
-
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
-func DefaultNetworkConfig() *NetworkConfig {
-	return &NetworkConfig{bridgeNetwork, DefaultLxcBridge}
-}
-
-// BridgeNetworkConfig returns a valid NetworkConfig to use the specified
-// device as a network bridge for the container.
-func BridgeNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{bridgeNetwork, device}
-}
-
-// PhysicalNetworkConfig returns a valid NetworkConfig to use the specified
-// device as the network device for the container.
-func PhysicalNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{physicalNetwork, device}
-}
-
-// ManagerConfig contains the initialization parameters for the ContainerManager.
-type ManagerConfig struct {
-	Name   string
-	LogDir string
-}
-
-// ContainerManager is responsible for starting containers, and stopping and
-// listing containers that it has started.  The name of the manager is used to
-// namespace the lxc containers on the machine.
-type ContainerManager interface {
-	// StartContainer creates and starts a new lxc container for the specified machine.
-	StartContainer(
-		machineConfig *cloudinit.MachineConfig,
-		series string,
-		network *NetworkConfig) (instance.Instance, error)
-	// StopContainer stops and destroyes the lxc container identified by Instance.
-	StopContainer(instance.Instance) error
-	// ListContainers return a list of containers that have been started by
-	// this manager.
-	ListContainers() ([]instance.Instance, error)
+func DefaultNetworkConfig() *container.NetworkConfig {
+	return container.BridgeNetworkConfig(DefaultLxcBridge)
 }
 
 type containerManager struct {
@@ -92,10 +49,13 @@ type containerManager struct {
 	logdir string
 }
 
+// containerManager implements container.Manager.
+var _ container.Manager = (*containerManager)(nil)
+
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf ManagerConfig) ContainerManager {
+func NewContainerManager(conf container.ManagerConfig) container.Manager {
 	logdir := "/var/log/juju"
 	if conf.LogDir != "" {
 		logdir = conf.LogDir
@@ -106,7 +66,7 @@ func NewContainerManager(conf ManagerConfig) ContainerManager {
 func (manager *containerManager) StartContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *NetworkConfig) (instance.Instance, error) {
+	network *container.NetworkConfig) (instance.Instance, error) {
 
 	name := names.MachineTag(machineConfig.MachineId)
 	if manager.name != "" {
@@ -115,7 +75,7 @@ func (manager *containerManager) StartContainer(
 	// Note here that the lxcObjectFacotry only returns a valid container
 	// object, and doesn't actually construct the underlying lxc container on
 	// disk.
-	container := LxcObjectFactory.New(name)
+	lxcContainer := LxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -144,7 +104,7 @@ func (manager *containerManager) StartContainer(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := container.Create(configFile, defaultTemplate, templateParams...); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, err
 	}
@@ -165,18 +125,18 @@ func (manager *containerManager) StartContainer(
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
-	container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
+	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = container.Start("", consoleFile); err != nil {
+	if err = lxcContainer.Start("", consoleFile); err != nil {
 		logger.Errorf("container failed to start: %v", err)
 		return nil, err
 	}
 	logger.Tracef("container started")
-	return &lxcInstance{container, name}, nil
+	return &lxcInstance{lxcContainer, name}, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -262,23 +222,23 @@ func networkConfigTemplate(networkType, networkLink string) string {
 	return fmt.Sprintf(networkTemplate, networkType, networkLink)
 }
 
-func generateNetworkConfig(network *NetworkConfig) string {
+func generateNetworkConfig(network *container.NetworkConfig) string {
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
 		network = DefaultNetworkConfig()
 	}
-	switch network.networkType {
-	case physicalNetwork:
-		return networkConfigTemplate("phys", network.device)
+	switch network.NetworkType {
+	case container.PhysicalNetwork:
+		return networkConfigTemplate("phys", network.Device)
 	default:
-		logger.Warningf("Unknown network config type %q: using bridge", network.networkType)
+		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
-	case bridgeNetwork:
-		return networkConfigTemplate("veth", network.device)
+	case container.BridgeNetwork:
+		return networkConfigTemplate("veth", network.Device)
 	}
 }
 
-func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, error) {
+func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
 	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
