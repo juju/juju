@@ -6,12 +6,11 @@ package kvm
 import (
 	"fmt"
 
-	base "launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/instance"
 )
 
 type kvmInstance struct {
-	container base.Container
+	container Container
 	id        string
 }
 
