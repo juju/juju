@@ -2,12 +2,15 @@ __metaclass__ = type
 
 from datetime import timedelta
 from mock import patch
+from StringIO import StringIO
 from textwrap import dedent
 from unittest import TestCase
 
 from jujupy import (
+    check_wordpress,
     Environment,
     ErroredUnit,
+    format_listing,
     JujuClient16,
     JujuClientDevel,
     Status,
@@ -298,6 +301,11 @@ class TestStatus(TestCase):
             status.check_agents_started('env1')
 
 
+def fast_timeout(count):
+    if False:
+        yield
+
+
 class TestEnvironment(TestCase):
 
     def test_wait_for_started(self):
@@ -333,9 +341,34 @@ class TestEnvironment(TestCase):
                 """)
         JujuClientDevelFake.set_output(output_iterator())
         env = Environment('local', JujuClientDevelFake)
-        def fast_timeout(ignored):
-            if False:
-                yield
-        with patch('jujupy.until_timeout', fast_timeout):
+        with patch('jujupy.until_timeout', lambda x: range(0)):
             with self.assertRaisesRegexp(Exception, 'Timed out!'):
                 env.wait_for_started()
+
+
+class TestFormatListing(TestCase):
+
+    def test_format_listing(self):
+        result = format_listing(
+            {'1': ['a', 'b'], '2': ['c'], 'expected': ['d']}, 'expected', 'e')
+        self.assertEqual('<e> 1: a, b | 2: c', result)
+
+
+class TestCheckWordpress(TestCase):
+
+    def test_check_wordpress(self):
+        out = StringIO('Welcome to the famous five minute WordPress'
+                       ' installation process!')
+        with patch('urllib2.urlopen', side_effect=lambda x: out) as mock:
+            check_wordpress('foo', 'host')
+        mock.assert_called_with('http://host/wp-admin/install.php')
+
+    def test_check_wordpress_failure(self):
+        out = StringIO('Urk!')
+        sleep = patch('jujupy.sleep')
+        urlopen = patch('urllib2.urlopen', side_effect=lambda x: out)
+        timeout = patch('jujupy.until_timeout', lambda x: range(1))
+        with sleep, urlopen, timeout:
+            with self.assertRaisesRegexp(
+                    Exception, 'Cannot get welcome screen at .*host.* foo'):
+                check_wordpress('foo', 'host')
