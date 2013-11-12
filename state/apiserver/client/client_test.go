@@ -493,38 +493,143 @@ func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
 	c.Assert(service.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
-func (s *clientSuite) TestClientDestroyMachines(c *gc.C) {
-	s.setUpScenario(c)
-	err := s.APIState.Client().DestroyMachines("1")
-	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 1 has unit "wordpress/0" assigned`)
-	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+func assertLife(c *gc.C, entity state.Living, life state.Life) {
+	err := entity.Refresh()
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().DestroyMachines(m.Id())
-	c.Assert(err, gc.IsNil)
-	err = m.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m.Life(), gc.Not(gc.Equals), state.Alive)
+	c.Assert(entity.Life(), gc.Equals, life)
 }
 
-func (s *clientSuite) TestClientDestroyUnits(c *gc.C) {
-	// Setup:
-	s.setUpScenario(c)
-	service, err := s.State.Service("wordpress")
+func assertRemoved(c *gc.C, entity state.Living) {
+	err := entity.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	_, err = service.AddUnit()
+	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	// Destroy some units and check the result.
-	err = s.APIState.Client().DestroyServiceUnits([]string{"wordpress/1", "wordpress/2"})
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	units, err := service.AllUnits()
+
+	sch := s.AddTestingCharm(c, "wordpress")
+	wordpress, err := s.State.AddService("wordpress", sch)
 	c.Assert(err, gc.IsNil)
-	for i, u := range units {
-		if i == 0 {
-			c.Assert(u.Life(), gc.Equals, state.Alive)
-		} else {
-			c.Assert(u.Life(), gc.Equals, state.Dying)
-		}
+	u, err := wordpress.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = u.AssignToMachine(m0)
+	c.Assert(err, gc.IsNil)
+
+	return m0, m1, m2, u
+}
+
+func (s *clientSuite) TestDestroyMachines(c *gc.C) {
+	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
+
+	err := s.APIState.Client().DestroyMachines("0", "1", "2")
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Alive)
+	assertLife(c, m2, state.Dying)
+
+	err = u.UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().DestroyMachines("0", "1", "2")
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	assertLife(c, m0, state.Dying)
+	assertLife(c, m1, state.Alive)
+	assertLife(c, m2, state.Dying)
+}
+
+func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
+	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
+
+	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Alive)
+	assertLife(c, m2, state.Alive)
+	assertLife(c, u, state.Alive)
+
+	err = s.State.Cleanup()
+	c.Assert(err, gc.IsNil)
+	assertRemoved(c, m0)
+	assertLife(c, m1, state.Alive)
+	assertRemoved(c, m2)
+	assertRemoved(c, u)
+}
+
+func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	units := make([]*state.Unit, 5)
+	for i := range units {
+		unit, err := wordpress.AddUnit()
+		c.Assert(err, gc.IsNil)
+		err = unit.SetStatus(params.StatusStarted, "", nil)
+		c.Assert(err, gc.IsNil)
+		units[i] = unit
 	}
+
+	// Destroy 2 of them; check they become Dying.
+	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
+	c.Assert(err, gc.IsNil)
+	assertLife(c, units[0], state.Dying)
+	assertLife(c, units[1], state.Dying)
+
+	// Try to destroy an Alive one and a Dying one; check
+	// it destroys the Alive one and ignores the Dying one.
+	err = s.APIState.Client().DestroyServiceUnits("wordpress/2", "wordpress/0")
+	c.Assert(err, gc.IsNil)
+	assertLife(c, units[2], state.Dying)
+
+	// Try to destroy an Alive one along with a nonexistent one; check that
+	// the valid instruction is followed but the invalid one is warned about.
+	err = s.APIState.Client().DestroyServiceUnits("boojum/123", "wordpress/3")
+	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
+	assertLife(c, units[3], state.Dying)
+
+	// Make one Dead, and destroy an Alive one alongside it; check no errors.
+	wp0, err := s.State.Unit("wordpress/0")
+	c.Assert(err, gc.IsNil)
+	err = wp0.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/4")
+	c.Assert(err, gc.IsNil)
+	assertLife(c, units[0], state.Dead)
+	assertLife(c, units[4], state.Dying)
+}
+
+func (s *clientSuite) TestDestroySubordinateUnits(c *gc.C) {
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	wordpress0, err := wordpress.AddUnit()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, gc.IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	logging0, err := s.State.Unit("logging/0")
+	c.Assert(err, gc.IsNil)
+
+	// Try to destroy the subordinate alone; check it fails.
+	err = s.APIState.Client().DestroyServiceUnits("logging/0")
+	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	assertLife(c, logging0, state.Alive)
+
+	// Try to destroy the principal and the subordinate together; check it warns
+	// about the subordinate, but destroys the one it can. (The principal unit
+	// agent will be resposible for destroying the subordinate.)
+	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
+	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
+	assertLife(c, wordpress0, state.Dying)
+	assertLife(c, logging0, state.Alive)
 }
 
 func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolvedMode state.ResolvedMode) {
