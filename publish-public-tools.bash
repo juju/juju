@@ -7,6 +7,8 @@
 
 set -e
 
+SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
+
 
 usage() {
     echo "usage: $0 PURPOSE DIST_DIRECTORY"
@@ -111,7 +113,7 @@ publish_to_azure() {
     echo "Phase 4: Publish to Azure."
     source $JUJU_DIR/azuretoolsrc
     shim_creds
-    ./azure-publish-tools.py publish release ${JUJU_DIST}
+    ${SCRIPT_DIR}/azure-publish-tools.py publish release ${JUJU_DIST}
 }
 
 
@@ -121,7 +123,7 @@ testing_to_azure() {
     echo "Phase 4: Testing to Azure."
     source $JUJU_DIR/azuretoolsrc
     shim_creds
-    ./azure-publish-tools.py publish testing ${JUJU_DIST}
+    ${SCRIPT_DIR}/azure-publish-tools.py publish testing ${JUJU_DIST}
 }
 
 
