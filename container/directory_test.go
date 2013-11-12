@@ -4,6 +4,7 @@
 package container_test
 
 import (
+	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -42,4 +43,18 @@ func (s *DirectorySuite) TestRemoveContainerDir(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Join(s.removedDir, "testing"), jc.IsDirectory)
+}
+
+func (s *DirectorySuite) TestRemoveContainerDirWithClash(c *gc.C) {
+	dir, err := container.NewContainerDirectory("testing")
+	c.Assert(err, gc.IsNil)
+
+	clash := filepath.Join(s.removedDir, "testing")
+	err = os.MkdirAll(clash, 0755)
+	c.Assert(err, gc.IsNil)
+
+	err = container.RemoveContainerDirectory("testing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(dir, jc.DoesNotExist)
+	c.Assert(filepath.Join(s.removedDir, "testing.1"), jc.IsDirectory)
 }

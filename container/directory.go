@@ -14,6 +14,8 @@ var (
 	RemovedContainerDir = "/var/lib/juju/removed-containers"
 )
 
+// NewContainerDirectory creates a new directory for the container name in the
+// directory identified by `ContainerDir`.
 func NewContainerDirectory(containerName string) (directory string, err error) {
 	directory = jujuContainerDirectory(containerName)
 	logger.Tracef("create directory: %s", directory)
@@ -24,6 +26,8 @@ func NewContainerDirectory(containerName string) (directory string, err error) {
 	return directory, nil
 }
 
+// RemoveContainerDirectory moves the container directory from `ContainerDir`
+// to `RemovedContainerDir` and makes sure that the names don't clash.
 func RemoveContainerDirectory(containerName string) error {
 	// Move the directory.
 	logger.Tracef("create old container dir: %s", RemovedContainerDir)
