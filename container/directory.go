@@ -17,7 +17,7 @@ var (
 // NewDirectory creates a new directory for the container name in the
 // directory identified by `ContainerDir`.
 func NewDirectory(containerName string) (directory string, err error) {
-	directory = jujuContainerDirectory(containerName)
+	directory = dirForName(containerName)
 	logger.Tracef("create directory: %s", directory)
 	if err = os.MkdirAll(directory, 0755); err != nil {
 		logger.Errorf("failed to create container directory: %v", err)
@@ -40,7 +40,7 @@ func RemoveDirectory(containerName string) error {
 		logger.Errorf("was not able to generate a unique directory: %v", err)
 		return err
 	}
-	if err := os.Rename(jujuContainerDirectory(containerName), removedDir); err != nil {
+	if err := os.Rename(dirForName(containerName), removedDir); err != nil {
 		logger.Errorf("failed to rename container directory: %v", err)
 		return err
 	}
@@ -48,7 +48,7 @@ func RemoveDirectory(containerName string) error {
 
 }
 
-func jujuContainerDirectory(containerName string) string {
+func dirForName(containerName string) string {
 	return filepath.Join(ContainerDir, containerName)
 }
 
