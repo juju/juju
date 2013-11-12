@@ -566,3 +566,18 @@ func (s *StoreSuite) TestBlitzKey(c *gc.C) {
 	c.Assert(rec.Header().Get("Content-Type"), gc.Equals, "text/plain")
 	c.Assert(rec.Header().Get("Content-Length"), gc.Equals, "2")
 }
+
+func (s *StoreSuite) TestServerIncorrectAuthScheme(c *gc.C) {
+	server, _ := s.prepareServer(c)
+	req, err := http.NewRequest("GET", "/charm-info", nil)
+	c.Assert(err, gc.IsNil)
+	req.Header.Add("Authorization", "BadScheme token=secret")
+
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	c.Assert(rec.Code, gc.Equals, http.StatusBadRequest)
+	data, err := ioutil.ReadAll(rec.Body)
+	c.Assert(string(data), gc.Equals, "Invalid authentication scheme: BadScheme")
+
+}

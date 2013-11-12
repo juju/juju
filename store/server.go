@@ -64,7 +64,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		scheme, token := tokenParts[0], tokenParts[1]
 
 		if scheme != "charmstore" {
-			log.Errorf("Invalid authentication scheme: %s", scheme)
+			err := fmt.Sprintf("Invalid authentication scheme: %s", scheme)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err))
+			log.Errorf(err)
+			return
 		} else {
 			log.Infof("Authentication received: scheme - %s, token - %s ",
 				scheme, token)
