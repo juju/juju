@@ -1116,7 +1116,7 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.DeepEquals, addresses)
 }
 
-func (s *MachineSuite) setupMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
+func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	containers := []instance.ContainerType{container}
@@ -1126,10 +1126,14 @@ func (s *MachineSuite) setupMachineWithSupportedContainer(c *gc.C, container ins
 	return machine
 }
 
+// assertSupportedContainers checks the document in memory has the specified
+// containers and then reloads the document from the database to assert saved
+// values match also.
 func assertSupportedContainers(c *gc.C, machine *state.Machine, containers []instance.ContainerType) {
 	supportedContainers, known := machine.SupportedContainers()
 	c.Assert(known, jc.IsTrue)
 	c.Assert(supportedContainers, gc.DeepEquals, containers)
+	// Reload so we can check the saved values.
 	err := machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	supportedContainers, known = machine.SupportedContainers()
@@ -1137,11 +1141,16 @@ func assertSupportedContainers(c *gc.C, machine *state.Machine, containers []ins
 	c.Assert(supportedContainers, gc.DeepEquals, containers)
 }
 
+func assertSupportedContainersUnknown(c *gc.C, machine *state.Machine) {
+	containers, known := machine.SupportedContainers()
+	c.Assert(known, jc.IsFalse)
+	c.Assert(containers, gc.HasLen, 0)
+}
+
 func (s *MachineSuite) TestSupportedContainersInitiallyUnknown(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	_, known := machine.SupportedContainers()
-	c.Assert(known, jc.IsFalse)
+	assertSupportedContainersUnknown(c, machine)
 }
 
 func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
@@ -1159,16 +1168,14 @@ func (s *MachineSuite) TestAddSupportedContainerTypeNoneIsError(c *gc.C) {
 
 	err = machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.NONE})
 	c.Assert(err, gc.ErrorMatches, `"none" is not a valid container type`)
-	_, known := machine.SupportedContainers()
-	c.Assert(known, jc.IsFalse)
+	assertSupportedContainersUnknown(c, machine)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
-	_, known = machine.SupportedContainers()
-	c.Assert(known, jc.IsFalse)
+	assertSupportedContainersUnknown(c, machine)
 }
 
 func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
-	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
 	err := machine.SupportsNoContainers()
 	c.Assert(err, gc.IsNil)
@@ -1185,7 +1192,7 @@ func (s *MachineSuite) TestAddSupportedContainersSingle(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddSupportedContainersExisitng(c *gc.C) {
-	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
 	err := machine.AddSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
@@ -1193,7 +1200,7 @@ func (s *MachineSuite) TestAddSupportedContainersExisitng(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddSupportedContainersNew(c *gc.C) {
-	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
 	err := machine.AddSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
@@ -1210,7 +1217,7 @@ func (s *MachineSuite) TestAddSupportedContainersMultipeNew(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAddSupportedContainersMultipleExisting(c *gc.C) {
-	machine := s.setupMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
 	err := machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
