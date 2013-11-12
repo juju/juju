@@ -32,7 +32,7 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 		Name:    "destroy-machine",
 		Args:    "<machine> ...",
 		Purpose: "destroy machines",
-		Doc:     "",
+		Doc:     destroyMachineDoc,
 		Aliases: []string{"terminate-machine"},
 	}
 }
