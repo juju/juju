@@ -39,7 +39,7 @@ func (*DirectorySuite) TestNewContainerDir(c *gc.C) {
 func (s *DirectorySuite) TestRemoveContainerDir(c *gc.C) {
 	dir, err := container.NewDirectory("testing")
 	c.Assert(err, gc.IsNil)
-	err = container.RemoveContainerDirectory("testing")
+	err = container.RemoveDirectory("testing")
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Join(s.removedDir, "testing"), jc.IsDirectory)
@@ -53,7 +53,7 @@ func (s *DirectorySuite) TestRemoveContainerDirWithClash(c *gc.C) {
 	err = os.MkdirAll(clash, 0755)
 	c.Assert(err, gc.IsNil)
 
-	err = container.RemoveContainerDirectory("testing")
+	err = container.RemoveDirectory("testing")
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Join(s.removedDir, "testing.1"), jc.IsDirectory)

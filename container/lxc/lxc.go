@@ -145,7 +145,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		return err
 	}
 
-	return container.RemoveContainerDirectory(name)
+	return container.RemoveDirectory(name)
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {

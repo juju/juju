@@ -26,9 +26,9 @@ func NewDirectory(containerName string) (directory string, err error) {
 	return directory, nil
 }
 
-// RemoveContainerDirectory moves the container directory from `ContainerDir`
+// RemoveDirectory moves the container directory from `ContainerDir`
 // to `RemovedContainerDir` and makes sure that the names don't clash.
-func RemoveContainerDirectory(containerName string) error {
+func RemoveDirectory(containerName string) error {
 	// Move the directory.
 	logger.Tracef("create old container dir: %s", RemovedContainerDir)
 	if err := os.MkdirAll(RemovedContainerDir, 0755); err != nil {
