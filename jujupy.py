@@ -91,7 +91,7 @@ class JujuClientDevel:
     @classmethod
     def get_status(cls, environment):
         """Get the current status as a dict."""
-        return yaml_loads(cls.get_juju_output(environment, 'status'))
+        return Status(yaml_loads(cls.get_juju_output(environment, 'status')))
 
     @classmethod
     def juju(cls, environment, command, args, sudo=False, check=True):
@@ -112,11 +112,52 @@ class JujuClient16(JujuClientDevel):
                  environment.needs_sudo(), check=False)
 
 
+class Status:
+
+    def __init__(self, status):
+        self.status = status
+
+    def agent_items(self):
+        for machine_name, machine in sorted(self.status['machines'].items()):
+            yield machine_name, machine
+        for service in sorted(self.status['services'].values()):
+            for unit_name, unit in service.get('units', {}).items():
+                yield unit_name, unit
+
+    def agent_states(self):
+        """Map agent states to the units and machines in those states."""
+        states = defaultdict(list)
+        for item_name, item in self.agent_items():
+            states[item.get('agent-state', 'no-agent')].append(item_name)
+        return states
+
+    def check_agents_started(self, environment_name):
+        """Check whether all agents are in the 'started' state.
+
+        If not, return agent_states output.  If so, return None.
+        If an error is encountered for an agent, raise ErroredUnit
+        """
+        # Look for errors preventing an agent from being installed
+        for item_name, item in self.agent_items():
+            state_info = item.get('agent-state-info', '')
+            if 'error' in state_info:
+                raise ErroredUnit(environment_name, item_name, state_info)
+        states = self.agent_states()
+        if states.keys() == ['started']:
+            return None
+        for state, entries in states.items():
+            if 'error' in state:
+                raise ErroredUnit(environment_name, entries[0],  state)
+        return states
+
+
 class Environment:
 
-    def __init__(self, environment):
+    def __init__(self, environment, client=None):
         self.environment = environment
-        self.client = JujuClientDevel.by_version()
+        if client is None:
+            client = JujuClientDevel.by_version()
+        self.client = client
 
     def needs_sudo(self):
         return bool(self.environment == 'local')
@@ -133,37 +174,13 @@ class Environment:
     def get_status(self):
         return self.client.get_status(self)
 
-    @staticmethod
-    def agent_items(status):
-        for machine_name, machine in sorted(status['machines'].items()):
-            yield machine_name, machine
-        for service in sorted(status['services'].values()):
-            for unit_name, unit in service.get('units', {}).items():
-                yield unit_name, unit
-
-    @classmethod
-    def agent_states(cls, status):
-        """Map agent states to the units and machines in those states."""
-        states = defaultdict(list)
-        for item_name, item in cls.agent_items(status):
-            states[item.get('agent-state', 'no-agent')].append(item_name)
-        return states
-
     def wait_for_started(self):
         """Wait until all unit/machine agents are 'started'."""
         for ignored in until_timeout(1200):
             status = self.get_status()
-            # Look for errors preventing an agent from being installed
-            for item_name, item in self.agent_items(status):
-                state_info = item.get('agent-state-info', '')
-                if 'error' in state_info:
-                    raise ErroredUnit(self.environment, item_name, state_info)
-            states = self.agent_states(status)
-            if states.keys() == ['started']:
+            states = status.check_agents_started(self.environment)
+            if states is None:
                 break
-            for state, entries in states.items():
-                if 'error' in state:
-                    raise ErroredUnit(self.environment, entries[0],  state)
             print format_listing(states, 'started', self.environment)
             sys.stdout.flush()
         else:

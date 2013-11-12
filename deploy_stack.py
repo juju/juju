@@ -21,7 +21,7 @@ def deploy_stack(environments):
         env.juju('add-relation', 'mysql', 'wordpress')
         env.juju('expose', 'wordpress')
     for env in envs:
-        status = env.wait_for_started()
+        status = env.wait_for_started().status
         wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
         check_wordpress(env.environment, wp_unit_0['public-address'])
 

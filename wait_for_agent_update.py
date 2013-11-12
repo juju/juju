@@ -16,7 +16,7 @@ def agent_update(environment, version):
     for ignored in until_timeout(300):
         versions = defaultdict(list)
         status = env.get_status()
-        for item_name, item in env.agent_items(status):
+        for item_name, item in status.agent_items():
             versions[item.get('agent-version', 'unknown')].append(item_name)
         if versions.keys() == [version]:
             break
