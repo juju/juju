@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"time"
 
 	"launchpad.net/tomb"
@@ -232,9 +233,27 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	}, nil
 }
 
-// Pinger returns object with a single "Ping" method that does nothing.
+// Pinger returns a server pinger tracing the client pings and
+// terminating the root after 3 minutes with no pings.
 func (r *srvRoot) Pinger(id string) (*srvPinger, error) {
-	return newSrvPinger(r, 3*time.Minute)
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	resource := r.resources.Get(id)
+	if resource != nil {
+		pinger, ok := resource.(*srvPinger)
+		if !ok {
+			return nil, common.ErrUnknownPinger
+		}
+		return pinger, nil
+	}
+	pinger, err := newSrvPinger(r, 3*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	pinger.id = r.resources.Register(pinger)
+	return pinger, nil
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
@@ -287,6 +306,7 @@ type killer interface {
 // kills their connection if has been no ping for too long.
 type srvPinger struct {
 	tomb    tomb.Tomb
+	id      string
 	timeout time.Duration
 	killer  killer
 	reset   chan interface{}
@@ -312,6 +332,13 @@ func (p *srvPinger) Ping() {
 	p.reset <- struct{}{}
 }
 
+// Stop terminates the pinger.
+func (p *srvPinger) Stop() error {
+	// p.tomb.Kill(nil)
+	// return p.tomb.Wait()
+	return nil
+}
+
 // loop waits for a reset signal, otherwise it kills the
 // connection after the timeout.
 func (p *srvPinger) loop() error {
@@ -322,6 +349,7 @@ func (p *srvPinger) loop() error {
 			return nil
 		case <-time.After(p.timeout):
 			p.killer.Kill()
+			return fmt.Errorf("timeout of pinger %q", p.id)
 		case <-p.reset:
 		}
 	}
