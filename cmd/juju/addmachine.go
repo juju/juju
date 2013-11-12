@@ -94,13 +94,13 @@ func (c *AddMachineCommand) Init(args []string) error {
 		c.SSHHost = containerSpec[len(sshHostPrefix):]
 	} else {
 		// container arg can either be 'type:machine' or 'type'
-		if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
+		if c.ContainerType, err = instance.ParseContainerType(containerSpec); err != nil {
 			if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
 				return fmt.Errorf("malformed container argument %q", containerSpec)
 			}
 			sep := strings.Index(containerSpec, ":")
 			c.MachineId = containerSpec[sep+1:]
-			c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
+			c.ContainerType, err = instance.ParseContainerType(containerSpec[:sep])
 		}
 	}
 	return err
