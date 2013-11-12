@@ -30,6 +30,8 @@ var (
 	ENVIRON ProvisionerType = "environ"
 	// LXC provisioners create lxc containers on their parent machine
 	LXC ProvisionerType = "lxc"
+	// KVM provisioners create kvm containers on their parent machine
+	KVM ProvisionerType = "kvm"
 )
 
 // Provisioner represents a running provisioning worker.

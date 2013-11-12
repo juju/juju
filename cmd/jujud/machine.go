@@ -22,7 +22,9 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apiagent "launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/params"
+	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
@@ -173,25 +175,12 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return logger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	// At this stage, since we don't embed LXC containers, just start an lxc
-	// provisioner task for non-lxc containers.  Since we have only LXC
-	// containers and normal machines, this effectively means that we only
-	// have an LXC provisioner when we have a normally provisioned machine
-	// (through the environ-provisioner).  With the upcoming advent of KVM
-	// containers, it is likely that we will want an LXC provisioner on a KVM
-	// machine, and once we get nested LXC containers, we can remove this
-	// check.
-	//
-	// TODO(dimitern) 2013-09-25 bug #1230289
-	// Create jobs for container providers, rather than
-	// using the provider and container type like this.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local && entity.ContainerType() != instance.LXC {
-		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
-		runner.StartWorker(workerName, func() (worker.Worker, error) {
-			return provisioner.NewProvisioner(provisioner.LXC, st.Provisioner(), agentConfig), nil
-		})
+
+	// Perform the operations needed to set up hosting for containers.
+	if err := a.setupContainerSupport(runner, st, entity); err != nil {
+		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
+
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
@@ -213,6 +202,71 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+func (a *MachineAgent) setupContainerSupport(runner workerRunner, st *api.State, entity *apiagent.Entity) error {
+	var supportedContainers []instance.ContainerType
+	// We don't yet support nested lxc containers but anything else can run an LXC container.
+	if entity.ContainerType() != instance.LXC {
+		supportedContainers = append(supportedContainers, instance.LXC)
+	}
+	// TODO - call out to "/bin/kvm-ok"
+	supportsKvm := true
+	if supportsKvm {
+		supportedContainers = append(supportedContainers, instance.KVM)
+	}
+	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
+}
+
+// updateSupportedContainers records in state that a machine can run the specified containers.
+// It starts a watcher and when a container of a given type is first added to the machine,
+// the watcher is killed and a provisioner is started.
+func (a *MachineAgent) updateSupportedContainers(runner workerRunner, st *api.State,
+	tag string, containers []instance.ContainerType) error {
+
+	var machine *apiprovisioner.Machine
+	var err error
+	pr := st.Provisioner()
+	if machine, err = pr.Machine(tag); err != nil {
+		return fmt.Errorf("%s is not in state: %v", tag, err)
+	}
+	if err := machine.AddSupportedContainers(containers); err != nil {
+		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
+	}
+
+	for _, container := range containers {
+		watcherName := fmt.Sprintf("%s-watcher", container)
+		callback := func(ids []string) error {
+			if err := runner.StopWorker(watcherName); err != nil {
+				return err
+			}
+			return a.startProvisionerCallback(runner, st, container)
+		}
+		runner.StartWorker(watcherName, func() (worker.Worker, error) {
+			return provisioner.NewContainerWatcher(container, pr, tag, callback), nil
+		})
+	}
+	return nil
+}
+
+func (a *MachineAgent) startProvisionerCallback(runner workerRunner, st *api.State,
+	containerType instance.ContainerType) error {
+
+	// TODO - add check so that startProvisionerCallback is only ever called once, for each container type
+	workerName := fmt.Sprintf("%s-provisioner", containerType)
+	var provisionerType provisioner.ProvisionerType
+	switch containerType {
+	case instance.LXC:
+		provisionerType = provisioner.LXC
+	case instance.KVM:
+		provisionerType = provisioner.KVM
+	default:
+		return fmt.Errorf("invalid container type %q", containerType)
+	}
+	// TODO - make the provisioner create an instance for the first container
+	return runner.StartWorker(workerName, func() (worker.Worker, error) {
+		return provisioner.NewProvisioner(provisionerType, st.Provisioner(), a.Conf.config), nil
+	})
 }
 
 // StateJobs returns a worker running all the workers that require
