@@ -4,7 +4,7 @@
 package container
 
 const (
-	// BridgeNetwork will have the container use the lxc bridge.
+	// BridgeNetwork will have the container use the network bridge.
 	BridgeNetwork = "bridge"
 	// PhyscialNetwork will have the container use a specified network device.
 	PhysicalNetwork = "physical"

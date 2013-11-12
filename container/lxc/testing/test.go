@@ -6,6 +6,7 @@ package testing
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
 	"launchpad.net/juju-core/testing/testbase"
@@ -25,9 +26,9 @@ type TestSuite struct {
 func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ContainerDir = c.MkDir()
-	s.PatchValue(&lxc.ContainerDir, s.ContainerDir)
+	s.PatchValue(&container.ContainerDir, s.ContainerDir)
 	s.RemovedDir = c.MkDir()
-	s.PatchValue(&lxc.RemovedContainerDir, s.RemovedDir)
+	s.PatchValue(&container.RemovedContainerDir, s.RemovedDir)
 	s.LxcDir = c.MkDir()
 	s.PatchValue(&lxc.LxcContainerDir, s.LxcDir)
 	s.RestartDir = c.MkDir()
