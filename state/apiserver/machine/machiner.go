@@ -6,7 +6,9 @@
 package machine
 
 import (
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
@@ -26,15 +28,43 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	getCanRead := func() (common.AuthFunc, error) {
+	// getAuthEnviron returns an AuthFunc that permits anyone
+	// access to an environment tag.
+	getAuthEnviron := func() (common.AuthFunc, error) {
+		auth := func(tag string) bool {
+			kind, err := names.TagKind(tag)
+			if err != nil {
+				panic(err)
+			}
+			return kind == names.EnvironTagKind
+		}
+		return auth, nil
+	}
+	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	getCanRead := common.AuthEither(getAuthEnviron, getAuthOwner)
 	return &MachinerAPI{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
-		StatusSetter:       common.NewStatusSetter(st, getCanRead),
-		DeadEnsurer:        common.NewDeadEnsurer(st, getCanRead),
+		StatusSetter:       common.NewStatusSetter(st, getAuthOwner),
+		DeadEnsurer:        common.NewDeadEnsurer(st, getAuthOwner),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		st:                 st,
 		auth:               authorizer,
 	}, nil
+}
+
+// Environment returns the tag and life of the specified
+// machine's enclosing environment.
+func (m *MachinerAPI) Environment(args params.MachineEnvironment) (params.MachineEnvironmentResult, error) {
+	// TODO(axw) when we have multi-tenancy, translate args.MachineTag to
+	// the corresponding machine's environment.
+	var result params.MachineEnvironmentResult
+	env, err := m.st.Environment()
+	if err != nil {
+		return result, err
+	}
+	result.EnvironmentTag = env.Tag()
+	result.Life = params.Life(env.Life().String())
+	return result, nil
 }

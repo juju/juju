@@ -23,12 +23,26 @@ type Machiner struct {
 	machine *machiner.Machine
 }
 
+// machineEnvironer is responsible for watching a machine agent's
+// environment lifecycle, and terminating the agent if it becomes
+// Dead.
+type machineEnvironer struct {
+	st         *machiner.State
+	machineTag string
+	environ    *machiner.Environment
+}
+
 // NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
 func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
-	mr := &Machiner{st: st, tag: agentConfig.Tag()}
-	return worker.NewNotifyWorker(mr)
+	machiner := &Machiner{st: st, tag: agentConfig.Tag()}
+	return worker.NewNotifyWorker(machiner)
+}
+
+func NewMachineEnvironer(st *machiner.State, agentConfig agent.Config) worker.Worker {
+	machineEnvironer := &machineEnvironer{st: st, machineTag: agentConfig.Tag()}
+	return worker.NewNotifyWorker(machineEnvironer)
 }
 
 func isNotFoundOrUnauthorized(err error) bool {
@@ -77,6 +91,36 @@ func (mr *Machiner) Handle() error {
 }
 
 func (mr *Machiner) TearDown() error {
+	// Nothing to do here.
+	return nil
+}
+
+func (me *machineEnvironer) SetUp() (watcher.NotifyWatcher, error) {
+	env, err := me.st.Environment(me.machineTag)
+	if isNotFoundOrUnauthorized(err) {
+		return nil, worker.ErrTerminateAgent
+	} else if err != nil {
+		return nil, err
+	}
+	me.environ = env
+	return env.Watch()
+}
+
+func (me *machineEnvironer) Handle() error {
+	if err := me.environ.Refresh(); isNotFoundOrUnauthorized(err) {
+		return worker.ErrTerminateAgent
+	} else if err != nil {
+		return err
+	}
+	if me.environ.Life() == params.Dead {
+		logger.Infof("%q is dead, terminating agent", me.environ.Tag())
+		return worker.ErrTerminateAgent
+	}
+	logger.Debugf("%q is now %s", me.environ.Tag(), me.environ.Life())
+	return nil
+}
+
+func (me *machineEnvironer) TearDown() error {
 	// Nothing to do here.
 	return nil
 }

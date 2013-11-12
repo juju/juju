@@ -1059,6 +1059,11 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
 }
 
+// Watch returns a watcher for observing changes to an environment.
+func (e *Environment) Watch() NotifyWatcher {
+	return newEntityWatcher(e.st, e.st.environments, e.doc.UUID)
+}
+
 // WatchForEnvironConfigChanges return a NotifyWatcher waiting for the Environ
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()

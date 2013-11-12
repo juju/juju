@@ -9,15 +9,25 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api"
 )
 
 var NoEnvironmentError = errors.New("no environment specified")
+
+// removeAgentsTimeout is how long to wait before returning
+// a timeout failure from the DestroyJuju API call. We must
+// either be careful not to make this too long, or otherwise
+// implement a way of providing feedback from the API server
+// to client.
+const removeAgentsTimeout = 1 * time.Minute
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
@@ -63,10 +73,17 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// TODO(axw) 2013-08-30 bug 1218688
-	// destroy manually provisioned machines, or otherwise
-	// block destroy-environment until all manually provisioned
-	// machines have been manually "destroyed".
+	// First, cleanly remove Juju from the environment. This takes
+	// care of removing manually provisioned agents.
+	conn, err := juju.NewAPIConn(environ, api.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if err = conn.State.Client().DestroyJuju(removeAgentsTimeout); err != nil {
+		return fmt.Errorf("could not remove agents: %v", err)
+	}
+	// Finally, allow the provider to release environment resources.
 	return environs.Destroy(environ, store)
 }
 

@@ -4,8 +4,6 @@
 package machiner
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -29,7 +27,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.st.machineLife(m.tag)
+	life, err := m.st.entityLife(m.tag)
 	if err != nil {
 		return err
 	}
@@ -68,21 +66,5 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
-	}
-	err := m.st.caller.Call("Machiner", "", "Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(m.st.caller, result)
-	return w, nil
+	return m.st.watch(m.tag)
 }

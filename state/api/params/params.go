@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -507,4 +508,9 @@ type EnvironmentGetResults struct {
 // call.
 type EnvironmentSet struct {
 	Config map[string]interface{}
+}
+
+// DestroyJuju contains the arguments for the DestroyJuju client API
+type DestroyJuju struct {
+	Timeout time.Duration
 }

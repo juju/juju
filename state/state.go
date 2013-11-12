@@ -355,12 +355,17 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 	sdoc := statusDoc{
 		Status: params.StatusPending,
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, nil, err
+	}
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same constraints.Value struct
 	// so here we clear the container value. Provisioning ignores the container value but
 	// clearing it avoids potential confusion.
 	cons.Container = nil
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		{
 			C:      st.machines.Name,
 			Id:     mdoc.Id,
@@ -716,6 +721,10 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -728,6 +737,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{

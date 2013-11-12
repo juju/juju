@@ -181,7 +181,7 @@ func (e *nullEnviron) Storage() storage.Storage {
 }
 
 func (e *nullEnviron) Destroy() error {
-	return errors.New("null provider destruction is not implemented yet")
+	return nil
 }
 
 func (e *nullEnviron) OpenPorts(ports []instance.Port) error {

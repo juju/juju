@@ -167,6 +167,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
+	runner.StartWorker("machine-environer", func() (worker.Worker, error) {
+		return machiner.NewMachineEnvironer(st.Machiner(), agentConfig), nil
+	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
