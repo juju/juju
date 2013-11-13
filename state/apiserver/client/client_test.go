@@ -355,6 +355,19 @@ func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
 	c.Assert(service.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
+func (s *clientSuite) TestClientDestroyMachines(c *gc.C) {
+	s.setUpScenario(c)
+	err := s.APIState.Client().DestroyMachines("1")
+	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 1 has unit "wordpress/0" assigned`)
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().DestroyMachines(m.Id())
+	c.Assert(err, gc.IsNil)
+	err = m.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Life(), gc.Not(gc.Equals), state.Alive)
+}
+
 func (s *clientSuite) TestClientUnitResolved(c *gc.C) {
 	// Setup:
 	s.setUpScenario(c)

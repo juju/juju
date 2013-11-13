@@ -328,6 +328,11 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return statecmd.DestroyRelation(c.api.state, args)
 }
 
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(args params.DestroyMachines) error {
+	return c.api.state.DestroyMachines(args.MachineNames...)
+}
+
 // CharmInfo returns information about the requested charm.
 func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
