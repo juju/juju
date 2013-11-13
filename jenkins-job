@@ -1,11 +1,14 @@
 #!/bin/bash
 set -eu
 CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
-source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
-if ! $SCRIPTS/deploy_stack.py $ENVS; then
+destroy_all(){
   for env in $ENVS; do
     $SCRIPTS/destroy-environment $env
   done
+}
+source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
+if ! $SCRIPTS/deploy_stack.py $ENVS; then
+  destroy_all
   exit 1
 fi
 sudo dpkg -i $TESTING_DIR/juju-core*.deb
@@ -39,16 +42,12 @@ then
   EXIT_STATUS=1
 else
   # test deploying on the new version
-  for env in $ENVS; do
-    $SCRIPTS/destroy-environment $env
-  done
+  destroy_all
   sleep 5
   if ! $SCRIPTS/deploy_stack.py $ENVS; then
     EXIT_STATUS=1
   fi
 fi
 sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
-for env in $ENVS; do
-    $SCRIPTS/destroy-environment $env
-done
+destroy_all
 exit $EXIT_STATUS
