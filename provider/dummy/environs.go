@@ -779,8 +779,10 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		if inst == nil {
 			err = environs.ErrPartialInstances
 			notFound++
+			insts = append(insts, nil)
+		} else {
+			insts = append(insts, inst)
 		}
-		insts = append(insts, inst)
 	}
 	if notFound == len(ids) {
 		return nil, environs.ErrNoInstances

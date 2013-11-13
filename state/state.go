@@ -482,10 +482,16 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	}
 	ops = append(ops, machineOps...)
 
-	err = st.runTransaction(ops)
-	if err != nil {
+	if err = st.runTransaction(ops); err == txn.ErrAborted {
+		if env, err := st.Environment(); err != nil {
+			return nil, err
+		} else if env.Life() != Alive {
+			return nil, fmt.Errorf("environment is being destroyed")
+		}
+	} else if err != nil {
 		return nil, err
 	}
+
 	// Refresh to pick the txn-revno.
 	m = newMachine(st, mdoc)
 	if err = m.Refresh(); err != nil {
@@ -762,6 +768,11 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// because all the possible failed assertions imply that the service
 	// already exists.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		if err := env.Refresh(); err != nil {
+			return nil, err
+		} else if env.Life() != Alive {
+			return nil, fmt.Errorf("environment is being destroyed")
+		}
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err

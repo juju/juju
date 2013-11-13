@@ -554,10 +554,6 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 	if err != nil {
 		return "", nil, err
 	}
-	env, err := s.st.Environment()
-	if err != nil {
-		return "", nil, err
-	}
 	globalKey := unitGlobalKey(name)
 	udoc := &unitDoc{
 		Name:      name,
@@ -570,7 +566,6 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 		Status: params.StatusPending,
 	}
 	ops := []txn.Op{
-		env.assertAliveOp(),
 		{
 			C:      s.st.units.Name,
 			Id:     name,
@@ -616,11 +611,6 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if env, err := s.st.Environment(); err != nil {
-			return nil, err
-		} else if env.Life() != Alive {
-			return nil, fmt.Errorf("environment is being destroyed")
-		}
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {

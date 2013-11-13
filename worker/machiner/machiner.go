@@ -96,7 +96,7 @@ func (mr *Machiner) TearDown() error {
 }
 
 func (me *machineEnvironer) SetUp() (watcher.NotifyWatcher, error) {
-	env, err := me.st.Environment(me.machineTag)
+	env, err := me.st.Environment()
 	if isNotFoundOrUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {

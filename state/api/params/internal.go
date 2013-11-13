@@ -491,13 +491,7 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
-// MachineEnvironment holds the args for obtaining the tag of the
-// machine's enclosing environment.
-type MachineEnvironment struct {
-	MachineTag string
-}
-
-// MachineEnvironment holds the results of the MachineEnvironment API call.
+// MachineEnvironment holds the results of the Machine.Environment API call.
 type MachineEnvironmentResult struct {
 	EnvironmentTag string
 	Life           Life

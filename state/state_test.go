@@ -206,6 +206,23 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	check(m[1], "1", "blahblah", allJobs)
 }
 
+func (s *StateSuite) TestAddMachinesEnvironmentLife(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+	// Same again for Dead.
+	err = env.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+}
+
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, gc.IsNil)
@@ -527,6 +544,25 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentLife(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+
+	// Check that machines cannot be added if the environment is Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+	// Same again for Dead.
+	err = env.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s2", charm)
+	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {

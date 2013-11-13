@@ -4,8 +4,6 @@
 package api
 
 import (
-	"time"
-
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
@@ -338,8 +336,8 @@ func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
 }
 
-// DestroyJuju cleanly removes all Juju agents from the environment.
-func (c *Client) DestroyJuju(timeout time.Duration) error {
-	args := params.DestroyJuju{Timeout: timeout}
-	return c.st.Call("Client", "", "DestroyJuju", args, nil)
+// DestroyJuju cleanly removes all Juju agents from the environment,
+// except for manually-provisioned non-manager machines.
+func (c *Client) DestroyJuju() error {
+	return c.st.Call("Client", "", "DestroyJuju", nil, nil)
 }

@@ -56,9 +56,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 
 // Environment returns the tag and life of the specified
 // machine's enclosing environment.
-func (m *MachinerAPI) Environment(args params.MachineEnvironment) (params.MachineEnvironmentResult, error) {
-	// TODO(axw) when we have multi-tenancy, translate args.MachineTag to
-	// the corresponding machine's environment.
+func (m *MachinerAPI) Environment() (params.MachineEnvironmentResult, error) {
 	var result params.MachineEnvironmentResult
 	env, err := m.st.Environment()
 	if err != nil {

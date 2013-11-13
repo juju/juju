@@ -820,25 +820,6 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	c.Assert(id, gc.Equals, m.Id())
 }
 
-func (s *ServiceSuite) TestAddUnitEnvironmentLife(c *gc.C) {
-	_, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
-
-	// Check that units cannot be added if the environment is Dying.
-	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
-	err = env.Destroy()
-	c.Assert(err, gc.IsNil)
-	_, err = s.mysql.AddUnit()
-	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
-
-	// Same again for Dead.
-	err = env.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	_, err = s.mysql.AddUnit()
-	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
-}
-
 func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	u, err := s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)

@@ -55,10 +55,9 @@ func (st *State) Machine(tag string) (*Machine, error) {
 
 // Environment returns the Environment corresponding
 // to the machine with the given tag.
-func (st *State) Environment(machineTag string) (*Environment, error) {
+func (st *State) Environment() (*Environment, error) {
 	var result params.MachineEnvironmentResult
-	args := params.MachineEnvironment{MachineTag: machineTag}
-	err := st.caller.Call("Machiner", "", "Environment", args, &result)
+	err := st.caller.Call("Machiner", "", "Environment", nil, &result)
 	if err != nil {
 		return nil, err
 	}
