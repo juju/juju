@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -38,7 +39,6 @@ import (
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/upgrader"
-	"launchpad.net/juju-core/container/kvm"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

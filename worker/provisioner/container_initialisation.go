@@ -25,7 +25,7 @@ type ContainerSetup struct {
 	config        agent.Config
 
 	// Save the workerName so the worker thread can be stopped.
-	workerName    string
+	workerName string
 	// Save the watcher so it can be stopped.
 	watcher watcher.StringsWatcher
 	// setupDone is non zero if the container setup has been invoked.
