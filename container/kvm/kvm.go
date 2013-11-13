@@ -23,18 +23,14 @@ var (
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
 // It is a variable to allow us to overrid behaviour in the tests.
-var IsKVMSupported = func() bool {
+var IsKVMSupported = func() (bool, error) {
 	command := exec.Command("kvm-ok")
 	output, err := command.CombinedOutput()
-	if err == exec.ErrNotFound {
-		logger.Warningf("kvm-ok command not found")
-		return false
-	} else if err != nil {
-		logger.Errorf("%v", err)
-		return false
+	if err != nil {
+		return false, err
 	}
 	logger.Debugf("kvm-ok output:\n%s", output)
-	return command.ProcessState.Success()
+	return command.ProcessState.Success(), nil
 }
 
 // NewContainerManager returns a manager object that can start and stop kvm
