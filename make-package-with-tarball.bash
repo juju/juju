@@ -12,8 +12,7 @@ BUILD_DIR="$TMP_DIR/juju-build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
 DEVEL_SERIES="trusty"
-SERIES_VERSION=""
-LTS_VERSTION="~ubuntu12.04"
+LTS_VERSION="~ubuntu12.04.1"
 
 
 usage() {
@@ -96,9 +95,6 @@ if [[ $PURPOSE == "stable" ]]; then
 elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
     PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/devel"
-    if [[ $PURPOSE == "testing" ]]; then
-        SERIES_VERSION=$LTS_VERSION
-    fi
 else
     usage
 fi
@@ -107,6 +103,11 @@ TARBALL=$HERE/$2
 if [[ ! -f "$TARBALL" ]]; then
     echo "Tarball not found."
     usage
+fi
+if [[ $PURPOSE == "testing" ]]; then
+    SERIES_VERSION=$LTS_VERSION
+else
+    SERIES_VERSION=""
 fi
 VERSION=$(basename -s .tar.gz $TARBALL | cut -d '_' -f2)
 UBUNTU_VERSION="${VERSION}-0ubuntu1${SERIES_VERSION}"
