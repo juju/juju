@@ -6,7 +6,6 @@ package provisioner_test
 import (
 	"fmt"
 	"strings"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -29,10 +28,6 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type CommonProvisionerSuite struct {
 	testing.JujuConnSuite

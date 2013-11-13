@@ -214,6 +214,10 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
+	// If no containers are supported, there's no need to go further.
+	if len(supportedContainers) == 0 {
+		return nil
+	}
 	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
 }
 

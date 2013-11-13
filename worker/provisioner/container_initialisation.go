@@ -74,7 +74,16 @@ func (cs *ContainerSetup) Handle(containerIds []string) error {
 	if err := cs.ensureContainerDependencies(); err != nil {
 		return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
 	}
-	return cs.startProvisioner()
+	var provisionerType ProvisionerType
+	switch cs.containerType {
+	case instance.LXC:
+		provisionerType = LXC
+	case instance.KVM:
+		provisionerType = KVM
+	default:
+		return fmt.Errorf("invalid container type %q", cs.containerType)
+	}
+	return startProvisionerWorker(cs.runner, provisionerType, cs.provisioner, cs.config)
 }
 
 // TearDown is defined on the StringsWatchHandler interface.
@@ -88,23 +97,18 @@ func (cs *ContainerSetup) ensureContainerDependencies() error {
 	return nil
 }
 
+// Override for testing.
+var startProvisioner = startProvisionerWorker
+
 // startProvisioner kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
-func (cs *ContainerSetup) startProvisioner() error {
-	workerName := fmt.Sprintf("%s-provisioner", cs.containerType)
-	var provisionerType ProvisionerType
-	switch cs.containerType {
-	case instance.LXC:
-		provisionerType = LXC
-	case instance.KVM:
-		provisionerType = KVM
-	default:
-		return fmt.Errorf("invalid container type %q", cs.containerType)
-	}
+func startProvisionerWorker(runner worker.Runner, provisionerType ProvisionerType,
+	provisioner *apiprovisioner.State, config agent.Config) error {
 
+	workerName := fmt.Sprintf("%s-provisioner", provisionerType)
 	// The provisioner task is created after a container record has already been added to the machine.
 	// It will see that the container does not have an instance yet and create one.
-	return cs.runner.StartWorker(workerName, func() (worker.Worker, error) {
-		return NewProvisioner(provisionerType, cs.provisioner, cs.config), nil
+	return runner.StartWorker(workerName, func() (worker.Worker, error) {
+		return NewProvisioner(provisionerType, provisioner, config), nil
 	})
 }
