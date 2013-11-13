@@ -26,9 +26,16 @@ type Worker interface {
 	Wait() error
 }
 
-// Runner runs a set of workers, restarting them as necessary
+// Runner is implemented by instances capable of starting and stopping workers.
+type Runner interface {
+	Worker
+	StartWorker(id string, startFunc func() (Worker, error)) error
+	StopWorker(id string) error
+}
+
+// runner runs a set of workers, restarting them as necessary
 // when they fail.
-type Runner struct {
+type runner struct {
 	tomb          tomb.Tomb
 	startc        chan startReq
 	stopc         chan string
@@ -37,6 +44,8 @@ type Runner struct {
 	isFatal       func(error) bool
 	moreImportant func(err0, err1 error) bool
 }
+
+var _ Runner = (*runner)(nil)
 
 type startReq struct {
 	id    string
@@ -58,13 +67,13 @@ type doneInfo struct {
 // will be stopped and the runner itself will finish.  Of all the fatal errors
 // returned by the stopped workers, only the most important one,
 // determined by calling moreImportant, will be returned from
-// Runner.Wait. Non-fatal errors will not be returned.
+// runner.Wait. Non-fatal errors will not be returned.
 //
 // The function isFatal(err) returns whether err is a fatal error.  The
 // function moreImportant(err0, err1) returns whether err0 is considered
 // more important than err1.
-func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool) *Runner {
-	runner := &Runner{
+func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool) Runner {
+	runner := &runner{
 		startc:        make(chan startReq),
 		stopc:         make(chan string),
 		donec:         make(chan doneInfo),
@@ -89,7 +98,7 @@ var ErrDead = errors.New("worker runner is not running")
 // If there is already a worker with the given id, nothing will be done.
 //
 // StartWorker returns ErrDead if the runner is not running.
-func (runner *Runner) StartWorker(id string, startFunc func() (Worker, error)) error {
+func (runner *runner) StartWorker(id string, startFunc func() (Worker, error)) error {
 	select {
 	case runner.startc <- startReq{id, startFunc}:
 		return nil
@@ -102,7 +111,7 @@ func (runner *Runner) StartWorker(id string, startFunc func() (Worker, error)) e
 // It does nothing if there is no such worker.
 //
 // StopWorker returns ErrDead if the runner is not running.
-func (runner *Runner) StopWorker(id string) error {
+func (runner *runner) StopWorker(id string) error {
 	select {
 	case runner.stopc <- id:
 		return nil
@@ -111,11 +120,11 @@ func (runner *Runner) StopWorker(id string) error {
 	return ErrDead
 }
 
-func (runner *Runner) Wait() error {
+func (runner *runner) Wait() error {
 	return runner.tomb.Wait()
 }
 
-func (runner *Runner) Kill() {
+func (runner *runner) Kill() {
 	log.Debugf("worker: killing runner %p", runner)
 	runner.tomb.Kill(nil)
 }
@@ -133,7 +142,7 @@ type workerInfo struct {
 	stopping     bool
 }
 
-func (runner *Runner) run() error {
+func (runner *runner) run() error {
 	// workers holds the current set of workers.  All workers with a
 	// running goroutine have an entry here.
 	workers := make(map[string]*workerInfo)
@@ -240,7 +249,7 @@ func killWorker(id string, info *workerInfo) {
 }
 
 // runWorker starts the given worker after waiting for the given delay.
-func (runner *Runner) runWorker(delay time.Duration, id string, start func() (Worker, error)) {
+func (runner *runner) runWorker(delay time.Duration, id string, start func() (Worker, error)) {
 	if delay > 0 {
 		log.Infof("worker: restarting %q in %v", id, delay)
 		select {

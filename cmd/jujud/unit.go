@@ -27,7 +27,7 @@ type UnitAgent struct {
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
-	runner   *worker.Runner
+	runner   worker.Runner
 }
 
 // Info returns usage information for the command.

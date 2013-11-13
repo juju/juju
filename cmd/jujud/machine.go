@@ -41,13 +41,7 @@ import (
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
-type workerRunner interface {
-	worker.Worker
-	StartWorker(id string, startFunc func() (worker.Worker, error)) error
-	StopWorker(id string) error
-}
-
-var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) workerRunner {
+var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) worker.Runner {
 	return worker.NewRunner(isFatal, moreImportant)
 }
 
@@ -61,7 +55,7 @@ type MachineAgent struct {
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string
-	runner    workerRunner
+	runner    worker.Runner
 }
 
 // Info returns usage information for the command.
@@ -180,7 +174,6 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	if err := a.setupContainerSupport(runner, st, entity); err != nil {
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
-
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
@@ -204,7 +197,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
-func (a *MachineAgent) setupContainerSupport(runner workerRunner, st *api.State, entity *apiagent.Entity) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity) error {
 	var supportedContainers []instance.ContainerType
 	// We don't yet support nested lxc containers but anything else can run an LXC container.
 	if entity.ContainerType() != instance.LXC {
@@ -221,7 +214,7 @@ func (a *MachineAgent) setupContainerSupport(runner workerRunner, st *api.State,
 // updateSupportedContainers records in state that a machine can run the specified containers.
 // It starts a watcher and when a container of a given type is first added to the machine,
 // the watcher is killed and a provisioner is started.
-func (a *MachineAgent) updateSupportedContainers(runner workerRunner, st *api.State,
+func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.State,
 	tag string, containers []instance.ContainerType) error {
 
 	var machine *apiprovisioner.Machine
@@ -234,39 +227,14 @@ func (a *MachineAgent) updateSupportedContainers(runner workerRunner, st *api.St
 		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
 	}
 
-	for _, container := range containers {
-		watcherName := fmt.Sprintf("%s-watcher", container)
-		callback := func(ids []string) error {
-			if err := runner.StopWorker(watcherName); err != nil {
-				return err
-			}
-			return a.startProvisionerCallback(runner, st, container)
-		}
+	for _, ctype := range containers {
+		watcherName := fmt.Sprintf("%s-watcher", ctype)
+		handler := provisioner.NewContainerSetupHandler(runner, watcherName, ctype, machine, pr, a.Conf.config)
 		runner.StartWorker(watcherName, func() (worker.Worker, error) {
-			return provisioner.NewContainerWatcher(container, pr, tag, callback), nil
+			return worker.NewStringsWorker(handler), nil
 		})
 	}
 	return nil
-}
-
-func (a *MachineAgent) startProvisionerCallback(runner workerRunner, st *api.State,
-	containerType instance.ContainerType) error {
-
-	// TODO - add check so that startProvisionerCallback is only ever called once, for each container type
-	workerName := fmt.Sprintf("%s-provisioner", containerType)
-	var provisionerType provisioner.ProvisionerType
-	switch containerType {
-	case instance.LXC:
-		provisionerType = provisioner.LXC
-	case instance.KVM:
-		provisionerType = provisioner.KVM
-	default:
-		return fmt.Errorf("invalid container type %q", containerType)
-	}
-	// TODO - make the provisioner create an instance for the first container
-	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		return provisioner.NewProvisioner(provisionerType, st.Provisioner(), a.Conf.config), nil
-	})
 }
 
 // StateJobs returns a worker running all the workers that require
