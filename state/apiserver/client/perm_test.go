@@ -336,7 +336,7 @@ func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), 
 }
 
 func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	err := st.Client().DestroyServiceUnits("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}

@@ -90,6 +90,12 @@ func (c *Client) DestroyMachines(machines ...string) error {
 	return c.st.Call("Client", "", "DestroyMachines", params, nil)
 }
 
+// ForceDestroyMachines removes a given set of machines and all associated units.
+func (c *Client) ForceDestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{Force: true, MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
@@ -147,7 +153,7 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 }
 
 // DestroyServiceUnits decreases the number of units dedicated to a service.
-func (c *Client) DestroyServiceUnits(unitNames []string) error {
+func (c *Client) DestroyServiceUnits(unitNames ...string) error {
 	params := params.DestroyServiceUnits{unitNames}
 	return c.st.Call("Client", "", "DestroyServiceUnits", params, nil)
 }

@@ -435,49 +435,12 @@ func (s *UnitSuite) TestUnitCharm(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is dead`)
 }
 
-func (s *UnitSuite) TestDestroyPrincipalUnits(c *gc.C) {
-	preventUnitDestroyRemove(c, s.unit)
-	for i := 0; i < 4; i++ {
-		unit, err := s.service.AddUnit()
-		c.Assert(err, gc.IsNil)
-		preventUnitDestroyRemove(c, unit)
-	}
-
-	// Destroy 2 of them; check they become Dying.
-	err := s.State.DestroyUnits("wordpress/0", "wordpress/1")
-	c.Assert(err, gc.IsNil)
-	s.assertUnitLife(c, "wordpress/0", state.Dying)
-	s.assertUnitLife(c, "wordpress/1", state.Dying)
-
-	// Try to destroy an Alive one and a Dying one; check
-	// it destroys the Alive one and ignores the Dying one.
-	err = s.State.DestroyUnits("wordpress/2", "wordpress/0")
-	c.Assert(err, gc.IsNil)
-	s.assertUnitLife(c, "wordpress/2", state.Dying)
-
-	// Try to destroy an Alive one along with a nonexistent one; check that
-	// the valid instruction is followed but the invalid one is warned about.
-	err = s.State.DestroyUnits("boojum/123", "wordpress/3")
-	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
-	s.assertUnitLife(c, "wordpress/3", state.Dying)
-
-	// Make one Dead, and destroy an Alive one alongside it; check no errors.
-	wp0, err := s.State.Unit("wordpress/0")
-	c.Assert(err, gc.IsNil)
-	err = wp0.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	err = s.State.DestroyUnits("wordpress/0", "wordpress/4")
-	c.Assert(err, gc.IsNil)
-	s.assertUnitLife(c, "wordpress/0", state.Dead)
-	s.assertUnitLife(c, "wordpress/4", state.Dying)
-}
-
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
 		err := s.unit.SetStatus(params.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 	}, func() {
-		assertUnitLife(c, s.unit, state.Dying)
+		assertLife(c, s.unit, state.Dying)
 	}).Check()
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -488,7 +451,7 @@ func (s *UnitSuite) TestDestroySetCharmRetry(c *gc.C) {
 		err := s.unit.SetCharmURL(s.charm.URL())
 		c.Assert(err, gc.IsNil)
 	}, func() {
-		assertUnitRemoved(c, s.unit)
+		assertRemoved(c, s.unit)
 	}).Check()
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -505,7 +468,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 		err := s.unit.SetCharmURL(newCharm.URL())
 		c.Assert(err, gc.IsNil)
 	}, func() {
-		assertUnitRemoved(c, s.unit)
+		assertRemoved(c, s.unit)
 	}).Check()
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -519,7 +482,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 		err := s.unit.AssignToMachine(machine)
 		c.Assert(err, gc.IsNil)
 	}, func() {
-		assertUnitRemoved(c, s.unit)
+		assertRemoved(c, s.unit)
 		// Also check the unit ref was properly removed from the machine doc --
 		// if it weren't, we wouldn't be able to make the machine Dead.
 		err := machine.EnsureDead()
@@ -539,7 +502,7 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
 		err := s.unit.UnassignFromMachine()
 		c.Assert(err, gc.IsNil)
 	}, func() {
-		assertUnitRemoved(c, s.unit)
+		assertRemoved(c, s.unit)
 	}).Check()
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -550,7 +513,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
-	assertUnitRemoved(c, s.unit)
+	assertRemoved(c, s.unit)
 }
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
@@ -568,7 +531,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
-	assertUnitLife(c, s.unit, state.Dying)
+	assertLife(c, s.unit, state.Dying)
 }
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
@@ -592,7 +555,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		err = unit.Destroy()
 		c.Assert(err, gc.IsNil)
 		c.Assert(unit.Life(), gc.Equals, state.Dying)
-		assertUnitLife(c, unit, state.Dying)
+		assertLife(c, unit, state.Dying)
 	}
 }
 
@@ -610,56 +573,25 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
-	assertUnitRemoved(c, s.unit)
+	assertRemoved(c, s.unit)
 }
 
-func (s *UnitSuite) TestDestroySubordinateUnits(c *gc.C) {
-	lgsch := s.AddTestingCharm(c, "logging")
-	_, err := s.State.AddService("logging", lgsch)
-	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
-	c.Assert(err, gc.IsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-	ru, err := rel.Unit(s.unit)
-	c.Assert(err, gc.IsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
-
-	// Try to destroy the subordinate alone; check it fails.
-	err = s.State.DestroyUnits("logging/0")
-	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
-	s.assertUnitLife(c, "logging/0", state.Alive)
-
-	// Try to destroy the principal and the subordinate together; check it warns
-	// about the subordinate, but destroys the one it can. (The principal unit
-	// agent will be resposible for destroying the subordinate.)
-	err = s.State.DestroyUnits("wordpress/0", "logging/0")
-	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
-	s.assertUnitLife(c, "wordpress/0", state.Dying)
-	s.assertUnitLife(c, "logging/0", state.Alive)
+func assertLife(c *gc.C, entity state.Living, life state.Life) {
+	c.Assert(entity.Refresh(), gc.IsNil)
+	c.Assert(entity.Life(), gc.Equals, life)
 }
 
-func (s *UnitSuite) assertUnitLife(c *gc.C, name string, life state.Life) {
-	unit, err := s.State.Unit(name)
-	c.Assert(err, gc.IsNil)
-	assertUnitLife(c, unit, life)
-}
-
-func assertUnitLife(c *gc.C, unit *state.Unit, life state.Life) {
-	c.Assert(unit.Refresh(), gc.IsNil)
-	c.Assert(unit.Life(), gc.Equals, life)
-}
-
-func assertUnitRemoved(c *gc.C, unit *state.Unit) {
-	err := unit.Refresh()
+func assertRemoved(c *gc.C, entity state.Living) {
+	err := entity.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	err = unit.Destroy()
+	err = entity.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	if entity, ok := entity.(state.AgentLiving); ok {
+		err = entity.EnsureDead()
+		c.Assert(err, gc.IsNil)
+		err = entity.Remove()
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *UnitSuite) TestTag(c *gc.C) {

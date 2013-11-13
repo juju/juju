@@ -6,8 +6,10 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"launchpad.net/juju-core/charm"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -300,7 +302,25 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	return c.api.state.DestroyUnits(args.UnitNames...)
+	var errs []string
+	for _, name := range args.UnitNames {
+		unit, err := c.api.state.Unit(name)
+		switch {
+		case coreerrors.IsNotFoundError(err):
+			err = fmt.Errorf("unit %q does not exist", name)
+		case err != nil:
+		case unit.Life() != state.Alive:
+			continue
+		case unit.IsPrincipal():
+			err = unit.Destroy()
+		default:
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("units", args.UnitNames, errs)
 }
 
 // ServiceDestroy destroys a given service.
@@ -330,7 +350,25 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
-	return c.api.state.DestroyMachines(args.MachineNames...)
+	var errs []string
+	for _, id := range args.MachineNames {
+		machine, err := c.api.state.Machine(id)
+		switch {
+		case coreerrors.IsNotFoundError(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case args.Force:
+			err = machine.ForceDestroy()
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("machines", args.MachineNames, errs)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -440,4 +478,16 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
