@@ -27,7 +27,7 @@ type environ struct {
 // Environs holds information about each named environment
 // in an environments.yaml file.
 type Environs struct {
-	Default  string // The name of the default environment.
+	Default     string // The name of the default environment.
 	rawEnvirons map[string]map[string]interface{}
 }
 

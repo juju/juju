@@ -5,8 +5,8 @@ package environs_test
 
 import (
 	"os"
-	"sort"
 	"path/filepath"
+	"sort"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
