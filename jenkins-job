@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
+CURRENT_JUJU_CORE="juju-core=$(apt-cache madison juju-core|grep 'ppa.launchpad.net/juju/stable/ubuntu/ .* Packages'|sed -r 's/.*juju-core \| *([^ ]*) .*/\1/')"
 destroy_all(){
   for env in $ENVS; do
     $SCRIPTS/destroy-environment $env
