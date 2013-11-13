@@ -776,8 +776,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(urlPresent, jc.IsFalse)
 		c.Assert(deprecatedURLPresent, jc.IsFalse)
 	}
-	_, urlPresent = cfg.AllAttrs()["tools-url"]
-	c.Assert(urlPresent, jc.IsFalse)
+	if v, ok := cfg.AllAttrs()["tools-url"]; ok {
+		c.Assert(v, gc.Equals, "")
+	}
 }
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
@@ -807,6 +808,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
+	attrs["tools-url"] = ""
 	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
