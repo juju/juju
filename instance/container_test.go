@@ -19,7 +19,7 @@ type InstanceSuite struct{}
 
 var _ = gc.Suite(&InstanceSuite{})
 
-func (s *InstanceSuite) TestParseAllowedContainerType(c *gc.C) {
+func (s *InstanceSuite) TestParseContainerType(c *gc.C) {
 	ctype, err := instance.ParseContainerType("lxc")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
@@ -35,7 +35,7 @@ func (s *InstanceSuite) TestParseAllowedContainerType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
 }
 
-func (s *InstanceSuite) TestParseAllowedContainerTypeOrNone(c *gc.C) {
+func (s *InstanceSuite) TestParseContainerTypeOrNone(c *gc.C) {
 	ctype, err := instance.ParseContainerTypeOrNone("lxc")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
