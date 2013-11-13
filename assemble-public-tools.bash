@@ -97,7 +97,7 @@ get_series() {
     pkg_series=$(echo "$control_version" |
         sed -e 's/~juju.//;' \
             -e 's/^.*~\(ubuntu[0-9][0-9]\.[0-9][0-9]\|[a-z]\+\).*/\1/')
-    if [[ ${version_names["$pkg_series"]} ]]; then
+    if [[ ${!version_names[@]} =~ $pkg_series} ]]; then
         series=${version_names["$pkg_series"]}
     else
         # This might be an ubuntu devel series package.
@@ -252,6 +252,10 @@ if [[ $IS_TESTING == "true" ]]; then
     if [[ -d $DEST_DIST ]]; then
         rm -r $DEST_DIST
     fi
+#    file_version=$(echo "$RELEASE" | cut -d _ -f2)
+#    if [[ $file_version =~ 0ubuntu1$ ]]; then
+#        version_names+=(["$file_version"]="$UBUNTU_DEVEL")
+#    fi
 fi
 
 check_deps
