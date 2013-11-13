@@ -16,6 +16,10 @@ dump_logs(){
     fi
   done
 }
+revert_juju(){
+    sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
+}
+revert_juju
 source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
@@ -62,6 +66,6 @@ fi
 if [ ! $EXIT_STATUS ]; then
   dump_logs
 fi
-sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
+revert_juju
 destroy_all
 exit $EXIT_STATUS
