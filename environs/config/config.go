@@ -253,7 +253,7 @@ func Validate(cfg, old *Config) error {
 			msg = fmt.Sprintf(
 				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
 					"the new tools URL attribute %q has also been used.\n"+
-					"The attribute % should be removed from your configuration.",
+					"The attribute %q should be removed from your configuration.",
 				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
 		} else {
 			msg = fmt.Sprintf(
