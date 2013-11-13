@@ -404,3 +404,16 @@ func (s *provisionerSuite) TestTools(c *gc.C) {
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
 }
+
+func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	containers, ok := s.machine.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}

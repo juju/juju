@@ -184,7 +184,10 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	return result, nil
 }
 
-func (p *ProvisionerAPI) AddSupportedContainers(args params.AddSupportedContainers) (params.AddSupportedContainersResults, error) {
+// AddSupportedContainers updates the list of containers supported by the machines passed in args.
+func (p *ProvisionerAPI) AddSupportedContainers(
+	args params.AddSupportedContainers) (params.AddSupportedContainersResults, error) {
+
 	result := params.AddSupportedContainersResults{
 		Errors: make([]*params.Error, len(args.Params)),
 	}

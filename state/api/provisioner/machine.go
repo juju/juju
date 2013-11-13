@@ -241,6 +241,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	return w, nil
 }
 
+// AddSupportedContainers updates the list of containers supported by this machine.
 func (m *Machine) AddSupportedContainers(containerTypes []instance.ContainerType) error {
 	var results params.AddSupportedContainersResults
 	args := params.AddSupportedContainers{

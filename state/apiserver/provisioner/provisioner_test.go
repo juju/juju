@@ -737,3 +737,34 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
 	c.Check(agentTools.Version, gc.DeepEquals, cur)
 }
+
+func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
+	args := params.AddSupportedContainers{
+		Params: []params.AddMachineSupportedContainers{
+			{
+				MachineTag:     "machine-0",
+				ContainerTypes: []instance.ContainerType{instance.LXC},
+			},
+			{
+				MachineTag:     "machine-1",
+				ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+			},
+		},
+	}
+	results, err := s.provisioner.AddSupportedContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Errors, gc.HasLen, 2)
+	for _, err := range results.Errors {
+		c.Assert(err, gc.IsNil)
+	}
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC})
+	m1, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	containers, ok = m1.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
