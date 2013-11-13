@@ -540,7 +540,7 @@ var alwaysOptional = schema.Defaults{
 	"logging-config":       schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url": schema.Omit,
+	"tools-url": "",
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
