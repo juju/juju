@@ -28,15 +28,27 @@ type environ struct {
 // in an environments.yaml file.
 type Environs struct {
 	Default  string // The name of the default environment.
-	environs map[string]environ
+	rawEnvirons map[string]map[string]interface{}
 }
 
 // Names returns the list of environment names.
 func (e *Environs) Names() (names []string) {
-	for name := range e.environs {
+	for name := range e.rawEnvirons {
 		names = append(names, name)
 	}
 	return
+}
+
+func validateEnvironmentKind(rawEnviron map[string]interface{}) error {
+	kind, _ := rawEnviron["type"].(string)
+	if kind == "" {
+		return fmt.Errorf("environment %q has no type", rawEnviron["name"])
+	}
+	p := providers[kind]
+	if p == nil {
+		return fmt.Errorf("environment %q has an unknown provider type %q", rawEnviron["name"], kind)
+	}
+	return nil
 }
 
 // Config returns the environment configuration for the environment
@@ -49,14 +61,18 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 			return nil, fmt.Errorf("no default environment found")
 		}
 	}
-	e, ok := envs.environs[name]
+	attrs, ok := envs.rawEnvirons[name]
 	if !ok {
 		return nil, errors.NotFoundf("environment %q", name)
 	}
-	if e.err != nil {
-		return nil, e.err
+	if err := validateEnvironmentKind(attrs); err != nil {
+		return nil, err
 	}
-	return e.config, nil
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 // providers maps from provider type to EnvironProvider for
@@ -111,36 +127,12 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			}
 		}
 	}
-
-	environs := make(map[string]environ)
 	for name, attrs := range raw.Environments {
-		kind, _ := attrs["type"].(string)
-		if kind == "" {
-			environs[name] = environ{
-				err: fmt.Errorf("environment %q has no type", name),
-			}
-			continue
-		}
-		p := providers[kind]
-		if p == nil {
-			environs[name] = environ{
-				err: fmt.Errorf("environment %q has an unknown provider type %q", name, kind),
-			}
-			continue
-		}
 		// store the name of the this environment in the config itself
 		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := config.New(config.UseDefaults, attrs)
-		if err != nil {
-			environs[name] = environ{
-				err: fmt.Errorf("error parsing environment %q: %v", name, err),
-			}
-			continue
-		}
-		environs[name] = environ{config: cfg}
 	}
-	return &Environs{raw.Default, environs}, nil
+	return &Environs{raw.Default, raw.Environments}, nil
 }
 
 func environsPath(path string) string {
