@@ -257,38 +257,25 @@ func (v *upgradeVersions) validate() (err error) {
 		} else {
 			nextStable.Minor += 2
 		}
-		nextStable.Patch = 0
-		nextStable.Build = 0
-		// Use this to limit the search.
-		nextUnsupported := nextStable
-		nextUnsupported.Minor += 1
 
-		var compatibleVersions coretools.List
-		for _, tool := range v.tools {
-			toolVersion := tool.Version.Number
-			if !toolVersion.Less(nextUnsupported) {
-				// Skip unsupported more recent versions.
-				log.Debugf("skipping unsupported version %s (next proposed %s, next unsupported %s)", toolVersion, nextStable, nextUnsupported)
-				continue
+		found := false
+		newestCurrent := v.tools.NewestOf(v.agent)
+		if newestCurrent == version.Zero {
+			newestNextStable := v.tools.NewestOf(nextStable)
+			if newestNextStable != version.Zero {
+				log.Debugf("found a supported more recent stable version %s", newestNextStable)
+				v.chosen = newestNextStable
+				found = true
 			}
-			if !toolVersion.Less(nextStable) {
-				// Next stable is available.
-				compatibleVersions = append(compatibleVersions, tool)
-				log.Debugf("found a supported more recent stable version %s", toolVersion)
-				continue
-			}
-			if v.agent.Less(toolVersion) && toolVersion.Minor == v.agent.Minor {
-				// More recent current is available.
-				compatibleVersions = append(compatibleVersions, tool)
-				log.Debugf("found more recent current version %s", toolVersion)
-			}
+		} else {
+			log.Debugf("found more recent current version %s", newestCurrent)
+			v.chosen = newestCurrent
+			found = true
 		}
 
-		if len(compatibleVersions) == 0 {
+		if !found {
 			return fmt.Errorf("no more recent supported versions available")
 		}
-		v.chosen, v.tools = compatibleVersions.Newest()
-		log.Debugf("found more recent supported version: %s", v.chosen)
 	} else {
 		// If not completely specified already, pick a single tools version.
 		filter := coretools.Filter{Number: v.chosen, Released: !v.chosen.IsDev()}

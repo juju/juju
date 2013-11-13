@@ -117,11 +117,11 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.2.0",
 }, {
-	about:          "latest supported stable, when agent is dev",
+	about:          "latest current, when agent is dev",
 	tools:          []string{"2.1.1-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.1.0",
-	expectVersion:  "2.2.0",
+	expectVersion:  "2.1.1",
 }, {
 	about:          "specified version",
 	tools:          []string{"2.3.0-quantal-amd64"},

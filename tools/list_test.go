@@ -50,6 +50,11 @@ var (
 	}
 	t2001precise = mustParseTools("2.0.0.1-precise-amd64")
 	tAll         = extend(t100all, t190all, append(t200all, t2001precise))
+	t210precise  = mustParseTools("2.1.0-precise-amd64")
+	t211precise  = mustParseTools("2.1.1-precise-amd64")
+	t215precise  = mustParseTools("2.1.5-precise-amd64")
+	t2152precise = mustParseTools("2.1.5.2-precise-amd64")
+	t210all      = tools.List{t210precise, t211precise, t215precise, t2152precise}
 )
 
 type stringsTest struct {
@@ -139,6 +144,44 @@ func (s *ListSuite) TestNewest(c *gc.C) {
 		c.Logf("test %d", i)
 		number, actual := test.src.Newest()
 		c.Check(number, gc.DeepEquals, test.number)
+		c.Check(actual, gc.DeepEquals, test.expect)
+	}
+}
+
+var newestOfTests = []struct {
+	src    tools.List
+	base   version.Number
+	expect version.Number
+}{{
+	src:    nil,
+	base:   version.Zero,
+	expect: version.Zero,
+}, {
+	src:    tools.List{t100precise},
+	base:   version.Zero,
+	expect: version.Zero,
+}, {
+	src:    t100all,
+	base:   version.MustParse("1.0.0"),
+	expect: version.MustParse("1.0.0"),
+}, {
+	src:    tAll,
+	base:   version.MustParse("2.0.0"),
+	expect: version.MustParse("2.0.0.1"),
+}, {
+	src:    tAll,
+	base:   version.MustParse("1.9.0"),
+	expect: version.MustParse("1.9.0"),
+}, {
+	src:    t210all,
+	base:   version.MustParse("2.1.1"),
+	expect: version.MustParse("2.1.5.2"),
+}}
+
+func (s *ListSuite) TestNewestOf(c *gc.C) {
+	for i, test := range newestOfTests {
+		c.Logf("test %d", i)
+		actual := test.src.NewestOf(test.base)
 		c.Check(actual, gc.DeepEquals, test.expect)
 	}
 }
