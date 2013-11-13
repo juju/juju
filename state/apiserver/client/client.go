@@ -6,11 +6,13 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -413,7 +415,25 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	return c.api.state.DestroyUnits(args.UnitNames...)
+	var errs []string
+	for _, name := range args.UnitNames {
+		unit, err := c.api.state.Unit(name)
+		switch {
+		case coreerrors.IsNotFoundError(err):
+			err = fmt.Errorf("unit %q does not exist", name)
+		case err != nil:
+		case unit.Life() != state.Alive:
+			continue
+		case unit.IsPrincipal():
+			err = unit.Destroy()
+		default:
+			err = fmt.Errorf("unit %q is a subordinate", name)
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("units", args.UnitNames, errs)
 }
 
 // ServiceDestroy destroys a given service.
@@ -625,7 +645,25 @@ func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineC
 
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
-	return c.api.state.DestroyMachines(args.MachineNames...)
+	var errs []string
+	for _, id := range args.MachineNames {
+		machine, err := c.api.state.Machine(id)
+		switch {
+		case coreerrors.IsNotFoundError(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case args.Force:
+			err = machine.ForceDestroy()
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return destroyErr("machines", args.MachineNames, errs)
 }
 
 // CharmInfo returns information about the requested charm.
@@ -785,4 +823,16 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	}
 	// Now try to apply the new validated config.
 	return c.api.state.SetEnvironConfig(newProviderConfig)
+}
+
+func destroyErr(desc string, ids, errs []string) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
