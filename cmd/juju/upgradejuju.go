@@ -36,14 +36,17 @@ var uploadTools = sync.Upload
 var upgradeJujuDoc = `
 The upgrade-juju command upgrades a running environment by setting a version
 number for all juju agents to run. By default, it chooses the most recent
-supported version compatible with the command-line tools version (currently
-%s).
+supported version compatible with the command-line tools version.
 
 A development version is defined to be any version with an odd minor
 version or a nonzero build component (for example version 2.1.1, 3.3.0
 and 2.0.0.1 are development versions; 2.0.3 and 3.4.1 are not). A
-development version may be chosen only if an explicit --version
-major.minor is given (e.g. --version 1.17, or 1.17.2, but not just 1)
+development version may be chosen in two cases:
+
+ - when the current agent version is a development one and there is
+   a more recent version available with the same major.minor numbers;
+ - when an explicit --version major.minor is given (e.g. --version 1.17,
+   or 1.17.2, but not just 1)
 
 For development use, the --upload-tools flag specifies that the juju tools will
 packaged (or compiled locally, if no jujud binaries exists, for which you will
@@ -55,30 +58,19 @@ When run without arguments. upgrade-juju will try to upgrade to the
 following versions, in order of preference, depending on the current
 value of the environment's agent-version setting:
 
- - The highest patch.build version of the *next* stable major.minor version.
-   Any version with an even minor version number is a stable version.
  - The highest patch.build version of the *current* major.minor version.
+ - The highest patch.build version of the *next* stable major.minor version.
 
 Both of these depend on tools availability, which some situations (no
 outgoing internet access) and provider types (such as maas) require that
 you manage yourself; see the documentation for "sync-tools".
-
-The last stable release of a major version series, must be able to upgrade
-to the next stable major version. No such requirement is imposed on the other
-stable versions (i.e. 1.18 -> 2.0 is ok, provided there is no 1.20 available,
-but 1.16 -> 2.0 is not officially supported, although it might work).
-
-For development use, the --upload-tools flag specifies that the juju tools will
-be compiled locally and uploaded before the version is set. Currently the tools
-will be uploaded as if they had the version of the current juju tool, unless
-specified otherwise by the --version flag.
 `
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-juju",
 		Purpose: "upgrade the tools in a juju environment",
-		Doc:     fmt.Sprintf(upgradeJujuDoc, version.Current.String()),
+		Doc:     upgradeJujuDoc,
 	}
 }
 
