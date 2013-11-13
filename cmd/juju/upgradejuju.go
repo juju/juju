@@ -250,23 +250,18 @@ func (v *upgradeVersions) validate() (err error) {
 			nextStable.Minor += 2
 		}
 
-		found := false
-		newestCurrent := v.tools.NewestOf(v.agent)
-		if newestCurrent == version.Zero {
-			newestNextStable := v.tools.NewestOf(nextStable)
-			if newestNextStable != version.Zero {
-				log.Debugf("found a supported more recent stable version %s", newestNextStable)
-				v.chosen = newestNextStable
-				found = true
-			}
-		} else {
+		newestCurrent, found := v.tools.NewestCompatible(v.agent)
+		if found {
 			log.Debugf("found more recent current version %s", newestCurrent)
 			v.chosen = newestCurrent
-			found = true
-		}
-
-		if !found {
-			return fmt.Errorf("no more recent supported versions available")
+		} else {
+			newestNextStable, found := v.tools.NewestCompatible(nextStable)
+			if found {
+				log.Debugf("found a supported more recent stable version %s", newestNextStable)
+				v.chosen = newestNextStable
+			} else {
+				return fmt.Errorf("no more recent supported versions available")
+			}
 		}
 	} else {
 		// If not completely specified already, pick a single tools version.

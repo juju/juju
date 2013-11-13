@@ -148,41 +148,49 @@ func (s *ListSuite) TestNewest(c *gc.C) {
 	}
 }
 
-var newestOfTests = []struct {
+var newestCompatibleTests = []struct {
 	src    tools.List
 	base   version.Number
 	expect version.Number
+	found  bool
 }{{
 	src:    nil,
 	base:   version.Zero,
 	expect: version.Zero,
+	found:  false,
 }, {
 	src:    tools.List{t100precise},
 	base:   version.Zero,
 	expect: version.Zero,
+	found:  false,
 }, {
 	src:    t100all,
 	base:   version.MustParse("1.0.0"),
 	expect: version.MustParse("1.0.0"),
+	found:  true,
 }, {
 	src:    tAll,
 	base:   version.MustParse("2.0.0"),
 	expect: version.MustParse("2.0.0.1"),
+	found:  true,
 }, {
 	src:    tAll,
 	base:   version.MustParse("1.9.0"),
 	expect: version.MustParse("1.9.0"),
+	found:  true,
 }, {
 	src:    t210all,
 	base:   version.MustParse("2.1.1"),
 	expect: version.MustParse("2.1.5.2"),
+	found:  true,
 }}
 
-func (s *ListSuite) TestNewestOf(c *gc.C) {
-	for i, test := range newestOfTests {
+func (s *ListSuite) TestNewestCompatible(c *gc.C) {
+	for i, test := range newestCompatibleTests {
 		c.Logf("test %d", i)
-		actual := test.src.NewestOf(test.base)
+		actual, found := test.src.NewestCompatible(test.base)
 		c.Check(actual, gc.DeepEquals, test.expect)
+		c.Check(found, gc.Equals, test.found)
 	}
 }
 

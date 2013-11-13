@@ -48,7 +48,7 @@ var upgradeJujuTests = []struct {
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
-	about:          "deprecated --dev specified",
+	about:          "removed arg --dev specified",
 	currentVersion: "1.0.0-quantal-amd64",
 	args:           []string{"--dev"},
 	expectInitErr:  "flag provided but not defined: --dev",
