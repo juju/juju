@@ -11,7 +11,7 @@ dump_logs(){
   mkdir -p $artifacts_path
   for env in $ENVS; do
     log_path=${artifacts_path}/all-machines-${env}.log
-    if juju scp -e $env -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" 0:/var/log/juju/all-machines.log $log_path; then
+    if juju scp -e $env -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" 0:/var/log/juju/all-machines.log $log_path; then
       gzip $log_path
     fi
   done
