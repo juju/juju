@@ -135,7 +135,7 @@ func (s *ContainerSetupSuite) waitContainer(c *gc.C, m *state.Machine, check fun
 	resync := time.After(0)
 	for {
 		select {
-		case cc, ok := <-w.Changes():
+		case <-w.Changes():
 			if check() {
 				return
 			}
