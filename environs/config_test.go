@@ -6,8 +6,10 @@ package environs_test
 import (
 	"os"
 	"path/filepath"
+	"sort"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -80,6 +82,60 @@ func (suite) TestInvalidEnv(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, t.err)
 		c.Check(cfg, gc.IsNil)
 	}
+}
+
+func (suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
+	// This tests that a config that has a deprecated field doesn't
+	// generate a Warning if we don't actually ask for that environment.
+	// However, we can only really trigger that when we have a deprecated
+	// field. If support for the field is removed entirely, another
+	// mechanism will need to be used
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
+	content := `
+environments:
+    valid:
+        type: dummy
+        state-server: false
+    deprecated:
+        type: dummy
+        state-server: false
+        tools-url: aknowndeprecatedfield
+`
+	tw := &loggo.TestWriter{}
+	// we only capture Warning or above
+	c.Assert(loggo.RegisterWriter("invalid-env-tester", tw, loggo.WARNING), gc.IsNil)
+	defer loggo.RemoveWriter("invalid-env-tester")
+
+	envs, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
+	names := envs.Names()
+	sort.Strings(names)
+	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
+	// There should be no warning in the log
+	c.Check(tw.Log, gc.HasLen, 0)
+	// Now we actually grab the 'valid' entry
+	_, err = envs.Config("valid")
+	c.Check(err, gc.IsNil)
+	// And still we have no warnings
+	c.Check(tw.Log, gc.HasLen, 0)
+	// Only once we grab the deprecated one do we see any warnings
+	_, err = envs.Config("deprecated")
+	c.Check(err, gc.IsNil)
+	c.Check(tw.Log, gc.HasLen, 1)
+}
+
+func (suite) TestNoHomeBeforeConfig(c *gc.C) {
+	// Test that we don't actually need HOME set until we call envs.Config()
+	// Because of this, we intentionally do *not* call testing.MakeFakeHomeNoEnvironments()
+	content := `
+environments:
+    valid:
+        type: dummy
+    amazon:
+        type: ec2
+`
+	_, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
 }
 
 func (suite) TestNoEnv(c *gc.C) {

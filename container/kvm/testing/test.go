@@ -1,26 +1,28 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Functions defined in this file should *ONLY* be used for testing.  These
+// functions are exported for testing purposes only, and shouldn't be called
+// from code that isn't in a test file.
+
 package testing
 
 import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/container/lxc/mock"
+	"launchpad.net/juju-core/container/kvm"
+	"launchpad.net/juju-core/container/kvm/mock"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-// TestSuite replaces the lxc factory that the broker uses with a mock
+// TestSuite replaces the kvm factory that the manager uses with a mock
 // implementation.
 type TestSuite struct {
 	testbase.LoggingSuite
 	Factory      mock.ContainerFactory
 	ContainerDir string
 	RemovedDir   string
-	LxcDir       string
-	RestartDir   string
 }
 
 func (s *TestSuite) SetUpTest(c *gc.C) {
@@ -29,10 +31,6 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&container.ContainerDir, s.ContainerDir)
 	s.RemovedDir = c.MkDir()
 	s.PatchValue(&container.RemovedContainerDir, s.RemovedDir)
-	s.LxcDir = c.MkDir()
-	s.PatchValue(&lxc.LxcContainerDir, s.LxcDir)
-	s.RestartDir = c.MkDir()
-	s.PatchValue(&lxc.LxcRestartDir, s.RestartDir)
 	s.Factory = mock.MockFactory()
-	s.PatchValue(&lxc.LxcObjectFactory, s.Factory)
+	s.PatchValue(&kvm.KvmObjectFactory, s.Factory)
 }
