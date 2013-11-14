@@ -11,8 +11,7 @@ PACKAGING_DIR="$TMP_DIR/juju-packaging"
 BUILD_DIR="$TMP_DIR/juju-build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
-DEVEL_SERIES="trusty"
-LTS_VERSION="~ubuntu12.04.1"
+DEVEL_SERIES=$(distro-info --devel)
 
 
 usage() {
@@ -55,7 +54,7 @@ make_soure_package_branch() {
         message="New upstream devel release."
         distro=$DEVEL_SERIES
     else
-        messasge="New upstream release candidate."
+        message="New upstream release candidate."
         distro="UNRELEASED"
     fi
     DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_VERSION -D $distro "$message"
@@ -105,7 +104,8 @@ if [[ ! -f "$TARBALL" ]]; then
     usage
 fi
 if [[ $PURPOSE == "testing" ]]; then
-    SERIES_VERSION=$LTS_VERSION
+    source /etc/lsb-release
+    SERIES_VERSION="~ubuntu${DISTRIB_RELEASE}.1"
 else
     SERIES_VERSION=""
 fi
