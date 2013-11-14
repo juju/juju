@@ -64,7 +64,7 @@ else
     EXIT_STATUS=1
   fi
 fi
-if [ ! $EXIT_STATUS ]; then
+if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi
 revert_juju
