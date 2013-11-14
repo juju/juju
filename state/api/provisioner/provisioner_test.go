@@ -408,7 +408,7 @@ func (s *provisionerSuite) TestTools(c *gc.C) {
 func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
-	err = apiMachine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err = apiMachine.AddSupportedContainers(instance.LXC, instance.KVM)
 	c.Assert(err, gc.IsNil)
 
 	err = s.machine.Refresh()

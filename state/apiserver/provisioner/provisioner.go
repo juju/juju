@@ -186,10 +186,10 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 
 // AddSupportedContainers updates the list of containers supported by the machines passed in args.
 func (p *ProvisionerAPI) AddSupportedContainers(
-	args params.AddSupportedContainers) (params.AddSupportedContainersResults, error) {
+	args params.AddSupportedContainers) (params.ErrorResults, error) {
 
-	result := params.AddSupportedContainersResults{
-		Errors: make([]*params.Error, len(args.Params)),
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Params)),
 	}
 	for i, arg := range args.Params {
 		canAccess, err := p.getAuthFunc()
@@ -198,12 +198,12 @@ func (p *ProvisionerAPI) AddSupportedContainers(
 		}
 		machine, err := p.getMachine(canAccess, arg.MachineTag)
 		if err != nil {
-			result.Errors[i] = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		err = machine.AddSupportedContainers(arg.ContainerTypes)
 		if err != nil {
-			result.Errors[i] = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 		}
 	}
 	return result, nil
