@@ -30,12 +30,12 @@ fi
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
+  set -e
   sudo dpkg -i $TESTING_DIR/juju-core*.deb
   mkdir -p new-tools
   source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
   export GOPATH=$(dirname $(pwd))
   source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
-  set -e
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
     if [ "$env" == "local" ]; then
