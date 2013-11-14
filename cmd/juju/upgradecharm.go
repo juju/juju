@@ -112,7 +112,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// A new charm URL was explicitly specified.
 	conf, err := conn.State.EnvironConfig()
 	if err != nil {
 		return err
