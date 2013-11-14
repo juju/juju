@@ -1,11 +1,11 @@
 #!/bin/bash
 set -eu
 CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
-source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
-sudo dpkg -i $TESTING_DIR/juju-core*.deb
+source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
+source $SCRIPTS/make-package-with-tarball.bash $TARFILE
+sudo dpkg -i $PACKAGE
 mkdir -p new-tools
-source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
-export GOPATH=$(dirname $(pwd))
+source $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
 source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
 EXIT_STATUS=0
 if ! $SCRIPTS/deploy_stack.py $ENVS; then

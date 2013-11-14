@@ -20,8 +20,9 @@ revert_juju(){
     sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
 }
 revert_juju
-source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
-export TESTING_DIR PACKAGES
+source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
+source $SCRIPTS/make-package-with-tarball.bash $TARFILE
+export PACKAGE
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
   destroy_all
@@ -31,10 +32,9 @@ EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
   set -e
-  sudo dpkg -i $TESTING_DIR/juju-core*.deb
+  sudo dpkg -i $PACKAGE
   mkdir -p new-tools
-  source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
-  export GOPATH=$(dirname $(pwd))
+  source $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
   source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
