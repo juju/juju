@@ -35,7 +35,7 @@ echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
 GODEPS=$WORK/bin/godeps
 GOPATH=$WORK $GODEPS -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
-rm $WORK/bin
+rm -r $WORK/bin
 
 # Smoke test
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
