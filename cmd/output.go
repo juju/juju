@@ -21,6 +21,7 @@ type Formatter func(value interface{}) ([]byte, error)
 
 // FormatYaml marshals value to a yaml-formatted []byte, unless value is nil.
 func FormatYaml(value interface{}) ([]byte, error) {
+	fmt.Printf("%#v\n", value)
 	if value == nil {
 		return nil, nil
 	}
