@@ -135,7 +135,7 @@ def list_published_files(purpose):
     return OK
 
 
-def publish_files(purpose, local_dir):
+def publish_files(purpose, local_dir, options):
     """Publish the tools and metadata to the release or testing location."""
     blob_service = BlobService()
     if local_dir.endswith('/'):
@@ -155,9 +155,15 @@ def publish_files(purpose, local_dir):
             print('%s is new.' % sync_file.path)
         elif published_dict[sync_file.path].md5content != sync_file.md5content:
             print('%s is different.' % sync_file.path)
+            if options.verbose:
+                print(
+                    '  published:%s != local:%s.' % (
+                        published_dict[sync_file.path].md5content,
+                        sync_file.md5content))
         else:
             continue
-        publish_local_file(purpose, blob_service, sync_file)
+        if not options.dry_run:
+            publish_local_file(purpose, blob_service, sync_file)
     return OK
 
 
@@ -176,7 +182,7 @@ def main():
         if len(args) != 3:
             parser.print_usage()
             return 1
-        return publish_files(purpose, args[2])
+        return publish_files(purpose, args[2], options)
     else:
         # The command is not known.
         return UNKNOWN_COMMAND
@@ -186,6 +192,14 @@ def get_option_parser():
     """Return the option parser for this program."""
     usage = "usage: %prog <list | publish> <testing | release> [local-tools]"
     parser = OptionParser(usage=usage)
+    parser.add_option(
+        "-d", "--dry-run", action="store_true", dest="dry_run")
+    parser.add_option(
+        "-v", "--verbose", action="store_true", dest="verbose")
+    parser.set_defaults(
+        dry_run=False,
+        verbose=False
+    )
     return parser
 
 
