@@ -15,11 +15,12 @@ DEVEL_SERIES=$(distro-info --devel)
 
 
 usage() {
-    echo "usage: $0 <PURPOSE> tarball 'name-email'"
+    echo "usage: $0 <PURPOSE> tarball 'name-email' [bug-number ...]"
     echo "  PURPOSE: stable, devel, or testing,"
     echo "     which selects the packaging branch."
     echo "  tarball: The path to the juju-core tarball."
     echo "  name-email: The 'name <email>' string used in the charngelog."
+    echo "  bug-number: Zero or more Lp bug numbers"
     exit 1
 }
 
@@ -57,6 +58,9 @@ make_soure_package_branch() {
         message="New upstream release candidate."
         distro="UNRELEASED"
     fi
+    if [[ $BUGS != "" ]]; then
+        message="$message ($BUGS)"
+    fi
     DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_VERSION -D $distro "$message"
     bzr ci -m "$messasge"
     bzr tag UBUNTU_VERSION
@@ -85,7 +89,7 @@ make_binary_package() {
 }
 
 
-test $# -eq 3 || usage
+test $# -ge 3 || usage
 
 PURPOSE=$1
 if [[ $PURPOSE == "stable" ]]; then
@@ -113,6 +117,9 @@ VERSION=$(basename -s .tar.gz $TARBALL | cut -d '_' -f2)
 UBUNTU_VERSION="${VERSION}-0ubuntu1${SERIES_VERSION}"
 
 DEBEMAIL=$3
+
+shift; shift; shift
+BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/LP: #\1/g;')
 
 check_deps
 make_soure_package_branch
