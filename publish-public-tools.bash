@@ -113,7 +113,7 @@ publish_to_azure() {
     echo "Phase 4: Publish to Azure."
     source $JUJU_DIR/azuretoolsrc
     shim_creds
-    ${SCRIPT_DIR}/azure-publish-tools.py publish release ${JUJU_DIST}
+    ${SCRIPT_DIR}/azure_publish_tools.py publish release ${JUJU_DIST}
 }
 
 
@@ -123,7 +123,7 @@ testing_to_azure() {
     echo "Phase 4: Testing to Azure."
     source $JUJU_DIR/azuretoolsrc
     shim_creds
-    ${SCRIPT_DIR}/azure-publish-tools.py publish testing ${JUJU_DIST}
+    ${SCRIPT_DIR}/azure_publish_tools.py publish testing ${JUJU_DIST}
 }
 
 
