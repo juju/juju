@@ -113,7 +113,7 @@ func (lock *Lock) acquire(message string) (bool, error) {
 		}
 	}
 	// Now move the temp directory to the lock directory.
-	err = os.Rename(tempDirName, lock.lockDir())
+	err = utils.ReplaceFile(tempDirName, lock.lockDir())
 	if err != nil {
 		// Any error on rename means we failed.
 		// Beaten to it, clean up temporary directory.
@@ -200,7 +200,7 @@ func (lock *Lock) Unlock() error {
 	tempLockName := fmt.Sprintf(".%s.%x", lock.name, lock.nonce)
 	tempDirName := path.Join(lock.parent, tempLockName)
 	// Now move the lock directory to the temp directory to release the lock.
-	if err := os.Rename(lock.lockDir(), tempDirName); err != nil {
+	if err := utils.ReplaceFile(lock.lockDir(), tempDirName); err != nil {
 		return err
 	}
 	// And now cleanup.

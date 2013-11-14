@@ -20,8 +20,9 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju")
 
 var jujuDoc = `
-juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, or bare metal.
+juju provides easy, intelligent service orchestration on top of cloud
+infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
+Azure, or your local machine.
 
 https://juju.ubuntu.com/
 `
@@ -50,10 +51,17 @@ func Main(args []string) {
 		MissingCallback: RunPlugin,
 	})
 	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
-	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider", helpLocalProvider)
-	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider", helpOpenstackProvider)
-	jujucmd.AddHelpTopic("aws", "How to configure an AWS (EC2) provider", helpEC2Provider)
-	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider", helpHPCloud)
+	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider",
+		helpProviderStart+helpLocalProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider",
+		helpProviderStart+helpOpenstackProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("ec2", "How to configure an Amazon EC2 provider",
+		helpProviderStart+helpEC2Provider+helpProviderEnd)
+	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider",
+		helpProviderStart+helpHPCloud+helpProviderEnd)
+	jujucmd.AddHelpTopic("azure", "How to configure a Windows Azure provider",
+		helpProviderStart+helpAzureProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
 	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
@@ -88,6 +96,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&InitCommand{}))
 	jujucmd.Register(wrap(&GetCommand{}))
 	jujucmd.Register(wrap(&SetCommand{}))
+	jujucmd.Register(wrap(&UnsetCommand{}))
 	jujucmd.Register(wrap(&GetConstraintsCommand{}))
 	jujucmd.Register(wrap(&SetConstraintsCommand{}))
 	jujucmd.Register(wrap(&GetEnvironmentCommand{}))

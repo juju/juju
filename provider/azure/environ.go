@@ -65,9 +65,6 @@ type azureEnviron struct {
 	// storage is this environ's own private storage.
 	storage storage.Storage
 
-	// publicStorage is the public storage that this environ uses.
-	publicStorage storage.StorageReader
-
 	// storageAccountKey holds an access key to this environment's
 	// private storage.  This is automatically queried from Azure on
 	// startup.
@@ -92,17 +89,6 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	env.storage = &azureStorage{
 		storageContext: &environStorageContext{environ: &env},
 	}
-
-	// Set up public storage.
-	publicContext := publicEnvironStorageContext{environ: &env}
-	if publicContext.getContainer() == "" {
-		// No public storage configured.  Use EmptyStorage.
-		env.publicStorage = environs.EmptyStorage
-	} else {
-		// Set up real public storage.
-		env.publicStorage = &azureStorage{storageContext: &publicContext}
-	}
-
 	return &env, nil
 }
 
@@ -245,7 +231,7 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) (err error) {
+func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
@@ -267,7 +253,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = common.Bootstrap(env, cons, possibleTools, machineID)
+	err = common.Bootstrap(env, cons, possibleTools)
 	return err
 }
 
@@ -683,11 +669,6 @@ func (env *azureEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-// PublicStorage is specified in the Environ interface.
-func (env *azureEnviron) PublicStorage() storage.StorageReader {
-	return env.getSnapshot().publicStorage
-}
-
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
 	logger.Debugf("destroying environment %q", env.name)
@@ -882,32 +863,20 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 	return &context, nil
 }
 
-// getPublicStorageContext obtains a context object for interfacing with
-// Azure's storage API (public storage).
-func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
-	ecfg := env.getSnapshot().ecfg
-	context := gwacl.StorageContext{
-		Account:       ecfg.publicStorageAccountName(),
-		Key:           "", // Empty string means anonymous access.
-		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
-		RetryPolicy:   retryPolicy,
-	}
-	// There is currently no way for this to fail.
-	return &context, nil
-}
-
 // baseURLs specifies an Azure specific location where we look for simplestreams information.
 // It contains the central databases for the released and daily streams, but this may
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
-var baseURLs = []string{
-	"http://cloud-images.ubuntu.com/daily",
-}
+//
+// Note: Due to datasource fallback issues, the default daily stream has been removed.
+//       This var now only serves as an injection point for tests. See also:
+//           https://bugs.launchpad.net/juju-core/+bug/1233924
+var baseURLs = []string{}
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
-	sources[0] = storage.NewStorageSimpleStreamsDataSource(env.Storage(), "")
+	sources[0] = storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseImagesPath)
 	for i, url := range baseURLs {
 		sources[i+1] = simplestreams.NewURLDataSource(url, simplestreams.VerifySSLHostnames)
 	}
@@ -916,11 +885,9 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket and public location.
+	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath),
-		simplestreams.NewURLDataSource(
-			"https://jujutools.blob.core.windows.net/juju-tools/tools", simplestreams.VerifySSLHostnames)}
+		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }
 

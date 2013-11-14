@@ -86,9 +86,10 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 
 func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "", nil)
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
-	conn, _ := juju.NewConnFromName("")
+	conn, err := juju.NewConnFromName("")
+	c.Assert(err, gc.IsNil)
 	conn.Close()
 	conn.Close()
 	conn.Close()
@@ -96,7 +97,7 @@ func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 
 func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "", nil)
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
@@ -107,7 +108,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", so make sure we get what we ask for.
 	const envName = "erewhemos-2"
-	bootstrapEnv(c, envName, nil)
+	bootstrapEnv(c, envName, defaultConfigStore(c))
 	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
@@ -128,7 +129,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	info.Password = utils.PasswordHash("side-effect secret")
+	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 
@@ -203,7 +204,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 	// of the admin password.
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	info.Password = utils.PasswordHash("nutkin")
+	info.Password = utils.UserPasswordHash("nutkin", utils.CompatSalt)
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	st.Close()

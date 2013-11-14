@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // Machine represents the state of a machine.
@@ -58,6 +59,16 @@ func (job MachineJob) ToParams() params.MachineJob {
 	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
+// MachineJobFromParams returns the job corresponding to params.MachineJob.
+func MachineJobFromParams(job params.MachineJob) (MachineJob, error) {
+	for machineJob, paramJob := range jobNames {
+		if paramJob == job {
+			return machineJob, nil
+		}
+	}
+	return -1, fmt.Errorf("invalid machine job %q", job)
+}
+
 func (job MachineJob) String() string {
 	return string(job.ToParams())
 }
@@ -77,6 +88,10 @@ type machineDoc struct {
 	PasswordHash  string
 	Clean         bool
 	Addresses     []address
+	// The SupportedContainers attributes are used to advertise what containers this
+	// machine is capable of hosting.
+	SupportedContainersKnown bool
+	SupportedContainers      []instance.ContainerType `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -180,10 +195,11 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// IsStateServer returns true if the machine has a JobManageState job.
-func (m *Machine) IsStateServer() bool {
+// IsManager returns true if the machine has JobManageState or JobManageEnviron.
+func (m *Machine) IsManager() bool {
 	for _, job := range m.doc.Jobs {
-		if job == JobManageState {
+		switch job {
+		case JobManageEnviron, JobManageState:
 			return true
 		}
 	}
@@ -200,34 +216,33 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 	return &tools, nil
 }
 
-// checkToolsValidity checks whether the given tools are suitable for passing to SetAgentTools.
-func checkToolsValidity(t *tools.Tools) error {
-	if t.Version.Series == "" || t.Version.Arch == "" {
+// checkVersionValidity checks whether the given version is suitable
+// for passing to SetAgentVersion.
+func checkVersionValidity(v version.Binary) error {
+	if v.Series == "" || v.Arch == "" {
 		return fmt.Errorf("empty series or arch")
-	}
-	if t.URL != "" && (t.Size == 0 || t.SHA256 == "") {
-		return fmt.Errorf("empty size or checksum")
 	}
 	return nil
 }
 
-// SetAgentTools sets the tools that the agent is currently running.
-func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
-	if err = checkToolsValidity(t); err != nil {
+// SetAgentVersion sets the version of juju that the agent is
+// currently running.
+func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set agent version for machine %v", m)
+	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
+	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", t}}}},
+		Update: D{{"$set", D{{"tools", tools}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
-	tools := *t
-	m.doc.Tools = &tools
+	m.doc.Tools = tools
 	return nil
 }
 
@@ -240,24 +255,55 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	hp := utils.PasswordHash(password)
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	return m.setPasswordHash(utils.AgentPasswordHash(password))
+}
+
+// setPasswordHash sets the underlying password hash in the database directly
+// to the value supplied. This is split out from SetPassword to allow direct
+// manipulation in tests (to check for backwards compatibility).
+func (m *Machine) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: D{{"$set", D{{"passwordhash", passwordHash}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
-	m.doc.PasswordHash = hp
+	m.doc.PasswordHash = passwordHash
 	return nil
+}
+
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func (m *Machine) getPasswordHash() string {
+	return m.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == m.doc.PasswordHash
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == m.doc.PasswordHash {
+		return true
+	}
+	// In Juju 1.16 and older we used the slower password hash for unit
+	// agents. So check to see if the supplied password matches the old
+	// path, and if so, update it to the new mechanism.
+	// We ignore any error in setting the password, as we'll just try again
+	// next time
+	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
+		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
+			m.Tag())
+		m.setPasswordHash(agentHash)
+		return true
+	}
+	return false
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
@@ -267,6 +313,22 @@ func (m *Machine) PasswordValid(password string) bool {
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
 	return m.advanceLifecycle(Dying)
+}
+
+// ForceDestroy queues the machine for complete removal, including the
+// destruction of all units and containers on the machine.
+func (m *Machine) ForceDestroy() error {
+	if !m.IsManager() {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageState}}}}},
+		}, m.st.newCleanupOp("machine", m.doc.Id)}
+		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+			return err
+		}
+	}
+	return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -751,4 +813,81 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
+}
+
+// SupportedContainers returns any containers this machine is capable of hosting, and a bool
+// indicating if the supported containers have been determined or not.
+func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
+	return m.doc.SupportedContainers, m.doc.SupportedContainersKnown
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() (err error) {
+	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, sameDoc...),
+			Update: D{
+				{"$set", D{
+					{"supportedcontainers", []instance.ContainerType{}},
+					{"supportedcontainersknown", true},
+				}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.SupportedContainers = []instance.ContainerType{}
+	m.doc.SupportedContainersKnown = true
+	return nil
+}
+
+// AddSupportedContainers updates the list of containers supported by this machine.
+func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (err error) {
+	if len(containers) == 0 {
+		return fmt.Errorf("at least one valid container type is required")
+	}
+	for _, container := range containers {
+		if container == instance.NONE {
+			return fmt.Errorf("%q is not a valid container type", container)
+		}
+	}
+	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(notDeadDoc, sameDoc...),
+			Update: D{
+				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
+				{"$set", D{{"supportedcontainersknown", true}}},
+			},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+
+	for _, container := range containers {
+		m.addContainerIfMissing(container)
+	}
+	m.doc.SupportedContainersKnown = true
+	return nil
+}
+
+func (m *Machine) addContainerIfMissing(container instance.ContainerType) {
+	found := false
+	for _, c := range m.doc.SupportedContainers {
+		if c == container {
+			found = true
+			break
+		}
+	}
+	if !found {
+		m.doc.SupportedContainers = append(m.doc.SupportedContainers, container)
+	}
 }

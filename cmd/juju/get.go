@@ -23,7 +23,7 @@ func (c *GetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get",
 		Args:    "<service>",
-		Purpose: "get service config options",
+		Purpose: "get service configuration options",
 	}
 }
 

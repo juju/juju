@@ -52,7 +52,7 @@ var debugHooksTests = []struct {
 }, {
 	info:   `invalid unit syntax`,
 	args:   []string{"mysql"},
-	code:   1,
+	code:   2,
 	stderr: `error: "mysql" is not a valid unit name` + "\n",
 }, {
 	info:   `invalid unit`,
@@ -67,7 +67,7 @@ var debugHooksTests = []struct {
 }}
 
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
-	machines := s.makeMachines(3, c)
+	machines := s.makeMachines(3, c, true)
 	dummy := s.AddTestingCharm(c, "dummy")
 	srv, err := s.State.AddService("mysql", dummy)
 	c.Assert(err, gc.IsNil)

@@ -9,6 +9,7 @@ package state
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -135,6 +137,108 @@ func checkEnvironConfig(cfg *config.Config) error {
 		return fmt.Errorf("agent-version must always be set in state")
 	}
 	return nil
+}
+
+// versionInconsistentError indicates one or more agents have a
+// different version from the current one (even empty, when not yet
+// set).
+type versionInconsistentError struct {
+	currentVersion version.Number
+	agents         []string
+}
+
+func (e *versionInconsistentError) Error() string {
+	sort.Strings(e.agents)
+	return fmt.Sprintf("some agents have not upgraded to the current environment version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
+}
+
+// newVersionInconsistentError returns a new instance of
+// versionInconsistentError.
+func newVersionInconsistentError(currentVersion version.Number, agents []string) *versionInconsistentError {
+	return &versionInconsistentError{currentVersion, agents}
+}
+
+// IsVersionInconsistentError returns if the given error is
+// versionInconsistentError.
+func IsVersionInconsistentError(e interface{}) bool {
+	_, ok := e.(*versionInconsistentError)
+	return ok
+}
+
+func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
+	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
+	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
+	// Get all machines and units with a different or empty version.
+	sel := D{{"$or", []D{
+		{{"tools", D{{"$exists", false}}}},
+		{{"$and", []D{
+			{{"tools.version", D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
+			{{"tools.version", D{{"$not", bson.RegEx{matchNew, ""}}}}},
+		}}},
+	}}}
+	var agentTags []string
+	for _, collection := range []*mgo.Collection{st.machines, st.units} {
+		var doc struct {
+			Id string `bson:"_id"`
+		}
+		iter := collection.Find(sel).Select(D{{"_id", 1}}).Iter()
+		for iter.Next(&doc) {
+			switch collection.Name {
+			case "machines":
+				agentTags = append(agentTags, names.MachineTag(doc.Id))
+			case "units":
+				agentTags = append(agentTags, names.UnitTag(doc.Id))
+			}
+		}
+		if err := iter.Err(); err != nil {
+			return err
+		}
+	}
+	if len(agentTags) > 0 {
+		return newVersionInconsistentError(version.MustParse(currentVersion), agentTags)
+	}
+	return nil
+}
+
+// SetEnvironAgentVersion changes the agent version for the
+// environment to the given version, only if the environment is in a
+// stable state (all agents are running the current version).
+func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
+	for i := 0; i < 5; i++ {
+		settings, err := readSettings(st, environGlobalKey)
+		if err != nil {
+			return err
+		}
+		agentVersion, ok := settings.Get("agent-version")
+		if !ok {
+			return fmt.Errorf("no agent version set in the environment")
+		}
+		currentVersion, ok := agentVersion.(string)
+		if !ok {
+			return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
+		}
+		if newVersion.String() == currentVersion {
+			// Nothing to do.
+			return nil
+		}
+
+		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
+			return err
+		}
+
+		ops := []txn.Op{{
+			C:      st.settings.Name,
+			Id:     environGlobalKey,
+			Assert: D{{"txn-revno", settings.txnRevno}},
+			Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
+		}}
+		if err := st.runTransaction(ops); err == nil {
+			return nil
+		} else if err != txn.ErrAborted {
+			return fmt.Errorf("cannot set agent-version: %v", err)
+		}
+	}
+	return ErrExcessiveContention
 }
 
 // SetEnvironConfig replaces the current configuration of the
@@ -621,7 +725,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
-		ownerTag:      "user-admin",
+		OwnerTag:      "user-admin",
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
@@ -948,63 +1052,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, &doc), nil
 }
 
-// DestroyUnits destroys the units with the specified names.
-func (st *State) DestroyUnits(names ...string) (err error) {
-	// TODO(rog) make this a transaction?
-	var errs []string
-	for _, name := range names {
-		unit, err := st.Unit(name)
-		switch {
-		case errors.IsNotFoundError(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("units", names, errs)
-}
-
-// DestroyMachines destroys the machines with the specified ids.
-func (st *State) DestroyMachines(ids ...string) (err error) {
-	var errs []string
-	for _, id := range ids {
-		machine, err := st.Machine(id)
-		switch {
-		case errors.IsNotFoundError(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case machine.Life() != Alive:
-			continue
-		default:
-			err = machine.Destroy()
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("machines", ids, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
-}
-
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
@@ -1074,106 +1121,6 @@ func (st *State) setMongoPassword(name, password string) error {
 	}
 	if err := st.db.Session.DB("presence").AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
-	}
-	return nil
-}
-
-// cleanupDoc represents a potentially large set of documents that should be
-// removed.
-type cleanupDoc struct {
-	Id     bson.ObjectId `bson:"_id"`
-	Kind   string
-	Prefix string
-}
-
-// newCleanupOp returns a txn.Op that creates a cleanup document with a unique
-// id and the supplied kind and prefix.
-func (st *State) newCleanupOp(kind, prefix string) txn.Op {
-	doc := &cleanupDoc{
-		Id:     bson.NewObjectId(),
-		Kind:   kind,
-		Prefix: prefix,
-	}
-	return txn.Op{
-		C:      st.cleanups.Name,
-		Id:     doc.Id,
-		Insert: doc,
-	}
-}
-
-// NeedsCleanup returns true if documents previously marked for removal exist.
-func (st *State) NeedsCleanup() (bool, error) {
-	count, err := st.cleanups.Count()
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-// Cleanup removes all documents that were previously marked for removal, if
-// any such exist. It should be called periodically by at least one element
-// of the system.
-func (st *State) Cleanup() error {
-	doc := cleanupDoc{}
-	iter := st.cleanups.Find(nil).Iter()
-	for iter.Next(&doc) {
-		var err error
-		switch doc.Kind {
-		case "settings":
-			err = st.cleanupSettings(doc.Prefix)
-		case "units":
-			err = st.cleanupUnits(doc.Prefix)
-		default:
-			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
-		}
-		if err != nil {
-			logger.Warningf("cleanup failed: %v", err)
-			continue
-		}
-		ops := []txn.Op{{
-			C:      st.cleanups.Name,
-			Id:     doc.Id,
-			Remove: true,
-		}}
-		if err := st.runTransaction(ops); err != nil {
-			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read cleanup document: %v", err)
-	}
-	return nil
-}
-
-func (st *State) cleanupSettings(prefix string) error {
-	// Documents marked for cleanup are not otherwise referenced in the
-	// system, and will not be under watch, and are therefore safe to
-	// delete directly.
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}}
-	if count, err := st.settings.Find(sel).Count(); err != nil {
-		return fmt.Errorf("cannot detect cleanup targets: %v", err)
-	} else if count != 0 {
-		if _, err := st.settings.RemoveAll(sel); err != nil {
-			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
-		}
-	}
-	return nil
-}
-
-func (st *State) cleanupUnits(prefix string) error {
-	// This won't miss units, because a Dying service cannot have units added
-	// to it. But we do have to remove the units themselves via individual
-	// transactions, because they could be in any state at all.
-	unit := &Unit{st: st}
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}, {"life", Alive}}
-	iter := st.units.Find(sel).Iter()
-	for iter.Next(&unit.doc) {
-		if err := unit.Destroy(); err != nil {
-			return err
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read unit document: %v", err)
 	}
 	return nil
 }

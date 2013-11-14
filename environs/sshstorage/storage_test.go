@@ -13,7 +13,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -30,10 +29,6 @@ type storageSuite struct {
 }
 
 var _ = gc.Suite(&storageSuite{})
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
 	cmd := exec.Command("bash", "-c", command)
@@ -154,6 +149,42 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	}
 	_, err = storage.Get(stor, "notthere")
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+}
+
+func (s *storageSuite) TestWriteFailure(c *gc.C) {
+	// Invocations:
+	//  1: first "install"
+	//  2: touch, Put
+	//  3: second "install"
+	//  4: touch
+	var invocations int
+	badSshCommand := func(host string, tty bool, command string) *exec.Cmd {
+		invocations++
+		switch invocations {
+		case 1, 3:
+			return exec.Command("true")
+		case 2:
+			// Note: must close stdin before responding the first time, or
+			// the second command will race with closing stdin, and may
+			// flush first.
+			return exec.Command("bash", "-c", "head -n 1 > /dev/null; exec 0<&-; echo JUJU-RC: 0; echo blah blah; echo more")
+		case 4:
+			return exec.Command("bash", "-c", `head -n 1 > /dev/null; echo "Hey it's JUJU-RC: , but not at the beginning of the line"; echo more`)
+		default:
+			c.Errorf("unexpected invocation: #%d, %s", invocations, command)
+			return nil
+		}
+	}
+	s.PatchValue(&sshCommand, badSshCommand)
+
+	stor, err := NewSSHStorage("example.com", c.MkDir(), c.MkDir())
+	c.Assert(err, gc.IsNil)
+	defer stor.Close()
+	err = stor.Put("whatever", bytes.NewBuffer(nil), 0)
+	c.Assert(err, gc.ErrorMatches, `failed to write input: write \|1: broken pipe \(output: "blah blah\\nmore"\)`)
+
+	_, err = NewSSHStorage("example.com", c.MkDir(), c.MkDir())
+	c.Assert(err, gc.ErrorMatches, `failed to locate "JUJU-RC: " \(output: "Hey it's JUJU-RC: , but not at the beginning of the line\\nmore"\)`)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
@@ -340,4 +371,14 @@ func (s *storageSuite) TestTmpDirPermissions(c *gc.C) {
 	defer os.Chmod(tmpdir, 0755)
 	_, err := NewSSHStorage("example.com", storageDir, filepath.Join(tmpdir, "subdir2"))
 	c.Assert(err, gc.ErrorMatches, ".*install: cannot create directory.*Permission denied.*")
+}
+
+func (s *storageSuite) TestPathCharacters(c *gc.C) {
+	storageDirBase := c.MkDir()
+	storageDir := filepath.Join(storageDirBase, "'")
+	tmpdir := filepath.Join(storageDirBase, `"`)
+	c.Assert(os.Mkdir(storageDir, 0755), gc.IsNil)
+	c.Assert(os.Mkdir(tmpdir, 0755), gc.IsNil)
+	_, err := NewSSHStorage("example.com", storageDir, tmpdir)
+	c.Assert(err, gc.IsNil)
 }

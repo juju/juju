@@ -20,12 +20,14 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -98,13 +100,14 @@ func (s *syncSuite) tearDownTest(c *gc.C) {
 }
 
 var tests = []struct {
-	description string
-	ctx         *sync.SyncContext
-	source      bool
-	tools       []version.Binary
-	version     version.Number
-	major       int
-	minor       int
+	description   string
+	ctx           *sync.SyncContext
+	source        bool
+	tools         []version.Binary
+	version       version.Number
+	major         int
+	minor         int
+	expectMirrors bool
 }{
 	{
 		description: "copy newest from the filesystem",
@@ -152,6 +155,14 @@ var tests = []struct {
 		},
 		tools: v1all,
 	},
+	{
+		description: "write the mirrors files",
+		ctx: &sync.SyncContext{
+			Public: true,
+		},
+		tools:         v180all,
+		expectMirrors: true,
+	},
 }
 
 func (s *syncSuite) TestSyncing(c *gc.C) {
@@ -182,8 +193,8 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
-
-			assertEmpty(c, s.targetEnv.Storage())
+			assertNoUnexpectedTools(c, s.targetEnv.Storage())
+			assertMirrors(c, s.targetEnv.Storage(), test.expectMirrors)
 		}()
 	}
 }
@@ -219,8 +230,9 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	c.Assert(err, gc.IsNil)
 }
 
-func assertEmpty(c *gc.C, storage storage.StorageReader) {
-	list, err := envtools.ReadList(storage, 2, 0)
+func assertNoUnexpectedTools(c *gc.C, stor storage.StorageReader) {
+	// We only expect v1.x tools, no v2.x tools.
+	list, err := envtools.ReadList(stor, 2, 0)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
@@ -232,6 +244,20 @@ func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 	c.Check(urls, gc.HasLen, len(expected))
 	for _, vers := range expected {
 		c.Assert(urls[vers], gc.Not(gc.Equals), "")
+	}
+}
+
+func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
+	r, err := storage.Get(stor, "tools/"+simplestreams.UnsignedMirror)
+	if err == nil {
+		defer r.Close()
+	}
+	if expectMirrors {
+		data, err := ioutil.ReadAll(r)
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+	} else {
+		c.Assert(err, gc.NotNil)
 	}
 }
 

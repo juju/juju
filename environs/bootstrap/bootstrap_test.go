@@ -25,7 +25,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -151,9 +151,9 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		if test.AgentVersion != version.Zero {
 			attrs["agent-version"] = test.AgentVersion.String()
 		}
-		env, err := environs.NewFromAttrs(attrs)
+		cfg, err := config.New(config.NoDefaults, attrs)
 		c.Assert(err, gc.IsNil)
-		env, err = environs.Prepare(env.Config(), configstore.NewMem())
+		env, err := environs.Prepare(cfg, configstore.NewMem())
 		c.Assert(err, gc.IsNil)
 		envtesting.RemoveAllTools(c, env)
 
@@ -243,7 +243,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil
@@ -260,8 +260,4 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 
 func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
-}
-
-func (e *bootstrapEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
 }

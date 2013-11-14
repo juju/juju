@@ -27,45 +27,41 @@ type UpgradeCharmCommand struct {
 }
 
 const upgradeCharmDoc = `
-When no flags are set, the service's charm will be upgraded to the
-latest revision available in the repository from which it was
-originally deployed. An explicit revision can be chosen with the
---revision flag.
+When no flags are set, the service's charm will be upgraded to the latest
+revision available in the repository from which it was originally deployed. An
+explicit revision can be chosen with the --revision flag.
 
-If the charm came from a local repository, its path will be assumed to
-be $JUJU_REPOSITORY unless overridden by --repository. If there is no
-newer revision of a local charm directory, the local directory's
-revision will be automatically incremented to create a newer charm.
+If the charm came from a local repository, its path will be assumed to be
+$JUJU_REPOSITORY unless overridden by --repository. If there is no newer
+revision of a local charm directory, the local directory's revision will be
+automatically incremented to create a newer charm.
 
-The local repository behaviour is tuned specifically to the workflow
-of a charm author working on a single client machine; use of local
-repositories from multiple clients is not supported and may lead to
-confusing behaviour.
+The local repository behaviour is tuned specifically to the workflow of a charm
+author working on a single client machine; use of local repositories from
+multiple clients is not supported and may lead to confusing behaviour.
 
-The --switch flag allows you to replace the charm with an entirely
-different one. The new charm's URL and revision are inferred as they
-would be when running a deploy command.
+The --switch flag allows you to replace the charm with an entirely different
+one. The new charm's URL and revision are inferred as they would be when running
+a deploy command.
 
 Please note that --switch is dangerous, because juju only has limited
-information with which to determine compatibility; the operation will
-succeed, regardless of potential havoc, so long as the following
-conditions hold:
+information with which to determine compatibility; the operation will succeed,
+regardless of potential havoc, so long as the following conditions hold:
 
-- The new charm must declare all relations that the service is
-currently participating in.
-- All config settings shared by the old and new charms must have the
-same types.
+- The new charm must declare all relations that the service is currently
+participating in. 
+- All config settings shared by the old and new charms must
+have the same types.
 
 The new charm may add new relations and configuration settings.
 
---switch and --revision are mutually exclusive. To specify a given
-revision number with --switch, give it in the charm URL, for instance
-"cs:wordpress-5" would specify revision number 5 of the wordpress
-charm.
+--switch and --revision are mutually exclusive. To specify a given revision
+number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
+would specify revision number 5 of the wordpress charm.
 
-Use of the --force flag is not generally recommended; units upgraded
-while in an error state will not have upgrade-charm hooks executed,
-and may cause unexpected behavior.
+Use of the --force flag is not generally recommended; units upgraded while in an
+error state will not have upgrade-charm hooks executed, and may cause unexpected
+behavior. 
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {

@@ -10,7 +10,6 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
@@ -24,9 +23,9 @@ type SetCommand struct {
 }
 
 const setDoc = `
-Set one or more configuration options for the specified service. See also
-the unset command to set one or more configuration options for a specified
-service to their default.
+Set one or more configuration options for the specified service. See also the
+unset command which sets one or more configuration options for a specified
+service to their default value. 
 `
 
 func (c *SetCommand) Info() *cmd.Info {
@@ -61,38 +60,22 @@ func (c *SetCommand) Init(args []string) error {
 
 // Run updates the configuration of a service.
 func (c *SetCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	api, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	service, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
-	var settings charm.Settings
+	defer api.Close()
+
 	if c.SettingsYAML.Path != "" {
-		settingsYAML, err := c.SettingsYAML.Read(ctx)
+		b, err := c.SettingsYAML.Read(ctx)
 		if err != nil {
 			return err
 		}
-		settings, err = ch.Config().ParseSettingsYAML(settingsYAML, c.ServiceName)
-		if err != nil {
-			return err
-		}
-	} else if len(c.SettingsStrings) > 0 {
-		settings, err = ch.Config().ParseSettingsStrings(c.SettingsStrings)
-		if err != nil {
-			return err
-		}
-	} else {
+		return api.ServiceSetYAML(c.ServiceName, string(b))
+	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
-	return service.UpdateConfigSettings(settings)
+	return api.ServiceSet(c.ServiceName, c.SettingsStrings)
 }
 
 // parse parses the option k=v strings into a map of options to be

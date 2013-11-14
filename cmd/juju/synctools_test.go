@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -21,7 +22,7 @@ import (
 type syncToolsSuite struct {
 	testbase.LoggingSuite
 	home         *coretesting.FakeHome
-	targetEnv    environs.Environ
+	configStore  configstore.Storage
 	localStorage string
 
 	origSyncTools func(*sync.SyncContext) error
@@ -41,7 +42,7 @@ environments:
         authorized-keys: "not-really-one"
 `)
 	var err error
-	s.targetEnv, err = environs.NewFromName("test-target")
+	s.configStore, err = configstore.Default()
 	c.Assert(err, gc.IsNil)
 	s.origSyncTools = syncTools
 }
@@ -51,6 +52,11 @@ func (s *syncToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.home.Restore()
 	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *syncToolsSuite) Reset(c *gc.C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
 }
 
 func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -66,7 +72,7 @@ func wait(signal chan struct{}) error {
 	}
 }
 
-var tests = []struct {
+var syncToolsCommandTests = []struct {
 	description string
 	args        []string
 	sctx        *sync.SyncContext
@@ -99,6 +105,13 @@ var tests = []struct {
 		},
 	},
 	{
+		description: "specific public",
+		args:        []string{"-e", "test-target", "--public"},
+		sctx: &sync.SyncContext{
+			Public: true,
+		},
+	},
+	{
 		description: "specify version",
 		args:        []string{"-e", "test-target", "--version", "1.2"},
 		sctx: &sync.SyncContext{
@@ -108,14 +121,11 @@ var tests = []struct {
 	},
 }
 
-func (s *syncToolsSuite) Reset(c *gc.C) {
-	s.TearDownTest(c)
-	s.SetUpTest(c)
-}
-
 func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
-	for i, test := range tests {
+	for i, test := range syncToolsCommandTests {
 		c.Logf("test %d: %s", i, test.description)
+		targetEnv, err := environs.PrepareFromName("test-target", s.configStore)
+		c.Assert(err, gc.IsNil)
 		called := false
 		syncTools = func(sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
@@ -123,8 +133,9 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 			c.Assert(sctx.MinorVersion, gc.Equals, test.sctx.MinorVersion)
 			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
 			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
+			c.Assert(sctx.Public, gc.Equals, test.sctx.Public)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
-			c.Assert(sctx.Target, gc.Equals, s.targetEnv.Storage())
+			c.Assert(dummy.IsSameStorage(sctx.Target, targetEnv.Storage()), jc.IsTrue)
 			called = true
 			return nil
 		}
@@ -150,7 +161,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)

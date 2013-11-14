@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/instance"
 )
 
@@ -34,4 +36,77 @@ func (addr *address) InstanceAddress() instance.Address {
 		NetworkScope: addr.NetworkScope,
 	}
 	return instanceaddr
+}
+
+func addressesToInstanceAddresses(addrs []address) []instance.Address {
+	instanceAddrs := make([]instance.Address, len(addrs))
+	for i, addr := range addrs {
+		instanceAddrs[i] = addr.InstanceAddress()
+	}
+	return instanceAddrs
+}
+
+// stateServerAddresses returns the list of internal addresses of the state
+// server machines.
+func (st *State) stateServerAddresses() ([]string, error) {
+	type addressMachine struct {
+		Addresses []address
+	}
+	var allAddresses []addressMachine
+	// TODO(rog) 2013/10/14 index machines on jobs.
+	err := st.machines.Find(D{{"jobs", JobManageState}}).All(&allAddresses)
+	if err != nil {
+		return nil, err
+	}
+	if len(allAddresses) == 0 {
+		return nil, fmt.Errorf("no state server machines found")
+	}
+	apiAddrs := make([]string, 0, len(allAddresses))
+	for _, addrs := range allAddresses {
+		instAddrs := addressesToInstanceAddresses(addrs.Addresses)
+		addr := instance.SelectInternalAddress(instAddrs, false)
+		if addr != "" {
+			apiAddrs = append(apiAddrs, addr)
+		}
+	}
+	if len(apiAddrs) == 0 {
+		return nil, fmt.Errorf("no state server machines with addresses found")
+	}
+	return apiAddrs, nil
+}
+
+func appendPort(addrs []string, port int) []string {
+	newAddrs := make([]string, len(addrs))
+	for i, addr := range addrs {
+		newAddrs[i] = fmt.Sprintf("%s:%d", addr, port)
+	}
+	return newAddrs
+}
+
+// Addresses returns the list of cloud-internal addresses that
+// can be used to connect to the state.
+func (st *State) Addresses() ([]string, error) {
+	addrs, err := st.stateServerAddresses()
+	if err != nil {
+		return nil, err
+	}
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	return appendPort(addrs, config.StatePort()), nil
+}
+
+// APIAddresses returns the list of cloud-internal addresses that
+// can be used to connect to the state API server.
+func (st *State) APIAddresses() ([]string, error) {
+	addrs, err := st.stateServerAddresses()
+	if err != nil {
+		return nil, err
+	}
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	return appendPort(addrs, config.APIPort()), nil
 }

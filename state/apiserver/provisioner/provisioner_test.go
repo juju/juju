@@ -21,6 +21,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -45,7 +46,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests.
 	s.machines = nil
-	for i := 0; i < 3; i++ {
+	// Note that the specific machine ids allocated are assumed
+	// to be numerically consecutive from zero.
+	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	for i := 0; i < 2; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -93,9 +97,9 @@ func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser
 func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{
-			{Tag: s.machines[0].Tag(), Password: "xxx0"},
-			{Tag: s.machines[1].Tag(), Password: "xxx1"},
-			{Tag: s.machines[2].Tag(), Password: "xxx2"},
+			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
+			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
+			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
 			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
 			{Tag: "service-bar", Password: "abc"},
@@ -119,9 +123,22 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 		c.Logf("trying %q password", machine.Tag())
 		err = machine.Refresh()
 		c.Assert(err, gc.IsNil)
-		changed := machine.PasswordValid(fmt.Sprintf("xxx%d", i))
+		changed := machine.PasswordValid(fmt.Sprintf("xxx%d-1234567890123457890", i))
 		c.Assert(changed, jc.IsTrue)
 	}
+}
+
+func (s *provisionerSuite) TestShortSetPasswords(c *gc.C) {
+	args := params.PasswordChanges{
+		Changes: []params.PasswordChange{
+			{Tag: s.machines[1].Tag(), Password: "xxx1"},
+		},
+	}
+	results, err := s.provisioner.SetPasswords(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"password is only 4 bytes long, and is not a valid Agent password")
 }
 
 func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
@@ -651,12 +668,13 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	result, err := s.provisioner.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: addrs,
 	})
 }
 
@@ -665,4 +683,57 @@ func (s *provisionerSuite) TestCACert(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
 		Result: s.State.CACert(),
 	})
+}
+
+func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
+	// Not an error to watch nothing
+	results, err := s.provisioner.Tools(params.Entities{})
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+	results, err := s.provisioner.ContainerConfig()
+	c.Check(err, gc.IsNil)
+	c.Check(results.ProviderType, gc.Equals, "dummy")
+	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Manager = false
+	anAuthorizer.MachineAgent = true
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.machines[0].Tag()}},
+	}
+	results, err := aProvisioner.Tools(args)
+	// It is not an error to make the request, but the specific item is rejected
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	toolResult := results.Results[0]
+	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
+	cur := version.Current
+	agent := params.Entity{Tag: s.machines[0].Tag()}
+
+	// The machine must have its existing tools set before we query for the
+	// next tools. This is so that we can grab Arch and Series without
+	// having to pass it in again
+	err := s.machines[0].SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{agent}}
+	results, err := s.provisioner.Tools(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentTools := results.Results[0].Tools
+	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
+	c.Check(agentTools.Version, gc.DeepEquals, cur)
 }

@@ -4,20 +4,26 @@
 package tools_test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
-	"path/filepath"
+	"io"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -81,6 +87,7 @@ func registerSimpleStreamsTests() {
 			}),
 		},
 	})
+	gc.Suite(&signedSuite{})
 }
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
@@ -275,14 +282,9 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	c.Assert(toolsMetadata[0], gc.DeepEquals, expectedMetadata)
 }
 
-func assertMetadataMatches(c *gc.C, toolList coretools.List, metadata []*tools.ToolsMetadata) {
+func assertMetadataMatches(c *gc.C, storageDir string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
 	var expectedMetadata []*tools.ToolsMetadata = make([]*tools.ToolsMetadata, len(toolList))
 	for i, tool := range toolList {
-		if tool.URL != "" {
-			size, sha256 := ttesting.SHA256sum(c, tool.URL)
-			tool.SHA256 = sha256
-			tool.Size = size
-		}
 		expectedMetadata[i] = &tools.ToolsMetadata{
 			Release:  tool.Version.Series,
 			Version:  tool.Version.Number.String(),
@@ -311,13 +313,13 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(toolsList, false, writer)
+	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir)
-	assertMetadataMatches(c, toolsList, metadata)
+	metadata := ttesting.ParseMetadata(c, dir, false)
+	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
-func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
+func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	var versionStrings = []string{
 		"1.2.3-precise-amd64",
 		"2.0.1-raring-amd64",
@@ -333,15 +335,28 @@ func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
 			SHA256:  "abcd",
 		}, {
 			Version: version.MustParseBinary("2.0.1-raring-amd64"),
-			URL:     "file://" + filepath.Join(dir, "tools/releases/juju-2.0.1-raring-amd64.tgz"),
+			// The URL is not used for generating metadata.
+			URL: "bogus://",
 		},
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(toolsList, true, writer)
+	writeMirrors := tools.DoNotWriteMirrors
+	if withMirrors {
+		writeMirrors = tools.WriteMirrors
+	}
+	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir)
-	assertMetadataMatches(c, toolsList, metadata)
+	metadata := ttesting.ParseMetadata(c, dir, withMirrors)
+	assertMetadataMatches(c, dir, toolsList, metadata)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
+	s.assertWriteMetadata(c, false)
+}
+
+func (s *simplestreamsSuite) TestWriteMetadataWithMirrors(c *gc.C) {
+	s.assertWriteMetadata(c, true)
 }
 
 func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
@@ -359,7 +374,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(existingToolsList, true, writer)
+	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -369,11 +384,11 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.WriteMetadata(newToolsList, true, writer)
+	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := ttesting.ParseMetadata(c, dir)
-	assertMetadataMatches(c, requiredToolsList, metadata)
+	metadata := ttesting.ParseMetadata(c, dir, false)
+	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
 type productSpecSuite struct{}
@@ -474,3 +489,321 @@ func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
 	c.Assert(item, gc.FitsTypeOf, &tools.ToolsMetadata{})
 	c.Assert(item.(*tools.ToolsMetadata).Size, gc.Equals, int64(9223372036854775807))
 }
+
+type metadataHelperSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&metadataHelperSuite{})
+
+func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
+	metadata := tools.MetadataFromTools(nil)
+	c.Assert(metadata, gc.HasLen, 0)
+
+	toolsList := coretools.List{{
+		Version: version.MustParseBinary("1.2.3-precise-amd64"),
+		Size:    123,
+		SHA256:  "abc",
+	}, {
+		Version: version.MustParseBinary("2.0.1-raring-amd64"),
+		URL:     "file:///tmp/releases/juju-2.0.1-raring-amd64.tgz",
+		Size:    456,
+		SHA256:  "xyz",
+	}}
+	metadata = tools.MetadataFromTools(toolsList)
+	c.Assert(metadata, gc.HasLen, len(toolsList))
+	for i, t := range toolsList {
+		md := metadata[i]
+		c.Assert(md.Release, gc.Equals, t.Version.Series)
+		c.Assert(md.Version, gc.Equals, t.Version.Number.String())
+		c.Assert(md.Arch, gc.Equals, t.Version.Arch)
+		c.Assert(md.FullPath, gc.Equals, t.URL)
+		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version)[len("tools/"):])
+		c.Assert(md.FileType, gc.Equals, "tar.gz")
+		c.Assert(md.Size, gc.Equals, t.Size)
+		c.Assert(md.SHA256, gc.Equals, t.SHA256)
+	}
+}
+
+type countingStorage struct {
+	storage.StorageReader
+	counter int
+}
+
+func (c *countingStorage) Get(name string) (io.ReadCloser, error) {
+	c.counter++
+	return c.StorageReader.Get(name)
+}
+
+func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
+	var versionStrings = []string{"1.2.3-precise-amd64"}
+	dir := c.MkDir()
+	ttesting.MakeTools(c, dir, "releases", versionStrings)
+	toolsList := coretools.List{{
+		Version: version.MustParseBinary(versionStrings[0]),
+		Size:    123,
+		SHA256:  "abc",
+	}}
+
+	stor, err := filestorage.NewFileStorageReader(dir)
+	c.Assert(err, gc.IsNil)
+	err = tools.ResolveMetadata(stor, nil)
+	c.Assert(err, gc.IsNil)
+
+	// We already have size/sha256, so ensure that storage isn't consulted.
+	countingStorage := &countingStorage{StorageReader: stor}
+	metadata := tools.MetadataFromTools(toolsList)
+	err = tools.ResolveMetadata(countingStorage, metadata)
+	c.Assert(err, gc.IsNil)
+	c.Assert(countingStorage.counter, gc.Equals, 0)
+
+	// Now clear size/sha256, and check that it is called, and
+	// the size/sha256 sum are updated.
+	metadata[0].Size = 0
+	metadata[0].SHA256 = ""
+	err = tools.ResolveMetadata(countingStorage, metadata)
+	c.Assert(err, gc.IsNil)
+	c.Assert(countingStorage.counter, gc.Equals, 1)
+	c.Assert(metadata[0].Size, gc.Not(gc.Equals), 0)
+	c.Assert(metadata[0].SHA256, gc.Not(gc.Equals), "")
+}
+
+func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
+	md1 := &tools.ToolsMetadata{
+		Release: "precise",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path1",
+	}
+	md2 := &tools.ToolsMetadata{
+		Release: "precise",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path2",
+	}
+	md3 := &tools.ToolsMetadata{
+		Release: "raring",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path3",
+	}
+
+	withSize := func(md *tools.ToolsMetadata, size int64) *tools.ToolsMetadata {
+		clone := *md
+		clone.Size = size
+		return &clone
+	}
+	withSHA256 := func(md *tools.ToolsMetadata, sha256 string) *tools.ToolsMetadata {
+		clone := *md
+		clone.SHA256 = sha256
+		return &clone
+	}
+
+	type mdlist []*tools.ToolsMetadata
+	type test struct {
+		name             string
+		lhs, rhs, merged []*tools.ToolsMetadata
+		err              string
+	}
+	tests := []test{{
+		name:   "non-empty lhs, empty rhs",
+		lhs:    mdlist{md1},
+		rhs:    nil,
+		merged: mdlist{md1},
+	}, {
+		name:   "empty lhs, non-empty rhs",
+		lhs:    nil,
+		rhs:    mdlist{md2},
+		merged: mdlist{md2},
+	}, {
+		name:   "identical lhs, rhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{md1},
+		merged: mdlist{md1},
+	}, {
+		name:   "same tools in lhs and rhs, neither have size: prefer lhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{md2},
+		merged: mdlist{md1},
+	}, {
+		name:   "same tools in lhs and rhs, only lhs has a size: prefer lhs",
+		lhs:    mdlist{withSize(md1, 123)},
+		rhs:    mdlist{md2},
+		merged: mdlist{withSize(md1, 123)},
+	}, {
+		name:   "same tools in lhs and rhs, only rhs has a size: prefer rhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{withSize(md2, 123)},
+		merged: mdlist{withSize(md2, 123)},
+	}, {
+		name:   "same tools in lhs and rhs, both have the same size: prefer lhs",
+		lhs:    mdlist{withSize(md1, 123)},
+		rhs:    mdlist{withSize(md2, 123)},
+		merged: mdlist{withSize(md1, 123)},
+	}, {
+		name: "same tools in lhs and rhs, both have different sizes: error",
+		lhs:  mdlist{withSize(md1, 123)},
+		rhs:  mdlist{withSize(md2, 456)},
+		err:  "metadata mismatch for 1\\.2\\.3-precise-amd64: sizes=\\(123,456\\) sha256=\\(,\\)",
+	}, {
+		name: "same tools in lhs and rhs, both have same size but different sha256: error",
+		lhs:  mdlist{withSHA256(withSize(md1, 123), "a")},
+		rhs:  mdlist{withSHA256(withSize(md2, 123), "b")},
+		err:  "metadata mismatch for 1\\.2\\.3-precise-amd64: sizes=\\(123,123\\) sha256=\\(a,b\\)",
+	}, {
+		name:   "lhs is a proper superset of rhs: union of lhs and rhs",
+		lhs:    mdlist{md1, md3},
+		rhs:    mdlist{md1},
+		merged: mdlist{md1, md3},
+	}, {
+		name:   "rhs is a proper superset of lhs: union of lhs and rhs",
+		lhs:    mdlist{md1},
+		rhs:    mdlist{md1, md3},
+		merged: mdlist{md1, md3},
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		merged, err := tools.MergeMetadata(test.lhs, test.rhs)
+		if test.err == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(merged, gc.DeepEquals, test.merged)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(merged, gc.IsNil)
+		}
+	}
+}
+
+func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
+	metadata := []*tools.ToolsMetadata{{
+		Release: "precise",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path1",
+	}, {
+		Release: "raring",
+		Version: "1.2.3",
+		Arch:    "amd64",
+		Path:    "path2",
+	}}
+
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir(), filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	out, err := tools.ReadMetadata(stor)
+	c.Assert(out, gc.HasLen, 0)
+	c.Assert(err, gc.IsNil) // non-existence is not an error
+	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	c.Assert(err, gc.IsNil)
+	out, err = tools.ReadMetadata(stor)
+	for _, md := range out {
+		// FullPath is set by ReadMetadata.
+		c.Assert(md.FullPath, gc.Not(gc.Equals), "")
+		md.FullPath = ""
+	}
+	c.Assert(out, gc.DeepEquals, metadata)
+}
+
+type signedSuite struct {
+	origKey string
+}
+
+var testRoundTripper *jujutest.ProxyRoundTripper
+
+func init() {
+	testRoundTripper = &jujutest.ProxyRoundTripper{}
+	simplestreams.RegisterProtocol("signedtest", testRoundTripper)
+}
+
+func (s *signedSuite) SetUpSuite(c *gc.C) {
+	var imageData = map[string]string{
+		"/unsigned/streams/v1/index.json":          unsignedIndex,
+		"/unsigned/streams/v1/tools_metadata.json": unsignedProduct,
+	}
+
+	// Set up some signed data from the unsigned data.
+	// Overwrite the product path to use the sjson suffix.
+	rawUnsignedIndex := strings.Replace(
+		unsignedIndex, "streams/v1/tools_metadata.json", "streams/v1/tools_metadata.sjson", -1)
+	r := bytes.NewReader([]byte(rawUnsignedIndex))
+	signedData, err := simplestreams.Encode(
+		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	c.Assert(err, gc.IsNil)
+	imageData["/signed/streams/v1/index.sjson"] = string(signedData)
+
+	// Replace the tools path in the unsigned data with a different one so we can test that the right
+	// tools path is used.
+	rawUnsignedProduct := strings.Replace(
+		unsignedProduct, "juju-1.13.0", "juju-1.13.1", -1)
+	r = bytes.NewReader([]byte(rawUnsignedProduct))
+	signedData, err = simplestreams.Encode(
+		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
+	c.Assert(err, gc.IsNil)
+	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
+		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
+	s.origKey = tools.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+}
+
+func (s *signedSuite) TearDownSuite(c *gc.C) {
+	testRoundTripper.Sub = nil
+	tools.SetSigningPublicKey(s.origKey)
+}
+
+func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
+	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+		Series:    []string{"precise"},
+		Arches:    []string{"amd64"},
+	})
+	toolsMetadata, err := tools.Fetch(
+		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, toolsConstraint, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(toolsMetadata), gc.Equals, 1)
+	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")
+}
+
+var unsignedIndex = `
+{
+ "index": {
+  "com.ubuntu.juju:released:tools": {
+   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
+   "datatype": "content-download",
+   "format": "products:1.0",
+   "products": [
+     "com.ubuntu.juju:12.04:amd64"
+   ],
+   "path": "streams/v1/tools_metadata.json"
+  }
+ },
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "format": "index:1.0"
+}
+`
+var unsignedProduct = `
+{
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "datatype": "content-download",
+ "products": {
+   "com.ubuntu.juju:12.04:amd64": {
+    "arch": "amd64",
+    "release": "precise",
+    "versions": {
+     "20130806": {
+      "items": {
+       "1130preciseamd64": {
+        "version": "1.13.0",
+        "size": 2973595,
+        "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+        "ftype": "tar.gz",
+        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+       }
+      }
+     }
+    }
+   }
+ },
+ "format": "products:1.0"
+}
+`

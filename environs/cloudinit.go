@@ -42,13 +42,30 @@ func NewMachineConfig(machineID, machineNonce string,
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 // stateInfoURL is the storage URL for the environment's state file.
-func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
-	// state.Info and the api.Info.
-	mcfg := NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	// state.Info and the api.Info. The machine id must *always* be "0".
+	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	return mcfg
+}
+
+func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
+	providerType, authorizedKeys string,
+	sslHostnameVerification bool) error {
+
+	if authorizedKeys == "" {
+		return fmt.Errorf("environment configuration has no authorized-keys")
+	}
+	mcfg.AuthorizedKeys = authorizedKeys
+	if mcfg.AgentEnvironment == nil {
+		mcfg.AgentEnvironment = make(map[string]string)
+	}
+	mcfg.AgentEnvironment[agent.ProviderType] = providerType
+	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
+	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
+	return nil
 }
 
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by
@@ -64,24 +81,16 @@ func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.Machin
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	// Everything needs the environment's authorized keys.
-	authKeys := cfg.AuthorizedKeys()
-	if authKeys == "" {
-		return fmt.Errorf("environment configuration has no authorized-keys")
+	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification()); err != nil {
+		return err
 	}
-	mcfg.AuthorizedKeys = authKeys
-	if mcfg.AgentEnvironment == nil {
-		mcfg.AgentEnvironment = make(map[string]string)
-	}
-	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
-	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
+
+	// The following settings are only appropriate at bootstrap time. At the
+	// moment, the only state server is the bootstrap node, but this
+	// will probably change.
 	if !mcfg.StateServer {
 		return nil
 	}
-
-	// These settings are only appropriate at bootstrap time. At the
-	// moment, the only state server is the bootstrap node, but this
-	// will probably change.
 	if mcfg.APIInfo != nil || mcfg.StateInfo != nil {
 		return fmt.Errorf("machine configuration already has api/state info")
 	}
@@ -93,7 +102,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if password == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	passwordHash := utils.PasswordHash(password)
+	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StatePort = cfg.StatePort()

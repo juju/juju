@@ -13,9 +13,10 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/container/lxc"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -28,12 +29,13 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
 type MachineSuite struct {
 	agentSuite
-	lxc.TestSuite
+	lxctesting.TestSuite
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -60,7 +62,7 @@ func (s *MachineSuite) TearDownTest(c *gc.C) {
 	s.agentSuite.TearDownTest(c)
 }
 
-const initialMachinePassword = "machine-password"
+const initialMachinePassword = "machine-password-1234567890"
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
@@ -76,7 +78,7 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
 	tag := names.MachineTag(m.Id())
-	if m.IsStateServer() {
+	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)
@@ -261,7 +263,11 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobManageState)
+	err := m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -288,21 +294,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 
 	// Wait for the instance id to show up in the state.
-	id1, err := units[0].AssignedMachineId()
-	c.Assert(err, gc.IsNil)
-	m1, err := s.State.Machine(id1)
-	c.Assert(err, gc.IsNil)
-	w := m1.Watch()
-	defer w.Stop()
-	for _ = range w.Changes() {
-		err = m1.Refresh()
-		c.Assert(err, gc.IsNil)
-		if _, err := m1.InstanceId(); err == nil {
-			break
-		} else {
-			c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
-		}
-	}
+	s.waitProvisioned(c, units[0])
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, gc.IsNil)
 
@@ -317,6 +309,77 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+}
+
+func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
+	defer testbase.PatchValue(&addressupdater.ShortPoll, 500*time.Millisecond).Restore()
+	usefulVersion := version.Current
+	usefulVersion.Series = "quantal" // to match the charm created below
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobManageState)
+	err := m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+
+	// Add one unit to a service;
+	charm := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("test-service", charm)
+	c.Assert(err, gc.IsNil)
+	units, err := s.Conn.AddUnits(svc, 1, "")
+	c.Assert(err, gc.IsNil)
+
+	m, instId := s.waitProvisioned(c, units[0])
+	insts, err := s.Conn.Environ.Instances([]instance.Id{instId})
+	c.Assert(err, gc.IsNil)
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	dummy.SetInstanceAddresses(insts[0], addrs)
+
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		if !a.HasNext() {
+			c.Logf("final machine addresses: %#v", m.Addresses())
+			c.Fatalf("timed out waiting for machine to get address")
+		}
+		err := m.Refresh()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(m.Addresses(), addrs) {
+			break
+		}
+	}
+
+}
+
+func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
+	c.Logf("waiting for unit %q to be provisioned", unit)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	w := m.Watch()
+	defer w.Stop()
+	timeout := time.After(testing.LongWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timed out waiting for provisioning")
+		case _, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			err := m.Refresh()
+			c.Assert(err, gc.IsNil)
+			if instId, err := m.InstanceId(); err == nil {
+				c.Logf("unit provisioned with instance %s", instId)
+				return m, instId
+			} else {
+				c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
+			}
+		}
+	}
+	panic("watcher died")
 }
 
 func (s *MachineSuite) TestUpgrade(c *gc.C) {
@@ -393,7 +456,7 @@ func (s *MachineSuite) assertJobWithState(
 ) {
 	paramsJob := job.ToParams()
 	if !paramsJob.NeedsState() {
-		c.Fatalf("%v does not use state")
+		c.Fatalf("%v does not use state", paramsJob)
 	}
 	stm, conf, _ := s.primeAgent(c, job)
 	a := s.newAgent(c, stm)

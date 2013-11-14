@@ -10,8 +10,7 @@ import (
 )
 
 var (
-	Provider      = providerInstance
-	SudoCallerIds = sudoCallerIds
+	Provider = providerInstance
 )
 
 // SetRootCheckFunction allows tests to override the check for a root user.
@@ -66,3 +65,5 @@ func MockAddressForInterface() func() {
 		getAddressForInterface = utils.GetAddressForInterface
 	}
 }
+
+var CheckLocalPort = checkLocalPort
