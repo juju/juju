@@ -11,7 +11,7 @@ dump_logs(){
   mkdir -p $artifacts_path
   for env in $ENVS; do
     log_path=${artifacts_path}/all-machines-${env}.log
-    if juju scp -e $env -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" 0:/var/log/juju/all-machines.log $log_path; then
+    if juju scp -e $env -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $HOME/juju-ci/staging-juju-rsa $0:/var/log/juju/all-machines.log $log_path; then
       gzip $log_path
     fi
   done
@@ -21,20 +21,21 @@ revert_juju(){
 }
 revert_juju
 source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
+export TESTING_DIR PACKAGES
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
   destroy_all
   exit 1
 fi
-sudo dpkg -i $TESTING_DIR/juju-core*.deb
-mkdir -p new-tools
-source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
-export GOPATH=$(dirname $(pwd))
-source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
   set -e
+  sudo dpkg -i $TESTING_DIR/juju-core*.deb
+  mkdir -p new-tools
+  source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
+  export GOPATH=$(dirname $(pwd))
+  source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
     if [ "$env" == "local" ]; then
