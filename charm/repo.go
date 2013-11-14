@@ -60,15 +60,16 @@ func (e *NotFoundError) Error() string {
 // CharmStore is a Repository that provides access to the public juju charm store.
 type CharmStore struct {
 	BaseURL   string
-	authToken string
+	authAttrs string // a list of attr=value pairs, comma separated
 }
 
 var Store = &CharmStore{BaseURL: "https://store.juju.ubuntu.com"}
 
-// Return a copy of the store with auth token set
-func (s *CharmStore) WithAuthToken(token string) Repository {
+// WithAuthAttrs return a Repository with the authentication token list set.
+// authAttrs is a list of attr=value pairs.
+func (s *CharmStore) WithAuthAttrs(authAttrs string) Repository {
 	authCS := *s
-	authCS.authToken = token
+	authCS.authAttrs = authAttrs
 	return &authCS
 }
 
@@ -78,11 +79,11 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if s.authToken != "" {
-		// To comply with RFC 2617, we send the auth token in
+	if s.authAttrs != "" {
+		// To comply with RFC 2617, we send the authentication data in
 		// the Authorization header with a custom auth scheme
-		// and the token.
-		req.Header.Add("Authorization", "charmstore "+s.authToken)
+		// and the authentication attributes.
+		req.Header.Add("Authorization", "charmstore "+s.authAttrs)
 	}
 	return http.DefaultClient.Do(req)
 }
