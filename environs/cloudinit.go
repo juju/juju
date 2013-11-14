@@ -130,7 +130,7 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 	for _, script := range additionalScripts {
 		cloudcfg.AddRunCmd(script)
 	}
-	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
+	err := cloudinit.Configure(cfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}
