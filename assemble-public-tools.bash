@@ -95,9 +95,9 @@ get_series() {
     # Defines $series.
     control_version=$1
     pkg_series=$(echo "$control_version" |
-        sed -e 's/~juju.//;' \
-            -e 's/^.*~\(ubuntu[0-9][0-9]\.[0-9][0-9]\|[a-z]\+\).*/\1/')
-    if [[ ${!version_names[@]} =~ $pkg_series} ]]; then
+        cut -d '-' -f2 | cut -d '~' -f2 |
+        sed -e 's/^\(ubuntu[0-9][0-9]\.[0-9][0-9]\).*/\1/')
+    if [[ "${!version_names[@]}" =~ ${pkg_series} ]]; then
         series=${version_names["$pkg_series"]}
     else
         # This might be an ubuntu devel series package.
@@ -107,7 +107,8 @@ get_series() {
         if [[ $implied_series == "DEVEL" ]]; then
             series=$UBUNTU_DEVEL
         else
-            echo "Invalid series: $control_version"
+            echo "Invalid series: $control_version, saw [$pkg_series]"
+            echo "${!version_names[@]}"
             exit 3
         fi
     fi
@@ -239,7 +240,6 @@ IS_TESTING="false"
 if [[ -f "$RELEASE" ]]; then
     IS_TESTING="true"
 fi
-version_names+=(["$RELEASE-0ubuntu1"]="$UBUNTU_DEVEL")
 DESTINATION=$(cd $2; pwd)
 DEST_DEBS="${DESTINATION}/debs"
 DEST_TOOLS="${DESTINATION}/tools/releases"
