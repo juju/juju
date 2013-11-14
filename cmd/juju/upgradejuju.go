@@ -58,8 +58,8 @@ When run without arguments. upgrade-juju will try to upgrade to the
 following versions, in order of preference, depending on the current
 value of the environment's agent-version setting:
 
- - The highest patch.build version of the *current* major.minor version.
  - The highest patch.build version of the *next* stable major.minor version.
+ - The highest patch.build version of the *current* major.minor version.
 
 Both of these depend on tools availability, which some situations (no
 outgoing internet access) and provider types (such as maas) require that
@@ -250,15 +250,15 @@ func (v *upgradeVersions) validate() (err error) {
 			nextStable.Minor += 2
 		}
 
-		newestCurrent, found := v.tools.NewestCompatible(v.agent)
+		newestNextStable, found := v.tools.NewestCompatible(nextStable)
 		if found {
-			log.Debugf("found more recent current version %s", newestCurrent)
-			v.chosen = newestCurrent
+			log.Debugf("found a more recent stable version %s", newestNextStable)
+			v.chosen = newestNextStable
 		} else {
-			newestNextStable, found := v.tools.NewestCompatible(nextStable)
+			newestCurrent, found := v.tools.NewestCompatible(v.agent)
 			if found {
-				log.Debugf("found a supported more recent stable version %s", newestNextStable)
-				v.chosen = newestNextStable
+				log.Debugf("found more recent current version %s", newestCurrent)
+				v.chosen = newestCurrent
 			} else {
 				return fmt.Errorf("no more recent supported versions available")
 			}

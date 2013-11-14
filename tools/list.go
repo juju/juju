@@ -85,9 +85,9 @@ func (src List) Newest() (version.Number, List) {
 	return best, result
 }
 
-// NewestOf returns the most recent version compatible with base,
-// i.e. with the same major and minor numbers and greater or equal
-// patch and build numbers.
+// NewestCompatible returns the most recent version compatible with
+// base, i.e. with the same major and minor numbers and greater or
+// equal patch and build numbers.
 func (src List) NewestCompatible(base version.Number) (newest version.Number, found bool) {
 	newest = base
 	found = false
