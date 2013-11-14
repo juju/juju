@@ -245,17 +245,10 @@ DEST_DEBS="${DESTINATION}/debs"
 DEST_TOOLS="${DESTINATION}/tools/releases"
 DEST_DIST="${DESTINATION}/juju-dist"
 if [[ $IS_TESTING == "true" ]]; then
-    # When testing, The destination will be a new directory to ensure
-    # the test is cruft free. This is diffreent tfrom non-testing where
-    # we need the history of tools to republish the full metadata.
     DEST_DIST="${DESTINATION}/juju-dist-testing"
-    if [[ -d $DEST_DIST ]]; then
-        rm -r $DEST_DIST
-    fi
-#    file_version=$(echo "$RELEASE" | cut -d _ -f2)
-#    if [[ $file_version =~ 0ubuntu1$ ]]; then
-#        version_names+=(["$file_version"]="$UBUNTU_DEVEL")
-#    fi
+fi
+if [[ -d $DEST_DIST ]]; then
+    rm -r $DEST_DIST
 fi
 
 check_deps
