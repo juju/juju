@@ -780,15 +780,16 @@ func (s *provisionerSuite) TestAddSupportedContainersPermissions(c *gc.C) {
 	c.Assert(aProvisioner, gc.NotNil)
 
 	args := params.AddSupportedContainers{
-		Params: []params.AddMachineSupportedContainers{
-			{
-				MachineTag:     "machine-0",
-				ContainerTypes: []instance.ContainerType{instance.LXC},
-			},
-			{
-				MachineTag:     "machine-1",
-				ContainerTypes: []instance.ContainerType{instance.LXC},
-			},
+		Params: []params.AddMachineSupportedContainers{{
+			MachineTag:     "machine-0",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		}, {
+			MachineTag:     "machine-1",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		}, {
+			MachineTag:     "machine-42",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		},
 		},
 	}
 	// Only machine 0 can have it's containers updated.
@@ -796,6 +797,7 @@ func (s *provisionerSuite) TestAddSupportedContainersPermissions(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
