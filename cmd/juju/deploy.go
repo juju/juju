@@ -183,7 +183,7 @@ func AuthorizeCharmRepo(repo charm.Repository, cfg *config.Config) charm.Reposit
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth := cfg.CharmStoreAuth(); auth != "" {
 		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			repo = CS.WithAuthToken(auth)
+			repo = CS.WithAuthAttrs(auth)
 		}
 	}
 	return repo
