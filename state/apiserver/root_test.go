@@ -44,25 +44,32 @@ func (*rootSuite) TestDiscardedAPIMethods(c *gc.C) {
 	}
 }
 
-type testKiller struct {
-	killed time.Time
+type testCloser struct {
+	closed chan time.Time
 }
 
-func (k *testKiller) Kill() {
-	k.killed = time.Now()
+func (c *testCloser) Close() error {
+	println("CLOSED")
+	c.closed <- time.Now()
+	return nil
 }
 
 func (r *rootSuite) TestPingTimeout(c *gc.C) {
-	killer := &testKiller{}
-	pinger, err := apiserver.NewSrvPinger(killer, 5*time.Millisecond)
-	c.Assert(err, gc.IsNil)
-	for i := 0; i < 10; i++ {
-		time.Sleep(time.Millisecond)
-		pinger.Ping()
+	closedc := make(chan time.Time, 1)
+	action := func() error {
+		closedc <- time.Now()
+		return nil
 	}
-	// Expect killer.killed to be set 5ms after last ping.
+	timeout := apiserver.NewResourceTimeout(action, 50*time.Millisecond)
+	for i := 0; i < 10; i++ {
+		time.Sleep(10 * time.Millisecond)
+		timeout.Ping()
+	}
+	// Expect killer.killed to be set about 50ms after last ping.
 	broken := time.Now()
-	time.Sleep(10 * time.Millisecond)
-	killDiff := killer.killed.Sub(broken).Nanoseconds() / 1000000
-	c.Assert(killDiff >= 5 && killDiff <= 6, gc.Equals, true)
+	time.Sleep(100 * time.Millisecond)
+	closed := <-closedc
+	closeDiff := closed.Sub(broken).Nanoseconds() / 1000000
+	c.Assert(closeDiff, gc.Equals, int64(50))
+	c.Assert(closeDiff >= 50 && closeDiff <= 60, gc.Equals, true)
 }

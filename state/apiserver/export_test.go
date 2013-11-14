@@ -7,4 +7,4 @@ import "reflect"
 
 var RootType = reflect.TypeOf(&srvRoot{})
 
-var NewSrvPinger = newSrvPinger
+var NewResourceTimeout = newResourceTimeout
