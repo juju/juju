@@ -26,8 +26,6 @@ type ContainerSetup struct {
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
-	// Save the watcher so it can be stopped.
-	watcher watcher.StringsWatcher
 	// setupDone is non zero if the container setup has been invoked.
 	setupDone int32
 }
@@ -50,26 +48,31 @@ func NewContainerSetupHandler(runner worker.Runner, workerName string, container
 
 // SetUp is defined on the StringsWatchHandler interface.
 func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
-	if cs.watcher, err = cs.machine.WatchContainers(cs.containerType); err != nil {
+	if watcher, err = cs.machine.WatchContainers(cs.containerType); err != nil {
 		return nil, err
 	}
-	return cs.watcher, nil
+	return watcher, nil
 }
 
 // Handle is called whenever containers change on the machine being watched.
 // All machines start out with so containers so the first time Handle is called,
 // it will be because a container has been added.
 func (cs *ContainerSetup) Handle(containerIds []string) error {
+	// Consume the initial watcher event.
+	if len(containerIds) == 0 {
+		return nil
+	}
+
 	// This callback must only be invoked once. Stopping the watcher
 	// below should be sufficient but I'm paranoid.
 	if atomic.LoadInt32(&cs.setupDone) != 0 {
 		return nil
 	}
 	atomic.StoreInt32(&cs.setupDone, 1)
+
 	logger.Tracef("initial container setup with ids: %v", containerIds)
 	// We only care about the initial container creation.
-	// This handler has done its job so stop it.
-	cs.watcher.Stop()
+	// This worker has done its job so stop it.
 	cs.runner.StopWorker(cs.workerName)
 	if err := cs.ensureContainerDependencies(); err != nil {
 		return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
@@ -83,7 +86,7 @@ func (cs *ContainerSetup) Handle(containerIds []string) error {
 	default:
 		return fmt.Errorf("invalid container type %q", cs.containerType)
 	}
-	return startProvisionerWorker(cs.runner, provisionerType, cs.provisioner, cs.config)
+	return StartProvisioner(cs.runner, provisionerType, cs.provisioner, cs.config)
 }
 
 // TearDown is defined on the StringsWatchHandler interface.
@@ -98,9 +101,9 @@ func (cs *ContainerSetup) ensureContainerDependencies() error {
 }
 
 // Override for testing.
-var startProvisioner = startProvisionerWorker
+var StartProvisioner = startProvisionerWorker
 
-// startProvisioner kicks off a provisioner task responsible for creating containers
+// startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
 func startProvisionerWorker(runner worker.Runner, provisionerType ProvisionerType,
 	provisioner *apiprovisioner.State, config agent.Config) error {
