@@ -73,7 +73,10 @@ func (cs *ContainerSetup) Handle(containerIds []string) error {
 	logger.Tracef("initial container setup with ids: %v", containerIds)
 	// We only care about the initial container creation.
 	// This worker has done its job so stop it.
-	cs.runner.StopWorker(cs.workerName)
+	// We do not expect there will be an error, and there's not much we can do anyway.
+	if err := cs.runner.StopWorker(cs.workerName); err != nil {
+		logger.Warningf("stopping machine agent container watcher: %v", err)
+	}
 	if err := cs.ensureContainerDependencies(); err != nil {
 		return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
 	}
