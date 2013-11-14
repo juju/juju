@@ -7,8 +7,8 @@ set -e
 
 HERE=$(pwd)
 TMP_DIR=$(mktemp -d --tmpdir=$HERE)
-PACKAGING_DIR="$TMP_DIR/juju-packaging"
-BUILD_DIR="$TMP_DIR/juju-build"
+PACKAGING_DIR="$TMP_DIR/packaging"
+BUILD_DIR="$TMP_DIR/build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
 DEVEL_SERIES=$(distro-info --devel)
