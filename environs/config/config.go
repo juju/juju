@@ -78,8 +78,8 @@ const (
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" and "development", of types string
-// and bool respectively.
+// recognised are "agent-version" (string) and "development" (bool) as
+// well as charm-store-auth (string containing comma-separated key=value pairs).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
