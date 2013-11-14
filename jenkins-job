@@ -1,13 +1,28 @@
 #!/bin/bash
 set -eu
-CURRENT_JUJU_CORE=$(dpkg-query --showformat '${Package}=${Version}\n' -W juju-core)
+CURRENT_JUJU_CORE="juju-core=$(apt-cache madison juju-core|grep 'ppa.launchpad.net/juju/stable/ubuntu/ .* Packages'|sed -r 's/.*juju-core \| *([^ ]*) .*/\1/')"
 destroy_all(){
   for env in $ENVS; do
     $SCRIPTS/destroy-environment $env
   done
 }
+dump_logs(){
+  artifacts_path=$WORKSPACE/artifacts
+  mkdir -p $artifacts_path
+  for env in $ENVS; do
+    log_path=${artifacts_path}/all-machines-${env}.log
+    if juju scp -e $env -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" 0:/var/log/juju/all-machines.log $log_path; then
+      gzip $log_path
+    fi
+  done
+}
+revert_juju(){
+    sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
+}
+revert_juju
 source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
+  dump_logs
   destroy_all
   exit 1
 fi
@@ -48,6 +63,9 @@ else
     EXIT_STATUS=1
   fi
 fi
-sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
+if [ ! $EXIT_STATUS ]; then
+  dump_logs
+fi
+revert_juju
 destroy_all
 exit $EXIT_STATUS
