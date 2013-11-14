@@ -77,7 +77,7 @@ make_source_package() {
 make_binary_package() {
     echo "Phase 3: Creating the binary package."
     cd $PACKAGING_DIR
-    bzr bd --build-dir=$BUILD_DIR
+    bzr bd --build-dir=$BUILD_DIR -- -uc -us
     package=$(ls ${TMP_DIR}/juju-core_*.deb)
     echo "The binary package can be installed:"
     echo "  sudo dpkg -i $package"
