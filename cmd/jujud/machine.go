@@ -234,7 +234,7 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	if machine, err = pr.Machine(tag); err != nil {
 		return fmt.Errorf("%s is not in state: %v", tag, err)
 	}
-	if err := machine.AddSupportedContainers(containers); err != nil {
+	if err := machine.AddSupportedContainers(containers...); err != nil {
 		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
