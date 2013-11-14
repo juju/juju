@@ -26,11 +26,6 @@ type AddSupportedContainers struct {
 	Params []AddMachineSupportedContainers
 }
 
-// AddSupportedContainersResults holds the results of an AddSupportedContainers API call.
-type AddSupportedContainersResults struct {
-	Errors []*Error
-}
-
 // AddMachineSupportedContainers holds the arguments for making an AddSupportedContainers call
 // on a given machine.
 type AddMachineSupportedContainers struct {

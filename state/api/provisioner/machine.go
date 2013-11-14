@@ -242,8 +242,8 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 }
 
 // AddSupportedContainers updates the list of containers supported by this machine.
-func (m *Machine) AddSupportedContainers(containerTypes []instance.ContainerType) error {
-	var results params.AddSupportedContainersResults
+func (m *Machine) AddSupportedContainers(containerTypes ...instance.ContainerType) error {
+	var results params.ErrorResults
 	args := params.AddSupportedContainers{
 		Params: []params.AddMachineSupportedContainers{
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
@@ -253,10 +253,10 @@ func (m *Machine) AddSupportedContainers(containerTypes []instance.ContainerType
 	if err != nil {
 		return err
 	}
-	if len(results.Errors) != 1 {
-		return fmt.Errorf("expected one result, got %d", len(results.Errors))
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
-	apiError := results.Errors[0]
+	apiError := results.Results[0].Error
 	if apiError != nil {
 		return apiError
 	}
