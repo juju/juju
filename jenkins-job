@@ -21,7 +21,7 @@ revert_juju(){
 }
 revert_juju
 source $SCRIPTS/make-recipe-and-package.bash $REVNO $BRANCH
-export TESTING_DIR
+export TESTING_DIR PACKAGES
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
   destroy_all
