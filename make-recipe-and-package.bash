@@ -41,7 +41,7 @@ create_recipe() {
         sed -n 's/^const version = "\(.*\)"/\1/p')
     DEPENDENCIES=$(bzr cat -d $JUJU_CORE_BRANCH -r $REVNO dependencies.tsv)
     BASE="\
-# bzr-builder format 0.3 deb-version ${VERSION}-0~${REVNO}
+# bzr-builder format 0.3 deb-version ${VERSION}+${REVNO}-0
 ${PACKAGING_BRANCH}
 nest juju-core ${JUJU_CORE_BRANCH} src/launchpad.net/juju-core revno:${REVNO}
 "
@@ -69,7 +69,7 @@ create_binary_package() {
     echo "Phase 3: creating a binary package."
     cd ${TESTING_DIR}
     tar zxf *.tar.gz
-    cd juju-core-$VERSION/
+    cd juju-core-$VERSION+$REVNO/
     fakeroot debian/rules binary
     PACKAGES=$(ls ${TESTING_DIR}/*.deb)
     echo "Created $PACKAGES"

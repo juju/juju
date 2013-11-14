@@ -83,7 +83,7 @@ get_version() {
     # match the packages in the archives.
     control_version=$1
     version=$(echo "$control_version" |
-        sed -n 's/^\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9].*/\1.\2.\3/p')
+        sed -n 's/^\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)[-+][0-9].*/\1.\2.\3/p')
     if [ "${version}" == "" ] ; then
         echo "Invalid version: $control_version"
         exit 3
