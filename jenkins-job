@@ -21,7 +21,8 @@ revert_juju(){
 }
 revert_juju
 source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
-source $SCRIPTS/make-package-with-tarball.bash $TARFILE
+source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
+    'Curtis Hovey <curtis.hovey@canonical.com>'
 export PACKAGE
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
@@ -34,8 +35,8 @@ if ! bash <<"EOT"
   set -e
   sudo dpkg -i $PACKAGE
   mkdir -p new-tools
-  source $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
-  source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
+  $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
+  $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
     if [ "$env" == "local" ]; then
