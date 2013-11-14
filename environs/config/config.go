@@ -258,6 +258,30 @@ func Validate(cfg, old *Config) error {
 			}
 		}
 	}
+
+	// The tools url has changed so see if the old one is still in use.
+	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := cfg.ToolsURL()
+		var msg string
+		if newToolsSpecified {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
+					"the new tools URL attribute %q has also been used.\n"+
+					"The attribute %q should be removed from your configuration.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
+		} else {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated.\n"+
+					"The location to find tools is now specified using the %q attribute.\n"+
+					"Your configuration should be updated to set %q as follows\n%v: %v.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
+			cfg.m["tools-metadata-url"] = oldToolsURL
+		}
+		logger.Warningf(msg)
+	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// we still want it in the config for upgrades.
+	cfg.m["tools-url"], _ = cfg.ToolsURL()
 	return nil
 }
 
@@ -428,7 +452,7 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 // ToolsURL returns the URL that locates the tools tarballs and metadata,
 // and whether it has been set.
 func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.m["tools-url"]; ok && url != "" {
+	if url, ok := c.m["tools-metadata-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -498,7 +522,7 @@ var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
 	"default-series":            schema.String(),
-	"tools-url":                 schema.String(),
+	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
@@ -515,6 +539,9 @@ var fields = schema.Fields{
 	"api-port":                  schema.ForceInt(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
+
+	// Deprecated fields, retain for backwards compatibility.
+	"tools-url": schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -534,6 +561,9 @@ var alwaysOptional = schema.Defaults{
 	"ca-private-key-path":  schema.Omit,
 	"logging-config":       schema.Omit,
 
+	// Deprecated fields, retain for backwards compatibility.
+	"tools-url": "",
+
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
 	// omitted.
@@ -542,7 +572,7 @@ var alwaysOptional = schema.Defaults{
 	"admin-secret":       "", // TODO(rog) omit
 	"ca-private-key":     "", // TODO(rog) omit
 	"image-metadata-url": "", // TODO(rog) omit
-	"tools-url":          "", // TODO(rog) omit
+	"tools-metadata-url": "", // TODO(rog) omit
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.

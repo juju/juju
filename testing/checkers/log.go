@@ -6,6 +6,7 @@ package checkers
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
@@ -16,8 +17,22 @@ type SimpleMessage struct {
 	Message string
 }
 
-func logToSimpleMessages(log []loggo.TestLogValues) []SimpleMessage {
-	out := make([]SimpleMessage, len(log))
+type SimpleMessages []SimpleMessage
+
+func (s SimpleMessage) String() string {
+	return fmt.Sprintf("%s %s", s.Level, s.Message)
+}
+
+func (s SimpleMessages) GoString() string {
+	out := make([]string, len(s))
+	for i, m := range s {
+		out[i] = m.String()
+	}
+	return fmt.Sprintf("SimpleMessages{\n%s\n}", strings.Join(out, "\n"))
+}
+
+func logToSimpleMessages(log []loggo.TestLogValues) SimpleMessages {
+	out := make(SimpleMessages, len(log))
 	for i, val := range log {
 		out[i].Level = val.Level
 		out[i].Message = val.Message
@@ -30,7 +45,7 @@ type logMatches struct {
 }
 
 func (checker *logMatches) Check(params []interface{}, names []string) (result bool, error string) {
-	var obtained []SimpleMessage
+	var obtained SimpleMessages
 	switch params[0].(type) {
 	case []loggo.TestLogValues:
 		obtained = logToSimpleMessages(params[0].([]loggo.TestLogValues))
@@ -38,12 +53,14 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 		return false, "Obtained value must be of type []loggo.TestLogValues or SimpleMessage"
 	}
 
-	var expected []SimpleMessage
+	var expected SimpleMessages
 	switch param := params[1].(type) {
 	case []SimpleMessage:
+		expected = SimpleMessages(param)
+	case SimpleMessages:
 		expected = param
 	case []string:
-		expected = make([]SimpleMessage, len(param))
+		expected = make(SimpleMessages, len(param))
 		for i, s := range param {
 			expected[i] = SimpleMessage{
 				Message: s,
@@ -54,6 +71,7 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 		return false, "Expected value must be of type []string or []SimpleMessage"
 	}
 
+	obtainedSinceLastMatch := obtained
 	for len(expected) > 0 && len(obtained) >= len(expected) {
 		var msg SimpleMessage
 		msg, obtained = obtained[0], obtained[1:]
@@ -68,8 +86,11 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 			continue
 		}
 		expected = expected[1:]
+		obtainedSinceLastMatch = obtained
 	}
 	if len(obtained) < len(expected) {
+		params[0] = obtainedSinceLastMatch
+		params[1] = expected
 		return false, ""
 	}
 	return true, ""

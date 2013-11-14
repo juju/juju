@@ -192,7 +192,7 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
 	stor := s.Conn.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.Current)
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools})
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)

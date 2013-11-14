@@ -67,7 +67,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
-		info.Password = utils.PasswordHash(password)
+		info.Password = utils.UserPasswordHash(password, utils.CompatSalt)
 
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
@@ -340,7 +340,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 			if len(specParts) > 1 {
 				firstPart := specParts[0]
 				var err error
-				if containerType, err = instance.ParseSupportedContainerType(firstPart); err == nil {
+				if containerType, err = instance.ParseContainerType(firstPart); err == nil {
 					mid = strings.Join(specParts[1:], "/")
 				} else {
 					mid = machineIdSpec

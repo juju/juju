@@ -93,31 +93,88 @@ func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error)
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.
+	//
+	// We should work with smoser to get a supported
+	// command in (or next to) cloud-init for manually
+	// invoking cloud-config. This would address the
+	// above comment by removing the need to generate a
+	// script "by hand".
 
-	// Convert runcmds to a series of shell commands.
-	script := []string{"#!/bin/sh"}
-	for _, cmd := range cloudcfg.RunCmds() {
+	// Bootcmds must be run before anything else,
+	// as they may affect package installation.
+	bootcmds, err := cmdlist(cloudcfg.BootCmds())
+	if err != nil {
+		return "", err
+	}
+
+	// Add package sources and packages.
+	pkgcmds, err := addPackageCommands(cloudcfg)
+	if err != nil {
+		return "", err
+	}
+
+	// Runcmds come last.
+	runcmds, err := cmdlist(cloudcfg.RunCmds())
+	if err != nil {
+		return "", err
+	}
+
+	// We prepend "set -xe". This is already in runcmds,
+	// but added here to avoid relying on that to be
+	// invariant.
+	script := []string{"#!/bin/bash", "set -xe"}
+	script = append(script, bootcmds...)
+	script = append(script, pkgcmds...)
+	script = append(script, runcmds...)
+	return strings.Join(script, "\n"), nil
+}
+
+// addPackageCommands returns a slice of commands that, when run,
+// will add the required apt repositories and packages.
+func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
+	var cmds []string
+	if len(cfg.AptSources()) > 0 {
+		// Ensure apt-add-repository is available.
+		cmds = append(cmds, "apt-get -y install python-software-properties")
+	}
+	for _, src := range cfg.AptSources() {
+		// PPA keys are obtained by apt-add-repository, from launchpad.
+		if !strings.HasPrefix(src.Source, "ppa:") {
+			if src.Key != "" {
+				key := utils.ShQuote(src.Key)
+				cmd := fmt.Sprintf("printf '%%s\\n' %s | apt-key add -", key)
+				cmds = append(cmds, cmd)
+			}
+		}
+		cmds = append(cmds, "apt-add-repository -y "+utils.ShQuote(src.Source))
+	}
+	if cfg.AptUpdate() {
+		cmds = append(cmds, "apt-get -y update")
+	}
+	// Note: explicitly ignoring apt_upgrade, so as not to trample the target
+	// machine's existing configuration.
+	for _, pkg := range cfg.Packages() {
+		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
+		cmds = append(cmds, cmd)
+	}
+	return cmds, nil
+}
+
+func cmdlist(cmds []interface{}) ([]string, error) {
+	result := make([]string, 0, len(cmds))
+	for _, cmd := range cmds {
 		switch cmd := cmd.(type) {
 		case []string:
 			// Quote args, so shell meta-characters are not interpreted.
 			for i, arg := range cmd[1:] {
 				cmd[i] = utils.ShQuote(arg)
 			}
-			script = append(script, strings.Join(cmd, " "))
+			result = append(result, strings.Join(cmd, " "))
 		case string:
-			script = append(script, cmd)
+			result = append(result, cmd)
 		default:
-			return "", fmt.Errorf("unexpected runcmd type: %T", cmd)
+			return nil, fmt.Errorf("unexpected command type: %T", cmd)
 		}
 	}
-
-	// The first command is "set -xe", which we want to leave in place.
-	head := []string{script[0]}
-	tail := script[1:]
-	for _, pkg := range cloudcfg.Packages() {
-		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
-		head = append(head, cmd)
-	}
-	script = append(head, tail...)
-	return strings.Join(script, "\n"), nil
+	return result, nil
 }

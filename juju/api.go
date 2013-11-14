@@ -33,6 +33,8 @@ type APIConn struct {
 	State   *api.State
 }
 
+var errAborted = fmt.Errorf("aborted")
+
 // NewAPIConn returns a new Conn that uses the
 // given environment. The environment must have already
 // been bootstrapped.
@@ -53,17 +55,45 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog): implement updateSecrets (see Conn.updateSecrets)
+	// TODO(axw) remove this once we have synchronous bootstrap.
+	if err := updateSecrets(environ, st); err != nil {
+		apiClose(st)
+		return nil, err
+	}
 	return &APIConn{
 		Environ: environ,
 		State:   st,
 	}, nil
 }
 
+// updateSecrets pushes environment secrets to the API server.
+// NOTE: this is a temporary hack, and will disappear when we
+// have synchronous bootstrap.
+var updateSecrets = func(environ environs.Environ, st *api.State) error {
+	secrets, err := environ.Provider().SecretAttrs(environ.Config())
+	if err != nil {
+		return err
+	}
+	client := st.Client()
+	cfg, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	for k, v := range secrets {
+		if _, exists := cfg[k]; exists {
+			// Environment already has secrets. Won't send again.
+			return nil
+		} else {
+			cfg[k] = v
+		}
+	}
+	return client.EnvironmentSet(cfg)
+}
+
 // Close terminates the connection to the environment and releases
 // any associated resources.
 func (c *APIConn) Close() error {
-	return c.State.Close()
+	return apiClose(c.State)
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for
@@ -186,12 +216,16 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 		return nil
 	}
 	go func() {
+		logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
 		st, err := apiOpen(&api.Info{
 			Addrs:    endpoint.Addresses,
 			CACert:   []byte(endpoint.CACert),
 			Tag:      "user-" + info.APICredentials().User,
 			Password: info.APICredentials().Password,
 		}, api.DefaultDialOpts())
+		if err != nil {
+			logger.Infof("failed to connect to API addresses: %v, %v", endpoint.Addresses, err)
+		}
 		sendAPIOpenResult(resultc, stop, st, err)
 	}()
 	return resultc
@@ -201,7 +235,9 @@ func sendAPIOpenResult(resultc chan apiOpenResult, stop <-chan struct{}, st *api
 	select {
 	case <-stop:
 		if err != nil {
-			logger.Warningf("disarding stale API open error: %v", err)
+			if err != errAborted {
+				logger.Warningf("discarding stale API open error: %v", err)
+			}
 		} else {
 			apiClose(st)
 		}
@@ -235,7 +271,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 		select {
 		case <-time.After(delay):
 		case <-stop:
-			return nil, fmt.Errorf("aborted")
+			return nil, errAborted
 		}
 		environ, err := environs.New(cfg)
 		if err != nil {

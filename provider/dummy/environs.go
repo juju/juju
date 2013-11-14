@@ -510,7 +510,8 @@ func (e *environ) Name() string {
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -570,7 +571,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		if err := st.SetEnvironConstraints(cons); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
+		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
 			panic(err)
 		}
 		_, err = st.AddUser("admin", password)
