@@ -59,7 +59,7 @@ make_soure_package_branch() {
         distro="UNRELEASED"
     fi
     if [[ $BUGS != "" ]]; then
-        message="$message ($BUGS)"
+        message="$message (LP: $BUGS)"
     fi
     DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_VERSION -D $distro "$message"
     bzr ci -m "$messasge"
@@ -119,7 +119,7 @@ UBUNTU_VERSION="${VERSION}-0ubuntu1${SERIES_VERSION}"
 DEBEMAIL=$3
 
 shift; shift; shift
-BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/LP: #\1/g;')
+BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
 
 check_deps
 make_soure_package_branch
