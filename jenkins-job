@@ -26,14 +26,14 @@ if ! $SCRIPTS/deploy_stack.py $ENVS; then
   destroy_all
   exit 1
 fi
-sudo dpkg -i $TESTING_DIR/juju-core*.deb
-mkdir -p new-tools
-source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
-export GOPATH=$(dirname $(pwd))
-source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
+  sudo dpkg -i $TESTING_DIR/juju-core*.deb
+  mkdir -p new-tools
+  source $SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
+  export GOPATH=$(dirname $(pwd))
+  source $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
   set -e
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
