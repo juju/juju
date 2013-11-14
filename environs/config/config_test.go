@@ -528,6 +528,24 @@ var configTests = []configTest{
 			"name":             "my-name",
 		},
 		err: `charm store auth token needs to be a set of key-value pairs, not 'tokenvalue'`,
+	}, {
+		about:       "Auth token invalid 2.",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"charm-store-auth": "token=value, sometoken=",
+			"type":             "my-type",
+			"name":             "my-name",
+		},
+		err: `charm store auth token needs to be a set of key-value pairs, not 'token=value, sometoken='`,
+	}, {
+		about:       "Auth token invalid 2.",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"charm-store-auth": "=",
+			"type":             "my-type",
+			"name":             "my-name",
+		},
+		err: `charm store auth token needs to be a set of key-value pairs, not '='`,
 	},
 	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
