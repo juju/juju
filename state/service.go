@@ -605,6 +605,7 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 }
 
 // GetOwnerTag returns the owner of this service
+// SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
 func (s *serviceDoc) GetOwnerTag() string {
 	if s.OwnerTag != "" {
@@ -613,6 +614,7 @@ func (s *serviceDoc) GetOwnerTag() string {
 	return "user-admin"
 }
 
+// SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
 func (s *Service) GetOwnerTag() string {
 	return s.doc.GetOwnerTag()
