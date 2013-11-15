@@ -2083,6 +2083,9 @@ func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
 	ids, err := s.State.StateServerMachineIds()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.HasLen, 0)
+
+	// TODO(rog) more testing here when we can actually add
+	// state servers.
 }
 
 func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
