@@ -125,37 +125,19 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-// Configure is a convenience function for calling
-// ConfigureBase followed by ConfigureJuju.
+// Configure updates the provided cloudinit.Config with
+// configuration to initialise a Juju machine agent.
 func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
-	if err := ConfigureBase(cfg.AuthorizedKeys, c); err != nil {
-		return err
-	}
-	return ConfigureJuju(cfg, c)
-}
-
-// ConfigureBase updates the provided cloudinit.Config with configuration
-// to initialise a base OS image, such that it can be connected to
-// via SSH.
-//
-// Note: we do an apt update/upgrade here to bring the base OS image
-// up to date; we do not add any sources or packages until ConfigureJuju.
-// The reason for this is that apt failures are a common source of
-// bootstrap failure, so we want that to be visible.
-func ConfigureBase(authorizedKeys string, c *cloudinit.Config) error {
-	c.AddSSHAuthorizedKeys(authorizedKeys)
-	c.SetAptUpgrade(true)
-	c.SetAptUpdate(true)
-	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
-	return nil
-}
-
-// ConfigureJuju updates the provided cloudinit.Config with configuration
-// to initialise a Juju machine agent.
-func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err := verifyConfig(cfg); err != nil {
 		return err
 	}
+
+	// General options.
+	c.SetAptUpgrade(true)
+	c.SetAptUpdate(true)
+	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
+	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
+
 	c.AddPackage("git")
 	// Perfectly reasonable to install lxc on environment instances and kvm
 	// containers.
