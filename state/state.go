@@ -316,20 +316,26 @@ type containerRefParams struct {
 	containerId string
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) (*machineDoc, []txn.Op, error) {
+// addMachineOps returns the operations necessary to create the given
+// machine with its associated parameters. The metadata parameter may be
+// nil.
+//
+// It sets fields in mdoc as appropriate, including mdoc.Id and
+// mdoc.Life.
+func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) ([]txn.Op, error) {
 	if mdoc.Series == "" {
-		return nil, nil, fmt.Errorf("no series specified")
+		return nil, fmt.Errorf("no series specified")
 	}
 	if len(mdoc.Jobs) == 0 {
-		return nil, nil, fmt.Errorf("no jobs specified")
+		return nil, fmt.Errorf("no jobs specified")
 	}
 	if containerParams.hostId != "" && mdoc.ContainerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
+		return nil, fmt.Errorf("no container type specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range mdoc.Jobs {
 		if jset[j] {
-			return nil, nil, fmt.Errorf("duplicate job: %s", j)
+			return nil, fmt.Errorf("duplicate job: %s", j)
 		}
 		jset[j] = true
 	}
@@ -337,7 +343,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 		// we are creating a new machine instance (not a container).
 		seq, err := st.sequence("machine")
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		mdoc.Id = strconv.Itoa(seq)
 		containerParams.hostId = mdoc.Id
@@ -347,7 +353,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 		// we are creating a container so set up a namespaced id.
 		seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", containerParams.hostId, mdoc.ContainerType))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		mdoc.Id = fmt.Sprintf("%s/%s/%d", containerParams.hostId, mdoc.ContainerType, seq)
 		containerParams.containerId = mdoc.Id
@@ -380,7 +386,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 		})
 	}
 	ops = append(ops, createContainerRefOp(st, containerParams)...)
-	return mdoc, ops, nil
+	return ops, nil
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
@@ -426,7 +432,7 @@ func (st *State) addMachineContainerOps(params *AddMachineParams, cons constrain
 				Jobs:   params.Jobs,
 				Clean:  true,
 			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, &containerRefParams{})
+			parentOps, err := st.addMachineOps(mdoc, instData, cons, &containerRefParams{})
 			if err != nil {
 				return nil, nil, nil, err
 			}
@@ -472,7 +478,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		mdoc.InstanceId = params.InstanceId
 		mdoc.Nonce = params.Nonce
 	}
-	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
+	machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,7 +1166,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	if numStateServers > maxMongoPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", maxMongoPeers)
 	}
-	machineIds, err := st.StateServerMachineIds()
+	machineIds, err := st.stateServerMachineIds()
 	if err != nil {
 		return err
 	}
@@ -1171,7 +1177,44 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	if len(machineIds) > numStateServers {
 		return fmt.Errorf("cannot reduce state server count")
 	}
-
+	envCons, err := st.EnvironConstraints()
+	if err != nil {
+		return err
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	cons = cons.WithFallbacks(envCons)
+	var ops []txn.Op
+	var newIds []string
+	for i := len(machineIds); i < numStateServers; i++ {
+		mdoc := &machineDoc{
+			Series: cfg.DefaultSeries(),
+			Jobs: []MachineJob{
+				JobHostUnits,
+				JobManageState,
+				JobManageEnviron,
+			},
+		}
+		addOps, err := st.addMachineOps(mdoc, nil, cons, &containerRefParams{})
+		if err != nil {
+			return err
+		}
+		ops = append(ops, addOps...)
+		newIds = append(newIds, mdoc.Id)
+	}
+	ops = append(ops, txn.Op{
+		C:      st.stateServers.Name,
+		Id:     environGlobalKey,
+		Assert: D{{"stateservers", D{{"$length", len(machineIds)}}}},
+		Update: D{{"$addToSet", D{{"stateservers", D{{"$each", newIds}}}}}},
+	})
+	err = st.runTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("failed to create new state server machines: %v", err)
+	}
+	return nil
 }
 
 // ResumeTransactions resumes all pending transactions.

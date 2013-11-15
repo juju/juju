@@ -897,7 +897,7 @@ func (u *Unit) assignToNewMachine(params *AddMachineParams, cons constraints.Val
 		Principals:    []string{u.doc.Name},
 		Clean:         false,
 	}
-	mdoc, machineOps, err := u.st.addMachineOps(mdoc, instData, cons, containerParams)
+	machineOps, err := u.st.addMachineOps(mdoc, instData, cons, containerParams)
 	if err != nil {
 		return err
 	}
