@@ -1,35 +1,46 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package sshinit
 
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
+	envcloudinit "launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
-	_ "launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
-type agentSuite struct {
+type configureSuite struct {
 	testbase.LoggingSuite
 }
 
-var _ = gc.Suite(&agentSuite{})
+var _ = gc.Suite(&configureSuite{})
 
-func dummyConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
+type testProvider struct {
+	environs.EnvironProvider
+}
+
+func (p *testProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+func init() {
+	environs.RegisterProvider("sshinit", &testProvider{})
+}
+
+func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, gc.IsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
-		"type":           "dummy",
-		"state-server":   stateServer,
+		"type":           "sshinit",
 		"default-series": vers.Series,
 		"agent-version":  vers.Number.String(),
 	})
@@ -37,8 +48,8 @@ func dummyConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config 
 	return testConfig
 }
 
-func (s *agentSuite) getMachineConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.MachineConfig {
-	var mcfg *cloudinit.MachineConfig
+func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
+	var mcfg *envcloudinit.MachineConfig
 	if stateServer {
 		mcfg = environs.NewBootstrapMachineConfig("http://whatever/dotcom")
 	} else {
@@ -48,10 +59,13 @@ func (s *agentSuite) getMachineConfig(c *gc.C, stateServer bool, vers version.Bi
 		Version: vers,
 		URL:     "file:///var/lib/juju/storage/" + envtools.StorageName(vers),
 	}
-	environConfig := dummyConfig(c, stateServer, vers)
+	environConfig := testConfig(c, stateServer, vers)
 	err := environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	return mcfg
+	cloudcfg := cloudinit.New()
+	err = envcloudinit.Configure(mcfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	return cloudcfg
 }
 
 var allSeries = [...]string{"precise", "quantal", "raring", "saucy"}
@@ -63,10 +77,10 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
-func (s *agentSuite) TestAptSources(c *gc.C) {
+func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := provisionMachineAgentScript(s.getMachineConfig(c, true, vers))
+		script, err := generateScript(s.getCloudConfig(c, true, vers))
 		c.Assert(err, gc.IsNil)
 
 		// Only Precise requires the cloud-tools pocket.

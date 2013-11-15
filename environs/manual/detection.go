@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // checkProvisionedScript is the script to run on the remote machine
@@ -25,7 +26,7 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 // exist on the host machine.
 func checkProvisioned(sshHost string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", sshHost)
-	cmd := sshCommand(sshHost, fmt.Sprintf("bash -c %s", utils.ShQuote(checkProvisionedScript)))
+	cmd := ssh.Command(sshHost, fmt.Sprintf("bash -c %s", utils.ShQuote(checkProvisionedScript)))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -50,7 +51,7 @@ func checkProvisioned(sshHost string) (bool, error) {
 // connecting to the machine and executing a bash script.
 func detectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", sshHost)
-	cmd := sshCommand(sshHost, "bash")
+	cmd := ssh.Command(sshHost, "bash")
 	cmd.Stdin = bytes.NewBufferString(detectionScript)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -138,14 +138,13 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 // to initialise a base OS image, such that it can be connected to
 // via SSH.
 //
-// Note: we do an apt update/upgrade here to bring the base OS image
-// up to date; we do not add any sources or packages until ConfigureJuju.
-// The reason for this is that apt failures are a common source of
-// bootstrap failure, so we want that to be visible.
+// Note: we don't do apt update/upgrade here so as not to have to wait on
+// apt to finish when performing the second half of image initialisation.
+// Doing it later brings the benefit of feedback in the face of errors,
+// but adds to the running time of initialisation due to lack of activity
+// between image bringup and start of agent installation.
 func ConfigureBase(authorizedKeys string, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(authorizedKeys)
-	c.SetAptUpgrade(true)
-	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return nil
 }
@@ -156,7 +155,14 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err := verifyConfig(cfg); err != nil {
 		return err
 	}
+
+	// Bring packages up-to-date.
+	c.SetAptUpdate(true)
+	c.SetAptUpgrade(true)
+
+	// juju requires git for managing charm directories.
 	c.AddPackage("git")
+
 	// Perfectly reasonable to install lxc on environment instances and kvm
 	// containers.
 	if cfg.MachineContainerType != instance.LXC {

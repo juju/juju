@@ -31,6 +31,13 @@ func (cfg *Config) SetAptUpgrade(yes bool) {
 	cfg.set("apt_upgrade", yes, yes)
 }
 
+// AptUpgrade returns the value set by SetAptUpgrade, or
+// false if no call to SetAptUpgrade has been made.
+func (cfg *Config) AptUpgrade() bool {
+	update, _ := cfg.attrs["apt_upgrade"].(bool)
+	return update
+}
+
 // SetUpdate sets whether cloud-init runs "apt-get update"
 // on first boot.
 func (cfg *Config) SetAptUpdate(yes bool) {

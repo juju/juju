@@ -130,9 +130,16 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 	for _, script := range additionalScripts {
 		cloudcfg.AddRunCmd(script)
 	}
-	err := cloudinit.Configure(cfg, cloudcfg)
-	if err != nil {
-		return nil, err
+	// When bootstrapping, we only want to apt-get update/upgrade
+	// and setup the SSH keys. The rest we leave to environs/manual.
+	if cfg.StateServer {
+		if err := cloudinit.ConfigureBase(cfg.AuthorizedKeys, cloudcfg); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := cloudinit.Configure(cfg, cloudcfg); err != nil {
+			return nil, err
+		}
 	}
 	data, err := cloudcfg.Render()
 	logger.Tracef("Generated cloud init:\n%s", string(data))
