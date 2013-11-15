@@ -2123,3 +2123,66 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, expectIds)
 }
+
+func (s *StateSuite) TestEnsureAvailabilityFailsWithEvenOrNegativeNumServers(c *gc.C) {
+	expectErr := "number of state servers must be odd and greater than zero"
+	err := s.State.EnsureAvailability(-1, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	err = s.State.EnsureAvailability(0, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	err = s.State.EnsureAvailability(2, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, expectErr)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityFailsWithNumServersTooBig(c *gc.C) {
+	expectErr := fmt.Sprintf(`state server count is too large \(allowed %d\)`, state.MaxMongoPeers)
+	err := s.State.EnsureAvailability(state.MaxMongoPeers+2, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	err = s.State.EnsureAvailability(99, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, expectErr)
+}
+
+func (s *StateSuite) TestEnsureAvailabilitySucceedsWithEqualNumServers(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageState, state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = s.State.EnsureAvailability(1, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityStartsNewMachines(c *gc.C) {
+//	m0, err := s.State.AddMachine("someseries", state.JobManageState, state.JobManageEnviron)
+//	c.Assert(err, gc.IsNil)
+//	c.Assert(m0.Id(), gc.Equals, "0")
+
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.DefaultSeries(), gc.Not(gc.Equals), "someseries")
+
+	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.EnsureAvailability(3, constraints.MustParse("arch=amd64"))
+	c.Assert(err, gc.IsNil)
+
+	ms, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(ms, gc.HasLen, 3)
+
+	for i := 0; i < 3; i++ {
+		m := ms[i]
+		c.Assert(m.Id(), gc.Equals, fmt.Sprint(i))
+		c.Assert(m.Jobs(), jc.SameContents, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageState,
+			state.JobManageEnviron,
+		})
+		c.Assert(m.Series(), gc.Equals, cfg.DefaultSeries())
+		mcons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(mcons, gc.DeepEquals, constraints.MustParse("mem=4G arch=amd64"))
+	}
+	serverIds, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(serverIds, jc.SameContents, []string{"0", "1", "2"})
+}

@@ -277,6 +277,10 @@ func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err 
 	return st.addMachine(&AddMachineParams{Series: series, Jobs: jobs})
 }
 
+func (st *State) AddBootstrapMachine(series string, canHostUnits bool) (m *Machine, error) {
+	
+}
+
 // AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
 // supplied series. The machine's constraints and other configuration will be taken from
 // the supplied params struct.
@@ -1160,8 +1164,8 @@ const maxMongoPeers = 7
 // removed from the current set of state servers
 // (although the machines themselves will remain).
 func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value) error {
-	if numStateServers%2 != 1 {
-		return fmt.Errorf("number of state servers must be odd")
+	if numStateServers%2 != 1 || numStateServers <= 0 {
+		return fmt.Errorf("number of state servers must be odd and greater than zero")
 	}
 	if numStateServers > maxMongoPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", maxMongoPeers)
@@ -1207,7 +1211,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	ops = append(ops, txn.Op{
 		C:      st.stateServers.Name,
 		Id:     environGlobalKey,
-		Assert: D{{"stateservers", D{{"$length", len(machineIds)}}}},
+		Assert: D{{"stateservers", D{{"$size", len(machineIds)}}}},
 		Update: D{{"$addToSet", D{{"stateservers", D{{"$each", newIds}}}}}},
 	})
 	err = st.runTransaction(ops)
@@ -1215,6 +1219,12 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 		return fmt.Errorf("failed to create new state server machines: %v", err)
 	}
 	return nil
+}
+
+func (st *State) ensureAvailability(numStateServers int, cons constraints.Value, series string, canHostUnits bool) {
+	make this called by EnsureAvailability and by AddBootstrapMachine.
+	series and canHostUnits are arguments because AddBootstrapMachine may
+	wish to specify them.
 }
 
 // ResumeTransactions resumes all pending transactions.
