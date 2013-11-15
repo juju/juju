@@ -1142,6 +1142,37 @@ func (st *State) StateServerMachineIds() ([]string, error) {
 	return doc.MachineIds, nil
 }
 
+const maxMongoPeers = 7
+
+// EnsureAvailability adds state server machines as necessary to make
+// the number of live state servers equal to numStateServers. The given
+// constraints will be attached to any new machines.
+//
+// TODO(rog):
+// If any current state servers are down, they will be
+// removed from the current set of state servers
+// (although the machines themselves will remain).
+func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value) error {
+	if numStateServers%2 != 1 {
+		return fmt.Errorf("number of state servers must be odd")
+	}
+	if numStateServers > maxMongoPeers {
+		return fmt.Errorf("state server count is too large (allowed %d)", maxMongoPeers)
+	}
+	machineIds, err := st.StateServerMachineIds()
+	if err != nil {
+		return err
+	}
+	if len(machineIds) == numStateServers {
+		// TODO check for machines that are down.
+		return nil
+	}
+	if len(machineIds) > numStateServers {
+		return fmt.Errorf("cannot reduce state server count")
+	}
+
+}
+
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
 	return st.runner.ResumeAll()
