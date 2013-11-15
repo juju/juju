@@ -144,6 +144,11 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
+		{
+			C:      st.stateServers.Name,
+			Id:     "",
+			Insert: &stateServersDoc{},
+		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
@@ -241,6 +246,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		cleanups:       db.C("cleanups"),
 		annotations:    db.C("annotations"),
 		statuses:       db.C("statuses"),
+		stateServers:   db.C("stateServers"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -262,7 +268,59 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	}
 	st.transactionHooks = make(chan ([]transactionHook), 1)
 	st.transactionHooks <- nil
+
+	// TODO(rog) delete this when we can assume there are no
+	// pre-1.18 environments running.
+	if err := st.createStateServersDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create state servers document: %v", err)
+	}
 	return st, nil
+}
+
+// createStateServersDoc creates the state servers document
+// if it does not already exist. This is necessary to cope with
+// legacy environments that have not created the document
+// at initialization time.
+func (st *State) createStateServersDoc() error {
+	// Quick check to see if we need to do anything so
+	// that we can avoid transaction overhead in most cases.
+	if _, err := st.StateServerMachineIds(); err == nil {
+		return nil
+	}
+	// Find all current state servers and add the state servers
+	// record containing them. We need this to work
+	// even if this is called concurrently. Fortunately
+	// we're safe because legacy environments
+	// do not allow the removal of state server machines
+	// or allow their configured jobs to change.
+	//
+	// Thus even if we call this concurrently with an old
+	// environment, we know that the old environment
+	// cannot change the set of state servers, so it's
+	// always valid to add them to the stateServers doc,
+	// assuming all new environments call createStateServersDoc
+	// before doing any operations that may affect the current
+	// set of state servers.
+	var machineDocs []machineDoc
+	err := st.machines.Find(D{{"jobs", JobManageState}}).All(&machineDocs)
+	if err != nil {
+		return err
+	}
+	var doc stateServersDoc
+	for _, m := range machineDocs {
+		doc.MachineIds = append(doc.MachineIds, m.Id)
+	}
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     "",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}}
+	err = st.runTransaction(ops)
+	// If the transaction aborted, it's because the record has already
+	// been created, so we return a nil error because our work
+	// is already done.
+	return onAbort(err, nil)
 }
 
 // CACert returns the certificate used to validate the state connection.

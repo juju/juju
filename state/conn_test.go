@@ -24,13 +24,14 @@ func TestPackage(t *stdtesting.T) {
 type ConnSuite struct {
 	testing.MgoSuite
 	testbase.LoggingSuite
-	annotations *mgo.Collection
-	charms      *mgo.Collection
-	machines    *mgo.Collection
-	relations   *mgo.Collection
-	services    *mgo.Collection
-	units       *mgo.Collection
-	State       *state.State
+	annotations  *mgo.Collection
+	charms       *mgo.Collection
+	machines     *mgo.Collection
+	relations    *mgo.Collection
+	services     *mgo.Collection
+	units        *mgo.Collection
+	stateServers *mgo.Collection
+	State        *state.State
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -53,6 +54,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
+	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
