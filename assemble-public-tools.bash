@@ -9,10 +9,11 @@ set -eu
 
 
 usage() {
-    echo "usage: $0 RELEASE DESTINATION_DIRECTORY"
+    echo "usage: $0 RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
     echo "  RELEASE: The pattern (version) to match packages in the archives,"
     echo "    or a path to a local package built for testing."
     echo "  DESTINATION_DIRECTORY: The directory to assemble the tools in."
+    echo "  SIGNING_KEY: When provided, the metadata will be signed."
     exit 1
 }
 
@@ -199,6 +200,21 @@ generate_streams() {
 }
 
 
+sign_metadata() {
+    [[ $SIGNING_KEY == '' ]] && return
+    echo "Phase 6: Signing metadata with $SIGNING_KEY."
+    pattern='s/\(\.json\)/.sjson/'
+    meta_files=$(ls ${DEST_DIST}/tools/streams/v1/*.json)
+    for meta_file in $meta_files; do
+        signed_file=$(echo "$meta_file" | sed -e $pattern)
+        echo "Creating $signed_file"
+        sed -e $pattern $meta_file |
+            gpg --clearsign --default-key $SIGNING_KEY > $signed_file
+    done
+    echo "The signed tools are in ${DEST_DIST}."
+}
+
+
 # The location of environments.yaml and rc files.
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
 
@@ -233,7 +249,7 @@ version_names+=(["trusty"]="trusty")
 
 declare -a added_tools
 
-test $# -eq 2 || usage
+test $# -eq 2 || test $# -eq 3 || usage
 
 RELEASE=$1
 IS_TESTING="false"
@@ -251,9 +267,12 @@ if [[ -d $DEST_DIST ]]; then
     rm -r $DEST_DIST
 fi
 
+SIGNING_KEY=${3:-""}
+
 check_deps
 build_tool_tree
 retrieve_released_tools
 retrieve_packages
 archive_tools
 generate_streams
+sign_metadata
