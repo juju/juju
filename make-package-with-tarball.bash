@@ -62,7 +62,7 @@ make_soure_package_branch() {
         message="$message (LP: $BUGS)"
     fi
     DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_VERSION -D $distro "$message"
-    bzr ci -m "$messasge"
+    bzr ci -m "$message"
     bzr tag UBUNTU_VERSION
 }
 
