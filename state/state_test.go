@@ -2080,7 +2080,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 }
 
 func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
-	ids, err := s.State.StateServerMachineIds()
+	ids, err := state.StateServerMachineIds(s.State)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.HasLen, 0)
 
@@ -2103,7 +2103,7 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Sanity check that we have in fact deleted the right info.
-	ids, err := s.State.StateServerMachineIds()
+	ids, err := state.StateServerMachineIds(s.State)
 	c.Assert(err, gc.NotNil)
 	c.Assert(ids, gc.HasLen, 0)
 
@@ -2113,12 +2113,13 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 
 	expectIds := []string{m1.Id(), m2.Id()}
 	sort.Strings(expectIds)
-	ids, err = st.StateServerMachineIds()
+	ids, err = state.StateServerMachineIds(st)
 	c.Assert(err, gc.IsNil)
+	sort.Strings(ids)
 	c.Assert(ids, gc.DeepEquals, expectIds)
 
-	// Check that it works in the original environment too.
-	ids, err = s.State.StateServerMachineIds()
+	// Check that it works with the original connection too.
+	ids, err = state.StateServerMachineIds(s.State)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, expectIds)
 }

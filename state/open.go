@@ -284,7 +284,9 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 func (st *State) createStateServersDoc() error {
 	// Quick check to see if we need to do anything so
 	// that we can avoid transaction overhead in most cases.
-	if _, err := st.StateServerMachineIds(); err == nil {
+	// We don't care what the error is - if it's something
+	// unexpected, it'll be picked up again below.
+	if _, err := st.stateServerMachineIds(); err == nil {
 		return nil
 	}
 	// Find all current state servers and add the state servers
@@ -312,7 +314,7 @@ func (st *State) createStateServersDoc() error {
 	}
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
-		Id:     "",
+		Id:     environGlobalKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}}

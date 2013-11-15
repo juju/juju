@@ -1130,15 +1130,16 @@ type stateServersDoc struct {
 	MachineIds []string
 }
 
-// StateServerMachineIds returns a sorted slice of the ids
+// StateServerMachineIds returns a slice of the ids
 // of all machines that are configured to run a state server.
-func (st *State) StateServerMachineIds() ([]string, error) {
+// TODO(rog) export this method when the stateServers
+// document is consistently maintained.
+func (st *State) stateServerMachineIds() ([]string, error) {
 	var doc stateServersDoc
-	err := st.stateServers.Find(D{{"_id", ""}}).One(&doc)
+	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
-	sort.Strings(doc.MachineIds)
 	return doc.MachineIds, nil
 }
 
