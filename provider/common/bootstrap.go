@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/instance"
+	coretools "launchpad.net/juju-core/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")
@@ -39,13 +40,7 @@ func Bootstrap(env environs.Environ, cons constraints.Value) error {
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL)
 
-	// Find tools, syncing with an external tools source as necessary.
-	// Select the newest tools to bootstrap with, and set agent-version.
-	possibleTools, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), cons.Arch)
-	if err != nil {
-		return err
-	}
-	selectedTools, err := bootstrap.SelectBootstrapTools(env, possibleTools)
+	selectedTools, err := SetBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -73,6 +68,17 @@ func Bootstrap(env environs.Environ, cons constraints.Value) error {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	return nil
+}
+
+// SetBootstrapTools finds tools, syncing with an external tools source as
+// necessary; it then selects the newest tools to bootstrap with, and sets
+// agent-version.
+func SetBootstrapTools(env environs.Environ, series string, arch *string) (coretools.List, error) {
+	possibleTools, err := bootstrap.EnsureToolsAvailability(env, series, arch)
+	if err != nil {
+		return nil, err
+	}
+	return bootstrap.SelectBootstrapTools(env, possibleTools)
 }
 
 // EnsureNotBootstrapped returns null if the environment is not bootstrapped,

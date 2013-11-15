@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
@@ -123,14 +122,8 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
-	// Find tools, syncing with an external tools source as necessary.
-	// Select the newest tools to bootstrap with, and set agent-version.
 	vers := version.Current
-	possibleTools, err := bootstrap.EnsureToolsAvailability(env, vers.Series, &vers.Arch)
-	if err != nil {
-		return err
-	}
-	selectedTools, err := bootstrap.SelectBootstrapTools(env, possibleTools)
+	selectedTools, err := common.SetBootstrapTools(env, vers.Series, &vers.Arch)
 	if err != nil {
 		return err
 	}

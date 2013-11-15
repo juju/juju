@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
@@ -51,13 +50,6 @@ type nullEnviron struct {
 	cfgmutex              sync.Mutex
 	bootstrapStorage      *sshstorage.SSHStorage
 	bootstrapStorageMutex sync.Mutex
-
-	// series is required to filter bootstrap tools
-	// properly, by setting default-series dynamically.
-	// series and hc come together, and we can pass
-	// them to manual.Bootstrap to avoid another trip.
-	bootstrapHostSeries                  string
-	bootstrapHostHardwareCharacteristics *instance.HardwareCharacteristics
 }
 
 var _ environs.BootstrapStorager = (*nullEnviron)(nil)
@@ -102,11 +94,7 @@ func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	possibleTools, err := bootstrap.EnsureToolsAvailability(e, series, hc.Arch)
-	if err != nil {
-		return err
-	}
-	selectedTools, err := bootstrap.SelectBootstrapTools(e, possibleTools)
+	selectedTools, err := common.SetBootstrapTools(e, series, hc.Arch)
 	if err != nil {
 		return err
 	}

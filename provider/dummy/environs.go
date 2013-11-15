@@ -37,7 +37,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -532,11 +531,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err := common.EnsureNotBootstrapped(e); err != nil {
 		return err
 	}
-	possibleTools, err := bootstrap.EnsureToolsAvailability(e, e.Config().DefaultSeries(), cons.Arch)
-	if err != nil {
-		return err
-	}
-	selectedTools, err := bootstrap.SelectBootstrapTools(e, possibleTools)
+	selectedTools, err := common.SetBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
