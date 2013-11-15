@@ -725,7 +725,6 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      "user-admin",
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
