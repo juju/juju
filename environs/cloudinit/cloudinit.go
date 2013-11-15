@@ -126,7 +126,7 @@ func base64yaml(m *config.Config) string {
 }
 
 // Configure updates the provided cloudinit.Config with
-// configuration to initialise a Juju machine agent.
+// configuration to initialize a Juju machine agent.
 func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err := verifyConfig(cfg); err != nil {
 		return err
