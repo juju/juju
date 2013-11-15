@@ -57,15 +57,17 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
-func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
+func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 	tests := []struct {
 		isStateServer bool
 		jobs          []state.MachineJob
 	}{
 		{false, []state.MachineJob{state.JobHostUnits}},
-		{false, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 		{true, []state.MachineJob{state.JobManageState}},
+		{true, []state.MachineJob{state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 	}
 	for _, test := range tests {
 		params := state.AddMachineParams{
@@ -74,7 +76,7 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 		}
 		m, err := s.State.AddMachineWithConstraints(&params)
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.IsStateServer(), gc.Equals, test.isStateServer)
+		c.Assert(m.IsManager(), gc.Equals, test.isStateServer)
 	}
 }
 
@@ -83,6 +85,8 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
+	err = m.ForceDestroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
@@ -206,41 +210,6 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	}).Check()
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *MachineSuite) TestDestroyMachines(c *gc.C) {
-	m0 := s.machine
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-
-	sch := s.AddTestingCharm(c, "wordpress")
-	wordpress, err := s.State.AddService("wordpress", sch)
-	c.Assert(err, gc.IsNil)
-	u, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
-	err = u.AssignToMachine(m0)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
-	assertLife := func(m *state.Machine, life state.Life) {
-		err := m.Refresh()
-		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, life)
-	}
-	assertLife(m0, state.Alive)
-	assertLife(m1, state.Alive)
-	assertLife(m2, state.Dying)
-
-	err = u.UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
-	err = s.State.DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	assertLife(m0, state.Dying)
-	assertLife(m1, state.Alive)
-	assertLife(m2, state.Dying)
 }
 
 func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
@@ -611,11 +580,11 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.entityWatcher, which
 	// is also used by:
-	//	Machine.WatchHardwareCharacteristics
-	//	Service.Watch
-	//	Unit.Watch
-	//	State.WatchForEnvironConfigChanges
-	//	Unit.WatchConfigSettings
+	//  Machine.WatchHardwareCharacteristics
+	//  Service.Watch
+	//  Unit.Watch
+	//  State.WatchForEnvironConfigChanges
+	//  Unit.WatchConfigSettings
 	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, gc.IsNil)

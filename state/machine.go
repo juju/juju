@@ -181,10 +181,11 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// IsStateServer returns true if the machine has a JobManageState job.
-func (m *Machine) IsStateServer() bool {
+// IsManager returns true if the machine has JobManageState or JobManageEnviron.
+func (m *Machine) IsManager() bool {
 	for _, job := range m.doc.Jobs {
-		if job == JobManageState {
+		switch job {
+		case JobManageEnviron, JobManageState:
 			return true
 		}
 	}
@@ -267,6 +268,22 @@ func (m *Machine) PasswordValid(password string) bool {
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
 	return m.advanceLifecycle(Dying)
+}
+
+// ForceDestroy queues the machine for complete removal, including the
+// destruction of all units and containers on the machine.
+func (m *Machine) ForceDestroy() error {
+	if !m.IsManager() {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageState}}}}},
+		}, m.st.newCleanupOp("machine", m.doc.Id)}
+		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+			return err
+		}
+	}
+	return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.

@@ -59,6 +59,12 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// DestroyMachines holds parameters for the DestroyMachines call.
+type DestroyMachines struct {
+	MachineNames []string
+	Force        bool
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
