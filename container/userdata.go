@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/loggo"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/utils"
 )
@@ -37,7 +38,8 @@ func WriteUserData(machineConfig *cloudinit.MachineConfig, directory string) (st
 func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
 	// consider not having this line hardcoded...
 	machineConfig.DataDir = "/var/lib/juju"
-	cloudConfig, err := cloudinit.New(machineConfig)
+	cloudConfig := coreCloudinit.New()
+	err := cloudinit.Configure(machineConfig, cloudConfig)
 	if err != nil {
 		return nil, err
 	}
