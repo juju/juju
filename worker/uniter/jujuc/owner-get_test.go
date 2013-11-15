@@ -53,8 +53,7 @@ func (s *OwnerGetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: owner-get [options] <setting>
-purpose: print information about the owner of the service
-The only valid value for <setting> is currently tag
+purpose: print information about the owner of the service. The only valid value for <setting> is currently tag
 
 options:
 --format  (= smart)
