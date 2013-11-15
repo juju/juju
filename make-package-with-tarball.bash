@@ -32,7 +32,7 @@ check_deps() {
     which bzr || has_deps=0
     bzr plugins | grep builddeb || has_deps=0
     if [[ $has_deps == 0 ]]; then
-        echo "Install devscripts, bzr, and bzr-builder"
+        echo "Install devscripts, bzr, and bzr-builddeb"
         exit 2
     fi
 }
@@ -132,5 +132,5 @@ if [[ $PURPOSE == "testing" ]]; then
 else
     make_source_package
 fi
-echo "You can delete this directories when you are done:"
+echo "You can delete this directory when you are done:"
 echo "  $TMP_DIR"

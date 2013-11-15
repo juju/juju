@@ -20,7 +20,7 @@ usage() {
 test $# -ge 1 ||  usage
 REVNO=$1
 JUJU_CORE_BRANCH=${2:-$DEFAULT_JUJU_CORE}
-TMP_DIR=$(mktemp -d)
+TMP_DIR=$(mktemp -d --tmpdir=$(pwd))
 mkdir $TMP_DIR/RELEASE
 WORK=$TMP_DIR/RELEASE
 
