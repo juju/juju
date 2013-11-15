@@ -117,7 +117,7 @@ if [[ $PURPOSE == "testing" ]]; then
 else
     SERIES_VERSION=""
 fi
-VERSION=$(basename -s .tar.gz $TARBALL | cut -d '_' -f2)
+VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
 UBUNTU_VERSION="${VERSION}-0ubuntu1${SERIES_VERSION}"
 
 DEBEMAIL=$3
