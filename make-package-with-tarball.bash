@@ -102,11 +102,15 @@ else
     usage
 fi
 
-TARBALL=$HERE/$2
+TARBALL=$2
+if [[ "$TARBALL" != /* ]]; then
+    TARBALL=$HERE/$2
+fi
 if [[ ! -f "$TARBALL" ]]; then
     echo "Tarball not found."
     usage
 fi
+
 if [[ $PURPOSE == "testing" ]]; then
     source /etc/lsb-release
     SERIES_VERSION="~ubuntu${DISTRIB_RELEASE}.1"
