@@ -19,7 +19,7 @@ usage() {
     echo "  PURPOSE: stable, devel, or testing,"
     echo "     which selects the packaging branch."
     echo "  tarball: The path to the juju-core tarball."
-    echo "  name-email: The 'name <email>' string used in the charngelog."
+    echo "  name-email: The 'name <email>' string used in the changelog."
     echo "  bug-number: Zero or more Lp bug numbers"
     exit 1
 }
