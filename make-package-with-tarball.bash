@@ -132,5 +132,5 @@ if [[ $PURPOSE == "testing" ]]; then
 else
     make_source_package
 fi
-echo "You can delete this directories when you are done:"
+echo "You can delete this directory when you are done:"
 echo "  $TMP_DIR"
