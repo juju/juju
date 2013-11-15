@@ -4,6 +4,9 @@
 package provisioner_test
 
 import (
+	"fmt"
+	"os/exec"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -12,12 +15,17 @@ import (
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type ContainerSetupSuite struct {
 	CommonProvisionerSuite
+	p *provisioner.Provisioner
+	// Record the apt commands issued as part of container initialisation
+	aptCmdChan <-chan *exec.Cmd
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
@@ -41,9 +49,21 @@ func noImportance(err0, err1 error) bool {
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.CommonProvisionerSuite.setupEnvironmentManager(c)
+	aptCmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	s.aptCmdChan = aptCmdChan
+	s.AddCleanup(func(*gc.C) { cleanup() })
+
+	// Set up provisioner for the state machine.
+	agentConfig := s.AgentConfigForTag(c, "machine-0")
+	s.p = provisioner.NewProvisioner(provisioner.ENVIRON, s.provisioner, agentConfig)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
+func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
+	stop(c, s.p)
+	s.CommonProvisionerSuite.TearDownTest(c)
+}
+
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string, ctype instance.ContainerType) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
@@ -52,8 +72,9 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
 	c.Assert(err, gc.IsNil)
 	cfg := s.AgentConfigForTag(c, tag)
 
-	handler := provisioner.NewContainerSetupHandler(runner, "lxc-watcher", instance.LXC, machine, pr, cfg)
-	runner.StartWorker("lxc-watcher", func() (worker.Worker, error) {
+	watcherName := fmt.Sprintf("%s-watcher", ctype)
+	handler := provisioner.NewContainerSetupHandler(runner, watcherName, ctype, machine, pr, cfg)
+	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
 	go func() {
@@ -61,38 +82,14 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
 	}()
 }
 
-func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
-	// Set up provisioner for the state machine.
-	agentConfig := s.AgentConfigForTag(c, "machine-0")
-	p := provisioner.NewProvisioner(provisioner.ENVIRON, s.provisioner, agentConfig)
-	defer stop(c, p)
+func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
+	inst := s.checkStartInstance(c, host)
+	s.setupContainerWorker(c, host.Tag(), ctype)
 
-	// create a machine to host the container.
+	// make a container on the host machine
 	params := state.AddMachineParams{
-		Series:      config.DefaultSeries,
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: s.defaultConstraints,
-	}
-	m, err := s.BackingState.AddMachineWithConstraints(&params)
-	c.Assert(err, gc.IsNil)
-	inst := s.checkStartInstance(c, m)
-
-	// A stub worker callback to record what happens.
-	provisionerStarted := false
-	startProvisionerWorker := func(runner worker.Runner, provisionerType provisioner.ProvisionerType,
-		pr *apiprovisioner.State, cfg agent.Config) error {
-		c.Assert(provisionerType, gc.Equals, provisioner.LXC)
-		c.Assert(cfg.Tag(), gc.Equals, m.Tag())
-		provisionerStarted = true
-		return nil
-	}
-	provisioner.StartProvisioner = startProvisionerWorker
-	s.setupContainerWorker(c, m.Tag())
-
-	// make a container on the machine we just created
-	params = state.AddMachineParams{
-		ParentId:      m.Id(),
-		ContainerType: instance.LXC,
+		ParentId:      host.Id(),
+		ContainerType: ctype,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -102,13 +99,86 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	// the host machine agent should not attempt to create the container
 	s.checkNoOperations(c)
 
-	// the container worker should have created the provisioner
-	c.Assert(provisionerStarted, jc.IsTrue)
-
 	// cleanup
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	c.Assert(container.Remove(), gc.IsNil)
-	c.Assert(m.EnsureDead(), gc.IsNil)
+	c.Assert(host.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitRemoved(c, host)
+}
+
+func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
+	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
+
+	// A stub worker callback to record what happens.
+	provisionerStarted := false
+	startProvisionerWorker := func(runner worker.Runner, provisionerType provisioner.ProvisionerType,
+		pr *apiprovisioner.State, cfg agent.Config) error {
+		c.Assert(provisionerType, gc.Equals, provisioner.ProvisonerTypes[ctype])
+		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
+		provisionerStarted = true
+		return nil
+	}
+	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
+
+	s.createContainer(c, host, ctype)
+	// Consume the apt command used to initialise the container.
+	<-s.aptCmdChan
+
+	// the container worker should have created the provisioner
+	c.Assert(provisionerStarted, jc.IsTrue)
+}
+
+func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
+	for _, ctype := range instance.ContainerTypes {
+		// create a machine to host the container.
+		params := state.AddMachineParams{
+			Series:      config.DefaultSeries,
+			Jobs:        []state.MachineJob{state.JobHostUnits},
+			Constraints: s.defaultConstraints,
+		}
+		m, err := s.BackingState.AddMachineWithConstraints(&params)
+		c.Assert(err, gc.IsNil)
+		s.assertContainerProvisionerStarted(c, m, ctype)
+	}
+}
+
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
+	// A noop worker callback.
+	startProvisionerWorker := func(runner worker.Runner, provisionerType provisioner.ProvisionerType,
+		pr *apiprovisioner.State, cfg agent.Config) error {
+		return nil
+	}
+	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
+
+	// create a machine to host the container.
+	params := state.AddMachineParams{
+		Series:      config.DefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	}
+	m, err := s.BackingState.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.IsNil)
+	s.createContainer(c, m, ctype)
+
+	cmd := <-s.aptCmdChan
+	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
+	expected := []string{
+		"apt-get", "--option=Dpkg::Options::=--force-confold",
+		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
+		"install"}
+	expected = append(expected, packages...)
+	c.Assert(cmd.Args, gc.DeepEquals, expected)
+}
+
+func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
+	for _, test := range []struct {
+		ctype    instance.ContainerType
+		packages []string
+	}{
+		{instance.LXC, []string{"lxc"}},
+		{instance.KVM, []string{"uvtool-libvirt", "uvtool", "kvm"}},
+	} {
+		s.assertContainerInitialised(c, test.ctype, test.packages)
+	}
 }

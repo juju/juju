@@ -375,9 +375,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
-		// The lxc package should only be there if the machine container type is not lxc.
-		hasLxc := test.cfg.MachineContainerType != "lxc"
-		checkPackage(c, x, "lxc", hasLxc)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
 			source := "ppa:juju/stable"

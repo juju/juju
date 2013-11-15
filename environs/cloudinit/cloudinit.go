@@ -136,11 +136,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
-	// Perfectly reasonable to install lxc on environment instances and kvm
-	// containers.
-	if cfg.MachineContainerType != instance.LXC {
-		c.AddPackage("lxc")
-	}
 
 	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
