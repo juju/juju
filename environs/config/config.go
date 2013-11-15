@@ -264,8 +264,10 @@ func Validate(cfg, old *Config) error {
 			cfg.m["tools-metadata-url"] = oldToolsURL
 		}
 		logger.Warningf(msg)
-		delete(cfg.m, "tools-url")
 	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// we still want it in the config for upgrades.
+	cfg.m["tools-url"], _ = cfg.ToolsURL()
 	return nil
 }
 

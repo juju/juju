@@ -77,7 +77,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"tools-metadata-url": "tools-metadata-url",
+			"tools-metadata-url": "tools-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL used",
@@ -85,7 +85,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":      "my-type",
 			"name":      "my-name",
-			"tools-url": "tools-metadata-url",
+			"tools-url": "tools-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL ignored",
@@ -93,7 +93,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
-			"tools-metadata-url": "tools-metadata-url",
+			"tools-metadata-url": "tools-metadata-url-value",
 			"tools-url":          "ignore-me",
 		},
 	}, {
@@ -764,20 +764,22 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
 	toolsURL, urlPresent := cfg.ToolsURL()
-	deprecatedToolsURLTestValue, deprecatedURLPresent := test.attrs["tools-url"]
-	toolsURLTestValue := test.attrs["tools-metadata-url"]
-	if toolsURLTestValue == nil {
-		toolsURLTestValue = deprecatedToolsURLTestValue
+	oldToolsURL, oldURLPresent := cfg.AllAttrs()["tools-url"]
+	oldToolsURLAttrValue, oldURLAttrPresent := test.attrs["tools-url"]
+	expectedToolsURLValue := test.attrs["tools-metadata-url"]
+	if expectedToolsURLValue == nil {
+		expectedToolsURLValue = oldToolsURLAttrValue
 	}
-	if toolsURLTestValue != nil && toolsURLTestValue != "" {
-		c.Assert(toolsURL, gc.Equals, toolsURLTestValue)
+	if expectedToolsURLValue != nil && expectedToolsURLValue != "" {
+		c.Assert(expectedToolsURLValue, gc.Equals, "tools-metadata-url-value")
+		c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
 		c.Assert(urlPresent, jc.IsTrue)
+		c.Assert(oldToolsURL, gc.Equals, expectedToolsURLValue)
+		c.Assert(oldURLPresent, jc.IsTrue)
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
-		c.Assert(deprecatedURLPresent, jc.IsFalse)
-	}
-	if v, ok := cfg.AllAttrs()["tools-url"]; ok {
-		c.Assert(v, gc.Equals, "")
+		c.Assert(oldURLAttrPresent, jc.IsFalse)
+		c.Assert(oldToolsURL, gc.Equals, "")
 	}
 }
 
