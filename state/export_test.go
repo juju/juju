@@ -205,3 +205,7 @@ func ParseTag(st *State, tag string) (string, string, error) {
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
 }
+
+func StateServerMachineIds(st *State) ([]string, error) {
+	return st.stateServerMachineIds()
+}

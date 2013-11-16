@@ -65,6 +65,7 @@ type State struct {
 	cleanups         *mgo.Collection
 	annotations      *mgo.Collection
 	statuses         *mgo.Collection
+	stateServers     *mgo.Collection
 	runner           *txn.Runner
 	transactionHooks chan ([]transactionHook)
 	watcher          *watcher.Watcher
@@ -1122,6 +1123,24 @@ func (st *State) setMongoPassword(name, password string) error {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
 	}
 	return nil
+}
+
+type stateServersDoc struct {
+	Id         string `bson:"_id"`
+	MachineIds []string
+}
+
+// StateServerMachineIds returns a slice of the ids
+// of all machines that are configured to run a state server.
+// TODO(rog) export this method when the stateServers
+// document is consistently maintained.
+func (st *State) stateServerMachineIds() ([]string, error) {
+	var doc stateServersDoc
+	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get state servers document: %v", err)
+	}
+	return doc.MachineIds, nil
 }
 
 // ResumeTransactions resumes all pending transactions.
