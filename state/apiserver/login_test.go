@@ -134,8 +134,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`<- \[\d+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
+		`-> \[\d+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
 		`<- \[\d+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`<- \[\d+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`-> \[\d+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
 }

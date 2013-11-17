@@ -20,6 +20,19 @@ type Entities struct {
 	Entities []Entity
 }
 
+// AddSupportedContainers holds the arguments for making a AddSupportedContainers
+// API call.
+type AddSupportedContainers struct {
+	Params []AddMachineSupportedContainers
+}
+
+// AddMachineSupportedContainers holds the arguments for making an AddSupportedContainers call
+// on a given machine.
+type AddMachineSupportedContainers struct {
+	MachineTag     string
+	ContainerTypes []instance.ContainerType
+}
+
 // WatchContainer identifies a single container type within a machine.
 type WatchContainer struct {
 	MachineTag    string

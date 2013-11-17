@@ -823,12 +823,11 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
 func (m *Machine) SupportsNoContainers() (err error) {
-	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: append(notDeadDoc, sameDoc...),
+			Assert: notDeadDoc,
 			Update: D{
 				{"$set", D{
 					{"supportedcontainers", []instance.ContainerType{}},
@@ -855,12 +854,11 @@ func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (e
 			return fmt.Errorf("%q is not a valid container type", container)
 		}
 	}
-	sameDoc := D{{"txn-revno", m.doc.TxnRevno}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: append(notDeadDoc, sameDoc...),
+			Assert: notDeadDoc,
 			Update: D{
 				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
 				{"$set", D{{"supportedcontainersknown", true}}},
