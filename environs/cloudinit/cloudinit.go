@@ -125,16 +125,19 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-func New(cfg *MachineConfig) (*cloudinit.Config, error) {
-	c := cloudinit.New()
-	return Configure(cfg, c)
-}
-
-func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, error) {
+// Configure updates the provided cloudinit.Config with
+// configuration to initialize a Juju machine agent.
+func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err := verifyConfig(cfg); err != nil {
-		return nil, err
+		return err
 	}
+
+	// General options.
+	c.SetAptUpgrade(true)
+	c.SetAptUpdate(true)
+	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
+
 	c.AddPackage("git")
 	// Perfectly reasonable to install lxc on environment instances and kvm
 	// containers.
@@ -161,7 +164,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
@@ -176,7 +179,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	)
 
 	if err := cfg.addLogging(c); err != nil {
-		return nil, err
+		return err
 	}
 
 	// We add the machine agent's configuration info
@@ -188,7 +191,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	machineTag := names.MachineTag(cfg.MachineId)
 	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Add the cloud archive cloud-tools pocket to apt sources
@@ -212,7 +215,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
 		if err := cfg.addMongoToBoot(c); err != nil {
-			return nil, err
+			return err
 		}
 		// We temporarily give bootstrap-state a directory
 		// of its own so that it can get the state info via the
@@ -223,7 +226,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		// We leave it for the time being for backward compatibility.
 		acfg, err := cfg.addAgentInfo(c, "bootstrap")
 		if err != nil {
-			return nil, err
+			return err
 		}
 		cons := cfg.Constraints.String()
 		if cons != "" {
@@ -241,15 +244,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		)
 	}
 
-	if err := cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId); err != nil {
-		return nil, err
-	}
-
-	// general options
-	c.SetAptUpgrade(true)
-	c.SetAptUpdate(true)
-	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
-	return c, nil
+	return cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId)
 }
 
 func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {

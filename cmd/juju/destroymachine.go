@@ -38,6 +38,7 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
 
