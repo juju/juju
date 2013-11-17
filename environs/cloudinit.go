@@ -124,13 +124,14 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 
 // ComposeUserData puts together a binary (gzipped) blob of user data.
 // The additionalScripts are additional command lines that you need cloudinit
-// to run on the instance.  Use with care.
+// to run on the instance; they are executed before all other cloud-init
+// runcmds.  Use with care.
 func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
 	cloudcfg := coreCloudinit.New()
 	for _, script := range additionalScripts {
 		cloudcfg.AddRunCmd(script)
 	}
-	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
+	err := cloudinit.Configure(cfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}

@@ -85,6 +85,26 @@ func (src List) Newest() (version.Number, List) {
 	return best, result
 }
 
+// NewestCompatible returns the most recent version compatible with
+// base, i.e. with the same major and minor numbers and greater or
+// equal patch and build numbers.
+func (src List) NewestCompatible(base version.Number) (newest version.Number, found bool) {
+	newest = base
+	found = false
+	for _, tool := range src {
+		toolVersion := tool.Version.Number
+		if newest == toolVersion {
+			found = true
+		} else if newest.Less(toolVersion) &&
+			toolVersion.Major == newest.Major &&
+			toolVersion.Minor == newest.Minor {
+			newest = toolVersion
+			found = true
+		}
+	}
+	return newest, found
+}
+
 // Difference returns the tools in src that are not in excluded.
 func (src List) Exclude(excluded List) List {
 	ignore := make(map[version.Binary]bool, len(excluded))

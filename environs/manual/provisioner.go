@@ -11,6 +11,9 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -80,16 +83,13 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Gather the information needed by the machine agent to run the provisioning script.
-	provisioningArgs, err := createProvisioningArgs(client, machineId, series, arch)
+	mcfg, err := createMachineConfig(client, machineId, series, arch, nonce, args.DataDir)
 	if err != nil {
 		return machineId, err
 	}
-	provisioningArgs.host = args.Host
-	provisioningArgs.dataDir = args.DataDir
-	provisioningArgs.nonce = nonce
 
 	// Finally, provision the machine agent.
-	err = provisionMachineAgent(*provisioningArgs)
+	err = ProvisionMachineAgent(args.Host, mcfg)
 	if err != nil {
 		return machineId, err
 	}
@@ -170,12 +170,11 @@ func recordMachineInState(
 	return machineInfo.Machine, series, *hc.Arch, nil
 }
 
-func createProvisioningArgs(client *api.Client, machineId, series, arch string) (*provisionMachineAgentArgs, error) {
+func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
 	configParameters, err := client.MachineConfig(machineId, series, arch)
 	if err != nil {
 		return nil, err
 	}
-
 	stateInfo := &state.Info{
 		Addrs:    configParameters.StateAddrs,
 		Password: configParameters.Password,
@@ -192,13 +191,14 @@ func createProvisioningArgs(client *api.Client, machineId, series, arch string) 
 	if err != nil {
 		return nil, err
 	}
-
-	return &provisionMachineAgentArgs{
-		environConfig: environConfig,
-		machineId:     machineId,
-		bootstrap:     false,
-		stateInfo:     stateInfo,
-		apiInfo:       apiInfo,
-		tools:         configParameters.Tools,
-	}, nil
+	mcfg := environs.NewMachineConfig(machineId, nonce, stateInfo, apiInfo)
+	if dataDir != "" {
+		mcfg.DataDir = dataDir
+	}
+	mcfg.Tools = configParameters.Tools
+	err = environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
+	if err != nil {
+		return nil, err
+	}
+	return mcfg, nil
 }
