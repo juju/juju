@@ -39,7 +39,7 @@ Connect to machine 0:
 
     juju ssh 0
 
-Connect to the second mysql unit:
+Connect to the first mysql unit:
 
     juju ssh mysql/0
 `
