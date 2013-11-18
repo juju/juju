@@ -121,13 +121,8 @@ func findTools(sources []simplestreams.DataSource, cloudSpec simplestreams.Cloud
 	}
 	list = make(coretools.List, len(toolsMetadata))
 	for i, metadata := range toolsMetadata {
-		binary := version.Binary{
-			Number: version.MustParse(metadata.Version),
-			Arch:   metadata.Arch,
-			Series: metadata.Release,
-		}
 		list[i] = &coretools.Tools{
-			Version: binary,
+			Version: metadata.binary(),
 			URL:     metadata.FullPath,
 			Size:    metadata.Size,
 			SHA256:  metadata.SHA256,

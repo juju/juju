@@ -22,7 +22,7 @@ An attempt was made to build and upload appropriate tools but this was unsuccess
 
 const noToolsNoUploadMessage = `Juju cannot bootstrap because no tools are available for your environment.
 In addition, no tools could be located to upload.
-You may want to use the 'tools-url' configuration setting to specify the tools location.
+You may want to use the 'tools-metadata-url' configuration setting to specify the tools location.
 `
 
 // syncOrUpload first attempts to synchronize tools from

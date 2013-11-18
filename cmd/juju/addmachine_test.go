@@ -74,22 +74,23 @@ func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId str
 }
 
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
-	for i, ctype := range instance.SupportedContainerTypes {
+	for i, ctype := range instance.ContainerTypes {
 		err := runAddMachine(c, fmt.Sprintf("%s", ctype))
 		c.Assert(err, gc.IsNil)
-		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/0", ctype), ctype)
+		s._assertAddContainer(c, strconv.Itoa(i), fmt.Sprintf("%d/%s/0", i, ctype), ctype)
 	}
 }
 
 func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	err := runAddMachine(c)
 	c.Assert(err, gc.IsNil)
-	err = runAddMachine(c)
-	c.Assert(err, gc.IsNil)
-	for i, container := range instance.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("%s:1", container))
+	for i, container := range instance.ContainerTypes {
+		machineNum := strconv.Itoa(i + 1)
+		err = runAddMachine(c)
 		c.Assert(err, gc.IsNil)
-		s._assertAddContainer(c, "1", fmt.Sprintf("1/%s/%d", container, i), container)
+		err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
+		c.Assert(err, gc.IsNil)
+		s._assertAddContainer(c, machineNum, fmt.Sprintf("%s/%s/0", machineNum, container), container)
 	}
 }
 

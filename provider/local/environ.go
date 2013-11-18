@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -59,7 +60,7 @@ type localEnviron struct {
 	name                  string
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
-	containerManager      lxc.ContainerManager
+	containerManager      container.Manager
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -182,7 +183,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.name = ecfg.Name()
 
 	env.containerManager = lxc.NewContainerManager(
-		lxc.ManagerConfig{
+		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
 		})
@@ -268,17 +269,16 @@ func (env *localEnviron) setupLocalStorage() error {
 func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	machineId := machineConfig.MachineId
 	series := possibleTools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	agenttools := possibleTools[0]
-	logger.Debugf("tools: %#v", agenttools)
-
-	network := lxc.BridgeNetworkConfig(env.config.networkBridge())
-	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineConfig.MachineNonce, network,
-		agenttools, env.config.Config,
-		machineConfig.StateInfo, machineConfig.APIInfo)
+	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
+	machineConfig.Tools = possibleTools[0]
+	machineConfig.MachineContainerType = instance.LXC
+	logger.Debugf("tools: %#v", machineConfig.Tools)
+	network := container.BridgeNetworkConfig(env.config.networkBridge())
+	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
+		return nil, nil, err
+	}
+	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -333,9 +333,9 @@ func (env *localEnviron) Storage() storage.Storage {
 	return httpstorage.Client(env.config.storageAddr())
 }
 
-// PublicStorage is specified in the Environ interface.
-func (env *localEnviron) PublicStorage() storage.StorageReader {
-	return httpstorage.Client(env.config.sharedStorageAddr())
+// Implements environs.BootstrapStorager.
+func (env *localEnviron) EnableBootstrapStorage() error {
+	return env.setupLocalStorage()
 }
 
 // Destroy is specified in the Environ interface.
@@ -496,7 +496,7 @@ func (env *localEnviron) findBridgeAddress(networkBridge string) (string, error)
 
 func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
 	tag := names.MachineTag("0")
-	passwordHash := utils.PasswordHash(secret)
+	passwordHash := utils.UserPasswordHash(secret, utils.CompatSalt)
 	// We don't check the existance of the CACert here as if it wasn't set, we
 	// wouldn't get this far.
 	cfg := env.config.Config
@@ -547,7 +547,7 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 	if err != nil {
 		return err
 	}
-	st, _, err := agentConfig.InitializeState(bootstrapCfg, agent.BootstrapMachineConfig{
+	st, m, err := agentConfig.InitializeState(bootstrapCfg, agent.BootstrapMachineConfig{
 		Constraints: cons,
 		Jobs: []state.MachineJob{
 			state.JobManageEnviron,
@@ -560,6 +560,22 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 	if err != nil {
 		return err
 	}
-	st.Close()
+	defer st.Close()
+	addr, err := env.findBridgeAddress(env.config.networkBridge())
+	if err != nil {
+		return fmt.Errorf("failed to get bridge address: %v", err)
+	}
+	err = m.SetAddresses([]instance.Address{{
+		NetworkScope: instance.NetworkPublic,
+		Type:         instance.HostName,
+		Value:        "localhost",
+	}, {
+		NetworkScope: instance.NetworkCloudLocal,
+		Type:         instance.Ipv4Address,
+		Value:        addr,
+	}})
+	if err != nil {
+		return fmt.Errorf("cannot set addresses on bootstrap instance: %v", err)
+	}
 	return nil
 }

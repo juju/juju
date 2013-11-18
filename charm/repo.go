@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 // CacheDir stores the charm cache directory path.
@@ -257,7 +258,7 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 			os.Remove(dlPath)
 			return nil, err
 		}
-		if err := os.Rename(dlPath, path); err != nil {
+		if err := utils.ReplaceFile(dlPath, path); err != nil {
 			return nil, err
 		}
 	}

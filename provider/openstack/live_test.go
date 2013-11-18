@@ -84,7 +84,7 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Update some Config items now that we have services running.
-	// This is setting the public-bucket-url and auth-url because that
+	// This is setting the simplestreams urls and auth-url because that
 	// information is set during startup of the localLiveSuite
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
@@ -92,7 +92,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
-		"tools-url":          containerURL + "/juju-dist-test/tools",
+		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           t.cred.URL,
 	})

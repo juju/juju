@@ -52,7 +52,6 @@ type BootstrapCommand struct {
 	Constraints constraints.Value
 	UploadTools bool
 	Series      []string
-	Source      string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -68,7 +67,6 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
-	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {

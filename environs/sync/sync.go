@@ -27,8 +27,8 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.sync")
 
-// DefaultToolsLocation leads to the default juju distribution on S3.
-var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
+// DefaultToolsLocation leads to the default juju tools location.
+var DefaultToolsLocation = "https://streams.canonical.com/juju"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
@@ -50,6 +50,9 @@ type SyncContext struct {
 
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
+
+	// Tools are being synced for a public cloud so include mirrors information.
+	Public bool
 
 	// Source, if non-empty, specifies a directory in the local file system
 	// to use as a source.
@@ -121,7 +124,11 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.WriteMetadata(targetTools, true, targetStorage)
+		writeMirrors := envtools.DoNotWriteMirrors
+		if syncContext.Public {
+			writeMirrors = envtools.WriteMirrors
+		}
+		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools, writeMirrors)
 		if err != nil {
 			return err
 		}

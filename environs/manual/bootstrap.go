@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/localstorage"
 )
@@ -122,15 +122,17 @@ func Bootstrap(args BootstrapArgs) (err error) {
 
 	// Finally, provision the machine agent.
 	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, bootstrap.StateFile)
-	err = provisionMachineAgent(provisionMachineAgentArgs{
-		host:          args.Host,
-		dataDir:       args.DataDir,
-		environConfig: args.Environ.Config(),
-		stateFileURL:  stateFileURL,
-		bootstrap:     true,
-		nonce:         state.BootstrapNonce,
-		tools:         &tools,
-		agentEnv:      agentEnv,
-	})
-	return err
+	mcfg := environs.NewBootstrapMachineConfig(stateFileURL)
+	if args.DataDir != "" {
+		mcfg.DataDir = args.DataDir
+	}
+	mcfg.Tools = &tools
+	err = environs.FinishMachineConfig(mcfg, args.Environ.Config(), constraints.Value{})
+	if err != nil {
+		return err
+	}
+	for k, v := range agentEnv {
+		mcfg.AgentEnvironment[k] = v
+	}
+	return ProvisionMachineAgent(args.Host, mcfg)
 }

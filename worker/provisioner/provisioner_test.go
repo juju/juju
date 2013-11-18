@@ -80,11 +80,13 @@ func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
 	if s.st != nil {
 		c.Assert(s.st.Close(), gc.IsNil)
 	}
-	err := machine.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-fake", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag(), "password", "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = s.st.Provisioner()
@@ -294,9 +296,13 @@ func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 
 	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
+	err = machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	s.APILogin(c, machine)
 }
 

@@ -19,7 +19,7 @@ import (
 // to handle the case where it's called multiple times. On
 // subsequent executions, it should find the next 'ssh' in $PATH
 // and exec that.
-var sshscript = `#!/bin/bash
+var sshscript = `#!/bin/bash --norc
 if [ ! -e "$0.run" ]; then
     touch "$0.run"
     diff "$0.expected-input" -

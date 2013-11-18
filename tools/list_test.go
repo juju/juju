@@ -48,8 +48,13 @@ var (
 	t200all       = tools.List{
 		t200precise, t200quantal32,
 	}
-	t2001precise = mustParseTools("2.0.0.1-precise-amd64")
-	tAll         = extend(t100all, t190all, append(t200all, t2001precise))
+	t2001precise  = mustParseTools("2.0.0.1-precise-amd64")
+	tAllBefore210 = extend(t100all, t190all, append(t200all, t2001precise))
+	t210precise   = mustParseTools("2.1.0-precise-amd64")
+	t211precise   = mustParseTools("2.1.1-precise-amd64")
+	t215precise   = mustParseTools("2.1.5-precise-amd64")
+	t2152precise  = mustParseTools("2.1.5.2-precise-amd64")
+	t210all       = tools.List{t210precise, t211precise, t215precise, t2152precise}
 )
 
 type stringsTest struct {
@@ -64,7 +69,7 @@ var seriesTests = []stringsTest{{
 	src:    tools.List{t100precise, t100precise32, t200precise},
 	expect: []string{"precise"},
 }, {
-	src:    tAll,
+	src:    tAllBefore210,
 	expect: []string{"precise", "quantal"},
 }}
 
@@ -85,7 +90,7 @@ var archesTests = []stringsTest{{
 	src:    tools.List{t100precise, t100quantal, t200precise},
 	expect: []string{"amd64"},
 }, {
-	src:    tAll,
+	src:    tAllBefore210,
 	expect: []string{"amd64", "i386"},
 }}
 
@@ -129,7 +134,7 @@ var newestTests = []struct {
 	expect: t200all,
 	number: version.MustParse("2.0.0"),
 }, {
-	src:    tAll,
+	src:    tAllBefore210,
 	expect: tools.List{t2001precise},
 	number: version.MustParse("2.0.0.1"),
 }}
@@ -140,6 +145,52 @@ func (s *ListSuite) TestNewest(c *gc.C) {
 		number, actual := test.src.Newest()
 		c.Check(number, gc.DeepEquals, test.number)
 		c.Check(actual, gc.DeepEquals, test.expect)
+	}
+}
+
+var newestCompatibleTests = []struct {
+	src    tools.List
+	base   version.Number
+	expect version.Number
+	found  bool
+}{{
+	src:    nil,
+	base:   version.Zero,
+	expect: version.Zero,
+	found:  false,
+}, {
+	src:    tools.List{t100precise},
+	base:   version.Zero,
+	expect: version.Zero,
+	found:  false,
+}, {
+	src:    t100all,
+	base:   version.MustParse("1.0.0"),
+	expect: version.MustParse("1.0.0"),
+	found:  true,
+}, {
+	src:    tAllBefore210,
+	base:   version.MustParse("2.0.0"),
+	expect: version.MustParse("2.0.0.1"),
+	found:  true,
+}, {
+	src:    tAllBefore210,
+	base:   version.MustParse("1.9.0"),
+	expect: version.MustParse("1.9.0"),
+	found:  true,
+}, {
+	src:    t210all,
+	base:   version.MustParse("2.1.1"),
+	expect: version.MustParse("2.1.5.2"),
+	found:  true,
+}}
+
+func (s *ListSuite) TestNewestCompatible(c *gc.C) {
+	for i, test := range newestCompatibleTests {
+		c.Logf("test %d", i)
+		actual, found := test.src.NewestCompatible(test.base)
+		c.Check(actual, gc.DeepEquals, test.expect)
+		c.Check(found, gc.Equals, test.found)
 	}
 }
 
@@ -154,11 +205,11 @@ var excludeTests = []struct {
 }, {
 	tools.List{t100precise}, tools.List{t100precise}, nil,
 }, {
-	nil, tAll, nil,
+	nil, tAllBefore210, nil,
 }, {
-	tAll, nil, tAll,
+	tAllBefore210, nil, tAllBefore210,
 }, {
-	tAll, tAll, nil,
+	tAllBefore210, tAllBefore210, nil,
 }, {
 	t100all,
 	tools.List{t100precise},
@@ -193,11 +244,11 @@ var matchTests = []struct {
 	tools.Filter{},
 	tools.List{t100precise},
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{},
-	tAll,
+	tAllBefore210,
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Released: true},
 	extend(t100all, t200all),
 }, {
@@ -205,31 +256,31 @@ var matchTests = []struct {
 	tools.Filter{Released: true},
 	nil,
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Number: version.MustParse("1.9.0")},
 	t190all,
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Number: version.MustParse("1.9.0.1")},
 	nil,
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Series: "quantal"},
 	tools.List{t100quantal, t100quantal32, t190quantal, t200quantal32},
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Series: "raring"},
 	nil,
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Arch: "i386"},
 	tools.List{t100precise32, t100quantal32, t190precise32, t200quantal32},
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{Arch: "arm"},
 	nil,
 }, {
-	tAll,
+	tAllBefore210,
 	tools.Filter{
 		Released: true,
 		Number:   version.MustParse("2.0.0"),

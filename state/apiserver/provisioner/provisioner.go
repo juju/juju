@@ -23,7 +23,8 @@ type ProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
-	*common.Addresser
+	*common.StateAddresser
+	*common.APIAddresser
 	*common.ToolsGetter
 
 	st          *state.State
@@ -72,7 +73,8 @@ func NewProvisionerAPI(
 		DeadEnsurer:     common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		Addresser:       common.NewAddresser(st),
+		StateAddresser:  common.NewStateAddresser(st),
+		APIAddresser:    common.NewAPIAddresser(st),
 		ToolsGetter:     common.NewToolsGetter(st, getAuthFunc),
 		st:              st,
 		resources:       resources,
@@ -179,6 +181,45 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 		}
 	}
 	result.Config = allAttrs
+	return result, nil
+}
+
+// AddSupportedContainers updates the list of containers supported by the machines passed in args.
+func (p *ProvisionerAPI) AddSupportedContainers(
+	args params.AddSupportedContainers) (params.ErrorResults, error) {
+
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Params)),
+	}
+	for i, arg := range args.Params {
+		canAccess, err := p.getAuthFunc()
+		if err != nil {
+			return result, err
+		}
+		machine, err := p.getMachine(canAccess, arg.MachineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = machine.AddSupportedContainers(arg.ContainerTypes)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
+func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+	result := params.ContainerConfig{}
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.ProviderType = config.Type()
+	result.AuthorizedKeys = config.AuthorizedKeys()
+	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	return result, nil
 }
 

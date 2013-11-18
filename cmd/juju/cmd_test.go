@@ -88,7 +88,6 @@ func assertConnName(c *gc.C, com cmd.Command, name string) {
 // flags, and that extra arguments will cause parsing to fail.
 var EnvironmentInitTests = []func() (cmd.Command, []string){
 	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
-	func() (cmd.Command, []string) { return new(DestroyEnvironmentCommand), nil },
 	func() (cmd.Command, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
@@ -170,8 +169,12 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	_, err = store.ReadInfo("peckham")
 	c.Assert(err, gc.IsNil)
 
+	// check environment is mandatory
+	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand))
+	c.Check(<-errc, gc.Equals, NoEnvironmentError)
+
 	// normal destroy
-	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "--yes")
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "peckham", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
 
@@ -183,7 +186,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// destroy with broken environment
-	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "brokenenv", "--yes")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-opc, gc.IsNil)
@@ -191,15 +194,15 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 
 func (*CmdSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
 	com := new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, nil), gc.IsNil)
+	c.Check(coretesting.InitCommand(com, []string{"peckham"}), gc.IsNil)
 	c.Check(com.assumeYes, gc.Equals, false)
 
 	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"-y"}), gc.IsNil)
+	c.Check(coretesting.InitCommand(com, []string{"peckham", "-y"}), gc.IsNil)
 	c.Check(com.assumeYes, gc.Equals, true)
 
 	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"--yes"}), gc.IsNil)
+	c.Check(coretesting.InitCommand(com, []string{"peckham", "--yes"}), gc.IsNil)
 	c.Check(com.assumeYes, gc.Equals, true)
 }
 
@@ -219,16 +222,16 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand))
+	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand), "peckham")
 	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
 	c.Check(<-opc, gc.IsNil)
-	c.Check(stdout.String(), gc.Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
+	c.Check(stdout.String(), gc.Matches, "WARNING!.*peckham.*\\(type: dummy\\)(.|\n)*")
 	assertEnvironNotDestroyed(c, env, store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
+	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "peckham")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
 	assertEnvironNotDestroyed(c, env, store)
@@ -236,7 +239,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	// "--yes" passed: no confirmation request.
 	stdin.Reset()
 	stdout.Reset()
-	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "--yes")
+	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "peckham", "--yes")
 	c.Check(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
 	c.Check(stdout.String(), gc.Equals, "")
@@ -251,10 +254,10 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
+		opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "peckham")
 		c.Check(<-errc, gc.IsNil)
 		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
-		c.Check(stdout.String(), gc.Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
+		c.Check(stdout.String(), gc.Matches, "WARNING!.*peckham.*\\(type: dummy\\)(.|\n)*")
 		assertEnvironDestroyed(c, env, store)
 	}
 }

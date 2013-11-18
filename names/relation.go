@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const RelationSnippet = "[a-z][a-z0-9]*(-[a-z0-9]+)*"
+const RelationSnippet = "[a-z][a-z0-9]*([_-][a-z0-9]+)*"
 
 // Relation keys have the format "service1:relName1 service2:relName2".
 // Except the peer relations, which have the format "service:relName"

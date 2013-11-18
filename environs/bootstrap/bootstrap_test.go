@@ -270,7 +270,3 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
 }
-
-func (e *bootstrapEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
-}

@@ -170,12 +170,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
-	constraintsParams := convertConstraints(cons)
+	acquireParams := convertConstraints(cons)
+	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
-		result, err = client.CallPost("acquire", constraintsParams)
+		result, err = client.CallPost("acquire", acquireParams)
 		if err == nil {
 			break
 		}
@@ -322,6 +323,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
+	filter.Add("agent_name", environ.ecfg().maasAgentName())
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
 		return nil, err
@@ -362,10 +364,21 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	if len(ids) != len(instances) {
-		return instances, environs.ErrPartialInstances
+
+	idMap := make(map[instance.Id]instance.Instance)
+	for _, instance := range instances {
+		idMap[instance.Id()] = instance
 	}
-	return instances, nil
+
+	result := make([]instance.Instance, len(ids))
+	for index, id := range ids {
+		result[index] = idMap[id]
+	}
+
+	if len(instances) < len(ids) {
+		return result, environs.ErrPartialInstances
+	}
+	return result, nil
 }
 
 // AllInstances returns all the instance.Instance in this provider.
@@ -378,12 +391,6 @@ func (env *maasEnviron) Storage() storage.Storage {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.storageUnlocked
-}
-
-// PublicStorage is defined by the Environ interface.
-func (env *maasEnviron) PublicStorage() storage.StorageReader {
-	// MAAS does not have a shared storage.
-	return environs.EmptyStorage
 }
 
 func (environ *maasEnviron) Destroy() error {
@@ -413,11 +420,13 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *maasEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }

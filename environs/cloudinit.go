@@ -51,6 +51,23 @@ func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 	return mcfg
 }
 
+func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
+	providerType, authorizedKeys string,
+	sslHostnameVerification bool) error {
+
+	if authorizedKeys == "" {
+		return fmt.Errorf("environment configuration has no authorized-keys")
+	}
+	mcfg.AuthorizedKeys = authorizedKeys
+	if mcfg.AgentEnvironment == nil {
+		mcfg.AgentEnvironment = make(map[string]string)
+	}
+	mcfg.AgentEnvironment[agent.ProviderType] = providerType
+	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
+	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
+	return nil
+}
+
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by
 // inspecting a plain config.Config and the machine constraints at the last
 // moment before bootstrapping. It assumes that the supplied Config comes from
@@ -64,18 +81,9 @@ func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	// Everything needs the environment's authorized keys.
-	authKeys := cfg.AuthorizedKeys()
-	if authKeys == "" {
-		return fmt.Errorf("environment configuration has no authorized-keys")
+	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification()); err != nil {
+		return err
 	}
-	mcfg.AuthorizedKeys = authKeys
-	if mcfg.AgentEnvironment == nil {
-		mcfg.AgentEnvironment = make(map[string]string)
-	}
-	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
-	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
-	mcfg.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
 
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
@@ -94,7 +102,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if password == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	passwordHash := utils.PasswordHash(password)
+	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StatePort = cfg.StatePort()
@@ -116,13 +124,14 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 
 // ComposeUserData puts together a binary (gzipped) blob of user data.
 // The additionalScripts are additional command lines that you need cloudinit
-// to run on the instance.  Use with care.
+// to run on the instance; they are executed before all other cloud-init
+// runcmds.  Use with care.
 func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
 	cloudcfg := coreCloudinit.New()
 	for _, script := range additionalScripts {
 		cloudcfg.AddRunCmd(script)
 	}
-	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
+	err := cloudinit.Configure(cfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}

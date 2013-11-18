@@ -6,8 +6,8 @@ package state_test
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"labix.org/v2/mgo/bson"
@@ -24,10 +24,14 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
 type D []bson.DocElem
+
+var goodPassword = "foo-12345678901234567890"
+var alternatePassword = "bar-12345678901234567890"
 
 // preventUnitDestroyRemove sets a non-pending status on the unit, and hence
 // prevents it from being unceremoniously removed from state on Destroy. This
@@ -54,34 +58,60 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestStateInfo(c *gc.C) {
-	info := state.TestingStateInfo()
-	stateAddr, err := s.State.Addresses()
+func (s *StateSuite) TestAddresses(c *gc.C) {
+	var err error
+	machines := make([]*state.Machine, 3)
+	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateAddr, gc.DeepEquals, info.Addrs)
-	c.Assert(s.State.CACert(), gc.DeepEquals, info.CACert)
+	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	for i, m := range machines {
+		err := m.SetAddresses([]instance.Address{{
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        fmt.Sprintf("10.0.0.%d", i),
+		}, {
+			Type:         instance.Ipv6Address,
+			NetworkScope: instance.NetworkCloudLocal,
+			Value:        "::1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkMachineLocal,
+			Value:        "127.0.0.1",
+		}, {
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+			Value:        "5.4.3.2",
+		}})
+		c.Assert(err, gc.IsNil)
+	}
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
+	})
+
+	addrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, jc.SameContents, []string{
+		fmt.Sprintf("10.0.0.1:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
+	})
 }
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
 	testing.MgoRestart()
 	c.Assert(s.State.Ping(), gc.NotNil)
-}
-
-func (s *StateSuite) TestAPIAddresses(c *gc.C) {
-	config, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	apiPort := strconv.Itoa(config.APIPort())
-	info := state.TestingStateInfo()
-	expectedAddrs := make([]string, 0, len(info.Addrs))
-	for _, stateAddr := range info.Addrs {
-		domain := strings.Split(stateAddr, ":")[0]
-		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
-		expectedAddrs = append(expectedAddrs, expectedAddr)
-	}
-	apiAddrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiAddrs, gc.DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *gc.C) {
@@ -1333,31 +1363,74 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 	e, err := getEntity()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(e.PasswordValid("foo"), gc.Equals, false)
-	err = e.SetPassword("foo")
+	c.Assert(e.PasswordValid(goodPassword), gc.Equals, false)
+	err = e.SetPassword(goodPassword)
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(e.PasswordValid(goodPassword), gc.Equals, true)
 
 	// Check a newly-fetched entity has the same password.
 	e2, err := getEntity()
 	c.Assert(err, gc.IsNil)
-	c.Assert(e2.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(e2.PasswordValid(goodPassword), gc.Equals, true)
 
-	err = e.SetPassword("bar")
+	err = e.SetPassword(alternatePassword)
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.PasswordValid("foo"), gc.Equals, false)
-	c.Assert(e.PasswordValid("bar"), gc.Equals, true)
+	c.Assert(e.PasswordValid(goodPassword), gc.Equals, false)
+	c.Assert(e.PasswordValid(alternatePassword), gc.Equals, true)
 
 	// Check that refreshing fetches the new password
 	err = e2.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(e2.PasswordValid("bar"), gc.Equals, true)
+	c.Assert(e2.PasswordValid(alternatePassword), gc.Equals, true)
 
 	if le, ok := e.(lifer); ok {
 		testWhenDying(c, le, noErr, deadErr, func() error {
-			return e.SetPassword("arble")
+			return e.SetPassword("arble-farble-dying-yarble")
 		})
 	}
+}
+
+func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
+	// In Juju versions 1.16 and older we used UserPasswordHash(password,CompatSalt)
+	// for Machine and Unit agents. This was determined to be overkill
+	// (since we know that Unit agents will actually use
+	// utils.RandomPassword() and get 18 bytes of entropy, and thus won't
+	// be brute-forced.)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsFalse)
+	agentHash := utils.AgentPasswordHash(goodPassword)
+	err := state.SetPasswordHash(entity, agentHash)
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
+	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
+
+	backwardsCompatibleHash := utils.UserPasswordHash(goodPassword, utils.CompatSalt)
+	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), agentHash)
+	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, backwardsCompatibleHash)
+	// After succeeding to log in with the old compatible hash, the db
+	// should be updated with the new hash
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
+	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
+
+	// Agents are unable to set short passwords
+	err = entity.SetPassword("short")
+	c.Check(err, gc.ErrorMatches, "password is only 5 bytes long, and is not a valid Agent password")
+	// Grandfather clause. Agents that have short passwords are allowed if
+	// it was done in the compatHash form
+	agentHash = utils.AgentPasswordHash("short")
+	backwardsCompatibleHash = utils.UserPasswordHash("short", utils.CompatSalt)
+	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
+	// We'll still update the hash, but now it points to the hash of the
+	// shorter password. Agents still can't set the password to it
+	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
+	// Still valid with the shorter password
+	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
 }
 
 type entity interface {
@@ -1606,39 +1679,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *StateSuite) TestCleanup(c *gc.C) {
-	needed, err := s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, false)
-
-	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, gc.IsNil)
-	relM, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, false)
-
-	err = relM.Destroy()
-	c.Assert(err, gc.IsNil)
-
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, true)
-
-	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
-
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(needed, gc.Equals, false)
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -2037,4 +2077,49 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher %T did not exit when state closed", watcher)
 	}
+}
+
+func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
+	ids, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.HasLen, 0)
+
+	// TODO(rog) more testing here when we can actually add
+	// state servers.
+}
+
+func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err = s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that we have in fact deleted the right info.
+	ids, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.NotNil)
+	c.Assert(ids, gc.HasLen, 0)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	expectIds := []string{m1.Id(), m2.Id()}
+	sort.Strings(expectIds)
+	ids, err = state.StateServerMachineIds(st)
+	c.Assert(err, gc.IsNil)
+	sort.Strings(ids)
+	c.Assert(ids, gc.DeepEquals, expectIds)
+
+	// Check that it works with the original connection too.
+	ids, err = state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, expectIds)
 }
