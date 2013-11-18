@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 )
 
 var (
@@ -60,11 +61,41 @@ func (manager *containerManager) StartContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig) (instance.Instance, error) {
-	return nil, fmt.Errorf("not yet implemented")
+
+	name := names.MachineTag(machineConfig.MachineId)
+	if manager.name != "" {
+		name = fmt.Sprintf("%s-%s", manager.name, name)
+	}
+	// Note here that the kvmObjectFacotry only returns a valid container
+	// object, and doesn't actually construct the underlying kvm container on
+	// disk.
+	kvmContainer := KvmObjectFactory.New(name)
+
+	// Create the cloud-init.
+	directory, err := container.NewDirectory(name)
+	if err != nil {
+		return nil, err
+	}
+	logger.Tracef("write cloud-init")
+	userDataFilename, err := container.WriteUserData(machineConfig, directory)
+	if err != nil {
+		logger.Errorf("failed to write user data: %v", err)
+		return nil, err
+	}
+	// Create the container.
+	logger.Tracef("create the container")
+	if err := kvmContainer.Create(name, series, arch, userDataFilename, network); err != nil {
+		logger.Errorf("kvm container creation failed: %v", err)
+		return nil, err
+	}
+	logger.Tracef("kvm container created")
+	return &kvmInstance{kvmContainer, name}, nil
 }
 
 func (manager *containerManager) StopContainer(instance.Instance) error {
-	return fmt.Errorf("not yet implemented")
+	name := string(instance.Id())
+	kvmContainer := KvmObjectFactory.New(name)
+	return kvmContainer.Stop()
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
