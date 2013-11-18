@@ -85,7 +85,7 @@ func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_ENV is overriding the environment \(set to "using-env"\)`)
 }
 
-const expectedEnvironments = `erewhemos (*)
+const expectedEnvironments = `erewhemos
 erewhemos-2
 `
 

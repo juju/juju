@@ -19,7 +19,6 @@ type SwitchCommand struct {
 	cmd.CommandBase
 	EnvName string
 	List    bool
-	Raw     bool
 }
 
 var switchDoc = `
@@ -98,11 +97,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 			return errors.New("cannot switch and list at the same time")
 		}
 		for _, name := range names {
-			if name == currentEnv {
-				fmt.Fprintf(ctx.Stdout, "%s (*)\n", name)
-			} else {
-				fmt.Fprintf(ctx.Stdout, "%s\n", name)
-			}
+			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
 	case c.EnvName == "" && currentEnv == "":
 		// Nothing specified and nothing to switch to.
