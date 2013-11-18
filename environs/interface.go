@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -59,9 +58,6 @@ type EnvironProvider interface {
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() storage.StorageReader
 }
 
 // BootstrapStorager is an interface through which an Environ may be
@@ -136,7 +132,11 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value, possibleTools tools.List) error
+	//
+	// Bootstrap is responsible for selecting the appropriate tools,
+	// and setting the agent-version configuration attribute prior to
+	// bootstrapping the environment.
+	Bootstrap(cons constraints.Value) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -152,7 +152,7 @@ type Environ interface {
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage and PublicStorage.
+	// values previously obtained from Storage.
 	SetConfig(cfg *config.Config) error
 
 	// Instances returns a slice of instances corresponding to the

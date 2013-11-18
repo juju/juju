@@ -352,7 +352,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci, err := cloudinit.New(&test.cfg)
+		ci := coreCloudinit.New()
+		err := cloudinit.Configure(&test.cfg, ci)
 		c.Assert(err, gc.IsNil)
 		c.Check(ci, gc.NotNil)
 		// render the cloudinit config to bytes, and then
@@ -380,17 +381,12 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		checkPackage(c, x, "lxc", hasLxc)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
-			source := struct{ source, keyid string }{
-				source: "ppa:juju/stable",
-			}
-			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())
+			source := "ppa:juju/stable"
+			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
 		}
-		source := struct{ source, keyid string }{
-			source: "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main",
-			keyid:  "EC4926EA",
-		}
+		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
-		checkAptSource(c, x, source, needCloudArchive)
+		checkAptSource(c, x, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 
@@ -399,9 +395,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
 		cloudcfg := coreCloudinit.New()
-		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
+		err := cloudinit.Configure(&test.cfg, cloudcfg)
 		c.Assert(err, gc.IsNil)
-		c.Check(ci, gc.NotNil)
 	}
 }
 
@@ -411,10 +406,9 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
-	ci, err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
+	err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
-	c.Check(ci, gc.NotNil)
-	data, err := ci.Render()
+	data, err := cloudcfg.Render()
 	c.Assert(err, gc.IsNil)
 
 	ciContent := make(map[interface{}]interface{})
@@ -522,7 +516,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 
 // CheckAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
-func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, keyid string }, match bool) {
+func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, match bool) {
 	sources0 := x["apt_sources"]
 	if sources0 == nil {
 		if match {
@@ -536,7 +530,7 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ sourc
 	found := false
 	for _, s0 := range sources {
 		s := s0.(map[interface{}]interface{})
-		if s["source"] == source.source && (source.keyid == "" || s["keyid"] == source.keyid) {
+		if s["source"] == source && s["key"] == key {
 			found = true
 		}
 	}
@@ -688,16 +682,16 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineNonce: "FAKE_NONCE",
 	}
 	// check that the base configuration does not give an error
-	_, err := cloudinit.New(cfg)
+	ci := coreCloudinit.New()
+	err := cloudinit.Configure(cfg, ci)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
 		cfg1 := *cfg
 		test.mutate(&cfg1)
-		t, err := cloudinit.New(&cfg1)
+		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
-		c.Assert(t, gc.IsNil)
 	}
 }
 

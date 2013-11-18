@@ -77,8 +77,8 @@ func (env *maasEnviron) Name() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	return common.Bootstrap(env, cons, possibleTools)
+func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
+	return common.Bootstrap(env, cons)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -364,10 +364,21 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	if len(ids) != len(instances) {
-		return instances, environs.ErrPartialInstances
+
+	idMap := make(map[instance.Id]instance.Instance)
+	for _, instance := range instances {
+		idMap[instance.Id()] = instance
 	}
-	return instances, nil
+
+	result := make([]instance.Instance, len(ids))
+	for index, id := range ids {
+		result[index] = idMap[id]
+	}
+
+	if len(instances) < len(ids) {
+		return result, environs.ErrPartialInstances
+	}
+	return result, nil
 }
 
 // AllInstances returns all the instance.Instance in this provider.
@@ -380,12 +391,6 @@ func (env *maasEnviron) Storage() storage.Storage {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.storageUnlocked
-}
-
-// PublicStorage is defined by the Environ interface.
-func (env *maasEnviron) PublicStorage() storage.StorageReader {
-	// MAAS does not have a shared storage.
-	return environs.EmptyStorage
 }
 
 func (environ *maasEnviron) Destroy() error {
@@ -415,11 +420,13 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *maasEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }

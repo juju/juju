@@ -4,6 +4,8 @@
 package utils
 
 import (
+	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -25,4 +27,23 @@ func NormalizePath(dir string) string {
 // result is Cleaned; in particular, all empty strings are ignored.
 func JoinServerPath(elem ...string) string {
 	return path.Join(elem...)
+}
+
+// UniqueDirectory returns "path/name" if that directory doesn't exist.  If it
+// does, the method starts appending .1, .2, etc until a unique name is found.
+func UniqueDirectory(path, name string) (string, error) {
+	dir := filepath.Join(path, name)
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return dir, nil
+	}
+	for i := 1; ; i++ {
+		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
+		_, err := os.Stat(dir)
+		if os.IsNotExist(err) {
+			return dir, nil
+		} else if err != nil {
+			return "", err
+		}
+	}
 }

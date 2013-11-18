@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -137,7 +138,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	envtesting.UploadFakeTools(c, t.Env.Storage())
-	err := bootstrap.EnsureNotBootstrapped(t.Env)
+	err := common.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, gc.IsNil)
@@ -391,7 +392,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
 
-	err := bootstrap.EnsureNotBootstrapped(t.Env)
+	err := common.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")

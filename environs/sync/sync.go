@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"launchpad.net/loggo"
 
@@ -26,8 +27,8 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.sync")
 
-// DefaultToolsLocation leads to the default juju distribution on S3.
-var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
+// DefaultToolsLocation leads to the default juju tools location.
+var DefaultToolsLocation = "https://streams.canonical.com/juju"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
@@ -49,6 +50,9 @@ type SyncContext struct {
 
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
+
+	// Tools are being synced for a public cloud so include mirrors information.
+	Public bool
 
 	// Source, if non-empty, specifies a directory in the local file system
 	// to use as a source.
@@ -120,7 +124,11 @@ func SyncTools(syncContext *SyncContext) error {
 	logger.Infof("generating tools metadata")
 	if !syncContext.DryRun {
 		targetTools = append(targetTools, missing...)
-		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools)
+		writeMirrors := envtools.DoNotWriteMirrors
+		if syncContext.Public {
+			writeMirrors = envtools.WriteMirrors
+		}
+		err = envtools.MergeAndWriteMetadata(targetStorage, targetTools, writeMirrors)
 		if err != nil {
 			return err
 		}
@@ -131,10 +139,14 @@ func SyncTools(syncContext *SyncContext) error {
 
 // selectSourceStorage returns a storage reader based on the source setting.
 func selectSourceStorage(syncContext *SyncContext) (storage.StorageReader, error) {
-	if syncContext.Source == "" {
-		return httpstorage.NewHTTPStorageReader(DefaultToolsLocation), nil
+	source := syncContext.Source
+	if source == "" {
+		source = DefaultToolsLocation
 	}
-	return filestorage.NewFileStorageReader(syncContext.Source)
+	if strings.HasPrefix(source, "http") {
+		return httpstorage.NewHTTPStorageReader(source), nil
+	}
+	return filestorage.NewFileStorageReader(source)
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -192,6 +204,11 @@ func copyFile(dest, source string) error {
 	return err
 }
 
+// UploadFunc is the type of Upload, which may be
+// reassigned to control the behaviour of tools
+// uploading.
+type UploadFunc func(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error)
+
 // Upload builds whatever version of launchpad.net/juju-core is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
@@ -199,7 +216,9 @@ func copyFile(dest, source string) error {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
+var Upload UploadFunc = upload
+
+func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
