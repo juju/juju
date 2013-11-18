@@ -279,7 +279,16 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
 		key:    "blah",
 		expect: settingsWithNils,
 	}, {
-		info: "empty strings for non-string options are not accepted",
+		info: "empty strings for bool options are not accepted",
+		yaml: `blah:
+            outlook: ""
+            skill-level: 123
+            agility-ratio: 12.0
+            reticulate-splines: ""`,
+		key: "blah",
+		err: `option "reticulate-splines" expected boolean, got ""`,
+	}, {
+		info: "empty strings for int options are not accepted",
 		yaml: `blah:
             outlook: ""
             skill-level: ""
@@ -287,6 +296,15 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
             reticulate-splines: false`,
 		key: "blah",
 		err: `option "skill-level" expected int, got ""`,
+	}, {
+		info: "empty strings for float options are not accepted",
+		yaml: `blah:
+            outlook: ""
+            skill-level: 123
+            agility-ratio: ""
+            reticulate-splines: false`,
+		key: "blah",
+		err: `option "agility-ratio" expected float, got ""`,
 	}, {
 		info: "appropriate strings are valid",
 		yaml: `blah:
