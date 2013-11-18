@@ -11,6 +11,7 @@ import (
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 type KVMSuite struct {
@@ -30,9 +31,10 @@ func (*KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 }
 
 func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
-	container := s.Factory.New(name)
-	c.Assert(container.Start(), gc.IsNil)
-	return container
+	kvmContainer := s.Factory.New(name)
+	network := container.BridgeNetworkConfig("testbr0")
+	c.Assert(kvmContainer.Start("quantal", version.Current.Arch, "userdata.txt", network), gc.IsNil)
+	return kvmContainer
 }
 
 func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
