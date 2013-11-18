@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/version"
 )
 
 // Client represents the client-accessible part of the state.
@@ -340,4 +341,11 @@ func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 	args := params.EnvironmentSet{Config: config}
 	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
+}
+
+// SetEnvironAgentVersion sets the environment agent-version setting
+// to the given value.
+func (c *Client) SetEnvironAgentVersion(version version.Number) error {
+	args := params.SetEnvironAgentVersion{Version: version}
+	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }

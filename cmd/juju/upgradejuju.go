@@ -109,11 +109,11 @@ var errUpToDate = stderrors.New("no upgrades available")
 
 // Run changes the version proposed for the juju envtools.
 func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 	defer func() {
 		if err == errUpToDate {
 			log.Noticef(err.Error())
@@ -122,8 +122,15 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	}()
 
 	// Determine the version to upgrade to, uploading tools if necessary.
-	env := conn.Environ
-	cfg, err := conn.State.EnvironConfig()
+	attrs, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return err
+	}
+	env, err := environs.New(cfg)
 	if err != nil {
 		return err
 	}
@@ -144,7 +151,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
 	log.Infof("available tools: %s", v.tools)
 
-	if err := conn.State.SetEnvironAgentVersion(v.chosen); err != nil {
+	if err := client.SetEnvironAgentVersion(v.chosen); err != nil {
 		return err
 	}
 	log.Noticef("started upgrade to %s", v.chosen)

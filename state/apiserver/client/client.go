@@ -825,6 +825,11 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	return c.api.state.SetEnvironConfig(newProviderConfig)
 }
 
+// SetEnvironAgentVersion sets the environment agent version setting.
+func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
+	return c.api.state.SetEnvironAgentVersion(args.Version)
+}
+
 func destroyErr(desc string, ids, errs []string) error {
 	if len(errs) == 0 {
 		return nil
