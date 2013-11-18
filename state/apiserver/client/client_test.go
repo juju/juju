@@ -1536,22 +1536,36 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
-	apiParams := make([]params.AddMachineParams, 3)
-	for i := 0; i < 3; i++ {
+	// Create a machine to host a requested container.
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = host.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	c.Assert(err, gc.IsNil)
+
+	apiParams := make([]params.AddMachineParams, 4)
+	for i := 0; i < 4; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
-	// This will cause the last machine add to fail.
+	// This will cause a machine add to fail because of an invalid parent.
 	apiParams[2].ParentId = "123"
+	// This will cause a machine add to fail due to an unsupported container.
+	apiParams[3].ParentId = host.Id()
+	apiParams[3].ContainerType = instance.KVM
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 3)
+	c.Assert(len(machines), gc.Equals, 4)
 	for i, machineResult := range machines {
-		if i == 2 {
-			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
-		} else {
-			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		switch i {
+		case 2:
+			c.Check(machineResult.Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
+		case 3:
+			c.Check(
+				machineResult.Error,
+				gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
+		default:
+			c.Check(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i+1))
 			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
 		}
 	}

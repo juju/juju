@@ -435,9 +435,25 @@ func (st *State) addMachineContainerOps(params *AddMachineParams, cons constrain
 			containerParams.newHost = true
 		} else {
 			// If a parent machine is specified, make sure it exists.
-			_, err := st.Machine(containerParams.hostId)
+			host, err := st.Machine(containerParams.hostId)
 			if err != nil {
 				return nil, nil, nil, err
+			}
+			// We will try and check if the specified parent machine can run a container of the specified type.
+			// If the machine's supportedContainers attribute is set, this decision can be made right here.
+			// If it is not yet known what containers a machine supports, we will assume that everything will
+			// be ok and later on put the container into an error state if necessary.
+			if supportedContainers, ok := host.SupportedContainers(); ok {
+				supported := false
+				for _, containerType := range supportedContainers {
+					if containerType == params.ContainerType {
+						supported = true
+						break
+					}
+				}
+				if !supported {
+					return nil, nil, nil, fmt.Errorf("machine %s cannot host %s containers", host, params.ContainerType)
+				}
 			}
 		}
 	}
