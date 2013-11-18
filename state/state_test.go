@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 
@@ -2076,4 +2077,49 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher %T did not exit when state closed", watcher)
 	}
+}
+
+func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
+	ids, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.HasLen, 0)
+
+	// TODO(rog) more testing here when we can actually add
+	// state servers.
+}
+
+func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err = s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that we have in fact deleted the right info.
+	ids, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.NotNil)
+	c.Assert(ids, gc.HasLen, 0)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	expectIds := []string{m1.Id(), m2.Id()}
+	sort.Strings(expectIds)
+	ids, err = state.StateServerMachineIds(st)
+	c.Assert(err, gc.IsNil)
+	sort.Strings(ids)
+	c.Assert(ids, gc.DeepEquals, expectIds)
+
+	// Check that it works with the original connection too.
+	ids, err = state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, expectIds)
 }

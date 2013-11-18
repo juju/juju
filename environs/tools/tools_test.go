@@ -291,8 +291,7 @@ func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
 	for i, test := range envtesting.BootstrapToolsTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		attrs := map[string]interface{}{
-			"development":    test.Development,
-			"default-series": test.DefaultSeries,
+			"development": test.Development,
 		}
 		var agentVersion *version.Number
 		if test.AgentVersion != version.Zero {
@@ -305,6 +304,7 @@ func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
 
 		params := envtools.BootstrapToolsParams{
 			Version: agentVersion,
+			Series:  test.DefaultSeries,
 			Arch:    &test.Arch,
 		}
 		actual, err := envtools.FindBootstrapTools(s.env, params)
