@@ -283,8 +283,8 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
 		yaml: `blah:
             outlook: ""
             skill-level: ""
-            agility-ratio: ""
-            reticulate-splines: ""`,
+            agility-ratio: 12.0
+            reticulate-splines: false`,
 		key: "blah",
 		err: `option "skill-level" expected int, got ""`,
 	}, {
