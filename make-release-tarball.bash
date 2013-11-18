@@ -49,7 +49,7 @@ VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
 mv $WORK $TMP_DIR/juju-core_${VERSION}/
 
 # Tar it up.
-TARFILE=`pwd`/juju-core_${VERSION}.tar.gz
+TARFILE=$(pwd)/juju-core_${VERSION}.tar.gz
 cd $TMP_DIR
 tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr juju-core_${VERSION}
 
