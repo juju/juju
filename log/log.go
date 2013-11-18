@@ -47,5 +47,5 @@ func Debugf(format string, a ...interface{}) (err error) {
 // Log the error and return an error with the same text.
 func LoggedErrorf(logger loggo.Logger, format string, a ...interface{}) error {
 	logger.Logf(loggo.ERROR, format, a...)
-	return fmt.Errorf(fmt, a...)
+	return fmt.Errorf(format, a...)
 }
