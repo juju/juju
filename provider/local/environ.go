@@ -17,7 +17,7 @@ import (
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/factory"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -175,7 +175,8 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 
-	env.containerManager = lxc.NewContainerManager(
+	env.containerManager = factory.NewContainerManager(
+		ecfg.container(),
 		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
