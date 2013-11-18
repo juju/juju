@@ -29,12 +29,13 @@ GOPATH=$WORK go get -v -d launchpad.net/juju-core/...
 
 echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 (cd "${WORK}/src/launchpad.net/juju-core/" &&
- bzr pull --remember --overwrite -r $REVNO $JUJU_CORE_BRANCH)
+ bzr pull --no-aliases --remember --overwrite -r $REVNO $JUJU_CORE_BRANCH)
 
 echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
 GODEPS=$WORK/bin/godeps
 GOPATH=$WORK $GODEPS -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
+# Remove godeps.
 rm -r $WORK/bin
 
 # Smoke test
