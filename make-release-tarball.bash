@@ -4,6 +4,7 @@
 set -e
 
 unset GOPATH
+unset GOBIN
 
 # build release tarball from a bzr branch
 DEFAULT_JUJU_CORE="lp:juju-core"
@@ -33,15 +34,11 @@ echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 
 echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
-GOPATH=$WORK go install -v launchpad.net/godeps
-GODEPS="$WORK/bin/godeps"
+GODEPS=$WORK/bin/godeps
 if [[ ! -f $GODEPS ]]; then
     echo "! Could not install godeps."
-    ls $WORK
-    ls $work/src/launchpad.net/godeps/
-    ls $WORK/bin/
     exit 1
-di
+fi
 GOPATH=$WORK $GODEPS -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
 # Remove godeps.
 rm -r $WORK/bin
