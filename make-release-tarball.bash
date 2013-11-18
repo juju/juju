@@ -33,6 +33,8 @@ echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 
 echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
+echo "$(ls $WORK)"
+echo "$(ls $WORK/bin/)"
 GODEPS=$WORK/bin/godeps
 GOPATH=$WORK $GODEPS -u "${WORK}/src/launchpad.net/juju-core/dependencies.tsv"
 # Remove godeps.
