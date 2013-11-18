@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/version"
 )
 
 var (
@@ -84,7 +85,7 @@ func (manager *containerManager) StartContainer(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := kvmContainer.Create(name, series, arch, userDataFilename, network); err != nil {
+	if err := kvmContainer.Start(series, version.Current.Arch, userDataFilename, network); err != nil {
 		logger.Errorf("kvm container creation failed: %v", err)
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func (manager *containerManager) StartContainer(
 	return &kvmInstance{kvmContainer, name}, nil
 }
 
-func (manager *containerManager) StopContainer(instance.Instance) error {
+func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	kvmContainer := KvmObjectFactory.New(name)
 	return kvmContainer.Stop()

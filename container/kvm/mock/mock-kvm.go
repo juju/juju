@@ -6,6 +6,7 @@ package mock
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 )
 
@@ -66,7 +67,12 @@ func (mock *mockContainer) Name() string {
 	return mock.name
 }
 
-func (mock *mockContainer) Start() error {
+func (mock *mockContainer) Start(
+	series string,
+	arch string,
+	userDataFile string,
+	network *container.NetworkConfig,
+) error {
 	if mock.started {
 		return fmt.Errorf("container is already running")
 	}

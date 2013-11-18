@@ -58,7 +58,7 @@ type CreateMachineParams struct {
 // CreateMachine creates a virtual machine and starts it.
 func CreateMachine(params CreateMachineParams) error {
 	if params.Hostname == "" {
-		return fmt.Errof("Hostname is required")
+		return fmt.Errorf("Hostname is required")
 	}
 	args := []string{
 		"create",
@@ -109,8 +109,8 @@ func ListMachines() (map[string]string, error) {
 	// separated by whitespace, with whitespace at the start too.
 	result := make(map[string]string)
 	for _, s := range machineListPattern.FindAllStringSubmatchIndex(output, -1) {
-		machineStatus := pat.ExpandString(nil, "$hostname $status", src, s)
-		parts := strings.SplitN(machineStatus, " ", 2)
+		machineStatus := machineListPattern.ExpandString(nil, "$hostname $status", output, s)
+		parts := strings.SplitN(string(machineStatus), " ", 2)
 		result[parts[0]] = parts[1]
 	}
 	return result, nil
