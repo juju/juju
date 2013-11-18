@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
@@ -80,7 +81,7 @@ func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	stor := newStorage(s, c)
-	checkURL, err := stor.URL(common.StateFile)
+	checkURL, err := stor.URL(bootstrap.StateFile)
 	c.Assert(err, gc.IsNil)
 	checkCons := constraints.MustParse("mem=8G")
 
@@ -204,9 +205,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	err := common.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	savedState, err := common.LoadStateFromURL(checkURL)
+	savedState, err := bootstrap.LoadStateFromURL(checkURL)
 	c.Assert(err, gc.IsNil)
-	c.Assert(savedState, gc.DeepEquals, &common.BootstrapState{
+	c.Assert(savedState, gc.DeepEquals, &bootstrap.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id(checkInstanceId)},
 		Characteristics: []instance.HardwareCharacteristics{checkHardware},
 	})

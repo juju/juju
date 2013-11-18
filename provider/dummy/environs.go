@@ -37,6 +37,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -528,10 +529,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(cons constraints.Value) error {
-	if err := common.EnsureNotBootstrapped(e); err != nil {
-		return err
-	}
-	selectedTools, err := common.SetBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -567,7 +565,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// we need to release the mutex for the save state to work, so regain
 	// it after the call.
 	estate.mu.Unlock()
-	if err := common.SaveState(e.Storage(), &common.BootstrapState{StateInstances: []instance.Id{"localhost"}}); err != nil {
+	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: []instance.Id{"localhost"}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		estate.mu.Lock() // otherwise defered unlock will fail
 		return err

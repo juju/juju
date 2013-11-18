@@ -97,6 +97,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("failed to enable bootstrap storage: %v", err)
 		}
 	}
+	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
+		return err
+	}
 
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an

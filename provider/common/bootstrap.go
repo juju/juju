@@ -25,22 +25,16 @@ func Bootstrap(env environs.Environ, cons constraints.Value) error {
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
-	// Check to see if the environment is already bootstrapped
-	// before potentially uploading any tools.
-	if err := EnsureNotBootstrapped(env); err != nil {
-		return err
-	}
-
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
-	stateFileURL, err := CreateStateFile(env.Storage())
+	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
 	if err != nil {
 		return err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL)
 
-	selectedTools, err := SetBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -53,9 +47,9 @@ func Bootstrap(env environs.Environ, cons constraints.Value) error {
 	if hw != nil {
 		characteristics = []instance.HardwareCharacteristics{*hw}
 	}
-	err = SaveState(
+	err = bootstrap.SaveState(
 		env.Storage(),
-		&BootstrapState{
+		&bootstrap.BootstrapState{
 			StateInstances:  []instance.Id{inst.Id()},
 			Characteristics: characteristics,
 		})
@@ -70,21 +64,21 @@ func Bootstrap(env environs.Environ, cons constraints.Value) error {
 	return nil
 }
 
-// SetBootstrapTools finds tools, syncing with an external tools source as
+// EnsureBootstrapTools finds tools, syncing with an external tools source as
 // necessary; it then selects the newest tools to bootstrap with, and sets
 // agent-version.
-func SetBootstrapTools(env environs.Environ, series string, arch *string) (coretools.List, error) {
+func EnsureBootstrapTools(env environs.Environ, series string, arch *string) (coretools.List, error) {
 	possibleTools, err := bootstrap.EnsureToolsAvailability(env, series, arch)
 	if err != nil {
 		return nil, err
 	}
-	return bootstrap.SelectBootstrapTools(env, possibleTools)
+	return bootstrap.SetBootstrapTools(env, possibleTools)
 }
 
 // EnsureNotBootstrapped returns null if the environment is not bootstrapped,
 // and an error if it is or if the function was not able to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := LoadState(env.Storage())
+	_, err := bootstrap.LoadState(env.Storage())
 	// If there is no error loading the bootstrap state, then we are
 	// bootstrapped.
 	if err == nil {

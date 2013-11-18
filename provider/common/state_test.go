@@ -4,15 +4,9 @@
 package common_test
 
 import (
-	"bytes"
-	"io/ioutil"
-
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
@@ -24,92 +18,6 @@ type StateSuite struct {
 }
 
 var _ = gc.Suite(&StateSuite{})
-
-func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
-	stor := newStorage(suite, c)
-
-	url, err := common.CreateStateFile(stor)
-	c.Assert(err, gc.IsNil)
-
-	reader, err := storage.Get(stor, common.StateFile)
-	c.Assert(err, gc.IsNil)
-	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(data), gc.Equals, "")
-	c.Assert(url, gc.NotNil)
-	expectedURL, err := stor.URL(common.StateFile)
-	c.Assert(err, gc.IsNil)
-	c.Check(url, gc.Equals, expectedURL)
-}
-
-func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
-	stor := newStorage(suite, c)
-	arch := "amd64"
-	state := common.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
-	marshaledState, err := goyaml.Marshal(state)
-	c.Assert(err, gc.IsNil)
-
-	err = common.SaveState(stor, &state)
-	c.Assert(err, gc.IsNil)
-
-	loadedState, err := storage.Get(stor, common.StateFile)
-	c.Assert(err, gc.IsNil)
-	content, err := ioutil.ReadAll(loadedState)
-	c.Assert(err, gc.IsNil)
-	c.Check(content, gc.DeepEquals, marshaledState)
-}
-
-func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) common.BootstrapState {
-	arch := "amd64"
-	state := common.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
-	content, err := goyaml.Marshal(state)
-	c.Assert(err, gc.IsNil)
-	err = stor.Put(common.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
-	c.Assert(err, gc.IsNil)
-	return state
-}
-
-func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
-	storage := newStorage(suite, c)
-	state := suite.setUpSavedState(c, storage)
-	storedState, err := common.LoadState(storage)
-	c.Assert(err, gc.IsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
-func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	stor := newStorage(suite, c)
-	state := suite.setUpSavedState(c, stor)
-	url, err := stor.URL(common.StateFile)
-	c.Assert(err, gc.IsNil)
-	storedState, err := common.LoadStateFromURL(url)
-	c.Assert(err, gc.IsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
-func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
-	stor := newStorage(suite, c)
-	_, err := common.LoadState(stor)
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
-}
-
-func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
-	storage := newStorage(suite, c)
-	arch := "amd64"
-	state := common.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
-	err := common.SaveState(storage, &state)
-	c.Assert(err, gc.IsNil)
-	storedState, err := common.LoadState(storage)
-	c.Assert(err, gc.IsNil)
-
-	c.Check(*storedState, gc.DeepEquals, state)
-}
 
 func (suite *StateSuite) TestGetDNSNamesAcceptsNil(c *gc.C) {
 	result := common.GetDNSNames(nil)

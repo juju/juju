@@ -29,7 +29,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -213,7 +212,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	bootstrapState, err := common.LoadState(env.Storage())
+	bootstrapState, err := bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
 
@@ -266,7 +265,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	_, err = common.LoadState(env.Storage())
+	_, err = bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.NotNil)
 }
 

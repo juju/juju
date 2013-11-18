@@ -43,9 +43,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
 	envtesting.RemoveTools(c, s.Conn.Environ.PublicStorage().(storage.Storage))
-	defer FakeSSH{
+	defer fakeSSH{
 		Series: series, Arch: arch, SkipProvisionAgent: true,
-	}.Install(c).Restore()
+	}.install(c).Restore()
 	m, err := ProvisionMachine(args)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(m, gc.IsNil)
@@ -58,11 +58,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
-		defer FakeSSH{
+		defer fakeSSH{
 			Series: series,
 			Arch:   arch,
 			ProvisionAgentExitCode: errorCode,
-		}.Install(c).Restore()
+		}.install(c).Restore()
 		m, err = ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
@@ -81,10 +81,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	// Attempting to provision a machine twice should fail. We effect
 	// this by checking for existing juju upstart configurations.
-	defer InstallFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0)()
+	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0)()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
-	defer InstallFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 255)()
+	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 255)()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
 }

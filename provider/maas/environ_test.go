@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
@@ -74,7 +73,7 @@ func (suite *environSuite) makeEnviron() *maasEnviron {
 }
 
 func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
-	suite.testMAASObject.TestServer.NewFile(common.StateFile, []byte("test file content"))
+	suite.testMAASObject.TestServer.NewFile(bootstrap.StateFile, []byte("test file content"))
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
@@ -245,7 +244,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that the state holds the id of the bootstrap machine.
-	stateData, err := common.LoadState(env.Storage())
+	stateData, err := bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -384,9 +383,9 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	testInstance := &maasInstance{&node, suite.environ}
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

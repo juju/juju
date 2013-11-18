@@ -86,15 +86,12 @@ func (e *nullEnviron) Name() string {
 }
 
 func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
-	if err := common.EnsureNotBootstrapped(e); err != nil {
-		return err
-	}
 	envConfig := e.envConfig()
 	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
 	if err != nil {
 		return err
 	}
-	selectedTools, err := common.SetBootstrapTools(e, series, hc.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(e, series, hc.Arch)
 	if err != nil {
 		return err
 	}

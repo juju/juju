@@ -922,6 +922,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err

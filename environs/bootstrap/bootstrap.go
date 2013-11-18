@@ -46,14 +46,14 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	return environ.Bootstrap(cons)
 }
 
-// SelectBootstrapTools returns the newest tools from the given tools list,
-// and update the agent-version configuration attribute.
-func SelectBootstrapTools(environ environs.Environ, toolsList coretools.List) (coretools.List, error) {
-	if len(toolsList) == 0 {
+// SetBootstrapTools returns the newest tools from the given tools list,
+// and updates the agent-version configuration attribute.
+func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
+	if len(possibleTools) == 0 {
 		return nil, fmt.Errorf("no bootstrap tools available")
 	}
 	var newVersion version.Number
-	newVersion, toolsList = toolsList.Newest()
+	newVersion, toolsList := possibleTools.Newest()
 	logger.Infof("picked newest version: %s", newVersion)
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != newVersion {
@@ -68,4 +68,19 @@ func SelectBootstrapTools(environ environs.Environ, toolsList coretools.List) (c
 		}
 	}
 	return toolsList, nil
+}
+
+// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
+// and an error if it is or if the function was not able to tell.
+func EnsureNotBootstrapped(env environs.Environ) error {
+	_, err := LoadState(env.Storage())
+	// If there is no error loading the bootstrap state, then we are
+	// bootstrapped.
+	if err == nil {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	if err == environs.ErrNotBootstrapped {
+		return nil
+	}
+	return err
 }
