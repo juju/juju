@@ -29,8 +29,19 @@ type SSHCommon struct {
 
 const sshDoc = `
 Launch an ssh shell on the machine identified by the <target> parameter.
-<target> can be either a machine id or a unit name.  Any extra parameters are
-passsed as extra parameters to the ssh command.
+<target> can be either a machine id  as listed by "juju status" in the
+"machines" section or a unit name as listed in the "services" section.
+Any extra parameters are passsed as extra parameters to the ssh command.
+
+Examples
+
+Connect to machine 0:
+
+    juju ssh 0
+
+Connect to the second mysql unit:
+
+    juju ssh mysql/0
 `
 
 func (c *SSHCommand) Info() *cmd.Info {
