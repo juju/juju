@@ -3,10 +3,6 @@
 
 package kvm
 
-import (
-	"fmt"
-)
-
 type containerFactory struct {
 }
 
@@ -35,7 +31,7 @@ func (factory *containerFactory) List() (result []Container, err error) {
 	for hostname, status := range machines {
 		result = append(result, &kvmContainer{
 			factory: factory,
-			name:    name,
+			name:    hostname,
 			started: isRunning(status),
 		})
 

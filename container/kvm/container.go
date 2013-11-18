@@ -23,7 +23,6 @@ func (c *kvmContainer) Name() string {
 }
 
 func (c *kvmContainer) Start(
-	hostname string,
 	series string,
 	arch string,
 	userDataFile string,
@@ -39,12 +38,12 @@ func (c *kvmContainer) Start(
 		if network.NetworkType == container.BridgeNetwork {
 			bridge = network.Device
 		} else {
-			return log.LoggedErrorf("Non-bridge network devices not yet supported")
+			return log.LoggedErrorf(logger, "Non-bridge network devices not yet supported")
 		}
 	}
-	logger.Debugf("Create the machine %s", hostname)
+	logger.Debugf("Create the machine %s", c.name)
 	if err := CreateMachine(CreateMachineParams{
-		Hostname:      hostname,
+		Hostname:      c.name,
 		Series:        series,
 		Arch:          arch,
 		UserData:      userDataFile,
@@ -53,7 +52,7 @@ func (c *kvmContainer) Start(
 		return err
 	}
 
-	logger.Debugf("Set machine %s to autostart", hostname)
+	logger.Debugf("Set machine %s to autostart", c.name)
 	return AutostartMachine(c.name)
 }
 
