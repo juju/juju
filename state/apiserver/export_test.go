@@ -7,4 +7,4 @@ import "reflect"
 
 var RootType = reflect.TypeOf(&srvRoot{})
 
-var NewResourceTimeout = newResourceTimeout
+var NewPingTimeout = newPingTimeout

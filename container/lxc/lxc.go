@@ -22,12 +22,10 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate     = "ubuntu-cloud"
-	ContainerDir        = "/var/lib/juju/containers"
-	RemovedContainerDir = "/var/lib/juju/removed-containers"
-	LxcContainerDir     = "/var/lib/lxc"
-	LxcRestartDir       = "/etc/lxc/auto"
-	LxcObjectFactory    = golxc.Factory()
+	defaultTemplate  = "ubuntu-cloud"
+	LxcContainerDir  = "/var/lib/lxc"
+	LxcRestartDir    = "/etc/lxc/auto"
+	LxcObjectFactory = golxc.Factory()
 )
 
 const (
@@ -75,10 +73,8 @@ func (manager *containerManager) StartContainer(
 	lxcContainer := LxcObjectFactory.New(name)
 
 	// Create the cloud-init.
-	directory := jujuContainerDirectory(name)
-	logger.Tracef("create directory: %s", directory)
-	if err := os.MkdirAll(directory, 0755); err != nil {
-		logger.Errorf("failed to create container directory: %v", err)
+	directory, err := container.NewDirectory(name)
+	if err != nil {
 		return nil, err
 	}
 	logger.Tracef("write cloud-init")
@@ -138,33 +134,18 @@ func (manager *containerManager) StartContainer(
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
-	container := LxcObjectFactory.New(name)
+	lxcContainer := LxcObjectFactory.New(name)
 	// Remove the autostart link.
 	if err := os.Remove(restartSymlink(name)); err != nil {
 		logger.Errorf("failed to remove restart symlink: %v", err)
 		return err
 	}
-	if err := container.Destroy(); err != nil {
+	if err := lxcContainer.Destroy(); err != nil {
 		logger.Errorf("failed to destroy lxc container: %v", err)
 		return err
 	}
 
-	// Move the directory.
-	logger.Tracef("create old container dir: %s", RemovedContainerDir)
-	if err := os.MkdirAll(RemovedContainerDir, 0755); err != nil {
-		logger.Errorf("failed to create removed container directory: %v", err)
-		return err
-	}
-	removedDir, err := uniqueDirectory(RemovedContainerDir, name)
-	if err != nil {
-		logger.Errorf("was not able to generate a unique directory: %v", err)
-		return err
-	}
-	if err := os.Rename(jujuContainerDirectory(name), removedDir); err != nil {
-		logger.Errorf("failed to rename container directory: %v", err)
-		return err
-	}
-	return nil
+	return container.RemoveDirectory(name)
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
@@ -189,10 +170,6 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		}
 	}
 	return
-}
-
-func jujuContainerDirectory(containerName string) string {
-	return filepath.Join(ContainerDir, containerName)
 }
 
 const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"
@@ -243,23 +220,4 @@ func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) 
 		return "", err
 	}
 	return configFilename, nil
-}
-
-// uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
-// does, the method starts appending .1, .2, etc until a unique name is found.
-func uniqueDirectory(path, name string) (string, error) {
-	dir := filepath.Join(path, name)
-	_, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		return dir, nil
-	}
-	for i := 1; ; i++ {
-		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
-		_, err := os.Stat(dir)
-		if os.IsNotExist(err) {
-			return dir, nil
-		} else if err != nil {
-			return "", err
-		}
-	}
 }

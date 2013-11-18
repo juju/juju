@@ -32,9 +32,9 @@ type taggedAuthenticator interface {
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	initialRoot     *initialRoot
-	resources       *common.Resources
-	resourceTimeout *resourceTimeout
+	initialRoot *initialRoot
+	resources   *common.Resources
+	pingTimeout *pingTimeout
 
 	entity taggedAuthenticator
 }
@@ -46,17 +46,16 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		entity:      entity,
 	}
 	action := func() error {
-		return root.rpcConn.Close()
+		return r.initialRoot.rpcConn.Close()
 	}
 	r.clientAPI.API = client.NewAPI(root.srv.state, r.resources, r)
-	r.resourceTimeout = newResourceTimeout(action, 3*time.Minute)
+	r.pingTimeout = newPingTimeout(r.entity.Tag(), action, 3*time.Minute)
 	return r
 }
 
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
-	r.resourceTimeout.stop()
 	r.resources.StopAll()
 }
 
@@ -241,7 +240,7 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 // Pinger returns a server pinger tracing the client pings and
 // terminating the root after 3 minutes with no pings.
 func (r *srvRoot) Pinger(id string) (pinger, error) {
-	return r.resourceTimeout, nil
+	return r.pingTimeout, nil
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
@@ -289,59 +288,61 @@ type pinger interface {
 	Ping()
 }
 
-// resourceTimeout listens for pings and will call the
+// pingTimeout listens for pings and will call the
 // passed action in case of a timeout. This way broken
 // or inactive connections can be closed.
-type resourceTimeout struct {
+type pingTimeout struct {
 	tomb    tomb.Tomb
+	tag     string
 	action  func() error
 	timeout time.Duration
 	reset   chan struct{}
 }
 
-// newResourceTimeout creates a resource timeout instance
+// newPingTimeout creates a ping timeout instance
 // for the passed action and timeout.
-func newResourceTimeout(action func() error, timeout time.Duration) *resourceTimeout {
-	rt := &resourceTimeout{
+func newPingTimeout(tag string, action func() error, timeout time.Duration) *pingTimeout {
+	pt := &pingTimeout{
+		tag:     tag,
 		action:  action,
 		timeout: timeout,
 		reset:   make(chan struct{}),
 	}
 	go func() {
-		defer rt.tomb.Done()
-		rt.tomb.Kill(rt.loop())
+		defer pt.tomb.Done()
+		pt.tomb.Kill(pt.loop())
 	}()
-	return rt
+	return pt
 }
 
 // Ping is used by the client heartbeat monitor and resets
 // the killer.
-func (rt *resourceTimeout) Ping() {
+func (pt *pingTimeout) Ping() {
 	select {
-	case <-rt.tomb.Dying():
-	case rt.reset <- struct{}{}:
+	case <-pt.tomb.Dying():
+	case pt.reset <- struct{}{}:
 	}
 }
 
 // stop terminates the resource timeout.
-func (rt *resourceTimeout) stop() error {
-	rt.tomb.Kill(nil)
-	return rt.tomb.Wait()
+func (pt *pingTimeout) stop() error {
+	pt.tomb.Kill(nil)
+	return pt.tomb.Wait()
 }
 
-// loop waits for a reset signal, otherwise it kills the
-// resource after the timeout.
-func (rt *resourceTimeout) loop() error {
-	timer := time.NewTimer(rt.timeout)
+// loop waits for a reset signal, otherwise it performs
+// the initially passed action.
+func (pt *pingTimeout) loop() error {
+	timer := time.NewTimer(pt.timeout)
 	defer timer.Stop()
 	for {
 		select {
-		case <-rt.tomb.Dying():
+		case <-pt.tomb.Dying():
 			return nil
 		case <-timer.C:
-			return rt.action()
-		case <-rt.reset:
-			timer.Reset(rt.timeout)
+			return pt.action()
+		case <-pt.reset:
+			timer.Reset(pt.timeout)
 		}
 	}
 }

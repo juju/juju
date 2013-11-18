@@ -44,23 +44,13 @@ func (*rootSuite) TestDiscardedAPIMethods(c *gc.C) {
 	}
 }
 
-type testCloser struct {
-	closed chan time.Time
-}
-
-func (c *testCloser) Close() error {
-	println("CLOSED")
-	c.closed <- time.Now()
-	return nil
-}
-
 func (r *rootSuite) TestPingTimeout(c *gc.C) {
 	closedc := make(chan time.Time, 1)
 	action := func() error {
 		closedc <- time.Now()
 		return nil
 	}
-	timeout := apiserver.NewResourceTimeout(action, 50*time.Millisecond)
+	timeout := apiserver.NewPingTimeout("test", action, 50*time.Millisecond)
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Millisecond)
 		timeout.Ping()
