@@ -42,7 +42,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
 	defer fakeSSH{
-		series: series, arch: arch, skipProvisionAgent: true,
+		Series: series, Arch: arch, SkipProvisionAgent: true,
 	}.install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
 	machineId, err := ProvisionMachine(args)
@@ -58,9 +58,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
 		defer fakeSSH{
-			series: series,
-			arch:   arch,
-			provisionAgentExitCode: errorCode,
+			Series: series,
+			Arch:   arch,
+			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
 		machineId, err = ProvisionMachine(args)
 		if errorCode != 0 {

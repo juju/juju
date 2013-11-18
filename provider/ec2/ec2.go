@@ -305,8 +305,8 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	return common.Bootstrap(e, cons, possibleTools)
+func (e *environ) Bootstrap(cons constraints.Value) error {
+	return common.Bootstrap(e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
