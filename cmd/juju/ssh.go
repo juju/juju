@@ -28,15 +28,15 @@ type SSHCommon struct {
 }
 
 const sshDoc = `
-Launch an ssh shell on the machine identified by the <service> parameter.
-<service> can be either a machine id or a unit name.  Any extra parameters are
+Launch an ssh shell on the machine identified by the <target> parameter.
+<target> can be either a machine id or a unit name.  Any extra parameters are
 passsed as extra parameters to the ssh command.
 `
 
 func (c *SSHCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ssh",
-		Args:    "<service> [<ssh args>...]",
+		Args:    "<target> [<ssh args>...]",
 		Purpose: "launch an ssh shell on a given unit or machine",
 		Doc:     sshDoc,
 	}
@@ -44,7 +44,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 
 func (c *SSHCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no service name specified")
+		return errors.New("no target name specified")
 	}
 	c.Target, c.Args = args[0], args[1:]
 	return nil
