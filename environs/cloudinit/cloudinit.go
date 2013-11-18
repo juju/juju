@@ -324,7 +324,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
-	name := "jujud-" + tag
+	name := upstart.MachineAgentServiceName(tag)
 	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
@@ -345,7 +345,8 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.2",
 	)
 
-	conf := upstart.MongoUpstartService("juju-db", cfg.DataDir, dbDir, cfg.StatePort)
+	name := upstart.MongoServiceName
+	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)

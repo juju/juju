@@ -304,13 +304,23 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
-func (m *MachineAgent) uninstallAgent() error {
-	// TODO(axw) get this from agent config when it's available
-	name := os.Getenv("UPSTART_JOB")
-	if name != "" {
-		return upstart.NewService(name).Remove()
+func (a *MachineAgent) uninstallAgent() error {
+	// NOTE: this will not stop/remove upstart services
+	// for the local provider (only), which has different
+	// service names for different users/environments.
+	service := upstart.NewService(upstart.MachineAgentServiceName(a.Conf.config.Tag()))
+	if err := service.Remove(); err != nil {
+		return err
 	}
-	return nil
+	// The machine agent may terminate without knowing its jobs,
+	// for example if the machine's entry in state was removed.
+	// Thus, we do not rely on jobs here, and instead just check
+	// if the upstart config exists.
+	service = upstart.NewService(upstart.MongoServiceName)
+	if err := service.StopAndRemove(); err != nil {
+		return err
+	}
+	return os.RemoveAll(a.Conf.dataDir)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened
