@@ -172,6 +172,9 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		return nil, errUpToDate
 	}
 	client := version.Current.Number
+	// TODO use an API call rather than requiring the environment,
+	// so that we can restrict access to the provider secrets
+	// while still allowing users to upgrade.
 	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
