@@ -19,11 +19,17 @@ dump_logs(){
 revert_juju(){
     sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
 }
+# Try to ensure a clean environment
 revert_juju
+destroy_all
+
+# Create package
 source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
 source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
     'Curtis Hovey <curtis.hovey@canonical.com>'
 export PACKAGE
+
+# Do the deployment for upgrade testing.
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
   destroy_all
@@ -58,7 +64,7 @@ EOT
 then
   EXIT_STATUS=1
 else
-  # test deploying on the new version
+  # Test deploying on the new version
   destroy_all
   sleep 5
   if ! $SCRIPTS/deploy_stack.py $ENVS; then
