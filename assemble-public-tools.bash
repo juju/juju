@@ -51,6 +51,7 @@ build_tool_tree() {
 retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
+    [[ $PRIVATE == "true" ]] && return
     echo "Phase 2: Retrieving released tools."
     s3cmd -c $JUJU_DIR/s3cfg sync s3://juju-dist/tools/releases/ $DEST_TOOLS/
 }
@@ -59,6 +60,7 @@ retrieve_released_tools() {
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
+    [[ $PRIVATE == "true" ]] && return
     echo "Phase 3: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
         cp $RELEASE $DEST_DEBS
@@ -133,6 +135,7 @@ get_arch() {
 
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
+    [[ $PRIVATE == "true" ]] && return
     echo "Phase 4: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
     WORK=$(mktemp -d)
@@ -267,7 +270,15 @@ if [[ -d $DEST_DIST ]]; then
     rm -r $DEST_DIST
 fi
 
-SIGNING_KEY=${3:-""}
+SIGNING_KEY=""
+PRIVATE="false"
+EXTRA=${3:-""}
+if [[ $EXTRA == "PRIVATE" ]]; then
+    PRIVATE="true"
+    echo "Skipping release tools and packages."
+else
+    SIGNING_KEY=$EXTRA
+fi
 
 check_deps
 build_tool_tree
