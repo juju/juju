@@ -13,10 +13,6 @@ import (
 const (
 	maxMongoFiles = 65000
 	maxAgentFiles = 20000
-
-	// MongoServiceName is the default name of the upstart
-	// service that runs mongod for Juju.
-	MongoServiceName = "juju-db"
 )
 
 // MongoUpstartService returns the upstart config for the mongo state service.
@@ -42,12 +38,6 @@ func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
 			" --syslog" +
 			" --smallfiles",
 	}
-}
-
-// MachineAgentServiceName returns the upstart service name for
-// a machine agent with the given tag.
-func MachineAgentServiceName(tag string) string {
-	return "jujud-" + tag
 }
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
