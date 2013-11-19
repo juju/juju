@@ -306,9 +306,7 @@ func (c *configInternal) APIAddresses() ([]string, error) {
 	if c.apiDetails == nil {
 		return []string{}, fmt.Errorf("No apidetails in config")
 	}
-	apiAdrs := make([]string, len(c.apiDetails.addresses))
-	copy(apiAdrs, c.apiDetails.addresses)
-	return apiAdrs, nil
+	return append([]string{}, c.apiDetails.addresses...), nil
 }
 
 func (c *configInternal) Tag() string {
