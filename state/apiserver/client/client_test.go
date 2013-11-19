@@ -1536,18 +1536,28 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
-	// Create a machine to host a requested container.
+	// Here we check that adding a number of containers correctly handles the
+	// case that some adds succeed and others fail and report the errors
+	// accordingly.
+	// We will set up params to the AddMachines API to attempt to create 4 machines.
+	// Machines 0 and 1 will be added successfully.
+	// Mchines 2 and 3 will fail due to different reasons.
+
+	// Create a machine to host the requested containers.
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
+	// The host only supports lxc containers.
 	err = host.AddSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
 
+	// Set up params for adding 4 containers.
 	apiParams := make([]params.AddMachineParams, 4)
 	for i := 0; i < 4; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
+	// Make it so that machines 2 and 3 will fail to be added.
 	// This will cause a machine add to fail because of an invalid parent.
 	apiParams[2].ParentId = "123"
 	// This will cause a machine add to fail due to an unsupported container.
@@ -1556,6 +1566,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 4)
+	// Check the results - machines 2 and 3 will have errors.
 	for i, machineResult := range machines {
 		switch i {
 		case 2:
