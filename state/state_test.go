@@ -215,12 +215,12 @@ func (s *StateSuite) TestAddMachinesEnvironmentLife(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
 	// Same again for Dead.
 	err = env.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -551,18 +551,18 @@ func (s *StateSuite) TestAddServiceEnvironmentLife(c *gc.C) {
 	_, err := s.State.AddService("s0", charm)
 	c.Assert(err, gc.IsNil)
 
-	// Check that machines cannot be added if the environment is Dying.
+	// Check that services cannot be added if the environment is Dying.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("s1", charm)
-	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
 	// Same again for Dead.
 	err = env.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("s2", charm)
-	c.Assert(err, gc.ErrorMatches, ".*environment is being destroyed")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s2": environment is being destroyed`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {

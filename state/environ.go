@@ -28,7 +28,7 @@ var _ Living = (*Environment)(nil)
 type environmentDoc struct {
 	UUID string `bson:"_id"`
 	Name string
-	Life Life `bson:-`
+	Life Life
 }
 
 // Environment returns the environment entity.

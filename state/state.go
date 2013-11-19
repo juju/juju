@@ -765,8 +765,8 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	ops = append(ops, peerOps...)
 
 	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that the service
-	// already exists.
+	// because all the possible failed assertions imply that either the
+	// service already exists, or the environment is being destroyed.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		if err := env.Refresh(); err != nil {
 			return nil, err

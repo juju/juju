@@ -35,7 +35,7 @@ func (e *Environment) Refresh() error {
 	return nil
 }
 
-// Watch returns a watcher for observing changes to the machine.
+// Watch returns a watcher for observing changes to the environment.
 func (e *Environment) Watch() (watcher.NotifyWatcher, error) {
 	return e.st.watch(e.tag)
 }
