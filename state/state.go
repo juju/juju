@@ -356,12 +356,17 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 	sdoc := statusDoc{
 		Status: params.StatusPending,
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, nil, err
+	}
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same constraints.Value struct
 	// so here we clear the container value. Provisioning ignores the container value but
 	// clearing it avoids potential confusion.
 	cons.Container = nil
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		{
 			C:      st.machines.Name,
 			Id:     mdoc.Id,
@@ -478,10 +483,16 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	}
 	ops = append(ops, machineOps...)
 
-	err = st.runTransaction(ops)
-	if err != nil {
+	if err = st.runTransaction(ops); err == txn.ErrAborted {
+		if env, err := st.Environment(); err != nil {
+			return nil, err
+		} else if env.Life() != Alive {
+			return nil, fmt.Errorf("environment is being destroyed")
+		}
+	} else if err != nil {
 		return nil, err
 	}
+
 	// Refresh to pick the txn-revno.
 	m = newMachine(st, mdoc)
 	if err = m.Refresh(); err != nil {
@@ -596,16 +607,16 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.ServiceTagKind:
 		return st.Service(id)
 	case names.EnvironTagKind:
-		conf, err := st.EnvironConfig()
+		env, err := st.Environment()
 		if err != nil {
 			return nil, err
 		}
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
-		if id != conf.Name() {
+		if id != env.UUID() {
 			return nil, errors.NotFoundf("environment %q", id)
 		}
-		return st.Environment()
+		return env, nil
 	case names.RelationTagKind:
 		return st.KeyRelation(id)
 	}
@@ -630,6 +641,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.users.Name
 	case names.RelationTagKind:
 		coll = st.relations.Name
+	case names.EnvironTagKind:
+		coll = st.environments.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -717,6 +730,10 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -729,6 +746,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
@@ -750,9 +768,14 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	ops = append(ops, peerOps...)
 
 	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that the service
-	// already exists.
+	// because all the possible failed assertions imply that either the
+	// service already exists, or the environment is being destroyed.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		if err := env.Refresh(); err != nil {
+			return nil, err
+		} else if env.Life() != Alive {
+			return nil, fmt.Errorf("environment is being destroyed")
+		}
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err

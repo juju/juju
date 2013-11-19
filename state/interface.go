@@ -128,6 +128,7 @@ var (
 	_ NotifyWatcherFactory = (*Machine)(nil)
 	_ NotifyWatcherFactory = (*Unit)(nil)
 	_ NotifyWatcherFactory = (*Service)(nil)
+	_ NotifyWatcherFactory = (*Environment)(nil)
 )
 
 // AgentEntity represents an entity that can

@@ -207,6 +207,23 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	check(m[1], "1", "blahblah", allJobs)
 }
 
+func (s *StateSuite) TestAddMachinesEnvironmentLife(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
+	// Same again if the environment has been removed.
+	err = env.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment not found")
+}
+
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, gc.IsNil)
@@ -528,6 +545,25 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentLife(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+
+	// Check that services cannot be added if the environment is Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
+	// Same again if the environment has been removed.
+	err = env.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s2", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s2": environment not found`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1523,10 +1559,12 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-var findEntityTests = []struct {
+type findEntityTest struct {
 	tag string
 	err string
-}{{
+}
+
+var findEntityTests = []findEntityTest{{
 	tag: "",
 	err: `"" is not a valid tag`,
 }, {
@@ -1585,7 +1623,8 @@ var findEntityTests = []struct {
 }, {
 	tag: "user-arble",
 }, {
-	tag: "environment-testenv",
+	tag: "environment-notauuid",
+	err: `environment "notauuid" not found`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -1614,6 +1653,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
+	// environment tag is dynamically generated
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	findEntityTests = append([]findEntityTest{}, findEntityTests...)
+	findEntityTests = append(findEntityTests, findEntityTest{
+		tag: "environment-" + env.UUID(),
+	})
+
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)
 		e, err := s.State.FindEntity(test.tag)
@@ -1637,7 +1684,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		"foo-",
 		"---",
 		"foo-bar",
-		"environment-foo",
 		"unit-foo",
 	}
 	for _, name := range bad {
@@ -1678,6 +1724,14 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
+	c.Assert(err, gc.IsNil)
+
+	// Parse an environment entity name.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	coll, id, err = state.ParseTag(s.State, env.Tag())
+	c.Assert(coll, gc.Equals, "environments")
+	c.Assert(id, gc.Equals, env.UUID())
 	c.Assert(err, gc.IsNil)
 }
 
