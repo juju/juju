@@ -139,6 +139,8 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		}
 		m, err := s.BackingState.AddMachineWithConstraints(&params)
 		c.Assert(err, gc.IsNil)
+		err = m.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+		c.Assert(err, gc.IsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
 }
@@ -158,6 +160,8 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 		Constraints: s.defaultConstraints,
 	}
 	m, err := s.BackingState.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.IsNil)
+	err = m.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
 	s.createContainer(c, m, ctype)
 

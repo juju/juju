@@ -94,6 +94,16 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	}
 }
 
+func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
+	err := runAddMachine(c)
+	c.Assert(err, gc.IsNil)
+	m, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	m.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	err = runAddMachine(c, "lxc:0")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+}
+
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	err := runAddMachine(c, ":lxc")
 	c.Assert(err, gc.ErrorMatches, `malformed container argument ":lxc"`)
