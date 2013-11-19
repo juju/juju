@@ -79,22 +79,17 @@ func (env *environ) Storage() storage.Storage {
 }
 
 func (env *environ) PublicStorage() storage.StorageReader {
-	// You can safely ignore this method, and one day it will be gone from the
-	// interface, and you will be able to delete it.
 	return environs.EmptyStorage
 }
 
 func (env *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	// You can probably ignore this method; the common implementation should work.
 	return common.Bootstrap(env, cons, possibleTools)
 }
 
 func (env *environ) StateInfo() (*state.Info, *api.Info, error) {
-	// You can probably ignore this method; the common implementation should work.
 	return common.StateInfo(env)
 }
 
 func (env *environ) Destroy() error {
-	// You can probably ignore this method; the common implementation should work.
 	return common.Destroy(env)
 }

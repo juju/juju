@@ -16,44 +16,63 @@ import (
 const boilerplateConfig = `joyent:
   type: joyent
 
+  # SDC config
   # Can be set via env variables, or specified here
-  # user: <secret>
+  # sdc-user: <secret>
   # Can be set via env variables, or specified here
-  # key-id: <secret>
-  # region defaults to us-east-1, override if required
-  # region: us-east-1
+  # sdc-key-id: <secret>
+  # region defaults to us-west-1, override if required
+  # sdc-region: us-west-1
 
+  # Manta config
+  # Can be set via env variables, or specified here
+  # manta-user: <secret>
+  # Can be set via env variables, or specified here
+  # manta-key-id: <secret>
+  # region defaults to us-east, override if required
+  # manta-region: us-east
 `
 
 const (
-	SdcAccount        = "SDC_ACCOUNT"
-	SdcKeyId          = "SDC_KEY_ID"
-	MantaUser         = "MANTA_USER"
-	MantaKeyId        = "MANTA_KEY_ID"
+	SdcAccount        	= "SDC_ACCOUNT"
+	SdcKeyId          	= "SDC_KEY_ID"
+	SdcUrl				= "SDC_URL"
+	MantaUser         	= "MANTA_USER"
+	MantaKeyId        	= "MANTA_KEY_ID"
+	MantaUrl			= "MANTA_URL"
 )
 
-var environmentVariables = map[string][]string{
-	"user": 	{SdcAccount, MantaUser},
-	"key-id": 	{SdcKeyId, MantaKeyId},
+var environmentVariables = map[string] string{
+	"sdc-user": 		SdcAccount,
+	"sdc-key-id": 		SdcKeyId,
+	"manta-user": 		MantaUser,
+	"manta-key-id": 	MantaKeyId,
 }
 
 var configFields = schema.Fields{
-	"user":           		schema.String(),
-	"key-id":           	schema.String(),
-	"region":               schema.String(),
+	"sdc-user":           		schema.String(),
+	"sdc-key-id":           	schema.String(),
+	"sdc-region":               schema.String(),
+	"manta-user":           	schema.String(),
+	"manta-key-id":           	schema.String(),
+	"manta-region":             schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
-	"region":				"us-east-1",
+	"sdc-region":				"us-west-1",
+	"manta-region":				"us-east",
 }
 
 var configSecretFields = []string{
-	"user",
-	"key-id",
+	"sdc-user",
+	"sdc-key-id",
+	"manta-user",
+	"manta-key-id",
 }
 
 var configImmutableFields = []string{
-	"region",
+	"sdc-region",
+	"manta-region",
 }
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
@@ -63,18 +82,12 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	// Read env variables
 	for _,field := range configSecretFields {
 		// If field is not set, get it from env variables
-		fmt.Printf("Secret field: %s", field)
 		if attrs[field] == "" {
-			for _,envVariable := range environmentVariables[field] {
-				fmt.Printf("-- Trying to read env variable %s", envVariable)
-				localEnvVariable := os.Getenv(envVariable)
-				fmt.Printf("-- Got: %s", localEnvVariable)
-				if localEnvVariable != "" {
-					attrs[field] = localEnvVariable
-				}
-			}
-			if attrs[field] == "" {
-				return nil, fmt.Errorf("cannot get %s value from environment variables %s or %s", field, environmentVariables[field][0], environmentVariables[field][1])
+			localEnvVariable := os.Getenv(environmentVariables[field])
+			if localEnvVariable != "" {
+				attrs[field] = localEnvVariable
+			} else {
+				return nil, fmt.Errorf("cannot get %s value from environment variables %s", field, environmentVariables[field])
 			}
 		}
 	}
