@@ -424,14 +424,14 @@ func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
 	result, err := s.provisioner.WatchAllContainers(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
-			Results: []params.StringsWatchResult{
-				{StringsWatcherId: "1", Changes: []string{}},
-				{StringsWatcherId: "2", Changes: []string{}},
-				{Error: apiservertesting.NotFoundError("machine 42")},
-				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.ErrUnauthorized},
-			},
-		})
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "2", Changes: []string{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 2)
