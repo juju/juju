@@ -29,3 +29,11 @@ type Manager interface {
 	// this manager.
 	ListContainers() ([]instance.Instance, error)
 }
+
+// Initialiser is responsible for performing the steps required to initialise
+// a host machine so it can run containers.
+type Initialiser interface {
+	// Initialise installs all required packages, sync any images etc so
+	// that the host machine can run containers.
+	Initialise() error
+}

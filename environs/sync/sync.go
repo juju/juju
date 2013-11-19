@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"launchpad.net/loggo"
 
@@ -138,10 +139,14 @@ func SyncTools(syncContext *SyncContext) error {
 
 // selectSourceStorage returns a storage reader based on the source setting.
 func selectSourceStorage(syncContext *SyncContext) (storage.StorageReader, error) {
-	if syncContext.Source == "" {
-		return httpstorage.NewHTTPStorageReader(DefaultToolsLocation), nil
+	source := syncContext.Source
+	if source == "" {
+		source = DefaultToolsLocation
 	}
-	return filestorage.NewFileStorageReader(syncContext.Source)
+	if strings.HasPrefix(source, "http") {
+		return httpstorage.NewHTTPStorageReader(source), nil
+	}
+	return filestorage.NewFileStorageReader(source)
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -199,6 +204,11 @@ func copyFile(dest, source string) error {
 	return err
 }
 
+// UploadFunc is the type of Upload, which may be
+// reassigned to control the behaviour of tools
+// uploading.
+type UploadFunc func(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error)
+
 // Upload builds whatever version of launchpad.net/juju-core is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
@@ -206,7 +216,9 @@ func copyFile(dest, source string) error {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
+var Upload UploadFunc = upload
+
+func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 

@@ -31,7 +31,11 @@ func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &nullEnviron{cfg: envConfig}, nil
+	return p.open(envConfig)
+}
+
+func (p nullProvider) open(cfg *environConfig) (environs.Environ, error) {
+	return &nullEnviron{cfg: cfg}, nil
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
