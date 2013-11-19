@@ -313,7 +313,7 @@ func (a *MachineAgent) uninstallAgent() error {
 	}
 	if agentServiceName != "" {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
-			errors = append(errors, err)
+			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
 	// The machine agent may terminate without knowing its jobs,
@@ -323,7 +323,7 @@ func (a *MachineAgent) uninstallAgent() error {
 	mongoServiceName := a.Conf.config.Value(agent.MongoServiceName)
 	if mongoServiceName != "" {
 		if err := upstart.NewService(mongoServiceName).StopAndRemove(); err != nil {
-			errors = append(errors, err)
+			errors = append(errors, fmt.Errorf("cannot stop/remove service %q: %v", mongoServiceName, err))
 		}
 	}
 	if err := os.RemoveAll(a.Conf.dataDir); err != nil {
