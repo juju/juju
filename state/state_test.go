@@ -301,6 +301,61 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
 }
 
+func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("quantal", oneJob...)
+	c.Assert(err, gc.IsNil)
+	err = host.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: instance.KVM,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, "0/kvm/0")
+	s.assertMachineContainers(c, host, []string{"0/kvm/0"})
+}
+
+func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainers(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("quantal", oneJob...)
+	c.Assert(err, gc.IsNil)
+	err = host.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: instance.LXC,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("quantal", oneJob...)
+	c.Assert(err, gc.IsNil)
+	err = host.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: instance.LXC,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	s.assertMachineContainers(c, host, nil)
+}
+
 func (s *StateSuite) TestAddContainerWithConstraints(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")

@@ -352,7 +352,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci, err := cloudinit.New(&test.cfg)
+		ci := coreCloudinit.New()
+		err := cloudinit.Configure(&test.cfg, ci)
 		c.Assert(err, gc.IsNil)
 		c.Check(ci, gc.NotNil)
 		// render the cloudinit config to bytes, and then
@@ -375,9 +376,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
-		// The lxc package should only be there if the machine container type is not lxc.
-		hasLxc := test.cfg.MachineContainerType != "lxc"
-		checkPackage(c, x, "lxc", hasLxc)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
 			source := "ppa:juju/stable"
@@ -394,9 +392,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
 		cloudcfg := coreCloudinit.New()
-		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
+		err := cloudinit.Configure(&test.cfg, cloudcfg)
 		c.Assert(err, gc.IsNil)
-		c.Check(ci, gc.NotNil)
 	}
 }
 
@@ -406,10 +403,9 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
-	ci, err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
+	err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
-	c.Check(ci, gc.NotNil)
-	data, err := ci.Render()
+	data, err := cloudcfg.Render()
 	c.Assert(err, gc.IsNil)
 
 	ciContent := make(map[interface{}]interface{})
@@ -683,16 +679,16 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineNonce: "FAKE_NONCE",
 	}
 	// check that the base configuration does not give an error
-	_, err := cloudinit.New(cfg)
+	ci := coreCloudinit.New()
+	err := cloudinit.Configure(cfg, ci)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
 		cfg1 := *cfg
 		test.mutate(&cfg1)
-		t, err := cloudinit.New(&cfg1)
+		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
-		c.Assert(t, gc.IsNil)
 	}
 }
 

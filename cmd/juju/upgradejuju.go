@@ -31,8 +31,6 @@ type UpgradeJujuCommand struct {
 	Series      []string
 }
 
-var uploadTools = sync.Upload
-
 var upgradeJujuDoc = `
 The upgrade-juju command upgrades a running environment by setting a version
 number for all juju agents to run. By default, it chooses the most recent
@@ -226,7 +224,7 @@ func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) 
 	// include all the extra series we build, so we can set *that* onto
 	// v.available and maybe one day be able to check that a given upgrade
 	// won't leave out-of-date machines lying around, starved of envtools.
-	uploaded, err := uploadTools(storage, &v.chosen, series...)
+	uploaded, err := sync.Upload(storage, &v.chosen, series...)
 	if err != nil {
 		return err
 	}

@@ -9,49 +9,23 @@ import (
 	"os"
 	"strings"
 
-	"launchpad.net/juju-core/agent"
 	corecloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
-type provisionMachineAgentArgs struct {
-	host          string
-	dataDir       string
-	bootstrap     bool
-	environConfig *config.Config
-	machineId     string
-	nonce         string
-	stateFileURL  string
-	stateInfo     *state.Info
-	apiInfo       *api.Info
-	tools         *tools.Tools
-
-	// agentEnv is an optional map of
-	// arbitrary key/value pairs to pass
-	// into the machine agent.
-	agentEnv map[string]string
-}
-
-// provisionMachineAgent connects to a machine over SSH,
-// copies across the tools, and installs a machine agent.
-func provisionMachineAgent(args provisionMachineAgentArgs) error {
-	logger.Infof("Provisioning machine agent on %s", args.host)
-	script, err := provisionMachineAgentScript(args)
+// ProvisionMachineAgent connects to a machine over SSH,
+// and installs a machine agent.
+func ProvisionMachineAgent(host string, mcfg *cloudinit.MachineConfig) error {
+	logger.Infof("Provisioning machine agent on %s", host)
+	script, err := provisionMachineAgentScript(mcfg)
 	if err != nil {
 		return err
 	}
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
 	cmd := sshCommand(
-		args.host,
+		host,
 		fmt.Sprintf("sudo bash -c '%s'", script),
 		allocateTTY,
 	)
@@ -62,31 +36,13 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 }
 
 // provisionMachineAgentScript generates the script necessary
-// to install a machine agent on the specified host.
-func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error) {
+// to install a machine agent with the provided MachineConfig.
+func provisionMachineAgentScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	// We generate a cloud-init config, which we'll then pull the runcmds
 	// and prerequisite packages out of. Rather than generating a cloud-config,
 	// we'll just generate a shell script.
-	var mcfg *cloudinit.MachineConfig
-	if args.bootstrap {
-		mcfg = environs.NewBootstrapMachineConfig(args.stateFileURL)
-	} else {
-		mcfg = environs.NewMachineConfig(args.machineId, args.nonce, args.stateInfo, args.apiInfo)
-	}
-	if args.dataDir != "" {
-		mcfg.DataDir = args.dataDir
-	}
-	mcfg.Tools = args.tools
-	err := environs.FinishMachineConfig(mcfg, args.environConfig, constraints.Value{})
-	if err != nil {
-		return "", err
-	}
-	mcfg.AgentEnvironment[agent.ProviderType] = provider.Null
-	for k, v := range args.agentEnv {
-		mcfg.AgentEnvironment[k] = v
-	}
 	cloudcfg := corecloudinit.New()
-	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
+	if err := cloudinit.Configure(mcfg, cloudcfg); err != nil {
 		return "", err
 	}
 
@@ -148,7 +104,7 @@ func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
 		}
 		cmds = append(cmds, "apt-add-repository -y "+utils.ShQuote(src.Source))
 	}
-	if cfg.AptUpdate() {
+	if len(cfg.AptSources()) > 0 {
 		cmds = append(cmds, "apt-get -y update")
 	}
 	// Note: explicitly ignoring apt_upgrade, so as not to trample the target
