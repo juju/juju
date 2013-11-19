@@ -4,10 +4,12 @@
 package apiserver
 
 import (
+	"errors"
 	"time"
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
 	"launchpad.net/juju-core/state/apiserver/client"
@@ -28,28 +30,38 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
+const timeout = 3 * time.Minute
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	initialRoot *initialRoot
+	srv         *Server
+	rpcConn     *rpc.Conn
 	resources   *common.Resources
 	pingTimeout *pingTimeout
 
 	entity taggedAuthenticator
 }
 
+// newSrvRoot creates the client's connection representation
+// and starts a ping timeout for the monitoring of this
+// connection.
 func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
-		initialRoot: root,
-		resources:   common.NewResources(),
-		entity:      entity,
+		srv:       root.srv,
+		rpcConn:   root.rpcConn,
+		resources: common.NewResources(),
+		entity:    entity,
 	}
-	action := func() error {
-		return r.initialRoot.rpcConn.Close()
+	action := func() {
+		err := r.rpcConn.Close()
+		if err != nil {
+			logger.Errorf("error closing the RPC connection: %v", err)
+		}
 	}
-	r.clientAPI.API = client.NewAPI(root.srv.state, r.resources, r)
-	r.pingTimeout = newPingTimeout(r.entity.Tag(), action, 3*time.Minute)
+	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
+	r.pingTimeout = newPingTimeout(action, timeout)
 	return r
 }
 
@@ -57,6 +69,7 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
+	r.pingTimeout.stop()
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -87,7 +100,7 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return machine.NewMachinerAPI(r.initialRoot.srv.state, r.resources, r)
+	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
 }
 
 // Provisioner returns an object that provides access to the
@@ -98,7 +111,7 @@ func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return provisioner.NewProvisionerAPI(r.initialRoot.srv.state, r.resources, r)
+	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
 }
 
 // MachineAgent returns an object that provides access to the machine
@@ -109,7 +122,7 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return machine.NewAgentAPI(r.initialRoot.srv.state, r)
+	return machine.NewAgentAPI(r.srv.state, r)
 }
 
 // Uniter returns an object that provides access to the Uniter API
@@ -120,7 +133,7 @@ func (r *srvRoot) Uniter(id string) (*uniter.UniterAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return uniter.NewUniterAPI(r.initialRoot.srv.state, r.resources, r)
+	return uniter.NewUniterAPI(r.srv.state, r.resources, r)
 }
 
 // Agent returns an object that provides access to the
@@ -130,7 +143,7 @@ func (r *srvRoot) Agent(id string) (*agent.API, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return agent.NewAPI(r.initialRoot.srv.state, r)
+	return agent.NewAPI(r.srv.state, r)
 }
 
 // Deployer returns an object that provides access to the Deployer API facade.
@@ -140,7 +153,7 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 		// TODO(dimitern): There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return deployer.NewDeployerAPI(r.initialRoot.srv.state, r.resources, r)
+	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
 }
 
 // Logger returns an object that provides access to the Logger API facade.
@@ -150,7 +163,7 @@ func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return loggerapi.NewLoggerAPI(r.initialRoot.srv.state, r.resources, r)
+	return loggerapi.NewLoggerAPI(r.srv.state, r.resources, r)
 }
 
 // Upgrader returns an object that provides access to the Upgrader API facade.
@@ -160,7 +173,7 @@ func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return upgrader.NewUpgraderAPI(r.initialRoot.srv.state, r.resources, r)
+	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
@@ -237,8 +250,10 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	}, nil
 }
 
-// Pinger returns a server pinger tracing the client pings and
-// terminating the root after 3 minutes with no pings.
+// Pinger returns an object that can be pinged
+// by calling its Ping method. If this method
+// is not called frequently enough, the connection
+// will be dropped.
 func (r *srvRoot) Pinger(id string) (pinger, error) {
 	return r.pingTimeout, nil
 }
@@ -293,17 +308,17 @@ type pinger interface {
 // or inactive connections can be closed.
 type pingTimeout struct {
 	tomb    tomb.Tomb
-	tag     string
-	action  func() error
+	action  func()
 	timeout time.Duration
 	reset   chan struct{}
 }
 
-// newPingTimeout creates a ping timeout instance
-// for the passed action and timeout.
-func newPingTimeout(tag string, action func() error, timeout time.Duration) *pingTimeout {
+// newPingTimeout returns a new pingTimeout instance
+// that invokes the given action if there is more
+// than the given timeout interval between calls
+// to its Ping method.
+func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
 	pt := &pingTimeout{
-		tag:     tag,
 		action:  action,
 		timeout: timeout,
 		reset:   make(chan struct{}),
@@ -311,6 +326,7 @@ func newPingTimeout(tag string, action func() error, timeout time.Duration) *pin
 	go func() {
 		defer pt.tomb.Done()
 		pt.tomb.Kill(pt.loop())
+		go pt.action()
 	}()
 	return pt
 }
@@ -324,7 +340,7 @@ func (pt *pingTimeout) Ping() {
 	}
 }
 
-// stop terminates the resource timeout.
+// stop terminates the ping timeout.
 func (pt *pingTimeout) stop() error {
 	pt.tomb.Kill(nil)
 	return pt.tomb.Wait()
@@ -340,7 +356,7 @@ func (pt *pingTimeout) loop() error {
 		case <-pt.tomb.Dying():
 			return nil
 		case <-timer.C:
-			return pt.action()
+			return errors.New("ping timeout")
 		case <-pt.reset:
 			timer.Reset(pt.timeout)
 		}

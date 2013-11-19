@@ -46,20 +46,18 @@ func (*rootSuite) TestDiscardedAPIMethods(c *gc.C) {
 
 func (r *rootSuite) TestPingTimeout(c *gc.C) {
 	closedc := make(chan time.Time, 1)
-	action := func() error {
+	action := func() {
 		closedc <- time.Now()
-		return nil
 	}
-	timeout := apiserver.NewPingTimeout("test", action, 50*time.Millisecond)
+	timeout := apiserver.NewPingTimeout(action, 50*time.Millisecond)
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Millisecond)
 		timeout.Ping()
 	}
-	// Expect killer.killed to be set about 50ms after last ping.
+	// Expect action to be executed about 50ms after last ping.
 	broken := time.Now()
 	time.Sleep(100 * time.Millisecond)
 	closed := <-closedc
 	closeDiff := closed.Sub(broken).Nanoseconds() / 1000000
-	c.Assert(closeDiff, gc.Equals, int64(50))
 	c.Assert(closeDiff >= 50 && closeDiff <= 60, gc.Equals, true)
 }
