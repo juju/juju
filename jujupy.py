@@ -184,7 +184,8 @@ class Environment:
             print format_listing(states, 'started', self.environment)
             sys.stdout.flush()
         else:
-            raise Exception('Timed out!')
+            raise Exception('Timed out waiting for agents to start in %s.' %
+                            self.environment)
         return status
 
 
