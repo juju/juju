@@ -67,7 +67,7 @@ type Config interface {
 	OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error)
 
 	//APIAddresses returns the addresses needed to connect to the api server
-	APIAddresses() []string
+	APIAddresses() ([]string, error)
 
 	// OpenState tries to open a direct connection to the state database using
 	// the given Conf.
@@ -302,8 +302,13 @@ func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 	return c.apiPort, c.stateServerCert, c.stateServerKey
 }
 
-func (c *configInternal) APIAddresses() []string {
-	return c.apiDetails.addresses
+func (c *configInternal) APIAddresses() ([]string, error) {
+	if c.apiDetails == nil {
+		return []string{}, fmt.Errorf("No apidetails in config")
+	}
+	apiAdrs := make([]string, len(c.apiDetails.addresses))
+	copy(apiAdrs, c.apiDetails.addresses)
+	return apiAdrs, nil
 }
 
 func (c *configInternal) Tag() string {

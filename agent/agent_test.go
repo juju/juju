@@ -184,9 +184,20 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, "omg")
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.APIAddresses(), gc.DeepEquals, []string{"localhost:1235"})
 }
 
+func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+	value, err := conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(value, gc.DeepEquals, []string{"localhost:1235"})
+	value[0] = "invalidAdr"
+	//Check out change hasn't gone back into the internals
+	newValue, err := conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
+}
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
