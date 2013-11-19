@@ -100,7 +100,7 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 
-	// Start a new worker for the environment or lxc provisioner,
+	// Start a new worker for the environment or container provisioner,
 	// it depends on the provisioner type passed in NewProvisioner.
 
 	// Start responding to changes in machines, and to any further updates
@@ -160,27 +160,39 @@ func (p *Provisioner) getWatcher() (Watcher, error) {
 	switch p.pt {
 	case ENVIRON:
 		return p.st.WatchEnvironMachines()
-	case LXC:
-		machine, err := p.getMachine()
-		if err != nil {
-			return nil, err
-		}
-		return machine.WatchContainers(instance.LXC)
 	}
-	return nil, fmt.Errorf("unknown provisioner type")
+	var ctype instance.ContainerType
+	switch p.pt {
+	case LXC:
+		ctype = instance.LXC
+	case KVM:
+		ctype = instance.KVM
+	default:
+		return nil, fmt.Errorf("unknown provisioner type")
+	}
+	machine, err := p.getMachine()
+	if err != nil {
+		return nil, err
+	}
+	return machine.WatchContainers(ctype)
+
 }
 
 func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 	switch p.pt {
 	case ENVIRON:
 		return p.environ, nil
+	}
+	tools, err := p.getAgentTools()
+	if err != nil {
+		logger.Errorf("cannot get tools from machine for %s broker", p.pt)
+		return nil, err
+	}
+	switch p.pt {
 	case LXC:
-		tools, err := p.getAgentTools()
-		if err != nil {
-			logger.Errorf("cannot get tools from machine for lxc broker")
-			return nil, err
-		}
 		return NewLxcBroker(p.st, tools, p.agentConfig), nil
+	case KVM:
+		return nil, fmt.Errorf("kvm not implemented yet")
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }

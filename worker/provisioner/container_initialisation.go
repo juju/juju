@@ -8,11 +8,19 @@ import (
 	"sync/atomic"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container/kvm"
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
 )
+
+var ProvisonerTypes = map[instance.ContainerType]ProvisionerType{
+	instance.LXC: LXC,
+	instance.KVM: KVM,
+}
 
 // ContainerSetup is a StringsWatchHandler that is notified when containers of
 // the specified type are created on the given machine. It will set up the
@@ -77,19 +85,13 @@ func (cs *ContainerSetup) Handle(containerIds []string) error {
 	if err := cs.runner.StopWorker(cs.workerName); err != nil {
 		logger.Warningf("stopping machine agent container watcher: %v", err)
 	}
-	if err := cs.ensureContainerDependencies(); err != nil {
+	if err := cs.initaliseContainer(); err != nil {
 		return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
 	}
-	var provisionerType ProvisionerType
-	switch cs.containerType {
-	case instance.LXC:
-		provisionerType = LXC
-	case instance.KVM:
-		provisionerType = KVM
-	default:
-		return fmt.Errorf("invalid container type %q", cs.containerType)
+	if provisionerType, ok := ProvisonerTypes[cs.containerType]; ok {
+		return StartProvisioner(cs.runner, provisionerType, cs.provisioner, cs.config)
 	}
-	return StartProvisioner(cs.runner, provisionerType, cs.provisioner, cs.config)
+	return fmt.Errorf("invalid container type %q", cs.containerType)
 }
 
 // TearDown is defined on the StringsWatchHandler interface.
@@ -98,9 +100,17 @@ func (cs *ContainerSetup) TearDown() error {
 	return nil
 }
 
-func (cs *ContainerSetup) ensureContainerDependencies() error {
-	// TODO(wallyworld) - install whatever dependencies are required to support starting containers
-	return nil
+func (cs *ContainerSetup) initaliseContainer() error {
+	var initialiser container.Initialiser
+	switch cs.containerType {
+	case instance.LXC:
+		initialiser = lxc.NewContainerInitialiser()
+	case instance.KVM:
+		initialiser = kvm.NewContainerInitialiser()
+	default:
+		return fmt.Errorf("unknown container type: %v", cs.containerType)
+	}
+	return initialiser.Initialise()
 }
 
 // Override for testing.
