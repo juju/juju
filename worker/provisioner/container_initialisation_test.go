@@ -68,7 +68,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string, ctype in
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, gc.IsNil)
-	err = machine.AddSupportedContainers(instance.LXC)
+	err = machine.SetSupportedContainers(instance.LXC)
 	c.Assert(err, gc.IsNil)
 	cfg := s.AgentConfigForTag(c, tag)
 
