@@ -1566,20 +1566,14 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 4)
+
 	// Check the results - machines 2 and 3 will have errors.
-	for i, machineResult := range machines {
-		switch i {
-		case 2:
-			c.Check(machineResult.Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
-		case 3:
-			c.Check(
-				machineResult.Error,
-				gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
-		default:
-			c.Check(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i+1))
-			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
-		}
-	}
+	c.Check(machines[0].Machine, gc.Equals, "1")
+	c.Check(machines[0].Error, gc.IsNil)
+	c.Check(machines[1].Machine, gc.Equals, "2")
+	c.Check(machines[1].Error, gc.IsNil)
+	c.Check(machines[2].Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
+	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
 }
 
 func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
