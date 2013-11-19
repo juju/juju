@@ -66,7 +66,7 @@ type Config interface {
 	// password accordingly.
 	OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error)
 
-	//APIAddresses returns the addresses needed to connect to the api server
+	// APIAddresses returns the addresses needed to connect to the api server
 	APIAddresses() ([]string, error)
 
 	// OpenState tries to open a direct connection to the state database using
