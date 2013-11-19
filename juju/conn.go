@@ -336,7 +336,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 			// or a new container on a machine, eg lxc:3
 			mid := machineIdSpec
 			var containerType instance.ContainerType
-			specParts := strings.Split(machineIdSpec, ":")
+			specParts := strings.SplitN(machineIdSpec, ":", 2)
 			if len(specParts) > 1 {
 				firstPart := specParts[0]
 				var err error
@@ -360,8 +360,11 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 					ContainerType: containerType,
 					Jobs:          []state.MachineJob{state.JobHostUnits},
 				}
+				// BUG this new machine might be grabbed as clean by
+				// another unit deploy before we manage to assign the
+				// unit to it.
+				// See https://bugs.launchpad.net/juju-core/+bug/1252799
 				m, err = conn.State.AddMachineWithConstraints(&params)
-
 			} else {
 				m, err = conn.State.Machine(mid)
 			}
