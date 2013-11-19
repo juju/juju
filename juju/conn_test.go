@@ -413,7 +413,7 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 
 	// Check that all but the first colon is left alone.
 	_, err = s.conn.AddUnits(svc, 1, "lxc:"+strings.Replace(id3, "/", ":", -1))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `invalid force machine id ".*"`)
 }
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
