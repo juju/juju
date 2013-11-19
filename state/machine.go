@@ -823,29 +823,7 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
 func (m *Machine) SupportsNoContainers() (err error) {
-	ops := []txn.Op{
-		{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: notDeadDoc,
-			Update: D{
-				{"$set", D{
-					{"supportedcontainers", []instance.ContainerType{}},
-					{"supportedcontainersknown", true},
-				}}},
-		},
-	}
-
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
-	}
-	m.doc.SupportedContainers = []instance.ContainerType{}
-	m.doc.SupportedContainersKnown = true
-	err = m.checkSupportedContainers(nil)
-	if err != nil {
-		logger.Errorf("checking unsupported containers on machine %v", m)
-	}
-	return nil
+	return m.updateSupportedContainers([]instance.ContainerType{})
 }
 
 // SetSupportedContainers sets the list of containers supported by this machine.
@@ -858,30 +836,7 @@ func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (e
 			return fmt.Errorf("%q is not a valid container type", container)
 		}
 	}
-	ops := []txn.Op{
-		{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: notDeadDoc,
-			Update: D{
-				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
-				{"$set", D{{"supportedcontainersknown", true}}},
-			},
-		},
-	}
-
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
-	}
-	for _, container := range containers {
-		m.addContainerIfMissing(container)
-	}
-	m.doc.SupportedContainersKnown = true
-	err = m.checkSupportedContainers(containers)
-	if err != nil {
-		logger.Errorf("checking unsupported containers on machine %v", m)
-	}
-	return nil
+	return m.updateSupportedContainers(containers)
 }
 
 func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
@@ -893,9 +848,27 @@ func isSupportedContainer(container instance.ContainerType, supportedContainers 
 	return false
 }
 
-// checkSupportedContainers iterates over all containers and for those which are not supported
-// by the host machine, marks their status as being in error.
-func (m *Machine) checkSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
+// updateSupportedContainers sets the supported containers on this host machine and then iterates
+// over all existing containers and for those which are not supported, marks their status as being in error.
+func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: D{
+				{"$set", D{
+					{"supportedcontainers", supportedContainers},
+					{"supportedcontainersknown", true},
+				}}},
+		},
+	}
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.SupportedContainers = supportedContainers
+	m.doc.SupportedContainersKnown = true
+
 	currentContainers, err := m.Containers()
 	if err != nil {
 		return err
@@ -924,17 +897,4 @@ func (m *Machine) checkSupportedContainers(supportedContainers []instance.Contai
 		}
 	}
 	return nil
-}
-
-func (m *Machine) addContainerIfMissing(container instance.ContainerType) {
-	found := false
-	for _, c := range m.doc.SupportedContainers {
-		if c == container {
-			found = true
-			break
-		}
-	}
-	if !found {
-		m.doc.SupportedContainers = append(m.doc.SupportedContainers, container)
-	}
 }
