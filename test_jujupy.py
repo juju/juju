@@ -342,7 +342,9 @@ class TestEnvironment(TestCase):
         JujuClientDevelFake.set_output(output_iterator())
         env = Environment('local', JujuClientDevelFake)
         with patch('jujupy.until_timeout', lambda x: range(0)):
-            with self.assertRaisesRegexp(Exception, 'Timed out!'):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Timed out waiting for agents to start in local'):
                 env.wait_for_started()
 
 
