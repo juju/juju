@@ -173,6 +173,7 @@ var attributeParams = agent.AgentConfigParams{
 	Password:       "sekrit",
 	CACert:         []byte("ca cert"),
 	StateAddresses: []string{"localhost:1234"},
+	APIAddresses:   []string{"localhost:1235"},
 	Nonce:          "a nonce",
 }
 
@@ -183,6 +184,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, "omg")
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
+	c.Assert(conf.APIAddresses(), gc.DeepEquals, []string{"localhost:1235"})
 }
 
 func (*suite) TestWriteAndRead(c *gc.C) {
