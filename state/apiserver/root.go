@@ -30,7 +30,11 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
-const timeout = 3 * time.Minute
+// maxPingInterval defines the timeframe until the ping
+// timeout closes the monitored connection.
+// TODO(mue): Idea by Roger: Move to API (e.g. params) so
+// that the pinging there may depend on the interval.
+const maxPingInterval = 3 * time.Minute
 
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
@@ -61,7 +65,7 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		}
 	}
 	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
-	r.pingTimeout = newPingTimeout(action, timeout)
+	r.pingTimeout = newPingTimeout(action, maxPingInterval)
 	return r
 }
 
@@ -314,8 +318,8 @@ type pingTimeout struct {
 }
 
 // newPingTimeout returns a new pingTimeout instance
-// that invokes the given action if there is more
-// than the given timeout interval between calls
+// that invokes the given action asynchronously if there
+// is more than the given timeout interval between calls
 // to its Ping method.
 func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
 	pt := &pingTimeout{
@@ -326,7 +330,6 @@ func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
 	go func() {
 		defer pt.tomb.Done()
 		pt.tomb.Kill(pt.loop())
-		go pt.action()
 	}()
 	return pt
 }
@@ -356,6 +359,7 @@ func (pt *pingTimeout) loop() error {
 		case <-pt.tomb.Dying():
 			return nil
 		case <-timer.C:
+			go pt.action()
 			return errors.New("ping timeout")
 		case <-pt.reset:
 			timer.Reset(pt.timeout)

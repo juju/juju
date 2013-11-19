@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/testing"
 )
 
 type rootSuite struct{}
@@ -50,14 +51,19 @@ func (r *rootSuite) TestPingTimeout(c *gc.C) {
 		closedc <- time.Now()
 	}
 	timeout := apiserver.NewPingTimeout(action, 50*time.Millisecond)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2; i++ {
 		time.Sleep(10 * time.Millisecond)
 		timeout.Ping()
 	}
 	// Expect action to be executed about 50ms after last ping.
 	broken := time.Now()
+	var closed time.Time
 	time.Sleep(100 * time.Millisecond)
-	closed := <-closedc
-	closeDiff := closed.Sub(broken).Nanoseconds() / 1000000
-	c.Assert(closeDiff >= 50 && closeDiff <= 60, gc.Equals, true)
+	select {
+	case closed = <-closedc:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("action never executed")
+	}
+	closeDiff := closed.Sub(broken) / time.Millisecond
+	c.Assert(50 <= closeDiff && closeDiff <= 100, gc.Equals, true)
 }
