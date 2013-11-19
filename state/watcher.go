@@ -192,11 +192,22 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes to the
-// lifecycles of containers on a machine.
+// lifecycles of containers of the specified type on a machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
 	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, names.NumberSnippet)
-	members := D{{"_id", D{{"$regex", isChild}}}}
-	compiled := regexp.MustCompile(isChild)
+	return m.containersWatcher(isChild)
+}
+
+// WatchAllContainers returns a StringsWatcher that notifies of changes to the
+// lifecycles of all containers on a machine.
+func (m *Machine) WatchAllContainers() StringsWatcher {
+	isChild := fmt.Sprintf("^%s/[a-z]*/%s$", m.doc.Id, names.NumberSnippet)
+	return m.containersWatcher(isChild)
+}
+
+func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
+	members := D{{"_id", D{{"$regex", isChildRegexp}}}}
+	compiled := regexp.MustCompile(isChildRegexp)
 	filter := func(key interface{}) bool {
 		return compiled.MatchString(key.(string))
 	}

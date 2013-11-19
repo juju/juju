@@ -238,13 +238,11 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	for _, ctype := range containers {
-		watcherName := fmt.Sprintf("%s-watcher", ctype)
-		handler := provisioner.NewContainerSetupHandler(runner, watcherName, ctype, machine, pr, a.Conf.config)
-		runner.StartWorker(watcherName, func() (worker.Worker, error) {
-			return worker.NewStringsWorker(handler), nil
-		})
-	}
+	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+	handler := provisioner.NewContainerSetupHandler(runner, watcherName, containers, machine, pr, a.Conf.config)
+	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+		return worker.NewStringsWorker(handler), nil
+	})
 	return nil
 }
 

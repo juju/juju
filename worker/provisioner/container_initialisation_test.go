@@ -63,7 +63,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string, ctype instance.ContainerType) {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
@@ -72,8 +72,8 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string, ctype in
 	c.Assert(err, gc.IsNil)
 	cfg := s.AgentConfigForTag(c, tag)
 
-	watcherName := fmt.Sprintf("%s-watcher", ctype)
-	handler := provisioner.NewContainerSetupHandler(runner, watcherName, ctype, machine, pr, cfg)
+	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+	handler := provisioner.NewContainerSetupHandler(runner, watcherName, instance.ContainerTypes, machine, pr, cfg)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
@@ -84,7 +84,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string, ctype in
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.Tag(), ctype)
+	s.setupContainerWorker(c, host.Tag())
 
 	// make a container on the host machine
 	params := state.AddMachineParams{

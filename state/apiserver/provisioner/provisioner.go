@@ -113,7 +113,12 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if err != nil {
 		return nothing, err
 	}
-	watch := machine.WatchContainers(instance.ContainerType(arg.ContainerType))
+	var watch state.StringsWatcher
+	if arg.ContainerType != "" {
+		watch = machine.WatchContainers(instance.ContainerType(arg.ContainerType))
+	} else {
+		watch = machine.WatchAllContainers()
+	}
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{
@@ -124,7 +129,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	return nothing, watcher.MustErr(watch)
 }
 
-// WatchContainers starts a StringsWatcher to watch all containers deployed to
+// WatchContainers starts a StringsWatcher to watch containers deployed to
 // any machine passed in args.
 func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
@@ -136,6 +141,12 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// WatchAllContainers starts a StringsWatcher to watch all containers deployed to
+// any machine passed in args.
+func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
+	return p.WatchContainers(args)
 }
 
 // WatchForEnvironConfigChanges returns a NotifyWatcher to observe
