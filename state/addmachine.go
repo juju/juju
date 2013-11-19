@@ -10,8 +10,8 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
 
