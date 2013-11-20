@@ -155,14 +155,26 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (ecfg *environConfig) region() string {
-	return ecfg.attrs["region"].(string)
+func (ecfg *environConfig) sdcRegion() string {
+	return ecfg.attrs["sdc-region"].(string)
 }
 
-func (ecfg *environConfig) user() string {
-	return ecfg.attrs["user"].(string)
+func (ecfg *environConfig) sdcUser() string {
+	return ecfg.attrs["sdc-user"].(string)
 }
 
-func (ecfg *environConfig) keyId() string {
-	return ecfg.attrs["key-id"].(string)
+func (ecfg *environConfig) sdcKeyId() string {
+	return ecfg.attrs["sdc-key-id"].(string)
+}
+
+func (ecfg *environConfig) mantaRegion() string {
+	return ecfg.attrs["manta-region"].(string)
+}
+
+func (ecfg *environConfig) mantaUser() string {
+	return ecfg.attrs["manta-user"].(string)
+}
+
+func (ecfg *environConfig) mantaKeyId() string {
+	return ecfg.attrs["manta-key-id"].(string)
 }

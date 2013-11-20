@@ -98,8 +98,6 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 }
 
 func (environProvider) BoilerplateConfig() string {
-	// boilerplateConfig is kept in config.go, in the hope that people editing
-	// config will keep it up to date.
 	return boilerplateConfig
 
 }
