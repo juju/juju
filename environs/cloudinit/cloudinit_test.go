@@ -393,9 +393,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
-		// The lxc package should only be there if the machine container type is not lxc.
-		hasLxc := test.cfg.MachineContainerType != "lxc"
-		checkPackage(c, x, "lxc", hasLxc)
 		tag := names.MachineTag(test.cfg.MachineId)
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)

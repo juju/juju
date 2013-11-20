@@ -16,13 +16,15 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apiagent "launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/params"
+	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
@@ -31,7 +33,7 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/localstorage"
-	"launchpad.net/juju-core/worker/logger"
+	workerlogger "launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -39,13 +41,9 @@ import (
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
-type workerRunner interface {
-	worker.Worker
-	StartWorker(id string, startFunc func() (worker.Worker, error)) error
-	StopWorker(id string) error
-}
+var logger = loggo.GetLogger("juju.cmd.jujud")
 
-var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) workerRunner {
+var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) worker.Runner {
 	return worker.NewRunner(isFatal, moreImportant)
 }
 
@@ -59,7 +57,7 @@ type MachineAgent struct {
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string
-	runner    workerRunner
+	runner    worker.Runner
 }
 
 // Info returns usage information for the command.
@@ -106,7 +104,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
-	log.Infof("machine agent %v start", a.Tag())
+	logger.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
@@ -131,7 +129,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		// instances of the API server have been started, we
 		// should follow the normal course of things and ignore
 		// the fact that this was once the bootstrap machine.
-		log.Infof("Starting StateWorker for machine-0")
+		logger.Infof("Starting StateWorker for machine-0")
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
@@ -171,26 +169,12 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
-		return logger.NewLogger(st.Logger(), agentConfig), nil
+		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	// At this stage, since we don't embed LXC containers, just start an lxc
-	// provisioner task for non-lxc containers.  Since we have only LXC
-	// containers and normal machines, this effectively means that we only
-	// have an LXC provisioner when we have a normally provisioned machine
-	// (through the environ-provisioner).  With the upcoming advent of KVM
-	// containers, it is likely that we will want an LXC provisioner on a KVM
-	// machine, and once we get nested LXC containers, we can remove this
-	// check.
-	//
-	// TODO(dimitern) 2013-09-25 bug #1230289
-	// Create jobs for container providers, rather than
-	// using the provider and container type like this.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local && entity.ContainerType() != instance.LXC {
-		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
-		runner.StartWorker(workerName, func() (worker.Worker, error) {
-			return provisioner.NewProvisioner(provisioner.LXC, st.Provisioner(), agentConfig), nil
-		})
+
+	// Perform the operations needed to set up hosting for containers.
+	if err := a.setupContainerSupport(runner, st, entity); err != nil {
+		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
 	for _, job := range entity.Jobs() {
 		switch job {
@@ -213,6 +197,55 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// setupContainerSupport determines what containers can be run on this machine and
+// initialises suitable infrastructure to support such containers.
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity) error {
+	var supportedContainers []instance.ContainerType
+	// We don't yet support nested lxc containers but anything else can run an LXC container.
+	if entity.ContainerType() != instance.LXC {
+		supportedContainers = append(supportedContainers, instance.LXC)
+	}
+	supportsKvm, err := kvm.IsKVMSupported()
+	if err != nil {
+		logger.Warningf("determining kvm support: %v\nno kvm containers possible", err)
+	}
+	if err == nil && supportsKvm {
+		supportedContainers = append(supportedContainers, instance.KVM)
+	}
+	// If no containers are supported, there's no need to go further.
+	if len(supportedContainers) == 0 {
+		return nil
+	}
+	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
+}
+
+// updateSupportedContainers records in state that a machine can run the specified containers.
+// It starts a watcher and when a container of a given type is first added to the machine,
+// the watcher is killed, the machine is set up to be able to start containers of the given type,
+// and a suitable provisioner is started.
+func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.State,
+	tag string, containers []instance.ContainerType) error {
+
+	var machine *apiprovisioner.Machine
+	var err error
+	pr := st.Provisioner()
+	if machine, err = pr.Machine(tag); err != nil {
+		return fmt.Errorf("%s is not in state: %v", tag, err)
+	}
+	if err := machine.AddSupportedContainers(containers...); err != nil {
+		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
+	}
+	// Start the watcher to fire when a container is first requested on the machine.
+	for _, ctype := range containers {
+		watcherName := fmt.Sprintf("%s-watcher", ctype)
+		handler := provisioner.NewContainerSetupHandler(runner, watcherName, ctype, machine, pr, a.Conf.config)
+		runner.StartWorker(watcherName, func() (worker.Worker, error) {
+			return worker.NewStringsWorker(handler), nil
+		})
+	}
+	return nil
 }
 
 // StateJobs returns a worker running all the workers that require
@@ -279,7 +312,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		default:
-			log.Warningf("ignoring unknown job %q", job)
+			logger.Warningf("ignoring unknown job %q", job)
 		}
 	}
 	return newCloseWorker(runner, st), nil
@@ -294,7 +327,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 	if !m.CheckProvisioned(a.Conf.config.Nonce()) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
-		log.Errorf("running machine %v agent on inappropriate instance", m)
+		logger.Errorf("running machine %v agent on inappropriate instance", m)
 		return nil, worker.ErrTerminateAgent
 	}
 	return m, nil
