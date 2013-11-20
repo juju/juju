@@ -175,12 +175,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 
-	env.containerManager = factory.NewContainerManager(
+	env.containerManager, err = factory.NewContainerManager(
 		ecfg.container(),
 		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
 		})
+	if err != nil {
+		return err
+	}
 
 	// Here is the end of normal config setting.
 	if ecfg.bootstrapped() {
