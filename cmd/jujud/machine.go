@@ -186,7 +186,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 		case params.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st.Provisioner(), agentConfig), nil
+				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
