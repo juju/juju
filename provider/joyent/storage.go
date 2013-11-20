@@ -25,7 +25,10 @@ type environStorage struct {
 var _ storage.Storage = (*environStorage)(nil)
 
 func newStorage(ecfg *environConfig) (storage.Storage, error) {
-	return &environStorage{ecfg}, nil
+	return &environStorage{
+		ecfg:			ecfg,
+		containerName: 	ecfg.controlDir(),
+		manta:        	manta.New(nil)}, nil
 }
 
 // makeContainer makes the environment's control container, the
@@ -76,8 +79,8 @@ func (s *environStorage) Put(name string, r io.Reader, length int64) error {
 	if err := s.makeContainer(s.containerName); err != nil {
 		return fmt.Errorf("cannot make Manta control container: %v", err)
 	}
-	obj := r.Read()
-	err := s.manta.PutObject(s.containerName, name, obj)
+	//obj := r.Read()
+	err := s.manta.PutObject(s.containerName, name, r)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", name, s.containerName, err)
 	}

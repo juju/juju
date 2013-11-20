@@ -29,6 +29,7 @@ func validAttrs() testing.Attrs {
 		"manta-user":					"dstroppa",
 		"manta-key-id":    				"12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
 		"manta-region": 				"us-east",
+		"control-dir":					"juju-test",
 	})
 }
 

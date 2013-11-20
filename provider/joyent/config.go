@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/utils"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -56,6 +57,7 @@ var configFields = schema.Fields{
 	"manta-user":           	schema.String(),
 	"manta-key-id":           	schema.String(),
 	"manta-region":             schema.String(),
+	"control-dir":				schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
@@ -78,6 +80,14 @@ var configImmutableFields = []string{
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	// Turn an incomplete config into a valid one, if possible.
 	attrs := cfg.UnknownAttrs()
+
+	if _, ok := attrs["control-dir"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
 
 	// Read env variables
 	for _,field := range configSecretFields {
@@ -177,4 +187,8 @@ func (ecfg *environConfig) mantaUser() string {
 
 func (ecfg *environConfig) mantaKeyId() string {
 	return ecfg.attrs["manta-key-id"].(string)
+}
+
+func (c *environConfig) controlDir() string {
+	return c.attrs["control-dir"].(string)
 }

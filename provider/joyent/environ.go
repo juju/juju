@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 )
 
 // This file contains the core of the joyent Environ implementation. You will
@@ -82,8 +81,8 @@ func (env *environ) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	return common.Bootstrap(env, cons, possibleTools)
+func (env *environ) Bootstrap(cons constraints.Value) error {
+	return common.Bootstrap(env, cons)
 }
 
 func (env *environ) StateInfo() (*state.Info, *api.Info, error) {
