@@ -517,3 +517,11 @@ type EnvironmentSet struct {
 type SetEnvironAgentVersion struct {
 	Version version.Number
 }
+
+// ServerAddressesResults contains the result for the Deployer ServerAddresses
+// call.
+type ServerAddressesResults struct {
+	StateAddresses []string
+	APIAddresses   []string
+	SyslogPort     int
+}

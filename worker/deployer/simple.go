@@ -82,27 +82,22 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	toolsDir := tools.ToolsDir(dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
-	// Retrieve the state addresses.
-	// TODO: remove the state addresses when unit agent is API only.
-	stateAddrs, err := ctx.addresser.StateAddresses()
+	result, err := ctx.addresser.ServerAddresses()
 	if err != nil {
 		return err
 	}
-	logger.Debugf("state addresses: %q", stateAddrs)
-	apiAddrs, err := ctx.addresser.APIAddresses()
-	if err != nil {
-		return err
-	}
-	logger.Debugf("API addresses: %q", apiAddrs)
+	logger.Debugf("state addresses: %q", result.StateAddresses)
+	logger.Debugf("API addresses: %q", result.APIAddresses)
 	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        dataDir,
-			Tag:            tag,
-			Password:       initialPassword,
-			Nonce:          "unused",
-			StateAddresses: stateAddrs,
-			APIAddresses:   apiAddrs,
+			DataDir:  dataDir,
+			Tag:      tag,
+			Password: initialPassword,
+			Nonce:    "unused",
+			// TODO: remove the state addresses here and test when api only.
+			StateAddresses: result.StateAddresses,
+			APIAddresses:   result.APIAddresses,
 			CACert:         ctx.agentConfig.CACert(),
 			Values: map[string]string{
 				agent.ContainerType: containerType,
@@ -118,7 +113,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, tag+".log")
-	syslogConfigRenderer := syslog.NewForwardConfig(tag, stateAddrs)
+	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, result.StateAddresses)
 	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
 	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	if err := syslogConfigRenderer.Write(); err != nil {

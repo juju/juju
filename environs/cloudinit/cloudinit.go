@@ -493,6 +493,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.APIInfo == nil {
 		return fmt.Errorf("missing API info")
 	}
+	if cfg.SyslogPort == 0 {
+		return fmt.Errorf("missing syslog port")
+	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")
 	}

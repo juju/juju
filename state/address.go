@@ -110,3 +110,17 @@ func (st *State) APIAddresses() ([]string, error) {
 	}
 	return appendPort(addrs, config.APIPort()), nil
 }
+
+// DeployerAddresses returns the address information necessary for the deployer.
+// The function does the expensive operations (getting stuff from mongo) just once.
+func (st *State) DeployerAddresses() (stateAddresses, apiAddresses []string, syslogPort int, err error) {
+	addrs, err := st.stateServerAddresses()
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return appendPort(addrs, config.StatePort()), appendPort(addrs, config.APIPort()), config.SyslogPort(), nil
+}

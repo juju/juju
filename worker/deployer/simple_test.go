@@ -218,7 +218,7 @@ $InputFileTag juju-%s:
 $InputFileStateFile %s
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @s1:514
+:syslogtag, startswith, "juju-" @s1:2345
 & ~
 `
 
