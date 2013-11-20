@@ -411,7 +411,7 @@ func initSSHCommand(args ...string) (*SSHCommand, error) {
 func (*CmdSuite) TestSSHCommandInit(c *gc.C) {
 	// missing args
 	_, err := initSSHCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
+	c.Assert(err, gc.ErrorMatches, "no target name specified")
 }
 
 func initSCPCommand(args ...string) (*SCPCommand, error) {

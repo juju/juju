@@ -137,7 +137,7 @@ func recordMachineInState(
 		return "", "", "", ErrProvisioned
 	}
 
-	hc, series, err := detectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := DetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
 		return "", "", "", err
