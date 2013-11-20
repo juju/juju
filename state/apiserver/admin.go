@@ -15,13 +15,14 @@ import (
 	"launchpad.net/juju-core/state/presence"
 )
 
-func newStateServer(srv *Server, rpcConn *rpc.Conn) *initialRoot {
+func newStateServer(srv *Server, rpcConn *rpc.Conn, loginCallback func(string)) *initialRoot {
 	r := &initialRoot{
 		srv:     srv,
 		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
-		root: r,
+		root:          r,
+		loginCallback: loginCallback,
 	}
 	return r
 }
@@ -51,9 +52,10 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 // clients can access. It holds any methods
 // that are needed to log in.
 type srvAdmin struct {
-	mu       sync.Mutex
-	root     *initialRoot
-	loggedIn bool
+	mu            sync.Mutex
+	root          *initialRoot
+	loggedIn      bool
+	loginCallback func(string)
 }
 
 var errAlreadyLoggedIn = stderrors.New("already logged in")
@@ -83,6 +85,9 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return common.ErrBadCreds
 	}
+	if a.loginCallback != nil {
+		a.loginCallback(entity.Tag())
+	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
 	newRoot, err := a.apiRootForEntity(entity, c)
@@ -110,7 +115,7 @@ func (p *machinePinger) Stop() error {
 
 func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) (interface{}, error) {
 	// TODO(rog) choose appropriate object to serve.
-	newRoot := newSrvRoot(a.root.srv, entity)
+	newRoot := newSrvRoot(a.root, entity)
 
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to

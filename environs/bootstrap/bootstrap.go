@@ -8,17 +8,13 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/state"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.boostrap")
+var logger = loggo.GetLogger("juju.environs.bootstrap")
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
@@ -46,51 +42,40 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
-
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	var vers *version.Number
-	if agentVersion, ok := cfg.AgentVersion(); ok {
-		vers = &agentVersion
-	}
-	params := tools.BootstrapToolsParams{
-		Version: vers,
-		Arch:    cons.Arch,
-	}
-	newestTools, err := tools.FindBootstrapTools(environ, params)
-	if err != nil {
-		return fmt.Errorf("cannot find bootstrap tools: %v", err)
-	}
+	return environ.Bootstrap(cons)
+}
 
-	// If agent version was not previously known, set it here using the latest compatible tools version.
-	if vers == nil {
-		// We probably still have a mix of versions available; discard older ones
-		// and update environment configuration to use only those remaining.
-		var newVersion version.Number
-		newVersion, newestTools = newestTools.Newest()
-		vers = &newVersion
-		logger.Infof("environs: picked newest version: %s", *vers)
-		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": vers.String(),
+// SetBootstrapTools returns the newest tools from the given tools list,
+// and updates the agent-version configuration attribute.
+func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
+	if len(possibleTools) == 0 {
+		return nil, fmt.Errorf("no bootstrap tools available")
+	}
+	var newVersion version.Number
+	newVersion, toolsList := possibleTools.Newest()
+	logger.Infof("picked newest version: %s", newVersion)
+	cfg := environ.Config()
+	if agentVersion, _ := cfg.AgentVersion(); agentVersion != newVersion {
+		cfg, err := cfg.Apply(map[string]interface{}{
+			"agent-version": newVersion.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)
 		}
 		if err != nil {
-			return fmt.Errorf("failed to update environment configuration: %v", err)
+			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
-	// ensure we have at least one valid tools
-	if len(newestTools) == 0 {
-		return fmt.Errorf("No bootstrap tools found")
-	}
-	return environ.Bootstrap(cons, newestTools)
+	return toolsList, nil
 }
 
 // EnsureNotBootstrapped returns null if the environment is not bootstrapped,
 // and an error if it is or if the function was not able to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := common.LoadState(env.Storage())
-	// If there is no error loading the bootstrap state, then we are bootstrapped.
+	_, err := LoadState(env.Storage())
+	// If there is no error loading the bootstrap state, then we are
+	// bootstrapped.
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
@@ -98,53 +83,4 @@ func EnsureNotBootstrapped(env environs.Environ) error {
 		return nil
 	}
 	return err
-}
-
-// ConfigureBootstrapMachine adds the initial machine into state.  As a part
-// of this process the environmental constraints are saved as constraints used
-// when bootstrapping are considered constraints for the entire environment.
-func ConfigureBootstrapMachine(
-	st *state.State,
-	cons constraints.Value,
-	datadir string,
-	jobs []state.MachineJob,
-	instId instance.Id,
-	characteristics instance.HardwareCharacteristics,
-) error {
-	logger.Debugf("setting environment constraints")
-	if err := st.SetEnvironConstraints(cons); err != nil {
-		return err
-	}
-
-	logger.Debugf("create bootstrap machine in state")
-	m, err := st.InjectMachine(&state.AddMachineParams{
-		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
-		Constraints:             cons,
-		InstanceId:              instId,
-		HardwareCharacteristics: characteristics,
-		Jobs: jobs,
-	})
-	if err != nil {
-		return err
-	}
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	logger.Debugf("create new random password for machine %v", m.Id())
-	mconf, err := agent.ReadConf(datadir, m.Tag())
-	if err != nil {
-		return err
-	}
-	newPassword, err := mconf.GenerateNewPassword()
-	if err != nil {
-		return err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
-		return err
-	}
-	if err := m.SetPassword(newPassword); err != nil {
-		return err
-	}
-	return nil
 }

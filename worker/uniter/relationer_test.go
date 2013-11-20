@@ -20,6 +20,7 @@ import (
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -55,9 +56,11 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.hooks = make(chan hook.Info)
 
-	err = unit.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	err = unit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -392,9 +395,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	hooks := make(chan hook.Info)
 
-	err = u.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	st := s.OpenAPIAs(c, u.Tag(), "password")
+	err = u.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	st := s.OpenAPIAs(c, u.Tag(), password)
 	uniterState := st.Uniter()
 	c.Assert(uniterState, gc.NotNil)
 

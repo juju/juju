@@ -204,25 +204,56 @@ func (u *Unit) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
-	hp := utils.PasswordHash(password)
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	return u.setPasswordHash(utils.AgentPasswordHash(password))
+}
+
+// setPasswordHash sets the underlying password hash in the database directly
+// to the value supplied. This is split out from SetPassword to allow direct
+// manipulation in tests (to check for backwards compatibility).
+func (u *Unit) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: D{{"$set", D{{"passwordhash", passwordHash}}}},
 	}}
 	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
-	u.doc.PasswordHash = hp
+	u.doc.PasswordHash = passwordHash
 	return nil
+}
+
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func (u *Unit) getPasswordHash() string {
+	return u.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == u.doc.PasswordHash
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == u.doc.PasswordHash {
+		return true
+	}
+	// In Juju 1.16 and older we used the slower password hash for unit
+	// agents. So check to see if the supplied password matches the old
+	// path, and if so, update it to the new mechanism.
+	// We ignore any error in setting the password hash, as we'll just try
+	// again next time
+	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
+		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
+			u.Tag())
+		u.setPasswordHash(agentHash)
+		return true
+	}
+	return false
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -387,6 +418,28 @@ func (u *Unit) Remove() (err error) {
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
+
+	// Now the unit is Dead, we can be sure that it's impossible for it to
+	// enter relation scopes (once it's Dying, we can be sure of this; but
+	// EnsureDead does not require that it already be Dying, so this is the
+	// only point at which we can safely backstop lp:1233457 and mitigate
+	// the impact of unit agent bugs that leave relation scopes occupied).
+	relations, err := serviceRelations(u.st, u.doc.Service)
+	if err != nil {
+		return err
+	}
+	for _, rel := range relations {
+		ru, err := rel.Unit(u)
+		if err != nil {
+			return err
+		}
+		if err := ru.LeaveScope(); err != nil {
+			return err
+		}
+	}
+
+	// Now we're sure we haven't left any scopes occupied by this unit, we
+	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
 		switch ops, err := unit.removeOps(isDeadDoc); err {

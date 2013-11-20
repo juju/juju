@@ -22,6 +22,7 @@ func init() {
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
 func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO(rog) 2013-10-07 generate storage-auth-key if not set.
 	return p.Open(cfg)
 }
 
@@ -30,7 +31,11 @@ func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &nullEnviron{cfg: envConfig}, nil
+	return p.open(envConfig)
+}
+
+func (p nullProvider) open(cfg *environConfig) (environs.Environ, error) {
+	return &nullEnviron{cfg: cfg}, nil
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
@@ -85,23 +90,35 @@ func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 }
 
 func (_ nullProvider) BoilerplateConfig() string {
-	return `"null":
-        type: "null"
-        admin-secret: {{rand}}
-        ## set bootstrap-host to the host where the bootstrap machine agent
-        ## should be provisioned.
-        bootstrap-host:
-        ## set the login user to bootstrap the machine as. If left blank,
-        ## juju will connect to the bootstrap machine as the current user.
-        # bootstrap-user:
-        ## set the IP address for the bootstrap machine to listen on for
-        ## storage requests. If left blank, storage will be served on all
-        ## network interfaces.
-        # storage-listen-ip:
-        # storage-port: 8040
-        storage-auth-key: {{rand}}
+	return `
+"null":
+    type: "null"
+    # bootstrap-host holds the host name of the machine where the
+    # bootstrap machine agent will be started.
+    bootstrap-host: somehost.example.com
+    
+    # bootstrap-user specifies the user to authenticate as when
+    # connecting to the bootstrap machine. If defaults to
+    # the current user.
+    # bootstrap-user: joebloggs
+    
+    # storage-listen-ip specifies the IP address that the
+    # bootstrap machine's Juju storage server will listen
+    # on. By default, storage will be served on all
+    # network interfaces.
+    # storage-listen-ip:
+    
+    # storage-port specifes the TCP port that the
+    # bootstrap machine's Juju storage server will listen
+    # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
+    # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
+    
+    # storage-auth-key holds the key used to authenticate
+    # to the storage servers. It will become unnecessary to
+    # give this option.
+    storage-auth-key: {{rand}}
 
-`
+`[1:]
 }
 
 func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {

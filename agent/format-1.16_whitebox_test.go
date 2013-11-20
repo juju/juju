@@ -25,16 +25,8 @@ type format_1_16Suite struct {
 
 var _ = gc.Suite(&format_1_16Suite{})
 
-func (s *format_1_16Suite) newConfig(c *gc.C) *configInternal {
-	params := agentParams
-	params.DataDir = c.MkDir()
-	config, err := newConfig(params)
-	c.Assert(err, gc.IsNil)
-	return config
-}
-
 func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 
@@ -70,12 +62,12 @@ func (s *format_1_16Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 }
 
 func (s *format_1_16Suite) TestRead(c *gc.C) {
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	s.assertWriteAndRead(c, config)
 }
 
 func (s *format_1_16Suite) TestWriteCommands(c *gc.C) {
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	commands, err := s.formatter.writeCommands(config)
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 5)
@@ -113,7 +105,7 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 	s.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")
 	s.PatchEnvironment(JujuSharedStorageAddr, "shared storage addr")
 
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	s.formatter.migrate(config)
 
 	expected := map[string]string{
@@ -132,7 +124,7 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
 	s.PatchEnvironment(JujuProviderType, "provider type")
 
-	config := s.newConfig(c)
+	config := newTestConfig(c)
 	s.formatter.migrate(config)
 
 	expected := map[string]string{

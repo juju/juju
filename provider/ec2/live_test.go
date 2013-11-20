@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	amzec2 "launchpad.net/goamz/ec2"
@@ -19,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
@@ -54,7 +52,6 @@ func registerAmazonTests() {
 		"name":           "sample-" + uniqueName,
 		"type":           "ec2",
 		"control-bucket": "juju-test-" + uniqueName,
-		"public-bucket":  "juju-public-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
 		"agent-version":  version.Current.Number.String(),
@@ -363,26 +360,6 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
-}
-
-func (t *LiveTests) TestPublicStorage(c *gc.C) {
-	s := ec2.WritablePublicStorage(t.Env)
-
-	contents := "test"
-	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
-	c.Assert(err, gc.IsNil)
-
-	r, err := storage.Get(s, "test-object")
-	c.Assert(err, gc.IsNil)
-	defer r.Close()
-
-	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, contents)
-
-	// Check that the public storage isn't aliased to the private storage.
-	r, err = storage.Get(t.Env.Storage(), "test-object")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {

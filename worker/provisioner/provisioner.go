@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
@@ -29,6 +30,8 @@ var (
 	ENVIRON ProvisionerType = "environ"
 	// LXC provisioners create lxc containers on their parent machine
 	LXC ProvisionerType = "lxc"
+	// KVM provisioners create kvm containers on their parent machine
+	KVM ProvisionerType = "kvm"
 )
 
 // Provisioner represents a running provisioning worker.
@@ -75,26 +78,21 @@ func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig ag
 }
 
 func (p *Provisioner) loop() error {
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
-	if err != nil {
-		return err
-	}
-	environConfigChanges := environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
-
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
-	if err != nil {
-		return err
-	}
-
-	if p.pt != ENVIRON {
-		// Only the environment provisioner cares about
-		// changes to the environment configuration.
-		if err := environWatcher.Stop(); err != nil {
+	// Only wait for the environment if we are an environmental provisioner.
+	var environConfigChanges <-chan struct{}
+	var environWatcher apiwatcher.NotifyWatcher
+	if p.pt == ENVIRON {
+		environWatcher, err := p.st.WatchForEnvironConfigChanges()
+		if err != nil {
 			return err
 		}
-		// Don't wait for changes on the channel below.
-		environConfigChanges = nil
+		environConfigChanges = environWatcher.Changes()
+		defer watcher.Stop(environWatcher, &p.tomb)
+
+		p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+		if err != nil {
+			return err
+		}
 	}
 
 	auth, err := NewAPIAuthenticator(p.st)
@@ -102,7 +100,7 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 
-	// Start a new worker for the environment or lxc provisioner,
+	// Start a new worker for the environment or container provisioner,
 	// it depends on the provisioner type passed in NewProvisioner.
 
 	// Start responding to changes in machines, and to any further updates
@@ -162,28 +160,39 @@ func (p *Provisioner) getWatcher() (Watcher, error) {
 	switch p.pt {
 	case ENVIRON:
 		return p.st.WatchEnvironMachines()
-	case LXC:
-		machine, err := p.getMachine()
-		if err != nil {
-			return nil, err
-		}
-		return machine.WatchContainers(instance.LXC)
 	}
-	return nil, fmt.Errorf("unknown provisioner type")
+	var ctype instance.ContainerType
+	switch p.pt {
+	case LXC:
+		ctype = instance.LXC
+	case KVM:
+		ctype = instance.KVM
+	default:
+		return nil, fmt.Errorf("unknown provisioner type")
+	}
+	machine, err := p.getMachine()
+	if err != nil {
+		return nil, err
+	}
+	return machine.WatchContainers(ctype)
+
 }
 
 func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 	switch p.pt {
 	case ENVIRON:
 		return p.environ, nil
+	}
+	tools, err := p.getAgentTools()
+	if err != nil {
+		logger.Errorf("cannot get tools from machine for %s broker", p.pt)
+		return nil, err
+	}
+	switch p.pt {
 	case LXC:
-		config := p.environ.Config()
-		tools, err := p.getAgentTools()
-		if err != nil {
-			logger.Errorf("cannot get tools from machine for lxc broker")
-			return nil, err
-		}
-		return NewLxcBroker(config, tools, p.agentConfig), nil
+		return NewLxcBroker(p.st, tools, p.agentConfig), nil
+	case KVM:
+		return nil, fmt.Errorf("kvm not implemented yet")
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }

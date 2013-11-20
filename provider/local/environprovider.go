@@ -5,6 +5,8 @@ package local
 
 import (
 	"fmt"
+	"net"
+	"syscall"
 
 	"launchpad.net/loggo"
 
@@ -53,8 +55,39 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO prepare environment
+	err := checkLocalPort(cfg.StatePort(), "state port")
+	if err != nil {
+		return nil, err
+	}
+	err = checkLocalPort(cfg.APIPort(), "API port")
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
+}
+
+// checkLocalPort checks that the passed port is not used so far.
+func checkLocalPort(port int, description string) error {
+	logger.Infof("checking %s", description)
+	// Try to connect the port on localhost.
+	address := fmt.Sprintf("localhost:%d", port)
+	// TODO(mue) Add a timeout?
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		if nerr, ok := err.(*net.OpError); ok {
+			if nerr.Err == syscall.ECONNREFUSED {
+				// No connection, so everything is fine.
+				return nil
+			}
+		}
+		return err
+	}
+	// Connected, so port is in use.
+	err = conn.Close()
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("cannot use %d as %s, already in use", port, description)
 }
 
 // Validate implements environs.EnvironProvider.Validate.
@@ -111,22 +144,25 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 // BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
 func (environProvider) BoilerplateConfig() string {
 	return `
-## https://juju.ubuntu.com/docs/config-local.html
+# https://juju.ubuntu.com/docs/config-local.html
 local:
-  type: local
-  admin-secret: {{rand}}
-  # Override the directory that is used for the storage files and database.
-  # The default location is $JUJU_HOME/<ENV>.
-  # $JUJU_HOME defaults to ~/.juju
-  # root-dir: ~/.juju/local
-  # Override the storage port if you have multiple local providers, or if the
-  # default port is used by another program.
-  # storage-port: 8040
-  # Override the shared storage port if you have multiple local providers, or if the
-  # default port is used by another program.
-  # shared-storage-port: 8041
-  # Override the network bridge if you have changed the default lxc bridge
-  # network-bridge: lxcbr0
+    type: local
+    # Override the directory that is used for the storage files and database.
+    # The default location is $JUJU_HOME/<ENV>.
+    
+    # $JUJU_HOME defaults to ~/.juju
+    # root-dir: ~/.juju/local
+    
+    # Override the storage port if you have multiple local providers, or if the
+    # default port is used by another program.
+    # storage-port: 8040
+    
+    # Override the shared storage port if you have multiple local providers, or if the
+    # default port is used by another program.
+    # shared-storage-port: 8041
+    
+    # Override the network bridge if you have changed the default lxc bridge
+    # network-bridge: lxcbr0
 
 `[1:]
 }

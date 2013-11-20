@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/container/lxc"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -35,7 +35,7 @@ import (
 
 type MachineSuite struct {
 	agentSuite
-	lxc.TestSuite
+	lxctesting.TestSuite
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -62,7 +62,7 @@ func (s *MachineSuite) TearDownTest(c *gc.C) {
 	s.agentSuite.TearDownTest(c)
 }
 
-const initialMachinePassword = "machine-password"
+const initialMachinePassword = "machine-password-1234567890"
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
@@ -78,7 +78,7 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
 	tag := names.MachineTag(m.Id())
-	if m.IsStateServer() {
+	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)
@@ -149,11 +149,15 @@ func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
 	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, gc.IsNil)
+}
 
-	// try again with the machine removed.
+func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	err := m.EnsureDead()
+	c.Assert(err, gc.IsNil)
 	err = m.Remove()
 	c.Assert(err, gc.IsNil)
-	a = s.newAgent(c, m)
+	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, gc.IsNil)
 }
@@ -263,7 +267,11 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobManageState)
+	err := m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -312,7 +320,11 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobManageState)
+	err := m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {

@@ -56,9 +56,7 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, 
 		addr:    addr,
 		authkey: authkey,
 		client: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{RootCAs: caCerts},
-			},
+			Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
 		},
 	}, nil
 }

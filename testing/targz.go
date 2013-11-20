@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 )
 
 // TarFile represents a file to be archived.
@@ -33,17 +32,16 @@ func NewTarFile(name string, mode os.FileMode, contents string) *TarFile {
 	if ftype == 0 {
 		panic(fmt.Errorf("unexpected mode %v", mode))
 	}
+	// NOTE: Do not set attributes (e.g. times) dynamically, as various
+	// tests expect the contents of fake tools archives to be unchanging.
 	return &TarFile{
 		Header: tar.Header{
-			Typeflag:   ftype,
-			Name:       name,
-			Size:       int64(len(contents)),
-			Mode:       int64(mode & 0777),
-			ModTime:    time.Now(),
-			AccessTime: time.Now(),
-			ChangeTime: time.Now(),
-			Uname:      "ubuntu",
-			Gname:      "ubuntu",
+			Typeflag: ftype,
+			Name:     name,
+			Size:     int64(len(contents)),
+			Mode:     int64(mode & 0777),
+			Uname:    "ubuntu",
+			Gname:    "ubuntu",
 		},
 		Contents: contents,
 	}

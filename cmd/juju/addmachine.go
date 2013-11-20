@@ -14,20 +14,42 @@ import (
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
 const sshHostPrefix = "ssh:"
 
 var addMachineDoc = `
+
+If no container is specified, a new machine will be
+provisioned.  If a container is specified, a new machine will be provisioned
+with that container.
+
+To add a container to an existing machine, use the <container>:<machinenumber>
+format.
+
+When adding a new machine, you may specify constraints for the machine to be
+provisioned.  Constraints cannot be combined with deploying a container to an
+existing machine.
+
+Currently, the only supported container type is lxc.
+
 Machines are created in a clean state and ready to have units deployed.
 
-This command also supports configuring existing machines via SSH. The
-target machine must be able to communicate with the API servers, and
-be able to access the environment storage.
+This command also supports manual provisioning of existing machines via SSH. The
+target machine must be able to communicate with the API server, and be able to
+access the environment storage.
+
+Examples:
+   juju add-machine                      (starts a new machine)
+   juju add-machine lxc                  (starts a new machine with an lxc container)
+   juju add-machine lxc:4                (starts a new lxc container on machine 4)
+   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
+
+See Also:
+   juju help constraints
 `
 
 // AddMachineCommand starts a new machine and registers it in the environment.
@@ -72,56 +94,54 @@ func (c *AddMachineCommand) Init(args []string) error {
 		c.SSHHost = containerSpec[len(sshHostPrefix):]
 	} else {
 		// container arg can either be 'type:machine' or 'type'
-		if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
+		if c.ContainerType, err = instance.ParseContainerType(containerSpec); err != nil {
 			if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
 				return fmt.Errorf("malformed container argument %q", containerSpec)
 			}
 			sep := strings.Index(containerSpec, ":")
 			c.MachineId = containerSpec[sep+1:]
-			c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
+			c.ContainerType, err = instance.ParseContainerType(containerSpec[:sep])
 		}
 	}
 	return err
 }
 
 func (c *AddMachineCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	if c.SSHHost != "" {
+		args := manual.ProvisionMachineArgs{
+			Host:    c.SSHHost,
+			EnvName: c.EnvName,
+		}
+		_, err := manual.ProvisionMachine(args)
+		return err
+	}
+
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 
-	if c.SSHHost != "" {
-		args := manual.ProvisionMachineArgs{
-			Host:  c.SSHHost,
-			State: conn.State,
-		}
-		_, err = manual.ProvisionMachine(args)
-		return err
-	}
-
-	series := c.Series
-	if series == "" {
-		conf, err := conn.State.EnvironConfig()
-		if err != nil {
-			return err
-		}
-		series = conf.DefaultSeries()
-	}
-	params := state.AddMachineParams{
+	machineParams := params.AddMachineParams{
 		ParentId:      c.MachineId,
 		ContainerType: c.ContainerType,
-		Series:        series,
+		Series:        c.Series,
 		Constraints:   c.Constraints,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}
-	m, err := conn.State.AddMachineWithConstraints(&params)
-	if err == nil {
-		if c.ContainerType == "" {
-			log.Infof("created machine %v", m)
-		} else {
-			log.Infof("created %q container on machine %v", c.ContainerType, m)
-		}
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	if err != nil {
+		return err
 	}
-	return err
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return machineInfo.Error
+	}
+	if c.ContainerType == "" {
+		logger.Infof("created machine %v", machineInfo.Machine)
+	} else {
+		logger.Infof("created %q container on machine %v", c.ContainerType, machineInfo.Machine)
+	}
+	return nil
 }
