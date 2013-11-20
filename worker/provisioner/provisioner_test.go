@@ -6,7 +6,6 @@ package provisioner_test
 import (
 	"fmt"
 	"strings"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -29,10 +28,6 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type CommonProvisionerSuite struct {
 	testing.JujuConnSuite
@@ -104,6 +99,18 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 	err = st.SetEnvironConfig(cfg)
 	c.Assert(err, gc.IsNil)
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
+}
+
+// setupEnvironment adds an environment manager machine and login to the API.
+func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+	err = machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+	s.APILogin(c, machine)
 }
 
 // invalidateEnvironment alters the environment configuration
@@ -294,16 +301,7 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 
 func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-
-	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
-	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
-	c.Assert(err, gc.IsNil)
-	s.APILogin(c, machine)
+	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 }
 
 func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) *provisioner.Provisioner {

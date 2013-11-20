@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
@@ -126,7 +125,7 @@ func connectionIsFatal(conn pinger) func(err error) bool {
 			return true
 		}
 		if err := conn.Ping(); err != nil {
-			log.Infof("error pinging %T: %v", conn, err)
+			logger.Infof("error pinging %T: %v", conn, err)
 			return true
 		}
 		return false
@@ -228,7 +227,7 @@ func (c *closeWorker) Kill() {
 func (c *closeWorker) Wait() error {
 	err := c.worker.Wait()
 	if err := c.closer.Close(); err != nil {
-		log.Errorf("closeWorker: close error: %v", err)
+		logger.Errorf("closeWorker: close error: %v", err)
 	}
 	return err
 }

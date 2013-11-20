@@ -5,11 +5,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -19,10 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
-	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider"
-	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -57,7 +52,6 @@ type BootstrapCommand struct {
 	Constraints constraints.Value
 	UploadTools bool
 	Series      []string
-	Source      string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -73,7 +67,6 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
-	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -102,8 +95,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("failed to enable bootstrap storage: %v", err)
 		}
 	}
-	// Check to see if the environment is already bootstrapped
-	// before potentially uploading any tools.
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
@@ -120,10 +111,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	err = c.ensureToolsAvailability(environ, ctx, c.UploadTools)
-	if err != nil {
-		return err
-	}
 	return bootstrap.Bootstrap(environ, c.Constraints)
 }
 
@@ -133,7 +120,7 @@ func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {
 	forceVersion := uploadVersion(version.Current.Number, nil)
 	cfg := environ.Config()
 	series := getUploadSeries(cfg, c.Series)
-	agenttools, err := uploadTools(environ.Storage(), &forceVersion, series...)
+	agenttools, err := sync.Upload(environ.Storage(), &forceVersion, series...)
 	if err != nil {
 		return err
 	}
@@ -147,87 +134,6 @@ func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {
 		return fmt.Errorf("failed to update environment configuration: %v", err)
 	}
 	return nil
-}
-
-const NoToolsMessage = `
-Juju cannot bootstrap because no tools are available for your environment.
-An attempt was made to build and upload appropriate tools but this was unsuccessful.
-
-`
-
-const NoToolsNoUploadMessage = `
-Juju cannot bootstrap because no tools are available for your environment.
-In addition, no tools could be located to upload.
-You may want to use the 'tools-metadata-url' configuration setting to specify the tools location.
-
-`
-
-func processToolsError(w io.Writer, err *error, uploadAttempted *bool) {
-
-	if *uploadAttempted && *err != nil {
-		fmt.Fprint(w, NoToolsMessage)
-	} else {
-		if errors.IsNotFoundError(*err) || *err == coretools.ErrNoMatches {
-			fmt.Fprint(w, NoToolsNoUploadMessage)
-		}
-	}
-}
-
-// ensureToolsAvailability verifies the tools are available. If no tools are
-// found, it will automatically synchronize them.
-func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context, uploadPerformed bool) (err error) {
-	uploadAttempted := false
-	defer processToolsError(ctx.Stderr, &err, &uploadAttempted)
-	// Capture possible logging while syncing and write it on the screen.
-	loggo.RegisterWriter("bootstrap", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
-	defer loggo.RemoveWriter("bootstrap")
-
-	// Try to find bootstrap tools.
-	cfg := env.Config()
-	var vers *version.Number
-	if agentVersion, ok := cfg.AgentVersion(); ok {
-		vers = &agentVersion
-	}
-	logger.Debugf("looking for bootstrap tools")
-	params := envtools.BootstrapToolsParams{
-		Version:    vers,
-		Arch:       c.Constraints.Arch,
-		AllowRetry: uploadPerformed,
-	}
-	_, err = envtools.FindBootstrapTools(env, params)
-	if err == nil || !errors.IsNotFoundError(err) || uploadPerformed {
-		return err
-	}
-	// If no tools are available, synchronize if necessary.
-	uploadRequired := true
-	if c.Source != "" {
-		// If we are syncing tools and it succeeds, we don't need to upload the tools.
-		uploadRequired = false
-		logger.Warningf("no tools available, attempting to retrieve from %v", c.Source)
-		sctx := &sync.SyncContext{
-			Target: env.Storage(),
-			Source: c.Source,
-		}
-		if err = syncTools(sctx); err != nil {
-			if (err == coretools.ErrNoMatches || err == envtools.ErrNoTools) && vers == nil && version.Current.IsDev() {
-				uploadRequired = true
-			} else {
-				return err
-			}
-		}
-	}
-	// No suitable tools could be synced so try uploading.
-	if uploadRequired {
-		logger.Infof("no tools found, so attempting to build and upload new tools")
-		uploadAttempted = true
-		if err = c.uploadTools(env); err != nil {
-			return err
-		}
-	}
-	// Synchronization/upload done, try again.
-	params.AllowRetry = true
-	_, err = envtools.FindBootstrapTools(env, params)
-	return err
 }
 
 type seriesVar struct {

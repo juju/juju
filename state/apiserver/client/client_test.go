@@ -22,6 +22,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 type clientSuite struct {
@@ -1439,6 +1440,17 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	c.Assert(value, gc.Equals, "value")
 }
 
+func (s *clientSuite) TestClientSetEnvironAgentVersion(c *gc.C) {
+	err := s.APIState.Client().SetEnvironAgentVersion(version.MustParse("9.8.7"))
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
 func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
 	args := map[string]interface{}{"agent-version": "9.9.9"}
 	err := s.APIState.Client().EnvironmentSet(args)
@@ -1536,25 +1548,44 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
-	apiParams := make([]params.AddMachineParams, 3)
-	for i := 0; i < 3; i++ {
+	// Here we check that adding a number of containers correctly handles the
+	// case that some adds succeed and others fail and report the errors
+	// accordingly.
+	// We will set up params to the AddMachines API to attempt to create 4 machines.
+	// Machines 0 and 1 will be added successfully.
+	// Mchines 2 and 3 will fail due to different reasons.
+
+	// Create a machine to host the requested containers.
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	// The host only supports lxc containers.
+	err = host.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	c.Assert(err, gc.IsNil)
+
+	// Set up params for adding 4 containers.
+	apiParams := make([]params.AddMachineParams, 4)
+	for i := 0; i < 4; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
-	// This will cause the last machine add to fail.
+	// Make it so that machines 2 and 3 will fail to be added.
+	// This will cause a machine add to fail because of an invalid parent.
 	apiParams[2].ParentId = "123"
+	// This will cause a machine add to fail due to an unsupported container.
+	apiParams[3].ParentId = host.Id()
+	apiParams[3].ContainerType = instance.KVM
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 3)
-	for i, machineResult := range machines {
-		if i == 2 {
-			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
-		} else {
-			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
-		}
-	}
+	c.Assert(len(machines), gc.Equals, 4)
+
+	// Check the results - machines 2 and 3 will have errors.
+	c.Check(machines[0].Machine, gc.Equals, "1")
+	c.Check(machines[0].Error, gc.IsNil)
+	c.Check(machines[1].Machine, gc.Equals, "2")
+	c.Check(machines[1].Error, gc.IsNil)
+	c.Check(machines[2].Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
+	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
 }
 
 func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,

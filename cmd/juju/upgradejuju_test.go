@@ -273,11 +273,10 @@ func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series 
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
+	s.PatchValue(&sync.Upload, mockUploadTools)
 	oldVersion := version.Current
-	uploadTools = mockUploadTools
 	defer func() {
 		version.Current = oldVersion
-		uploadTools = sync.Upload
 	}()
 
 	for i, test := range upgradeJujuTests {
