@@ -478,6 +478,7 @@ type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
+	SyslogPort              int
 }
 
 type MachineConfigParams struct {

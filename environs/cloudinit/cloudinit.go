@@ -58,6 +58,10 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
+	// SyslogPort specifies the port number that will be used when
+	// sending the log messages using rsyslog.
+	SyslogPort int
+
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
