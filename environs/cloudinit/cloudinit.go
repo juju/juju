@@ -250,10 +250,10 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	var configRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId))
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort)
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, cfg.stateHostAddrs())
 	}
 	content, err := configRenderer.Render()
 	if err != nil {

@@ -52,7 +52,7 @@ $InputFileStateFile some-machine
 $InputRunFileMonitor
 
 $ModLoad imudp
-$UDPServerRun 514
+$UDPServerRun 8888
 
 # Messages received from remote rsyslog machines contain a leading space so we
 # need to account for that.
@@ -66,12 +66,12 @@ $template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
 `
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine")
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", 8888)
 	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedAccumulateSyslogConf)
 }
 
 func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine")
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", 8888)
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
@@ -93,17 +93,17 @@ $InputFileTag juju-some-machine:
 $InputFileStateFile some-machine
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @server:514
+:syslogtag, startswith, "juju-" @server:999
 & ~
 `
 
 func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", []string{"server"})
+	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", 999, []string{"server"})
 	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedForwardSyslogConf)
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", []string{"server"})
+	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", 999, []string{"server"})
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
