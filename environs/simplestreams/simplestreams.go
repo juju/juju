@@ -195,10 +195,11 @@ type attributeValues map[string]string
 type aliasesByAttribute map[string]attributeValues
 
 type CloudMetadata struct {
-	Products map[string]MetadataCatalog    `json:"products"`
-	Aliases  map[string]aliasesByAttribute `json:"_aliases,omitempty"`
-	Updated  string                        `json:"updated"`
-	Format   string                        `json:"format"`
+	Products  map[string]MetadataCatalog    `json:"products"`
+	Aliases   map[string]aliasesByAttribute `json:"_aliases,omitempty"`
+	Updated   string                        `json:"updated"`
+	Format    string                        `json:"format"`
+	ContentId string                        `json:"content_id"`
 }
 
 type MetadataCatalog struct {
