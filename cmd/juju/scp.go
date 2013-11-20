@@ -43,7 +43,7 @@ func (c *SCPCommand) Info() *cmd.Info {
 		Name:    "scp",
 		Args:    "[-- scp-option...] <from> <to>",
 		Purpose: "launch a scp command to copy files to/from remote machine(s)",
-		Doc: scpDoc,
+		Doc:     scpDoc,
 	}
 }
 
