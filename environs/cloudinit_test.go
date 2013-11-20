@@ -167,6 +167,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		Config:           envConfig,
 		StatePort:        envConfig.StatePort(),
 		APIPort:          envConfig.APIPort(),
+		SyslogPort:       envConfig.SyslogPort(),
 		StateServer:      true,
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 	}
