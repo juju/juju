@@ -125,25 +125,28 @@ func base64yaml(m *config.Config) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-// Configure is a convenience function for calling
-// ConfigureBase followed by ConfigureJuju.
+// Configure updates the provided cloudinit.Config with
+// configuration to initialize a Juju machine agent.
 func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
-	if err := ConfigureBase(cfg.AuthorizedKeys, c); err != nil {
+	if err := ConfigureBasic(cfg.AuthorizedKeys, c); err != nil {
 		return err
 	}
 	return ConfigureJuju(cfg, c)
 }
 
-// ConfigureBase updates the provided cloudinit.Config with configuration
-// to initialise a base OS image, such that it can be connected to
-// via SSH.
+// ConfigureBasic updates the provided cloudinit.Config with
+// basic configuration to initialise an OS image, such that it can
+// be connected to via SSH, and log to a standard location.
+//
+// Any potentially failing operation should not be added to the
+// configuration, but should instead be done in ConfigureJuju.
 //
 // Note: we don't do apt update/upgrade here so as not to have to wait on
 // apt to finish when performing the second half of image initialisation.
 // Doing it later brings the benefit of feedback in the face of errors,
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
-func ConfigureBase(authorizedKeys string, c *cloudinit.Config) error {
+func ConfigureBasic(authorizedKeys string, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(authorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
 	return nil
@@ -163,27 +166,21 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// juju requires git for managing charm directories.
 	c.AddPackage("git")
 
-	// Perfectly reasonable to install lxc on environment instances and kvm
-	// containers.
-	if cfg.MachineContainerType != instance.LXC {
-		c.AddPackage("lxc")
-	}
-
 	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
-	wgetCommand := "wget"
-	if cfg.DisableSSLHostnameVerification {
-		wgetCommand = "wget --no-check-certificate"
-	}
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	var copyCmd string
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
+		wgetCommand := "wget"
+		if cfg.DisableSSLHostnameVerification {
+			wgetCommand = "wget --no-check-certificate"
+		}
 		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)

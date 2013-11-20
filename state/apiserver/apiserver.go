@@ -106,7 +106,7 @@ func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body inte
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("<- [%X] %s %s %s %s[%q].%s", n.connCounter, n.identifier, timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.connCounter, n.identifier, timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {

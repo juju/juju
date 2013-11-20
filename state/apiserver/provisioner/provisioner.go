@@ -184,6 +184,31 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	return result, nil
 }
 
+// AddSupportedContainers updates the list of containers supported by the machines passed in args.
+func (p *ProvisionerAPI) AddSupportedContainers(
+	args params.AddSupportedContainers) (params.ErrorResults, error) {
+
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Params)),
+	}
+	for i, arg := range args.Params {
+		canAccess, err := p.getAuthFunc()
+		if err != nil {
+			return result, err
+		}
+		machine, err := p.getMachine(canAccess, arg.MachineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = machine.AddSupportedContainers(arg.ContainerTypes)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
 // ContainerConfig returns information from the environment config that are
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {

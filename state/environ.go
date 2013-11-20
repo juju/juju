@@ -31,7 +31,7 @@ type environmentDoc struct {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	doc := environmentDoc{}
-	err := st.environments.Find(D{{"uuid", D{{"$ne", ""}}}}).One(&doc)
+	err := st.environments.Find(nil).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("environment")
 	} else if err != nil {

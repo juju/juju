@@ -124,7 +124,8 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 
 // ComposeUserData puts together a binary (gzipped) blob of user data.
 // The additionalScripts are additional command lines that you need cloudinit
-// to run on the instance.  Use with care.
+// to run on the instance; they are executed before all other cloud-init
+// runcmds.  Use with care.
 func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
 	cloudcfg := coreCloudinit.New()
 	for _, script := range additionalScripts {
@@ -133,7 +134,7 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to environs/manual.
 	if cfg.StateServer {
-		if err := cloudinit.ConfigureBase(cfg.AuthorizedKeys, cloudcfg); err != nil {
+		if err := cloudinit.ConfigureBasic(cfg.AuthorizedKeys, cloudcfg); err != nil {
 			return nil, err
 		}
 	} else {

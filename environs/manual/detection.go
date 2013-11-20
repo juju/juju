@@ -46,10 +46,12 @@ func checkProvisioned(sshHost string) (bool, error) {
 	return provisioned, nil
 }
 
-// detectSeriesHardwareCharacteristics detects the OS series
-// and hardware characteristics of the remote machine by
-// connecting to the machine and executing a bash script.
-func detectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
+// DetectSeriesAndHardwareCharacteristics detects the OS
+// series and hardware characteristics of the remote machine
+// by connecting to the machine and executing a bash script.
+//
+// The sshHost argument must be a hostname of the form [user@]host.
+func DetectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", sshHost)
 	cmd := ssh.Command(sshHost, "bash")
 	cmd.Stdin = bytes.NewBufferString(detectionScript)

@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
@@ -95,7 +96,7 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -113,10 +114,16 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	if err := common.SaveState(env.Storage(), &common.BootstrapState{
+	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
+		return err
+	}
+
+	vers := version.Current
+	selectedTools, err := common.EnsureBootstrapTools(env, vers.Series, &vers.Arch)
+	if err != nil {
 		return err
 	}
 
@@ -132,7 +139,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
-	return env.setupLocalMachineAgent(cons, possibleTools)
+	return env.setupLocalMachineAgent(cons, selectedTools)
 }
 
 // StateInfo is specified in the Environ interface.

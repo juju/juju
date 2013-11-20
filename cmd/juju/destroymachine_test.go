@@ -119,3 +119,10 @@ func (s *DestroyMachineSuite) TestBadArgs(c *gc.C) {
 	err = runDestroyMachine(c, "1", "2", "nonsense", "rubbish")
 	c.Assert(err, gc.ErrorMatches, `invalid machine id "nonsense"`)
 }
+
+func (s *DestroyMachineSuite) TestEnvironmentArg(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = runDestroyMachine(c, "0", "-e", "dummyenv")
+	c.Assert(err, gc.IsNil)
+}

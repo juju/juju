@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 // ErrorResults holds the results of calling a bulk operation which
@@ -508,4 +509,10 @@ type EnvironmentGetResults struct {
 // call.
 type EnvironmentSet struct {
 	Config map[string]interface{}
+}
+
+// SetEnvironAgentVersion contains the arguments for
+// SetEnvironAgentVersion client API call.
+type SetEnvironAgentVersion struct {
+	Version version.Number
 }

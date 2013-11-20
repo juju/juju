@@ -21,6 +21,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -28,7 +29,6 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -456,9 +456,9 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	}})
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -787,9 +787,9 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -808,9 +808,9 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)
