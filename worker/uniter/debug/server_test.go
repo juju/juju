@@ -102,7 +102,7 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	// The exit flock will be acquired immediately, and the
 	// debug-hooks server process killed.
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
-	c.Assert(err, gc.ErrorMatches, "signal: killed")
+	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
 
 	// Run the hook in debug mode, simulating the holding
 	// of the exit flock. This simulates the client process
@@ -117,7 +117,7 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	go func() { ch <- true }()
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
 	c.Assert(clientExited, jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, "signal: killed")
+	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
 }
 
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {

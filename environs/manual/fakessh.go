@@ -67,29 +67,13 @@ func installFakeSSH(c *gc.C, input string, output interface{}, rc int) testbase.
 	return testbase.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
 }
 
-// fakeSSH wraps the invocation of installFakeSSH based on the parameters.
-type fakeSSH struct {
-	series string
-	arch   string
-
-	// exit code for the machine agent provisioning script.
-	provisionAgentExitCode int
-
-	// there are conditions other than error in the above
-	// that might cause provisioning to not go ahead, such
-	// as tools being missing.
-	skipProvisionAgent bool
-}
-
-// install installs fake SSH commands, which will respond to
-// manual provisioning/bootstrapping commands with the specified
-// output and exit codes.
-func (r fakeSSH) install(c *gc.C) testbase.Restorer {
-	series := r.series
+// installDetectionFakeSSH installs a fake SSH command, which will respond
+// to the series/hardware detection script with the specified
+// series/arch.
+func installDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
 	if series == "" {
 		series = "precise"
 	}
-	arch := r.arch
 	if arch == "" {
 		arch = "amd64"
 	}
@@ -99,14 +83,41 @@ func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
+	return installFakeSSH(c, detectionScript, detectionoutput, 0)
+}
+
+// FakeSSH wraps the invocation of installFakeSSH based on the parameters.
+type fakeSSH struct {
+	Series string
+	Arch   string
+
+	// exit code for the machine agent provisioning script.
+	ProvisionAgentExitCode int
+
+	// there are conditions other than error in the above
+	// that might cause provisioning to not go ahead, such
+	// as tools being missing.
+	SkipProvisionAgent bool
+
+	// detection will be skipped if the series/hardware were
+	// detected ahead of time.
+	SkipDetection bool
+}
+
+// install installs fake SSH commands, which will respond to
+// manual provisioning/bootstrapping commands with the specified
+// output and exit codes.
+func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 	var restore testbase.Restorer
 	add := func(input string, output interface{}, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}
-	if !r.skipProvisionAgent {
-		add("", nil, r.provisionAgentExitCode)
+	if !r.SkipProvisionAgent {
+		add("", nil, r.ProvisionAgentExitCode)
 	}
-	add(detectionScript, detectionoutput, 0)
+	if !r.SkipDetection {
+		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
+	}
 	add("", nil, 0) // checkProvisioned
 	return restore
 }

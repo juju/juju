@@ -9,9 +9,9 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/localstorage"
 )
@@ -30,6 +30,13 @@ type BootstrapArgs struct {
 	DataDir       string
 	Environ       LocalStorageEnviron
 	PossibleTools tools.List
+
+	// If series and hardware characteristics
+	// are known ahead of time, they can be
+	// set here and Bootstrap will not attempt
+	// to detect them again.
+	Series                  string
+	HardwareCharacteristics *instance.HardwareCharacteristics
 }
 
 func errMachineIdInvalid(machineId string) error {
@@ -58,9 +65,16 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
-	if err != nil {
-		return fmt.Errorf("error detecting hardware characteristics: %v", err)
+	var series string
+	var hc instance.HardwareCharacteristics
+	if args.Series != "" && args.HardwareCharacteristics != nil {
+		series = args.Series
+		hc = *args.HardwareCharacteristics
+	} else {
+		hc, series, err = DetectSeriesAndHardwareCharacteristics(args.Host)
+		if err != nil {
+			return fmt.Errorf("error detecting hardware characteristics: %v", err)
+		}
 	}
 
 	// Filter tools based on detected series/arch.
@@ -76,9 +90,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	// Store the state file. If provisioning fails, we'll remove the file.
 	logger.Infof("Saving bootstrap state file to bootstrap storage")
 	bootstrapStorage := args.Environ.Storage()
-	err = common.SaveState(
+	err = bootstrap.SaveState(
 		bootstrapStorage,
-		&common.BootstrapState{
+		&bootstrap.BootstrapState{
 			StateInstances:  []instance.Id{BootstrapInstanceId},
 			Characteristics: []instance.HardwareCharacteristics{hc},
 		},
@@ -89,7 +103,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	defer func() {
 		if err != nil {
 			logger.Errorf("bootstrapping failed, removing state file: %v", err)
-			bootstrapStorage.Remove(common.StateFile)
+			bootstrapStorage.Remove(bootstrap.StateFile)
 		}
 	}()
 
@@ -107,7 +121,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Finally, provision the machine agent.
-	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, common.StateFile)
+	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, bootstrap.StateFile)
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL)
 	if args.DataDir != "" {
 		mcfg.DataDir = args.DataDir

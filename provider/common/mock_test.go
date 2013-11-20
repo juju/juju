@@ -9,6 +9,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
@@ -17,12 +19,18 @@ import (
 type allInstancesFunc func() ([]instance.Instance, error)
 type startInstanceFunc func(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
 type stopInstancesFunc func([]instance.Instance) error
+type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
+type configFunc func() *config.Config
+type setConfigFunc func(*config.Config) error
 
 type mockEnviron struct {
 	storage          storage.Storage
 	allInstances     allInstancesFunc
 	startInstance    startInstanceFunc
 	stopInstances    stopInstancesFunc
+	getToolsSources  getToolsSourcesFunc
+	config           configFunc
+	setConfig        setConfigFunc
 	environs.Environ // stub out other methods with panics
 }
 
@@ -47,6 +55,25 @@ func (env *mockEnviron) StartInstance(
 
 func (env *mockEnviron) StopInstances(instances []instance.Instance) error {
 	return env.stopInstances(instances)
+}
+
+func (env *mockEnviron) Config() *config.Config {
+	return env.config()
+}
+
+func (env *mockEnviron) SetConfig(cfg *config.Config) error {
+	if env.setConfig != nil {
+		return env.setConfig(cfg)
+	}
+	return nil
+}
+
+func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	if env.getToolsSources != nil {
+		return env.getToolsSources()
+	}
+	datasource := storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)
+	return []simplestreams.DataSource{datasource}, nil
 }
 
 type mockInstance struct {
