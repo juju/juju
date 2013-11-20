@@ -28,6 +28,8 @@ const (
 	StorageAddr       = "STORAGE_ADDR"
 	SharedStorageDir  = "SHARED_STORAGE_DIR"
 	SharedStorageAddr = "SHARED_STORAGE_ADDR"
+	AgentServiceName  = "AGENT_SERVICE_NAME"
+	MongoServiceName  = "MONGO_SERVICE_NAME"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -65,6 +67,9 @@ type Config interface {
 	// with the new password; the caller should set the connecting entity's
 	// password accordingly.
 	OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error)
+
+	// APIAddresses returns the addresses needed to connect to the api server
+	APIAddresses() ([]string, error)
 
 	// OpenState tries to open a direct connection to the state database using
 	// the given Conf.
@@ -297,6 +302,13 @@ func (c *configInternal) SetValue(key, value string) {
 
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 	return c.apiPort, c.stateServerCert, c.stateServerKey
+}
+
+func (c *configInternal) APIAddresses() ([]string, error) {
+	if c.apiDetails == nil {
+		return []string{}, fmt.Errorf("No apidetails in config")
+	}
+	return append([]string{}, c.apiDetails.addresses...), nil
 }
 
 func (c *configInternal) Tag() string {

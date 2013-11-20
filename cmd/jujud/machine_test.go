@@ -149,11 +149,15 @@ func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
 	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, gc.IsNil)
+}
 
-	// try again with the machine removed.
+func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	err := m.EnsureDead()
+	c.Assert(err, gc.IsNil)
 	err = m.Remove()
 	c.Assert(err, gc.IsNil)
-	a = s.newAgent(c, m)
+	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, gc.IsNil)
 }

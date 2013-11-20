@@ -22,6 +22,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 type clientSuite struct {
@@ -1437,6 +1438,17 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	value, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, "value")
+}
+
+func (s *clientSuite) TestClientSetEnvironAgentVersion(c *gc.C) {
+	err := s.APIState.Client().SetEnvironAgentVersion(version.MustParse("9.8.7"))
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
 
 func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {

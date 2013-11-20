@@ -37,8 +37,8 @@ precedence.
 
 Examples:
 
-   set-constraints mem=8G               (all new machines in the environment must have at least 8GB of RAM)
-   set-constraints wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
+   set-constraints mem=8G                         (all new machines in the environment must have at least 8GB of RAM)
+   set-constraints --service wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
 
 See Also:
    juju help constraints
