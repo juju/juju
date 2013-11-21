@@ -58,6 +58,10 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
+	// SyslogPort specifies the port number that will be used when
+	// sending the log messages using rsyslog.
+	SyslogPort int
+
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
@@ -243,13 +247,14 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 }
 
 func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
+	namespace := cfg.AgentEnvironment[agent.Namespace]
 	var configRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId))
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace)
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace, cfg.stateHostAddrs())
 	}
 	content, err := configRenderer.Render()
 	if err != nil {
@@ -488,6 +493,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.APIInfo == nil {
 		return fmt.Errorf("missing API info")
+	}
+	if cfg.SyslogPort == 0 {
+		return fmt.Errorf("missing syslog port")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")
