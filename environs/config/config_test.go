@@ -52,6 +52,7 @@ var sampleConfig = testing.Attrs{
 	"development":               false,
 	"state-port":                1234,
 	"api-port":                  4321,
+	"syslog-port":               2345,
 	"default-series":            "precise",
 }
 
@@ -453,6 +454,23 @@ var configTests = []configTest{
 		},
 		err: `api-port: expected number, got string\("illegal"\)`,
 	}, {
+		about:       "Explicit syslog port",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"syslog-port": 3456,
+		},
+	}, {
+		about:       "Invalid syslog port",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"syslog-port": "illegal",
+		},
+		err: `syslog-port: expected number, got string\("illegal"\)`,
+	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -684,6 +702,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if apiPort, ok := test.attrs["api-port"]; ok {
 		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
 	}
+	if syslogPort, ok := test.attrs["syslog-port"]; ok {
+		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
+	}
 
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
@@ -798,6 +819,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
+		"syslog-port":               2345,
 		"default-series":            "precise",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -869,6 +891,11 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
+	about: "Cannot change the syslog-port",
+	old:   testing.Attrs{"syslog-port": 345},
+	new:   testing.Attrs{"syslog-port": 42},
+	err:   `cannot change syslog-port from 345 to 42`,
+}, {
 	about: "Can change the state-port from explicit-default to implicit-default",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},
 }, {
@@ -888,6 +915,10 @@ var validationTests = []validationTest{{
 	about: "Cannot change the api-port from implicit-default to different value",
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
+}, {
+	about: "Cannot change the syslog-port from implicit-default to different value",
+	new:   testing.Attrs{"syslog-port": 42},
+	err:   `cannot change syslog-port from 514 to 42`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {

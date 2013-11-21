@@ -38,6 +38,10 @@ const (
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
+
+	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// listening on.
+	DefaultSyslogPort int = 514
 )
 
 // Config holds an immutable environment configuration.
@@ -382,6 +386,11 @@ func (c *Config) APIPort() int {
 	return c.mustInt("api-port")
 }
 
+// SyslogPort returns the syslog port for the environment.
+func (c *Config) SyslogPort() int {
+	return c.mustInt("syslog-port")
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -518,6 +527,7 @@ var fields = schema.Fields{
 	"ssl-hostname-verification": schema.Bool(),
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
+	"syslog-port":               schema.ForceInt(),
 	"logging-config":            schema.String(),
 
 	// Deprecated fields, retain for backwards compatibility.
@@ -556,8 +566,9 @@ var alwaysOptional = schema.Defaults{
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
-	"state-port": DefaultStatePort,
-	"api-port":   DefaultAPIPort,
+	"state-port":  DefaultStatePort,
+	"api-port":    DefaultAPIPort,
+	"syslog-port": DefaultSyslogPort,
 }
 
 func allowEmpty(attr string) bool {
@@ -574,6 +585,7 @@ func allDefaults() schema.Defaults {
 		"ssl-hostname-verification": true,
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
+		"syslog-port":               DefaultSyslogPort,
 	}
 	for attr, val := range alwaysOptional {
 		d[attr] = val
@@ -606,6 +618,7 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
+	"syslog-port",
 }
 
 var (
