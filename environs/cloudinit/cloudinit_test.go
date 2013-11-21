@@ -17,9 +17,11 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -324,6 +326,21 @@ func newFileTools(vers, path string) *tools.Tools {
 	return tools
 }
 
+func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
+	re := regexp.MustCompile(`printf '%s\\n' '([^']+)' > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf`)
+	found := false
+	for _, s := range scripts {
+		m := re.FindStringSubmatch(s)
+		if m == nil {
+			continue
+		}
+		cfg = m[1]
+		found = true
+	}
+	c.Assert(found, gc.Equals, true)
+	return cfg
+}
+
 // check that any --env-config $base64 is valid and matches t.cfg.Config
 func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
 	re := regexp.MustCompile(`--env-config '([^']+)'`)
@@ -376,10 +393,16 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
+		tag := names.MachineTag(test.cfg.MachineId)
+		acfg := getAgentConfig(c, tag, scripts)
+		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
 			source := "ppa:juju/stable"
 			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
+			c.Assert(acfg, jc.Contains, "MONGO_SERVICE_NAME: juju-db")
+		} else {
+			c.Assert(acfg, gc.Not(jc.Contains), "MONGO_SERVICE_NAME")
 		}
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"

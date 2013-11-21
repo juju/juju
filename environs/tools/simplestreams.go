@@ -29,7 +29,6 @@ func init() {
 
 const (
 	ContentDownload = "content-download"
-	MirrorContentId = "com.ubuntu.juju:released:tools"
 )
 
 // simplestreamsToolsPublicKey is the public key required to
@@ -172,7 +171,7 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 	params := simplestreams.ValueParams{
 		DataType:        ContentDownload,
 		FilterFunc:      appendMatchingTools,
-		MirrorContentId: MirrorContentId,
+		MirrorContentId: ToolsContentId,
 		ValueTemplate:   ToolsMetadata{},
 		PublicKey:       simplestreamsToolsPublicKey,
 	}

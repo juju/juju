@@ -1436,3 +1436,15 @@ func (s *ServiceSuite) TestAnnotationRemovalForService(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
+
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+// Check that GetOwnerTag returns admin-owner even
+// when the service has no owner
+func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
+	service, err := s.State.AddService("foobar", s.charm)
+	c.Assert(err, gc.IsNil)
+	state.SetServiceOwnerTag(service, "")
+	c.Assert(state.GetServiceOwnerTag(service), gc.Equals, "")
+	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
+}

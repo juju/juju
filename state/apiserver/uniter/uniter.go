@@ -952,3 +952,16 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	}
 	return result, nil
 }
+
+func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, error) {
+
+	nothing := params.StringResult{}
+	service, err := u.getService(args.Entities[0].Tag)
+	if err != nil {
+		return nothing, err
+	}
+
+	return params.StringResult{
+		Result: service.GetOwnerTag(),
+	}, nil
+}

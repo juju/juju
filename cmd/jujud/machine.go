@@ -337,13 +337,35 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
-func (m *MachineAgent) uninstallAgent() error {
-	// TODO(axw) get this from agent config when it's available
-	name := os.Getenv("UPSTART_JOB")
-	if name != "" {
-		return upstart.NewService(name).Remove()
+func (a *MachineAgent) uninstallAgent() error {
+	var errors []error
+	agentServiceName := a.Conf.config.Value(agent.AgentServiceName)
+	if agentServiceName == "" {
+		// For backwards compatibility, handle lack of AgentServiceName.
+		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
-	return nil
+	if agentServiceName != "" {
+		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
+			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		}
+	}
+	// The machine agent may terminate without knowing its jobs,
+	// for example if the machine's entry in state was removed.
+	// Thus, we do not rely on jobs here, and instead just check
+	// if the upstart config exists.
+	mongoServiceName := a.Conf.config.Value(agent.MongoServiceName)
+	if mongoServiceName != "" {
+		if err := upstart.NewService(mongoServiceName).StopAndRemove(); err != nil {
+			errors = append(errors, fmt.Errorf("cannot stop/remove service %q: %v", mongoServiceName, err))
+		}
+	}
+	if err := os.RemoveAll(a.Conf.dataDir); err != nil {
+		errors = append(errors, err)
+	}
+	if len(errors) == 0 {
+		return nil
+	}
+	return fmt.Errorf("uninstall failed: %v", errors)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened
