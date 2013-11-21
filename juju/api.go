@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
 )
 
@@ -76,6 +77,12 @@ var updateSecrets = func(environ environs.Environ, st *api.State) error {
 	}
 	client := st.Client()
 	cfg, err := client.EnvironmentGet()
+	if rpc.IsNoSuchRequest(err) {
+		// Ignore checking for secrets when using an older (1.16) API
+		// server. This should be removed in 1.18.
+		logger.Warningf("running in 1.16 compatibility mode; connection may fail if environment is just bootstrapped")
+		return nil
+	}
 	if err != nil {
 		return err
 	}
