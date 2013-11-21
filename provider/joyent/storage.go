@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
-	"fmt"
 )
 
 type environStorage struct {
@@ -18,10 +17,7 @@ type environStorage struct {
 var _ storage.Storage = (*environStorage)(nil)
 
 func newStorage(ecfg *environConfig) (storage.Storage, error) {
-	return &environStorage{
-		ecfg:			ecfg,
-		containerName: 	ecfg.controlDir(),
-		manta:        	manta.New(nil)}, nil
+	return &environStorage{ecfg}, nil
 }
 
 func (s *environStorage) List(prefix string) ([]string, error) {
@@ -37,15 +33,7 @@ func (s *environStorage) Get(name string) (io.ReadCloser, error) {
 }
 
 func (s *environStorage) Put(name string, r io.Reader, length int64) error {
-	if err := s.makeContainer(s.containerName); err != nil {
-		return fmt.Errorf("cannot make Manta control container: %v", err)
-	}
-	//obj := r.Read()
-	err := s.manta.PutObject(s.containerName, name, r)
-	if err != nil {
-		return fmt.Errorf("cannot write file %q to control container %q: %v", name, s.containerName, err)
-	}
-	return nil
+	return errNotImplemented
 }
 
 func (s *environStorage) Remove(name string) error {
