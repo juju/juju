@@ -43,11 +43,10 @@ func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslo
 var expectedAccumulateSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/juju-some-machine-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/some-machine.log
-$InputFileTag local-juju-some-machine:
+$InputFileTag juju-some-machine:
 $InputFileStateFile some-machine
 $InputRunFileMonitor
 
@@ -56,12 +55,9 @@ $UDPServerRun 8888
 
 # Messages received from remote rsyslog machines contain a leading space so we
 # need to account for that.
-$template JujuLogFormatLocal,"%syslogtag:12:$%%msg:::drop-last-lf%\n"
-$template JujuLogFormat,"%syslogtag:6:$%%msg:2:$:drop-last-lf%\n"
+$template JujuLogFormat,"%syslogtag:6:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
 :syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
-& ~
-:syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal
 & ~
 `
 
@@ -85,12 +81,11 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 var expectedAccumulateNamespaceSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/juju-namespace-some-machine-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/some-machine.log
-$InputFileTag local-juju-namespace-some-machine:
-$InputFileStateFile some-machine
+$InputFileTag juju-namespace-some-machine:
+$InputFileStateFile some-machine-namespace
 $InputRunFileMonitor
 
 $ModLoad imudp
@@ -98,12 +93,9 @@ $UDPServerRun 8888
 
 # Messages received from remote rsyslog machines contain a leading space so we
 # need to account for that.
-$template JujuLogFormatLocal-namespace,"%syslogtag:22:$%%msg:::drop-last-lf%\n"
-$template JujuLogFormat-namespace,"%syslogtag:16:$%%msg:2:$:drop-last-lf%\n"
+$template JujuLogFormat-namespace,"%syslogtag:16:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
 :syslogtag, startswith, "juju-namespace-" /var/log/juju/all-machines.log;JujuLogFormat-namespace
-& ~
-:syslogtag, startswith, "local-juju-namespace-" /var/log/juju/all-machines.log;JujuLogFormatLocal-namespace
 & ~
 `
 
@@ -115,7 +107,6 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
 var expectedForwardSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/juju-some-machine-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/some-machine.log
@@ -123,7 +114,9 @@ $InputFileTag juju-some-machine:
 $InputFileStateFile some-machine
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @server:999
+$template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
+
+:syslogtag, startswith, "juju-" @server:999;LongTagForwardFormat
 & ~
 `
 
