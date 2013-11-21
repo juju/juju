@@ -210,7 +210,6 @@ func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, 
 var expectedSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/juju-%s-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/%s.log
@@ -218,7 +217,9 @@ $InputFileTag juju-%s:
 $InputFileStateFile %s
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @s1:2345
+$template LongTagForwardFormat,"<%%PRI%%>%%TIMESTAMP:::date-rfc3339%% %%HOSTNAME%% %%syslogtag%%%%msg:::sp-if-no-1st-sp%%%%msg%%"
+
+:syslogtag, startswith, "juju-" @s1:2345;LongTagForwardFormat
 & ~
 `
 
@@ -265,7 +266,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	c.Assert(err, gc.IsNil)
 	parts := strings.SplitN(name, "/", 2)
 	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag, unitTag)
+	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag)
 	c.Assert(string(syslogConfData), gc.Equals, expectedSyslogConfReplaced)
 
 }
