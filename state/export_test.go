@@ -221,5 +221,3 @@ func GetUserPasswordSaltAndHash(u *User) (string, string) {
 func StateServerMachineIds(st *State) ([]string, error) {
 	return st.stateServerMachineIds()
 }
-
-const MaxMongoPeers = maxMongoPeers
