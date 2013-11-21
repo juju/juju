@@ -99,7 +99,7 @@ func AutostartMachine(hostname string) error {
 // ListMachines returns a map of machine name to state, where state is one of:
 // running, idle, paused, shutdown, shut off, crashed, dying, pmsuspended.
 func ListMachines() (map[string]string, error) {
-	output, err := run("virsh", "list", "-q", "--all")
+	output, err := run("virsh", "-q", "list", "--all")
 	if err != nil {
 		return nil, err
 	}

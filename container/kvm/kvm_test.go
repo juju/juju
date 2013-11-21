@@ -22,6 +22,12 @@ var _ = gc.Suite(&KVMSuite{})
 
 // TODO: work out how to test the actual kvm implementations.
 
+func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{})
+	c.Assert(err, gc.ErrorMatches, "name is required")
+	c.Assert(manager, gc.IsNil)
+}
+
 func (*KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
 	c.Assert(err, gc.IsNil)
