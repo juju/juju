@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 var logger = loggo.GetLogger("juju")
@@ -76,7 +77,12 @@ var updateSecrets = func(environ environs.Environ, st *api.State) error {
 	}
 	client := st.Client()
 	cfg, err := client.EnvironmentGet()
-	if err != nil {
+	if err != nil && params.IsNoSuchRequest(err) {
+		// Ignore checking for secrets when using an older (1.16) API
+		// server. This should be removed in 1.18.
+		logger.Infof("running in 1.16 compatibility mode; skipping checks for secrets")
+		return nil
+	} else if err != nil {
 		return err
 	}
 	for k, v := range secrets {
