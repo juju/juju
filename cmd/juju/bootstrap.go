@@ -5,6 +5,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -111,6 +113,17 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
+
+	// Bootstrap is synchronous, and will spawn a subprocess
+	// to complete the procedure. If the user hits Ctrl-C,
+	// SIGINT is sent to the foreground process attached to
+	// the terminal, which will be the subprocess at that
+	// point. When that exits (with an error status), juju
+	// will attempt to clean up.
+	//
+	// Ignore SIGINT signals, to prevent double Ctrl-C
+	// from killing the cleanup from a cancelled bootstrap.
+	signal.Notify(make(chan os.Signal), os.Interrupt)
 	return bootstrap.Bootstrap(environ, c.Constraints)
 }
 
