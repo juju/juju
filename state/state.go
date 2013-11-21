@@ -89,7 +89,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	if len(transactionHooks) > 0 {
 		defer func() {
 			if transactionHooks[0].After != nil {
+				logger.Infof("transaction 'after' hook start")
 				transactionHooks[0].After()
+				logger.Infof("transaction 'after' hook end")
 			}
 			if <-st.transactionHooks != nil {
 				panic("concurrent use of transaction hooks")
@@ -97,7 +99,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			st.transactionHooks <- transactionHooks[1:]
 		}()
 		if transactionHooks[0].Before != nil {
+			logger.Infof("transaction 'before' hook start")
 			transactionHooks[0].Before()
+			logger.Infof("transaction 'before' hook end")
 		}
 	}
 	return st.runner.Run(ops, "", nil)
@@ -969,7 +973,15 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 				JobManageEnviron,
 			},
 		}
-		addOps, err := st.addMachineOps(mdoc, nil, cons, &containerRefParams{})
+		mdoc, addOps, err := st.addMachineOps(addMachineParams{
+			Series: cfg.DefaultSeries(),
+			Jobs: []MachineJob{
+				JobHostUnits,
+				JobManageState,
+				JobManageEnviron,
+			},
+			Constraints: cons,
+		})
 		if err != nil {
 			return err
 		}
@@ -989,11 +1001,11 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	return nil
 }
 
-func (st *State) ensureAvailability(numStateServers int, cons constraints.Value, series string, canHostUnits bool) {
-	make this called by EnsureAvailability and by AddBootstrapMachine.
-	series and canHostUnits are arguments because AddBootstrapMachine may
-	wish to specify them.
-}
+//func (st *State) ensureAvailability(numStateServers int, cons constraints.Value, series string, canHostUnits bool) {
+//	make this called by EnsureAvailability and by AddBootstrapMachine.
+//	series and canHostUnits are arguments because AddBootstrapMachine may
+//	wish to specify them.
+//}
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
