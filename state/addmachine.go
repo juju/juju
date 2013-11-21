@@ -185,6 +185,10 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	return m, nil
 }
 
+// effectiveMachineTemplate verifies that the given template is
+// valid and combines it with values from the state
+// to produce a resulting template that more accurately
+// represents the data that will be inserted into the state.
 func (st *State) effectiveMachineTemplate(p machineTemplate) (machineTemplate, error) {
 	if p.Series == "" {
 		return machineTemplate{}, fmt.Errorf("no series specified")
