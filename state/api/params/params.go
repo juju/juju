@@ -408,6 +408,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
+	OwnerTag    string
 	Life        Life
 	MinUnits    int
 	Constraints constraints.Value
