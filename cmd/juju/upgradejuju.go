@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/rpc"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -123,10 +123,11 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	}()
 
 	// Determine the version to upgrade to, uploading tools if necessary.
-	attrs, err := client.EnvironmentGet()
-	if err != nil && params.IsNoSuchRequest(err) {
+	attrs, err := client.EnvironmentGet1()
+	if rpc.IsNoSuchRequest(err) {
 		return c.run1dot16()
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
