@@ -53,8 +53,8 @@ $InputRunFileMonitor
 $ModLoad imudp
 $UDPServerRun 8888
 
-# Messages received from remote rsyslog machines contain a leading space so we
-# need to account for that.
+# Messages received from remote rsyslog machines have messages prefixed with a space,
+# so add one in for local messages too if needed.
 $template JujuLogFormat,"%syslogtag:6:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
 :syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
@@ -91,8 +91,8 @@ $InputRunFileMonitor
 $ModLoad imudp
 $UDPServerRun 8888
 
-# Messages received from remote rsyslog machines contain a leading space so we
-# need to account for that.
+# Messages received from remote rsyslog machines have messages prefixed with a space,
+# so add one in for local messages too if needed.
 $template JujuLogFormat-namespace,"%syslogtag:16:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
 :syslogtag, startswith, "juju-namespace-" /var/log/juju/all-machines.log;JujuLogFormat-namespace
