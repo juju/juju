@@ -123,7 +123,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	}()
 
 	// Determine the version to upgrade to, uploading tools if necessary.
-	attrs, err := client.EnvironmentGet1()
+	attrs, err := client.EnvironmentGet()
 	if rpc.IsNoSuchRequest(err) {
 		return c.run1dot16()
 	}
