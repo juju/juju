@@ -73,6 +73,12 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
+	return finishBootstrap(inst, machineConfig)
+}
+
+// finishBootstrap completes the bootstrap process by connecting
+// to the instance via SSH and carrying out the cloud-config.
+var finishBootstrap = func(inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	logger.Infof("waiting for DNS name for instance %q", inst.Id())
 	dnsName, err := WaitDNSName(inst)
 	if err != nil {

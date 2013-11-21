@@ -136,7 +136,15 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (*CloudInitSuite) TestUserData(c *gc.C) {
+func (s *CloudInitSuite) TestUserData(c *gc.C) {
+	s.testUserData(c, false)
+}
+
+func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
+	s.testUserData(c, true)
+}
+
+func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
@@ -153,19 +161,24 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		StateServerCert: []byte(testing.ServerCert),
 		StateServerKey:  []byte(testing.ServerKey),
 		StateInfo: &state.Info{
+			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw1",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
+			Tag:      "machine-10",
 		},
 		APIInfo: &api.Info{
+			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
+			Tag:      "machine-10",
 		},
 		DataDir:          environs.DataDir,
 		Config:           envConfig,
 		StatePort:        envConfig.StatePort(),
 		APIPort:          envConfig.APIPort(),
-		StateServer:      true,
+		StateServer:      stateServer,
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+		AuthorizedKeys:   "wheredidileavemykeys",
 	}
 	script1 := "script1"
 	script2 := "script2"
@@ -180,11 +193,32 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 	err = goyaml.Unmarshal(unzipped, &config)
 	c.Assert(err, gc.IsNil)
 
-	// Just check that the cloudinit config looks good.
-	c.Check(config["apt_upgrade"], gc.Equals, true)
 	// The scripts given to userData where added as the first
 	// commands to be run.
 	runCmd := config["runcmd"].([]interface{})
 	c.Check(runCmd[0], gc.Equals, script1)
 	c.Check(runCmd[1], gc.Equals, script2)
+
+	if stateServer {
+		// The cloudinit config should have nothing but the basics:
+		// SSH authorized keys, the additional runcmds, and log output.
+		//
+		// Note: the additional runcmds *do* belong here, at least
+		// for MAAS. MAAS needs to configure and thren bounce the
+		// network interfaces, which would sever the SSH connection
+		// in the synchronous bootstrap phase.
+		c.Check(config, gc.DeepEquals, map[interface{}]interface{}{
+			"output": map[interface{}]interface{}{
+				"all": "| tee -a /var/log/cloud-init-output.log",
+			},
+			"runcmd":              []interface{}{"script1", "script2"},
+			"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
+		})
+	} else {
+		// Just check that the cloudinit config looks good,
+		// and that there are more runcmds than the additional
+		// ones we passed into ComposeUserData.
+		c.Check(config["apt_upgrade"], gc.Equals, true)
+		c.Check(len(runCmd) > 2, jc.IsTrue)
+	}
 }
