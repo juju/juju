@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	logger         = loggo.GetLogger("juju.container.lxc")
+	logger         = loggo.GetLogger("juju.container")
 	aptHTTPProxyRE = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
 )
 
