@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
+	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -121,6 +122,7 @@ func (*reflectSuite) TestMethodCaller(c *gc.C) {
 
 	m, err = v.MethodCaller("SimpleMethods", "bar")
 	c.Assert(err, gc.ErrorMatches, `no such request "bar" on SimpleMethods`)
+	c.Assert(err, jc.Satisfies, params.IsNoSuchRequest)
 	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
 
 	m, err = v.MethodCaller("SimpleMethods", "Call1r1e")
