@@ -52,6 +52,7 @@ type BootstrapCommand struct {
 	Constraints constraints.Value
 	UploadTools bool
 	Series      []string
+	Source      string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -67,6 +68,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -98,7 +100,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
-
+	// If --source is specified, override the default tools source.
+	if c.Source != "" {
+		logger.Infof("Setting default tools source: %s", c.Source)
+		sync.DefaultToolsLocation = c.Source
+	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unecessary upload.
