@@ -89,6 +89,24 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	return finishBootstrap(inst, machineConfig)
 }
 
+// TestingDisableFinishBootstrap disables finishBootstrap so that tests
+// do not attempt to SSH to non-existent machines. The result is a function
+// that restores finishBootstrap.
+func TestingDisableFinishBootstrap() func() {
+	return TestingPatchFinishBootstrap(func(instance.Instance, *cloudinit.MachineConfig) error {
+		return nil
+	})
+}
+
+// TestingDisableFinishBootstrap replaces the default finishBootstrap with
+// a user-provided function. The result is a function that restores
+// finishBootstrap.
+func TestingPatchFinishBootstrap(f func(instance.Instance, *cloudinit.MachineConfig) error) func() {
+	orig := finishBootstrap
+	finishBootstrap = f
+	return func() { finishBootstrap = orig }
+}
+
 // finishBootstrap completes the bootstrap process by connecting
 // to the instance via SSH and carrying out the cloud-config.
 var finishBootstrap = func(inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {

@@ -197,6 +197,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		return minimalConfig(c)
 	}
 
+	restore := common.TestingDisableFinishBootstrap()
+	defer restore()
+
 	env := &mockEnviron{
 		storage:       stor,
 		startInstance: startInstance,

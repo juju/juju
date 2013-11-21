@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -412,7 +413,9 @@ func patchEC2ForTesting() func() {
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+	restoreFinishBootstrap := common.TestingDisableFinishBootstrap()
 	return func() {
+		restoreFinishBootstrap()
 		restoreTimeouts()
 		ec2.UseTestImageData(nil)
 		ec2.UseTestInstanceTypeData(nil)
