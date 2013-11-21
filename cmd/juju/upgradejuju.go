@@ -166,7 +166,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 // needed for compatibility, so 1.16 can be upgraded to newer
 // releases. It should be removed in 1.18.
 func (c *UpgradeJujuCommand) run1dot16() error {
-	log.Infof("running in 1.16 compatibility mode")
+	log.Warningf("running in 1.16 compatibility mode")
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
