@@ -38,7 +38,7 @@ fi
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
-  set -e
+  set -ex
   sudo dpkg -i $PACKAGE
   mkdir -p new-tools
   $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
