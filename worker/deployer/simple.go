@@ -89,6 +89,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
 	containerType := ctx.agentConfig.Value(agent.ContainerType)
+	namespace := ctx.agentConfig.Value(agent.Namespace)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:  dataDir,
@@ -101,6 +102,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			CACert:         ctx.agentConfig.CACert(),
 			Values: map[string]string{
 				agent.ContainerType: containerType,
+				agent.Namespace:     namespace,
 			},
 		})
 	if err != nil {
@@ -113,7 +115,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, tag+".log")
-	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, result.StateAddresses)
+	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, namespace, result.StateAddresses)
 	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
 	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	if err := syslogConfigRenderer.Write(); err != nil {
