@@ -110,6 +110,22 @@ func (s *LiveSuite) TestShutdownMachines(c *gc.C) {
 	assertNumberOfContainers(c, manager, 0)
 }
 
+func (s *LiveSuite) TestManagerIsolation(c *gc.C) {
+	firstManager := s.newManager(c, "first")
+	s.AddCleanup(shutdownMachines(firstManager))
+
+	startContainer(c, firstManager, "1/kvm/0")
+	startContainer(c, firstManager, "1/kvm/1")
+
+	secondManager := s.newManager(c, "second")
+	s.AddCleanup(shutdownMachines(secondManager))
+
+	startContainer(c, secondManager, "1/kvm/0")
+
+	assertNumberOfContainers(c, firstManager, 2)
+	assertNumberOfContainers(c, secondManager, 1)
+}
+
 func dummyConfig(c *gc.C) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, gc.IsNil)
