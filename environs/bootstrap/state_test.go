@@ -6,6 +6,8 @@ package bootstrap_test
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -15,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -46,6 +49,24 @@ func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 	expectedURL, err := stor.URL(bootstrap.StateFile)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, expectedURL)
+}
+
+func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
+	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
+	defer closer.Close()
+
+	err := bootstrap.DeleteStateFile(stor)
+	c.Assert(err, gc.IsNil) // doesn't exist, juju don't carea
+
+	_, err = bootstrap.CreateStateFile(stor)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(filepath.Join(dataDir, bootstrap.StateFile))
+	c.Assert(err, gc.IsNil)
+
+	err = bootstrap.DeleteStateFile(stor)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(filepath.Join(dataDir, bootstrap.StateFile))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {

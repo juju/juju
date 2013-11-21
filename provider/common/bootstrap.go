@@ -31,20 +31,33 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	// no way to make sure that only one succeeds.
 
 	var inst instance.Instance
+	var stateFileURL string
 	defer func() {
-		if err == nil || inst == nil {
+		if err == nil {
 			return
 		}
-		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
-			// Failure upon failure.  Log it, but return the original error.
-			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
+		if inst != nil {
+			if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
+				// Failure upon failure.  Log it, but return the original error.
+				logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
+			} else {
+				// set to nil so we know we can safely delete the state file
+				inst = nil
+			}
+		}
+		// We only delete the bootstrap state file if either we didn't
+		// start an instance, or we managed to cleanly stop it.
+		if inst == nil {
+			if rmerr := bootstrap.DeleteStateFile(env.Storage()); rmerr != nil {
+				logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
+			}
 		}
 	}()
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
+	stateFileURL, err = bootstrap.CreateStateFile(env.Storage())
 	if err != nil {
 		return err
 	}
