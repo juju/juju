@@ -5,6 +5,7 @@ package params
 
 import (
 	"fmt"
+	"regexp"
 
 	"launchpad.net/juju-core/rpc"
 )
@@ -115,4 +116,9 @@ func IsCodeNotProvisioned(err error) bool {
 
 func IsCodeNoAddressSet(err error) bool {
 	return ErrCode(err) == CodeNoAddressSet
+}
+
+func IsNoSuchRequest(err error) bool {
+	matched, _ := regexp.MatchString("^no such request .*", err.Error())
+	return matched
 }
