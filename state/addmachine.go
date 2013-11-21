@@ -52,10 +52,9 @@ type AddMachineParams struct {
 	Jobs []MachineJob
 }
 
-// addMachineParams is the internal form of AddMachineParams.
-// It holds parameters that are potentially valid across every
-// variant of AddMachine.
-type addMachineParams struct {
+// machineTemplate holds attributes that are to be associated
+// with a newly created machine.
+type machineTemplate struct {
 	// Series is the series to be associated with the new machine.
 	Series string
 
@@ -74,6 +73,14 @@ type addMachineParams struct {
 	// Principals holds the principal units that will
 	// associated with the machine.
 	Principals []string
+
+	// instanceId holds the instance id to be associated with the
+	// new machine. It should only be set by InjectMachine.
+	instanceId instance.Id
+
+	// nonce holds the nonce for the new machine.
+	// It should only be set by InjectMachine.
+	nonce string
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on
@@ -81,7 +88,7 @@ type addMachineParams struct {
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
 	defer utils.ErrorContextf(&err, "cannot add a new machine")
-	mdoc, ops, err := st.addMachineOps(addMachineParams{
+	mdoc, ops, err := st.addMachineOps(machineTemplate{
 		Series: series,
 		Jobs:   jobs,
 		Clean:  true,
@@ -108,7 +115,7 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 	// created on the specifed machine.
 	// ie it makes no sense asking for a 16G container on a machine with 8G.
 
-	pparams := addMachineParams{
+	template := machineTemplate{
 		Series:      params.Series,
 		Constraints: params.Constraints,
 		Jobs:        params.Jobs,
@@ -120,13 +127,15 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 	switch {
 	case params.ContainerType == "" && params.ParentId == "":
 		what = "machine"
-		mdoc, ops, err = st.addMachineOps(pparams)
+		mdoc, ops, err = st.addMachineOps(template)
 	case params.ContainerType != "" && params.ParentId == "":
 		what = "container"
-		mdoc, _, ops, err = st.addMachineInsideNewMachineOps(pparams, pparams, params.ContainerType)
+		// We use the same template for both parent and child,
+		// something that we might want to change at some point.
+		mdoc, ops, err = st.addMachineInsideNewMachineOps(template, template, params.ContainerType)
 	case params.ContainerType != "" && params.ParentId != "":
 		what = "container"
-		mdoc, ops, err = st.addMachineInsideMachineOps(pparams, params.ParentId, params.ContainerType)
+		mdoc, ops, err = st.addMachineInsideMachineOps(template, params.ParentId, params.ContainerType)
 	default:
 		what = "container"
 		err = fmt.Errorf("no container type specified")
@@ -148,21 +157,19 @@ func (st *State) InjectMachine(params *AddMachineParams) (m *Machine, err error)
 	}
 	defer utils.ErrorContextf(&err, "cannot add a new machine")
 	mdoc, ops, err := st.addMachineWithInstanceIdOps(
-		addMachineParams{
+		machineTemplate{
 			Series:      params.Series,
 			Constraints: params.Constraints,
 			Jobs:        params.Jobs,
 			Clean:       true,
+			instanceId:  params.InstanceId,
+			nonce:       params.Nonce,
 		},
-		params.InstanceId,
-		params.Nonce,
 		params.HardwareCharacteristics,
 	)
 	if err != nil {
 		return nil, err
 	}
-	mdoc.InstanceId = params.InstanceId
-	mdoc.Nonce = params.Nonce
 	return st.addMachine(mdoc, ops)
 }
 
@@ -178,13 +185,13 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	return m, nil
 }
 
-func (st *State) effectiveAddMachineParams(p addMachineParams) (addMachineParams, error) {
+func (st *State) effectiveMachineTemplate(p machineTemplate) (machineTemplate, error) {
 	if p.Series == "" {
-		return addMachineParams{}, fmt.Errorf("no series specified")
+		return machineTemplate{}, fmt.Errorf("no series specified")
 	}
 	cons, err := st.EnvironConstraints()
 	if err != nil {
-		return addMachineParams{}, err
+		return machineTemplate{}, err
 	}
 	p.Constraints = p.Constraints.WithFallbacks(cons)
 	// Machine constraints do not use a container constraint value.
@@ -195,20 +202,23 @@ func (st *State) effectiveAddMachineParams(p addMachineParams) (addMachineParams
 	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
-		return addMachineParams{}, fmt.Errorf("no jobs specified")
+		return machineTemplate{}, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range p.Jobs {
 		if jset[j] {
-			return addMachineParams{}, fmt.Errorf("duplicate job: %s", j)
+			return machineTemplate{}, fmt.Errorf("duplicate job: %s", j)
 		}
 		jset[j] = true
 	}
 	return p, nil
 }
 
-func (st *State) addMachineOps(params addMachineParams) (*machineDoc, []txn.Op, error) {
-	params, err := st.effectiveAddMachineParams(params)
+// addMachineOps returns operations to add a new top level machine
+// based on the given template. It also returns the machine document
+// that will be inserted.
+func (st *State) addMachineOps(template machineTemplate) (*machineDoc, []txn.Op, error) {
+	template, err := st.effectiveMachineTemplate(template)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -218,24 +228,33 @@ func (st *State) addMachineOps(params addMachineParams) (*machineDoc, []txn.Op, 
 	}
 	mdoc := &machineDoc{
 		Id:         strconv.Itoa(seq),
-		Series:     params.Series,
-		Jobs:       params.Jobs,
-		Clean:      params.Clean,
-		Principals: params.Principals,
+		Series:     template.Series,
+		Jobs:       template.Jobs,
+		Clean:      template.Clean,
+		Principals: template.Principals,
 		Life:       Alive,
+		InstanceId: template.instanceId,
+		Nonce:      template.nonce,
 	}
 	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, params.Constraints)...)
+	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
 	ops = append(ops, st.insertNewContainerRefOp(mdoc.Id))
 	return mdoc, ops, nil
 }
 
-func (st *State) addMachineWithInstanceIdOps(params addMachineParams, instId instance.Id, nonce string, hwc instance.HardwareCharacteristics) (*machineDoc, []txn.Op, error) {
-	params, err := st.effectiveAddMachineParams(params)
+// addMachineWithInstanceIdOps returns operations to add a new
+// top level machine based on the given template and with the
+// given hardward characteristics.
+// The template must contain a valid instance id and nonce.
+func (st *State) addMachineWithInstanceIdOps(template machineTemplate, hwc instance.HardwareCharacteristics) (*machineDoc, []txn.Op, error) {
+	if template.instanceId == "" || template.nonce == "" {
+		panic("instance id and nonce not set up correctly in addMachineWithInstanceIdOps")
+	}
+	template, err := st.effectiveMachineTemplate(template)
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc, ops, err := st.addMachineOps(params)
+	mdoc, ops, err := st.addMachineOps(template)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -245,7 +264,7 @@ func (st *State) addMachineWithInstanceIdOps(params addMachineParams, instId ins
 		Assert: txn.DocMissing,
 		Insert: &instanceData{
 			Id:         mdoc.Id,
-			InstanceId: instId,
+			InstanceId: template.instanceId,
 			Arch:       hwc.Arch,
 			Mem:        hwc.Mem,
 			RootDisk:   hwc.RootDisk,
@@ -276,8 +295,10 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 	return false
 }
 
-func (st *State) addMachineInsideMachineOps(params addMachineParams, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
-	params, err := st.effectiveAddMachineParams(params)
+// addMachineInsideMachineOps returns operations to add a machine inside
+// a container of the given type on an existing machine.
+func (st *State) addMachineInsideMachineOps(template machineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+	template, err := st.effectiveMachineTemplate(template)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -297,15 +318,15 @@ func (st *State) addMachineInsideMachineOps(params addMachineParams, parentId st
 	}
 	mdoc := &machineDoc{
 		Id:            newId,
-		Series:        params.Series,
-		Jobs:          params.Jobs,
-		Clean:         params.Clean,
+		Series:        template.Series,
+		Jobs:          template.Jobs,
+		Clean:         template.Clean,
 		ContainerType: string(containerType),
-		Principals:    params.Principals,
+		Principals:    template.Principals,
 		Life:          Alive,
 	}
 	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, params.Constraints)...)
+	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
 	ops = append(ops,
 		// Update containers record for host machine.
 		st.addChildToContainerRefOp(parentId, mdoc.Id),
@@ -315,6 +336,8 @@ func (st *State) addMachineInsideMachineOps(params addMachineParams, parentId st
 	return mdoc, ops, nil
 }
 
+// newContainerId returns a new id for a machine within the machine
+// with id parentId and the given container type.
 func (st *State) newContainerId(parentId string, containerType instance.ContainerType) (string, error) {
 	seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", parentId, containerType))
 	if err != nil {
@@ -323,50 +346,57 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 	return fmt.Sprintf("%s/%s/%d", parentId, containerType, seq), nil
 }
 
-func (st *State) addMachineInsideNewMachineOps(params, parentParams addMachineParams, containerType instance.ContainerType) (mdoc *machineDoc, parentDoc *machineDoc, ops []txn.Op, err error) {
+// addMachineInsideNewMachineOps returns operations to create a new
+// machine within a container of the given type inside another
+// new machine. The two given templates specify the form
+// of the child and parent respectively.
+func (st *State) addMachineInsideNewMachineOps(template, parentTemplate machineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
 	seq, err := st.sequence("machine")
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	parentParams, err = st.effectiveAddMachineParams(parentParams)
+	parentTemplate, err = st.effectiveMachineTemplate(parentTemplate)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	parentDoc = &machineDoc{
+	parentDoc := &machineDoc{
 		Id:         strconv.Itoa(seq),
-		Series:     parentParams.Series,
-		Jobs:       parentParams.Jobs,
-		Principals: params.Principals,
-		Clean:      parentParams.Clean,
+		Series:     parentTemplate.Series,
+		Jobs:       parentTemplate.Jobs,
+		Principals: parentTemplate.Principals,
+		Clean:      parentTemplate.Clean,
 		Life:       Alive,
 	}
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	params, err = st.effectiveAddMachineParams(params)
+	template, err = st.effectiveMachineTemplate(template)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	mdoc = &machineDoc{
+	mdoc := &machineDoc{
 		Id:            newId,
-		Series:        params.Series,
+		Series:        template.Series,
 		ContainerType: string(containerType),
-		Jobs:          params.Jobs,
-		Clean:         params.Clean,
+		Jobs:          template.Jobs,
+		Clean:         template.Clean,
 		Life:          Alive,
 	}
-	ops = append(ops, st.insertNewMachineOps(parentDoc, parentParams.Constraints)...)
-	ops = append(ops, st.insertNewMachineOps(mdoc, params.Constraints)...)
+	var ops []txn.Op
+	ops = append(ops, st.insertNewMachineOps(parentDoc, parentTemplate.Constraints)...)
+	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
 	ops = append(ops,
 		// The host machine doesn't exist yet, create a new containers record.
 		st.insertNewContainerRefOp(mdoc.Id),
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
 	)
-	return mdoc, parentDoc, ops, nil
+	return mdoc, ops, nil
 }
 
+// insertNewMachineOps returns operations to insert the given machine
+// document and its associated constraints into the database.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, cons constraints.Value) []txn.Op {
 	return []txn.Op{
 		{

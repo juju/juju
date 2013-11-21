@@ -883,34 +883,33 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	return u.assignToMachine(m, false)
 }
 
-// assignToNewMachine assigns the unit to a machine created according to the supplied params,
-// with the supplied constraints.
-func (u *Unit) assignToNewMachine(params addMachineParams, parentId string, containerType instance.ContainerType) error {
-	params.Principals = []string{u.doc.Name}
-	params.Clean = false
+// assignToNewMachine assigns the unit to a machine created according to
+// the supplied params, with the supplied constraints.
+func (u *Unit) assignToNewMachine(template machineTemplate, parentId string, containerType instance.ContainerType) error {
+	template.Principals = []string{u.doc.Name}
+	template.Clean = false
 
 	var (
-		mdoc      *machineDoc
-		parentDoc *machineDoc
-		ops       []txn.Op
-		err       error
+		mdoc *machineDoc
+		ops  []txn.Op
+		err  error
 	)
 	switch {
 	case parentId == "" && containerType == "":
-		mdoc, ops, err = u.st.addMachineOps(params)
+		mdoc, ops, err = u.st.addMachineOps(template)
 	case parentId == "":
 		if containerType == "" {
 			panic("no container type")
 		}
 		// The new parent machine is clean and only hosts units,
 		// regardless of its child.
-		parentParams := params
+		parentParams := template
 		parentParams.Clean = true
 		parentParams.Jobs = []MachineJob{JobHostUnits}
-		mdoc, parentDoc, ops, err = u.st.addMachineInsideNewMachineOps(params, parentParams, containerType)
+		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
 	default:
 		// Container type is specified but no parent id.
-		mdoc, ops, err = u.st.addMachineInsideMachineOps(params, parentId, containerType)
+		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
 	}
 	if err != nil {
 		return err
@@ -1029,12 +1028,12 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	} else if err != nil {
 		return err
 	}
-	params := addMachineParams{
+	template := machineTemplate{
 		Series:      u.doc.Series,
 		Constraints: *cons,
 		Jobs:        []MachineJob{JobHostUnits},
 	}
-	err = u.assignToNewMachine(params, host.Id, *cons.Container)
+	err = u.assignToNewMachine(template, host.Id, *cons.Container)
 	if err == machineNotCleanErr {
 		// The clean machine was used before we got a chance to use it so just
 		// stick the unit on a new machine.
@@ -1062,12 +1061,12 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
-	params := addMachineParams{
+	template := machineTemplate{
 		Series:      u.doc.Series,
 		Constraints: *cons,
 		Jobs:        []MachineJob{JobHostUnits},
 	}
-	return u.assignToNewMachine(params, "", containerType)
+	return u.assignToNewMachine(template, "", containerType)
 }
 
 var noCleanMachines = stderrors.New("all eligible machines in use")

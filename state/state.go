@@ -973,7 +973,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 				JobManageEnviron,
 			},
 		}
-		mdoc, addOps, err := st.addMachineOps(addMachineParams{
+		mdoc, addOps, err := st.addMachineOps(machineTemplate{
 			Series: cfg.DefaultSeries(),
 			Jobs: []MachineJob{
 				JobHostUnits,
