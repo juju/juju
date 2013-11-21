@@ -1601,8 +1601,8 @@ var findEntityTests = []findEntityTest{{
 	tag: "service-foo/bar",
 	err: `"service-foo/bar" is not a valid service tag`,
 }, {
-	tag: "environment-foo",
-	err: `environment "foo" not found`,
+	tag: "environment-9f484882-2f18-4fd2-967d-db9663db7bea",
+	err: `environment "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 }, {
 	tag: "machine-1234",
 	err: `machine 1234 not found`,
@@ -1624,7 +1624,7 @@ var findEntityTests = []findEntityTest{{
 	tag: "user-arble",
 }, {
 	tag: "environment-notauuid",
-	err: `environment "notauuid" not found`,
+	err: `"environment-notauuid" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{

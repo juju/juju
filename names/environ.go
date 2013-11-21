@@ -4,16 +4,15 @@
 package names
 
 import (
-	"strings"
+	"launchpad.net/juju-core/utils"
 )
 
-// EnvironTag returns the tag of an environment with the given environment ID.
-func EnvironTag(id string) string {
-	return makeTag(EnvironTagKind, id)
+// EnvironTag returns the tag of an environment with the given environment UUID.
+func EnvironTag(uuid string) string {
+	return makeTag(EnvironTagKind, uuid)
 }
 
-// IsEnvironment returns whether id is a valid environment id.
-// TODO(rog) stricter constraints
-func IsEnvironment(name string) bool {
-	return !strings.Contains(name, "/")
+// IsEnvironment returns whether id is a valid environment UUID.
+func IsEnvironment(id string) bool {
+	return utils.IsValidUUIDString(id)
 }

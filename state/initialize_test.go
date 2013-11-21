@@ -51,7 +51,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	_, err := s.State.EnvironConfig()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.FindEntity("environment-foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, gc.ErrorMatches, `"environment-foo" is not a valid environment tag`)
 	_, err = s.State.EnvironConstraints()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
