@@ -281,5 +281,5 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
-	return params.ContainerConfig{"fake", "my-keys", true}, nil
+	return params.ContainerConfig{"fake", "my-keys", true, 2345}, nil
 }
