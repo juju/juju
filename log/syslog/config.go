@@ -12,6 +12,11 @@ import (
 	"text/template"
 )
 
+// tagOffset represents the substring start value for the tag to return
+// the logfileName value from the syslogtag.  Substrings in syslog are
+// indexed from 1, hence the + 1.
+const tagOffset = len("juju-") + 1
+
 // The rsyslog conf for state server nodes.
 // Messages are gathered from other nodes and accumulated in an all-machines.log file.
 const stateServerRsyslogTemplate = `
@@ -148,7 +153,7 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		"portNumber":    func() int { return slConfig.Port },
 		"logDir":        func() string { return slConfig.LogDir },
 		"namespace":     func() string { return slConfig.Namespace },
-		"tagStart":      func() int { return 6 + len(slConfig.Namespace) },
+		"tagStart":      func() int { return tagOffset + len(slConfig.Namespace) },
 	})
 
 	// Process the rsyslog config template and echo to the conf file.
