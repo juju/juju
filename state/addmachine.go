@@ -103,12 +103,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// Refresh to pick the txn-revno.
-	m = newMachine(st, mdoc)
-	if err = m.Refresh(); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return newMachine(st, mdoc), nil
 }
 
 func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) (*machineDoc, []txn.Op, error) {

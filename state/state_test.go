@@ -1326,24 +1326,24 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.Machine(m1.Id())
-	c.Assert(m1, gc.DeepEquals, m2)
+	c.Assert(m1, jc.DeepEquals, m2)
 
 	charm1 := s.AddTestingCharm(c, "wordpress")
 	charm2, err := s.State.Charm(charm1.URL())
 	c.Assert(err, gc.IsNil)
-	c.Assert(charm1, gc.DeepEquals, charm2)
+	c.Assert(charm1, jc.DeepEquals, charm2)
 
 	wordpress1, err := s.State.AddService("wordpress", charm1)
 	c.Assert(err, gc.IsNil)
 	wordpress2, err := s.State.Service("wordpress")
 	c.Assert(err, gc.IsNil)
-	c.Assert(wordpress1, gc.DeepEquals, wordpress2)
+	c.Assert(wordpress1, jc.DeepEquals, wordpress2)
 
 	unit1, err := wordpress1.AddUnit()
 	c.Assert(err, gc.IsNil)
 	unit2, err := s.State.Unit("wordpress/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(unit1, gc.DeepEquals, unit2)
+	c.Assert(unit1, jc.DeepEquals, unit2)
 
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
@@ -1352,9 +1352,9 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	relation1, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	relation2, err := s.State.EndpointsRelation(eps...)
-	c.Assert(relation1, gc.DeepEquals, relation2)
+	c.Assert(relation1, jc.DeepEquals, relation2)
 	relation3, err := s.State.Relation(relation1.Id())
-	c.Assert(relation1, gc.DeepEquals, relation3)
+	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
 func tryOpenState(info *state.Info) error {
