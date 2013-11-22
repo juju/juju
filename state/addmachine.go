@@ -177,12 +177,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	if err := st.runTransaction(ops); err != nil {
 		return nil, err
 	}
-	m := newMachine(st, mdoc)
-	// Refresh to pick the txn-revno.
-	if err := m.Refresh(); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return newMachine(st, mdoc), nil
 }
 
 // effectiveMachineTemplate verifies that the given template is
