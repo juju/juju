@@ -237,7 +237,7 @@ func Validate(cfg, old *Config) error {
 	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
 	if !validAuthToken.MatchString(authToken) {
 		return fmt.Errorf("charm store auth token needs to be a set"+
-			" of key-value pairs, not '%s'", authToken)
+			" of key-value pairs, not %q", authToken)
 	}
 
 	// Check the immutable config values.  These can't change
