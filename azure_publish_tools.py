@@ -75,7 +75,7 @@ def get_local_files(purpose, local_dir):
             local_path = os.path.join(path, name)
             publish_path = local_path.replace(*replacements)
             if 'mirror' in name or os.path.islink(local_path):
-                # The mirror files only belong on streams.canonical.com
+                # The mirror files only belong on streams.canonical.com.
                 continue
             size = os.path.getsize(local_path)
             md5content = get_md5content(local_path)
