@@ -212,12 +212,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
-	params := state.AddMachineParams{
-		Series:      "quantal",
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
 		Constraints: extraCons,
-		Jobs:        oneJob,
-	}
-	m, err := s.State.AddMachineWithConstraints(&params)
+		Jobs: oneJob,
+		Clean: true,
+	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
@@ -237,12 +237,17 @@ func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containe
 func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
-	params := state.AddMachineParams{
-		ContainerType: instance.LXC,
+	template := state.MachineTemplate{
 		Series:        "quantal",
 		Jobs:          oneJob,
+		Clean: true,
 	}
-	m, err := s.State.AddMachineWithConstraints(&params)
+	parentTemplate := state.MachineTemplate{
+		Series:        "raring",
+		Jobs:          oneJob,
+		Clean: true,
+	}
+	m, err := s.State.AddMachineInsideNewMachine(template, parentTemplate, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
@@ -255,9 +260,12 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 	m, err = s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	s.assertMachineContainers(c, m, []string{"0/lxc/0"})
+	c.Assert(m.Series(), gc.Equals, "raring")
+
 	m, err = s.State.Machine("0/lxc/0")
 	c.Assert(err, gc.IsNil)
 	s.assertMachineContainers(c, m, nil)
+	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 }
 
 func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
@@ -268,13 +276,10 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.
-	params := state.AddMachineParams{
-		ParentId:      "1",
-		ContainerType: instance.LXC,
-		Series:        "quantal",
+	m, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	m, err := s.State.AddMachineWithConstraints(&params)
+	}, "1", instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "1/lxc/0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
@@ -292,7 +297,10 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	s.assertMachineContainers(c, m, nil)
 
 	// Add second container.
-	m, err = s.State.AddMachineWithConstraints(&params)
+	m, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}, "1", instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "1/lxc/1")
 	c.Assert(m.Series(), gc.Equals, "quantal")
@@ -308,13 +316,11 @@ func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc
 	err = host.AddSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
 
-	params := state.AddMachineParams{
-		ParentId:      "0",
-		ContainerType: instance.KVM,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	m, err := s.State.AddMachineWithConstraints(&params)
+	m, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, "0", instance.KVM)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/kvm/0")
 	s.assertMachineContainers(c, host, []string{"0/kvm/0"})
@@ -327,13 +333,11 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 	err = host.AddSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
 
-	params := state.AddMachineParams{
-		ParentId:      "0",
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	_, err = s.State.AddMachineWithConstraints(&params)
+	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, "0", instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
 	s.assertMachineContainers(c, host, nil)
 }
@@ -345,80 +349,84 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	err = host.SupportsNoContainers()
 	c.Assert(err, gc.IsNil)
 
-	params := state.AddMachineParams{
-		ParentId:      "0",
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	_, err = s.State.AddMachineWithConstraints(&params)
+	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, "0", instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
 	s.assertMachineContainers(c, host, nil)
 }
 
-func (s *StateSuite) TestAddContainerWithConstraints(c *gc.C) {
-	oneJob := []state.MachineJob{state.JobHostUnits}
-	cons := constraints.MustParse("mem=4G")
-
-	params := state.AddMachineParams{
-		ParentId:      "",
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Constraints:   cons,
-		Jobs:          oneJob,
-	}
-	params.InstanceId = "id"
-	m, err := s.State.AddMachineWithConstraints(&params)
-	c.Assert(err, gc.ErrorMatches, "cannot specify an instance id when adding a new machine")
-	params.InstanceId = ""
-	params.Nonce = "nonce"
-	m, err = s.State.AddMachineWithConstraints(&params)
-	c.Assert(err, gc.ErrorMatches, "cannot specify a nonce when adding a new machine")
-	params.Nonce = ""
-	m, err = s.State.AddMachineWithConstraints(&params)
-	c.Assert(err, gc.IsNil)
-	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
-	c.Assert(m.Series(), gc.Equals, "quantal")
-	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
-	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	mcons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, mcons)
-}
+//func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
+//	oneJob := []state.MachineJob{state.JobHostUnits}
+//	cons := constraints.MustParse("mem=4G")
+//
+//	template := state.MachineTemplate{
+//		Series: "quantal",
+//		Constraints: cons,
+//		Jobs: oneJob,
+//	}
+//
+//	template.InstanceId = "id"
+//	_, err := s.State.AddMachines(template)
+//	c.Assert(err, gc.ErrorMatches, "cannot specify an instance id when adding a new machine")
+//
+//	_, err := s.State.AddMachine
+//	params := state.AddMachineParams{
+//		ParentId:      "",
+//		ContainerType: instance.LXC,
+//		Series:        "quantal",
+//		Constraints:   cons,
+//		Jobs:          oneJob,
+//	}
+//	params.InstanceId = "id"
+//	m, err := s.State.AddMachineWithConstraints(&params)
+//	c.Assert(err, gc.ErrorMatches, "cannot specify an instance id when adding a new machine")
+//	params.InstanceId = ""
+//	params.Nonce = "nonce"
+//	m, err = s.State.AddMachineWithConstraints(&params)
+//	c.Assert(err, gc.ErrorMatches, "cannot specify a nonce when adding a new machine")
+//	params.Nonce = ""
+//	m, err = s.State.AddMachineWithConstraints(&params)
+//	c.Assert(err, gc.IsNil)
+//	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
+//	c.Assert(m.Series(), gc.Equals, "quantal")
+//	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
+//	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
+//	mcons, err := m.Constraints()
+//	c.Assert(err, gc.IsNil)
+//	c.Assert(cons, gc.DeepEquals, mcons)
+//}
 
 func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
-	oneJob := []state.MachineJob{state.JobHostUnits}
-
-	params := state.AddMachineParams{
-		ParentId:      "10",
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          oneJob,
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
 	}
-	_, err := s.State.AddMachineWithConstraints(&params)
+	_, err := s.State.AddMachineInsideMachine(template, "10", instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 10 not found")
-	params.ContainerType = ""
-	_, err = s.State.AddMachineWithConstraints(&params)
+	_, err = s.State.AddMachineInsideMachine(template, "10", "")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new container: no container type specified")
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
-	injectMachine := func(series, instanceId, nonce string, jobs ...state.MachineJob) error {
-		params := &state.AddMachineParams{
-			InstanceId: instance.Id(instanceId),
+	injectMachine := func(series string, instanceId instance.Id, nonce string, jobs ...state.MachineJob) error {
+		_, err := s.State.AddOneMachine(state.MachineTemplate{
 			Series:     series,
-			Nonce:      nonce,
 			Jobs:       jobs,
-		}
-		_, err := s.State.InjectMachine(params)
+			InstanceId: instanceId,
+			Nonce:      nonce,
+		})
 		return err
 	}
 	err := injectMachine("", "i-minvalid", state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 	err = injectMachine("quantal", "", state.BootstrapNonce, state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without an instance id")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot specify a nonce without an instance id")
 	err = injectMachine("quantal", "i-minvalid", "", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without a nonce")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot inject a machine without a nonce")
 	err = injectMachine("quantal", state.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }
@@ -429,10 +437,11 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	mem := uint64(1024)
 	disk := uint64(1024)
 	tags := []string{"foo", "bar"}
-	params := &state.AddMachineParams{
-		Series:      "quantal",
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 		Constraints: cons,
-		InstanceId:  instance.Id("i-mindustrious"),
+		InstanceId: "i-mindustrious",
 		Nonce:       state.BootstrapNonce,
 		HardwareCharacteristics: instance.HardwareCharacteristics{
 			Arch:     &arch,
@@ -440,44 +449,44 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 			RootDisk: &disk,
 			Tags:     &tags,
 		},
-		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Clean: true,
 	}
-	m, err := s.State.InjectMachine(params)
+	m, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Jobs(), gc.DeepEquals, params.Jobs)
+	c.Assert(m.Jobs(), gc.DeepEquals, template.Jobs)
 	instanceId, err := m.InstanceId()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instanceId, gc.Equals, params.InstanceId)
+	c.Assert(instanceId, gc.Equals, template.InstanceId)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons, gc.DeepEquals, mcons)
 	characteristics, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
-	c.Assert(*characteristics, gc.DeepEquals, params.HardwareCharacteristics)
+	c.Assert(*characteristics, gc.DeepEquals, template.HardwareCharacteristics)
 
 	// Make sure the bootstrap nonce value is set.
-	c.Assert(m.CheckProvisioned(params.Nonce), gc.Equals, true)
+	c.Assert(m.CheckProvisioned(template.Nonce), gc.Equals, true)
 }
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	params := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series:     "quantal",
-		InstanceId: instance.Id("i-mindustrious"),
+		InstanceId: "i-mindustrious",
 		Nonce:      state.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Clean: true,
 	}
-	m0, err := s.State.InjectMachine(&params)
+	m0, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.
-	params = state.AddMachineParams{
-		ParentId:      "0",
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template = state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
 	}
-	m, err := s.State.AddMachineWithConstraints(&params)
+	m, err := s.State.AddMachineInsideMachine(template, "0", instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
@@ -489,7 +498,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0"})
 
 	// Add second container.
-	m, err = s.State.AddMachineWithConstraints(&params)
+	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/1")
 	c.Assert(m.Series(), gc.Equals, "quantal")
@@ -1028,19 +1037,20 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a machine: reported.
-	params := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Clean: true,
 	}
-	machine, err := s.State.AddMachineWithConstraints(&params)
+	machines, err := s.State.AddMachines(template)
 	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	machine := machines[0]
 	wc.AssertChange("0")
 	wc.AssertNoChange()
 
 	// Add a container: not reported.
-	params.ParentId = machine.Id()
-	params.ContainerType = instance.LXC
-	m, err := s.State.AddMachineWithConstraints(&params)
+	m, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1062,14 +1072,15 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 
 func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Add a host machine.
-	params := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Clean: true,
 	}
-	machine, err := s.State.AddMachineWithConstraints(&params)
+	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
-	otherMachine, err := s.State.AddMachineWithConstraints(&params)
+	otherMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	// Initial event is empty when no containers.
@@ -1080,29 +1091,23 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a container of the required type: reported.
-	params.ParentId = machine.Id()
-	params.ContainerType = instance.LXC
-	m, err := s.State.AddMachineWithConstraints(&params)
+	m, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
 
 	// Add a container of a different type: not reported.
-	params.ContainerType = instance.KVM
-	m1, err := s.State.AddMachineWithConstraints(&params)
+	m1, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.KVM)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Add a nested container of the right type: not reported.
-	params.ParentId = m.Id()
-	params.ContainerType = instance.LXC
+	mchild, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
-	params.ParentId = otherMachine.Id()
-	params.ContainerType = instance.LXC
-	m2, err := s.State.AddMachineWithConstraints(&params)
+	m2, err := s.State.AddMachineInsideMachine(template, otherMachine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 	statetesting.AssertStop(c, w)
@@ -1112,6 +1117,15 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wc = statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+
+	// Make the container Dying: cannot because of nested container.
+	err = m.Destroy()
+	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers ".*"`)
+
+	err = mchild.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = mchild.Remove()
+	c.Assert(err, gc.IsNil)
 
 	// Make the container Dying: reported.
 	err = m.Destroy()

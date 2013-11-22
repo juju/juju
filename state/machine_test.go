@@ -54,13 +54,11 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	parentId, ok := s.machine.ParentId()
 	c.Assert(parentId, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
-	params := state.AddMachineParams{
-		ParentId:      s.machine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	parentId, ok = container.ParentId()
 	c.Assert(parentId, gc.Equals, s.machine.Id())
@@ -80,11 +78,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 	}
 	for _, test := range tests {
-		params := state.AddMachineParams{
-			Series: "quantal",
-			Jobs:   test.jobs,
-		}
-		m, err := s.State.AddMachineWithConstraints(&params)
+		m, err := s.State.AddMachine("quantal", test.jobs...)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.IsManager(), gc.Equals, test.isStateServer)
 	}
@@ -104,14 +98,11 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	// A machine hosting a container must not advance lifecycle.
-	params := state.AddMachineParams{
-		ParentId:      s.machine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	_, err := s.State.AddMachineWithConstraints(&params)
-	c.Assert(err, gc.IsNil)
+	_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, s.machine.Id(), instance.LXC)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})
 	c.Assert(err, gc.ErrorMatches, `machine 0 is hosting containers "0/lxc/0"`)

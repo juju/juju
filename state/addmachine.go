@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -101,7 +102,7 @@ type MachineTemplate struct {
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
 func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
-	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, template, containerType)
+	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add a new container: %v", err)
 	}
@@ -118,9 +119,34 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 	return st.addMachine(mdoc, ops)
 }
 
+// AddMachine adds a machine with the given series and jobs.
+// It is deprecated and around for testing purposes only.
+func (st *State) AddMachine(series string, jobs ...MachineJob) (*Machine, error) {
+	ms, err := st.AddMachines(MachineTemplate{
+		Series: series,
+		Jobs: jobs,
+		Clean: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ms[0], nil
+}
+
+// AddOne machine adds a new machine configured according to the
+// given template.
+func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
+	ms, err := st.AddMachines(template)
+	if err != nil {
+		return nil, err
+	}
+	return ms[0], nil
+}
+
 // AddMachines adds new machines configured according to the
-// given machine templates.
-func (st *State) AddMachines(templates ...MachineTemplate) ([]*Machine, error) {
+// given templates.
+func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
+	defer utils.ErrorContextf(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
 	for _, template := range templates {
@@ -247,6 +273,9 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if err != nil {
 		return nil, nil, err
 	}
+	if containerType == "" {
+		return nil, nil, fmt.Errorf("no container type specified")
+	}
 
 	// If a parent machine is specified, make sure it exists
 	// and can support the requested container type.
@@ -298,6 +327,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, err
 	}
 	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
+	logger.Infof("parentDoc series %q", parentDoc.Series)
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {
 		return nil, nil, err

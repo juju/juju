@@ -526,13 +526,11 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 
 	addContainer := state.TransactionHook{
 		Before: func() {
-			params := &state.AddMachineParams{
-				Series:        "quantal",
-				ParentId:      machine.Id(),
-				ContainerType: instance.LXC,
-				Jobs:          []state.MachineJob{state.JobHostUnits},
-			}
-			_, err := s.State.AddMachineWithConstraints(params)
+			_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+				Series: "quantal",
+				Jobs: []state.MachineJob{state.JobHostUnits},
+				Clean: true,
+			}, machine.Id(), instance.LXC)
 			c.Assert(err, gc.IsNil)
 		},
 	}
@@ -717,13 +715,11 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	// Create a new, clean machine but add containers so it is not empty.
 	hostMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	params := state.AddMachineParams{
-		ParentId:      hostMachine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	container, err = s.State.AddMachineWithConstraints(&params)
+	container, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, hostMachine.Id(), instance.LXC)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
@@ -1033,13 +1029,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 	// Create a new, clean machine but add containers so it is not empty.
 	hostMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	params := state.AddMachineParams{
-		ParentId:      hostMachine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, hostMachine.Id(), instance.LXC)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 	if s.policy == state.AssignClean {
@@ -1077,13 +1071,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	// Create a machine and add a new container.
 	hostMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	params := state.AddMachineParams{
-		ParentId:      hostMachine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs: []state.MachineJob{state.JobHostUnits},
+		Clean: true,
+	}, hostMachine.Id(), instance.LXC)
 	err = hostMachine.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
