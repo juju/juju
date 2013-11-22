@@ -899,7 +899,7 @@ func (u *Unit) assignToNewMachine(template machineTemplate, parentId string, con
 		mdoc, ops, err = u.st.addMachineOps(template)
 	case parentId == "":
 		if containerType == "" {
-			panic("no container type")
+			return fmt.Errorf("assignToNewMachine called without container type (should never happen)")
 		}
 		// The new parent machine is clean and only hosts units,
 		// regardless of its child.

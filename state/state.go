@@ -87,6 +87,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	transactionHooks := <-st.transactionHooks
 	st.transactionHooks <- nil
 	if len(transactionHooks) > 0 {
+		// Note that this code should only ever be triggered
+		// during tests. If we see the log messages below
+		// in a production run, something is wrong.
 		defer func() {
 			if transactionHooks[0].After != nil {
 				logger.Infof("transaction 'after' hook start")
