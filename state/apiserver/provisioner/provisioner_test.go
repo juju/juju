@@ -739,7 +739,7 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
-	args := params.SetSupportedContainersParams{
+	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{
 				MachineTag:     "machine-0",
@@ -779,7 +779,7 @@ func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
-	args := params.SetSupportedContainersParams{
+	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{{
 			MachineTag:     "machine-0",
 			ContainerTypes: []instance.ContainerType{instance.LXC},
@@ -804,7 +804,7 @@ func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
-	args := params.SetSupportedContainersParams{
+	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{
 				MachineTag: "machine-0",

@@ -244,7 +244,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 // SetSupportedContainers updates the list of containers supported by this machine.
 func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
 	var results params.ErrorResults
-	args := params.SetSupportedContainersParams{
+	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
 		},

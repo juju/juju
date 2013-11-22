@@ -186,7 +186,7 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
 func (p *ProvisionerAPI) SetSupportedContainers(
-	args params.SetSupportedContainersParams) (params.ErrorResults, error) {
+	args params.MachineContainersParams) (params.ErrorResults, error) {
 
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),

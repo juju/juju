@@ -823,7 +823,10 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
 func (m *Machine) SupportsNoContainers() (err error) {
-	return m.updateSupportedContainers([]instance.ContainerType{})
+	if err = m.updateSupportedContainers([]instance.ContainerType{}); err != nil {
+		return err
+	}
+	return m.markInvalidContainers()
 }
 
 // SetSupportedContainers sets the list of containers supported by this machine.
@@ -836,7 +839,10 @@ func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (e
 			return fmt.Errorf("%q is not a valid container type", container)
 		}
 	}
-	return m.updateSupportedContainers(containers)
+	if err = m.updateSupportedContainers(containers); err != nil {
+		return err
+	}
+	return m.markInvalidContainers()
 }
 
 func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
@@ -848,8 +854,7 @@ func isSupportedContainer(container instance.ContainerType, supportedContainers 
 	return false
 }
 
-// updateSupportedContainers sets the supported containers on this host machine and then iterates
-// over all existing containers and for those which are not supported, marks their status as being in error.
+// updateSupportedContainers sets the supported containers on this host machine.
 func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
 	ops := []txn.Op{
 		{
@@ -868,13 +873,18 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 	}
 	m.doc.SupportedContainers = supportedContainers
 	m.doc.SupportedContainersKnown = true
+	return nil
+}
 
+// markInvalidContainers sets the status of any container belonging to this machine
+// as being in error if the container type is not supported.
+func (m *Machine) markInvalidContainers() error {
 	currentContainers, err := m.Containers()
 	if err != nil {
 		return err
 	}
 	for _, containerId := range currentContainers {
-		if !isSupportedContainer(ContainerTypeFromId(containerId), supportedContainers) {
+		if !isSupportedContainer(ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
 			container, err := m.st.Machine(containerId)
 			if err != nil {
 				logger.Errorf("loading container %v to mark as invalid: %v", containerId, err)

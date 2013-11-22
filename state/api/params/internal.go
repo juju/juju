@@ -20,9 +20,9 @@ type Entities struct {
 	Entities []Entity
 }
 
-// SetSupportedContainersParams holds the arguments for making a SetSupportedContainers
+// MachineContainersParams holds the arguments for making a SetSupportedContainers
 // API call.
-type SetSupportedContainersParams struct {
+type MachineContainersParams struct {
 	Params []MachineContainers
 }
 
