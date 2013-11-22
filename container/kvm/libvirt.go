@@ -40,7 +40,7 @@ func run(command string, args ...string) (output string, err error) {
 		return output, err
 	}
 	if !cmd.ProcessState.Success() {
-		return output, fmt.Errorf("%s returned non-zero exi", command)
+		return output, fmt.Errorf("%s returned non-zero exit", command)
 	}
 	return output, nil
 }
@@ -61,7 +61,7 @@ type CreateMachineParams struct {
 	Hostname      string
 	Series        string
 	Arch          string
-	UserData      string
+	UserDataFile  string
 	NetworkBridge string
 	// TODO memory, cpu and disk
 }
@@ -75,8 +75,8 @@ func CreateMachine(params CreateMachineParams) error {
 		"create",
 		"--log-console-output", // do wonder where this goes...
 	}
-	if params.UserData != "" {
-		args = append(args, "--user-data", params.UserData)
+	if params.UserDataFile != "" {
+		args = append(args, "--user-data", params.UserDataFile)
 	}
 	if params.NetworkBridge != "" {
 		args = append(args, "--bridge", params.NetworkBridge)

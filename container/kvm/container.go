@@ -49,7 +49,7 @@ func (c *kvmContainer) Start(
 		Hostname:      c.name,
 		Series:        series,
 		Arch:          arch,
-		UserData:      userDataFile,
+		UserDataFile:  userDataFile,
 		NetworkBridge: bridge,
 	}); err != nil {
 		return err
