@@ -698,7 +698,7 @@ func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
 		c.Assert(found, gc.Equals, true)
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid, relid, remote,
-		s.relctxs, apiAddrs)
+		s.relctxs, apiAddrs, "test-owner")
 	c.Assert(err, gc.IsNil)
 	return context
 }
