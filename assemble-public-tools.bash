@@ -227,6 +227,8 @@ sign_metadata() {
         echo "Creating $signed_file"
         sed -e $pattern $meta_file |
             gpg --clearsign --default-key $SIGNING_KEY > $signed_file
+        cat $meta_file |
+            gpg --detach-sign --default-key $SIGNING_KEY  > $meta_file.gpg
     done
     echo "The signed tools are in ${DEST_DIST}."
 }
