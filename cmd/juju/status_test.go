@@ -1230,7 +1230,11 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	}
-	m, err := ctx.st.AddMachineWithConstraints(params)
+	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
+		Series:      "quantal",
+		Constraints: am.cons,
+		Jobs:        []state.MachineJob{am.job},
+	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }

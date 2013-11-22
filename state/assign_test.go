@@ -529,7 +529,6 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 			_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
 				Jobs:   []state.MachineJob{state.JobHostUnits},
-				Clean:  true,
 			}, machine.Id(), instance.LXC)
 			c.Assert(err, gc.IsNil)
 		},
@@ -718,7 +717,6 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	container, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Clean:  true,
 	}, hostMachine.Id(), instance.LXC)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
@@ -1032,7 +1030,6 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Clean:  true,
 	}, hostMachine.Id(), instance.LXC)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
@@ -1074,7 +1071,6 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Clean:  true,
 	}, hostMachine.Id(), instance.LXC)
 	err = hostMachine.Refresh()
 	c.Assert(err, gc.IsNil)

@@ -15,43 +15,6 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// AddMachineParams encapsulates the parameters used to create a new machine.
-type AddMachineParams struct {
-	// Series is the series to be associated with the new machine.
-	Series string
-
-	// Constraints are the constraints to be used when finding
-	// an instance for the machine.
-	Constraints constraints.Value
-
-	// ParentId holds the machine id of the machine that
-	// will contain the new machine. If this is set,
-	// ContainerType must also be set.
-	ParentId string
-
-	// ContainerType holds the type of container into
-	// which to deploy the new machine. This is
-	// ignored if ParentId is empty.
-	ContainerType instance.ContainerType
-
-	// InstanceId holds the instance id to associate with the machine.
-	// If this is empty, the provisioner will try to provision the machine.
-	InstanceId instance.Id
-
-	// HardwareCharacteristics holds the h/w characteristics to
-	// be associated with the machine.
-	HardwareCharacteristics instance.HardwareCharacteristics
-
-	// Nonce holds a unique value that can be used to check
-	// if a new instance was really started for this machine.
-	// See Machine.SetProvisioned. This must be set if InstanceId is set.
-	Nonce string
-
-	// Jobs holds the jobs to run on the machine's instance.
-	// A machine must have at least one job to do.
-	Jobs []MachineJob
-}
-
 // MachineTemplate holds attributes that are to be associated
 // with a newly created machine.
 type MachineTemplate struct {
@@ -65,10 +28,6 @@ type MachineTemplate struct {
 	// Jobs holds the jobs to run on the machine's instance.
 	// A machine must have at least one job to do.
 	Jobs []MachineJob
-
-	// Clean signifies whether the new machine will be treated
-	// as clean for unit-assignment purposes.
-	Clean bool
 
 	// InstanceId holds the instance id to associate with the machine.
 	// If this is empty, the provisioner will try to provision the machine.
@@ -84,6 +43,10 @@ type MachineTemplate struct {
 	// if a new instance was really started for this machine.
 	// See Machine.SetProvisioned. This must be set if InstanceId is set.
 	Nonce string
+
+	// dirty signifies whether the new machine will be treated
+	// as unclean for unit-assignment purposes.
+	dirty bool
 
 	// principals holds the principal units that will
 	// associated with the machine.
@@ -125,7 +88,6 @@ func (st *State) AddMachine(series string, jobs ...MachineJob) (*Machine, error)
 	ms, err := st.AddMachines(MachineTemplate{
 		Series: series,
 		Jobs:   jobs,
-		Clean:  true,
 	})
 	if err != nil {
 		return nil, err
@@ -355,7 +317,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		Id:         id,
 		Series:     template.Series,
 		Jobs:       template.Jobs,
-		Clean:      template.Clean,
+		Clean:      !template.dirty,
 		Principals: template.principals,
 		Life:       Alive,
 		InstanceId: template.InstanceId,
