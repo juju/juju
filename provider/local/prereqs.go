@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 
+	"launchpad.net/juju-core/container/kvm"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/version"
 )
 
@@ -44,6 +46,17 @@ documentation for instructions on installing the LXC userspace tools.`
 const errUnsupportedOS = `Unsupported operating system: %s
 The local provider is currently only available for Linux`
 
+const kvmNeedsUbuntu = `Sorry, but KVM support with the local provider is only supported
+on the Ubuntu OS.`
+
+const kvmNotSupported = `KVM is not currently supported with the current settings.
+You could try running 'kvm-ok' yourself as root to get the full rationale as to
+why it isn't supported, or potentially some BIOS settings to change to enable
+KVM support.`
+
+const neetToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
+    sudo apt-get install cpu-checker`
+
 // mongodPath is the path to "mongod", the MongoDB server.
 // This is a variable only to support unit testing.
 var mongodPath = "/usr/bin/mongod"
@@ -61,14 +74,20 @@ var goos = runtime.GOOS
 // VerifyPrerequisites verifies the prerequisites of
 // the local machine (machine 0) for running the local
 // provider.
-func VerifyPrerequisites() error {
+func VerifyPrerequisites(containerType instance.ContainerType) error {
 	if goos != "linux" {
 		return fmt.Errorf(errUnsupportedOS, goos)
 	}
 	if err := verifyMongod(); err != nil {
 		return err
 	}
-	return verifyLxc()
+	switch containerType {
+	case instance.LXC:
+		return verifyLxc()
+	case instance.KVM:
+		return verifyKvm()
+	}
+	return fmt.Errorf("Unknown container type specified in the config.")
 }
 
 func verifyMongod() error {
@@ -119,4 +138,21 @@ func wrapLxcNotFound(err error) error {
 		return fmt.Errorf("%v\n%s", err, installLxcUbuntu)
 	}
 	return fmt.Errorf("%v\n%s", err, installLxcGeneric)
+}
+
+func verifyKvm() error {
+	if !isUbuntu() {
+		return fmt.Errorf(kvmNeedsUbuntu)
+	}
+	supported, err := kvm.IsKVMSupported()
+	if err != nil {
+		// Missing the kvm-ok package.
+		return fmt.Errorf(neetToInstallKVMOk)
+	}
+	if !supported {
+		return fmt.Errorf(kvmNotSupported)
+	}
+	// Check for other packages needed.
+
+	return nil
 }

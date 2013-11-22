@@ -135,6 +135,10 @@ func (c *Context) RelationIds() []int {
 	return ids
 }
 
+func (c *Context) OwnerTag() string {
+	return "test-owner"
+}
+
 type ContextRelation struct {
 	id    int
 	name  string

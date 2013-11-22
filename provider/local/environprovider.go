@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -41,8 +42,15 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		}
 		cfg = newCfg
 	}
-	// TODO: make verify prereq's check based on container type
-	if err := VerifyPrerequisites(); err != nil {
+	// We get the container type out of the config unknowns here
+	// to avoid all the extra stuff that goes on with the SetConfig
+	// so we don't create special dirs if the user is not able to
+	// run the local provider.
+	containerType, ok := cfg.UnknownAttrs()[containerConfigKey].(string)
+	if !ok {
+		containerType = containerDefault
+	}
+	if err := VerifyPrerequisites(instance.ContainerType(containerType)); err != nil {
 		logger.Errorf("failed verification of local provider prerequisites: %v", err)
 		return nil, err
 	}
