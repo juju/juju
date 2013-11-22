@@ -230,16 +230,7 @@ func (st *State) addMachineOps(template machineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := &machineDoc{
-		Id:         strconv.Itoa(seq),
-		Series:     template.Series,
-		Jobs:       template.Jobs,
-		Clean:      template.Clean,
-		Principals: template.Principals,
-		Life:       Alive,
-		InstanceId: template.instanceId,
-		Nonce:      template.nonce,
-	}
+	mdoc := machineDocForTemplate(template, strconv.Itoa(seq))
 	var ops []txn.Op
 	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
 	ops = append(ops, st.insertNewContainerRefOp(mdoc.Id))
@@ -252,7 +243,7 @@ func (st *State) addMachineOps(template machineTemplate) (*machineDoc, []txn.Op,
 // The template must contain a valid instance id and nonce.
 func (st *State) addMachineWithInstanceIdOps(template machineTemplate, hwc instance.HardwareCharacteristics) (*machineDoc, []txn.Op, error) {
 	if template.instanceId == "" || template.nonce == "" {
-		panic("instance id and nonce not set up correctly in addMachineWithInstanceIdOps")
+		return nil, nil, fmt.Errorf("instance id and nonce not set up correctly in addMachineWithInstanceIdOps")
 	}
 	template, err := st.effectiveMachineTemplate(template)
 	if err != nil {
@@ -320,15 +311,8 @@ func (st *State) addMachineInsideMachineOps(template machineTemplate, parentId s
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := &machineDoc{
-		Id:            newId,
-		Series:        template.Series,
-		Jobs:          template.Jobs,
-		Clean:         template.Clean,
-		ContainerType: string(containerType),
-		Principals:    template.Principals,
-		Life:          Alive,
-	}
+	mdoc := machineDocForTemplate(template, newId)
+	mdoc.ContainerType = string(containerType)
 	var ops []txn.Op
 	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
 	ops = append(ops,
@@ -363,14 +347,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate machineT
 	if err != nil {
 		return nil, nil, err
 	}
-	parentDoc := &machineDoc{
-		Id:         strconv.Itoa(seq),
-		Series:     parentTemplate.Series,
-		Jobs:       parentTemplate.Jobs,
-		Principals: parentTemplate.Principals,
-		Clean:      parentTemplate.Clean,
-		Life:       Alive,
-	}
+	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {
 		return nil, nil, err
@@ -379,14 +356,8 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate machineT
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := &machineDoc{
-		Id:            newId,
-		Series:        template.Series,
-		ContainerType: string(containerType),
-		Jobs:          template.Jobs,
-		Clean:         template.Clean,
-		Life:          Alive,
-	}
+	mdoc := machineDocForTemplate(template, newId)
+	mdoc.ContainerType = string(containerType)
 	var ops []txn.Op
 	ops = append(ops, st.insertNewMachineOps(parentDoc, parentTemplate.Constraints)...)
 	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
@@ -397,6 +368,19 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate machineT
 		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
 	)
 	return mdoc, ops, nil
+}
+
+func machineDocForTemplate(template machineTemplate, id string) *machineDoc {
+	return &machineDoc{
+		Id:         id,
+		Series:     template.Series,
+		Jobs:       template.Jobs,
+		Clean:      template.Clean,
+		Principals: template.Principals,
+		Life:       Alive,
+		InstanceId: template.instanceId,
+		Nonce:      template.nonce,
+	}
 }
 
 // insertNewMachineOps returns operations to insert the given machine
