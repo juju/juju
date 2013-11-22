@@ -116,3 +116,37 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 		)
 	}
 }
+
+func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match bool) {
+	script, err := generateScript(cfg)
+	c.Assert(err, gc.IsNil)
+	checker := gc.Matches
+	if !match {
+		checker = gc.Not(checker)
+	}
+	c.Assert(script, checker, pattern)
+}
+
+func (s *configureSuite) TestAptUpdate(c *gc.C) {
+	// apt-get update is run if either AptUpdate is set,
+	// or apt sources are defined.
+	cfg := cloudinit.New()
+	c.Assert(cfg.AptUpdate(), gc.Equals, false)
+	c.Assert(cfg.AptSources(), gc.HasLen, 0)
+	assertScriptMatches(c, cfg, "(.|\n)*apt-get -y update(.|\n)*", false)
+	cfg.SetAptUpdate(true)
+	assertScriptMatches(c, cfg, "(.|\n)*apt-get -y update(.|\n)*", true)
+	cfg.SetAptUpdate(false)
+	cfg.AddAptSource("source", "key")
+	assertScriptMatches(c, cfg, "(.|\n)*apt-get -y update(.|\n)*", true)
+}
+
+func (s *configureSuite) TestAptUpgrade(c *gc.C) {
+	// apt-get upgrade is only run if AptUpgrade is set.
+	cfg := cloudinit.New()
+	cfg.SetAptUpdate(true)
+	cfg.AddAptSource("source", "key")
+	assertScriptMatches(c, cfg, "(.|\n)*apt-get -y upgrade(.|\n)*", false)
+	cfg.SetAptUpgrade(true)
+	assertScriptMatches(c, cfg, "(.|\n)*apt-get -y upgrade(.|\n)*", true)
+}

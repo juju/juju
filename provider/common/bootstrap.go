@@ -31,33 +31,12 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	// no way to make sure that only one succeeds.
 
 	var inst instance.Instance
-	var stateFileURL string
-	defer func() {
-		if err == nil {
-			return
-		}
-		if inst != nil {
-			if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
-				// Failure upon failure.  Log it, but return the original error.
-				logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
-			} else {
-				// set to nil so we know we can safely delete the state file
-				inst = nil
-			}
-		}
-		// We only delete the bootstrap state file if either we didn't
-		// start an instance, or we managed to cleanly stop it.
-		if inst == nil {
-			if rmerr := bootstrap.DeleteStateFile(env.Storage()); rmerr != nil {
-				logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
-			}
-		}
-	}()
+	defer func() { handleBootstrapError(err, inst, env) }()
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
-	stateFileURL, err = bootstrap.CreateStateFile(env.Storage())
+	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
 	if err != nil {
 		return err
 	}
@@ -89,19 +68,41 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	return finishBootstrap(inst, machineConfig)
 }
 
+// handelBootstrapError cleans up after a failed bootstrap.
+func handleBootstrapError(err error, inst instance.Instance, env environs.Environ) {
+	if err == nil {
+		return
+	}
+	if inst != nil {
+		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
+			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
+		} else {
+			// set to nil so we know we can safely delete the state file
+			inst = nil
+		}
+	}
+	// We only delete the bootstrap state file if either we didn't
+	// start an instance, or we managed to cleanly stop it.
+	if inst == nil {
+		if rmerr := bootstrap.DeleteStateFile(env.Storage()); rmerr != nil {
+			logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
+		}
+	}
+}
+
 // TestingDisableFinishBootstrap disables finishBootstrap so that tests
 // do not attempt to SSH to non-existent machines. The result is a function
 // that restores finishBootstrap.
 func TestingDisableFinishBootstrap() func() {
-	return TestingPatchFinishBootstrap(func(instance.Instance, *cloudinit.MachineConfig) error {
+	return testingPatchFinishBootstrap(func(instance.Instance, *cloudinit.MachineConfig) error {
 		return nil
 	})
 }
 
-// TestingDisableFinishBootstrap replaces the default finishBootstrap with
+// testingDisableFinishBootstrap replaces the default finishBootstrap with
 // a user-provided function. The result is a function that restores
 // finishBootstrap.
-func TestingPatchFinishBootstrap(f func(instance.Instance, *cloudinit.MachineConfig) error) func() {
+func testingPatchFinishBootstrap(f func(instance.Instance, *cloudinit.MachineConfig) error) func() {
 	orig := finishBootstrap
 	finishBootstrap = f
 	return func() { finishBootstrap = orig }

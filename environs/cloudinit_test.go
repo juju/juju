@@ -204,7 +204,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 		// SSH authorized keys, the additional runcmds, and log output.
 		//
 		// Note: the additional runcmds *do* belong here, at least
-		// for MAAS. MAAS needs to configure and thren bounce the
+		// for MAAS. MAAS needs to configure and then bounce the
 		// network interfaces, which would sever the SSH connection
 		// in the synchronous bootstrap phase.
 		c.Check(config, gc.DeepEquals, map[interface{}]interface{}{
