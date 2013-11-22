@@ -885,8 +885,8 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 
 // assignToNewMachine assigns the unit to a machine created according to
 // the supplied params, with the supplied constraints.
-func (u *Unit) assignToNewMachine(template machineTemplate, parentId string, containerType instance.ContainerType) error {
-	template.Principals = []string{u.doc.Name}
+func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) error {
+	template.principals = []string{u.doc.Name}
 	template.Clean = false
 
 	var (
@@ -1028,7 +1028,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	} else if err != nil {
 		return err
 	}
-	template := machineTemplate{
+	template := MachineTemplate{
 		Series:      u.doc.Series,
 		Constraints: *cons,
 		Jobs:        []MachineJob{JobHostUnits},
@@ -1061,7 +1061,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
-	template := machineTemplate{
+	template := MachineTemplate{
 		Series:      u.doc.Series,
 		Constraints: *cons,
 		Jobs:        []MachineJob{JobHostUnits},
