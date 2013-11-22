@@ -18,12 +18,17 @@ var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
+const (
+	containerConfigKey = "container"
+	containerDefault   = "lxc"
+)
+
 var (
 	configFields = schema.Fields{
 		"root-dir":            schema.String(),
 		"bootstrap-ip":        schema.String(),
 		"network-bridge":      schema.String(),
-		"container":           schema.String(),
+		containerConfigKey:    schema.String(),
 		"storage-port":        schema.ForceInt(),
 		"shared-storage-port": schema.ForceInt(),
 	}
@@ -34,7 +39,7 @@ var (
 	configDefaults = schema.Defaults{
 		"root-dir":            "",
 		"network-bridge":      "lxcbr0",
-		"container":           "lxc",
+		containerConfigKey:    containerDefault,
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,

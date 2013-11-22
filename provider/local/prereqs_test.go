@@ -10,6 +10,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -59,17 +60,17 @@ func (*prereqsSuite) TestSupportedOS(c *gc.C) {
 		goos = old
 	}(goos)
 	goos = "windows"
-	err := VerifyPrerequisites()
+	err := VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "Unsupported operating system: windows(.|\n)*")
 }
 
 func (s *prereqsSuite) TestMongoPrereq(c *gc.C) {
-	err := VerifyPrerequisites()
+	err := VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*MongoDB server must be installed(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*apt-get install mongodb-server(.|\n)*")
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "NotUbuntu")
-	err = VerifyPrerequisites()
+	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*MongoDB server must be installed(.|\n)*")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "(.|\n)*apt-get install(.|\n)*")
 
@@ -77,7 +78,7 @@ func (s *prereqsSuite) TestMongoPrereq(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(s.tmpdir, "lxc-ls"), nil, 0777)
 	c.Assert(err, gc.IsNil)
-	err = VerifyPrerequisites()
+	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -85,17 +86,17 @@ func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
 	err := ioutil.WriteFile(mongodPath, nil, 0777)
 	c.Assert(err, gc.IsNil)
 
-	err = VerifyPrerequisites()
+	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*Linux Containers \\(LXC\\) userspace tools must be\ninstalled(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*apt-get install lxc(.|\n)*")
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "NotUbuntu")
-	err = VerifyPrerequisites()
+	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*Linux Containers \\(LXC\\) userspace tools must be installed(.|\n)*")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "(.|\n)*apt-get install(.|\n)*")
 
 	err = ioutil.WriteFile(lxclsPath, nil, 0777)
 	c.Assert(err, gc.IsNil)
-	err = VerifyPrerequisites()
+	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.IsNil)
 }
