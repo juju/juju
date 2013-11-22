@@ -47,7 +47,7 @@ publish_to_canonistack() {
     cd $JUJU_DIST/tools/releases/
     swift upload --changed juju-dist/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/tools/streams/v1/ *.json
+    swift upload --changed juju-dist/tools/streams/v1/ {index,com}*
     # This needed to allow old deployments upgrade.
     cd ${JUJU_DIST}
     swift upload --changed juju-dist tools/juju-1.16*.tgz
@@ -60,7 +60,7 @@ testing_to_canonistack() {
     cd $JUJU_DIST/tools/releases/
     swift upload --changed juju-dist/testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/testing/tools/streams/v1/ *.json
+    swift upload --changed juju-dist/testing/tools/streams/v1/ {index,com}*
 }
 
 
@@ -70,7 +70,7 @@ publish_to_hp() {
     cd $JUJU_DIST/tools/releases/
     swift upload --changed juju-dist/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/tools/streams/v1/ *.json
+    swift upload --changed juju-dist/tools/streams/v1/ {index,com}*
     # Support old tools location so that deployments can upgrade to new tools.
     cd ${JUJU_DIST}
     swift upload --changed juju-dist tools/juju-1.16*.tgz
@@ -85,13 +85,15 @@ testing_to_hp() {
     cd $JUJU_DIST/tools/releases/
     swift upload --changed juju-dist/testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/testing/tools/streams/v1/ *.json
+    swift upload --changed juju-dist/testing/tools/streams/v1/ {index,com}*
+    swift upload --changed juju-dist/curtis/tools/streams/v1/ {index,com}*
 }
 
 
 publish_to_aws() {
     echo "Phase 3: Publish to AWS."
-    s3cmd -c $JUJU_DIR/s3cfg sync ${JUJU_DIST}/tools s3://juju-dist/
+    s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
+        ${JUJU_DIST}/tools s3://juju-dist/
 }
 
 
@@ -99,7 +101,8 @@ testing_to_aws() {
     # this is the same as the publishing command except that the
     # destination is juju-dist/testing/
     echo "Phase 3: Testing to AWS."
-    s3cmd -c $JUJU_DIR/s3cfg sync ${JUJU_DIST}/tools s3://juju-dist/testing/
+    s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
+        ${JUJU_DIST}/tools s3://juju-dist/testing/
 }
 
 shim_creds() {
