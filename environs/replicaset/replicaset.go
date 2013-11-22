@@ -1,6 +1,7 @@
 package replicaset
 
 import (
+	"io"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -11,7 +12,8 @@ import (
 // called only once for a given mongo replica set.
 //
 // Note that you must set DialWithInfo and set Direct = true when dialing into a
-// specific non-initiated mongo server.
+// specific non-initiated mongo server.  The session will be set to Monotonic
+// mode.
 func Initiate(session *mgo.Session, address, name string) error {
 	session.SetMode(mgo.Monotonic, true)
 	cfg := replicaConfig{Name: name, Version: 1, Members: []Member{Member{Address: address}}}
@@ -89,7 +91,7 @@ outerLoop:
 		newMember.Id = max
 		config.Members = append(config.Members, newMember)
 	}
-	return session.Run(bson.D{{"replSetReconfig", config}, {"force", true}}, nil)
+	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
 }
 
 // Remove removes members with the given addresses from the replica set. It is
@@ -108,8 +110,14 @@ func Remove(session *mgo.Session, addrs ...string) error {
 			}
 		}
 	}
-
-	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
+	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
+	if err == io.EOF {
+		// EOF means we got disconnected due to the Remove... this is normal.
+		// Refreshing should fix us up.
+		session.Refresh()
+		err = nil
+	}
+	return err
 }
 
 // Set changes the current set of replica set members.  Members will have their
@@ -121,13 +129,39 @@ func Set(session *mgo.Session, members []Member) error {
 	}
 
 	config.Version++
-	for x := range members {
-		members[x].Id = x
+
+	// ok, this is ugly, but mongo gets mad if you try to change the Id of an
+	// existing member, so we have to look through the members and if there are
+	// any duplicates, make sure that duplicate has the same id it used to have.
+	ids := map[string]int{}
+	max := -1
+	for _, m := range config.Members {
+		ids[m.Address] = m.Id
+		if m.Id > max {
+			max = m.Id
+		}
+	}
+
+	for x, m := range members {
+		if id, ok := ids[m.Address]; ok {
+			m.Id = id
+		} else {
+			max++
+			m.Id = max
+		}
+		members[x] = m
 	}
 
 	config.Members = members
 
-	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
+	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
+	if err == io.EOF {
+		// EOF means we got disconnected due to the Remove... this is normal.
+		// Refreshing should fix us up.
+		session.Refresh()
+		err = nil
+	}
+	return err
 }
 
 // Config reports information about the configuration of a given mongo node
