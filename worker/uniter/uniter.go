@@ -316,8 +316,13 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err != nil {
 		return err
 	}
+
+	ownerTag, err := u.service.GetOwnerTag()
+	if err != nil {
+		return err
+	}
 	hctx, err := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
-		ctxRelations, apiAddrs)
+		ctxRelations, apiAddrs, ownerTag)
 	if err != nil {
 		return err
 	}
