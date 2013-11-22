@@ -239,7 +239,7 @@ func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Confi
 			},
 			StateServerCert: []byte(coretesting.ServerCert),
 			StateServerKey:  []byte(coretesting.ServerKey),
-			StatePort:       coretesting.MgoPort,
+			StatePort:       coretesting.MgoServer.Port,
 			APIPort:         port,
 		})
 	c.Assert(conf.Write(), gc.IsNil)

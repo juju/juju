@@ -52,7 +52,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		DataDir:        dataDir,
 		Tag:            "machine-0",
-		StateAddresses: []string{testing.MgoAddr},
+		StateAddresses: []string{testing.MgoServer.Addr},
 		CACert:         []byte(testing.CACert),
 		Password:       pwHash,
 	})
@@ -117,7 +117,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		DataDir:        dataDir,
 		Tag:            "machine-0",
-		StateAddresses: []string{testing.MgoAddr},
+		StateAddresses: []string{testing.MgoServer.Addr},
 		CACert:         []byte(testing.CACert),
 		Password:       pwHash,
 	})
@@ -151,7 +151,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	info := &state.Info{
-		Addrs:    []string{testing.MgoAddr},
+		Addrs:    []string{testing.MgoServer.Addr},
 		CACert:   []byte(testing.CACert),
 		Tag:      "",
 		Password: password,

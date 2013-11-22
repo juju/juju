@@ -45,7 +45,7 @@ func (s *mgoSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *mgoSuite) TestMgoResetWhenUnauthorized(c *gc.C) {
-	session := testing.MgoDial()
+	session := testing.MgoServer.MgoDial()
 	defer session.Close()
 	err := session.DB("admin").AddUser("admin", "foo", false)
 	if err != nil && err.Error() != "need to login" {
@@ -55,9 +55,9 @@ func (s *mgoSuite) TestMgoResetWhenUnauthorized(c *gc.C) {
 }
 
 func (s *mgoSuite) TestMgoStartAndClean(c *gc.C) {
-	c.Assert(testing.MgoAddr, gc.Not(gc.Equals), "")
+	c.Assert(testing.MgoServer.Addr, gc.Not(gc.Equals), "")
 
-	session := testing.MgoDial()
+	session := testing.MgoServer.MgoDial()
 	defer session.Close()
 	menu := session.DB("food").C("menu")
 	err := menu.Insert(
@@ -72,7 +72,7 @@ func (s *mgoSuite) TestMgoStartAndClean(c *gc.C) {
 	c.Assert(food[0]["spam"], gc.Equals, "lots")
 	c.Assert(food[1]["eggs"], gc.Equals, "fried")
 
-	testing.MgoReset()
+	testing.MgoServer.MgoReset()
 	morefood := make([]map[string]string, 0)
 	err = menu.Find(nil).All(&morefood)
 	c.Assert(err, gc.IsNil)

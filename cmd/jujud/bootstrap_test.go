@@ -88,7 +88,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineC
 		Tag:            "bootstrap",
 		Password:       testPasswordHash(),
 		Nonce:          state.BootstrapNonce,
-		StateAddresses: []string{testing.MgoAddr},
+		StateAddresses: []string{testing.MgoServer.Addr},
 		APIAddresses:   []string{"0.1.2.3:1234"},
 		CACert:         []byte(testing.CACert),
 	}
@@ -115,7 +115,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoAddr},
+		Addrs:    []string{testing.MgoServer.Addr},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts())
@@ -142,7 +142,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoAddr},
+		Addrs:    []string{testing.MgoServer.Addr},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts())
@@ -171,7 +171,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoAddr},
+		Addrs:    []string{testing.MgoServer.Addr},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts())
@@ -206,7 +206,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that we cannot now connect to the state without a
 	// password.
 	info := &state.Info{
-		Addrs:  []string{testing.MgoAddr},
+		Addrs:  []string{testing.MgoServer.Addr},
 		CACert: []byte(testing.CACert),
 	}
 	testOpenState(c, info, errors.Unauthorizedf(""))
