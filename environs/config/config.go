@@ -575,7 +575,7 @@ var alwaysOptional = schema.Defaults{
 	"api-port":   DefaultAPIPort,
 
 	// Authentication string sent with requests to the charm store
-	"charm-store-auth": schema.Omit,
+	"charm-store-auth": "",
 }
 
 func allowEmpty(attr string) bool {

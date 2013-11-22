@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -511,42 +512,21 @@ var configTests = []configTest{
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
 		},
-	}, {
-		about:       "Auth token present.",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"charm-store-auth": "token=value, tokensecret=value",
-			"type":             "my-type",
-			"name":             "my-name",
-		},
-	}, {
-		about:       "Auth token invalid.",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"charm-store-auth": "tokenvalue",
-			"type":             "my-type",
-			"name":             "my-name",
-		},
-		err: `charm store auth token needs to be a set of key-value pairs, not 'tokenvalue'`,
-	}, {
-		about:       "Auth token invalid 2.",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"charm-store-auth": "token=value, sometoken=",
-			"type":             "my-type",
-			"name":             "my-name",
-		},
-		err: `charm store auth token needs to be a set of key-value pairs, not 'token=value, sometoken='`,
-	}, {
-		about:       "Auth token invalid 2.",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"charm-store-auth": "=",
-			"type":             "my-type",
-			"name":             "my-name",
-		},
-		err: `charm store auth token needs to be a set of key-value pairs, not '='`,
 	},
+	authTokenConfigTest("token=value, tokensecret=value", true),
+	authTokenConfigTest("token=value, ", true),
+	authTokenConfigTest("token=value, \ttokensecret=value", true),
+	authTokenConfigTest("", true),
+	authTokenConfigTest("token=value, tokensecret=value, \t", true),
+	authTokenConfigTest("=", false),
+	authTokenConfigTest("tokenvalue", false),
+	authTokenConfigTest("token=value, sometoken=", false),
+	authTokenConfigTest("token==value", false),
+	authTokenConfigTest(" token=value", false),
+	authTokenConfigTest("=value", false),
+	authTokenConfigTest("token=value, =z", false),
+	authTokenConfigTest("token=value =z", false),
+	authTokenConfigTest("\t", false),
 	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -555,6 +535,28 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
+}
+
+// authTokenConfigTest returns a config test that checks
+// that a configuration with the given auth token
+// will pass or fail, depending on the value of ok.
+func authTokenConfigTest(token string, ok bool) configTest {
+	var testName string
+	var err string
+
+	if ok {
+		testName = fmt.Sprintf("Valid auth token test: %q", token)
+	} else {
+		testName = fmt.Sprintf("Valid auth token test: %q", token)
+		err = fmt.Sprintf("charm store auth token needs to be a set of key-value pairs, not %q", token)
+	}
+
+	return configTest{
+		about:       testName,
+		useDefaults: config.UseDefaults,
+		attrs:       sampleConfig.Merge(testing.Attrs{"charm-store-auth": token}),
+		err:         regexp.QuoteMeta(err),
+	}
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
