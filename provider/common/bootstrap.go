@@ -6,9 +6,13 @@ package common
 import (
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
+	"sync"
 	"time"
 
 	"launchpad.net/loggo"
+	"launchpad.net/tomb"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -30,8 +34,14 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
+	// TODO(axw) 2013-11-22 #XXX
+	// Modify environs/Environ Bootstrap method signature
+	// to take a new context structure, which contains
+	// Std{in,out,err}, and interrupt signal handling.
+	ctx := bootstrapContext{Stderr: os.Stderr}
+
 	var inst instance.Instance
-	defer func() { handleBootstrapError(err, inst, env) }()
+	defer func() { handleBootstrapError(err, &ctx, inst, env) }()
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
@@ -65,15 +75,19 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
-	return finishBootstrap(inst, machineConfig)
+	return finishBootstrap(&ctx, inst, machineConfig)
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
-func handleBootstrapError(err error, inst instance.Instance, env environs.Environ) {
+func handleBootstrapError(err error, ctx *bootstrapContext, inst instance.Instance, env environs.Environ) {
 	if err == nil {
 		return
 	}
+	ctx.SetInterruptHandler(func() {
+		fmt.Fprintln(ctx.Stderr, "cleaning up failed bootstrap")
+	})
 	if inst != nil {
+		fmt.Fprintln(ctx.Stderr, "Stopping instance...")
 		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
 		} else {
@@ -88,13 +102,14 @@ func handleBootstrapError(err error, inst instance.Instance, env environs.Enviro
 			logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
 		}
 	}
+	ctx.SetInterruptHandler(nil)
 }
 
 // TestingDisableFinishBootstrap disables finishBootstrap so that tests
 // do not attempt to SSH to non-existent machines. The result is a function
 // that restores finishBootstrap.
 func TestingDisableFinishBootstrap() func() {
-	return testingPatchFinishBootstrap(func(instance.Instance, *cloudinit.MachineConfig) error {
+	return testingPatchFinishBootstrap(func(*bootstrapContext, instance.Instance, *cloudinit.MachineConfig) error {
 		return nil
 	})
 }
@@ -102,7 +117,7 @@ func TestingDisableFinishBootstrap() func() {
 // testingDisableFinishBootstrap replaces the default finishBootstrap with
 // a user-provided function. The result is a function that restores
 // finishBootstrap.
-func testingPatchFinishBootstrap(f func(instance.Instance, *cloudinit.MachineConfig) error) func() {
+func testingPatchFinishBootstrap(f func(*bootstrapContext, instance.Instance, *cloudinit.MachineConfig) error) func() {
 	orig := finishBootstrap
 	finishBootstrap = f
 	return func() { finishBootstrap = orig }
@@ -110,32 +125,105 @@ func testingPatchFinishBootstrap(f func(instance.Instance, *cloudinit.MachineCon
 
 // finishBootstrap completes the bootstrap process by connecting
 // to the instance via SSH and carrying out the cloud-config.
-var finishBootstrap = func(inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
-	logger.Infof("waiting for DNS name for instance %q", inst.Id())
-	dnsName, err := WaitDNSName(inst)
+var finishBootstrap = func(ctx *bootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+	var t tomb.Tomb
+	ctx.SetInterruptHandler(func() { t.Killf("interrupted") })
+	dnsName, err := waitSSH(ctx, inst, &t)
 	if err != nil {
 		return err
 	}
-	// Wait until we can open a connection to port 22.
-	connected := false
-	for a := LongAttempt.Start(); !connected && a.Next(); {
-		logger.Infof("attempting to connect to %s:22...", dnsName)
-		conn, err := net.DialTimeout("tcp", dnsName+":22", 5*time.Second)
-		if err == nil {
-			conn.Close()
-			connected = true
-		} else {
-			logger.Errorf("failed to connect: %v", err)
-		}
-	}
-	if !connected {
-		return fmt.Errorf("could not connect to host")
-	}
+	// Bootstrap is synchronous, and will spawn a subprocess
+	// to complete the procedure. If the user hits Ctrl-C,
+	// SIGINT is sent to the foreground process attached to
+	// the terminal, which will be the ssh subprocess at that
+	// point.
+	ctx.SetInterruptHandler(func() {})
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
 	return sshinit.Configure("ubuntu@"+dnsName, cloudcfg)
+}
+
+// waitSSH waits for the instance to be assigned a DNS
+// entry, then waits until we can connect to it via SSH.
+func waitSSH(ctx *bootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
+	defer t.Done()
+
+	// Wait for a DNS name.
+	fmt.Fprintln(ctx.Stderr, "Waiting for DNS name...")
+	for {
+		dnsName, err = inst.DNSName()
+		if err == nil {
+			break
+		} else if err != instance.ErrNoDNSName {
+			return "", t.Killf("getting DNS name: %v", err)
+		}
+		select {
+		case <-time.After(1 * time.Second):
+		case <-t.Dying():
+			return "", t.Err()
+		}
+	}
+	fmt.Fprintf(ctx.Stderr, " - %v\n", dnsName)
+
+	// Wait until we can open a connection to port 22.
+	for {
+		fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22...\n", dnsName)
+		conn, err := net.DialTimeout("tcp", dnsName+":22", 5*time.Second)
+		if err == nil {
+			conn.Close()
+			return dnsName, nil
+		} else {
+			logger.Debugf("connection failed: %v", err)
+		}
+		select {
+		case <-time.After(5 * time.Second):
+		case <-t.Dying():
+			return "", t.Err()
+		}
+	}
+}
+
+type bootstrapContext struct {
+	once        sync.Once
+	handlerchan chan func()
+
+	Stderr *os.File
+}
+
+func (ctx *bootstrapContext) SetInterruptHandler(f func()) {
+	ctx.once.Do(ctx.initHandler)
+	ctx.handlerchan <- f
+}
+
+func (ctx *bootstrapContext) initHandler() {
+	ctx.handlerchan = make(chan func())
+	go ctx.handleInterrupt()
+}
+
+func (ctx *bootstrapContext) handleInterrupt() {
+	signalchan := make(chan os.Signal, 1)
+	var s chan os.Signal
+	var handler func()
+	for {
+		select {
+		case handler = <-ctx.handlerchan:
+			if handler == nil {
+				if s != nil {
+					signal.Stop(signalchan)
+					s = nil
+				}
+			} else {
+				if s == nil {
+					s = signalchan
+					signal.Notify(signalchan, os.Interrupt)
+				}
+			}
+		case <-s:
+			handler()
+		}
+	}
 }
 
 // EnsureBootstrapTools finds tools, syncing with an external tools source as
