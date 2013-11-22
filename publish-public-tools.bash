@@ -130,6 +130,22 @@ testing_to_azure() {
 }
 
 
+publish_to_streams() {
+    [[ -f $JUJU_DIR/streamsrc ]] || return
+    echo "Phase 5: Published to streams.canonica.com."
+    source $JUJU_DIR/streamsrc
+    rsync -avzh $JUJU_DIST/ $STREAMS_OFFICIAL_DEST
+}
+
+
+testing_to_streams() {
+    [[ -f $JUJU_DIR/streamsrc ]] || return
+    echo "Phase 5: Testing to streams.canonica.com."
+    source $JUJU_DIR/streamsrc
+    rsync -avzh $JUJU_DIST/ $STREAMS_TESTING_DEST
+}
+
+
 # The location of environments.yaml and rc files.
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
 
@@ -152,9 +168,11 @@ if [[ $PURPOSE == "RELEASE" ]]; then
     publish_to_hp
     publish_to_aws
     publish_to_azure
+    publish_to_streams
 else
     testing_to_canonistack
     testing_to_hp
     testing_to_aws
     testing_to_azure
+    testing_to_streams
 fi
