@@ -8,6 +8,9 @@
 set -eu
 
 
+SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
+
+
 usage() {
     echo "usage: $0 RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
     echo "  RELEASE: The pattern (version) to match packages in the archives,"
@@ -203,6 +206,16 @@ generate_streams() {
 }
 
 
+generate_mirrors() {
+    short_now=$(date +%Y%m%d)
+    sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
+        > ${DEST_DIST}/tools/streams/v1/mirrors.json
+    long_now=$(date -R)
+    sed -e "s/NOW/$long_now/" ${SCRIPT_DIR}/cpc-mirrors.json.template \
+        > ${DEST_DIST}/tools/streams/v1/cpc-mirrors.json
+}
+
+
 sign_metadata() {
     [[ $SIGNING_KEY == '' ]] && return
     echo "Phase 6: Signing metadata with $SIGNING_KEY."
@@ -286,4 +299,5 @@ retrieve_released_tools
 retrieve_packages
 archive_tools
 generate_streams
+generate_mirrors
 sign_metadata

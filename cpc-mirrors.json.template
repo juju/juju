@@ -1,0 +1,111 @@
+{
+  "mirrors": {
+    "com.ubuntu.juju:released:tools": [
+      {
+        "mirror": "https://juju-dist.s3.amazonaws.com/tools",
+        "path": "streams/v1/com.ubuntu.juju:released:tools.json",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-east-1.amazonaws.com",
+            "region": "us-east-1"
+          },
+          {
+            "endpoint": "https://ec2.us-west-1.amazonaws.com",
+            "region": "us-west-1"
+          },
+          {
+            "endpoint": "https://ec2.us-west-2.amazonaws.com",
+            "region": "us-west-2"
+          },
+          {
+            "endpoint": "https://ec2.eu-west-1.amazonaws.com",
+            "region": "eu-west-1"
+          },
+          {
+            "endpoint": "https://ec2.ap-southeast-1.amazonaws.com",
+            "region": "ap-southeast-1"
+          },
+          {
+            "endpoint": "https://ec2.ap-southeast-2.amazonaws.com",
+            "region": "ap-southeast-2"
+          },
+
+          {
+            "endpoint": "https://ec2.ap-northeast-1.amazonaws.com",
+            "region": "ap-northeast-1"
+          },
+          {
+            "endpoint": "https://ec2.sa-east-1.amazonaws.com",
+            "region": "sa-east-1"
+          }
+        ]
+      },
+      {
+        "mirror": "https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910/juju-dist/tools",
+        "path": "streams/v1/com.ubuntu.juju:released:tools.json",
+        "clouds": [
+          {
+            "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
+            "region": "az-1.region-a.geo-1"
+          },
+          {
+            "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
+            "region": "az-2.region-a.geo-1"
+          },
+          {
+            "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
+            "region": "az-3.region-a.geo-1"
+          }
+        ]
+      },
+      {
+        "mirror": "https://jujutools.blob.core.windows.net/juju-tools/tools",
+        "path": "streams/v1/com.ubuntu.juju:released:tools.json",
+        "clouds": [
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "West Europe"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "East Asia"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "East US 2"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "Southeast Asia"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "East US"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "Central US"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "West US"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "North Europe"
+          },
+          {
+            "endpoint": "https://core.chinacloudapi.cn/",
+            "region": "China East"
+          },
+          {
+            "endpoint": "https://core.chinacloudapi.cn/",
+            "region": "China North"
+          }
+        ]
+      }
+    ]
+  },
+  "format": "mirrors:1.0",
+  "updated": "NOW"
+}
