@@ -3,6 +3,17 @@
 
 package kvm
 
+// This file contains wrappers around the following executables:
+//   uvt-simplestreams-libvirt
+//   uvt-kvm
+//   virsh
+// Those executables are found in the following packages:
+//   uvtool-libvirt
+//   libvirt-bin
+//
+// These executables provide Juju's interface to dealing with kvm containers.
+// The define how we start, stop and list running containers on the host
+
 import (
 	"fmt"
 	"os/exec"
