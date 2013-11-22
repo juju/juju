@@ -122,10 +122,12 @@ func (m *backingUnit) mongoId() interface{} {
 type backingService serviceDoc
 
 func (svc *backingService) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+
 	info := &params.ServiceInfo{
 		Name:     svc.Name,
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
+		OwnerTag: svc.fixOwnerTag(),
 		Life:     params.Life(svc.Life.String()),
 		MinUnits: svc.MinUnits,
 	}
@@ -171,6 +173,15 @@ func (svc *backingService) removed(st *State, store *multiwatcher.Store, id inte
 		Id:   id,
 	})
 	return nil
+}
+
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (svc *backingService) fixOwnerTag() string {
+	if svc.OwnerTag != "" {
+		return svc.OwnerTag
+	}
+	return "user-admin"
 }
 
 func (m *backingService) mongoId() interface{} {

@@ -94,6 +94,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
+		OwnerTag:    "user-admin",
 		Life:        params.Life(Alive.String()),
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
@@ -112,6 +113,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
+		OwnerTag: "user-admin",
 		Life:     params.Life(Alive.String()),
 		Config:   charm.Settings{},
 	})
@@ -427,6 +429,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				Exposed:  true,
 				CharmURL: "local:quantal/quantal-wordpress-3",
+				OwnerTag: "user-admin",
 				Life:     params.Life(Alive.String()),
 				MinUnits: 42,
 				Config:   charm.Settings{},
@@ -455,6 +458,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:        "wordpress",
 				CharmURL:    "local:quantal/quantal-wordpress-3",
+				OwnerTag:    "user-admin",
 				Life:        params.Life(Alive.String()),
 				Constraints: constraints.MustParse("mem=99M"),
 				Config:      charm.Settings{"blog-title": "boring"},
@@ -482,6 +486,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:quantal/quantal-wordpress-3",
+				OwnerTag: "user-admin",
 				Life:     params.Life(Alive.String()),
 				Config:   charm.Settings{"blog-title": "boring"},
 			},

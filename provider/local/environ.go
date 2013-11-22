@@ -527,6 +527,8 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 		agent.StorageAddr:       env.config.storageAddr(),
 		agent.SharedStorageDir:  env.config.sharedStorageDir(),
 		agent.SharedStorageAddr: env.config.sharedStorageAddr(),
+		agent.AgentServiceName:  env.machineAgentServiceName(),
+		agent.MongoServiceName:  env.mongoServiceName(),
 	}
 	// NOTE: the state address HAS to be localhost, otherwise the mongo
 	// initialization fails.  There is some magic code somewhere in the mongo
