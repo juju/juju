@@ -75,19 +75,17 @@ func (manager *containerManager) StartContainer(
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create container directory: %v", err)
 	}
 	logger.Tracef("write cloud-init")
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
-		logger.Errorf("failed to write user data: %v", err)
-		return nil, err
+		return nil, log.LoggedErrorf("failed to write user data: %v", err)
 	}
 	// Create the container.
 	logger.Tracef("create the container")
 	if err := kvmContainer.Start(series, version.Current.Arch, userDataFilename, network); err != nil {
-		logger.Errorf("kvm container creation failed: %v", err)
-		return nil, err
+		return nil, log.LoggedErrorf("kvm container creation failed: %v", err)
 	}
 	logger.Tracef("kvm container created")
 	return &kvmInstance{kvmContainer, name}, nil
