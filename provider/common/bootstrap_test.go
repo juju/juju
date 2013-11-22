@@ -18,6 +18,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
+	commontesting "launchpad.net/juju-core/provider/common/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -197,7 +198,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		return minimalConfig(c)
 	}
 
-	restore := common.TestingDisableFinishBootstrap()
+	restore := commontesting.DisableFinishBootstrap()
 	defer restore()
 
 	env := &mockEnviron{

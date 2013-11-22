@@ -34,11 +34,11 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
-	// TODO(axw) 2013-11-22 #XXX
+	// TODO(axw) 2013-11-22 #1237736
 	// Modify environs/Environ Bootstrap method signature
 	// to take a new context structure, which contains
 	// Std{in,out,err}, and interrupt signal handling.
-	ctx := bootstrapContext{Stderr: os.Stderr}
+	ctx := BootstrapContext{Stderr: os.Stderr}
 
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, &ctx, inst, env) }()
@@ -75,16 +75,16 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
-	return finishBootstrap(&ctx, inst, machineConfig)
+	return FinishBootstrap(&ctx, inst, machineConfig)
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
-func handleBootstrapError(err error, ctx *bootstrapContext, inst instance.Instance, env environs.Environ) {
+func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instance, env environs.Environ) {
 	if err == nil {
 		return
 	}
 	ctx.SetInterruptHandler(func() {
-		fmt.Fprintln(ctx.Stderr, "cleaning up failed bootstrap")
+		fmt.Fprintln(ctx.Stderr, "Cleaning up failed bootstrap")
 	})
 	if inst != nil {
 		fmt.Fprintln(ctx.Stderr, "Stopping instance...")
@@ -105,27 +105,11 @@ func handleBootstrapError(err error, ctx *bootstrapContext, inst instance.Instan
 	ctx.SetInterruptHandler(nil)
 }
 
-// TestingDisableFinishBootstrap disables finishBootstrap so that tests
-// do not attempt to SSH to non-existent machines. The result is a function
-// that restores finishBootstrap.
-func TestingDisableFinishBootstrap() func() {
-	return testingPatchFinishBootstrap(func(*bootstrapContext, instance.Instance, *cloudinit.MachineConfig) error {
-		return nil
-	})
-}
-
-// testingDisableFinishBootstrap replaces the default finishBootstrap with
-// a user-provided function. The result is a function that restores
-// finishBootstrap.
-func testingPatchFinishBootstrap(f func(*bootstrapContext, instance.Instance, *cloudinit.MachineConfig) error) func() {
-	orig := finishBootstrap
-	finishBootstrap = f
-	return func() { finishBootstrap = orig }
-}
-
-// finishBootstrap completes the bootstrap process by connecting
+// FinishBootstrap completes the bootstrap process by connecting
 // to the instance via SSH and carrying out the cloud-config.
-var finishBootstrap = func(ctx *bootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+//
+// Note: FinishBootstrap is exposed so it can be replaced for testing.
+var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	var t tomb.Tomb
 	ctx.SetInterruptHandler(func() { t.Killf("interrupted") })
 	dnsName, err := waitSSH(ctx, inst, &t)
@@ -147,32 +131,37 @@ var finishBootstrap = func(ctx *bootstrapContext, inst instance.Instance, machin
 
 // waitSSH waits for the instance to be assigned a DNS
 // entry, then waits until we can connect to it via SSH.
-func waitSSH(ctx *bootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
+func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
 	defer t.Done()
 
 	// Wait for a DNS name.
-	fmt.Fprintln(ctx.Stderr, "Waiting for DNS name...")
+	fmt.Fprint(ctx.Stderr, "Waiting for DNS name")
 	for {
+		fmt.Fprintf(ctx.Stderr, ".")
 		dnsName, err = inst.DNSName()
 		if err == nil {
 			break
 		} else if err != instance.ErrNoDNSName {
+			fmt.Fprintln(ctx.Stderr)
 			return "", t.Killf("getting DNS name: %v", err)
 		}
 		select {
 		case <-time.After(1 * time.Second):
 		case <-t.Dying():
+			fmt.Fprintln(ctx.Stderr)
 			return "", t.Err()
 		}
 	}
-	fmt.Fprintf(ctx.Stderr, " - %v\n", dnsName)
+	fmt.Fprintf(ctx.Stderr, "\n - %v\n", dnsName)
 
 	// Wait until we can open a connection to port 22.
+	fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22", dnsName)
 	for {
-		fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22...\n", dnsName)
+		fmt.Fprintf(ctx.Stderr, ".")
 		conn, err := net.DialTimeout("tcp", dnsName+":22", 5*time.Second)
 		if err == nil {
 			conn.Close()
+			fmt.Fprintln(ctx.Stderr)
 			return dnsName, nil
 		} else {
 			logger.Debugf("connection failed: %v", err)
@@ -185,24 +174,26 @@ func waitSSH(ctx *bootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsNa
 	}
 }
 
-type bootstrapContext struct {
+// TODO(axw) move this to environs; see
+// comment near the top of common.Bootstrap.
+type BootstrapContext struct {
 	once        sync.Once
 	handlerchan chan func()
 
 	Stderr *os.File
 }
 
-func (ctx *bootstrapContext) SetInterruptHandler(f func()) {
+func (ctx *BootstrapContext) SetInterruptHandler(f func()) {
 	ctx.once.Do(ctx.initHandler)
 	ctx.handlerchan <- f
 }
 
-func (ctx *bootstrapContext) initHandler() {
+func (ctx *BootstrapContext) initHandler() {
 	ctx.handlerchan = make(chan func())
 	go ctx.handleInterrupt()
 }
 
-func (ctx *bootstrapContext) handleInterrupt() {
+func (ctx *BootstrapContext) handleInterrupt() {
 	signalchan := make(chan os.Signal, 1)
 	var s chan os.Signal
 	var handler func()
