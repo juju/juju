@@ -132,7 +132,7 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 	}
 
 	var portNumber = func() string {
-		return fmt.Sprintf("%v", slConfig.Port)
+		return fmt.Sprint(slConfig.Port)
 	}
 
 	t := template.New("")
