@@ -56,8 +56,8 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	c.Assert(ok, gc.Equals, false)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
-		Jobs: []state.MachineJob{state.JobHostUnits},
-		Clean: true,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Clean:  true,
 	}, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	parentId, ok = container.ParentId()
@@ -100,8 +100,8 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	// A machine hosting a container must not advance lifecycle.
 	_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
-		Jobs: []state.MachineJob{state.JobHostUnits},
-		Clean: true,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Clean:  true,
 	}, s.machine.Id(), instance.LXC)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})

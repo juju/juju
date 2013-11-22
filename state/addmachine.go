@@ -11,8 +11,8 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 )
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
@@ -124,8 +124,8 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 func (st *State) AddMachine(series string, jobs ...MachineJob) (*Machine, error) {
 	ms, err := st.AddMachines(MachineTemplate{
 		Series: series,
-		Jobs: jobs,
-		Clean: true,
+		Jobs:   jobs,
+		Clean:  true,
 	})
 	if err != nil {
 		return nil, err
