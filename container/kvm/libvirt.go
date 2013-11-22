@@ -115,13 +115,13 @@ func ListMachines() (map[string]string, error) {
 		return nil, err
 	}
 	// Split the output into lines.
-	// Perhaps regex matching is the easiest way to match the lines.
+	// Regex matching is the easiest way to match the lines.
 	//   id hostname status
 	// separated by whitespace, with whitespace at the start too.
 	result := make(map[string]string)
 	for _, s := range machineListPattern.FindAllStringSubmatchIndex(output, -1) {
-		machineStatus := machineListPattern.ExpandString(nil, "$hostname $status", output, s)
-		parts := strings.SplitN(string(machineStatus), " ", 2)
+		hostnameAndStatus := machineListPattern.ExpandString(nil, "$hostname $status", output, s)
+		parts := strings.SplitN(string(hostnameAndStatus), " ", 2)
 		result[parts[0]] = parts[1]
 	}
 	return result, nil
