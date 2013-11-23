@@ -70,7 +70,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string, ctype in
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, gc.IsNil)
-	err = machine.AddSupportedContainers(instance.LXC)
+	err = machine.SetSupportedContainers(ctype)
 	c.Assert(err, gc.IsNil)
 	cfg := s.AgentConfigForTag(c, tag)
 
@@ -141,7 +141,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		}
 		m, err := s.BackingState.AddMachineWithConstraints(&params)
 		c.Assert(err, gc.IsNil)
-		err = m.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+		err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 		c.Assert(err, gc.IsNil)
 		err = m.SetAgentVersion(version.Current)
 		c.Assert(err, gc.IsNil)
@@ -165,7 +165,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	}
 	m, err := s.BackingState.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
-	err = m.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
 	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)

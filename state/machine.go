@@ -823,29 +823,14 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
 func (m *Machine) SupportsNoContainers() (err error) {
-	ops := []txn.Op{
-		{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: notDeadDoc,
-			Update: D{
-				{"$set", D{
-					{"supportedcontainers", []instance.ContainerType{}},
-					{"supportedcontainersknown", true},
-				}}},
-		},
+	if err = m.updateSupportedContainers([]instance.ContainerType{}); err != nil {
+		return err
 	}
-
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
-	}
-	m.doc.SupportedContainers = []instance.ContainerType{}
-	m.doc.SupportedContainersKnown = true
-	return nil
+	return m.markInvalidContainers()
 }
 
-// AddSupportedContainers updates the list of containers supported by this machine.
-func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (err error) {
+// SetSupportedContainers sets the list of containers supported by this machine.
+func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (err error) {
 	if len(containers) == 0 {
 		return fmt.Errorf("at least one valid container type is required")
 	}
@@ -854,38 +839,72 @@ func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (e
 			return fmt.Errorf("%q is not a valid container type", container)
 		}
 	}
+	if err = m.updateSupportedContainers(containers); err != nil {
+		return err
+	}
+	return m.markInvalidContainers()
+}
+
+func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
+	for _, supportedContainer := range supportedContainers {
+		if supportedContainer == container {
+			return true
+		}
+	}
+	return false
+}
+
+// updateSupportedContainers sets the supported containers on this host machine.
+func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
 			Update: D{
-				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
-				{"$set", D{{"supportedcontainersknown", true}}},
-			},
+				{"$set", D{
+					{"supportedcontainers", supportedContainers},
+					{"supportedcontainersknown", true},
+				}}},
 		},
 	}
-
 	if err = m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
 	}
-
-	for _, container := range containers {
-		m.addContainerIfMissing(container)
-	}
+	m.doc.SupportedContainers = supportedContainers
 	m.doc.SupportedContainersKnown = true
 	return nil
 }
 
-func (m *Machine) addContainerIfMissing(container instance.ContainerType) {
-	found := false
-	for _, c := range m.doc.SupportedContainers {
-		if c == container {
-			found = true
-			break
+// markInvalidContainers sets the status of any container belonging to this machine
+// as being in error if the container type is not supported.
+func (m *Machine) markInvalidContainers() error {
+	currentContainers, err := m.Containers()
+	if err != nil {
+		return err
+	}
+	for _, containerId := range currentContainers {
+		if !isSupportedContainer(ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
+			container, err := m.st.Machine(containerId)
+			if err != nil {
+				logger.Errorf("loading container %v to mark as invalid: %v", containerId, err)
+				continue
+			}
+			// There should never be a circumstance where an unsupported container is started.
+			// Nonetheless, we check and log an error if such a situation arises.
+			status, _, _, err := container.Status()
+			if err != nil {
+				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
+				continue
+			}
+			if status == params.StatusPending {
+				containerType := ContainerTypeFromId(containerId)
+				container.SetStatus(
+					params.StatusError, "unsupported container", params.StatusData{"type": containerType})
+			} else {
+				logger.Errorf("unsupported container %v has unexpected status %v", containerId, status)
+			}
 		}
 	}
-	if !found {
-		m.doc.SupportedContainers = append(m.doc.SupportedContainers, container)
-	}
+	return nil
 }

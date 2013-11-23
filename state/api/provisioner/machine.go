@@ -241,15 +241,15 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	return w, nil
 }
 
-// AddSupportedContainers updates the list of containers supported by this machine.
-func (m *Machine) AddSupportedContainers(containerTypes ...instance.ContainerType) error {
+// SetSupportedContainers updates the list of containers supported by this machine.
+func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
 	var results params.ErrorResults
-	args := params.AddSupportedContainers{
-		Params: []params.AddMachineSupportedContainers{
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "AddSupportedContainers", args, &results)
+	err := m.st.caller.Call("Provisioner", "", "SetSupportedContainers", args, &results)
 	if err != nil {
 		return err
 	}
@@ -261,4 +261,9 @@ func (m *Machine) AddSupportedContainers(containerTypes ...instance.ContainerTyp
 		return apiError
 	}
 	return nil
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() error {
+	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }
