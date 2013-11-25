@@ -126,10 +126,6 @@ func (slConfig *SyslogConfig) ConfigFilePath() string {
 	return filepath.Join(dir, slConfig.ConfigFileName)
 }
 
-func (slConfig *SyslogConfig) StateFilePath() string {
-	return fmt.Sprintf("/var/spool/rsyslog/juju%s-%s-state", slConfig.Namespace, slConfig.LogFileName)
-}
-
 // Render generates the rsyslog config.
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
 
@@ -146,14 +142,13 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 
 	t := template.New("")
 	t.Funcs(template.FuncMap{
-		"logfileName":   func() string { return slConfig.LogFileName },
-		"bootstrapIP":   bootstrapIP,
-		"logfilePath":   logFilePath,
-		"statefilePath": slConfig.StateFilePath,
-		"portNumber":    func() int { return slConfig.Port },
-		"logDir":        func() string { return slConfig.LogDir },
-		"namespace":     func() string { return slConfig.Namespace },
-		"tagStart":      func() int { return tagOffset + len(slConfig.Namespace) },
+		"logfileName": func() string { return slConfig.LogFileName },
+		"bootstrapIP": bootstrapIP,
+		"logfilePath": logFilePath,
+		"portNumber":  func() int { return slConfig.Port },
+		"logDir":      func() string { return slConfig.LogDir },
+		"namespace":   func() string { return slConfig.Namespace },
+		"tagStart":    func() int { return tagOffset + len(slConfig.Namespace) },
 	})
 
 	// Process the rsyslog config template and echo to the conf file.

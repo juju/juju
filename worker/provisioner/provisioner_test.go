@@ -25,7 +25,6 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
@@ -50,8 +49,6 @@ var veryShortAttempt = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 80 * time.Millisecond,
 }
-
-var _ worker.Worker = (*provisioner.Provisioner)(nil)
 
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
@@ -304,10 +301,10 @@ func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 }
 
-func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) *provisioner.Provisioner {
+func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := "machine-0"
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewProvisioner(provisioner.ENVIRON, s.provisioner, agentConfig)
+	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -581,7 +578,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 
 	// insert our observer
 	cfgObserver := make(chan *config.Config, 1)
-	p.SetObserver(cfgObserver)
+	provisioner.SetObserver(p, cfgObserver)
 
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
