@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
 	"sync"
 
 	"launchpad.net/loggo"
@@ -15,35 +14,46 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
-	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
-	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
 )
 
-type ProvisionerType string
+var logger = loggo.GetLogger("juju.provisioner")
 
-var (
-	logger = loggo.GetLogger("juju.provisioner")
+// Ensure our structs implement the required Provisioner interface.
+var _ Provisioner = (*environProvisioner)(nil)
+var _ Provisioner = (*containerProvisioner)(nil)
 
-	// ENVIRON provisioners create machines from the environment
-	ENVIRON ProvisionerType = "environ"
-	// LXC provisioners create lxc containers on their parent machine
-	LXC ProvisionerType = "lxc"
-	// KVM provisioners create kvm containers on their parent machine
-	KVM ProvisionerType = "kvm"
-)
+// Provisioner represents a running provisioner worker.
+type Provisioner interface {
+	worker.Worker
+	Stop() error
+	getWatcher() (Watcher, error)
+}
 
-// Provisioner represents a running provisioning worker.
-type Provisioner struct {
-	pt          ProvisionerType
-	st          *apiprovisioner.State
-	machine     *apiprovisioner.Machine
-	environ     environs.Environ
-	agentConfig agent.Config
-	tomb        tomb.Tomb
-
+// environProvisioner represents a running provisioning worker for machine nodes
+// belonging to an environment.
+type environProvisioner struct {
+	provisioner
+	environ environs.Environ
 	configObserver
+}
+
+// containerProvisioner represents a running provisioning worker for containers
+// hosted on a machine.
+type containerProvisioner struct {
+	provisioner
+	containerType instance.ContainerType
+	machine       *apiprovisioner.Machine
+}
+
+// provisioner providers common behaviour for a running provisioning worker.
+type provisioner struct {
+	Provisioner
+	st          *apiprovisioner.State
+	agentConfig agent.Config
+	broker      environs.InstanceBroker
+	tomb        tomb.Tomb
 }
 
 type configObserver struct {
@@ -51,7 +61,7 @@ type configObserver struct {
 	observer chan<- *config.Config
 }
 
-// nofity notifies the observer of a configuration change.
+// notify notifies the observer of a configuration change.
 func (o *configObserver) notify(cfg *config.Config) {
 	o.Lock()
 	if o.observer != nil {
@@ -60,16 +70,62 @@ func (o *configObserver) notify(cfg *config.Config) {
 	o.Unlock()
 }
 
-// NewProvisioner returns a new Provisioner. When new machines
-// are added to the state, it allocates instances from the environment
-// and allocates them to the new machines.
-func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig agent.Config) *Provisioner {
-	p := &Provisioner{
-		pt:          pt,
-		st:          st,
-		agentConfig: agentConfig,
+// Err returns the reason why the provisioner has stopped or tomb.ErrStillAlive
+// when it is still alive.
+func (p *provisioner) Err() (reason error) {
+	return p.tomb.Err()
+}
+
+// Kill implements worker.Worker.Kill.
+func (p *provisioner) Kill() {
+	p.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
+func (p *provisioner) Wait() error {
+	return p.tomb.Wait()
+}
+
+// Stop stops the provisioner and returns any error encountered while
+// provisioning.
+func (p *provisioner) Stop() error {
+	p.tomb.Kill(nil)
+	return p.tomb.Wait()
+}
+
+// getStartTask creates a new worker for the provisioner,
+func (p *provisioner) getStartTask() (ProvisionerTask, error) {
+	auth, err := NewAPIAuthenticator(p.st)
+	if err != nil {
+		return nil, err
 	}
-	logger.Tracef("Starting %s provisioner for %q", p.pt, p.agentConfig.Tag())
+	// Start responding to changes in machines, and to any further updates
+	// to the environment config.
+	machineWatcher, err := p.getWatcher()
+	if err != nil {
+		return nil, err
+	}
+	task := NewProvisionerTask(
+		p.agentConfig.Tag(),
+		p.st,
+		machineWatcher,
+		p.broker,
+		auth)
+	return task, nil
+}
+
+// NewEnvironProvisioner returns a new Provisioner for an environment.
+// When new machines are added to the state, it allocates instances
+// from the environment and allocates them to the new machines.
+func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) Provisioner {
+	p := &environProvisioner{
+		provisioner: provisioner{
+			st:          st,
+			agentConfig: agentConfig,
+		},
+	}
+	p.Provisioner = p
+	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 	go func() {
 		defer p.tomb.Done()
 		p.tomb.Kill(p.loop())
@@ -77,48 +133,26 @@ func NewProvisioner(pt ProvisionerType, st *apiprovisioner.State, agentConfig ag
 	return p
 }
 
-func (p *Provisioner) loop() error {
+func (p *environProvisioner) loop() error {
 	// Only wait for the environment if we are an environmental provisioner.
 	var environConfigChanges <-chan struct{}
-	var environWatcher apiwatcher.NotifyWatcher
-	if p.pt == ENVIRON {
-		environWatcher, err := p.st.WatchForEnvironConfigChanges()
-		if err != nil {
-			return err
-		}
-		environConfigChanges = environWatcher.Changes()
-		defer watcher.Stop(environWatcher, &p.tomb)
-
-		p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
-		if err != nil {
-			return err
-		}
-	}
-
-	auth, err := NewAPIAuthenticator(p.st)
+	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
 		return err
 	}
+	environConfigChanges = environWatcher.Changes()
+	defer watcher.Stop(environWatcher, &p.tomb)
 
-	// Start a new worker for the environment or container provisioner,
-	// it depends on the provisioner type passed in NewProvisioner.
-
-	// Start responding to changes in machines, and to any further updates
-	// to the environment config.
-	instanceBroker, err := p.getBroker()
+	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
 		return err
 	}
-	machineWatcher, err := p.getWatcher()
+	p.broker = p.environ
+
+	task, err := p.getStartTask()
 	if err != nil {
 		return err
 	}
-	task := NewProvisionerTask(
-		p.agentConfig.Tag(),
-		p.st,
-		machineWatcher,
-		instanceBroker,
-		auth)
 	defer watcher.Stop(task, &p.tomb)
 
 	for {
@@ -127,7 +161,7 @@ func (p *Provisioner) loop() error {
 			return tomb.ErrDying
 		case <-task.Dying():
 			err := task.Err()
-			logger.Errorf("%s provisioner died: %v", p.pt, err)
+			logger.Errorf("environ provisioner died: %v", err)
 			return err
 		case _, ok := <-environConfigChanges:
 			if !ok {
@@ -145,7 +179,63 @@ func (p *Provisioner) loop() error {
 	}
 }
 
-func (p *Provisioner) getMachine() (*apiprovisioner.Machine, error) {
+func (p *environProvisioner) getWatcher() (Watcher, error) {
+	return p.st.WatchEnvironMachines()
+}
+
+// setConfig updates the environment configuration and notifies
+// the config observer.
+func (p *environProvisioner) setConfig(config *config.Config) error {
+	if err := p.environ.SetConfig(config); err != nil {
+		return err
+	}
+	p.configObserver.notify(config)
+	return nil
+}
+
+// NewContainerProvisioner returns a new Provisioner. When new machines
+// are added to the state, it allocates instances from the environment
+// and allocates them to the new machines.
+func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovisioner.State,
+	agentConfig agent.Config, broker environs.InstanceBroker) Provisioner {
+
+	p := &containerProvisioner{
+		provisioner: provisioner{
+			st:          st,
+			agentConfig: agentConfig,
+			broker:      broker,
+		},
+		containerType: containerType,
+	}
+	p.Provisioner = p
+	logger.Tracef("Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
+	go func() {
+		defer p.tomb.Done()
+		p.tomb.Kill(p.loop())
+	}()
+	return p
+}
+
+func (p *containerProvisioner) loop() error {
+	task, err := p.getStartTask()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(task, &p.tomb)
+
+	for {
+		select {
+		case <-p.tomb.Dying():
+			return tomb.ErrDying
+		case <-task.Dying():
+			err := task.Err()
+			logger.Errorf("%s provisioner died: %v", p.containerType, err)
+			return err
+		}
+	}
+}
+
+func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	if p.machine == nil {
 		var err error
 		if p.machine, err = p.st.Machine(p.agentConfig.Tag()); err != nil {
@@ -156,80 +246,10 @@ func (p *Provisioner) getMachine() (*apiprovisioner.Machine, error) {
 	return p.machine, nil
 }
 
-func (p *Provisioner) getWatcher() (Watcher, error) {
-	switch p.pt {
-	case ENVIRON:
-		return p.st.WatchEnvironMachines()
-	}
-	var ctype instance.ContainerType
-	switch p.pt {
-	case LXC:
-		ctype = instance.LXC
-	case KVM:
-		ctype = instance.KVM
-	default:
-		return nil, fmt.Errorf("unknown provisioner type")
-	}
+func (p *containerProvisioner) getWatcher() (Watcher, error) {
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err
 	}
-	return machine.WatchContainers(ctype)
-
-}
-
-func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
-	switch p.pt {
-	case ENVIRON:
-		return p.environ, nil
-	}
-	tools, err := p.getAgentTools()
-	if err != nil {
-		logger.Errorf("cannot get tools from machine for %s broker", p.pt)
-		return nil, err
-	}
-	switch p.pt {
-	case LXC:
-		return NewLxcBroker(p.st, tools, p.agentConfig), nil
-	case KVM:
-		return nil, fmt.Errorf("kvm not implemented yet")
-	}
-	return nil, fmt.Errorf("unknown provisioner type")
-}
-
-func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
-	return p.st.Tools(p.agentConfig.Tag())
-}
-
-// setConfig updates the environment configuration and notifies
-// the config observer.
-func (p *Provisioner) setConfig(config *config.Config) error {
-	if err := p.environ.SetConfig(config); err != nil {
-		return err
-	}
-	p.configObserver.notify(config)
-	return nil
-}
-
-// Err returns the reason why the Provisioner has stopped or tomb.ErrStillAlive
-// when it is still alive.
-func (p *Provisioner) Err() (reason error) {
-	return p.tomb.Err()
-}
-
-// Kill implements worker.Worker.Kill.
-func (p *Provisioner) Kill() {
-	p.tomb.Kill(nil)
-}
-
-// Wait implements worker.Worker.Wait.
-func (p *Provisioner) Wait() error {
-	return p.tomb.Wait()
-}
-
-// Stop stops the Provisioner and returns any error encountered while
-// provisioning.
-func (p *Provisioner) Stop() error {
-	p.tomb.Kill(nil)
-	return p.tomb.Wait()
+	return machine.WatchContainers(p.containerType)
 }

@@ -186,7 +186,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 		case params.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st.Provisioner(), agentConfig), nil
+				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
@@ -214,10 +214,6 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
-	// If no containers are supported, there's no need to go further.
-	if len(supportedContainers) == 0 {
-		return nil
-	}
 	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
 }
 
@@ -234,8 +230,14 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	if machine, err = pr.Machine(tag); err != nil {
 		return fmt.Errorf("%s is not in state: %v", tag, err)
 	}
-	if err := machine.AddSupportedContainers(containers...); err != nil {
-		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
+	if len(containers) == 0 {
+		if err := machine.SupportsNoContainers(); err != nil {
+			return fmt.Errorf("clearing supported containers for %s: %v", tag, err)
+		}
+		return nil
+	}
+	if err := machine.SetSupportedContainers(containers...); err != nil {
+		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
@@ -335,13 +337,35 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
-func (m *MachineAgent) uninstallAgent() error {
-	// TODO(axw) get this from agent config when it's available
-	name := os.Getenv("UPSTART_JOB")
-	if name != "" {
-		return upstart.NewService(name).Remove()
+func (a *MachineAgent) uninstallAgent() error {
+	var errors []error
+	agentServiceName := a.Conf.config.Value(agent.AgentServiceName)
+	if agentServiceName == "" {
+		// For backwards compatibility, handle lack of AgentServiceName.
+		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
-	return nil
+	if agentServiceName != "" {
+		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
+			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		}
+	}
+	// The machine agent may terminate without knowing its jobs,
+	// for example if the machine's entry in state was removed.
+	// Thus, we do not rely on jobs here, and instead just check
+	// if the upstart config exists.
+	mongoServiceName := a.Conf.config.Value(agent.MongoServiceName)
+	if mongoServiceName != "" {
+		if err := upstart.NewService(mongoServiceName).StopAndRemove(); err != nil {
+			errors = append(errors, fmt.Errorf("cannot stop/remove service %q: %v", mongoServiceName, err))
+		}
+	}
+	if err := os.RemoveAll(a.Conf.dataDir); err != nil {
+		errors = append(errors, err)
+	}
+	if len(errors) == 0 {
+		return nil
+	}
+	return fmt.Errorf("uninstall failed: %v", errors)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

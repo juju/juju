@@ -115,7 +115,7 @@ func (p *machinePinger) Stop() error {
 
 func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) (interface{}, error) {
 	// TODO(rog) choose appropriate object to serve.
-	newRoot := newSrvRoot(a.root.srv, entity)
+	newRoot := newSrvRoot(a.root, entity)
 
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to

@@ -22,6 +22,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 type clientSuite struct {
@@ -1439,6 +1440,17 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	c.Assert(value, gc.Equals, "value")
 }
 
+func (s *clientSuite) TestClientSetEnvironAgentVersion(c *gc.C) {
+	err := s.APIState.Client().SetEnvironAgentVersion(version.MustParse("9.8.7"))
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
 func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
 	args := map[string]interface{}{"agent-version": "9.9.9"}
 	err := s.APIState.Client().EnvironmentSet(args)
@@ -1547,7 +1559,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// The host only supports lxc containers.
-	err = host.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
 
 	// Set up params for adding 4 containers.

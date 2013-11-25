@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -109,6 +110,63 @@ var errUpToDate = stderrors.New("no upgrades available")
 
 // Run changes the version proposed for the juju envtools.
 func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	defer func() {
+		if err == errUpToDate {
+			log.Noticef(err.Error())
+			err = nil
+		}
+	}()
+
+	// Determine the version to upgrade to, uploading tools if necessary.
+	attrs, err := client.EnvironmentGet()
+	if rpc.IsNoSuchRequest(err) {
+		return c.run1dot16()
+	}
+	if err != nil {
+		return err
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return err
+	}
+	v, err := c.initVersions(cfg, env)
+	if err != nil {
+		return err
+	}
+	if c.UploadTools {
+		series := getUploadSeries(cfg, c.Series)
+		if err := v.uploadTools(env.Storage(), series); err != nil {
+			return err
+		}
+	}
+	if err := v.validate(); err != nil {
+		return err
+	}
+	log.Infof("upgrade version chosen: %s", v.chosen)
+	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
+	log.Infof("available tools: %s", v.tools)
+
+	if err := client.SetEnvironAgentVersion(v.chosen); err != nil {
+		return err
+	}
+	log.Noticef("started upgrade to %s", v.chosen)
+	return nil
+}
+
+// run1dot16 implements the command without access to the API. This is
+// needed for compatibility, so 1.16 can be upgraded to newer
+// releases. It should be removed in 1.18.
+func (c *UpgradeJujuCommand) run1dot16() error {
+	log.Warningf("running in 1.16 compatibility mode")
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -165,6 +223,9 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		return nil, errUpToDate
 	}
 	client := version.Current.Number
+	// TODO use an API call rather than requiring the environment,
+	// so that we can restrict access to the provider secrets
+	// while still allowing users to upgrade.
 	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	if err != nil {
 		if !errors.IsNotFoundError(err) {

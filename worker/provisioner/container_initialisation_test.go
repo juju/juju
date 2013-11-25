@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -17,13 +18,14 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type ContainerSetupSuite struct {
 	CommonProvisionerSuite
-	p *provisioner.Provisioner
+	p provisioner.Provisioner
 	// Record the apt commands issued as part of container initialisation
 	aptCmdChan <-chan *exec.Cmd
 }
@@ -55,7 +57,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 	// Set up provisioner for the state machine.
 	agentConfig := s.AgentConfigForTag(c, "machine-0")
-	s.p = provisioner.NewProvisioner(provisioner.ENVIRON, s.provisioner, agentConfig)
+	s.p = provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -68,7 +70,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, gc.IsNil)
-	err = machine.AddSupportedContainers(instance.LXC)
+	err = machine.SetSupportedContainers(instance.ContainerTypes...)
 	c.Assert(err, gc.IsNil)
 	cfg := s.AgentConfigForTag(c, tag)
 
@@ -112,9 +114,9 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 
 	// A stub worker callback to record what happens.
 	provisionerStarted := false
-	startProvisionerWorker := func(runner worker.Runner, provisionerType provisioner.ProvisionerType,
-		pr *apiprovisioner.State, cfg agent.Config) error {
-		c.Assert(provisionerType, gc.Equals, provisioner.ProvisonerTypes[ctype])
+	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
 		return nil
@@ -139,7 +141,9 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		}
 		m, err := s.BackingState.AddMachineWithConstraints(&params)
 		c.Assert(err, gc.IsNil)
-		err = m.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+		err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+		c.Assert(err, gc.IsNil)
+		err = m.SetAgentVersion(version.Current)
 		c.Assert(err, gc.IsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
@@ -147,8 +151,8 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
 	// A noop worker callback.
-	startProvisionerWorker := func(runner worker.Runner, provisionerType provisioner.ProvisionerType,
-		pr *apiprovisioner.State, cfg agent.Config) error {
+	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -161,7 +165,9 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	}
 	m, err := s.BackingState.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
-	err = m.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 	s.createContainer(c, m, ctype)
 

@@ -305,7 +305,7 @@ func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
-	err = host.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
 
 	params := state.AddMachineParams{
@@ -324,7 +324,7 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
-	err = host.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
 
 	params := state.AddMachineParams{

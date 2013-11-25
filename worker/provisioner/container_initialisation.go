@@ -11,17 +11,13 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
 )
-
-var ProvisonerTypes = map[instance.ContainerType]ProvisionerType{
-	instance.LXC: LXC,
-	instance.KVM: KVM,
-}
 
 // ContainerSetup is a StringsWatchHandler that is notified when containers
 // are created on the given machine. It will set up the machine to be able
@@ -116,13 +112,20 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 		}
 	}
 
-	if err := cs.initaliseContainer(containerType); err != nil {
-		return fmt.Errorf("setting up container dependnecies for %v on host machine: %v", containerType, err)
+	// We only care about the initial container creation.
+	// This worker has done its job so stop it.
+	// We do not expect there will be an error, and there's not much we can do anyway.
+	if err := cs.runner.StopWorker(cs.workerName); err != nil {
+		logger.Warningf("stopping machine agent container watcher: %v", err)
 	}
-	if provisionerType, ok := ProvisonerTypes[containerType]; ok {
-		return StartProvisioner(cs.runner, provisionerType, cs.provisioner, cs.config)
+	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
+		return fmt.Errorf("initialising container infrastructure on host machine: %v", err)
+	} else {
+		if err := initialiser.Initialise(); err != nil {
+			return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
+		}
+		return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker)
 	}
-	return fmt.Errorf("invalid container type %q", containerType)
 }
 
 // TearDown is defined on the StringsWatchHandler interface.
@@ -131,17 +134,25 @@ func (cs *ContainerSetup) TearDown() error {
 	return nil
 }
 
-func (cs *ContainerSetup) initaliseContainer(containerType instance.ContainerType) error {
+func (cs *ContainerSetup) getContainerArtifacts(containerType instance.ContainerType) (container.Initialiser, environs.InstanceBroker, error) {
+	tools, err := cs.provisioner.Tools(cs.config.Tag())
+	if err != nil {
+		logger.Errorf("cannot get tools from machine for %s container", containerType)
+		return nil, nil, err
+	}
 	var initialiser container.Initialiser
+	var broker environs.InstanceBroker
 	switch containerType {
 	case instance.LXC:
 		initialiser = lxc.NewContainerInitialiser()
+		broker = NewLxcBroker(cs.provisioner, tools, cs.config)
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
+		//TODO - implement kvm broker
 	default:
-		return fmt.Errorf("unknown container type: %v", containerType)
+		return nil, nil, fmt.Errorf("unknown container type: %v", containerType)
 	}
-	return initialiser.Initialise()
+	return initialiser, broker, nil
 }
 
 // Override for testing.
@@ -149,13 +160,13 @@ var StartProvisioner = startProvisionerWorker
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
-func startProvisionerWorker(runner worker.Runner, provisionerType ProvisionerType,
-	provisioner *apiprovisioner.State, config agent.Config) error {
+func startProvisionerWorker(runner worker.Runner, containerType instance.ContainerType,
+	provisioner *apiprovisioner.State, config agent.Config, broker environs.InstanceBroker) error {
 
-	workerName := fmt.Sprintf("%s-provisioner", provisionerType)
+	workerName := fmt.Sprintf("%s-provisioner", containerType)
 	// The provisioner task is created after a container record has already been added to the machine.
 	// It will see that the container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		return NewProvisioner(provisionerType, provisioner, config), nil
-	})
+			return NewContainerProvisioner(containerType, provisioner, config, broker), nil
+		})
 }
