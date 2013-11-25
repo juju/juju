@@ -12,30 +12,31 @@ import (
 	"text/template"
 )
 
+// tagOffset represents the substring start value for the tag to return
+// the logfileName value from the syslogtag.  Substrings in syslog are
+// indexed from 1, hence the + 1.
+const tagOffset = len("juju-") + 1
+
 // The rsyslog conf for state server nodes.
 // Messages are gathered from other nodes and accumulated in an all-machines.log file.
 const stateServerRsyslogTemplate = `
 $ModLoad imfile
 
-$InputFileStateFile {{statefilePath}}
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{logfilePath}}
-$InputFileTag local-juju-{{logfileName}}:
-$InputFileStateFile {{logfileName}}
+$InputFileTag juju{{namespace}}-{{logfileName}}:
+$InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
 
 $ModLoad imudp
 $UDPServerRun {{portNumber}}
 
-# Messages received from remote rsyslog machines contain a leading space so we
-# need to account for that.
-$template JujuLogFormatLocal,"%HOSTNAME%:%msg:::drop-last-lf%\n"
-$template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
+# Messages received from remote rsyslog machines have messages prefixed with a space,
+# so add one in for local messages too if needed.
+$template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
-:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
-& ~
-:syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal
+:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
 & ~
 `
 
@@ -44,15 +45,16 @@ $template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
 const nodeRsyslogTemplate = `
 $ModLoad imfile
 
-$InputFileStateFile {{statefilePath}}
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{logfilePath}}
-$InputFileTag juju-{{logfileName}}:
-$InputFileStateFile {{logfileName}}
+$InputFileTag juju{{namespace}}-{{logfileName}}:
+$InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @{{bootstrapIP}}:{{portNumber}}
+$template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
+
+:syslogtag, startswith, "juju{{namespace}}-" @{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
 & ~
 `
 
@@ -73,33 +75,47 @@ type SyslogConfig struct {
 	ConfigDir string
 	// the config file name.
 	ConfigFileName string
-	// the name of tghe log file to tail.
+	// the name of the log file to tail.
 	LogFileName string
 	// the addresses of the state server to which messages should be forwarded.
 	StateServerAddresses []string
 	// the port number for the udp listener
 	Port int
+	// the directory for the logfiles
+	LogDir string
+	// namespace is used when there are multiple environments on one machine
+	Namespace string
 }
 
 // NewForwardConfig creates a SyslogConfig instance used on unit nodes to forward log entries
 // to the state server nodes.
-func NewForwardConfig(logFile string, port int, stateServerAddresses []string) *SyslogConfig {
-	return &SyslogConfig{
+func NewForwardConfig(logFile string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
+	conf := &SyslogConfig{
 		configTemplate:       nodeRsyslogTemplate,
 		StateServerAddresses: stateServerAddresses,
 		LogFileName:          logFile,
 		Port:                 port,
+		LogDir:               "/var/log/juju",
 	}
+	if namespace != "" {
+		conf.Namespace = "-" + namespace
+	}
+	return conf
 }
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile string, port int) *SyslogConfig {
-	return &SyslogConfig{
+func NewAccumulateConfig(logFile string, port int, namespace string) *SyslogConfig {
+	conf := &SyslogConfig{
 		configTemplate: stateServerRsyslogTemplate,
 		LogFileName:    logFile,
 		Port:           port,
+		LogDir:         "/var/log/juju",
 	}
+	if namespace != "" {
+		conf.Namespace = "-" + namespace
+	}
+	return conf
 }
 
 func (slConfig *SyslogConfig) ConfigFilePath() string {
@@ -113,35 +129,26 @@ func (slConfig *SyslogConfig) ConfigFilePath() string {
 // Render generates the rsyslog config.
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
 
+	// TODO: for HA, we will want to send to all state server addresses (maybe).
 	var bootstrapIP = func() string {
 		addr := slConfig.StateServerAddresses[0]
 		parts := strings.Split(addr, ":")
 		return parts[0]
 	}
 
-	var logFileName = func() string {
-		return slConfig.LogFileName
-	}
-
 	var logFilePath = func() string {
-		return fmt.Sprintf("/var/log/juju/%s.log", slConfig.LogFileName)
-	}
-
-	var stateFilePath = func() string {
-		return fmt.Sprintf("/var/spool/rsyslog/juju-%s-state", slConfig.LogFileName)
-	}
-
-	var portNumber = func() string {
-		return fmt.Sprint(slConfig.Port)
+		return fmt.Sprintf("%s/%s.log", slConfig.LogDir, slConfig.LogFileName)
 	}
 
 	t := template.New("")
 	t.Funcs(template.FuncMap{
-		"logfileName":   logFileName,
-		"bootstrapIP":   bootstrapIP,
-		"logfilePath":   logFilePath,
-		"statefilePath": stateFilePath,
-		"portNumber":    portNumber,
+		"logfileName": func() string { return slConfig.LogFileName },
+		"bootstrapIP": bootstrapIP,
+		"logfilePath": logFilePath,
+		"portNumber":  func() int { return slConfig.Port },
+		"logDir":      func() string { return slConfig.LogDir },
+		"namespace":   func() string { return slConfig.Namespace },
+		"tagStart":    func() int { return tagOffset + len(slConfig.Namespace) },
 	})
 
 	// Process the rsyslog config template and echo to the conf file.

@@ -247,13 +247,14 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 }
 
 func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
+	namespace := cfg.AgentEnvironment[agent.Namespace]
 	var configRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort)
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace)
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace, cfg.stateHostAddrs())
 	}
 	content, err := configRenderer.Render()
 	if err != nil {
