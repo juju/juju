@@ -54,9 +54,9 @@ build_tool_tree() {
 retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
-    [[ $PRIVATE == "true" ]] && return
+    [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 2: Retrieving released tools."
-    s3cmd -c $JUJU_DIR/s3cfg sync --rexclude 'juju-1.1[5].*tgz' \
+    s3cmd -c $JUJU_DIR/s3cfg sync --rexclude 'juju-1.1[5-6].[0-2].*tgz' \
         s3://juju-dist/tools/releases/ $DEST_TOOLS/
 }
 
@@ -64,7 +64,7 @@ retrieve_released_tools() {
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
-    [[ $PRIVATE == "true" ]] && return
+    [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 3: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
         cp $RELEASE $DEST_DEBS
@@ -139,7 +139,7 @@ get_arch() {
 
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
-    [[ $PRIVATE == "true" ]] && return
+    [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 4: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
     WORK=$(mktemp -d)
@@ -218,7 +218,7 @@ generate_mirrors() {
 
 
 sign_metadata() {
-    [[ $SIGNING_KEY == '' ]] && return
+    [[ $SIGNING_KEY == '' ]] && return 0
     echo "Phase 6: Signing metadata with $SIGNING_KEY."
     pattern='s/\(\.json\)/.sjson/'
     meta_files=$(ls ${DEST_DIST}/tools/streams/v1/*.json)
