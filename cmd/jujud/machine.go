@@ -186,7 +186,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 		case params.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st.Provisioner(), agentConfig), nil
+				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
@@ -214,10 +214,6 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
-	// If no containers are supported, there's no need to go further.
-	if len(supportedContainers) == 0 {
-		return nil
-	}
 	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
 }
 
@@ -234,8 +230,14 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	if machine, err = pr.Machine(tag); err != nil {
 		return fmt.Errorf("%s is not in state: %v", tag, err)
 	}
-	if err := machine.AddSupportedContainers(containers...); err != nil {
-		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
+	if len(containers) == 0 {
+		if err := machine.SupportsNoContainers(); err != nil {
+			return fmt.Errorf("clearing supported containers for %s: %v", tag, err)
+		}
+		return nil
+	}
+	if err := machine.SetSupportedContainers(containers...); err != nil {
+		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	for _, ctype := range containers {

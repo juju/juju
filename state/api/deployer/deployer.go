@@ -91,10 +91,9 @@ func (st *State) CACert() ([]byte, error) {
 	return result.Result, nil
 }
 
-// ServerAddresses returns all the address information that the deployer task
+// ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
-func (st *State) ServerAddresses() (params.ServerAddressesResults, error) {
-	var result params.ServerAddressesResults
-	err := st.caller.Call("Deployer", "", "ServerAddresses", nil, &result)
+func (st *State) ConnectionInfo() (result api.DeployerConnectionValues, err error) {
+	err := st.caller.Call("Deployer", "", "ConnectionInfo", nil, &result)
 	return result, err
 }

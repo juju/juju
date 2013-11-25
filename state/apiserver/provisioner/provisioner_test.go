@@ -739,9 +739,9 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 	c.Check(agentTools.Version, gc.DeepEquals, cur)
 }
 
-func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
-	args := params.AddSupportedContainers{
-		Params: []params.AddMachineSupportedContainers{
+func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
 			{
 				MachineTag:     "machine-0",
 				ContainerTypes: []instance.ContainerType{instance.LXC},
@@ -752,7 +752,7 @@ func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
 			},
 		},
 	}
-	results, err := s.provisioner.AddSupportedContainers(args)
+	results, err := s.provisioner.SetSupportedContainers(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	for _, result := range results.Results {
@@ -770,7 +770,7 @@ func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
 }
 
-func (s *provisionerSuite) TestAddSupportedContainersPermissions(c *gc.C) {
+func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
@@ -780,8 +780,8 @@ func (s *provisionerSuite) TestAddSupportedContainersPermissions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
-	args := params.AddSupportedContainers{
-		Params: []params.AddMachineSupportedContainers{{
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{{
 			MachineTag:     "machine-0",
 			ContainerTypes: []instance.ContainerType{instance.LXC},
 		}, {
@@ -794,7 +794,7 @@ func (s *provisionerSuite) TestAddSupportedContainersPermissions(c *gc.C) {
 		},
 	}
 	// Only machine 0 can have it's containers updated.
-	results, err := aProvisioner.AddSupportedContainers(args)
+	results, err := aProvisioner.SetSupportedContainers(args)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -802,4 +802,23 @@ func (s *provisionerSuite) TestAddSupportedContainersPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
+			{
+				MachineTag: "machine-0",
+			},
+		},
+	}
+	results, err := s.provisioner.SetSupportedContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }
