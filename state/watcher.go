@@ -201,7 +201,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
 // WatchAllContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of all containers on a machine.
 func (m *Machine) WatchAllContainers() StringsWatcher {
-	isChild := fmt.Sprintf("^%s/[a-z]*/%s$", m.doc.Id, names.NumberSnippet)
+	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, names.ContainerTypeSnippet, names.NumberSnippet)
 	return m.containersWatcher(isChild)
 }
 

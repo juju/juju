@@ -167,6 +167,6 @@ func startProvisionerWorker(runner worker.Runner, containerType instance.Contain
 	// The provisioner task is created after a container record has already been added to the machine.
 	// It will see that the container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-			return NewContainerProvisioner(containerType, provisioner, config, broker), nil
-		})
+		return NewContainerProvisioner(containerType, provisioner, config, broker), nil
+	})
 }
