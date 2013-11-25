@@ -698,6 +698,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+	c.Check(results.SyslogPort, gc.Equals, 2345)
 }
 
 func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {

@@ -26,7 +26,7 @@ $InputFileStateFile {{logfileName}}
 $InputRunFileMonitor
 
 $ModLoad imudp
-$UDPServerRun 514
+$UDPServerRun {{portNumber}}
 
 # Messages received from remote rsyslog machines contain a leading space so we
 # need to account for that.
@@ -52,7 +52,7 @@ $InputFileTag juju-{{logfileName}}:
 $InputFileStateFile {{logfileName}}
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @{{bootstrapIP}}:514
+:syslogtag, startswith, "juju-" @{{bootstrapIP}}:{{portNumber}}
 & ~
 `
 
@@ -77,24 +77,28 @@ type SyslogConfig struct {
 	LogFileName string
 	// the addresses of the state server to which messages should be forwarded.
 	StateServerAddresses []string
+	// the port number for the udp listener
+	Port int
 }
 
 // NewForwardConfig creates a SyslogConfig instance used on unit nodes to forward log entries
 // to the state server nodes.
-func NewForwardConfig(logFile string, stateServerAddresses []string) *SyslogConfig {
+func NewForwardConfig(logFile string, port int, stateServerAddresses []string) *SyslogConfig {
 	return &SyslogConfig{
 		configTemplate:       nodeRsyslogTemplate,
 		StateServerAddresses: stateServerAddresses,
 		LogFileName:          logFile,
+		Port:                 port,
 	}
 }
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile string) *SyslogConfig {
+func NewAccumulateConfig(logFile string, port int) *SyslogConfig {
 	return &SyslogConfig{
 		configTemplate: stateServerRsyslogTemplate,
 		LogFileName:    logFile,
+		Port:           port,
 	}
 }
 
@@ -127,11 +131,18 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		return fmt.Sprintf("/var/spool/rsyslog/juju-%s-state", slConfig.LogFileName)
 	}
 
+	var portNumber = func() string {
+		return fmt.Sprint(slConfig.Port)
+	}
+
 	t := template.New("")
-	t.Funcs(template.FuncMap{"logfileName": logFileName})
-	t.Funcs(template.FuncMap{"bootstrapIP": bootstrapIP})
-	t.Funcs(template.FuncMap{"logfilePath": logFilePath})
-	t.Funcs(template.FuncMap{"statefilePath": stateFilePath})
+	t.Funcs(template.FuncMap{
+		"logfileName":   logFileName,
+		"bootstrapIP":   bootstrapIP,
+		"logfilePath":   logFilePath,
+		"statefilePath": stateFilePath,
+		"portNumber":    portNumber,
+	})
 
 	// Process the rsyslog config template and echo to the conf file.
 	p, err := t.Parse(slConfig.configTemplate)

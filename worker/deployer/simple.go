@@ -16,17 +16,23 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
+
+// APICalls defines the interface to the API that the simple context needs.
+type APICalls interface {
+	ConnectionInfo() (params.DeployerConnectionValues, error)
+}
 
 // SimpleContext is a Context that manages unit deployments via upstart
 // jobs on the local system.
 type SimpleContext struct {
 
-	// addresser is used to get the current state server addresses at the time
-	// the given unit is deployed.
-	addresser Addresser
+	// api is used to get the current state server addresses at the time the
+	// given unit is deployed.
+	api APICalls
 
 	// agentConfig returns the agent config for the machine agent that is
 	// running the deployer.
@@ -55,9 +61,9 @@ var _ Context = (*SimpleContext)(nil)
 // specified deployer, that deploys unit agents as upstart jobs in
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir.
-func NewSimpleContext(agentConfig agent.Config, addresser Addresser) *SimpleContext {
+func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
-		addresser:   addresser,
+		api:         api,
 		agentConfig: agentConfig,
 		initDir:     "/etc/init",
 		logDir:      "/var/log/juju",
@@ -82,27 +88,22 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	toolsDir := tools.ToolsDir(dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
-	// Retrieve the state addresses.
-	// TODO: remove the state addresses when unit agent is API only.
-	stateAddrs, err := ctx.addresser.StateAddresses()
+	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
 		return err
 	}
-	logger.Debugf("state addresses: %q", stateAddrs)
-	apiAddrs, err := ctx.addresser.APIAddresses()
-	if err != nil {
-		return err
-	}
-	logger.Debugf("API addresses: %q", apiAddrs)
+	logger.Debugf("state addresses: %q", result.StateAddresses)
+	logger.Debugf("API addresses: %q", result.APIAddresses)
 	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        dataDir,
-			Tag:            tag,
-			Password:       initialPassword,
-			Nonce:          "unused",
-			StateAddresses: stateAddrs,
-			APIAddresses:   apiAddrs,
+			DataDir:  dataDir,
+			Tag:      tag,
+			Password: initialPassword,
+			Nonce:    "unused",
+			// TODO: remove the state addresses here and test when api only.
+			StateAddresses: result.StateAddresses,
+			APIAddresses:   result.APIAddresses,
 			CACert:         ctx.agentConfig.CACert(),
 			Values: map[string]string{
 				agent.ContainerType: containerType,
@@ -118,7 +119,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, tag+".log")
-	syslogConfigRenderer := syslog.NewForwardConfig(tag, stateAddrs)
+	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, result.StateAddresses)
 	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
 	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	if err := syslogConfigRenderer.Write(); err != nil {

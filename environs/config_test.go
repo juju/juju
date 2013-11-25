@@ -16,14 +16,18 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type suite struct{}
+type suite struct {
+	testbase.LoggingSuite
+}
 
-var _ = gc.Suite(suite{})
+var _ = gc.Suite(&suite{})
 
-func (suite) TearDownTest(c *gc.C) {
+func (s *suite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 var invalidConfigTests = []struct {
@@ -40,7 +44,7 @@ environments:
 	},
 }
 
-func (suite) TestInvalidConfig(c *gc.C) {
+func (*suite) TestInvalidConfig(c *gc.C) {
 	for i, t := range invalidConfigTests {
 		c.Logf("running test %v", i)
 		_, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -72,7 +76,7 @@ environments:
 	},
 }
 
-func (suite) TestInvalidEnv(c *gc.C) {
+func (*suite) TestInvalidEnv(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
@@ -84,7 +88,7 @@ func (suite) TestInvalidEnv(c *gc.C) {
 	}
 }
 
-func (suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
+func (*suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
 	// This tests that a config that has a deprecated field doesn't
 	// generate a Warning if we don't actually ask for that environment.
 	// However, we can only really trigger that when we have a deprecated
@@ -124,7 +128,7 @@ environments:
 	c.Check(tw.Log, gc.HasLen, 1)
 }
 
-func (suite) TestNoHomeBeforeConfig(c *gc.C) {
+func (*suite) TestNoHomeBeforeConfig(c *gc.C) {
 	// Test that we don't actually need HOME set until we call envs.Config()
 	// Because of this, we intentionally do *not* call testing.MakeFakeHomeNoEnvironments()
 	content := `
@@ -138,7 +142,7 @@ environments:
 	c.Check(err, gc.IsNil)
 }
 
-func (suite) TestNoEnv(c *gc.C) {
+func (*suite) TestNoEnv(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c).Restore()
 	es, err := environs.ReadEnvirons("")
 	c.Assert(es, gc.IsNil)
@@ -189,7 +193,7 @@ environments:
 	}},
 }
 
-func (suite) TestConfig(c *gc.C) {
+func (*suite) TestConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only", "valid", "one", "two").Restore()
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
@@ -199,7 +203,7 @@ func (suite) TestConfig(c *gc.C) {
 	}
 }
 
-func (suite) TestDefaultConfigFile(c *gc.C) {
+func (*suite) TestDefaultConfigFile(c *gc.C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
 
 	env := `
@@ -221,7 +225,7 @@ environments:
 	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
-func (suite) TestConfigPerm(c *gc.C) {
+func (*suite) TestConfigPerm(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
 
 	path := testing.HomePath(".juju")
@@ -248,7 +252,7 @@ environments:
 
 }
 
-func (suite) TestNamedConfigFile(c *gc.C) {
+func (*suite) TestNamedConfigFile(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 
 	env := `
@@ -275,7 +279,7 @@ func inMap(attrs testing.Attrs, attr string) bool {
 	return ok
 }
 
-func (suite) TestBootstrapConfig(c *gc.C) {
+func (*suite) TestBootstrapConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "bladaam").Restore()
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"agent-version": "1.2.3",
