@@ -13,6 +13,9 @@ import (
 type kvmContainer struct {
 	factory *containerFactory
 	name    string
+	// started is a three state boolean, true, false, or unknown
+	// this allows for checking when we don't know, but using a
+	// value if we already know it (like in the list situation).
 	started *bool
 }
 
@@ -33,7 +36,7 @@ func (c *kvmContainer) Start(
 	if err := SyncImages(series, arch); err != nil {
 		return err
 	}
-	bridge := ""
+	var bridge string
 	if network != nil {
 		if network.NetworkType == container.BridgeNetwork {
 			bridge = network.Device
@@ -46,7 +49,7 @@ func (c *kvmContainer) Start(
 		Hostname:      c.name,
 		Series:        series,
 		Arch:          arch,
-		UserData:      userDataFile,
+		UserDataFile:  userDataFile,
 		NetworkBridge: bridge,
 	}); err != nil {
 		return err
@@ -57,14 +60,14 @@ func (c *kvmContainer) Start(
 }
 
 func (c *kvmContainer) Stop() error {
-	if c.IsRunning() {
-		// Make started state unknown again.
-		c.started = nil
-		logger.Debugf("Stop %s", c.name)
-		return DestroyMachine(c.name)
+	if !c.IsRunning() {
+		logger.Debugf("%s is already stopped", c.name)
+		return nil
 	}
-	logger.Debugf("%s is already stopped", c.name)
-	return nil
+	// Make started state unknown again.
+	c.started = nil
+	logger.Debugf("Stop %s", c.name)
+	return DestroyMachine(c.name)
 }
 
 func (c *kvmContainer) IsRunning() bool {
