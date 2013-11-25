@@ -3,6 +3,17 @@
 
 package kvm
 
+// This file contains wrappers around the following executables:
+//   uvt-simplestreams-libvirt
+//   uvt-kvm
+//   virsh
+// Those executables are found in the following packages:
+//   uvtool-libvirt
+//   libvirt-bin
+//
+// These executables provide Juju's interface to dealing with kvm containers.
+// The define how we start, stop and list running containers on the host
+
 import (
 	"fmt"
 	"os/exec"
@@ -29,7 +40,7 @@ func run(command string, args ...string) (output string, err error) {
 		return output, err
 	}
 	if !cmd.ProcessState.Success() {
-		return output, fmt.Errorf("%s returned non-zero exi", command)
+		return output, fmt.Errorf("%s returned non-zero exit", command)
 	}
 	return output, nil
 }
@@ -50,7 +61,7 @@ type CreateMachineParams struct {
 	Hostname      string
 	Series        string
 	Arch          string
-	UserData      string
+	UserDataFile  string
 	NetworkBridge string
 	// TODO memory, cpu and disk
 }
@@ -64,8 +75,8 @@ func CreateMachine(params CreateMachineParams) error {
 		"create",
 		"--log-console-output", // do wonder where this goes...
 	}
-	if params.UserData != "" {
-		args = append(args, "--user-data", params.UserData)
+	if params.UserDataFile != "" {
+		args = append(args, "--user-data", params.UserDataFile)
 	}
 	if params.NetworkBridge != "" {
 		args = append(args, "--bridge", params.NetworkBridge)
@@ -104,13 +115,13 @@ func ListMachines() (map[string]string, error) {
 		return nil, err
 	}
 	// Split the output into lines.
-	// Perhaps regex matching is the easiest way to match the lines.
+	// Regex matching is the easiest way to match the lines.
 	//   id hostname status
 	// separated by whitespace, with whitespace at the start too.
 	result := make(map[string]string)
 	for _, s := range machineListPattern.FindAllStringSubmatchIndex(output, -1) {
-		machineStatus := machineListPattern.ExpandString(nil, "$hostname $status", output, s)
-		parts := strings.SplitN(string(machineStatus), " ", 2)
+		hostnameAndStatus := machineListPattern.ExpandString(nil, "$hostname $status", output, s)
+		parts := strings.SplitN(string(hostnameAndStatus), " ", 2)
 		result[parts[0]] = parts[1]
 	}
 	return result, nil

@@ -20,8 +20,6 @@ type KVMSuite struct {
 
 var _ = gc.Suite(&KVMSuite{})
 
-// TODO: work out how to test the actual kvm implementations.
-
 func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
 	manager, err := kvm.NewContainerManager(container.ManagerConfig{})
 	c.Assert(err, gc.ErrorMatches, "name is required")

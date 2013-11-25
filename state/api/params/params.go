@@ -519,9 +519,9 @@ type SetEnvironAgentVersion struct {
 	Version version.Number
 }
 
-// ServerAddressesResults contains the result for the Deployer ServerAddresses
-// call.
-type ServerAddressesResults struct {
+// DeployerConnectionValues containers the result of deployer.ConnectionInfo
+// API call.
+type DeployerConnectionValues struct {
 	StateAddresses []string
 	APIAddresses   []string
 	SyslogPort     int

@@ -85,3 +85,28 @@ func canBeNil(t reflect.Type) bool {
 	}
 	return false
 }
+
+type deepEqualsChecker struct {
+	*gc.CheckerInfo
+}
+
+// The DeepEquals checker verifies that the obtained value is deep-equal to
+// the expected value.  The check will work correctly even when facing
+// slices, interfaces, and values of different types (which always fail
+// the test).
+//
+// For example:
+//
+//     c.Assert(value, DeepEquals, 42)
+//     c.Assert(array, DeepEquals, []string{"hi", "there"})
+//
+// This checker differs from gocheck.DeepEquals in that
+// it will compare a nil slice equal to an empty slice,
+// and a nil map equal to an empty map.
+var DeepEquals gc.Checker = &deepEqualsChecker{
+	&gc.CheckerInfo{Name: "DeepEquals", Params: []string{"obtained", "expected"}},
+}
+
+func (checker *deepEqualsChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	return DeepEqual(params[0], params[1]), ""
+}

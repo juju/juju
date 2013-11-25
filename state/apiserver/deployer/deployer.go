@@ -125,7 +125,10 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 
 // ServerAddresses returns all the address information that the deployer task
 // needs in one call.
-func (d *DeployerAPI) ServerAddresses() (result params.ServerAddressesResults, err error) {
-	result.StateAddresses, result.APIAddresses, result.SyslogPort, err = d.st.DeployerAddresses()
+func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
+	info, err := d.st.DeployerConnectionInfo()
+	if info != nil {
+		result = *info
+	}
 	return result, err
 }
