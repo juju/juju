@@ -7,8 +7,9 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-func (o *configObserver) SetObserver(observer chan<- *config.Config) {
-	o.Lock()
-	o.observer = observer
-	o.Unlock()
+func SetObserver(p Provisioner, observer chan<- *config.Config) {
+	ep := p.(*environProvisioner)
+	ep.Lock()
+	ep.observer = observer
+	ep.Unlock()
 }
