@@ -69,9 +69,9 @@ execute 'cp  ~/.ssh/authorized_keys ssh_keys' "Copying ssh keys"
 execute 'mkdir rsyslogd' "Making rsyslogd backup directory"
 execute 'sudo -n cp /etc/rsyslog.d/*juju.conf rsyslogd' "Copying rsyslog config"
 
-# /var/log/juju/all-machines.log
+# /var/log/juju/machine-0.log
 execute 'mkdir logs' "Making logs backup directory"
-execute 'sudo -n cp /var/log/juju/all-machines.log logs' "Copying log files"
+execute 'sudo -n cp /var/log/juju/machine-0.log logs' "Copying machine log files"
 
 #---------------------------------------------------------------------
 next_step "Creating tarball"
