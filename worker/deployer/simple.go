@@ -16,17 +16,23 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
+
+// APICalls defines the interface to the API that the simple context needs.
+type APICalls interface {
+	ConnectionInfo() (params.DeployerConnectionValues, error)
+}
 
 // SimpleContext is a Context that manages unit deployments via upstart
 // jobs on the local system.
 type SimpleContext struct {
 
-	// addresser is used to get the current state server addresses at the time
-	// the given unit is deployed.
-	addresser Addresser
+	// api is used to get the current state server addresses at the time the
+	// given unit is deployed.
+	api APICalls
 
 	// agentConfig returns the agent config for the machine agent that is
 	// running the deployer.
@@ -55,9 +61,9 @@ var _ Context = (*SimpleContext)(nil)
 // specified deployer, that deploys unit agents as upstart jobs in
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir.
-func NewSimpleContext(agentConfig agent.Config, addresser Addresser) *SimpleContext {
+func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
-		addresser:   addresser,
+		api:         api,
 		agentConfig: agentConfig,
 		initDir:     "/etc/init",
 		logDir:      "/var/log/juju",
@@ -82,7 +88,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	toolsDir := tools.ToolsDir(dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
-	result, err := ctx.addresser.ServerAddresses()
+	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
 		return err
 	}
