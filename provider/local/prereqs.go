@@ -153,6 +153,9 @@ func verifyKvm() error {
 		return fmt.Errorf(kvmNotSupported)
 	}
 	// Check for other packages needed.
-
+	// TODO: also check for:
+	//   virsh from libvirt-bin
+	//   uvt-kvm from uvtool-libvirt
+	//   something from the kvm package
 	return nil
 }
