@@ -128,7 +128,11 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
 	info, err := d.st.DeployerConnectionInfo()
 	if info != nil {
-		result = *info
+		result = params.DeployerConnectionValues{
+			StateAddresses: info.StateAddresses,
+			APIAddresses:   info.APIAddresses,
+			SyslogPort:     info.SyslogPort,
+		}
 	}
 	return result, err
 }
