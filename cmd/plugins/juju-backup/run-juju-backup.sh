@@ -49,13 +49,13 @@ execute 'sudo -n start juju-db' "Starting mongo"
 
 #---------------------------------------------------------------------
 next_step "Copying Juju configuration"
-# upstart configuration files for juju-db, machine agent, unit agent(s)
+# upstart configuration files for juju-db, machine agent, but not any unit agents
 execute 'mkdir upstart' "Making upstart backup directory"
 execute 'cp /etc/init/juju-db.conf upstart' "Copying mongo upstart script"
 execute 'cp /etc/init/jujud-machine-*.conf upstart' "Copying machine upstart scripts"
 
 # agent configuration directories in /var/lib/juju
-# (includes the config, server.pem, tools)
+# (includes the config, server.pem, tools, but not any unit agents)
 execute 'mkdir juju_config' "Making juju_config backup directory"
 execute 'sudo -n cp -r /var/lib/juju/agents/machine-* juju_config' "Copying agent config"
 execute 'sudo -n cp -r /var/lib/juju/tools juju_config' "Copying agent tools"
@@ -65,7 +65,7 @@ execute 'sudo -n cp /var/lib/juju/server.pem juju_config' "Copying server certif
 execute 'mkdir ssh_keys' "Making ssh_keys backup directory"
 execute 'cp  ~/.ssh/authorized_keys ssh_keys' "Copying ssh keys"
 
-# /etc/rsyslog.d/*juju* config files for the agents
+# /etc/rsyslog.d/*juju* config files for the agents (ignore any unit agents)
 execute 'mkdir rsyslogd' "Making rsyslogd backup directory"
 execute 'sudo -n cp /etc/rsyslog.d/*juju.conf rsyslogd' "Copying rsyslog config"
 
