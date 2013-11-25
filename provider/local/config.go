@@ -19,6 +19,8 @@ var checkIfRoot = func() bool {
 }
 
 const (
+	// These constants are defined here, and used in environprovider.go
+	// to explicitly get from the config unknown params.
 	containerConfigKey = "container"
 	containerDefault   = "lxc"
 )
@@ -82,7 +84,7 @@ func (c *environConfig) rootDir() string {
 }
 
 func (c *environConfig) container() instance.ContainerType {
-	return instance.ContainerType(c.attrs["container"].(string))
+	return instance.ContainerType(c.attrs[containerConfigKey].(string))
 }
 
 func (c *environConfig) networkBridge() string {
