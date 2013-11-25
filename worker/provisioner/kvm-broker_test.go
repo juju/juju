@@ -15,8 +15,8 @@ import (
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/container/kvm/mock"
+	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -33,7 +33,7 @@ import (
 )
 
 type kvmSuite struct {
-	kvm.TestSuite
+	kvmtesting.TestSuite
 	events chan mock.Event
 }
 

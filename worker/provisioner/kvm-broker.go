@@ -8,10 +8,10 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 )
@@ -22,21 +22,25 @@ var _ environs.InstanceBroker = (*kvmBroker)(nil)
 var _ tools.HasTools = (*kvmBroker)(nil)
 
 func NewKvmBroker(
-	config *config.Config,
+	api APICalls,
 	tools *tools.Tools,
 	agentConfig agent.Config,
-) environs.InstanceBroker {
+) (environs.InstanceBroker, error) {
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "juju"})
+	if err != nil {
+		return nil, err
+	}
 	return &kvmBroker{
-		manager:     kvm.NewContainerManager(kvm.ManagerConfig{Name: "juju"}),
-		config:      config,
+		manager:     manager,
+		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,
-	}
+	}, nil
 }
 
 type kvmBroker struct {
-	manager     kvm.ContainerManager
-	config      *config.Config
+	manager     container.Manager
+	api         APICalls
 	tools       *tools.Tools
 	agentConfig agent.Config
 }
@@ -55,17 +59,37 @@ func (broker *kvmBroker) StartInstance(
 	machineId := machineConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
 
-	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.KvmBridge)
+	// Default to using the host network until we can configure.  Yes, this is
+	// using the LxcBridge value, we should put it in the api call for
+	// container config.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
-	network := kvm.BridgeNetworkConfig(bridgeDevice)
+	network := container.BridgeNetworkConfig(bridgeDevice)
+
 	// TODO: series doesn't necessarily need to be the same as the host.
 	series := possibleTools.OneSeries()
-	inst, err := broker.manager.StartContainer(
-		machineId, series, machineConfig.MachineNonce, network, possibleTools[0], broker.config,
-		machineConfig.StateInfo, machineConfig.APIInfo)
+	machineConfig.MachineContainerType = instance.KVM
+	machineConfig.Tools = possibleTools[0]
+
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		kvmLogger.Errorf("failed to get container config: %v", err)
+		return nil, nil, err
+	}
+	if err := environs.PopulateMachineConfig(
+		machineConfig,
+		config.ProviderType,
+		config.AuthorizedKeys,
+		config.SSLHostnameVerification,
+		config.SyslogPort,
+	); err != nil {
+		kvmLogger.Errorf("failed to populate machine config: %v", err)
+		return nil, nil, err
+	}
+
+	inst, err := broker.manager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err

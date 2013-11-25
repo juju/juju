@@ -22,6 +22,7 @@ var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
 	KvmObjectFactory ContainerFactory = &containerFactory{}
+	DefaultKvmBridge                  = "br0"
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
