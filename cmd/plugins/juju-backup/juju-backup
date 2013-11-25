@@ -1,0 +1,8 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+juju ssh 0 sh < $DIR/run-juju-backup.sh
+if [ $? -eq 0 ]; then
+  echo "Copying tarball to `pwd`..."
+  juju scp 0:~/juju-backup.tar.gz .;
+fi
