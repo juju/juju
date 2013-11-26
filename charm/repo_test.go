@@ -24,11 +24,12 @@ import (
 )
 
 type MockStore struct {
-	mux          *http.ServeMux
-	lis          net.Listener
-	bundleBytes  []byte
-	bundleSha256 string
-	downloads    []*charm.URL
+	mux            *http.ServeMux
+	lis            net.Listener
+	bundleBytes    []byte
+	bundleSha256   string
+	downloads      []*charm.URL
+	authorizations []string
 }
 
 func NewMockStore(c *gc.C) *MockStore {
@@ -142,6 +143,11 @@ func (s *MockStore) ServeEvent(w http.ResponseWriter, r *http.Request) {
 func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 	charmURL := charm.MustParseURL("cs:" + r.URL.Path[len("/charm/"):])
 	s.downloads = append(s.downloads, charmURL)
+
+	if auth := r.Header.Get("Authorization"); auth != "" {
+		s.authorizations = append(s.authorizations, auth)
+	}
+
 	w.Header().Set("Connection", "close")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.Itoa(len(s.bundleBytes)))
@@ -171,6 +177,7 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	charm.CacheDir = c.MkDir()
 	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
+	s.server.authorizations = nil
 }
 
 // Uses the TearDownTest from testbase.LoggingSuite
@@ -338,6 +345,31 @@ func (s *StoreSuite) TestEventError(c *gc.C) {
 	event, err := s.store.Event(charmURL, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(event.Errors, gc.DeepEquals, []string{"badness"})
+}
+
+func (s *StoreSuite) TestAuthorization(c *gc.C) {
+	config := testing.CustomEnvironConfig(c,
+		testing.Attrs{"charm-store-auth": "token=value"})
+	store := charm.AuthorizeCharmRepo(s.store, config)
+
+	base := "cs:series/good"
+	charmURL := charm.MustParseURL(base)
+	_, err := store.Get(charmURL)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.authorizations, gc.NotNil)
+}
+
+func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
+	config := testing.EnvironConfig(c)
+	store := charm.AuthorizeCharmRepo(s.store, config)
+
+	base := "cs:series/good"
+	charmURL := charm.MustParseURL(base)
+	_, err := store.Get(charmURL)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.authorizations, gc.IsNil)
 }
 
 func (s *StoreSuite) TestEventWarning(c *gc.C) {

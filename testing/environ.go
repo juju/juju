@@ -44,6 +44,17 @@ func EnvironConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
+// CustomEnvironConfig returns an environment configuration with
+// additional specified keys added.
+func CustomEnvironConfig(c *gc.C, extra Attrs) *config.Config {
+	attrs := FakeConfig().Merge(Attrs{
+		"agent-version": "1.2.3",
+	}).Merge(extra).Delete("admin-secret", "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	return cfg
+}
+
 const (
 	SampleEnvName = "erewhemos"
 	EnvDefault    = "default:\n  " + SampleEnvName + "\n"
