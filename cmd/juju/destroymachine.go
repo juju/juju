@@ -59,7 +59,7 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
-// DestroyMachines destroys the machines with the specified ids.
+// destroyMachines destroys the machines with the specified ids.
 // This is copied from the 1.16.3 code to enable compatibility. It should be
 // removed when we release a version that goes via the API only (whatever is
 // after 1.18)
@@ -94,7 +94,6 @@ func destroyErr(desc string, ids, errs []string) error {
 	msg = fmt.Sprintf(msg, desc)
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
-
 
 func (c *DestroyMachineCommand) run1dot16() error {
 	if c.Force {
