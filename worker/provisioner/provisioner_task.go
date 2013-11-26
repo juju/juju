@@ -136,8 +136,12 @@ func (task *provisionerTask) loop() error {
 			}
 			logger.Infof("safe mode changed to %v", safeMode)
 			task.safeMode = safeMode
-			if err := task.processMachines(nil); err != nil {
-				return fmt.Errorf("failed to process machines: %v", err)
+			if !safeMode {
+				// Safe mode has been disabled, so process current machines
+				// so that unknown machines will be immediately dealt with.
+				if err := task.processMachines(nil); err != nil {
+					return fmt.Errorf("failed to process machines: %v", err)
+				}
 			}
 		}
 	}
