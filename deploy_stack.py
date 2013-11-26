@@ -16,6 +16,12 @@ def deploy_stack(environments):
     for env in envs:
         env.bootstrap()
     for env in envs:
+        status = env.get_status()
+        agent_version = env.get_matching_agent_version()
+        if status.get_agent_versions().keys() != [agent_version]:
+            env.juju('upgrade-juju', '--version', agent_version)
+    for env in envs:
+        env.wait_for_version(env.get_matching_agent_version())
         env.juju('deploy', 'wordpress')
         env.juju('deploy', 'mysql')
         env.juju('add-relation', 'mysql', 'wordpress')

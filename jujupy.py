@@ -197,6 +197,19 @@ class Environment:
                             self.environment)
         return status
 
+    def wait_for_version(self, version):
+        for ignored in until_timeout(300):
+            versions = self.get_status().get_agent_versions()
+            if versions.keys() == [version]:
+                break
+            print format_listing(versions, version, self.environment)
+            sys.stdout.flush()
+        else:
+            raise Exception('Some versions did not update.')
+
+    def get_matching_agent_version(self):
+        return self.client.version.split('-')[0]
+
 
 def format_listing(listing, expected, environment):
     value_listing = []
