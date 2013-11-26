@@ -64,7 +64,7 @@ func GetStateAddress(environ environs.Environ) (string, error) {
 }
 
 var agentAddressTemplate = `
-set -ex
+set -exu
 cd /var/lib/juju/agents
 for agent in *
 do
@@ -116,8 +116,15 @@ func updateAllMachines(conn *juju.Conn, stateAddr string) error {
 	if err != nil {
 		return err
 	}
+	pendingMachineCount := 0
 	done := make(chan error)
 	for _, machine := range machines {
+		// A newly resumed state server requires no updating, and more
+		// than one state server is not yet support by this plugin.
+		if machine.IsManager() {
+			continue
+		}
+		pendingMachineCount += 1
 		machine := machine
 		go func() {
 			err := runMachineUpdate(machine, renderScriptArg(stateAddr))
@@ -130,7 +137,7 @@ func updateAllMachines(conn *juju.Conn, stateAddr string) error {
 		}()
 	}
 	err = nil
-	for _ = range machines {
+	for ; pendingMachineCount > 0; pendingMachineCount-- {
 		if updateErr := <-done; updateErr != nil && err == nil {
 			err = fmt.Errorf("machine update failed")
 		}
