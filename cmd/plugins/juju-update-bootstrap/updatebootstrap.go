@@ -66,25 +66,31 @@ func GetStateAddress(environ environs.Environ) (string, error) {
 var agentAddressTemplate = `
 set -ex
 cd /var/lib/juju/agents
-for agent in *; do
+for agent in *
+do
 	initctl stop jujud-$agent
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- $ADDR\1/
 	}" $agent/agent.conf
+	if [[ $agent = unit-* ]]
+	then
+		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/*
+	fi
 	initctl start jujud-$agent
 done
-sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+)$/\1$ADDR\3/' /etc/rsyslog.d/*-juju*.conf
+sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+)$/\1'$ADDR'\3/' /etc/rsyslog.d/*-juju*.conf
 `
 
 // renderScriptArg generates an ssh script argument to update state addresses
 func renderScriptArg(stateAddr string) string {
 	script := strings.Replace(agentAddressTemplate, "$ADDR", stateAddr, -1)
-	return "sudo sh -c " + utils.ShQuote(script)
+	return "sudo bash -c " + utils.ShQuote(script)
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script
 func runMachineUpdate(m *state.Machine, sshArg string) error {
+	logger.Infof("updating machine: %v\n", m)
 	addr := instance.SelectPublicAddress(m.Addresses())
 	if addr == "" {
 		return fmt.Errorf("no appropriate public address found")
@@ -106,16 +112,30 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 
 // updateAllMachines finds all machines resets the stored state address
 func updateAllMachines(conn *juju.Conn, stateAddr string) error {
-	// XXX(gz): includes the state server(s) which don't want updating
 	machines, err := conn.State.AllMachines()
 	if err != nil {
 		return err
 	}
+	done := make(chan error)
 	for _, machine := range machines {
-		logger.Infof("updating machine: %v\n", machine)
-		runMachineUpdate(machine, renderScriptArg(stateAddr))
+		machine := machine
+		go func() {
+			err := runMachineUpdate(machine, renderScriptArg(stateAddr))
+			if err != nil {
+				logger.Errorf("failed to update machine %s: %v", machine, err)
+			} else {
+				logger.Infof("updated machine %s", machine)
+			}
+			done <- err
+		}()
 	}
-	return nil
+	err = nil
+	for _ = range machines {
+		if updateErr := <-done; updateErr != nil && err == nil {
+			err = fmt.Errorf("machine update failed")
+		}
+	}
+	return err
 }
 
 func Main(args []string) {
