@@ -55,6 +55,18 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *DestroyMachineCommand) run1dot16() error {
+	if c.Force {
+		return fmt.Errorf("destroy-machine --force is not supported in Juju servers older than 1.16.4")
+	}
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return conn.DestroyMachines(c.MachineIds...)
+}
+
 func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
@@ -62,7 +74,13 @@ func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 	}
 	defer apiclient.Close()
 	if c.Force {
-		return apiclient.ForceDestroyMachines(c.MachineIds...)
+		err = apiclient.ForceDestroyMachines(c.MachineIds...)
+	} else {
+		err = apiclient.DestroyMachines(c.MachineIds...)
 	}
-	return apiclient.DestroyMachines(c.MachineIds...)
+	// Juju 1.16.3 and older did not have DestroyMachines as an API command.
+	if rpc.IsNoSuchRequest(err) {
+		return c.run1dot16()
+	}
+	return err
 }
