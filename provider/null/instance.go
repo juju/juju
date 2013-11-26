@@ -36,10 +36,7 @@ func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err
 }
 
 func (inst nullBootstrapInstance) DNSName() (string, error) {
-	// If the user specified bootstrap-host as an IP address,
-	// do a reverse lookup.
-	host := inst.host
-	return host, nil
+	return inst.host, nil
 }
 
 func (i nullBootstrapInstance) WaitDNSName() (string, error) {
