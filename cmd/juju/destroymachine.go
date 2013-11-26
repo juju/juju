@@ -80,18 +80,13 @@ func destroyMachines(st *state.State, ids ...string) (err error) {
 			errs = append(errs, err.Error())
 		}
 	}
-	return destroyErr("machines", ids, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
 	if len(errs) == 0 {
 		return nil
 	}
-	msg := "some %s were not destroyed"
+	msg := "some machines were not destroyed"
 	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
+		msg = "no machines were destroyed"
 	}
-	msg = fmt.Sprintf(msg, desc)
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
