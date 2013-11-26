@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"fmt"
-	"sync"
 
 	"launchpad.net/tomb"
 
@@ -59,6 +58,8 @@ func NewProvisionerTask(
 		machineWatcher: watcher,
 		broker:         broker,
 		auth:           auth,
+		safeMode:       true,
+		safeModeChan:   make(chan bool, 1),
 		machines:       make(map[string]*apiprovisioner.Machine),
 	}
 	go func() {
@@ -76,8 +77,8 @@ type provisionerTask struct {
 	tomb           tomb.Tomb
 	auth           AuthenticationProvider
 
-	safeModeMutex    sync.Mutex
-	safeModeUnlocked bool
+	safeMode     bool
+	safeModeChan chan bool
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
@@ -127,8 +128,16 @@ func (task *provisionerTask) loop() error {
 			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
 			// instances.
 			if err := task.processMachines(ids); err != nil {
-				logger.Errorf("Process machines failed: %v", err)
-				return err
+				return fmt.Errorf("failed to process machines: %v", err)
+			}
+		case safeMode := <-task.safeModeChan:
+			if safeMode == task.safeMode {
+				break
+			}
+			logger.Infof("safe mode changed to %v", safeMode)
+			task.safeMode = safeMode
+			if err := task.processMachines(nil); err != nil {
+				return fmt.Errorf("failed to process machines: %v", err)
 			}
 		}
 	}
@@ -136,15 +145,20 @@ func (task *provisionerTask) loop() error {
 
 // SetSafeMode implemements ProvisionerTask.SetSafeMode().
 func (task *provisionerTask) SetSafeMode(safeMode bool) {
-	task.safeModeMutex.Lock()
-	defer task.safeModeMutex.Unlock()
-	task.safeModeUnlocked = safeMode
-}
-
-func (task *provisionerTask) safeMode() bool {
-	task.safeModeMutex.Lock()
-	defer task.safeModeMutex.Unlock()
-	return task.safeModeUnlocked
+	// We don't want this code to block if the provisioner
+	// task is not ready, so if the channel is full (it has a buffer
+	// size of 1), we fish the value back out and put the new
+	// one back in.
+	select {
+	case task.safeModeChan <- safeMode:
+		return
+	default:
+	}
+	select {
+	case <-task.safeModeChan:
+	default:
+	}
+	task.safeModeChan <- safeMode
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
@@ -169,7 +183,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	if err != nil {
 		return err
 	}
-	if task.safeMode() {
+	if task.safeMode {
 		logger.Infof("running in safe mode, unknown instances not stopped: %v", unknown)
 		unknown = nil
 	}
