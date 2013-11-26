@@ -9,10 +9,6 @@ EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
   set -ex
-  sudo dpkg -i $PACKAGE
-  mkdir -p new-tools
-  $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
-  $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
     if [ "$env" == "local" ]; then
