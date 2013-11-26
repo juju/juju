@@ -947,21 +947,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, &doc), nil
 }
 
-// DestroyMachines destroys the machines with the specified ids.
-// This code only exists to enable backwards 
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
-}
-
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
