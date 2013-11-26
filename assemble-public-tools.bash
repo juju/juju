@@ -26,14 +26,13 @@ check_deps() {
     has_deps=1
     which lftp || has_deps=0
     which s3cmd || has_deps=0
+    which go || has_deps=0
     test -f $JUJU_DIR/s3cfg || has_deps=0
     test -f $JUJU_DIR/environments.yaml || has_deps=0
     if [[ $has_deps == 0 ]]; then
-        echo "Install lftp, s3cmd, configure s3cmd, and configure juju."
+        echo "Install golang, lftp, s3cmd, then configure s3cmd, and juju."
         exit 2
     fi
-    juju_version=$(juju --version)
-    echo "Using installed juju: $juju_version"
 }
 
 
@@ -103,7 +102,7 @@ get_series() {
     control_version=$1
     pkg_series=$(echo "$control_version" |
         cut -d '-' -f2 | cut -d '~' -f2 |
-        sed -e 's/^\(ubuntu[0-9][0-9]\.[0-9][0-9]\).*/\1/')
+        sed -e 's/^[0-9]*ubuntu[0-9]*\.*\([0-9][0-9]\.[0-9][0-9]\).*/\1/')
     if [[ "${!version_names[@]}" =~ ${pkg_series} ]]; then
         series=${version_names["$pkg_series"]}
     else
@@ -144,9 +143,8 @@ archive_tools() {
     cd $DESTINATION
     WORK=$(mktemp -d)
     mkdir ${WORK}/juju
-    packages=$(find ${DEST_DEBS} -name "*.deb")
-    added_tools=()
-    for package in $packages; do
+    PACKAGES=$(find ${DEST_DEBS} -name "*.deb")
+    for package in $PACKAGES; do
         echo "Extracting jujud from ${package}."
         dpkg-deb -e $package ${WORK}/juju
         control_file="${WORK}/juju/control"
@@ -172,9 +170,28 @@ archive_tools() {
         echo "Created ${tool}."
         rm -r ${WORK}/juju/*
     done
-    # Remove the debs so that they are not reused in future runs.
-    if [[ $packages != "" ]]; then
-        rm ${DEST_DEBS}/*.deb
+}
+
+
+install_new_juju() {
+    # Install a juju-core that was found in the archives to run sync-tools.
+    # Match by release version and arch, prefer exact series, but fall back
+    # to generic ubuntu.
+    juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
+    juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
+    if [[ $juju_core == "" ]]; then
+        juju_core=$(echo "$juju_cores" | head -1)
+    fi
+    sudo dpkg -i $juju_core
+}
+
+
+uninstal_new_juju() {
+    # Uninstall the new juju-core; possibly reinstall the previous version.
+    if [[ $PREVIOUS_JUJU == "" ]]; then
+        sudo apt-get remove juju-core
+    else
+        sudo apt-get install juju-core=${PREVIOUS_JUJU}*
     fi
 }
 
@@ -183,23 +200,22 @@ generate_streams() {
     # Create the streams metadata and organised the tree for later publication.
     echo "Phase 5: Generating streams data."
     cd $DESTINATION
-    # XXX sinzui 2013-10-25: Ian is adding a --public option soon.
+    if [[ $NEEDS_JUJU == "true" ]]; then
+        install_new_juju
+    fi
     # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
     # incompatibility
+    juju_version=$(juju --version)
+    echo "Using installed juju: $juju_version"
     if ! juju sync-tools --all --dev \
         --source=${DESTINATION} --destination=${DEST_DIST}; then
         juju sync-tools --all --dev \
             --source=${DESTINATION} --local-dir=${DEST_DIST}
     fi
-    if [[ $IS_TESTING == "true" ]]; then
-        # Remove testing tools so that they are not reused in future runs.
-        for tool in "${added_tools[@]}"; do
-            rm $tool
-        done
+    if [[ $NEEDS_JUJU == "true" ]]; then
+        uninstal_new_juju
     fi
     # Support old tools location so that deployments can upgrade to new tools.
-    # Generate cpc mirrors.sjson based on template suggested by Ian.
-    # https://bugs.launchpad.net/juju-core/+bug/1243470
     if [[ $IS_TESTING == "false" ]]; then
         cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
     fi
@@ -218,7 +234,6 @@ generate_mirrors() {
 
 
 sign_metadata() {
-    [[ $SIGNING_KEY == '' ]] && return 0
     echo "Phase 6: Signing metadata with $SIGNING_KEY."
     pattern='s/\(\.json\)/.sjson/'
     meta_files=$(ls ${DEST_DIST}/tools/streams/v1/*.json)
@@ -231,6 +246,20 @@ sign_metadata() {
             gpg --detach-sign --default-key $SIGNING_KEY  > $meta_file.gpg
     done
     echo "The signed tools are in ${DEST_DIST}."
+}
+
+
+cleanup() {
+    # Remove the debs and testing tools so that they are not reused in
+    # future runs of the script.
+    if [[ $PACKAGES != "" ]]; then
+        rm ${DEST_DEBS}/*.deb
+    fi
+    if [[ $IS_TESTING == "true" ]]; then
+        for tool in "${added_tools[@]}"; do
+            rm $tool
+        done
+    fi
 }
 
 
@@ -255,11 +284,11 @@ UBUNTU_DEVEL="trusty"
 
 # Series names found in package versions need to be normalised.
 declare -A version_names
-version_names+=(["ubuntu12.04"]="precise")
-version_names+=(["ubuntu12.10"]="quantal")
-version_names+=(["ubuntu13.04"]="raring")
-version_names+=(["ubuntu13.10"]="saucy")
-version_names+=(["ubuntu14.04"]="trusty")
+version_names+=(["12.04"]="precise")
+version_names+=(["12.10"]="quantal")
+version_names+=(["13.04"]="raring")
+version_names+=(["13.10"]="saucy")
+version_names+=(["14.04"]="trusty")
 version_names+=(["precise"]="precise")
 version_names+=(["quantal"]="quantal")
 version_names+=(["raring"]="raring")
@@ -267,6 +296,7 @@ version_names+=(["saucy"]="saucy")
 version_names+=(["trusty"]="trusty")
 
 declare -a added_tools
+added_tools=()
 
 test $# -eq 2 || test $# -eq 3 || usage
 
@@ -296,6 +326,13 @@ else
     SIGNING_KEY=$EXTRA
 fi
 
+
+PACKAGES=""
+PREVIOUS_JUJU=$(which juju 1>/dev/null && juju --version | cut -d '-' -f1)
+ARCH=$(dpkg --print-architecture)
+source /etc/lsb-release
+NEEDS_JUJU=$([[ $SIGNING_KEY != "" && $RELEASE != "IGNORE" ]] && echo "true")
+
 check_deps
 build_tool_tree
 retrieve_released_tools
@@ -303,4 +340,7 @@ retrieve_packages
 archive_tools
 generate_streams
 generate_mirrors
-sign_metadata
+if [[ $SIGNING_KEY != "" ]]; then
+    sign_metadata
+fi
+cleanup
