@@ -30,7 +30,9 @@ type ProvisionerTask interface {
 	Err() error
 
 	// SetSafeMode sets a flag to indicate whether the provisioner task
-	// runs in safe mode or not.
+	// runs in safe mode or not. In safe mode, any running instances
+	// which do no exist in state are allowed to keep running rather than
+	// being shut down.
 	SetSafeMode(safeMode bool)
 }
 
@@ -67,12 +69,14 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag       string
-	machineGetter    MachineGetter
-	machineWatcher   Watcher
-	broker           environs.InstanceBroker
-	tomb             tomb.Tomb
-	auth             AuthenticationProvider
+	machineTag     string
+	machineGetter  MachineGetter
+	machineWatcher Watcher
+	broker         environs.InstanceBroker
+	tomb           tomb.Tomb
+	auth           AuthenticationProvider
+
+	safeModeMutex    sync.Mutex
 	safeModeUnlocked bool
 
 	// instance id -> instance
@@ -130,17 +134,16 @@ func (task *provisionerTask) loop() error {
 	}
 }
 
-var safeModeMutex sync.Mutex
-
+// SetSafeMode implemements ProvisionerTask.SetSafeMode().
 func (task *provisionerTask) SetSafeMode(safeMode bool) {
-	safeModeMutex.Lock()
-	defer safeModeMutex.Unlock()
+	task.safeModeMutex.Lock()
+	defer task.safeModeMutex.Unlock()
 	task.safeModeUnlocked = safeMode
 }
 
 func (task *provisionerTask) safeMode() bool {
-	safeModeMutex.Lock()
-	defer safeModeMutex.Unlock()
+	task.safeModeMutex.Lock()
+	defer task.safeModeMutex.Unlock()
 	return task.safeModeUnlocked
 }
 
@@ -282,8 +285,9 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	}
 
 	for _, m := range task.machines {
-		// If a machine is dead, it won't have an instance Id
-		// and it will be included in the stopping set anyway.
+		// If a machine is dead, it is already in stopping and
+		// will be deleted from instances below. There's no need to
+		// look at instance id.
 		if m.Life() == params.Dead {
 			continue
 		}
@@ -302,7 +306,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	for _, inst := range instances {
 		unknown = append(unknown, inst)
 	}
-	logger.Tracef("unknown: %v", unknown)
+	logger.Infof("unknown instances: %v", unknown)
 	return unknown, nil
 }
 
