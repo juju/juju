@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"errors"
+	"strings"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
