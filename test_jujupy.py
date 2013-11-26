@@ -91,10 +91,12 @@ class TestJujuClientDevel(TestCase):
             yield '1.15'
 
         JujuClientDevelFake.set_output(juju_cmd_iterator())
-        self.assertIs(JujuClientDevel, JujuClientDevelFake.by_version())
-        self.assertIs(JujuClient16, JujuClientDevelFake.by_version())
-        self.assertIs(JujuClient16, JujuClientDevelFake.by_version())
-        self.assertIs(JujuClientDevel, JujuClientDevelFake.by_version())
+        self.assertIs(JujuClientDevel, type(JujuClientDevelFake.by_version()))
+        self.assertIs(JujuClient16, type(JujuClientDevelFake.by_version()))
+        self.assertIs(JujuClient16, type(JujuClientDevelFake.by_version()))
+        client = JujuClientDevelFake.by_version()
+        self.assertIs(JujuClientDevel, type(client))
+        self.assertEqual('1.15', client.version)
 
     def test_full_args(self):
         env = Environment('foo', '')

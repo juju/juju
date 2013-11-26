@@ -53,6 +53,9 @@ class JujuClientDevel:
     # latest version is easy to read, and older versions can be trivially
     # deleted.
 
+    def __init__(self, version):
+        self.version = version
+
     @classmethod
     def get_version(cls):
         return cls.get_juju_output(None, '--version').strip()
@@ -61,9 +64,9 @@ class JujuClientDevel:
     def by_version(cls):
         version = cls.get_version()
         if version.startswith('1.16'):
-            return JujuClient16
+            return JujuClient16(version)
         else:
-            return JujuClientDevel
+            return JujuClientDevel(version)
 
     @staticmethod
     def _full_args(environment, command, sudo, args):
