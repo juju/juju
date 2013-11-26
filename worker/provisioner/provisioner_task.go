@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"fmt"
-	"sync"
 
 	"launchpad.net/tomb"
 
@@ -16,7 +15,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
-	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -42,8 +40,24 @@ type Watcher interface {
 	Changes() <-chan []string
 }
 
+type Machine interface {
+	Id() string
+	InstanceId() (instance.Id, error)
+	Constraints() (constraints.Value, error)
+	Series() (string, error)
+	String() string
+	Remove() error
+	Life() params.Life
+	EnsureDead() error
+	Status() (params.Status, string, error)
+	SetStatus(status params.Status, info string) error
+	SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error
+	SetPassword(password string) error
+	Tag() string
+}
+
 type MachineGetter interface {
-	Machine(tag string) (*apiprovisioner.Machine, error)
+	Machine(tag string) (Machine, error)
 }
 
 func NewProvisionerTask(
@@ -59,7 +73,9 @@ func NewProvisionerTask(
 		machineWatcher: watcher,
 		broker:         broker,
 		auth:           auth,
-		machines:       make(map[string]*apiprovisioner.Machine),
+		safeMode:       true,
+		safeModeChan:   make(chan bool, 1),
+		machines:       make(map[string]Machine),
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -76,13 +92,13 @@ type provisionerTask struct {
 	tomb           tomb.Tomb
 	auth           AuthenticationProvider
 
-	safeModeMutex    sync.Mutex
-	safeModeUnlocked bool
+	safeMode     bool
+	safeModeChan chan bool
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
-	machines map[string]*apiprovisioner.Machine
+	machines map[string]Machine
 }
 
 // Kill implements worker.Worker.Kill.
@@ -127,8 +143,20 @@ func (task *provisionerTask) loop() error {
 			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
 			// instances.
 			if err := task.processMachines(ids); err != nil {
-				logger.Errorf("Process machines failed: %v", err)
-				return err
+				return fmt.Errorf("failed to process updated machines: %v", err)
+			}
+		case safeMode := <-task.safeModeChan:
+			if safeMode == task.safeMode {
+				break
+			}
+			logger.Infof("safe mode changed to %v", safeMode)
+			task.safeMode = safeMode
+			if !safeMode {
+				// Safe mode has been disabled, so process current machines
+				// so that unknown machines will be immediately dealt with.
+				if err := task.processMachines(nil); err != nil {
+					return fmt.Errorf("failed to process machines after safe mode disabled: %v", err)
+				}
 			}
 		}
 	}
@@ -136,15 +164,20 @@ func (task *provisionerTask) loop() error {
 
 // SetSafeMode implemements ProvisionerTask.SetSafeMode().
 func (task *provisionerTask) SetSafeMode(safeMode bool) {
-	task.safeModeMutex.Lock()
-	defer task.safeModeMutex.Unlock()
-	task.safeModeUnlocked = safeMode
-}
-
-func (task *provisionerTask) safeMode() bool {
-	task.safeModeMutex.Lock()
-	defer task.safeModeMutex.Unlock()
-	return task.safeModeUnlocked
+	// We don't want this code to block if the provisioner
+	// task is not ready, so if the channel is full (it has a buffer
+	// size of 1), we fish the value back out and put the new
+	// one back in.
+	select {
+	case task.safeModeChan <- safeMode:
+		return
+	default:
+	}
+	select {
+	case <-task.safeModeChan:
+	default:
+	}
+	task.safeModeChan <- safeMode
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
@@ -169,7 +202,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	if err != nil {
 		return err
 	}
-	if task.safeMode() {
+	if task.safeMode {
 		logger.Infof("running in safe mode, unknown instances not stopped: %v", unknown)
 		unknown = nil
 	}
@@ -228,7 +261,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
+func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []Machine, err error) {
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
@@ -308,7 +341,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 // instancesForMachines returns a list of instance.Instance that represent
 // the list of machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForMachines(machines []*apiprovisioner.Machine) []instance.Instance {
+func (task *provisionerTask) instancesForMachines(machines []Machine) []instance.Instance {
 	var instances []instance.Instance
 	for _, machine := range machines {
 		instId, err := machine.InstanceId()
@@ -337,7 +370,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	return nil
 }
 
-func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
+func (task *provisionerTask) startMachines(machines []Machine) error {
 	for _, m := range machines {
 		if err := task.startMachine(m); err != nil {
 			return fmt.Errorf("cannot start machine %v: %v", m, err)
@@ -346,7 +379,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	return nil
 }
 
-func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
+func (task *provisionerTask) startMachine(machine Machine) error {
 	cons, err := machine.Constraints()
 	if err != nil {
 		return err
@@ -411,7 +444,7 @@ func (task *provisionerTask) possibleTools(series string, cons constraints.Value
 	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }
 
-func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cloudinit.MachineConfig, error) {
+func (task *provisionerTask) machineConfig(machine Machine) (*cloudinit.MachineConfig, error) {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
 		logger.Errorf("failed to setup authentication: %v", err)

@@ -728,3 +728,52 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	s.checkStopSomeInstances(c, []instance.Instance{i3}, []instance.Instance{i4})
 	s.waitRemoved(c, m3)
 }
+
+func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {
+	dummy := &provisionerTaskDummy{}
+	task := provisioner.NewProvisionerTask("machine-0", dummy, dummy, nil, dummy)
+	c.Assert(task.Wait(), gc.NotNil)
+	// The dummy loop has terminated; now check we can send several values.
+	for i := 0; i < 20; i++ {
+		task.SetSafeMode(i%2 == 0)
+	}
+}
+
+type provisionerTaskDummy struct{}
+
+var (
+	_ provisioner.MachineGetter = (*provisionerTaskDummy)(nil)
+	_ provisioner.Watcher       = (*provisionerTaskDummy)(nil)
+)
+
+func (p *provisionerTaskDummy) Machine(tag string) (provisioner.Machine, error) {
+	return nil, fmt.Errorf("an error")
+}
+
+func (p *provisionerTaskDummy) Err() error {
+	return fmt.Errorf("an error")
+}
+
+func (p *provisionerTaskDummy) Stop() error {
+	return fmt.Errorf("an error")
+}
+
+func (p *provisionerTaskDummy) Changes() <-chan []string {
+	c := make(chan []string)
+	close(c)
+	return c
+}
+
+func (p *provisionerTaskDummy) SetupAuthentication(machine provisioner.TaggedPasswordChanger) (*state.Info, *api.Info, error) {
+	return nil, nil, fmt.Errorf("an error")
+}
+
+func (s *ProvisionerSuite) TestReenablingSafeModeReapsUnknownInstances(c *gc.C) {
+
+}
+
+//
+//type dummyInstanceBroker struct {}
+//
+//
+//watcher returns ids of several machines

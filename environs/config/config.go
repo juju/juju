@@ -592,7 +592,6 @@ func allDefaults() schema.Defaults {
 		"firewall-mode":             FwInstance,
 		"development":               false,
 		"ssl-hostname-verification": true,
-		"provisioner-safe-mode":     false,
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
