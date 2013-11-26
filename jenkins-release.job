@@ -1,0 +1,8 @@
+#!/bin/bash
+set -eu
+if [[ ! -d new-tools ]]; then
+    mkdir -p new-tools
+fi
+$SCRIPTS/assemble-public-tools.bash $RELEASE new-tools $SIGNING_KEY
+$SCRIPTS/publish-public-tools.bash RELEASE .new-tools/juju-dist
+
