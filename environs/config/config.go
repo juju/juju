@@ -481,7 +481,8 @@ func (c *Config) LoggingConfig() string {
 // ProvisionerSafeMode returns true is the provisioner should *not*
 // destroy machines it does not know about.
 func (c *Config) ProvisionerSafeMode() bool {
-	return c.m["provisioner-safe-mode"].(bool)
+	v, _ := c.m["provisioner-safe-mode"].(bool)
+	return v
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -550,13 +551,14 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":        schema.Omit,
-	"ca-cert":              schema.Omit,
-	"authorized-keys":      schema.Omit,
-	"authorized-keys-path": schema.Omit,
-	"ca-cert-path":         schema.Omit,
-	"ca-private-key-path":  schema.Omit,
-	"logging-config":       schema.Omit,
+	"agent-version":         schema.Omit,
+	"ca-cert":               schema.Omit,
+	"authorized-keys":       schema.Omit,
+	"authorized-keys-path":  schema.Omit,
+	"ca-cert-path":          schema.Omit,
+	"ca-private-key-path":   schema.Omit,
+	"logging-config":        schema.Omit,
+	"provisioner-safe-mode": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -576,8 +578,6 @@ var alwaysOptional = schema.Defaults{
 	"state-port":  DefaultStatePort,
 	"api-port":    DefaultAPIPort,
 	"syslog-port": DefaultSyslogPort,
-	// Neither were these attributes
-	"provisioner-safe-mode": false,
 }
 
 func allowEmpty(attr string) bool {

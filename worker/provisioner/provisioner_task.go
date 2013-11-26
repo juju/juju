@@ -165,12 +165,21 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	stopping := task.instancesForMachines(dead)
 
 	// Find running instances that have no machines associated
-	var unknown []instance.Instance
-	if !task.safeMode() {
-		unknown, err = task.findUnknownInstances(stopping)
-		if err != nil {
-			return err
-		}
+	unknown, err := task.findUnknownInstances(stopping)
+	if err != nil {
+		return err
+	}
+	if task.safeMode() {
+		logger.Infof("running in safe mode, unknown instances not stopped: %v", unknown)
+		unknown = nil
+	}
+
+	// It's important that we stop unknown instances before starting
+	// pending ones, because if we start an instance and then fail to
+	// set its InstanceId on the machine we don't want to start a new
+	// instance for the same machine ID.
+	if err := task.stopInstances(append(stopping, unknown...)); err != nil {
+		return err
 	}
 
 	// Remove any dead machines from state.
@@ -180,14 +189,6 @@ func (task *provisionerTask) processMachines(ids []string) error {
 			logger.Errorf("failed to remove dead machine %q", machine)
 		}
 		delete(task.machines, machine.Id())
-	}
-
-	// It's important that we stop unknown instances before starting
-	// pending ones, because if we start an instance and then fail to
-	// set its InstanceId on the machine we don't want to start a new
-	// instance for the same machine ID.
-	if err := task.stopInstances(append(stopping, unknown...)); err != nil {
-		return err
 	}
 
 	// Start an instance for the pending ones
@@ -285,15 +286,9 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	}
 
 	for _, m := range task.machines {
-		// If a machine is dead, it is already in stopping and
-		// will be deleted from instances below. There's no need to
-		// look at instance id.
-		if m.Life() == params.Dead {
-			continue
-		}
 		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
-		} else if !params.IsCodeNotProvisioned(err) {
+		} else if !params.IsCodeNotProvisioned(err) && !params.IsCodeNotFound(err) {
 			return nil, err
 		}
 	}
