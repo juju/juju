@@ -138,7 +138,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = AuthorizeCharmRepo(repo, conf)
+	repo = charm.AuthorizeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
@@ -178,6 +179,18 @@ func (s *CharmStore) BranchLocation(curl *URL) string {
 		return fmt.Sprintf("lp:~%s/charms/%s/%s/trunk", curl.User, curl.Series, curl.Name)
 	}
 	return fmt.Sprintf("lp:charms/%s/%s", curl.Series, curl.Name)
+}
+
+// AuthorizeCharmRepo returns a repository with authentication added
+// from the specified configuration.
+func AuthorizeCharmRepo(repo Repository, cfg *config.Config) Repository {
+	// If a charm store auth token is set, pass it on to the charm store
+	if auth := cfg.CharmStoreAuth(); auth != "" {
+		if CS, isCS := repo.(*CharmStore); isCS {
+			repo = CS.WithAuthAttrs(auth)
+		}
+	}
+	return repo
 }
 
 var branchPrefixes = []string{

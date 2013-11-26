@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -129,7 +128,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = AuthorizeCharmRepo(repo, conf)
+	repo = charm.AuthorizeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.
@@ -175,16 +174,4 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		ToMachineSpec:  c.ToMachineSpec,
 	})
 	return err
-}
-
-// AuthorizeCharmRepo returns a repository with authentication added
-// from the specified configuration.
-func AuthorizeCharmRepo(repo charm.Repository, cfg *config.Config) charm.Repository {
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth := cfg.CharmStoreAuth(); auth != "" {
-		if CS, isCS := repo.(*charm.CharmStore); isCS {
-			repo = CS.WithAuthAttrs(auth)
-		}
-	}
-	return repo
 }
