@@ -300,6 +300,28 @@ class TestStatus(TestCase):
                                      '<env1> 1 is in state any-error'):
             status.check_agents_started('env1')
 
+    def test_get_agent_versions(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-version': '1.6.2'},
+                '2': {'agent-version': '1.6.1'},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/0':
+                            {'agent-version': '1.6.1'},
+                        'jenkins/1': {},
+                    },
+                }
+            }
+        })
+        self.assertEqual({
+            '1.6.2': {'1'},
+            '1.6.1': {'jenkins/0', '2'},
+            'unknown': {'jenkins/1'},
+        }, status.get_agent_versions())
+
 
 def fast_timeout(count):
     if False:

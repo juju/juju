@@ -150,6 +150,12 @@ class Status:
                 raise ErroredUnit(environment_name, entries[0],  state)
         return states
 
+    def get_agent_versions(self):
+        versions = defaultdict(set)
+        for item_name, item in self.agent_items():
+            versions[item.get('agent-version', 'unknown')].add(item_name)
+        return versions
+
 
 class Environment:
 
