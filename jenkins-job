@@ -30,47 +30,23 @@ source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
 export PACKAGE
 
 # Do the deployment for upgrade testing.
-if ! $SCRIPTS/deploy_stack.py $ENVS; then
+if ! bash <<EOT
+set -ex
+$SCRIPTS/deploy_stack.py $ENVS
+sudo dpkg -i $PACKAGE
+mkdir -p new-tools
+$SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
+$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+EOT
+then
   dump_logs
+  revert_juju
   destroy_all
   exit 1
 fi
 EXIT_STATUS=0
-# Test upgrading an existing environment
-if ! bash <<"EOT"
-  set -ex
-  sudo dpkg -i $PACKAGE
-  mkdir -p new-tools
-  $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
-  $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
-  version=$(juju --version|sed -r 's/([^-]*).*/\1/')
-  for env in $ENVS; do
-    if [ "$env" == "local" ]; then
-      extra_args="--upload-tools "
-    else
-      extra_args=""
-    fi
-    juju upgrade-juju $extra_args--show-log -e $env --version $version
-  done
-  for env in $ENVS; do
-    if [ "$env" == "local" ]; then
-      full_version="$version.1"
-    else
-      full_version="$version"
-    fi
-    $SCRIPTS/wait_for_agent_update.py $env $full_version
-  done
-EOT
-then
-  EXIT_STATUS=1
-else
-  # Test deploying on the new version
-  destroy_all
-  sleep 5
-  if ! $SCRIPTS/deploy_stack.py $ENVS; then
-    EXIT_STATUS=1
-  fi
-fi
+
+$SCRIPTS/test-new-version || EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi

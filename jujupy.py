@@ -53,6 +53,9 @@ class JujuClientDevel:
     # latest version is easy to read, and older versions can be trivially
     # deleted.
 
+    def __init__(self, version):
+        self.version = version
+
     @classmethod
     def get_version(cls):
         return cls.get_juju_output(None, '--version').strip()
@@ -61,9 +64,9 @@ class JujuClientDevel:
     def by_version(cls):
         version = cls.get_version()
         if version.startswith('1.16'):
-            return JujuClient16
+            return JujuClient16(version)
         else:
-            return JujuClientDevel
+            return JujuClientDevel(version)
 
     @staticmethod
     def _full_args(environment, command, sudo, args):
@@ -150,6 +153,12 @@ class Status:
                 raise ErroredUnit(environment_name, entries[0],  state)
         return states
 
+    def get_agent_versions(self):
+        versions = defaultdict(set)
+        for item_name, item in self.agent_items():
+            versions[item.get('agent-version', 'unknown')].add(item_name)
+        return versions
+
 
 class Environment:
 
@@ -158,9 +167,10 @@ class Environment:
         if client is None:
             client = JujuClientDevel.by_version()
         self.client = client
+        self.local = bool(self.environment == 'local')
 
     def needs_sudo(self):
-        return bool(self.environment == 'local')
+        return self.local
 
     def bootstrap(self):
         return self.client.bootstrap(self)
@@ -187,6 +197,22 @@ class Environment:
             raise Exception('Timed out waiting for agents to start in %s.' %
                             self.environment)
         return status
+
+    def wait_for_version(self, version):
+        for ignored in until_timeout(300):
+            versions = self.get_status().get_agent_versions()
+            if versions.keys() == [version]:
+                break
+            print format_listing(versions, version, self.environment)
+            sys.stdout.flush()
+        else:
+            raise Exception('Some versions did not update.')
+
+    def get_matching_agent_version(self):
+        version_number = self.client.version.split('-')[0]
+        if self.local:
+            version_number += '.1'
+        return version_number
 
 
 def format_listing(listing, expected, environment):
