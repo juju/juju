@@ -36,7 +36,7 @@ $SCRIPTS/deploy_stack.py $ENVS
 sudo dpkg -i $PACKAGE
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
-$SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
+$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
 EOT
 then
   dump_logs
