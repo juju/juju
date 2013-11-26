@@ -167,9 +167,10 @@ class Environment:
         if client is None:
             client = JujuClientDevel.by_version()
         self.client = client
+        self.local = bool(self.environment == 'local')
 
     def needs_sudo(self):
-        return bool(self.environment == 'local')
+        return self.local
 
     def bootstrap(self):
         return self.client.bootstrap(self)
@@ -208,7 +209,10 @@ class Environment:
             raise Exception('Some versions did not update.')
 
     def get_matching_agent_version(self):
-        return self.client.version.split('-')[0]
+        version_number = self.client.version.split('-')[0]
+        if self.local:
+            version_number += '.1'
+        return version_number
 
 
 def format_listing(listing, expected, environment):
