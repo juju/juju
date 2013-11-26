@@ -197,20 +197,35 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 
 // checkStopInstances checks that an instance has been stopped.
 func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instance.Instance) {
+	s.checkStopSomeInstances(c, instances, nil)
+}
+
+// checkStopSomeInstances checks that instancesToStop are stopped while instancesToKeep are not.
+func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
+	instancesToStop []instance.Instance, instancesToKeep []instance.Instance) {
+
 	s.BackingState.StartSync()
-	instanceIds := set.NewStrings()
-	for _, instance := range instances {
-		instanceIds.Add(string(instance.Id()))
+	instanceIdsToStop := set.NewStrings()
+	for _, instance := range instancesToStop {
+		instanceIdsToStop.Add(string(instance.Id()))
+	}
+	instanceIdsToKeep := set.NewStrings()
+	for _, instance := range instancesToKeep {
+		instanceIdsToKeep.Add(string(instance.Id()))
 	}
 	// Continue checking for stop instance calls until all the instances we
 	// are waiting on to finish, actually finish, or we time out.
-	for !instanceIds.IsEmpty() {
+	for !instanceIdsToStop.IsEmpty() {
 		select {
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStopInstances:
 				for _, stoppedInstance := range o.Instances {
-					instanceIds.Remove(string(stoppedInstance.Id()))
+					instId := string(stoppedInstance.Id())
+					instanceIdsToStop.Remove(instId)
+					if instanceIdsToKeep.Contains(instId) {
+						c.Errorf("provisioner unexpectedly stopped instance %s", instId)
+					}
 				}
 			default:
 				c.Fatalf("unexpected operation %#v", o)
@@ -603,4 +618,42 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 
 	// the PA should create it using the new environment
 	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints)
+}
+
+func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// create a machine
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+
+	// create a second machine
+	m1, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i1 := s.checkStartInstance(c, m1)
+	stop(c, p)
+
+	// mark the first machine as dead
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// remove the second machine entirely from state
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+	c.Assert(m1.Remove(), gc.IsNil)
+
+	// turn on safe mode
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	attrs := cfg.AllAttrs()
+	attrs["provisioner-safe-mode"] = true
+	cfg, err = config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+
+	// start a new provisioner to shut down only the machine still in state.
+	p = s.newEnvironProvisioner(c)
+	defer stop(c, p)
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitRemoved(c, m0)
 }

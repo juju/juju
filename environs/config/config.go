@@ -478,6 +478,12 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// ProvisionerSafeMode returns true is the provisioner should *not*
+// destroy machines it does not know about.
+func (c *Config) ProvisionerSafeMode() bool {
+	return c.m["provisioner-safe-mode"].(bool)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -529,6 +535,7 @@ var fields = schema.Fields{
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
 	"logging-config":            schema.String(),
+	"provisioner-safe-mode":     schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -569,6 +576,8 @@ var alwaysOptional = schema.Defaults{
 	"state-port":  DefaultStatePort,
 	"api-port":    DefaultAPIPort,
 	"syslog-port": DefaultSyslogPort,
+	// Neither were these attributes
+	"provisioner-safe-mode": false,
 }
 
 func allowEmpty(attr string) bool {
@@ -583,6 +592,7 @@ func allDefaults() schema.Defaults {
 		"firewall-mode":             FwInstance,
 		"development":               false,
 		"ssl-hostname-verification": true,
+		"provisioner-safe-mode":     false,
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,

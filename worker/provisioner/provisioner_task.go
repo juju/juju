@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"sync"
 
 	"launchpad.net/tomb"
 
@@ -27,6 +28,10 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
+
+	// SetSafeMode sets a flag to indicate whether the provisioner task
+	// runs in safe mode or not.
+	SetSafeMode(safeMode bool)
 }
 
 type Watcher interface {
@@ -62,12 +67,13 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag     string
-	machineGetter  MachineGetter
-	machineWatcher Watcher
-	broker         environs.InstanceBroker
-	tomb           tomb.Tomb
-	auth           AuthenticationProvider
+	machineTag       string
+	machineGetter    MachineGetter
+	machineWatcher   Watcher
+	broker           environs.InstanceBroker
+	tomb             tomb.Tomb
+	auth             AuthenticationProvider
+	safeModeUnlocked bool
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
@@ -124,6 +130,20 @@ func (task *provisionerTask) loop() error {
 	}
 }
 
+var safeModeMutex sync.Mutex
+
+func (task *provisionerTask) SetSafeMode(safeMode bool) {
+	safeModeMutex.Lock()
+	defer safeModeMutex.Unlock()
+	task.safeModeUnlocked = safeMode
+}
+
+func (task *provisionerTask) safeMode() bool {
+	safeModeMutex.Lock()
+	defer safeModeMutex.Unlock()
+	return task.safeModeUnlocked
+}
+
 func (task *provisionerTask) processMachines(ids []string) error {
 	logger.Tracef("processMachines(%v)", ids)
 	// Populate the tasks maps of current instances and machines.
@@ -142,9 +162,21 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	stopping := task.instancesForMachines(dead)
 
 	// Find running instances that have no machines associated
-	unknown, err := task.findUnknownInstances(stopping)
-	if err != nil {
-		return err
+	var unknown []instance.Instance
+	if !task.safeMode() {
+		unknown, err = task.findUnknownInstances(stopping)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Remove any dead machines from state.
+	for _, machine := range dead {
+		logger.Infof("removing dead machine %q", machine)
+		if err := machine.Remove(); err != nil {
+			logger.Errorf("failed to remove dead machine %q", machine)
+		}
+		delete(task.machines, machine.Id())
 	}
 
 	// It's important that we stop unknown instances before starting
@@ -190,7 +222,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	return nil
 }
 
-// pendingOrDead looks up machines with ids and retuns those that do not
+// pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
 func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
 	for _, id := range ids {
@@ -215,13 +247,6 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			fallthrough
 		case params.Dead:
 			dead = append(dead, machine)
-			logger.Infof("removing dead machine %q", machine)
-			if err := machine.Remove(); err != nil {
-				logger.Errorf("failed to remove dead machine %q", machine)
-				return nil, nil, err
-			}
-			// now remove it from the machines map
-			delete(task.machines, machine.Id())
 			continue
 		}
 		if instId, err := machine.InstanceId(); err != nil {
@@ -257,20 +282,25 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	}
 
 	for _, m := range task.machines {
+		// If a machine is dead, it won't have an instance Id
+		// and it will be included in the stopping set anyway.
+		if m.Life() == params.Dead {
+			continue
+		}
 		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
 		} else if !params.IsCodeNotProvisioned(err) {
 			return nil, err
 		}
 	}
-	// Now remove all those instances that we are stopping already, as they
-	// have been removed from the task.machines map.
-	for _, i := range stopping {
-		delete(instances, i.Id())
+	// Now remove all those instances that we are stopping already as we
+	// know about those and don't want to include them in the unknown list.
+	for _, inst := range stopping {
+		delete(instances, inst.Id())
 	}
 	var unknown []instance.Instance
-	for _, i := range instances {
-		unknown = append(unknown, i)
+	for _, inst := range instances {
+		unknown = append(unknown, inst)
 	}
 	logger.Tracef("unknown: %v", unknown)
 	return unknown, nil

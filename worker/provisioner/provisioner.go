@@ -154,6 +154,7 @@ func (p *environProvisioner) loop() error {
 		return err
 	}
 	defer watcher.Stop(task, &p.tomb)
+	task.SetSafeMode(p.environ.Config().ProvisionerSafeMode())
 
 	for {
 		select {
@@ -167,14 +168,15 @@ func (p *environProvisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			config, err := p.st.EnvironConfig()
+			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
 				logger.Errorf("cannot load environment configuration: %v", err)
 				return err
 			}
-			if err := p.setConfig(config); err != nil {
+			if err := p.setConfig(environConfig); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
+			task.SetSafeMode(environConfig.ProvisionerSafeMode())
 		}
 	}
 }
@@ -185,11 +187,11 @@ func (p *environProvisioner) getWatcher() (Watcher, error) {
 
 // setConfig updates the environment configuration and notifies
 // the config observer.
-func (p *environProvisioner) setConfig(config *config.Config) error {
-	if err := p.environ.SetConfig(config); err != nil {
+func (p *environProvisioner) setConfig(environConfig *config.Config) error {
+	if err := p.environ.SetConfig(environConfig); err != nil {
 		return err
 	}
-	p.configObserver.notify(config)
+	p.configObserver.notify(environConfig)
 	return nil
 }
 
