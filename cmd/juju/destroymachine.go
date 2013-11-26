@@ -115,6 +115,8 @@ func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 	}
 	// Juju 1.16.3 and older did not have DestroyMachines as an API command.
 	if rpc.IsNoSuchRequest(err) {
+		logger.Infof("DestroyMachines not supported by the API server, " +
+			"falling back to <=1.16.3 compatibility")
 		return c.run1dot16()
 	}
 	return err
