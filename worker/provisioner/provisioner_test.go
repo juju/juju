@@ -657,3 +657,74 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
 	s.waitRemoved(c, m0)
 }
+
+func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// First check that safe mode is initially off.
+
+	// create a machine
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+
+	// create a second machine
+	m1, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i1 := s.checkStartInstance(c, m1)
+
+	// mark the first machine as dead
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// remove the second machine entirely from state
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+	c.Assert(m1.Remove(), gc.IsNil)
+
+	s.checkStopInstances(c, i0, i1)
+	s.waitRemoved(c, m0)
+
+	// insert our observer
+	cfgObserver := make(chan *config.Config, 1)
+	provisioner.SetObserver(p, cfgObserver)
+
+	// turn on safe mode
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	attrs := cfg.AllAttrs()
+	attrs["provisioner-safe-mode"] = true
+	cfg, err = config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(cfg)
+
+	s.BackingState.StartSync()
+
+	// wait for the PA to load the new configuration
+	select {
+	case <-cfgObserver:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("PA did not action config change")
+	}
+
+	// Now check that the provisioner has noticed safe mode is on.
+
+	// create a machine
+	m3, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i3 := s.checkStartInstance(c, m3)
+
+	// create a second machine
+	m4, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i4 := s.checkStartInstance(c, m4)
+
+	// mark the first machine as dead
+	c.Assert(m3.EnsureDead(), gc.IsNil)
+
+	// remove the second machine entirely from state
+	c.Assert(m4.EnsureDead(), gc.IsNil)
+	c.Assert(m4.Remove(), gc.IsNil)
+
+	s.checkStopSomeInstances(c, []instance.Instance{i3}, []instance.Instance{i4})
+	s.waitRemoved(c, m3)
+}
