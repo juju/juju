@@ -1,0 +1,44 @@
+#!/bin/bash
+destroy_all(){
+  for env in $ENVS; do
+    $SCRIPTS/destroy-environment $env
+  done
+}
+
+EXIT_STATUS=0
+# Test upgrading an existing environment
+if ! bash <<"EOT"
+  set -ex
+  sudo dpkg -i $PACKAGE
+  mkdir -p new-tools
+  $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
+  $SCRIPTS/publish-public-tools.bash TESTING ./juju-dist-testing
+  version=$(juju --version|sed -r 's/([^-]*).*/\1/')
+  for env in $ENVS; do
+    if [ "$env" == "local" ]; then
+      extra_args="--upload-tools "
+    else
+      extra_args=""
+    fi
+    juju upgrade-juju $extra_args--show-log -e $env --version $version
+  done
+  for env in $ENVS; do
+    if [ "$env" == "local" ]; then
+      full_version="$version.1"
+    else
+      full_version="$version"
+    fi
+    $SCRIPTS/wait_for_agent_update.py $env $full_version
+  done
+EOT
+then
+  EXIT_STATUS=1
+else
+  # Test deploying on the new version
+  destroy_all
+  sleep 5
+  if ! $SCRIPTS/deploy_stack.py $ENVS; then
+    EXIT_STATUS=1
+  fi
+fi
+exit $EXIT_STATUS
