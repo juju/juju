@@ -1,11 +1,6 @@
 #!/bin/bash
 set -eu
 CURRENT_JUJU_CORE="juju-core=$(apt-cache madison juju-core|grep 'ppa.launchpad.net/juju/stable/ubuntu/ .* Packages'|sed -r 's/.*juju-core \| *([^ ]*) .*/\1/')"
-destroy_all(){
-  for env in $ENVS; do
-    $SCRIPTS/destroy-environment $env
-  done
-}
 dump_logs(){
   artifacts_path=$WORKSPACE/artifacts
   mkdir -p $artifacts_path
@@ -22,13 +17,13 @@ revert_juju(){
 set -x
 # Try to ensure a clean environment
 revert_juju
-destroy_all
+$SCRIPTS/destroy-environment $ENVS
 $SCRIPTS/prepare-new-version
 
 # Do the deployment for upgrade testing.
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
-  destroy_all
+  $SCRIPTS/destroy-environment $ENVS
   exit 1
 fi
 EXIT_STATUS=0
@@ -38,5 +33,5 @@ if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi
 revert_juju
-destroy_all
+$SCRIPTS/destroy-environment $ENVS
 exit $EXIT_STATUS
