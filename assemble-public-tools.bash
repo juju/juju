@@ -179,7 +179,7 @@ extract_new_juju() {
     # to generic ubuntu.
     echo "Phase 5.1: Using juju from a downloaded deb."
     if [[ $IS_TESTING == "true" ]]; then
-        juju_core=$HERE/$RELEASE
+        juju_core=$RELEASE
     else
         juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
         juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
@@ -300,6 +300,9 @@ RELEASE=$1
 IS_TESTING="false"
 if [[ -f "$RELEASE" ]]; then
     IS_TESTING="true"
+fi
+if [[ "$RELEASE" != /* ]]; then
+    RELEASE=$HERE/$RELEASE
 fi
 DESTINATION=$(cd $2; pwd)
 DEST_DEBS="${DESTINATION}/debs"
