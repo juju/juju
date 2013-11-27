@@ -1,8 +1,9 @@
 #!/bin/bash
+set -eux
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
-  set -ex
+  set -eux
   sudo dpkg -i $PACKAGE
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
