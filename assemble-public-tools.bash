@@ -182,9 +182,8 @@ extract_new_juju() {
     if [[ $juju_core == "" ]]; then
         juju_core=$(echo "$juju_cores" | head -1)
     fi
-    juju_path=$(mktemp -d)
-    dpkg-deb -x $juju_core $juju_path/
-    JUJU_EXEC=$(find $juju_path -name 'juju' | grep bin/juju)
+    dpkg-deb -x $juju_core $JUJU_PATH/
+    JUJU_EXEC=$(find $JUJU_PATH -name 'juju' | grep bin/juju)
 }
 
 
