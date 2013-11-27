@@ -547,7 +547,7 @@ func authTokenConfigTest(token string, ok bool) configTest {
 	if ok {
 		testName = fmt.Sprintf("Valid auth token test: %q", token)
 	} else {
-		testName = fmt.Sprintf("Valid auth token test: %q", token)
+		testName = fmt.Sprintf("Invalid auth token test: %q", token)
 		err = fmt.Sprintf("charm store auth token needs to be a set of key-value pairs, not %q", token)
 	}
 
