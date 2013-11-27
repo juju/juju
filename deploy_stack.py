@@ -2,7 +2,11 @@
 __metaclass__ = type
 
 
-from jujupy import Environment, check_wordpress
+from jujupy import (
+    check_wordpress,
+    Environment,
+    until_timeout,
+)
 
 import sys
 
