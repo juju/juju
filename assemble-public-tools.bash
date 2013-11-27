@@ -173,8 +173,8 @@ archive_tools() {
 }
 
 
-install_new_juju() {
-    # Install a juju-core that was found in the archives to run sync-tools.
+extract_new_juju() {
+    # Extract a juju-core that was found in the archives to run sync-tools.
     # Match by release version and arch, prefer exact series, but fall back
     # to generic ubuntu.
     echo "Phase 5.1: Using juju from a downloaded deb."
@@ -189,18 +189,13 @@ install_new_juju() {
 }
 
 
-uninstal_new_juju() {
-    # Uninstall the new juju-core; possibly reinstall the previous version.
-    rm -r $juju_path
-}
-
 
 generate_streams() {
     # Create the streams metadata and organised the tree for later publication.
     echo "Phase 5: Generating streams data."
     cd $DESTINATION
-    if [[ $NEEDS_JUJU == "true" ]]; then
-        install_new_juju
+    if [[ $RELEASE != "IGNORE" ]]; then
+        extract_new_juju
     fi
     # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
     # incompatibility
@@ -210,9 +205,6 @@ generate_streams() {
         --source=${DESTINATION} --destination=${DEST_DIST}; then
         $JUJU_EXEC sync-tools --all --dev \
             --source=${DESTINATION} --local-dir=${DEST_DIST}
-    fi
-    if [[ $NEEDS_JUJU == "true" ]]; then
-        uninstal_new_juju
     fi
     # Support old tools location so that deployments can upgrade to new tools.
     if [[ $IS_TESTING == "false" ]]; then
@@ -259,6 +251,7 @@ cleanup() {
             rm $tool
         done
     fi
+    rm -r $JUJU_PATH
 }
 
 
@@ -327,10 +320,10 @@ fi
 
 
 PACKAGES=""
+JUJU_PATH=$(mktemp -d)
 JUJU_EXEC=$(which juju)
 ARCH=$(dpkg --print-architecture)
 source /etc/lsb-release
-NEEDS_JUJU=$([[ $SIGNING_KEY != "" && $RELEASE != "IGNORE" ]] && echo "true")
 
 check_deps
 build_tool_tree
