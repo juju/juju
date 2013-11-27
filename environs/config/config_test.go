@@ -420,6 +420,31 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
+		about:       "provisioner-safe-mode off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"provisioner-safe-mode": false,
+		},
+	}, {
+		about:       "provisioner-safe-mode on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"provisioner-safe-mode": true,
+		},
+	}, {
+		about:       "provisioner-safe-mode incorrect",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"provisioner-safe-mode": "yes please",
+		},
+		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
+	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -771,6 +796,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
+	if v, ok := test.attrs["provisioner-safe-mode"]; ok {
+		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
+	}
+
 	if v, ok := test.attrs["logging-config"]; ok {
 		c.Assert(cfg.LoggingConfig(), gc.Equals, v)
 	} else {
@@ -817,6 +848,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
 		"development":               false,
+		"provisioner-safe-mode":     false,
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
