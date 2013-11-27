@@ -5,7 +5,6 @@ package rpc
 
 import (
 	"errors"
-	"strings"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
@@ -163,11 +162,4 @@ func (conn *Conn) Go(objType, id, request string, args, response interface{}, do
 	}
 	conn.send(call)
 	return call
-}
-
-func IsNoSuchRequest(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.HasPrefix(err.Error(), "no such request ")
 }

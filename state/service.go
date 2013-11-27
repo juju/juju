@@ -718,18 +718,14 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	return serviceRelations(s.st, s.doc.Name)
-}
-
-func serviceRelations(st *State, name string) (relations []*Relation, err error) {
-	defer utils.ErrorContextf(&err, "can't get relations for service %q", name)
+	defer utils.ErrorContextf(&err, "can't get relations for service %q", s)
 	docs := []relationDoc{}
-	err = st.relations.Find(D{{"endpoints.servicename", name}}).All(&docs)
+	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range docs {
-		relations = append(relations, newRelation(st, &v))
+		relations = append(relations, newRelation(s.st, &v))
 	}
 	return relations, nil
 }
