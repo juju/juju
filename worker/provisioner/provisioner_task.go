@@ -63,6 +63,7 @@ type MachineGetter interface {
 
 func NewProvisionerTask(
 	machineTag string,
+	safeMode bool,
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker environs.InstanceBroker,
@@ -74,7 +75,7 @@ func NewProvisionerTask(
 		machineWatcher: watcher,
 		broker:         broker,
 		auth:           auth,
-		safeMode:       false,
+		safeMode:       safeMode,
 		safeModeChan:   make(chan bool, 1),
 		machines:       make(map[string]Machine),
 	}

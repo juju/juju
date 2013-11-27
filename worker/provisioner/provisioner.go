@@ -94,7 +94,7 @@ func (p *provisioner) Stop() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask() (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	auth, err := NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
@@ -107,6 +107,7 @@ func (p *provisioner) getStartTask() (ProvisionerTask, error) {
 	}
 	task := NewProvisionerTask(
 		p.agentConfig.Tag(),
+		safeMode,
 		stateMachineGetter{p.st},
 		machineWatcher,
 		p.broker,
@@ -146,7 +147,6 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 }
 
 func (p *environProvisioner) loop() error {
-	// Only wait for the environment if we are an environmental provisioner.
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
@@ -161,12 +161,12 @@ func (p *environProvisioner) loop() error {
 	}
 	p.broker = p.environ
 
-	task, err := p.getStartTask()
+	safeMode := p.environ.Config().ProvisionerSafeMode()
+	task, err := p.getStartTask(safeMode)
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(task, &p.tomb)
-	task.SetSafeMode(p.environ.Config().ProvisionerSafeMode())
 
 	for {
 		select {
@@ -231,7 +231,7 @@ func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovis
 }
 
 func (p *containerProvisioner) loop() error {
-	task, err := p.getStartTask()
+	task, err := p.getStartTask(false)
 	if err != nil {
 		return err
 	}

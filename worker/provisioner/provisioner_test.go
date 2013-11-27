@@ -729,13 +729,13 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	s.waitRemoved(c, m3)
 }
 
-func (s *ProvisionerSuite) newProvisionerTask(c *gc.C) provisioner.ProvisionerTask {
+func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisioner.ProvisionerTask {
 	env := s.APIConn.Environ
 	watcher, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
 	auth, err := provisioner.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
-	return provisioner.NewProvisionerTask("machine-0", s, watcher, env, auth)
+	return provisioner.NewProvisionerTask("machine-0", safeMode, s, watcher, env, auth)
 }
 
 // Machine is specified on the provisioner.MachineGetter interface.
@@ -748,7 +748,7 @@ func (s *ProvisionerSuite) Machine(id string) (provisioner.Machine, error) {
 }
 
 func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {
-	task := s.newProvisionerTask(c)
+	task := s.newProvisionerTask(c, false)
 	defer stop(c, task)
 	// The dummy loop has terminated; now check we can send several values.
 	for i := 0; i < 20; i++ {
@@ -757,11 +757,10 @@ func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c)
+	task := s.newProvisionerTask(c, true)
 	defer stop(c, task)
 
-	// Initially turn on safe mode and create some machines.
-	task.SetSafeMode(true)
+	// Initially create some machines with safe mode on.
 	m0, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 	i0 := s.checkStartInstance(c, m0)
