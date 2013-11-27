@@ -40,6 +40,7 @@ type Watcher interface {
 	Changes() <-chan []string
 }
 
+// Machine provides access to a subset of methods on state.api.provisioner.Machine
 type Machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)

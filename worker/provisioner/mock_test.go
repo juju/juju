@@ -18,40 +18,42 @@ import (
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
-// This file contains stub implementations of interfaces required
-// by NewProvisionerTask.
+// This file contains stub implementations of interfaces required by NewProvisionerTask.
 
 var (
-	_ provisioner.MachineGetter          = (machineGetter)(nil)
-	_ provisioner.Watcher                = (*watcher)(nil)
-	_ provisioner.Machine                = (*machine)(nil)
-	_ environs.InstanceBroker            = (*instanceBroker)(nil)
-	_ provisioner.AuthenticationProvider = (*authenticationProvider)(nil)
+	_ provisioner.MachineGetter          = (mockMachineGetter)(nil)
+	_ provisioner.Watcher                = (*mockWatcher)(nil)
+	_ provisioner.Machine                = (*mockMachine)(nil)
+	_ environs.InstanceBroker            = (*mockInstanceBroker)(nil)
+	_ provisioner.AuthenticationProvider = (*mockAuthenticationProvider)(nil)
 )
 
-type machineGetter func(tag string) (provisioner.Machine, error)
+type mockMachineGetter func(tag string) (provisioner.Machine, error)
 
-func (g machineGetter) Machine(tag string) (provisioner.Machine, error) {
+func (g mockMachineGetter) Machine(tag string) (provisioner.Machine, error) {
 	return g(tag)
 }
 
-type watcher struct {
+type mockWatcher struct {
 	changes chan []string
 }
 
-func (w *watcher) Err() error {
-	return nil
+func (w *mockWatcher) Err() error {
+	return fmt.Errorf("an error")
 }
 
-func (w *watcher) Stop() error {
-	return nil
+func (w *mockWatcher) Stop() error {
+	return fmt.Errorf("an error")
 }
 
-func (w *watcher) Changes() <-chan []string {
-	return w.changes
+func (w *mockWatcher) Changes() <-chan []string {
+//	return w.changes
+	c := make(chan []string)
+	close(c)
+	return c
 }
 
-type machine struct {
+type mockMachine struct {
 	id         string
 	instanceId instance.Id
 	life       params.Life
@@ -59,73 +61,72 @@ type machine struct {
 	remove     func(id string) error
 }
 
-func (m *machine) Id() string {
+func (m *mockMachine) Id() string {
 	return m.id
 }
 
-func (m *machine) InstanceId() (instance.Id, error) {
+func (m *mockMachine) InstanceId() (instance.Id, error) {
 	return m.instanceId, nil
 }
 
-func (m *machine) Constraints() (constraints.Value, error) {
+func (m *mockMachine) Constraints() (constraints.Value, error) {
 	return constraints.Value{}, nil
 }
 
-func (m *machine) Series() (string, error) {
+func (m *mockMachine) Series() (string, error) {
 	return "series", nil
 }
 
-func (m *machine) String() string {
+func (m *mockMachine) String() string {
 	return m.id
 }
 
-func (m *machine) Remove() error {
+func (m *mockMachine) Remove() error {
 	if m.remove == nil {
 		return nil
 	}
 	return m.remove(m.id)
 }
 
-func (m *machine) Life() params.Life {
+func (m *mockMachine) Life() params.Life {
 	return m.life
 }
 
-func (m *machine) EnsureDead() error {
+func (m *mockMachine) EnsureDead() error {
 	m.life = params.Dead
 	return nil
 }
 
-func (m *machine) Status() (params.Status, string, error) {
+func (m *mockMachine) Status() (params.Status, string, error) {
 	return params.StatusPending, "", nil
 }
 
-func (m *machine) SetStatus(status params.Status, info string) error {
+func (m *mockMachine) SetStatus(status params.Status, info string) error {
 	return nil
 }
 
-func (m *machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {
+func (m *mockMachine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {
 	return nil
 }
 
-func (m *machine) SetPassword(password string) error {
+func (m *mockMachine) SetPassword(password string) error {
 	return nil
 }
 
-func (m *machine) Tag() string {
+func (m *mockMachine) Tag() string {
 	return "machine-" + m.id
 }
 
-type instanceBroker struct {
-	startInstance func(
-		cons constraints.Value, possibleTools tools.List,
-		machineConfig *cloudinit.MachineConfig,
-	) (instance.Instance, *instance.HardwareCharacteristics, error)
+type mockInstanceBroker struct {
+	startInstance func(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+
 	stopInstances func([]instance.Instance) error
 	allInstances  func() ([]instance.Instance, error)
 }
 
-func (b *instanceBroker) StartInstance(
-	cons constraints.Value, possibleTools tools.List,
+func (b *mockInstanceBroker) StartInstance(
+cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	if b.startInstance == nil {
@@ -134,41 +135,37 @@ func (b *instanceBroker) StartInstance(
 	return b.startInstance(cons, possibleTools, machineConfig)
 }
 
-func (b *instanceBroker) StopInstances(insts []instance.Instance) error {
+func (b *mockInstanceBroker) StopInstances(insts []instance.Instance) error {
 	if b.stopInstances == nil {
 		return nil
 	}
 	return b.stopInstances(insts)
 }
 
-func (b *instanceBroker) AllInstances() ([]instance.Instance, error) {
+func (b *mockInstanceBroker) AllInstances() ([]instance.Instance, error) {
 	if b.allInstances == nil {
 		return nil, nil
 	}
 	return b.allInstances()
 }
 
-type AuthenticationProvider interface {
-	SetupAuthentication(machine provisioner.TaggedPasswordChanger) (*state.Info, *api.Info, error)
+type mockAuthenticationProvider struct {
 }
 
-type authenticationProvider struct {
-}
-
-func (p *authenticationProvider) SetupAuthentication(machine provisioner.TaggedPasswordChanger) (*state.Info, *api.Info, error) {
+func (p *mockAuthenticationProvider) SetupAuthentication(machine provisioner.TaggedPasswordChanger) (*state.Info, *api.Info, error) {
 	password, err := utils.RandomPassword()
 	if err != nil {
 		panic(fmt.Errorf("random password failed: %v", err))
 	}
 	return &state.Info{
-			Addrs:    []string{"0.1.2.3:123"},
-			CACert:   []byte("cert"),
-			Tag:      machine.Tag(),
-			Password: password,
-		}, &api.Info{
-			Addrs:    []string{"0.1.2.3:124"},
-			CACert:   []byte("cert"),
-			Tag:      machine.Tag(),
-			Password: password,
-		}, nil
+		Addrs:    []string{"0.1.2.3:123"},
+		CACert:   []byte("cert"),
+		Tag:      machine.Tag(),
+		Password: password,
+	}, &api.Info{
+		Addrs:    []string{"0.1.2.3:124"},
+		CACert:   []byte("cert"),
+		Tag:      machine.Tag(),
+		Password: password,
+	}, nil
 }
