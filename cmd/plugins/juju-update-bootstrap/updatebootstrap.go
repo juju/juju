@@ -79,7 +79,7 @@ do
 	fi
 	initctl start jujud-$agent
 done
-sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+)$/\1'$ADDR'\3/' /etc/rsyslog.d/*-juju*.conf
+sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+.*)$/\1'$ADDR'\3/' /etc/rsyslog.d/*-juju*.conf
 `
 
 // renderScriptArg generates an ssh script argument to update state addresses
@@ -121,7 +121,7 @@ func updateAllMachines(conn *juju.Conn, stateAddr string) error {
 	for _, machine := range machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machine.IsManager() {
+		if machine.IsManager() || machine.Life() != state.Alive {
 			continue
 		}
 		pendingMachineCount += 1
