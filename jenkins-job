@@ -34,6 +34,7 @@ export PACKAGE
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
 $SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+ln -s $PACKAGE $WORKSPACE/new-version.deb
 
 # Do the deployment for upgrade testing.
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
@@ -43,7 +44,7 @@ if ! $SCRIPTS/deploy_stack.py $ENVS; then
 fi
 EXIT_STATUS=0
 
-$SCRIPTS/test-new-version || EXIT_STATUS=$?
+PACKAGE=$WORKSPACE/new-version.deb $SCRIPTS/test-new-version || EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi
