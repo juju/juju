@@ -177,10 +177,14 @@ extract_new_juju() {
     # Match by release version and arch, prefer exact series, but fall back
     # to generic ubuntu.
     echo "Phase 5.1: Using juju from a downloaded deb."
-    juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
-    juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
-    if [[ $juju_core == "" ]]; then
-        juju_core=$(echo "$juju_cores" | head -1)
+    if [[ $IS_TESTING == "true" ]]; then
+        $juju_core=$RELEASE
+    else
+        juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
+        juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
+        if [[ $juju_core == "" ]]; then
+            juju_core=$(echo "$juju_cores" | head -1)
+        fi
     fi
     dpkg-deb -x $juju_core $JUJU_PATH/
     JUJU_EXEC=$(find $JUJU_PATH -name 'juju' | grep bin/juju)
@@ -198,7 +202,7 @@ generate_streams() {
     # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
     # incompatibility
     juju_version=$($JUJU_EXEC --version)
-    echo "Using installed juju: $juju_version"
+    echo "Using juju: $juju_version"
     if ! $JUJU_EXEC sync-tools --all --dev \
         --source=${DESTINATION} --destination=${DEST_DIST}; then
         $JUJU_EXEC sync-tools --all --dev \
