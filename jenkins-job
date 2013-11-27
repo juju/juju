@@ -27,6 +27,8 @@ destroy_all
 source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
 source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
     'Curtis Hovey <curtis.hovey@canonical.com>'
+# Now that we aren't sourcing credentials, it's safe to enable command echo.
+set -x
 export PACKAGE
 
 # Do the deployment for upgrade testing.
