@@ -729,18 +729,58 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	s.waitRemoved(c, m3)
 }
 
-func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {
-	var getter mockMachineGetter = func(tag string) (provisioner.Machine, error){
-		return nil, fmt.Errorf("an error")
+func (s *ProvisionerSuite) newProvisionerTask(c *gc.C) provisioner.ProvisionerTask {
+	env := s.APIConn.Environ
+	watcher, err := s.provisioner.WatchEnvironMachines()
+	c.Assert(err, gc.IsNil)
+	auth, err := provisioner.NewAPIAuthenticator(s.provisioner)
+	c.Assert(err, gc.IsNil)
+	return provisioner.NewProvisionerTask("machine-0", s, watcher, env, auth)
+}
+
+// Machine is specified on the provisioner.MachineGetter interface.
+func (s *ProvisionerSuite) Machine(id string) (provisioner.Machine, error) {
+	m, err := s.provisioner.Machine(id)
+	if err != nil {
+		return nil, err
 	}
-	task := provisioner.NewProvisionerTask("machine-0", getter, &mockWatcher{}, nil, &mockAuthenticationProvider{})
-	c.Assert(task.Wait(), gc.NotNil)
+	return m, err
+}
+
+func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {
+	task := s.newProvisionerTask(c)
+	defer stop(c, task)
 	// The dummy loop has terminated; now check we can send several values.
 	for i := 0; i < 20; i++ {
 		task.SetSafeMode(i%2 == 0)
 	}
 }
 
-func (s *ProvisionerSuite) TestReenablingSafeModeReapsUnknownInstances(c *gc.C) {
+func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
+	task := s.newProvisionerTask(c)
+	defer stop(c, task)
 
+	// Initially turn on safe mode and create some machines.
+	task.SetSafeMode(true)
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+	m1, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i1 := s.checkStartInstance(c, m1)
+
+	// mark the first machine as dead
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// remove the second machine entirely from state
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+	c.Assert(m1.Remove(), gc.IsNil)
+
+	// with safe mode on, only one of the machines is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitRemoved(c, m0)
+
+	// turn off safe mode and check that the other machine is now stopped also.
+	task.SetSafeMode(false)
+	s.checkStopInstances(c, i1)
 }
