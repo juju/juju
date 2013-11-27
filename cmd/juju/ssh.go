@@ -11,8 +11,8 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -30,7 +30,7 @@ type SSHCommon struct {
 	Args      []string
 	apiClient *api.Client
 	// Only used for compatibility with 1.16
-	rawConn  *juju.Conn
+	rawConn *juju.Conn
 }
 
 const sshDoc = `
@@ -183,7 +183,7 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 		if !useStateConn {
 			addr, err = c.apiClient.PublicAddress(target)
 			if rpc.IsNoSuchRequest(err) {
-				logger.Infof("API server does not support Client.PublicAddress falling back to 1.16 compatibility mode")
+				logger.Infof("API server does not support Client.PublicAddress falling back to 1.16 compatibility mode (direct DB access)")
 				useStateConn = true
 			}
 		}
