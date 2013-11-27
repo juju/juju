@@ -141,7 +141,6 @@ archive_tools() {
     [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 4: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
-    WORK=$(mktemp -d)
     mkdir ${WORK}/juju
     PACKAGES=$(find ${DEST_DEBS} -name "*.deb")
     for package in $PACKAGES; do
@@ -251,6 +250,7 @@ cleanup() {
             rm $tool
         done
     fi
+    rm -r $WORK
     rm -r $JUJU_PATH
 }
 
@@ -320,6 +320,7 @@ fi
 
 
 PACKAGES=""
+WORK=$(mktemp -d)
 JUJU_PATH=$(mktemp -d)
 JUJU_EXEC=$(which juju)
 ARCH=$(dpkg --print-architecture)
