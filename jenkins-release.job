@@ -1,8 +1,19 @@
 #!/bin/bash
+#
+# Assemble and publish juju tools for a specific release version.
 set -eu
+
+# This script requires a copy of lp:/~juju-qa/juju-core/ci-cd-scripts2
+SCRIPTS=~jenkins/ci-cd-scripts2
+SIGNING_KEY=6A157DB3
+
 if [[ ! -d new-tools ]]; then
+    # By preserving the new-tools dir we can make the juju-tools-builder
+    # the true source of tools; we can remove the s3 sync step in the
+    # future.
     mkdir -p new-tools
 fi
-$SCRIPTS/assemble-public-tools.bash $RELEASE ./new-tools $SIGNING_KEY
+
+$SCRIPTS/assemble-public-tools.bash $RELEASE_VERSION ./new-tools $SIGNING_KEY
 $SCRIPTS/publish-public-tools.bash RELEASE ./new-tools/juju-dist
 
