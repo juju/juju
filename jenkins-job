@@ -19,21 +19,11 @@ dump_logs(){
 revert_juju(){
     sudo apt-get install -y --force-yes $CURRENT_JUJU_CORE
 }
+set -x
 # Try to ensure a clean environment
 revert_juju
 destroy_all
-
-# Create package
-source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
-source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
-    'Curtis Hovey <curtis.hovey@canonical.com>'
-# Now that we aren't sourcing credentials, it's safe to enable command echo.
-set -x
-export PACKAGE
-
-mkdir -p new-tools
-$SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
-$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+$SCRIPTS/prepare-new-version
 
 # Do the deployment for upgrade testing.
 if ! $SCRIPTS/deploy_stack.py $ENVS; then
@@ -43,7 +33,7 @@ if ! $SCRIPTS/deploy_stack.py $ENVS; then
 fi
 EXIT_STATUS=0
 
-$SCRIPTS/test-new-version || EXIT_STATUS=$?
+PACKAGE=$WORKSPACE/new-version.deb $SCRIPTS/test-new-version || EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi

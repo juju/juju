@@ -1,0 +1,14 @@
+#!/bin/bash
+set -eu
+# Create package
+source $SCRIPTS/make-release-tarball.bash $REVNO $BRANCH
+source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
+    'Curtis Hovey <curtis.hovey@canonical.com>'
+# Now that we aren't sourcing credentials, it's safe to enable command echo.
+set -x
+export PACKAGE
+
+mkdir -p new-tools
+$SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
+$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+ln -s $PACKAGE $WORKSPACE/new-version.deb
