@@ -24,7 +24,7 @@ def deploy_stack(environments):
         status = env.get_status()
         for ignored in until_timeout(30):
             agent_versions = env.get_status().get_agent_versions()
-            if 'unknown' not in agent_versions:
+            if 'unknown' not in agent_versions and len(agent_versions) == 1:
                 break
             status = env.get_status()
         if agent_versions.keys() != [agent_version]:
