@@ -177,22 +177,21 @@ install_new_juju() {
     # Install a juju-core that was found in the archives to run sync-tools.
     # Match by release version and arch, prefer exact series, but fall back
     # to generic ubuntu.
+    echo "Phase 5.1: Using juju from a downloaded deb."
     juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
     juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
     if [[ $juju_core == "" ]]; then
         juju_core=$(echo "$juju_cores" | head -1)
     fi
-    sudo dpkg -i $juju_core
+    juju_path=$(mktemp -d)
+    dpkg-deb -x $juju_core $juju_path/
+    JUJU_EXEC=$(find $juju_path -name 'juju' | grep bin/juju)
 }
 
 
 uninstal_new_juju() {
     # Uninstall the new juju-core; possibly reinstall the previous version.
-    if [[ $PREVIOUS_JUJU == "" ]]; then
-        sudo apt-get remove juju-core
-    else
-        sudo apt-get install juju-core=${PREVIOUS_JUJU}*
-    fi
+    rm -r $juju_path
 }
 
 
@@ -205,11 +204,11 @@ generate_streams() {
     fi
     # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
     # incompatibility
-    juju_version=$(juju --version)
+    juju_version=$($JUJU_EXEC --version)
     echo "Using installed juju: $juju_version"
-    if ! juju sync-tools --all --dev \
+    if ! $JUJU_EXEC sync-tools --all --dev \
         --source=${DESTINATION} --destination=${DEST_DIST}; then
-        juju sync-tools --all --dev \
+        $JUJU_EXEC sync-tools --all --dev \
             --source=${DESTINATION} --local-dir=${DEST_DIST}
     fi
     if [[ $NEEDS_JUJU == "true" ]]; then
@@ -328,7 +327,7 @@ fi
 
 
 PACKAGES=""
-PREVIOUS_JUJU=$(which juju 1>/dev/null && juju --version | cut -d '-' -f1)
+JUJU_EXEC=$(which juju)
 ARCH=$(dpkg --print-architecture)
 source /etc/lsb-release
 NEEDS_JUJU=$([[ $SIGNING_KEY != "" && $RELEASE != "IGNORE" ]] && echo "true")
