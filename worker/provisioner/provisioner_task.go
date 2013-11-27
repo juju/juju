@@ -73,7 +73,7 @@ func NewProvisionerTask(
 		machineWatcher: watcher,
 		broker:         broker,
 		auth:           auth,
-		safeMode:       true,
+		safeMode:       false,
 		safeModeChan:   make(chan bool, 1),
 		machines:       make(map[string]Machine),
 	}
@@ -203,7 +203,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		return err
 	}
 	if task.safeMode {
-		logger.Infof("running in safe mode, unknown instances not stopped: %v", unknown)
+		logger.Infof("running in safe mode, unknown instances not stopped: %v", asString(unknown))
 		unknown = nil
 	}
 
@@ -226,6 +226,14 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
+}
+
+func asString(instances []instance.Instance) string {
+	var ids []string
+	for _, inst := range instances {
+		ids = append(ids, string(inst.Id()))
+	}
+	return fmt.Sprintf("%v", ids)
 }
 
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
@@ -334,7 +342,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	for _, inst := range instances {
 		unknown = append(unknown, inst)
 	}
-	logger.Infof("unknown instances: %v", unknown)
+	logger.Infof("unknown instances: %v", asString(unknown))
 	return unknown, nil
 }
 
@@ -362,7 +370,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	if len(instances) == 0 {
 		return nil
 	}
-	logger.Debugf("Stopping instances: %v", instances)
+	logger.Debugf("Stopping instances: %v", asString(instances))
 	if err := task.broker.StopInstances(instances); err != nil {
 		logger.Errorf("broker failed to stop instances: %v", err)
 		return err
