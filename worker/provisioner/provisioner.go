@@ -56,6 +56,8 @@ type provisioner struct {
 	tomb        tomb.Tomb
 }
 
+// configObserver is implemented so that tests can see
+// when the environment configuration changes.
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config

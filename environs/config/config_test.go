@@ -798,6 +798,8 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 
 	if v, ok := test.attrs["provisioner-safe-mode"]; ok {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
 	}
 
 	if v, ok := test.attrs["logging-config"]; ok {
