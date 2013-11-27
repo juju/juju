@@ -165,13 +165,16 @@ var immutableConfigTests = map[string]string{
 	"name":          "foo",
 	"type":          "foo",
 	"firewall-mode": "global",
+	"state-port":    "1",
+	"api-port":      "666",
+	"syslog-port":   "42",
 }
 
 func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
 	for name, value := range immutableConfigTests {
 		param := fmt.Sprintf("%s=%s", name, value)
 		_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{param})
-		errorPattern := fmt.Sprintf("cannot change %s from .* to %q", name, value)
+		errorPattern := fmt.Sprintf("cannot change %s from .* to [\"]?%v[\"]?", name, value)
 		c.Assert(err, gc.ErrorMatches, errorPattern)
 	}
 }

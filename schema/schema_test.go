@@ -107,6 +107,10 @@ func (s *S) TestInt(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(out, gc.Equals, int64(42))
 
+	out, err = sch.Coerce("42", aPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(out, gc.Equals, int64(42))
+
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `<path>: expected int, got bool\(true\)`)
@@ -120,6 +124,10 @@ func (s *S) TestForceInt(c *gc.C) {
 	sch := schema.ForceInt()
 
 	out, err := sch.Coerce(42, aPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(out, gc.Equals, int(42))
+
+	out, err = sch.Coerce("42", aPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(out, gc.Equals, int(42))
 

@@ -120,19 +120,13 @@ func Int() Checker {
 type intC struct{}
 
 func (c intC) Coerce(v interface{}, path []string) (interface{}, error) {
-	if v == nil {
-		return nil, error_{"int", v, path}
+	if v != nil {
+		val, err := strconv.ParseInt(fmt.Sprintf("%v", v), 0, 64)
+		if err == nil {
+			return val, nil
+		}
 	}
-	switch reflect.TypeOf(v).Kind() {
-	case reflect.Int:
-	case reflect.Int8:
-	case reflect.Int16:
-	case reflect.Int32:
-	case reflect.Int64:
-	default:
-		return nil, error_{"int", v, path}
-	}
-	return reflect.ValueOf(v).Int(), nil
+	return nil, error_{"int", v, path}
 }
 
 // ForceInt returns a Checker that accepts any integer or float value, and
@@ -146,14 +140,18 @@ func ForceInt() Checker {
 type forceIntC struct{}
 
 func (c forceIntC) Coerce(v interface{}, path []string) (interface{}, error) {
-	if v == nil {
-		return nil, error_{"number", v, path}
-	}
-	switch reflect.TypeOf(v).Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return int(reflect.ValueOf(v).Int()), nil
-	case reflect.Float32, reflect.Float64:
-		return int(reflect.ValueOf(v).Float()), nil
+	if v != nil {
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.String:
+			intValue, err := strconv.ParseInt(fmt.Sprintf("%v", v), 0, 64)
+			if err == nil {
+				return int(intValue), nil
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return int(reflect.ValueOf(v).Int()), nil
+		case reflect.Float32, reflect.Float64:
+			return int(reflect.ValueOf(v).Float()), nil
+		}
 	}
 	return nil, error_{"number", v, path}
 }
