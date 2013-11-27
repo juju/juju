@@ -1,9 +1,11 @@
 #!/bin/bash
 #
 # Assemble and publish juju tools for a specific release version.
+# The publish script requires the configs to access the public clouds.
 set -eu
 
 # This script requires a copy of lp:/~juju-qa/juju-core/ci-cd-scripts2
+export JUJU_HOME=<DIR_OF_ALL_THE_KEYS_TO_CLOUD_CITY>
 SCRIPTS=~jenkins/ci-cd-scripts2
 SIGNING_KEY=6A157DB3
 
