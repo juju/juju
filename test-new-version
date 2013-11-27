@@ -1,10 +1,4 @@
 #!/bin/bash
-destroy_all(){
-  for env in $ENVS; do
-    $SCRIPTS/destroy-environment $env
-  done
-}
-
 EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
@@ -27,7 +21,7 @@ then
   EXIT_STATUS=1
 else
   # Test deploying on the new version
-  destroy_all
+  $SCRIPTS/destroy-environment $ENVS
   sleep 5
   if ! $SCRIPTS/deploy_stack.py $ENVS; then
     EXIT_STATUS=1
