@@ -16,9 +16,12 @@ def deploy_stack(environments):
     for env in envs:
         env.bootstrap()
     for env in envs:
-        status = env.get_status()
         agent_version = env.get_matching_agent_version()
-        if status.get_agent_versions().keys() != [agent_version]:
+        for ignored in until_timeout(30):
+            agent_versions = env.get_status().get_agent_versions()
+            if 'unknown' not in agent_versions:
+                break
+        if agent_versions.keys() != [agent_version]:
             env.juju('upgrade-juju', '--version', agent_version)
     for env in envs:
         env.wait_for_version(env.get_matching_agent_version())
