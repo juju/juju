@@ -53,7 +53,7 @@ func (c *UnsetCommand) Init(args []string) error {
 	return nil
 }
 
-// run1dot16 runs a 'juju unset' using a direct DB connection to maintain
+// run1dot16 runs 'juju unset' using a direct DB connection to maintain
 // compatibility with an API server running 1.16 or older (when ServiceUnset
 // was not available). This fallback can be removed when we no longer maintain
 // 1.16 compatibility.
