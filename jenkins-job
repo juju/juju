@@ -31,18 +31,13 @@ source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
 set -x
 export PACKAGE
 
-# Do the deployment for upgrade testing.
-if ! bash <<EOT
-set -ex
-$SCRIPTS/deploy_stack.py $ENVS
-sudo dpkg -i $PACKAGE
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
 $SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
-EOT
-then
+
+# Do the deployment for upgrade testing.
+if ! $SCRIPTS/deploy_stack.py $ENVS; then
   dump_logs
-  revert_juju
   destroy_all
   exit 1
 fi

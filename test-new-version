@@ -9,6 +9,7 @@ EXIT_STATUS=0
 # Test upgrading an existing environment
 if ! bash <<"EOT"
   set -ex
+  sudo dpkg -i $PACKAGE
   version=$(juju --version|sed -r 's/([^-]*).*/\1/')
   for env in $ENVS; do
     if [ "$env" == "local" ]; then
