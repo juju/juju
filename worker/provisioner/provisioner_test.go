@@ -735,16 +735,7 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisione
 	c.Assert(err, gc.IsNil)
 	auth, err := provisioner.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
-	return provisioner.NewProvisionerTask("machine-0", safeMode, s, watcher, env, auth)
-}
-
-// Machine is specified on the provisioner.MachineGetter interface.
-func (s *ProvisionerSuite) Machine(id string) (provisioner.Machine, error) {
-	m, err := s.provisioner.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	return m, err
+	return provisioner.NewProvisionerTask("machine-0", safeMode, s.provisioner, watcher, env, auth)
 }
 
 func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {

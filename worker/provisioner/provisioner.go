@@ -108,23 +108,11 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	task := NewProvisionerTask(
 		p.agentConfig.Tag(),
 		safeMode,
-		stateMachineGetter{p.st},
+		p.st,
 		machineWatcher,
 		p.broker,
 		auth)
 	return task, nil
-}
-
-type stateMachineGetter struct {
-	st *apiprovisioner.State
-}
-
-func (getter stateMachineGetter) Machine(id string) (Machine, error) {
-	m, err := getter.st.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	return m, err
 }
 
 // NewEnvironProvisioner returns a new Provisioner for an environment.
