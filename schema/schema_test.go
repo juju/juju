@@ -75,17 +75,21 @@ func (s *S) TestOneOf(c *gc.C) {
 func (s *S) TestBool(c *gc.C) {
 	sch := schema.Bool()
 
-	out, err := sch.Coerce(true, aPath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(out, gc.Equals, true)
+	for _, trueValue := range []interface{}{true, "1", "true", "True", "TRUE"} {
+		out, err := sch.Coerce(trueValue, aPath)
+		c.Assert(err, gc.IsNil)
+		c.Assert(out, gc.Equals, true)
+	}
 
-	out, err = sch.Coerce(false, aPath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(out, gc.Equals, false)
+	for _, falseValue := range []interface{}{false, "0", "false", "False", "FALSE"} {
+		out, err := sch.Coerce(falseValue, aPath)
+		c.Assert(err, gc.IsNil)
+		c.Assert(out, gc.Equals, false)
+	}
 
-	out, err = sch.Coerce(1, aPath)
+	out, err := sch.Coerce(42, aPath)
 	c.Assert(out, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `<path>: expected bool, got int\(1\)`)
+	c.Assert(err, gc.ErrorMatches, `<path>: expected bool, got int\(42\)`)
 
 	out, err = sch.Coerce(nil, aPath)
 	c.Assert(out, gc.IsNil)

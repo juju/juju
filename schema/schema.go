@@ -102,8 +102,11 @@ func Bool() Checker {
 type boolC struct{}
 
 func (c boolC) Coerce(v interface{}, path []string) (interface{}, error) {
-	if v != nil && reflect.TypeOf(v).Kind() == reflect.Bool {
-		return v, nil
+	if v != nil {
+		val, err := strconv.ParseBool(fmt.Sprintf("%v", v))
+		if err == nil {
+			return val, nil
+		}
 	}
 	return nil, error_{"bool", v, path}
 }

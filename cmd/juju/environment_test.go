@@ -129,6 +129,15 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	c.Assert(stateConfig.DefaultSeries(), gc.Equals, "raring")
 }
 
+func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
+	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"ssl-hostname-verification=false"})
+	c.Assert(err, gc.IsNil)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateConfig.SSLHostnameVerification(), gc.Equals, false)
+}
+
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
 	c.Assert(err, gc.IsNil)
