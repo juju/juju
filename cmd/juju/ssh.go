@@ -5,11 +5,15 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"time"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
 )
@@ -25,6 +29,8 @@ type SSHCommon struct {
 	Target    string
 	Args      []string
 	apiClient *api.Client
+	// Only used for compatibility with 1.16
+	rawConn  *juju.Conn
 }
 
 const sshDoc = `
@@ -85,7 +91,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-// initAPIClient initialises the state connection.
+// initAPIClient initialises the API connection.
 // It is the caller's responsibility to close the connection.
 func (c *SSHCommon) initAPIClient() (*api.Client, error) {
 	var err error
@@ -113,14 +119,77 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 	Delay: 500 * time.Millisecond,
 }
 
+// ensureRawConn ensures that c.rawConn is valid (or returns an error)
+// This is only for compatibility with a 1.16 API server (that doesn't have
+// some of the API added more recently.) It can be removed once we no longer
+// need compatibility with direct access to the state database
+func (c *SSHCommon) ensureRawConn() error {
+	if c.rawConn != nil {
+		return nil
+	}
+	var err error
+	c.rawConn, err = juju.NewConnFromName(c.EnvName)
+	return err
+}
+
+func (c *SSHCommon) hostFromTarget1dot16(target string) (string, error) {
+	err := c.ensureRawConn()
+	if err != nil {
+		return "", err
+	}
+	// is the target the id of a machine ?
+	if names.IsMachine(target) {
+		logger.Infof("looking up address for machine %s...", target)
+		// This is not the exact code from the 1.16 client
+		// (machinePublicAddress), however it is the code used in the
+		// apiserver behind the PublicAddress call. (1.16 didn't know
+		// about SelectPublicAddress)
+		// The old code watched for changes on the Machine until it had
+		// an InstanceId and then would return the instance.WaitDNS()
+		machine, err := c.rawConn.State.Machine(target)
+		if err != nil {
+			return "", err
+		}
+		addr := instance.SelectPublicAddress(machine.Addresses())
+		if addr == "" {
+			return "", fmt.Errorf("machine %q has no public address", machine)
+		}
+		return addr, nil
+	}
+	// maybe the target is a unit ?
+	if names.IsUnit(target) {
+		logger.Infof("looking up address for unit %q...", c.Target)
+		unit, err := c.rawConn.State.Unit(target)
+		if err != nil {
+			return "", err
+		}
+		addr, ok := unit.PublicAddress()
+		if !ok {
+			return "", fmt.Errorf("unit %q has no public address", unit)
+		}
+		return addr, nil
+	}
+	return "", fmt.Errorf("unknown unit or machine %q", target)
+}
+
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	var addr string
 	var err error
+	var useStateConn bool
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
 	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
-		addr, err = c.apiClient.PublicAddress(target)
+		if !useStateConn {
+			addr, err = c.apiClient.PublicAddress(target)
+			if rpc.IsNoSuchRequest(err) {
+				logger.Infof("API server does not support Client.PublicAddress falling back to 1.16 compatibility mode")
+				useStateConn = true
+			}
+		}
+		if useStateConn {
+			addr, err = c.hostFromTarget1dot16(target)
+		}
 		if err == nil {
 			break
 		}
