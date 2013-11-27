@@ -44,6 +44,8 @@ type Provisioner struct {
 	configObserver
 }
 
+// configObserver is implemented so that tests can see
+// when the environment configuration changes.
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config
@@ -79,6 +81,7 @@ func (p *Provisioner) loop() error {
 	// Only wait for the environment if we are an environmental provisioner.
 	var environConfigChanges <-chan struct{}
 	var environWatcher apiwatcher.NotifyWatcher
+	safeMode := false
 	if p.pt == ENVIRON {
 		environWatcher, err := p.st.WatchForEnvironConfigChanges()
 		if err != nil {
@@ -91,6 +94,7 @@ func (p *Provisioner) loop() error {
 		if err != nil {
 			return err
 		}
+		safeMode = p.environ.Config().ProvisionerSafeMode()
 	}
 
 	auth, err := NewAPIAuthenticator(p.st)
@@ -113,6 +117,7 @@ func (p *Provisioner) loop() error {
 	}
 	task := NewProvisionerTask(
 		p.agentConfig.Tag(),
+		safeMode,
 		p.st,
 		machineWatcher,
 		instanceBroker,
@@ -131,14 +136,15 @@ func (p *Provisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			config, err := p.st.EnvironConfig()
+			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
 				logger.Errorf("cannot load environment configuration: %v", err)
 				return err
 			}
-			if err := p.setConfig(config); err != nil {
+			if err := p.setConfig(environConfig); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
+			task.SetSafeMode(environConfig.ProvisionerSafeMode())
 		}
 	}
 }
@@ -189,11 +195,11 @@ func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
 
 // setConfig updates the environment configuration and notifies
 // the config observer.
-func (p *Provisioner) setConfig(config *config.Config) error {
-	if err := p.environ.SetConfig(config); err != nil {
+func (p *Provisioner) setConfig(environConfig *config.Config) error {
+	if err := p.environ.SetConfig(environConfig); err != nil {
 		return err
 	}
-	p.configObserver.notify(config)
+	p.configObserver.notify(environConfig)
 	return nil
 }
 
