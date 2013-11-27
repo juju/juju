@@ -8,6 +8,7 @@
 set -eu
 
 
+HERE=$(pwd)
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 
@@ -178,7 +179,7 @@ extract_new_juju() {
     # to generic ubuntu.
     echo "Phase 5.1: Using juju from a downloaded deb."
     if [[ $IS_TESTING == "true" ]]; then
-        $juju_core=$RELEASE
+        juju_core=$HERE/$RELEASE
     else
         juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
         juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
