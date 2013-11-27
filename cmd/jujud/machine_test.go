@@ -78,19 +78,7 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
 	tag := names.MachineTag(m.Id())
-
-	// NOTE(fwereade): this used to use IsManager() which used to be spelled
-	// IsStateServer and mean "has JobManageState"; and now means "has any
-	// Manage job"; IsManager works correctly given addressing changes in
-	// trunk, post-1.16, but primes the agent incorrectly in 1.16-based code.
-	var isStateManager bool
-	for _, job := range m.Jobs() {
-		if job == state.JobManageState {
-			isStateManager = true
-			break
-		}
-	}
-	if isStateManager {
+	if m.IsStateServer() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)

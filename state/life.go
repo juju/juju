@@ -38,15 +38,8 @@ var notDeadDoc = D{{"life", D{{"$ne", Dead}}}}
 type Living interface {
 	Life() Life
 	Destroy() error
-	Refresh() error
-}
-
-// AgentLiving describes state entities with a lifecycle and an agent that
-// manages it.
-type AgentLiving interface {
-	Living
 	EnsureDead() error
-	Remove() error
+	Refresh() error
 }
 
 func isAlive(coll *mgo.Collection, id interface{}) (bool, error) {
