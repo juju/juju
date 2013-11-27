@@ -34,11 +34,10 @@ export PACKAGE
 # Do the deployment for upgrade testing.
 if ! bash <<EOT
 set -ex
-$SCRIPTS/deploy_stack.py $ENVS
-sudo dpkg -i $PACKAGE
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
 $SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+$SCRIPTS/deploy_stack.py $ENVS
 EOT
 then
   dump_logs
@@ -48,6 +47,7 @@ then
 fi
 EXIT_STATUS=0
 
+sudo dpkg -i $PACKAGE
 $SCRIPTS/test-new-version || EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
