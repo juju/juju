@@ -478,7 +478,7 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
-// ProvisionerSafeMode returns true is the provisioner should *not*
+// ProvisionerSafeMode reports whether the provisioner should not
 // destroy machines it does not know about.
 func (c *Config) ProvisionerSafeMode() bool {
 	v, _ := c.m["provisioner-safe-mode"].(bool)

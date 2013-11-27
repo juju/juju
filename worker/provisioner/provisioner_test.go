@@ -738,15 +738,6 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisione
 	return provisioner.NewProvisionerTask("machine-0", safeMode, s.provisioner, watcher, env, auth)
 }
 
-func (s *ProvisionerSuite) TestSafeModeChangeNotBlocking(c *gc.C) {
-	task := s.newProvisionerTask(c, false)
-	defer stop(c, task)
-	// The dummy loop has terminated; now check we can send several values.
-	for i := 0; i < 20; i++ {
-		task.SetSafeMode(i%2 == 0)
-	}
-}
-
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
 	task := s.newProvisionerTask(c, true)
 	defer stop(c, task)
