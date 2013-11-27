@@ -59,7 +59,6 @@ func (c *SetCommand) Init(args []string) error {
 	return nil
 }
 
-
 // serviceSet1dot16 does the final ServiceSet step using direct DB access
 // compatibility with an API server running 1.16 or older (when ServiceUnset
 // was not available). This fallback can be removed when we no longer maintain
