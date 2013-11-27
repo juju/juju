@@ -102,10 +102,7 @@ else
     usage
 fi
 
-TARBALL=$2
-if [[ "$TARBALL" != /* ]]; then
-    TARBALL=$HERE/$2
-fi
+TARBALL=$(readlink -f $2)
 if [[ ! -f "$TARBALL" ]]; then
     echo "Tarball not found."
     usage

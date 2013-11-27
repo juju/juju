@@ -8,7 +8,6 @@
 set -eu
 
 
-HERE=$(pwd)
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 
@@ -204,9 +203,9 @@ generate_streams() {
     # incompatibility
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
-    if ! $JUJU_EXEC sync-tools --all --dev \
+    if ! JUJU_HOME=$JUJU_DIR $JUJU_EXEC sync-tools --all --dev \
         --source=${DESTINATION} --destination=${DEST_DIST}; then
-        $JUJU_EXEC sync-tools --all --dev \
+        JUJU_HOME=$JUJU_DIR $JUJU_EXEC sync-tools --all --dev \
             --source=${DESTINATION} --local-dir=${DEST_DIST}
     fi
     # Support old tools location so that deployments can upgrade to new tools.
@@ -261,6 +260,7 @@ cleanup() {
 
 # The location of environments.yaml and rc files.
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
+JUJU_DIR=$(cd $JUJU_DIR; pwd)
 
 # These are the archives that are search for matching releases.
 UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
@@ -299,10 +299,8 @@ test $# -eq 2 || test $# -eq 3 || usage
 RELEASE=$1
 IS_TESTING="false"
 if [[ -f "$RELEASE" ]]; then
+    RELEASE=$(readlink -f $RELEASE)
     IS_TESTING="true"
-fi
-if [[ "$RELEASE" != /* ]]; then
-    RELEASE=$HERE/$RELEASE
 fi
 DESTINATION=$(cd $2; pwd)
 DEST_DEBS="${DESTINATION}/debs"

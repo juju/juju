@@ -33,7 +33,7 @@ check_deps() {
     if [[ $has_deps == 0 ]]; then
         echo "Install python-swiftclient, and s3cmd"
         echo "Your $JUJU_DIR dir must contain rc files to publish:"
-        echo "  canonistacktoolsrc, hptoolsrc, awstoolsrc, azuretoolsrc"
+        echo "  canonistacktoolsrc, hptoolsrc, s3cfg, azuretoolsrc"
         exit 2
     fi
     juju_version=$(juju --version)
