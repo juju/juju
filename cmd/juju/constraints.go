@@ -12,8 +12,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 const getConstraintsDoc = `
@@ -39,8 +37,8 @@ precedence.
 
 Examples:
 
-   set-constraints mem=8G               (all new machines in the environment must have at least 8GB of RAM)
-   set-constraints wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
+   set-constraints mem=8G                         (all new machines in the environment must have at least 8GB of RAM)
+   set-constraints --service wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
 
 See Also:
    juju help constraints
@@ -90,22 +88,17 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 }
 
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 
 	var cons constraints.Value
-	if c.ServiceName != "" {
-		args := params.GetServiceConstraints{
-			ServiceName: c.ServiceName,
-		}
-		var results params.GetServiceConstraintsResults
-		results, err = statecmd.GetServiceConstraints(conn.State, args)
-		cons = results.Constraints
+	if c.ServiceName == "" {
+		cons, err = apiclient.GetEnvironmentConstraints()
 	} else {
-		cons, err = conn.State.EnvironConstraints()
+		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
 	if err != nil {
 		return err
@@ -144,17 +137,13 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 }
 
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 	if c.ServiceName == "" {
-		return conn.State.SetEnvironConstraints(c.Constraints)
+		return apiclient.SetEnvironmentConstraints(c.Constraints)
 	}
-	params := params.SetServiceConstraints{
-		ServiceName: c.ServiceName,
-		Constraints: c.Constraints,
-	}
-	return statecmd.SetServiceConstraints(conn.State, params)
+	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 }

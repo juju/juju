@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -59,10 +60,12 @@ func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	service := s.AddTestingService(c, "wordpress", charm)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)

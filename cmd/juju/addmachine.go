@@ -14,9 +14,8 @@ import (
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -95,56 +94,54 @@ func (c *AddMachineCommand) Init(args []string) error {
 		c.SSHHost = containerSpec[len(sshHostPrefix):]
 	} else {
 		// container arg can either be 'type:machine' or 'type'
-		if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
+		if c.ContainerType, err = instance.ParseContainerType(containerSpec); err != nil {
 			if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
 				return fmt.Errorf("malformed container argument %q", containerSpec)
 			}
 			sep := strings.Index(containerSpec, ":")
 			c.MachineId = containerSpec[sep+1:]
-			c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
+			c.ContainerType, err = instance.ParseContainerType(containerSpec[:sep])
 		}
 	}
 	return err
 }
 
 func (c *AddMachineCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	if c.SSHHost != "" {
+		args := manual.ProvisionMachineArgs{
+			Host:    c.SSHHost,
+			EnvName: c.EnvName,
+		}
+		_, err := manual.ProvisionMachine(args)
+		return err
+	}
+
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 
-	if c.SSHHost != "" {
-		args := manual.ProvisionMachineArgs{
-			Host:  c.SSHHost,
-			State: conn.State,
-		}
-		_, err = manual.ProvisionMachine(args)
-		return err
-	}
-
-	series := c.Series
-	if series == "" {
-		conf, err := conn.State.EnvironConfig()
-		if err != nil {
-			return err
-		}
-		series = conf.DefaultSeries()
-	}
-	params := state.AddMachineParams{
+	machineParams := params.AddMachineParams{
 		ParentId:      c.MachineId,
 		ContainerType: c.ContainerType,
-		Series:        series,
+		Series:        c.Series,
 		Constraints:   c.Constraints,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}
-	m, err := conn.State.AddMachineWithConstraints(&params)
-	if err == nil {
-		if c.ContainerType == "" {
-			log.Infof("created machine %v", m)
-		} else {
-			log.Infof("created %q container on machine %v", c.ContainerType, m)
-		}
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	if err != nil {
+		return err
 	}
-	return err
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return machineInfo.Error
+	}
+	if c.ContainerType == "" {
+		logger.Infof("created machine %v", machineInfo.Machine)
+	} else {
+		logger.Infof("created %q container on machine %v", c.ContainerType, machineInfo.Machine)
+	}
+	return nil
 }

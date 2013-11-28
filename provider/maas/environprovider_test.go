@@ -11,6 +11,8 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 type EnvironProviderSuite struct {
@@ -31,11 +33,50 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	secretAttrs, err := suite.environ.Provider().SecretAttrs(config)
+	secretAttrs, err := suite.makeEnviron().Provider().SecretAttrs(config)
 	c.Assert(err, gc.IsNil)
 
 	expectedAttrs := map[string]string{"maas-oauth": oauth}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
+}
+
+func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":        "maas",
+		"maas-oauth":  "aa:bb:cc",
+		"maas-server": "http://maas.testing.invalid/maas/",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	environ, err := suite.makeEnviron().Provider().Prepare(config)
+	c.Assert(err, gc.IsNil)
+
+	preparedConfig := environ.Config()
+	unknownAttrs := preparedConfig.UnknownAttrs()
+
+	uuid, ok := unknownAttrs["maas-agent-name"]
+
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
+}
+
+func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
+	testJujuHome := c.MkDir()
+	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":            "maas",
+		"maas-oauth":      "aa:bb:cc",
+		"maas-server":     "http://maas.testing.invalid/maas/",
+		"maas-agent-name": "foobar",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	_, err = suite.makeEnviron().Provider().Prepare(config)
+	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 
 // create a temporary file with the given content.  The file will be cleaned
@@ -65,7 +106,7 @@ func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMach
 	_MAASInstanceFilename = filename
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 
-	provider := suite.environ.Provider()
+	provider := suite.makeEnviron().Provider()
 	publicAddress, err := provider.PublicAddress()
 	c.Assert(err, gc.IsNil)
 	c.Check(publicAddress, gc.Equals, hostname)
@@ -85,7 +126,7 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := suite.environ.Provider().Open(config)
+	env, err := suite.makeEnviron().Provider().Open(config)
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil
 	// type.

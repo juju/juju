@@ -29,8 +29,10 @@ var _ = gc.Suite(&storageSuite{})
 // makeStorage creates a MAAS storage object for the running test.
 func (s *storageSuite) makeStorage(name string) *maasStorage {
 	maasobj := s.testMAASObject.MAASObject
-	env := maasEnviron{name: name, maasClientUnlocked: &maasobj}
-	return NewStorage(&env).(*maasStorage)
+	env := s.makeEnviron()
+	env.name = name
+	env.maasClientUnlocked = &maasobj
+	return NewStorage(env).(*maasStorage)
 }
 
 // makeRandomBytes returns an array of arbitrary byte values.
@@ -50,7 +52,10 @@ func makeRandomBytes(length int) []byte {
 // Or don't, if you want consistent (and debuggable) results.
 func (s *storageSuite) fakeStoredFile(stor storage.Storage, name string) gomaasapi.MAASObject {
 	data := makeRandomBytes(rand.Intn(10))
-	return s.testMAASObject.TestServer.NewFile(name, data)
+	// The filename must be prefixed with the private namespace as we're
+	// bypassing the Put() method that would normally do that.
+	prefixFilename := stor.(*maasStorage).prefixWithPrivateNamespace("") + name
+	return s.testMAASObject.TestServer.NewFile(prefixFilename, data)
 }
 
 func (s *storageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
@@ -93,7 +98,8 @@ func (s *storageSuite) TestRetrieveFileObjectReturnsFileObject(c *gc.C) {
 	fileContent, err := file.GetField("content")
 	c.Assert(err, gc.IsNil)
 
-	obj, err := stor.retrieveFileObject(filename)
+	prefixFilename := stor.prefixWithPrivateNamespace(filename)
+	obj, err := stor.retrieveFileObject(prefixFilename)
 	c.Assert(err, gc.IsNil)
 
 	uri, err := obj.GetField("anon_resource_uri")
@@ -117,7 +123,8 @@ func (s *storageSuite) TestRetrieveFileObjectEscapesName(c *gc.C) {
 	err := stor.Put(filename, bytes.NewReader(data), int64(len(data)))
 	c.Assert(err, gc.IsNil)
 
-	obj, err := stor.retrieveFileObject(filename)
+	prefixFilename := stor.prefixWithPrivateNamespace(filename)
+	obj, err := stor.retrieveFileObject(prefixFilename)
 	c.Assert(err, gc.IsNil)
 
 	base64Content, err := obj.GetField("content")
@@ -144,20 +151,20 @@ func (s *storageSuite) TestFileContentsAreBinary(c *gc.C) {
 
 func (s *storageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *gc.C) {
 	const filename = "lost-data"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	_, err := storage.Get(stor, filename)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestListReturnsEmptyIfNoFilesStored(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
 
 func (s *storageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	files := []string{"1a", "2b", "3c"}
 	for _, name := range files {
 		s.fakeStoredFile(stor, name)
@@ -169,7 +176,7 @@ func (s *storageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
 }
 
 func (s *storageSuite) TestListSortsResults(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	files := []string{"4d", "1a", "3c", "2b"}
 	for _, name := range files {
 		s.fakeStoredFile(stor, name)
@@ -181,7 +188,7 @@ func (s *storageSuite) TestListSortsResults(c *gc.C) {
 }
 
 func (s *storageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "foo")
 
 	listing, err := storage.List(stor, "bar")
@@ -190,7 +197,7 @@ func (s *storageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
 }
 
 func (s *storageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "abc")
 	s.fakeStoredFile(stor, "xyz")
 
@@ -200,7 +207,7 @@ func (s *storageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
 }
 
 func (s *storageSuite) TestListMatchesPrefixOnly(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "abc")
 	s.fakeStoredFile(stor, "xabc")
 
@@ -210,7 +217,7 @@ func (s *storageSuite) TestListMatchesPrefixOnly(c *gc.C) {
 }
 
 func (s *storageSuite) TestListOperatesOnFlatNamespace(c *gc.C) {
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, "a/b/c/d")
 
 	listing, err := storage.List(stor, "a/b")
@@ -233,7 +240,7 @@ func getFileAtURL(fileURL string) ([]byte, error) {
 
 func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	const filename = "my-file.txt"
-	stor := NewStorage(s.environ).(*maasStorage)
+	stor := NewStorage(s.makeEnviron()).(*maasStorage)
 	file := s.fakeStoredFile(stor, filename)
 	// The file contains an anon_resource_uri, which lacks a network part
 	// (but will probably contain a query part).  anonURL will be the
@@ -256,7 +263,7 @@ func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 	const filename = "broken-toaster.jpg"
 	contents := []byte("Contents here")
 	length := int64(len(contents))
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(contents), length)
 
@@ -271,7 +278,7 @@ func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 
 func (s *storageSuite) TestPutOverwritesFile(c *gc.C) {
 	const filename = "foo.bar"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, filename)
 	newContents := []byte("Overwritten")
 
@@ -292,7 +299,7 @@ func (s *storageSuite) TestPutStopsAtGivenLength(c *gc.C) {
 	const filename = "xyzzyz.2.xls"
 	const length = 5
 	contents := []byte("abcdefghijklmnopqrstuvwxyz")
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(contents), length)
 	c.Assert(err, gc.IsNil)
@@ -310,7 +317,7 @@ func (s *storageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 	const filename = "a-file-which-is-mine"
 	oldContents := []byte("abcdefghijklmnopqrstuvwxyz")
 	newContents := []byte("xyz")
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	err := stor.Put(filename, bytes.NewReader(oldContents), int64(len(oldContents)))
 	c.Assert(err, gc.IsNil)
 
@@ -329,7 +336,7 @@ func (s *storageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 
 func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 	const filename = "doomed.txt"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, filename)
 
 	err := stor.Remove(filename)
@@ -345,7 +352,7 @@ func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 
 func (s *storageSuite) TestRemoveIsIdempotent(c *gc.C) {
 	const filename = "half-a-file"
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 	s.fakeStoredFile(stor, filename)
 
 	err := stor.Remove(filename)
@@ -358,7 +365,7 @@ func (s *storageSuite) TestRemoveIsIdempotent(c *gc.C) {
 func (s *storageSuite) TestNamesMayHaveSlashes(c *gc.C) {
 	const filename = "name/with/slashes"
 	content := []byte("File contents")
-	stor := NewStorage(s.environ)
+	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(content), int64(len(content)))
 	c.Assert(err, gc.IsNil)
@@ -389,4 +396,25 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(listing, gc.DeepEquals, []string{})
+}
+
+func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc.C) {
+	sstor := NewStorage(s.makeEnviron())
+	stor := sstor.(*maasStorage)
+	agentName := stor.environUnlocked.ecfg().maasAgentName()
+	c.Assert(agentName, gc.Not(gc.Equals), "")
+	expectedPrefix := agentName + "-"
+	const name = "myname"
+	expectedResult := expectedPrefix + name
+	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, expectedResult)
+}
+
+func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresAgentName(c *gc.C) {
+	sstor := NewStorage(s.makeEnviron())
+	stor := sstor.(*maasStorage)
+	ecfg := stor.environUnlocked.ecfg()
+	ecfg.attrs["maas-agent-name"] = ""
+
+	const name = "myname"
+	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, name)
 }

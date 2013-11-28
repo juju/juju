@@ -17,6 +17,7 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -51,7 +52,7 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 }
 
 // ParseMetadata loads ToolsMetadata from the specified directory.
-func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
+func ParseMetadata(c *gc.C, metadataDir string, expectMirrors bool) []*tools.ToolsMetadata {
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
@@ -101,6 +102,12 @@ func ParseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
 	toolsMetadata := make([]*tools.ToolsMetadata, len(toolsMetadataMap))
 	for i, key := range toolsVersions.SortedValues() {
 		toolsMetadata[i] = toolsMetadataMap[key]
+	}
+
+	if expectMirrors {
+		data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", simplestreams.UnsignedMirror))
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+		c.Assert(err, gc.IsNil)
 	}
 	return toolsMetadata
 }

@@ -5,6 +5,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"net/http"
 	"path/filepath"
 	stdtesting "testing"
 
@@ -12,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) { gc.TestingT(t) }
@@ -19,6 +21,11 @@ func Test(t *stdtesting.T) { gc.TestingT(t) }
 type CmdSuite struct{}
 
 var _ = gc.Suite(&CmdSuite{})
+
+func (s *CmdSuite) TestHttpTransport(c *gc.C) {
+	transport := http.DefaultTransport.(*http.Transport)
+	c.Assert(transport.DisableKeepAlives, jc.IsTrue)
+}
 
 func (s *CmdSuite) TestContext(c *gc.C) {
 	ctx := testing.Context(c)

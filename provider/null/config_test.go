@@ -6,7 +6,6 @@ package null
 import (
 	"fmt"
 	"regexp"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -21,10 +20,6 @@ type configSuite struct {
 }
 
 var _ = gc.Suite(&configSuite{})
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 func minimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{

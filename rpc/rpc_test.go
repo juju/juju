@@ -1079,7 +1079,7 @@ func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	})
 }
 
-func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverReplies = append(n.serverReplies, replyEvent{

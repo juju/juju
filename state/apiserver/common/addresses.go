@@ -4,89 +4,69 @@
 package common
 
 import (
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// EnvironConfigAndCertGetter defines EnvironConfig and CACert
-// methods.
-type EnvironConfigAndCertGetter interface {
-	EnvironConfig() (*config.Config, error)
+// AddressAndCertGetter can be used to find out
+// state server addresses and the CA public certificate.
+type AddressAndCertGetter interface {
+	Addresses() ([]string, error)
+	APIAddresses() ([]string, error)
 	CACert() []byte
 }
 
-// Addresser implements a common set of methods for getting state and
-// API server addresses, and the CA certificate used to authenticate
-// them.
-type Addresser struct {
-	st EnvironConfigAndCertGetter
+// APIAddresser implements the APIAddresses method
+type APIAddresser struct {
+	getter AddressAndCertGetter
 }
 
-// NewAddresser returns a new Addresser.
-func NewAddresser(st EnvironConfigAndCertGetter) *Addresser {
-	return &Addresser{st}
-}
-
-// getEnvironStateInfo returns the state and API connection
-// information from the state and the environment.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (a *Addresser) getEnvironStateInfo() (*state.Info, *api.Info, error) {
-	cfg, err := a.st.EnvironConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	return env.StateInfo()
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (a *Addresser) StateAddresses() (params.StringsResult, error) {
-	stateInfo, _, err := a.getEnvironStateInfo()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: stateInfo.Addrs,
-	}, nil
+// NewAPIAddresser returns a new APIAddresser that uses the given getter to
+// fetch its addresses.
+func NewAPIAddresser(getter AddressAndCertGetter) *APIAddresser {
+	return &APIAddresser{getter}
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (a *Addresser) APIAddresses() (params.StringsResult, error) {
-	_, apiInfo, err := a.getEnvironStateInfo()
+func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	addrs, err := a.getter.APIAddresses()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
 	return params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: addrs,
+	}, nil
+}
+
+// StateAddresser implements a common set of methods for getting state
+// server addresses, and the CA certificate used to authenticate them.
+type StateAddresser struct {
+	getter AddressAndCertGetter
+}
+
+// NewAddresser returns a new StateAddresser that uses the given
+// st value to fetch its addresses.
+func NewStateAddresser(getter AddressAndCertGetter) *StateAddresser {
+	return &StateAddresser{getter}
+}
+
+// StateAddresses returns the list of addresses used to connect to the state.
+func (a *StateAddresser) StateAddresses() (params.StringsResult, error) {
+	addrs, err := a.getter.Addresses()
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	return params.StringsResult{
+		Result: addrs,
 	}, nil
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (a *Addresser) CACert() params.BytesResult {
+// Note: there is an open bug that Uniter (which uses only APIAddresser) should
+// add CACert to its interface. When it does, this API si likely to move to
+// APIAddresser instead of StateAddresser. (All other users of StateAddresser
+// already also expose APIAddresser)
+func (a *StateAddresser) CACert() params.BytesResult {
 	return params.BytesResult{
-		Result: a.st.CACert(),
+		Result: a.getter.CACert(),
 	}
 }

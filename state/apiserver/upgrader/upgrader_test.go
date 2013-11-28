@@ -40,8 +40,6 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{

@@ -85,12 +85,23 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) error {
+func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
+	envConfig := e.envConfig()
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
+	if err != nil {
+		return err
+	}
+	selectedTools, err := common.EnsureBootstrapTools(e, series, hc.Arch)
+	if err != nil {
+		return err
+	}
 	return manual.Bootstrap(manual.BootstrapArgs{
-		Host:          e.envConfig().sshHost(),
-		DataDir:       dataDir,
-		Environ:       e,
-		PossibleTools: possibleTools,
+		Host:                    e.envConfig().sshHost(),
+		DataDir:                 dataDir,
+		Environ:                 e,
+		PossibleTools:           selectedTools,
+		Series:                  series,
+		HardwareCharacteristics: &hc,
 	})
 }
 
@@ -178,10 +189,6 @@ func (e *nullEnviron) Storage() storage.Storage {
 		logger.Errorf("missing CA cert or auth-key")
 	}
 	return nil
-}
-
-func (e *nullEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
 }
 
 func (e *nullEnviron) Destroy() error {

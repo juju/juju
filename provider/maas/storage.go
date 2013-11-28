@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"sort"
+	"strings"
 	"sync"
 
 	"launchpad.net/gomaasapi"
@@ -88,8 +89,21 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 	return obj, nil
 }
 
+// All filenames need to be namespaced so they are private to this environment.
+// This prevents different environments from interfering with each other.
+// We're using the agent name UUID here.
+func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
+	env := stor.getSnapshot().environUnlocked
+	prefix := env.ecfg().maasAgentName()
+	if prefix != "" {
+		return prefix + "-" + name
+	}
+	return name
+}
+
 // Get is specified in the StorageReader interface.
 func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
+	name = stor.prefixWithPrivateNamespace(name)
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
 		return nil, err
@@ -108,6 +122,7 @@ func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 // extractFilenames returns the filenames from a "list" operation on the
 // MAAS API, sorted by name.
 func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]string, error) {
+	privatePrefix := stor.prefixWithPrivateNamespace("")
 	list, err := listResult.GetArray()
 	if err != nil {
 		return nil, err
@@ -122,7 +137,8 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 		if err != nil {
 			return nil, err
 		}
-		result[index] = filename
+		// When listing files we need to return them without our special prefix.
+		result[index] = strings.TrimPrefix(filename, privatePrefix)
 	}
 	sort.Strings(result)
 	return result, nil
@@ -130,6 +146,7 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 
 // List is specified in the StorageReader interface.
 func (stor *maasStorage) List(prefix string) ([]string, error) {
+	prefix = stor.prefixWithPrivateNamespace(prefix)
 	params := make(url.Values)
 	params.Add("prefix", prefix)
 	snapshot := stor.getSnapshot()
@@ -142,6 +159,7 @@ func (stor *maasStorage) List(prefix string) ([]string, error) {
 
 // URL is specified in the StorageReader interface.
 func (stor *maasStorage) URL(name string) (string, error) {
+	name = stor.prefixWithPrivateNamespace(name)
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
 		return "", err
@@ -174,6 +192,7 @@ func (stor *maasStorage) ShouldRetry(err error) bool {
 
 // Put is specified in the StorageWriter interface.
 func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
+	name = stor.prefixWithPrivateNamespace(name)
 	data, err := ioutil.ReadAll(io.LimitReader(r, length))
 	if err != nil {
 		return err
@@ -187,6 +206,7 @@ func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 
 // Remove is specified in the StorageWriter interface.
 func (stor *maasStorage) Remove(name string) error {
+	name = stor.prefixWithPrivateNamespace(name)
 	// The only thing that can go wrong here, really, is that the file
 	// does not exist.  But deletion is idempotent: deleting a file that
 	// is no longer there anyway is success, not failure.
@@ -200,7 +220,7 @@ func (stor *maasStorage) RemoveAll() error {
 	if err != nil {
 		return err
 	}
-	// Remove all the objects in parallel so that we incur less round-trips.
+	// Remove all the objects in parallel so that we incur fewer round-trips.
 	// If we're in danger of having hundreds of objects,
 	// we'll want to change this to limit the number
 	// of concurrent operations.

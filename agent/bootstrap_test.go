@@ -48,7 +48,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
-	pwHash := utils.PasswordHash(testing.DefaultMongoPassword)
+	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		DataDir:        dataDir,
 		Tag:            "machine-0",
@@ -113,7 +113,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
-	pwHash := utils.PasswordHash(testing.DefaultMongoPassword)
+	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		DataDir:        dataDir,
 		Tag:            "machine-0",

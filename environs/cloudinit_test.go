@@ -62,13 +62,15 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
+		SyslogPort:                     2345,
 	})
 }
 
-func (s *CloudInitSuite) TestFinishMachineConfigNoSSLVerification(c *gc.C) {
+func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
+		"syslog-port":               8888,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -87,6 +89,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNoSSLVerification(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
+		SyslogPort:                     8888,
 	})
 }
 
@@ -108,7 +111,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
-	password := utils.PasswordHash("lisboan-pork")
+	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: []byte(testing.CACert),
 	})
@@ -164,6 +167,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		Config:           envConfig,
 		StatePort:        envConfig.StatePort(),
 		APIPort:          envConfig.APIPort(),
+		SyslogPort:       envConfig.SyslogPort(),
 		StateServer:      true,
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 	}

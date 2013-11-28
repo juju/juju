@@ -40,6 +40,16 @@ func (s *MachineSuite) TestContainerDefaults(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []string(nil))
 }
 
+func (s *MachineSuite) TestMachineJobFromParams(c *gc.C) {
+	for stateMachineJob, paramsMachineJob := range state.JobNames {
+		job, err := state.MachineJobFromParams(paramsMachineJob)
+		c.Assert(err, gc.IsNil)
+		c.Assert(job, gc.Equals, stateMachineJob)
+	}
+	_, err := state.MachineJobFromParams("invalid")
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *MachineSuite) TestParentId(c *gc.C) {
 	parentId, ok := s.machine.ParentId()
 	c.Assert(parentId, gc.Equals, "")
@@ -57,15 +67,17 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
-func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
+func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 	tests := []struct {
 		isStateServer bool
 		jobs          []state.MachineJob
 	}{
 		{false, []state.MachineJob{state.JobHostUnits}},
-		{false, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 		{true, []state.MachineJob{state.JobManageState}},
+		{true, []state.MachineJob{state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 	}
 	for _, test := range tests {
 		params := state.AddMachineParams{
@@ -74,7 +86,7 @@ func (s *MachineSuite) TestMachineIsStateServer(c *gc.C) {
 		}
 		m, err := s.State.AddMachineWithConstraints(&params)
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.IsStateServer(), gc.Equals, test.isStateServer)
+		c.Assert(m.IsManager(), gc.Equals, test.isStateServer)
 	}
 }
 
@@ -83,6 +95,8 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
+	err = m.ForceDestroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
@@ -205,40 +219,6 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MachineSuite) TestDestroyMachines(c *gc.C) {
-	m0 := s.machine
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-
-	sch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingService(c, "wordpress", sch)
-	u, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
-	err = u.AssignToMachine(m0)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
-	assertLife := func(m *state.Machine, life state.Life) {
-		err := m.Refresh()
-		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, life)
-	}
-	assertLife(m0, state.Alive)
-	assertLife(m1, state.Alive)
-	assertLife(m2, state.Dying)
-
-	err = u.UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
-	err = s.State.DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	assertLife(m0, state.Dying)
-	assertLife(m1, state.Alive)
-	assertLife(m2, state.Dying)
-}
-
 func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, gc.IsNil)
@@ -269,6 +249,12 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
+}
+
+func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
+	e, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, gc.IsNil)
+	testSetAgentCompatPassword(c, e)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
@@ -602,11 +588,11 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.entityWatcher, which
 	// is also used by:
-	//	Machine.WatchHardwareCharacteristics
-	//	Service.Watch
-	//	Unit.Watch
-	//	State.WatchForEnvironConfigChanges
-	//	Unit.WatchConfigSettings
+	//  Machine.WatchHardwareCharacteristics
+	//  Service.Watch
+	//  Unit.Watch
+	//  State.WatchForEnvironConfigChanges
+	//  Unit.WatchConfigSettings
 	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, gc.IsNil)
@@ -1085,4 +1071,183 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.DeepEquals, addresses)
+}
+
+func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	containers := []instance.ContainerType{container}
+	err = machine.SetSupportedContainers(containers)
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, containers)
+	return machine
+}
+
+// assertSupportedContainers checks the document in memory has the specified
+// containers and then reloads the document from the database to assert saved
+// values match also.
+func assertSupportedContainers(c *gc.C, machine *state.Machine, containers []instance.ContainerType) {
+	supportedContainers, known := machine.SupportedContainers()
+	c.Assert(known, jc.IsTrue)
+	c.Assert(supportedContainers, gc.DeepEquals, containers)
+	// Reload so we can check the saved values.
+	err := machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	supportedContainers, known = machine.SupportedContainers()
+	c.Assert(known, jc.IsTrue)
+	c.Assert(supportedContainers, gc.DeepEquals, containers)
+}
+
+func assertSupportedContainersUnknown(c *gc.C, machine *state.Machine) {
+	containers, known := machine.SupportedContainers()
+	c.Assert(known, jc.IsFalse)
+	c.Assert(containers, gc.HasLen, 0)
+}
+
+func (s *MachineSuite) TestSupportedContainersInitiallyUnknown(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainersUnknown(c, machine)
+}
+
+func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{})
+}
+
+func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.NONE})
+	c.Assert(err, gc.ErrorMatches, `"none" is not a valid container type`)
+	assertSupportedContainersUnknown(c, machine)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainersUnknown(c, machine)
+}
+
+func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersSame(c *gc.C) {
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersNew(c *gc.C) {
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersMultipeNew(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
+	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, gc.IsNil)
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
+	// Create a machine and add lxc and kvm containers prior to calling SetSupportedContainers
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	addParams := state.AddMachineParams{
+		ParentId:      machine.Id(),
+		ContainerType: instance.LXC,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&addParams)
+	c.Assert(err, gc.IsNil)
+	addParams = state.AddMachineParams{
+		ParentId:      machine.Id(),
+		ContainerType: instance.KVM,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	supportedContainer, err := s.State.AddMachineWithConstraints(&addParams)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	// A supported (kvm) container will have a pending status.
+	err = supportedContainer.Refresh()
+	c.Assert(err, gc.IsNil)
+	status, info, data, err := supportedContainer.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusPending)
+
+	// An unsupported (lxc) container will have an error status.
+	err = container.Refresh()
+	c.Assert(err, gc.IsNil)
+	status, info, data, err = container.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "unsupported container")
+	c.Assert(data, gc.DeepEquals, params.StatusData{"type": "lxc"})
+}
+
+func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
+	// Create a machine and add all container types prior to calling SupportsNoContainers
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	var containers []*state.Machine
+	for _, containerType := range instance.ContainerTypes {
+		addParams := state.AddMachineParams{
+			ParentId:      machine.Id(),
+			ContainerType: containerType,
+			Series:        "quantal",
+			Jobs:          []state.MachineJob{state.JobHostUnits},
+		}
+		container, err := s.State.AddMachineWithConstraints(&addParams)
+		c.Assert(err, gc.IsNil)
+		containers = append(containers, container)
+	}
+
+	err = machine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+
+	// All containers should be in error state.
+	for _, container := range containers {
+		err = container.Refresh()
+		c.Assert(err, gc.IsNil)
+		status, info, data, err := container.Status()
+		c.Assert(err, gc.IsNil)
+		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(info, gc.Equals, "unsupported container")
+		containerType := state.ContainerTypeFromId(container.Id())
+		c.Assert(data, gc.DeepEquals, params.StatusData{"type": string(containerType)})
+	}
 }

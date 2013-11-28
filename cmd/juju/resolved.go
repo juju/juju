@@ -48,14 +48,10 @@ func (c *ResolvedCommand) Init(args []string) error {
 }
 
 func (c *ResolvedCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	unit, err := conn.State.Unit(c.UnitName)
-	if err != nil {
-		return err
-	}
-	return unit.Resolve(c.Retry)
+	defer client.Close()
+	return client.Resolved(c.UnitName, c.Retry)
 }

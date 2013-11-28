@@ -10,6 +10,8 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
+const defaultStoragePort = 8040
+
 var (
 	configFields = schema.Fields{
 		"bootstrap-host":    schema.String(),
@@ -21,7 +23,7 @@ var (
 	configDefaults = schema.Defaults{
 		"bootstrap-user":    "",
 		"storage-listen-ip": "",
-		"storage-port":      8040,
+		"storage-port":      defaultStoragePort,
 	}
 )
 

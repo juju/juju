@@ -12,9 +12,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2/httpstorage"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -27,10 +29,10 @@ type ToolsMetadataCommand struct {
 	cmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
+	public      bool
 
-	// noS3 is used in testing to disable the use of S3 public storage
-	// as a backup.
-	noS3 bool
+	// noPublic is used in testing to disable the use of public storage as a backup.
+	noPublic bool
 }
 
 func (c *ToolsMetadataCommand) Info() *cmd.Info {
@@ -42,8 +44,8 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 
 func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.BoolVar(&c.fetch, "fetch", true, "fetch tools and compute content size and hash")
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
+	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 }
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
@@ -61,7 +63,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	fmt.Fprintln(context.Stdout, "Finding tools...")
 	const minorVersion = -1
 	toolsList, err := tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
-	if err == tools.ErrNoTools && !c.noS3 {
+	if err == tools.ErrNoTools && !c.noPublic {
 		sourceStorage = httpstorage.NewHTTPStorageReader(sync.DefaultToolsLocation)
 		toolsList, err = tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	}
@@ -73,5 +75,27 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return tools.WriteMetadata(toolsList, c.fetch, targetStorage)
+	writeMirrors := tools.DoNotWriteMirrors
+	if c.public {
+		writeMirrors = tools.WriteMirrors
+	}
+	return mergeAndWriteMetadata(targetStorage, toolsList, writeMirrors)
+}
+
+// This is essentially the same as tools.MergeAndWriteMetadata, but also
+// resolves metadata for existing tools by fetching them and computing
+// size/sha256 locally.
+func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, writeMirrors tools.ShouldWriteMirrors) error {
+	existing, err := tools.ReadMetadata(stor)
+	if err != nil {
+		return err
+	}
+	metadata := tools.MetadataFromTools(toolsList)
+	if metadata, err = tools.MergeMetadata(metadata, existing); err != nil {
+		return err
+	}
+	if err = tools.ResolveMetadata(stor, metadata); err != nil {
+		return err
+	}
+	return tools.WriteMetadata(stor, metadata, writeMirrors)
 }

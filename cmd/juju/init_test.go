@@ -33,7 +33,7 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 	data, err := ioutil.ReadFile(environpath)
 	c.Assert(err, gc.IsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)
-	c.Assert(strippedData, gc.Matches, ".*## This is the Juju config file, which you can use.*")
+	c.Assert(strippedData, gc.Matches, ".*# This is the Juju config file, which you can use.*")
 }
 
 // The boilerplate is sent to stdout with --show, and the environments.yaml
@@ -45,7 +45,7 @@ func (*InitSuite) TestBoilerPlatePrinted(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, ".*## This is the Juju config file, which you can use.*")
+	c.Check(strippedOut, gc.Matches, ".*# This is the Juju config file, which you can use.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
 	_, err := ioutil.ReadFile(environpath)
 	c.Assert(err, gc.NotNil)
@@ -91,5 +91,5 @@ func (*InitSuite) TestExistingEnvironmentOverwritten(c *gc.C) {
 	data, err := ioutil.ReadFile(environpath)
 	c.Assert(err, gc.IsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)
-	c.Assert(strippedData, gc.Matches, ".*## This is the Juju config file, which you can use.*")
+	c.Assert(strippedData, gc.Matches, ".*# This is the Juju config file, which you can use.*")
 }

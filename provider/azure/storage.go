@@ -190,19 +190,3 @@ func (storage *azureStorage) deleteContainer(name string) error {
 
 	return context.DeleteContainer(name)
 }
-
-// publicEnvironStorageContext is a storageContext which gets its information
-// from an azureEnviron object to create a public storage.
-type publicEnvironStorageContext struct {
-	environ *azureEnviron
-}
-
-var _ storageContext = (*publicEnvironStorageContext)(nil)
-
-func (context *publicEnvironStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.publicStorageContainerName()
-}
-
-func (context *publicEnvironStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
-	return context.environ.getPublicStorageContext()
-}

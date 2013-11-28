@@ -107,15 +107,15 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 var fetchTests = []struct {
-	region string
-	series string
-	arches []string
-	images []*imagemetadata.ImageMetadata
+	region  string
+	version string
+	arches  []string
+	images  []*imagemetadata.ImageMetadata
 }{
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64", "arm"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"amd64", "arm"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -144,9 +144,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"amd64"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -167,9 +167,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"arm"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"arm"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea699",
@@ -182,9 +182,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64"},
+		region:  "us-east-1",
+		version: "12.04",
+		arches:  []string{"amd64"},
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -192,6 +192,53 @@ var fetchTests = []struct {
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+			{
+				Id:         "ami-442ea684",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
+				Storage:    "instance",
+			},
+		},
+	},
+	{
+		version: "12.04",
+		arches:  []string{"amd64"},
+		images: []*imagemetadata.ImageMetadata{
+			{
+				Id:         "ami-26745463",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "au-east-2",
+				Endpoint:   "https://somewhere-else",
+				Storage:    "ebs",
+			},
+			{
+				Id:         "ami-442ea674",
+				VType:      "hvm",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+			{
+				Id:          "ami-442ea675",
+				VType:       "hvm",
+				Arch:        "amd64",
+				RegionAlias: "uswest3",
+				RegionName:  "us-west-3",
+				Endpoint:    "https://ec2.us-west-3.amazonaws.com",
+				Storage:     "ebs",
+			},
+			{
+				Id:         "ami-26745464",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "au-east-1",
+				Endpoint:   "https://somewhere",
 				Storage:    "ebs",
 			},
 			{
@@ -209,14 +256,21 @@ var fetchTests = []struct {
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
+		cloudSpec := simplestreams.CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"}
+		if t.region == "" {
+			cloudSpec = simplestreams.EmptyCloudSpec
+		}
 		imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-			CloudSpec: simplestreams.CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"},
+			CloudSpec: cloudSpec,
 			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
 		images, err := imagemetadata.Fetch([]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
+		}
+		for _, testImage := range t.images {
+			testImage.Version = t.version
 		}
 		c.Check(images, gc.DeepEquals, t.images)
 	}

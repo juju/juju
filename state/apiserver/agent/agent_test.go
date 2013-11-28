@@ -160,9 +160,9 @@ func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	results, err := s.agent.SetPasswords(params.PasswordChanges{
 		Changes: []params.PasswordChange{
-			{Tag: "machine-0", Password: "xxx"},
-			{Tag: "machine-1", Password: "yyy"},
-			{Tag: "machine-42", Password: "zzz"},
+			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
+			{Tag: "machine-1", Password: "yyy-12345678901234567890"},
+			{Tag: "machine-42", Password: "zzz-12345678901234567890"},
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -175,6 +175,18 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	})
 	err = s.machine1.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed := s.machine1.PasswordValid("yyy")
+	changed := s.machine1.PasswordValid("yyy-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
+}
+
+func (s *agentSuite) TestShortSetPasswords(c *gc.C) {
+	results, err := s.agent.SetPasswords(params.PasswordChanges{
+		Changes: []params.PasswordChange{
+			{Tag: "machine-1", Password: "yyy"},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"password is only 3 bytes long, and is not a valid Agent password")
 }

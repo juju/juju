@@ -1075,7 +1075,7 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, gc.IsNil)
 	for _, unit := range units {
-		assertUnitLife(c, unit, state.Alive)
+		assertLife(c, unit, state.Alive)
 	}
 
 	// Check a cleanup doc was added.
@@ -1088,9 +1088,9 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, unit := range units {
 		if i%2 != 0 {
-			assertUnitLife(c, unit, state.Dying)
+			assertLife(c, unit, state.Dying)
 		} else {
-			assertUnitRemoved(c, unit)
+			assertRemoved(c, unit)
 		}
 	}
 
@@ -1417,4 +1417,15 @@ func (s *ServiceSuite) TestAnnotationRemovalForService(c *gc.C) {
 	ann, err := s.mysql.Annotations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
+}
+
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+// Check that GetOwnerTag returns admin-owner even
+// when the service has no owner
+func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
+	service := s.AddTestingService(c, "foobar", s.charm)
+	state.SetServiceOwnerTag(service, "")
+	c.Assert(state.GetServiceOwnerTag(service), gc.Equals, "")
+	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
 }

@@ -8,8 +8,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // ExposeCommand is responsible exposing services.
@@ -37,14 +35,10 @@ func (c *ExposeCommand) Init(args []string) error {
 // Run changes the juju-managed firewall to expose any
 // ports that were also explicitly marked by units as open.
 func (c *ExposeCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-
-	params := params.ServiceExpose{
-		ServiceName: c.ServiceName,
-	}
-	return statecmd.ServiceExpose(conn.State, params)
+	defer client.Close()
+	return client.ServiceExpose(c.ServiceName)
 }

@@ -42,6 +42,7 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	MinUnits      int
+	OwnerTag      string
 	TxnRevno      int64 `bson:"txn-revno"`
 }
 
@@ -604,8 +605,19 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 }
 
 // GetOwnerTag returns the owner of this service
-func (s *Service) GetOwnerTag() string {
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (s *serviceDoc) GetOwnerTag() string {
+	if s.OwnerTag != "" {
+		return s.OwnerTag
+	}
 	return "user-admin"
+}
+
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (s *Service) GetOwnerTag() string {
+	return s.doc.GetOwnerTag()
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -723,14 +735,18 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer utils.ErrorContextf(&err, "can't get relations for service %q", s)
+	return serviceRelations(s.st, s.doc.Name)
+}
+
+func serviceRelations(st *State, name string) (relations []*Relation, err error) {
+	defer utils.ErrorContextf(&err, "can't get relations for service %q", name)
 	docs := []relationDoc{}
-	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
+	err = st.relations.Find(D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range docs {
-		relations = append(relations, newRelation(s.st, &v))
+		relations = append(relations, newRelation(st, &v))
 	}
 	return relations, nil
 }

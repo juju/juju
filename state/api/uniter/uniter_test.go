@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -42,9 +43,11 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.
 	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
-	err := s.wordpressUnit.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.wordpressUnit.Tag(), "password")
+	err = s.wordpressUnit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, s.wordpressUnit.Tag(), password)
 
 	// Create the uniter API facade.
 	s.uniter = s.st.Uniter()

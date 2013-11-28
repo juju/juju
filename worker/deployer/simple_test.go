@@ -141,7 +141,7 @@ type SimpleToolsFixture struct {
 	syslogConfigDir string
 }
 
-var fakeJujud = "#!/bin/bash\n# fake-jujud\nexit 0\n"
+var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.LoggingSuite.SetUpTest(c)
@@ -178,7 +178,7 @@ func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
 
 func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 	path := filepath.Join(fix.binDir, name)
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash\n"+script), 0755)
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\n"+script), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -210,7 +210,6 @@ func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, 
 var expectedSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/juju-%s-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/%s.log
@@ -218,7 +217,9 @@ $InputFileTag juju-%s:
 $InputFileStateFile %s
 $InputRunFileMonitor
 
-:syslogtag, startswith, "juju-" @s1:514
+$template LongTagForwardFormat,"<%%PRI%%>%%TIMESTAMP:::date-rfc3339%% %%HOSTNAME%% %%syslogtag%%%%msg:::sp-if-no-1st-sp%%%%msg%%"
+
+:syslogtag, startswith, "juju-" @s1:2345;LongTagForwardFormat
 & ~
 `
 
@@ -265,7 +266,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	c.Assert(err, gc.IsNil)
 	parts := strings.SplitN(name, "/", 2)
 	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag, unitTag)
+	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag)
 	c.Assert(string(syslogConfData), gc.Equals, expectedSyslogConfReplaced)
 
 }
@@ -285,7 +286,7 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 
 func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) {
 	confPath := filepath.Join(fix.initDir, upstartConf)
-	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash\necho $0"), 0644)
+	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash --norc\necho $0"), 0644)
 	c.Assert(err, gc.IsNil)
 	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
 	err = os.MkdirAll(toolsDir, 0755)

@@ -8,8 +8,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // UnexposeCommand is responsible exposing services.
@@ -37,11 +35,10 @@ func (c *UnexposeCommand) Init(args []string) error {
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
 func (c *UnexposeCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	params := params.ServiceUnexpose{ServiceName: c.ServiceName}
-	return statecmd.ServiceUnexpose(conn.State, params)
+	defer client.Close()
+	return client.ServiceUnexpose(c.ServiceName)
 }

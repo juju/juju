@@ -13,10 +13,10 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -46,12 +46,12 @@ func init() {
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	stateInfo := common.BootstrapState{
+	stateInfo := bootstrap.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("dummy.instance.id")},
 	}
 	stateData, err := goyaml.Marshal(stateInfo)
 	c.Assert(err, gc.IsNil)
-	content := map[string]string{"/" + common.StateFile: string(stateData)}
+	content := map[string]string{"/" + bootstrap.StateFile: string(stateData)}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(content, nil)
 	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
 	providerStateURLFile = s.providerStateURLFile
@@ -76,7 +76,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 var testPassword = "my-admin-secret"
 
 func testPasswordHash() string {
-	return utils.PasswordHash(testPassword)
+	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
 func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {

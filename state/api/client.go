@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/version"
 )
 
 // Client represents the client-accessible part of the state.
@@ -40,7 +41,18 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.st.Call("Client", "", "ServiceSet", p, nil)
+	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
+	// ServiceSet to unset values set to an empty string.
+	return c.st.Call("Client", "", "NewServiceSetForClientAPI", p, nil)
+}
+
+// ServiceUnset resets configuration options on a service.
+func (c *Client) ServiceUnset(service string, options []string) error {
+	p := params.ServiceUnset{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.st.Call("Client", "", "ServiceUnset", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -50,6 +62,15 @@ func (c *Client) Resolved(unit string, retry bool) error {
 		Retry:    retry,
 	}
 	return c.st.Call("Client", "", "Resolved", p, nil)
+}
+
+// PublicAddress returns the public address of the specified
+// machine or unit.
+func (c *Client) PublicAddress(target string) (string, error) {
+	var results params.PublicAddressResults
+	p := params.PublicAddress{Target: target}
+	err := c.st.Call("Client", "", "PublicAddress", p, &results)
+	return results.PublicAddress, err
 }
 
 // ServiceSetYAML sets configuration options on a service
@@ -82,6 +103,58 @@ func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, e
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
+}
+
+// ServiceCharmRelations returns the service's charms relation names.
+func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
+	var results params.ServiceCharmRelationsResults
+	params := params.ServiceCharmRelations{ServiceName: service}
+	err := c.st.Call("Client", "", "ServiceCharmRelations", params, &results)
+	return results.CharmRelations, err
+}
+
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "AddMachines", args, results)
+	return results.Machines, err
+}
+
+// InjectMachines injects new machines with the supplied parameters.
+func (c *Client) InjectMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "InjectMachines", args, results)
+	return results.Machines, err
+}
+
+// MachineConfig returns information from the environment config that are
+// needed for machine cloud-init.
+func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
+	args := params.MachineConfigParams{
+		MachineId: machineId,
+		Series:    series,
+		Arch:      arch,
+	}
+	err = c.st.Call("Client", "", "MachineConfig", args, &result)
+	return result, err
+}
+
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
+}
+
+// ForceDestroyMachines removes a given set of machines and all associated units.
+func (c *Client) ForceDestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{Force: true, MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
@@ -141,7 +214,7 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 }
 
 // DestroyServiceUnits decreases the number of units dedicated to a service.
-func (c *Client) DestroyServiceUnits(unitNames []string) error {
+func (c *Client) DestroyServiceUnits(unitNames ...string) error {
 	params := params.DestroyServiceUnits{unitNames}
 	return c.st.Call("Client", "", "DestroyServiceUnits", params, nil)
 }
@@ -156,18 +229,33 @@ func (c *Client) ServiceDestroy(service string) error {
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetServiceConstraintsResults)
+	results := new(params.GetConstraintsResults)
 	err := c.st.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.st.Call("Client", "", "GetEnvironmentConstraints", nil, results)
 	return results.Constraints, err
 }
 
 // SetServiceConstraints specifies the constraints for the given service.
 func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetServiceConstraints{
+	params := params.SetConstraints{
 		ServiceName: service,
 		Constraints: constraints,
 	}
 	return c.st.Call("Client", "", "SetServiceConstraints", params, nil)
+}
+
+// SetEnvironmentConstraints specifies the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error {
+	params := params.SetConstraints{
+		Constraints: constraints,
+	}
+	return c.st.Call("Client", "", "SetEnvironmentConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -240,4 +328,24 @@ func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
+}
+
+// EnvironmentGet returns all environment settings.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentGetResults{}
+	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// EnvironmentSet sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentSet(config map[string]interface{}) error {
+	args := params.EnvironmentSet{Config: config}
+	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
+}
+
+// SetEnvironAgentVersion sets the environment agent-version setting
+// to the given value.
+func (c *Client) SetEnvironAgentVersion(version version.Number) error {
+	args := params.SetEnvironAgentVersion{Version: version}
+	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }

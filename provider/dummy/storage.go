@@ -22,26 +22,14 @@ import (
 // Both storages must have been created through the dummy provider.
 func IsSameStorage(s1, s2 storage.Storage) bool {
 	localS1, localS2 := s1.(*dummyStorage), s2.(*dummyStorage)
-	return localS1.env.name == localS2.env.name && localS1.public == localS2.public
+	return localS1.env.name == localS2.env.name
 }
 
 func (e *environ) Storage() storage.Storage {
-	return &dummyStorage{
-		env:    e,
-		public: false,
-	}
-}
-
-func (e *environ) PublicStorage() storage.StorageReader {
-	return &dummyStorage{
-		env:    e,
-		public: true,
-	}
+	return &dummyStorage{env: e}
 }
 
 // storageServer holds the storage for an environState.
-// There are two instances for each environState
-// instance, one for public files and one for private.
 type storageServer struct {
 	path     string // path prefix in http space.
 	state    *environState
@@ -179,8 +167,7 @@ func (s *storageServer) List(prefix string) ([]string, error) {
 
 // dummyStorage implements the client side of the Storage interface.
 type dummyStorage struct {
-	env    *environ
-	public bool
+	env *environ
 }
 
 // server returns the server side of the given storage.
@@ -188,9 +175,6 @@ func (s *dummyStorage) server() (*storageServer, error) {
 	st, err := s.env.state()
 	if err != nil {
 		return nil, err
-	}
-	if s.public {
-		return st.publicStorage, nil
 	}
 	return st.storage, nil
 }

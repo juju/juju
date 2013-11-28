@@ -28,7 +28,7 @@ func (c *OwnerGetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "owner-get",
 		Args:    "<setting>",
-		Purpose: "print information about the owner of the service",
+		Purpose: `print information about the owner of the service. The only valid value for <setting> is currently tag`,
 	}
 }
 

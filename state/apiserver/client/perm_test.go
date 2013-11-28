@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 type permSuite struct {
@@ -102,6 +103,22 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.SetServiceConstraints",
 	op:    opClientSetServiceConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetEnvironmentConstraints",
+	op:    opClientSetEnvironmentConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.EnvironmentGet",
+	op:    opClientEnvironmentGet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.EnvironmentSet",
+	op:    opClientEnvironmentSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetEnvironAgentVersion",
+	op:    opClientSetEnvironAgentVersion,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -336,7 +353,7 @@ func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), 
 }
 
 func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	err := st.Client().DestroyServiceUnits("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}
@@ -363,6 +380,54 @@ func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (fu
 		return func() {}, err
 	}
 	return func() {}, nil
+}
+
+func opClientSetEnvironmentConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetEnvironmentConstraints(nullConstraints)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientEnvironmentGet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	_, err := st.Client().EnvironmentGet()
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientEnvironmentSet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	args := map[string]interface{}{"some-key": "some-value"}
+	err := st.Client().EnvironmentSet(args)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		args["some-key"] = nil
+		st.Client().EnvironmentSet(args)
+	}, nil
+}
+
+func opClientSetEnvironAgentVersion(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	attrs, err := st.Client().EnvironmentGet()
+	if err != nil {
+		return func() {}, err
+	}
+	err = st.Client().SetEnvironAgentVersion(version.Current.Number)
+	if err != nil {
+		return func() {}, err
+	}
+
+	return func() {
+		oldAgentVersion, found := attrs["agent-version"]
+		if found {
+			versionString := oldAgentVersion.(string)
+			st.Client().SetEnvironAgentVersion(version.MustParse(versionString))
+		}
+	}, nil
 }
 
 func opClientWatchAll(c *gc.C, st *api.State, mst *state.State) (func(), error) {

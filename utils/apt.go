@@ -20,9 +20,9 @@ var (
 
 // Some helpful functions for running apt in a sane way
 
-// commandOutput calls cmd.Output, this is used as an overloading point so we
+// AptCommandOutput calls cmd.Output, this is used as an overloading point so we
 // can test what *would* be run without actually executing another program
-var commandOutput = (*exec.Cmd).CombinedOutput
+var AptCommandOutput = (*exec.Cmd).CombinedOutput
 
 // This is the default apt-get command used in cloud-init, the various settings
 // mean that apt won't actually block waiting for a prompt from the user.
@@ -43,7 +43,7 @@ func AptGetInstall(packages ...string) error {
 	aptLogger.Infof("Running: %s", cmdArgs)
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Env = append(os.Environ(), aptGetEnvOptions...)
-	out, err := commandOutput(cmd)
+	out, err := AptCommandOutput(cmd)
 	if err != nil {
 		aptLogger.Errorf("apt-get command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
@@ -64,7 +64,7 @@ func AptConfigProxy() (string, error) {
 		"Acquire::ftp::Proxy",
 	}
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	out, err := commandOutput(cmd)
+	out, err := AptCommandOutput(cmd)
 	if err != nil {
 		aptLogger.Errorf("apt-config command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))

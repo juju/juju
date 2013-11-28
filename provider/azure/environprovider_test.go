@@ -35,7 +35,7 @@ func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	// Make the config invalid.
-	attrs["public-storage-account-name"] = ""
+	attrs["location"] = ""
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
@@ -44,7 +44,7 @@ func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	// environs.Environ interface object with a nil value and a nil
 	// type.
 	c.Check(env, gc.Equals, nil)
-	c.Check(err, gc.ErrorMatches, ".*must be specified both or none of them.*")
+	c.Check(err, gc.ErrorMatches, ".*environment has no location; you need to set one.*")
 }
 
 // writeWALASharedConfig creates a temporary file with a valid WALinux config
