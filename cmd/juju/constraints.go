@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/rpc"
 )
 
 const getConstraintsDoc = `
@@ -87,6 +88,21 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// getEnvironConstraints1dot16 uses direct DB access to get the Environment
+// constraints against an API server running 1.16 or older (when GetEnvironmentConstraints
+// was not available). This fallback can be removed when we no longer maintain
+// 1.16 compatibility.
+// This only does the GetEnvironmentConstraints portion of Run, since
+// GetServiceConstraints was already implemented.
+func (c *GetConstraintsCommand) getEnvironConstraints1dot16() (constraints.Value, error) {
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	defer conn.Close()
+	return conn.State.EnvironConstraints()
+}
+
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
@@ -97,6 +113,11 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	var cons constraints.Value
 	if c.ServiceName == "" {
 		cons, err = apiclient.GetEnvironmentConstraints()
+		if rpc.IsNoSuchRequest(err) {
+			logger.Infof("GetEnvironmentConstraints not supported by the API server, " +
+				"falling back to 1.16 compatibility mode (direct DB access)")
+			cons, err = c.getEnvironConstraints1dot16()
+		}
 	} else {
 		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
