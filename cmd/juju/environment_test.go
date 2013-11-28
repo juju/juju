@@ -129,6 +129,15 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	c.Assert(stateConfig.DefaultSeries(), gc.Equals, "raring")
 }
 
+func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
+	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"ssl-hostname-verification=false"})
+	c.Assert(err, gc.IsNil)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateConfig.SSLHostnameVerification(), gc.Equals, false)
+}
+
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
 	c.Assert(err, gc.IsNil)
@@ -156,13 +165,15 @@ var immutableConfigTests = map[string]string{
 	"name":          "foo",
 	"type":          "foo",
 	"firewall-mode": "global",
+	"state-port":    "1",
+	"api-port":      "666",
 }
 
 func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
 	for name, value := range immutableConfigTests {
 		param := fmt.Sprintf("%s=%s", name, value)
 		_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{param})
-		errorPattern := fmt.Sprintf("cannot change %s from .* to %q", name, value)
+		errorPattern := fmt.Sprintf("cannot change %s from .* to [\"]?%v[\"]?", name, value)
 		c.Assert(err, gc.ErrorMatches, errorPattern)
 	}
 }
