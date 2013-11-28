@@ -122,7 +122,7 @@ func (c *DebugHooksCommand) validateHooks() error {
 				names = append(names, hookName)
 			}
 			sort.Strings(names)
-			logger.Infof("unknown hook %s, valid hook names: %v", c.Target, names)
+			logger.Infof("unknown hook %s, valid hook names: %v", hook, names)
 			return fmt.Errorf("unit %q does not contain hook %q", c.Target, hook)
 		}
 	}
