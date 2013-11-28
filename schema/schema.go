@@ -103,9 +103,14 @@ type boolC struct{}
 
 func (c boolC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v != nil {
-		val, err := strconv.ParseBool(fmt.Sprintf("%v", v))
-		if err == nil {
-			return val, nil
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Bool:
+			return v, nil
+		case reflect.String:
+			val, err := strconv.ParseBool(reflect.ValueOf(v).String())
+			if err == nil {
+				return val, nil
+			}
 		}
 	}
 	return nil, error_{"bool", v, path}
@@ -120,13 +125,26 @@ func Int() Checker {
 type intC struct{}
 
 func (c intC) Coerce(v interface{}, path []string) (interface{}, error) {
-	if v != nil {
-		val, err := strconv.ParseInt(fmt.Sprintf("%v", v), 0, 64)
+	if v == nil {
+		return nil, error_{"int", v, path}
+	}
+	switch reflect.TypeOf(v).Kind() {
+	case reflect.Int:
+	case reflect.Int8:
+	case reflect.Int16:
+	case reflect.Int32:
+	case reflect.Int64:
+	case reflect.String:
+		val, err := strconv.ParseInt(reflect.ValueOf(v).String(), 0, 64)
 		if err == nil {
 			return val, nil
+		} else {
+			return nil, error_{"int", v, path}
 		}
+	default:
+		return nil, error_{"int", v, path}
 	}
-	return nil, error_{"int", v, path}
+	return reflect.ValueOf(v).Int(), nil
 }
 
 // ForceInt returns a Checker that accepts any integer or float value, and
@@ -141,11 +159,16 @@ type forceIntC struct{}
 
 func (c forceIntC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v != nil {
-		switch reflect.TypeOf(v).Kind() {
+		switch vv := reflect.TypeOf(v); vv.Kind() {
 		case reflect.String:
-			intValue, err := strconv.ParseInt(fmt.Sprintf("%v", v), 0, 64)
+			vstr := reflect.ValueOf(v).String()
+			intValue, err := strconv.ParseInt(vstr, 0, 64)
 			if err == nil {
 				return int(intValue), nil
+			}
+			floatValue, err := strconv.ParseFloat(vstr, 64)
+			if err == nil {
+				return int(floatValue), nil
 			}
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			return int(reflect.ValueOf(v).Int()), nil

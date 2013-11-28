@@ -131,6 +131,10 @@ func (s *S) TestForceInt(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(out, gc.Equals, int(42))
 
+	out, err = sch.Coerce("42.66", aPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(out, gc.Equals, int(42))
+
 	out, err = sch.Coerce(int8(42), aPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(out, gc.Equals, int(42))
