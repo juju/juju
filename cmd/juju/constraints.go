@@ -157,6 +157,21 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 	return err
 }
 
+// setEnvironConstraints1dot16 uses direct DB access to get the Environment
+// constraints against an API server running 1.16 or older (when SetEnvironmentConstraints
+// was not available). This fallback can be removed when we no longer maintain
+// 1.16 compatibility.
+// This only does the SetEnvironmentConstraints portion of Run, since
+// SetServiceConstraints was already implemented.
+func (c *SetConstraintsCommand) setEnvironConstraints1dot16() error {
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return conn.State.SetEnvironConstraints(c.Constraints)
+}
+
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
@@ -164,7 +179,13 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	}
 	defer apiclient.Close()
 	if c.ServiceName == "" {
-		return apiclient.SetEnvironmentConstraints(c.Constraints)
+		err = apiclient.SetEnvironmentConstraints(c.Constraints)
+		if rpc.IsNoSuchRequest(err) {
+			logger.Infof("SetEnvironmentConstraints not supported by the API server, " +
+				"falling back to 1.16 compatibility mode (direct DB access)")
+			err = c.setEnvironConstraints1dot16()
+		}
+		return err
 	}
 	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 }
