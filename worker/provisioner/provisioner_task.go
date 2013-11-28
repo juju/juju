@@ -27,6 +27,12 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
+
+	// SetSafeMode sets a flag to indicate whether the provisioner task
+	// runs in safe mode or not. In safe mode, any running instances
+	// which do no exist in state are allowed to keep running rather than
+	// being shut down.
+	SetSafeMode(safeMode bool)
 }
 
 type Watcher interface {
@@ -41,6 +47,7 @@ type MachineGetter interface {
 
 func NewProvisionerTask(
 	machineTag string,
+	safeMode bool,
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker environs.InstanceBroker,
@@ -52,6 +59,8 @@ func NewProvisionerTask(
 		machineWatcher: watcher,
 		broker:         broker,
 		auth:           auth,
+		safeMode:       safeMode,
+		safeModeChan:   make(chan bool, 1),
 		machines:       make(map[string]*apiprovisioner.Machine),
 	}
 	go func() {
@@ -68,6 +77,9 @@ type provisionerTask struct {
 	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
 	auth           AuthenticationProvider
+
+	safeMode     bool
+	safeModeChan chan bool
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
@@ -102,6 +114,12 @@ func (task *provisionerTask) loop() error {
 	logger.Infof("Starting up provisioner task %s", task.machineTag)
 	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
+	// Don't allow the safe mode to change until we have
+	// read at least one set of changes, which will populate
+	// the task.machines map. Otherwise we will potentially
+	// see all legitimate instances as unknown.
+	var safeModeChan chan bool
+
 	// When the watcher is started, it will have the initial changes be all
 	// the machines that are relevant. Also, since this is available straight
 	// away, we know there will be some changes right off the bat.
@@ -117,10 +135,32 @@ func (task *provisionerTask) loop() error {
 			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
 			// instances.
 			if err := task.processMachines(ids); err != nil {
-				logger.Errorf("Process machines failed: %v", err)
-				return err
+				return fmt.Errorf("failed to process updated machines: %v", err)
+			}
+			// We've seen a set of changes. Enable safe mode change.
+			safeModeChan = task.safeModeChan
+		case safeMode := <-safeModeChan:
+			if safeMode == task.safeMode {
+				break
+			}
+			logger.Infof("safe mode changed to %v", safeMode)
+			task.safeMode = safeMode
+			if !safeMode {
+				// Safe mode has been disabled, so process current machines
+				// so that unknown machines will be immediately dealt with.
+				if err := task.processMachines(nil); err != nil {
+					return fmt.Errorf("failed to process machines after safe mode disabled: %v", err)
+				}
 			}
 		}
+	}
+}
+
+// SetSafeMode implements ProvisionerTask.SetSafeMode().
+func (task *provisionerTask) SetSafeMode(safeMode bool) {
+	select {
+	case task.safeModeChan <- safeMode:
+	case <-task.Dying():
 	}
 }
 
@@ -146,7 +186,16 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	if err != nil {
 		return err
 	}
-
+	if task.safeMode {
+		logger.Infof("running in safe mode, unknown instances not stopped %v", instanceIds(unknown))
+		unknown = nil
+	}
+	if len(stopping) > 0 {
+		logger.Infof("stopping known instances %v", stopping)
+	}
+	if len(unknown) > 0 {
+		logger.Infof("stopping unknown instances %v", instanceIds(unknown))
+	}
 	// It's important that we stop unknown instances before starting
 	// pending ones, because if we start an instance and then fail to
 	// set its InstanceId on the machine we don't want to start a new
@@ -155,8 +204,25 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		return err
 	}
 
+	// Remove any dead machines from state.
+	for _, machine := range dead {
+		logger.Infof("removing dead machine %q", machine)
+		if err := machine.Remove(); err != nil {
+			logger.Errorf("failed to remove dead machine %q", machine)
+		}
+		delete(task.machines, machine.Id())
+	}
+
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
+}
+
+func instanceIds(instances []instance.Instance) []string {
+	ids := make([]string, 0, len(instances))
+	for _, inst := range instances {
+		ids = append(ids, string(inst.Id()))
+	}
+	return ids
 }
 
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
@@ -190,7 +256,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	return nil
 }
 
-// pendingOrDead looks up machines with ids and retuns those that do not
+// pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
 func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
 	for _, id := range ids {
@@ -215,13 +281,6 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			fallthrough
 		case params.Dead:
 			dead = append(dead, machine)
-			logger.Infof("removing dead machine %q", machine)
-			if err := machine.Remove(); err != nil {
-				logger.Errorf("failed to remove dead machine %q", machine)
-				return nil, nil, err
-			}
-			// now remove it from the machines map
-			delete(task.machines, machine.Id())
 			continue
 		}
 		if instId, err := machine.InstanceId(); err != nil {
@@ -259,20 +318,19 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	for _, m := range task.machines {
 		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
-		} else if !params.IsCodeNotProvisioned(err) {
+		} else if !params.IsCodeNotProvisioned(err) && !params.IsCodeNotFound(err) {
 			return nil, err
 		}
 	}
-	// Now remove all those instances that we are stopping already, as they
-	// have been removed from the task.machines map.
-	for _, i := range stopping {
-		delete(instances, i.Id())
+	// Now remove all those instances that we are stopping already as we
+	// know about those and don't want to include them in the unknown list.
+	for _, inst := range stopping {
+		delete(instances, inst.Id())
 	}
 	var unknown []instance.Instance
-	for _, i := range instances {
-		unknown = append(unknown, i)
+	for _, inst := range instances {
+		unknown = append(unknown, inst)
 	}
-	logger.Tracef("unknown: %v", unknown)
 	return unknown, nil
 }
 
@@ -300,7 +358,6 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	if len(instances) == 0 {
 		return nil
 	}
-	logger.Debugf("Stopping instances: %v", instances)
 	if err := task.broker.StopInstances(instances); err != nil {
 		logger.Errorf("broker failed to stop instances: %v", err)
 		return err
