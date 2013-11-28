@@ -217,11 +217,6 @@ func (s *StateSuite) TestAddMachinesEnvironmentLife(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
-	// Same again if the environment has been removed.
-	err = env.Remove()
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment not found")
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -559,11 +554,6 @@ func (s *StateSuite) TestAddServiceEnvironmentLife(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("s1", charm)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
-	// Same again if the environment has been removed.
-	err = env.Remove()
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("s2", charm)
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s2": environment not found`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {

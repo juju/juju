@@ -55,6 +55,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupSettings(doc.Prefix)
 		case "units":
 			err = st.cleanupUnits(doc.Prefix)
+		case "services":
+			err = st.cleanupServices()
 		case "machine":
 			err = st.cleanupMachine(doc.Prefix)
 		default:
@@ -90,6 +92,26 @@ func (st *State) cleanupSettings(prefix string) error {
 		if _, err := st.settings.RemoveAll(sel); err != nil {
 			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
 		}
+	}
+	return nil
+}
+
+// cleanupServices sets all services to Dying, if they are not already Dying
+// or Dead. It's expected to be used when an environment is destroyed.
+func (st *State) cleanupServices() error {
+	// This won't miss services, because a Dying environment cannot have
+	// services added to it. But we do have to remove the services themselves
+	// via individual transactions, because they could be in any state at all.
+	service := &Service{st: st}
+	sel := D{{"life", Alive}}
+	iter := st.services.Find(sel).Iter()
+	for iter.Next(&service.doc) {
+		if err := service.Destroy(); err != nil {
+			return err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("cannot read service document: %v", err)
 	}
 	return nil
 }

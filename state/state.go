@@ -359,6 +359,8 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 	env, err := st.Environment()
 	if err != nil {
 		return nil, nil, err
+	} else if env.Life() != Alive {
+		return nil, nil, fmt.Errorf("environment is being destroyed")
 	}
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same constraints.Value struct
@@ -733,6 +735,8 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	env, err := st.Environment()
 	if err != nil {
 		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is being destroyed")
 	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers

@@ -9,7 +9,6 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -77,14 +76,21 @@ func (e *Environment) Refresh() error {
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
 func (e *Environment) Destroy() error {
+	// TODO(axw) SCHEMACHANGE
+	//
+	// Ideally we would gate Destroy on there being no services
+	// or non-manager machines in state. This is not feasible
+	// without reference counts for those things, which we do
+	// not currently have.
 	const life = Dying
-	op := txn.Op{
+	ops := []txn.Op{{
 		C:      e.st.environments.Name,
 		Id:     e.doc.UUID,
 		Update: D{{"$set", D{{"life", life}}}},
 		Assert: notDeadDoc,
-	}
-	err := e.st.runTransaction([]txn.Op{op})
+	}, e.st.newCleanupOp("services", "")}
+	// TODO(axw) (before landing) what about machines?
+	err := e.st.runTransaction(ops)
 	switch err {
 	case nil:
 		e.doc.Life = life
@@ -94,18 +100,6 @@ func (e *Environment) Destroy() error {
 		panic(err)
 	}
 	return err
-}
-
-// Remove removes the environment from state.
-func (e *Environment) Remove() (err error) {
-	defer utils.ErrorContextf(&err, "cannot remove environment %s", e.doc.UUID)
-	op := txn.Op{
-		C:      e.st.environments.Name,
-		Id:     e.doc.UUID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}
-	return onAbort(e.st.runTransaction([]txn.Op{op}), nil)
 }
 
 // createEnvironmentOp returns the operation needed to create
