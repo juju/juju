@@ -303,9 +303,9 @@ var configTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"development":     "true",
+			"development":     "invalid",
 		},
-		err: `development: expected bool, got string\("true"\)`,
+		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
