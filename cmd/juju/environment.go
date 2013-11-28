@@ -152,7 +152,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 
 // run1dot16 runs matches client.EnvironmentSet using a direct DB
 // connection to maintain compatibility with an API server running 1.16 or
-// older (when EnvironmentGet was not available). This fallback can be removed
+// older (when EnvironmentSet was not available). This fallback can be removed
 // when we no longer maintain 1.16 compatibility.
 // This content was copied from SetEnvironmentCommand.Run in 1.16
 func (c *SetEnvironmentCommand) run1dot16() error {
