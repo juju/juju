@@ -1,5 +1,7 @@
 #!/bin/bash
 
+shopt -s extglob
+
 # Executes the cmd in $1 and exits with an error if it fails.
 execute ()
 {
@@ -38,13 +40,15 @@ execute 'mkdir juju-backup' "Making backup directory"
 cd juju-backup
 
 # Mongo requires that a locale is set
-LC_ALL="en_US.UTF-8"
+LC_ALL=C
 export LC_ALL
 
 #---------------------------------------------------------------------
+DUMP_MONGO='mongodump --dbpath /var/lib/juju/db'
+EXPORT_ENVCONFIG='mongoexport --dbpath /var/lib/juju/db --db juju --collection settings --out environconfig.json'
 next_step "Backing up mongo database"
 execute 'sudo -n stop juju-db' " Stopping mongo"
-execute 'sudo -n mongodump --dbpath /var/lib/juju/db' "Backing up mongo"
+execute 'sudo -n bash -c "($DUMP_MONGO && $EXPORT_ENVCONFIG) || (start juju-db; exit 1)"' "Backing up mongo"
 execute 'sudo -n start juju-db' "Starting mongo"
 
 #---------------------------------------------------------------------
@@ -71,7 +75,7 @@ execute 'sudo -n cp /etc/rsyslog.d/*juju.conf rsyslogd' "Copying rsyslog config"
 
 # /var/log/juju/machine-0.log
 execute 'mkdir logs' "Making logs backup directory"
-execute 'sudo -n cp /var/log/juju/machine-0.log logs' "Copying machine log files"
+execute 'sudo -n cp /var/log/juju/+(all-|)machine+(s|\-0).log logs' "Copying machine log files"
 
 #---------------------------------------------------------------------
 next_step "Creating tarball"
