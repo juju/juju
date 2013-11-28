@@ -289,6 +289,8 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	// and then its ports should be opened.
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
+	err = svc.SetExposed()
+	c.Assert(err, gc.IsNil)
 	units, err := s.Conn.AddUnits(svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
