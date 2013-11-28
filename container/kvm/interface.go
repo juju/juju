@@ -3,6 +3,10 @@
 
 package kvm
 
+import (
+	"launchpad.net/juju-core/container"
+)
+
 // Container represents a virtualized container instance and provides
 // operations to create, maintain and destroy the container.
 type Container interface {
@@ -11,8 +15,13 @@ type Container interface {
 	Name() string
 
 	// Start runs the container as a daemon.
-	// TODO: determine parameters
-	Start() error
+	// TODO: add constraints.
+	Start(
+		series string,
+		arch string,
+		userDataFile string,
+		network *container.NetworkConfig,
+	) error
 
 	// Stop terminates the running container.
 	Stop() error

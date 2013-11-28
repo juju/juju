@@ -24,6 +24,7 @@ const (
 	LxcBridge         = "LXC_BRIDGE"
 	ProviderType      = "PROVIDER_TYPE"
 	ContainerType     = "CONTAINER_TYPE"
+	Namespace         = "NAMESPACE"
 	StorageDir        = "STORAGE_DIR"
 	StorageAddr       = "STORAGE_ADDR"
 	SharedStorageDir  = "SHARED_STORAGE_DIR"

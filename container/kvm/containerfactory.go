@@ -3,10 +3,6 @@
 
 package kvm
 
-import (
-	"fmt"
-)
-
 type containerFactory struct {
 }
 
@@ -19,6 +15,26 @@ func (factory *containerFactory) New(name string) Container {
 	}
 }
 
-func (factory *containerFactory) List() ([]Container, error) {
-	return nil, fmt.Errorf("Not yet implemented")
+func isRunning(value string) *bool {
+	var result *bool = new(bool)
+	if value == "running" {
+		*result = true
+	}
+	return result
+}
+
+func (factory *containerFactory) List() (result []Container, err error) {
+	machines, err := ListMachines()
+	if err != nil {
+		return nil, err
+	}
+	for hostname, status := range machines {
+		result = append(result, &kvmContainer{
+			factory: factory,
+			name:    hostname,
+			started: isRunning(status),
+		})
+
+	}
+	return result, nil
 }
