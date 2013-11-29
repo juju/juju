@@ -11,6 +11,7 @@ dump_logs(){
   done
 }
 export JUJU_HOME=$HOME/juju-ci
+export PACKAGE=$WORKSPACE/new-version.deb
 set -x
 rm * -rf
 wget -q localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact/new-version.deb
