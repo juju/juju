@@ -133,6 +133,8 @@ func Set(session *mgo.Session, members []Member) error {
 	// ok, this is ugly, but mongo gets mad if you try to change the Id of an
 	// existing member, so we have to look through the members and if there are
 	// any duplicates, make sure that duplicate has the same id it used to have.
+	// All other members get incremental ids above the value of the highest id
+	// that already existed
 	ids := map[string]int{}
 	max := -1
 	for _, m := range config.Members {

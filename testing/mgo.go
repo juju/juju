@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	// MgoServer is the shared mongo server used by tests.
+	// MgoServer is a shared mongo server used by tests.
 	MgoServer = &MgoInstance{}
 )
 
