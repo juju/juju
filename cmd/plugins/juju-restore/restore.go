@@ -20,26 +20,37 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var logger = loggo.GetLogger("juju.plugins.updatebootstrap")
+var logger = loggo.GetLogger("juju.plugins.restore")
 
-const updateBootstrapDoc = `
-Patches all machines after state server has been restored from backup, to
-update state server address to new location.
+const restoreDoc = `
+Restore restores a backup created with juju backup
+by creating a new juju bootstrap instances and arranging
+it so that the existing instances in the environment
+talk to it.
+
+It verifies that the existing bootstrap instance is
+not running. The given constraints will be used
+to choose the new instance.
 `
 
-type updateBootstrapCommand struct {
+type restoreCommand struct {
 	cmd.EnvCommandBase
 }
 
-func (c *updateBootstrapCommand) Info() *cmd.Info {
+func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "juju-update-bootstrap",
-		Purpose: "update all machines after recovering state server",
-		Doc:     updateBootstrapDoc,
+		Name:    "juju-restore",
+		Purpose: "Restore a backup made with juju backup",
+		Doc:     restoreDoc,
 	}
 }
 
-func (c *updateBootstrapCommand) Run(ctx *cmd.Context) error {
+func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
+}
+
+func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -150,7 +161,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	command := updateBootstrapCommand{}
+	command := restoreCommand{}
 	os.Exit(cmd.Main(&command, cmd.DefaultContext(), args[1:]))
 }
 
