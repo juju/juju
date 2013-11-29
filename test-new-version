@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eux
-EXIT_STATUS=0
+which juju
 # Test upgrading an existing environment
 export version=$(juju --version|sed -r 's/([^-]*).*/\1/')
 for env in $ENVS; do

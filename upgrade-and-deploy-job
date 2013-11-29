@@ -17,7 +17,6 @@ rm * -rf
 wget -q localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact/new-version.deb
 dpkg-deb -x $PACKAGE extracted-bin
 export NEW_PATH=$(dirname $(find extracted-bin -name juju)):$PATH
-which juju
 # Try to ensure a clean environment
 $SCRIPTS/destroy-environment $ENVS
 
