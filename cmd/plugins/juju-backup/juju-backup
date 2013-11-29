@@ -13,10 +13,10 @@ remote_cmd() {
 		ERR=$( "$@" 2>&1 ) || {
 			echo FAILED
 			echo '------------------------------------------------------------'
-			echo "Command failed: $CMD"
+			echo "Command failed: $*"
 			echo "Error: $ERR"
 			echo '------------------------------------------------------------'
-			exit 1;
+			exit 1
 		}
 		echo SUCCESS
 	}
@@ -95,12 +95,13 @@ REMOTE_SCRIPT="
 	$(declare -f remote_cmd)
 	remote_cmd
 "
+
 QUOTED_SCRIPT="'$(echo "$REMOTE_SCRIPT" | sed "s/'/'\"'\"'/g")'"
 echo Connecting to machine 0
 juju ssh 0 "sudo -n bash -c $QUOTED_SCRIPT" && {
 	# The backup has succeeded; copy backup tarball locally.
-	NOW=`date +"%Y%m%d_%H%M"`
-	FILENAME=juju-backup_$NOW.tar.gz
+	NOW=$(date '+%Y%m%d-%H%M')
+	FILENAME=juju-backup-$NOW.tar.gz
 	echo "Copying tarball to `pwd`/$FILENAME ..."
 	juju scp 0:~/juju-backup.tar.gz ./$FILENAME
 }
