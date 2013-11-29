@@ -132,7 +132,7 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
-	service, err := st.AddService(name, "test-owner", ch)
+	service, err := st.AddService(name, "user-admin", ch)
 	c.Assert(err, gc.IsNil)
 	return service
 }
