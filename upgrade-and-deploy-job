@@ -1,0 +1,36 @@
+#!/bin/bash
+set -eu
+dump_logs(){
+  artifacts_path=$WORKSPACE/artifacts
+  mkdir -p $artifacts_path
+  for env in $ENVS; do
+    log_path=${artifacts_path}/all-machines-${env}.log
+    if juju scp -e $env -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $HOME/juju-ci/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
+      gzip $log_path
+    fi
+  done
+}
+export JUJU_HOME=$HOME/juju-ci
+set -x
+rm * -rf
+wget -q localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact/new-version.deb
+dpkg-deb -x $PACKAGE extracted-bin
+export NEW_PATH=$(dirname $(find extracted-bin -name juju)):$PATH
+which juju
+# Try to ensure a clean environment
+$SCRIPTS/destroy-environment $ENVS
+
+# Do the deployment for upgrade testing.
+if ! $SCRIPTS/deploy_stack.py $ENVS; then
+  dump_logs
+  $SCRIPTS/destroy-environment $ENVS
+  exit 1
+fi
+EXIT_STATUS=0
+
+PATH=$NEW_PATH PACKAGE=$WORKSPACE/new-version.deb $SCRIPTS/test-new-version || EXIT_STATUS=$?
+if [ $EXIT_STATUS -ne 0 ]; then
+  dump_logs
+fi
+$SCRIPTS/destroy-environment $ENVS
+exit $EXIT_STATUS

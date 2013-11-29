@@ -2,9 +2,6 @@
 set -eux
 EXIT_STATUS=0
 # Test upgrading an existing environment
-dpkg-deb -x $PACKAGE extracted-bin
-export PATH=$(dirname $(find extracted-bin -name juju)):$PATH
-which juju
 export version=$(juju --version|sed -r 's/([^-]*).*/\1/')
 for env in $ENVS; do
   if [ "$env" == "local" ]; then
