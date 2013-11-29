@@ -88,7 +88,7 @@ execute 'Copying machine log files' cp '/var/log/juju/+(all-|)machine+(s|\-0).lo
 next_step 'Creating tarball'
 cd ..
 execute 'Performing tar' tar -zcf juju-backup.tar.gz juju-backup
-execute 'Changing ownership of backup files to ubuntu' chown -R ubuntu juju-backup*
+execute 'Changing ownership of backup files to ubuntu' chown -R ubuntu.ubuntu juju-backup*
 
 echo
 echo Juju backup finished.
