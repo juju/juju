@@ -268,6 +268,28 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	for _, ctype := range instance.ContainerTypes {
+		w, err := apiMachine.WatchContainers(ctype)
+		c.Assert(w, gc.NotNil)
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	_, err = apiMachine.WatchContainers(instance.NONE)
+	c.Assert(err, gc.ErrorMatches, `unsupported container type "none"`)
+
+	_, err = apiMachine.WatchContainers("")
+	c.Assert(err, gc.ErrorMatches, "container type must be specified")
+}
+
 func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	w, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
