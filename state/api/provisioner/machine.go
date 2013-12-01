@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"errors"
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
@@ -218,12 +219,49 @@ func (m *Machine) SetPassword(password string) error {
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of containers on the machine.
+// to the lifecycles of containers of the specified type on the machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
+	if string(ctype) == "" {
+		return nil, errors.New("container type must be specified")
+	}
+	supported := false
+	for _, c := range instance.ContainerTypes {
+		if ctype == c {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		return nil, fmt.Errorf("unsupported container type %q", ctype)
+	}
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
 		Params: []params.WatchContainer{
 			{MachineTag: m.tag, ContainerType: string(ctype)},
+		},
+	}
+	err := m.st.caller.Call("Provisioner", "", "WatchContainers", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(m.st.caller, result)
+	return w, nil
+}
+
+// WatchAllContainers returns a StringsWatcher that notifies of changes
+// to the lifecycles of all containers on the machine.
+func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.WatchContainers{
+		Params: []params.WatchContainer{
+			{MachineTag: m.tag},
 		},
 	}
 	err := m.st.caller.Call("Provisioner", "", "WatchContainers", args, &results)

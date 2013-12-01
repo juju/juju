@@ -1075,9 +1075,16 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Initial event is empty when no containers.
 	w := machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
+	wAll := machine.WatchAllContainers()
+	defer statetesting.AssertStop(c, wAll)
+
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
+
+	wcAll := statetesting.NewStringsWatcherC(c, s.State, wAll)
+	wcAll.AssertChange()
+	wcAll.AssertNoChange()
 
 	// Add a container of the required type: reported.
 	params.ParentId = machine.Id()
@@ -1086,18 +1093,24 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Add a container of a different type: not reported.
 	params.ContainerType = instance.KVM
 	m1, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	// But reported by the all watcher.
+	wcAll.AssertChange("0/kvm/0")
+	wcAll.AssertNoChange()
 
 	// Add a nested container of the right type: not reported.
 	params.ParentId = m.Id()
 	params.ContainerType = instance.LXC
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	wcAll.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
@@ -1106,18 +1119,27 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 	statetesting.AssertStop(c, w)
+	wcAll.AssertNoChange()
+	statetesting.AssertStop(c, wAll)
 
 	w = machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
 	wc = statetesting.NewStringsWatcherC(c, s.State, w)
+	wAll = machine.WatchAllContainers()
+	defer statetesting.AssertStop(c, wAll)
+	wcAll = statetesting.NewStringsWatcherC(c, s.State, wAll)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/kvm/0", "0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Make the container Dying: reported.
 	err = m.Destroy()
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Make the other containers Dying: not reported.
 	err = m1.Destroy()
@@ -1125,12 +1147,17 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	err = m2.Destroy()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	// But reported by the all watcher.
+	wcAll.AssertChange("0/kvm/0")
+	wcAll.AssertNoChange()
 
 	// Make the container Dead: reported.
 	err = m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Make the other containers Dead: not reported.
 	err = m1.EnsureDead()
@@ -1138,11 +1165,15 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	err = m2.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	// But reported by the all watcher.
+	wcAll.AssertChange("0/kvm/0")
+	wcAll.AssertNoChange()
 
 	// Remove the container: not reported.
 	err = m.Remove()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	wcAll.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {

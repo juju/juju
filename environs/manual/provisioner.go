@@ -182,7 +182,7 @@ func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dat
 		CACert:   configParameters.CACert,
 	}
 	apiInfo := &api.Info{
-		Addrs:    configParameters.StateAddrs,
+		Addrs:    configParameters.APIAddrs,
 		Password: configParameters.Password,
 		Tag:      configParameters.Tag,
 		CACert:   configParameters.CACert,
