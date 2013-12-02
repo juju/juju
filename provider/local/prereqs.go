@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
@@ -150,8 +151,8 @@ func verifyKvm() error {
 		return fmt.Errorf(kvmNotSupported)
 	}
 	// Check for other packages needed.
-	packagesNeeded = []string{"libvirt-bin", "uvtool-libvirt", "kvm"}
-	toInstall = []string{}
+	packagesNeeded := []string{"libvirt-bin", "uvtool-libvirt", "kvm"}
+	toInstall := []string{}
 	for _, pkg := range packagesNeeded {
 		if !utils.IsPackageInstalled(pkg) {
 			toInstall = append(toInstall, pkg)
