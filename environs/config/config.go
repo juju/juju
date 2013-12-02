@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -82,8 +83,8 @@ const (
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" and "development", of types string
-// and bool respectively.
+// recognised are "agent-version" (string) and "development" (bool) as
+// well as charm-store-auth (string containing comma-separated key=value pairs).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -233,6 +234,14 @@ func Validate(cfg, old *Config) error {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return fmt.Errorf("bad CA certificate/key in configuration: %v", err)
 		}
+	}
+
+	// Ensure that the auth token is a set of key=value pairs.
+	authToken := cfg.CharmStoreAuth()
+	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
+	if !validAuthToken.MatchString(authToken) {
+		return fmt.Errorf("charm store auth token needs to be a set"+
+			" of key-value pairs, not %q", authToken)
 	}
 
 	// Check the immutable config values.  These can't change
@@ -478,6 +487,11 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// Auth token sent to charm store
+func (c *Config) CharmStoreAuth() string {
+	return c.asString("charm-store-auth")
+}
+
 // ProvisionerSafeMode reports whether the provisioner should not
 // destroy machines it does not know about.
 func (c *Config) ProvisionerSafeMode() bool {
@@ -536,6 +550,7 @@ var fields = schema.Fields{
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
 	"logging-config":            schema.String(),
+	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
@@ -578,6 +593,8 @@ var alwaysOptional = schema.Defaults{
 	"state-port":  DefaultStatePort,
 	"api-port":    DefaultAPIPort,
 	"syslog-port": DefaultSyslogPort,
+	// Authentication string sent with requests to the charm store
+	"charm-store-auth": "",
 }
 
 func allowEmpty(attr string) bool {

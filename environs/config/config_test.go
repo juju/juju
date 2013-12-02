@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -555,6 +556,20 @@ var configTests = []configTest{
 			"type":                      "ec2",
 		},
 	},
+	authTokenConfigTest("token=value, tokensecret=value", true),
+	authTokenConfigTest("token=value, ", true),
+	authTokenConfigTest("token=value, \ttokensecret=value", true),
+	authTokenConfigTest("", true),
+	authTokenConfigTest("token=value, tokensecret=value, \t", true),
+	authTokenConfigTest("=", false),
+	authTokenConfigTest("tokenvalue", false),
+	authTokenConfigTest("token=value, sometoken=", false),
+	authTokenConfigTest("token==value", false),
+	authTokenConfigTest(" token=value", false),
+	authTokenConfigTest("=value", false),
+	authTokenConfigTest("token=value, =z", false),
+	authTokenConfigTest("token=value =z", false),
+	authTokenConfigTest("\t", false),
 	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -563,6 +578,28 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
+}
+
+// authTokenConfigTest returns a config test that checks
+// that a configuration with the given auth token
+// will pass or fail, depending on the value of ok.
+func authTokenConfigTest(token string, ok bool) configTest {
+	var testName string
+	var err string
+
+	if ok {
+		testName = fmt.Sprintf("Valid auth token test: %q", token)
+	} else {
+		testName = fmt.Sprintf("Invalid auth token test: %q", token)
+		err = fmt.Sprintf("charm store auth token needs to be a set of key-value pairs, not %q", token)
+	}
+
+	return configTest{
+		about:       testName,
+		useDefaults: config.UseDefaults,
+		attrs:       sampleConfig.Merge(testing.Attrs{"charm-store-auth": token}),
+		err:         regexp.QuoteMeta(err),
+	}
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -853,6 +890,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"api-port":                  4321,
 		"syslog-port":               2345,
 		"default-series":            "precise",
+		"charm-store-auth":          "token=auth",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
