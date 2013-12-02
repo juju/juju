@@ -19,6 +19,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	env_config "launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -350,7 +351,7 @@ func (s *StoreSuite) TestEventError(c *gc.C) {
 func (s *StoreSuite) TestAuthorization(c *gc.C) {
 	config := testing.CustomEnvironConfig(c,
 		testing.Attrs{"charm-store-auth": "token=value"})
-	store := charm.AuthorizeCharmRepo(s.store, config)
+	store := env_config.AuthorizeCharmRepo(s.store, config)
 
 	base := "cs:series/good"
 	charmURL := charm.MustParseURL(base)
@@ -362,7 +363,7 @@ func (s *StoreSuite) TestAuthorization(c *gc.C) {
 
 func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
 	config := testing.EnvironConfig(c)
-	store := charm.AuthorizeCharmRepo(s.store, config)
+	store := env_config.AuthorizeCharmRepo(s.store, config)
 
 	base := "cs:series/good"
 	charmURL := charm.MustParseURL(base)

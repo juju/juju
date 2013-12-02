@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -128,7 +129,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = charm.AuthorizeCharmRepo(repo, conf)
+	repo = config.AuthorizeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.

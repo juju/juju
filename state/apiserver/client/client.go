@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -240,7 +241,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 	// authorize the store client if possible
-	store := charm.AuthorizeCharmRepo(CharmStore, conf)
+	store := config.AuthorizeCharmRepo(CharmStore, conf)
 
 	ch, err := conn.PutCharm(curl, store, false)
 	if err != nil {
@@ -326,7 +327,7 @@ func serviceSetCharm(state *state.State, service *state.Service, url string, for
 		return err
 	}
 	// authorize the store client if possible
-	store := charm.AuthorizeCharmRepo(CharmStore, conf)
+	store := config.AuthorizeCharmRepo(CharmStore, conf)
 
 	ch, err := conn.PutCharm(curl, store, false)
 	if err != nil {
