@@ -42,15 +42,12 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		}
 		cfg = newCfg
 	}
-	// We get the container type out of the config unknowns here
-	// to avoid all the extra stuff that goes on with the SetConfig
-	// so we don't create special dirs if the user is not able to
-	// run the local provider.
-	containerType, ok := cfg.UnknownAttrs()[containerConfigKey].(string)
-	if !ok {
-		containerType = containerDefault
+	// Do the initial validation on the config.
+	localConfig, err := providerInstance.newConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
-	if err := VerifyPrerequisites(instance.ContainerType(containerType)); err != nil {
+	if err := VerifyPrerequisites(localConfig.container()); err != nil {
 		logger.Errorf("failed verification of local provider prerequisites: %v", err)
 		return nil, err
 	}
@@ -145,7 +142,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
-	if localConfig.container() != "lxc" && localConfig.container() != "kvm" {
+	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
 		return nil, fmt.Errorf("unsupported container type: %q", localConfig.container())
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())

@@ -18,19 +18,12 @@ var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
-const (
-	// These constants are defined here, and used in environprovider.go
-	// to explicitly get from the config unknown params.
-	containerConfigKey = "container"
-	containerDefault   = "lxc"
-)
-
 var (
 	configFields = schema.Fields{
 		"root-dir":            schema.String(),
 		"bootstrap-ip":        schema.String(),
 		"network-bridge":      schema.String(),
-		containerConfigKey:    schema.String(),
+		"container":           schema.String(),
 		"storage-port":        schema.ForceInt(),
 		"shared-storage-port": schema.ForceInt(),
 	}
@@ -41,7 +34,7 @@ var (
 	configDefaults = schema.Defaults{
 		"root-dir":            "",
 		"network-bridge":      "lxcbr0",
-		containerConfigKey:    containerDefault,
+		"container":           string(instance.LXC),
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,
@@ -84,7 +77,7 @@ func (c *environConfig) rootDir() string {
 }
 
 func (c *environConfig) container() instance.ContainerType {
-	return instance.ContainerType(c.attrs[containerConfigKey].(string))
+	return instance.ContainerType(c.attrs["container"].(string))
 }
 
 func (c *environConfig) networkBridge() string {
