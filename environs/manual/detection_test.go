@@ -26,14 +26,14 @@ func (s *detectionSuite) TestDetectSeries(c *gc.C) {
 		"processor: 0",
 	}, "\n")
 	defer installFakeSSH(c, detectionScript, response, 0)()
-	_, series, err := detectSeriesAndHardwareCharacteristics("whatever")
+	_, series, err := DetectSeriesAndHardwareCharacteristics("whatever")
 	c.Assert(err, gc.IsNil)
 	c.Assert(series, gc.Equals, "edgy")
 }
 
 func (s *detectionSuite) TestDetectionError(c *gc.C) {
 	defer installFakeSSH(c, detectionScript, "oh noes", 33)()
-	_, _, err := detectSeriesAndHardwareCharacteristics("whatever")
+	_, _, err := DetectSeriesAndHardwareCharacteristics("whatever")
 	c.Assert(err, gc.ErrorMatches, "exit status 33 \\(oh noes\\)")
 }
 
@@ -93,7 +93,7 @@ func (s *detectionSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 		c.Logf("test %d: %s", i, test.summary)
 		scriptResponse := strings.Join(test.scriptResponse, "\n")
 		defer installFakeSSH(c, detectionScript, scriptResponse, 0)()
-		hc, _, err := detectSeriesAndHardwareCharacteristics("hostname")
+		hc, _, err := DetectSeriesAndHardwareCharacteristics("hostname")
 		c.Assert(err, gc.IsNil)
 		c.Assert(hc.String(), gc.Equals, test.expectedHc)
 	}

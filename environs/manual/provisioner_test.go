@@ -12,6 +12,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -42,7 +43,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
 	defer fakeSSH{
-		series: series, arch: arch, skipProvisionAgent: true,
+		Series: series, Arch: arch, SkipProvisionAgent: true,
 	}.install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
 	machineId, err := ProvisionMachine(args)
@@ -58,9 +59,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
 		defer fakeSSH{
-			series: series,
-			arch:   arch,
-			provisionAgentExitCode: errorCode,
+			Series: series,
+			Arch:   arch,
+			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
 		machineId, err = ProvisionMachine(args)
 		if errorCode != 0 {
@@ -88,4 +89,25 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 255)()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
+}
+
+func (s *provisionerSuite) TestCreateMachineConfig(c *gc.C) {
+	const series = "precise"
+	const arch = "amd64"
+	defer fakeSSH{Series: series, Arch: arch}.install(c).Restore()
+	machineId, err := ProvisionMachine(s.getArgs(c))
+	c.Assert(err, gc.IsNil)
+
+	// Now check what we would've configured it with.
+	client := s.APIConn.State.Client()
+	mcfg, err := createMachineConfig(client, machineId, series, arch, state.BootstrapNonce, "/var/lib/juju")
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcfg, gc.NotNil)
+	c.Assert(mcfg.APIInfo, gc.NotNil)
+	c.Assert(mcfg.StateInfo, gc.NotNil)
+
+	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Assert(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }

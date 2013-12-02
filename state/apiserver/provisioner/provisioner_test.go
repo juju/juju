@@ -411,6 +411,43 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
+func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.WatchContainers{Params: []params.WatchContainer{
+		{MachineTag: s.machines[0].Tag()},
+		{MachineTag: s.machines[1].Tag()},
+		{MachineTag: "machine-42"},
+		{MachineTag: "unit-foo-0"},
+		{MachineTag: "service-bar"},
+	}}
+	result, err := s.provisioner.WatchAllContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "2", Changes: []string{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	m0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, m0Watcher)
+	m1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, m1Watcher)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0.AssertNoChange()
+	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1.AssertNoChange()
+}
+
 func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -698,6 +735,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+	c.Check(results.SyslogPort, gc.Equals, 2345)
 }
 
 func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
@@ -736,4 +774,88 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 	agentTools := results.Results[0].Tools
 	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
 	c.Check(agentTools.Version, gc.DeepEquals, cur)
+}
+
+func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
+			{
+				MachineTag:     "machine-0",
+				ContainerTypes: []instance.ContainerType{instance.LXC},
+			},
+			{
+				MachineTag:     "machine-1",
+				ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+			},
+		},
+	}
+	results, err := s.provisioner.SetSupportedContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.IsNil)
+	}
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC})
+	m1, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	containers, ok = m1.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
+	// Login as a machine agent for machine 0.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.Manager = false
+	anAuthorizer.Tag = s.machines[0].Tag()
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+	c.Assert(aProvisioner, gc.NotNil)
+
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{{
+			MachineTag:     "machine-0",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		}, {
+			MachineTag:     "machine-1",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		}, {
+			MachineTag:     "machine-42",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		},
+		},
+	}
+	// Only machine 0 can have it's containers updated.
+	results, err := aProvisioner.SetSupportedContainers(args)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
+			{
+				MachineTag: "machine-0",
+			},
+		},
+	}
+	results, err := s.provisioner.SetSupportedContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }

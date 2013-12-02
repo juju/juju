@@ -39,6 +39,10 @@ const (
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
+
+	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// listening on.
+	DefaultSyslogPort int = 514
 )
 
 // Config holds an immutable environment configuration.
@@ -391,6 +395,11 @@ func (c *Config) APIPort() int {
 	return c.mustInt("api-port")
 }
 
+// SyslogPort returns the syslog port for the environment.
+func (c *Config) SyslogPort() int {
+	return c.mustInt("syslog-port")
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -483,6 +492,13 @@ func (c *Config) CharmStoreAuth() string {
 	return c.asString("charm-store-auth")
 }
 
+// ProvisionerSafeMode reports whether the provisioner should not
+// destroy machines it does not know about.
+func (c *Config) ProvisionerSafeMode() bool {
+	v, _ := c.m["provisioner-safe-mode"].(bool)
+	return v
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -532,8 +548,10 @@ var fields = schema.Fields{
 	"ssl-hostname-verification": schema.Bool(),
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
+	"syslog-port":               schema.ForceInt(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
+	"provisioner-safe-mode":     schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -548,13 +566,14 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":        schema.Omit,
-	"ca-cert":              schema.Omit,
-	"authorized-keys":      schema.Omit,
-	"authorized-keys-path": schema.Omit,
-	"ca-cert-path":         schema.Omit,
-	"ca-private-key-path":  schema.Omit,
-	"logging-config":       schema.Omit,
+	"agent-version":         schema.Omit,
+	"ca-cert":               schema.Omit,
+	"authorized-keys":       schema.Omit,
+	"authorized-keys-path":  schema.Omit,
+	"ca-cert-path":          schema.Omit,
+	"ca-private-key-path":   schema.Omit,
+	"logging-config":        schema.Omit,
+	"provisioner-safe-mode": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -571,9 +590,9 @@ var alwaysOptional = schema.Defaults{
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
-	"state-port": DefaultStatePort,
-	"api-port":   DefaultAPIPort,
-
+	"state-port":  DefaultStatePort,
+	"api-port":    DefaultAPIPort,
+	"syslog-port": DefaultSyslogPort,
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 }
@@ -592,6 +611,7 @@ func allDefaults() schema.Defaults {
 		"ssl-hostname-verification": true,
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
+		"syslog-port":               DefaultSyslogPort,
 	}
 	for attr, val := range alwaysOptional {
 		d[attr] = val
@@ -624,6 +644,7 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
+	"syslog-port",
 }
 
 var (

@@ -16,11 +16,34 @@ type SCPCommand struct {
 	SSHCommon
 }
 
+const scpDoc = `
+Lauch an scp command to copy files. <to> and <from> are either local
+file paths or remote locations of the form <target>:<path>, where
+<target> can be either a machine id as listed by "juju status" in the
+"machines" section or a unit name as listed in the "services" section.
+
+Examples
+
+Copy a single file from machine 2 to the local machine:
+
+    juju scp 2:/var/log/syslog .
+
+Recursively copy the directory /var/log/mongodb/ on the first mongodb
+server to the local directory remote-logs:
+
+    juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs/
+
+Copy a local file to the second apache unit of the environment "testing":
+
+    juju scp -e testing foo.txt apache2/1:
+`
+
 func (c *SCPCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
-		Args:    "<from> <to>",
+		Args:    "[-- scp-option...] <from> <to>",
 		Purpose: "launch a scp command to copy files to/from remote machine(s)",
+		Doc:     scpDoc,
 	}
 }
 

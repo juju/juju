@@ -6,6 +6,9 @@ package manual
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
 	_ "launchpad.net/juju-core/provider/dummy"
@@ -34,20 +37,21 @@ func dummyConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config 
 	return testConfig
 }
 
-func (s *agentSuite) getArgs(c *gc.C, stateServer bool, vers version.Binary) provisionMachineAgentArgs {
-	tools := &tools.Tools{Version: vers}
-	tools.URL = "file:///var/lib/juju/storage/" + envtools.StorageName(vers)
-	return provisionMachineAgentArgs{
-		bootstrap:     stateServer,
-		environConfig: dummyConfig(c, stateServer, vers),
-		machineId:     "0",
-		nonce:         "ya",
-		stateFileURL:  "http://whatever/dotcom",
-		tools:         tools,
-		// stateInfo *state.Info
-		// apiInfo *api.Info
-		agentEnv: make(map[string]string),
+func (s *agentSuite) getMachineConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.MachineConfig {
+	var mcfg *cloudinit.MachineConfig
+	if stateServer {
+		mcfg = environs.NewBootstrapMachineConfig("http://whatever/dotcom")
+	} else {
+		mcfg = environs.NewMachineConfig("0", "ya", nil, nil)
 	}
+	mcfg.Tools = &tools.Tools{
+		Version: vers,
+		URL:     "file:///var/lib/juju/storage/" + envtools.StorageName(vers),
+	}
+	environConfig := dummyConfig(c, stateServer, vers)
+	err := environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	return mcfg
 }
 
 var allSeries = [...]string{"precise", "quantal", "raring", "saucy"}
@@ -62,7 +66,7 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 func (s *agentSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := provisionMachineAgentScript(s.getArgs(c, true, vers))
+		script, err := provisionMachineAgentScript(s.getMachineConfig(c, true, vers))
 		c.Assert(err, gc.IsNil)
 
 		// Only Precise requires the cloud-tools pocket.

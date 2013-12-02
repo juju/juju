@@ -18,6 +18,14 @@ type machineContainers struct {
 	Children []string `bson:",omitempty"`
 }
 
+// containerRefParams specify how a machineContainers document is to be created.
+type containerRefParams struct {
+	hostId      string
+	newHost     bool
+	hostOnly    bool
+	containerId string
+}
+
 // createContainerRefOp the txn.Op's that update a parent machine's container references to add
 // a new container with the specified container id. If no container id is specified, an empty
 // machineContainers doc is created.

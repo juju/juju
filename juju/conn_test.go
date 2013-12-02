@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -400,10 +401,19 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	id2, err := units[0].AssignedMachineId()
 	c.Assert(id2, gc.Equals, id0)
 
-	units, err = s.conn.AddUnits(svc, 1, fmt.Sprintf("%s:0", instance.LXC))
+	units, err = s.conn.AddUnits(svc, 1, "lxc:0")
 	c.Assert(err, gc.IsNil)
 	id3, err := units[0].AssignedMachineId()
 	c.Assert(id3, gc.Equals, id0+"/lxc/0")
+
+	units, err = s.conn.AddUnits(svc, 1, "lxc:"+id3)
+	c.Assert(err, gc.IsNil)
+	id4, err := units[0].AssignedMachineId()
+	c.Assert(id4, gc.Equals, id0+"/lxc/0/lxc/0")
+
+	// Check that all but the first colon is left alone.
+	_, err = s.conn.AddUnits(svc, 1, "lxc:"+strings.Replace(id3, "/", ":", -1))
+	c.Assert(err, gc.ErrorMatches, `invalid force machine id ".*"`)
 }
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each

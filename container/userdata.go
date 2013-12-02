@@ -11,12 +11,13 @@ import (
 
 	"launchpad.net/loggo"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/utils"
 )
 
 var (
-	logger         = loggo.GetLogger("juju.container.lxc")
+	logger         = loggo.GetLogger("juju.container")
 	aptHTTPProxyRE = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
 )
 
@@ -37,7 +38,8 @@ func WriteUserData(machineConfig *cloudinit.MachineConfig, directory string) (st
 func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
 	// consider not having this line hardcoded...
 	machineConfig.DataDir = "/var/lib/juju"
-	cloudConfig, err := cloudinit.New(machineConfig)
+	cloudConfig := coreCloudinit.New()
+	err := cloudinit.Configure(machineConfig, cloudConfig)
 	if err != nil {
 		return nil, err
 	}

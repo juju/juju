@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
@@ -28,6 +29,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -42,10 +44,13 @@ import (
 // Using "localhost" because it is, and it makes sense.
 const bootstrapInstanceId instance.Id = "localhost"
 
-// upstartScriptLocation is parameterised purely for testing purposes as we
-// don't really want to be installing and starting scripts as root for
-// testing.
-var upstartScriptLocation = "/etc/init"
+// upstartScriptLocation and syslogConfigDir are parameterised purely for
+// testing purposes as we don't really want to be installing and starting
+// scripts as root for testing.
+var (
+	upstartScriptLocation = "/etc/init"
+	syslogConfigDir       = "/etc/rsyslog.d"
+)
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -82,6 +87,10 @@ func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
 
+func (env *localEnviron) syslogFilename() string {
+	return fmt.Sprintf("25-juju-%s.conf", env.config.namespace())
+}
+
 // PrecheckInstance is specified in the environs.Prechecker interface.
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
@@ -95,7 +104,7 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -113,10 +122,20 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	if err := common.SaveState(env.Storage(), &common.BootstrapState{
+	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
+		return err
+	}
+
+	vers := version.Current
+	selectedTools, err := common.EnsureBootstrapTools(env, vers.Series, &vers.Arch)
+	if err != nil {
+		return err
+	}
+
+	if err := env.configureLocalSyslog(); err != nil {
 		return err
 	}
 
@@ -132,7 +151,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 		return err
 	}
 
-	return env.setupLocalMachineAgent(cons, possibleTools)
+	return env.setupLocalMachineAgent(cons, selectedTools)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -271,6 +290,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
 		return nil, nil, err
 	}
+	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
@@ -362,6 +382,8 @@ func (env *localEnviron) Destroy() error {
 		logger.Errorf("could not remove mongo service: %v", err)
 		return err
 	}
+
+	env.removeLocalSyslog()
 
 	// Remove the rootdir.
 	logger.Infof("removing state dir %s", env.config.rootDir())
@@ -496,10 +518,13 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 	caCert, _ := cfg.CACert()
 	agentValues := map[string]string{
 		agent.ProviderType:      env.config.Type(),
+		agent.Namespace:         env.config.namespace(),
 		agent.StorageDir:        env.config.storageDir(),
 		agent.StorageAddr:       env.config.storageAddr(),
 		agent.SharedStorageDir:  env.config.sharedStorageDir(),
 		agent.SharedStorageAddr: env.config.sharedStorageAddr(),
+		agent.AgentServiceName:  env.machineAgentServiceName(),
+		agent.MongoServiceName:  env.mongoServiceName(),
 	}
 	// NOTE: the state address HAS to be localhost, otherwise the mongo
 	// initialization fails.  There is some magic code somewhere in the mongo
@@ -571,4 +596,29 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 		return fmt.Errorf("cannot set addresses on bootstrap instance: %v", err)
 	}
 	return nil
+}
+
+func (env *localEnviron) configureLocalSyslog() error {
+	tag := names.MachineTag("0")
+	syslogConfigRenderer := syslog.NewAccumulateConfig(tag, env.config.SyslogPort(), env.config.namespace())
+	syslogConfigRenderer.ConfigDir = syslogConfigDir
+	syslogConfigRenderer.ConfigFileName = env.syslogFilename()
+	syslogConfigRenderer.LogDir = env.config.logDir()
+	if err := syslogConfigRenderer.Write(); err != nil {
+		return err
+	}
+	if err := syslog.Restart(); err != nil {
+		logger.Warningf("cannot restart syslog daemon: %v", err)
+	}
+	return nil
+}
+
+func (env *localEnviron) removeLocalSyslog() {
+	// Don't fail if we have issues, but warn the user.
+	if err := os.Remove(filepath.Join(syslogConfigDir, env.syslogFilename())); err != nil {
+		logger.Warningf("could not remove local syslog config: %v", err)
+	}
+	if err := syslog.Restart(); err != nil {
+		logger.Warningf("cannot restart syslog daemon: %v", err)
+	}
 }

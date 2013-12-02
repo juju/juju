@@ -4,8 +4,6 @@
 package null
 
 import (
-	"net"
-
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 )
@@ -38,17 +36,7 @@ func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err
 }
 
 func (inst nullBootstrapInstance) DNSName() (string, error) {
-	// If the user specified bootstrap-host as an IP address,
-	// do a reverse lookup.
-	host := inst.host
-	if ip := net.ParseIP(host); ip != nil {
-		names, err := net.LookupAddr(ip.String())
-		if err != nil {
-			return "", err
-		}
-		host = names[0]
-	}
-	return host, nil
+	return inst.host, nil
 }
 
 func (i nullBootstrapInstance) WaitDNSName() (string, error) {

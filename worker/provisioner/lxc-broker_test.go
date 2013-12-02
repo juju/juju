@@ -231,10 +231,13 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
+func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.MachineTag(s.parentMachineId)
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	return provisioner.NewProvisioner(provisioner.LXC, s.provisioner, agentConfig)
+	tools, err := s.provisioner.Tools(agentConfig.Tag())
+	c.Assert(err, gc.IsNil)
+	broker := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -281,5 +284,5 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
-	return params.ContainerConfig{"fake", "my-keys", true}, nil
+	return params.ContainerConfig{"fake", "my-keys", true, 2345}, nil
 }

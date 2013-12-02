@@ -195,10 +195,11 @@ type attributeValues map[string]string
 type aliasesByAttribute map[string]attributeValues
 
 type CloudMetadata struct {
-	Products map[string]MetadataCatalog    `json:"products"`
-	Aliases  map[string]aliasesByAttribute `json:"_aliases,omitempty"`
-	Updated  string                        `json:"updated"`
-	Format   string                        `json:"format"`
+	Products  map[string]MetadataCatalog    `json:"products"`
+	Aliases   map[string]aliasesByAttribute `json:"_aliases,omitempty"`
+	Updated   string                        `json:"updated"`
+	Format    string                        `json:"format"`
+	ContentId string                        `json:"content_id"`
 }
 
 type MetadataCatalog struct {
@@ -970,6 +971,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err
