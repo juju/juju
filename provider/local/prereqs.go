@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
@@ -47,22 +46,6 @@ documentation for instructions on installing the LXC userspace tools.`
 const errUnsupportedOS = `Unsupported operating system: %s
 The local provider is currently only available for Linux`
 
-const kvmNeedsUbuntu = `Sorry, but KVM support with the local provider is only supported
-on the Ubuntu OS.`
-
-const kvmNotSupported = `KVM is not currently supported with the current settings.
-You could try running 'kvm-ok' yourself as root to get the full rationale as to
-why it isn't supported, or potentially some BIOS settings to change to enable
-KVM support.`
-
-const neetToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
-    sudo apt-get install cpu-checker`
-
-const missingKVMDeps = `Some required packages are missing for KVM to work:
-
-    sudo apt-get install %s
-`
-
 // mongodPath is the path to "mongod", the MongoDB server.
 // This is a variable only to support unit testing.
 var mongodPath = "/usr/bin/mongod"
@@ -91,7 +74,7 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 	case instance.LXC:
 		return verifyLxc()
 	case instance.KVM:
-		return verifyKvm()
+		return kvm.VerifyKVMEnabled()
 	}
 	return fmt.Errorf("Unknown container type specified in the config.")
 }
@@ -136,30 +119,4 @@ func wrapLxcNotFound(err error) error {
 		return fmt.Errorf("%v\n%s", err, installLxcUbuntu)
 	}
 	return fmt.Errorf("%v\n%s", err, installLxcGeneric)
-}
-
-func verifyKvm() error {
-	if !utils.IsUbuntu() {
-		return fmt.Errorf(kvmNeedsUbuntu)
-	}
-	supported, err := kvm.IsKVMSupported()
-	if err != nil {
-		// Missing the kvm-ok package.
-		return fmt.Errorf(neetToInstallKVMOk)
-	}
-	if !supported {
-		return fmt.Errorf(kvmNotSupported)
-	}
-	// Check for other packages needed.
-	packagesNeeded := []string{"libvirt-bin", "uvtool-libvirt", "kvm"}
-	toInstall := []string{}
-	for _, pkg := range packagesNeeded {
-		if !utils.IsPackageInstalled(pkg) {
-			toInstall = append(toInstall, pkg)
-		}
-	}
-	if len(toInstall) > 0 {
-		return fmt.Errorf(missingKVMDeps, strings.Join(toInstall, " "))
-	}
-	return nil
 }
