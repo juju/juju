@@ -149,6 +149,33 @@ func (s *StoreSuite) TestCharmPublisher(c *gc.C) {
 	}
 }
 
+func (s *StoreSuite) TestDeleteCharm(c *gc.C) {
+	url := charm.MustParseURL("cs:oneiric/wordpress-d")
+	urls := []*charm.URL{url}
+
+	pub, err := s.store.CharmPublisher(urls, "some-digest")
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 0)
+
+	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+	c.Assert(err, gc.IsNil)
+
+	info, rc, err := s.store.OpenCharm(url)
+	c.Assert(err, gc.IsNil)
+	err = rc.Close()
+	c.Assert(err, gc.IsNil)
+
+	info2, err := s.store.DeleteCharm(url)
+	c.Assert(err, gc.IsNil)
+
+	// We deleted the charm we expected to
+	c.Assert(info.Meta().Name, gc.Equals, info2.Meta().Name)
+
+	// The charm is gone
+	_, _, err = s.store.OpenCharm(url)
+	c.Assert(err, gc.Not(gc.IsNil))
+}
+
 func (s *StoreSuite) TestCharmPublishError(c *gc.C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
