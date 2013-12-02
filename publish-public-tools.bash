@@ -171,9 +171,9 @@ if [[ $PURPOSE == "RELEASE" ]]; then
     publish_to_streams
     echo "Release data published to all CPCs."
 else
-#    testing_to_canonistack
-#    testing_to_hp
-#    testing_to_aws
+    testing_to_canonistack
+    testing_to_hp
+    testing_to_aws
     testing_to_azure
     testing_to_streams
     echo "Testing data published to all CPCs."
