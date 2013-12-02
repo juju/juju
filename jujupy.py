@@ -77,8 +77,12 @@ class JujuClientDevel:
     @classmethod
     def bootstrap(cls, environment):
         """Bootstrap, using sudo if necessary."""
-        cls.juju(environment, 'bootstrap', ('--constraints', 'mem=2G'),
-                 environment.needs_sudo())
+        if environment.needs_upload():
+            upload_tools = ('--upload-tools',)
+        else:
+            upload_tools = ()
+        cls.juju(environment, 'bootstrap', ('--constraints', 'mem=2G') +
+                 upload_tools, environment.needs_sudo())
 
     @classmethod
     def destroy_environment(cls, environment):
@@ -170,6 +174,9 @@ class Environment:
         self.local = bool(self.environment == 'local')
 
     def needs_sudo(self):
+        return self.local
+
+    def needs_upload(self):
         return self.local
 
     def bootstrap(self):
