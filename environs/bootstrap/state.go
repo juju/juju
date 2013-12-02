@@ -32,7 +32,7 @@ type BootstrapState struct {
 	// Characteristics reflect the hardware each state server is running on.
 	// This is used at bootstrap time so the state server knows what hardware it has.
 	// The state *may* be updated later without this information, but by then it's
-	// served it's purpose.
+	// served its purpose.
 	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 

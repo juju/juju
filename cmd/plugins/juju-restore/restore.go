@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	_ "launchpad.net/juju-core/provider/all"
@@ -35,22 +36,146 @@ to choose the new instance.
 
 type restoreCommand struct {
 	cmd.EnvCommandBase
+	Constraints constraints.Value
+	backupFile string
 }
 
 func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "juju-restore",
 		Purpose: "Restore a backup made with juju backup",
+		Args: "<backupfile.tar.gz>",
 		Doc:     restoreDoc,
 	}
 }
 
-func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 }
 
+func (c *restoreCommand) Init(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("no backup file specified")
+	}
+	c.backupFile = args[0]
+}
+
+var updateBootstrapMachine = template.Must(template.New("").Parse(`
+	set -e -x
+	tar xzf juju-backup.tgz
+	test -d juju-backup
+	initctl stop juju-db
+	initctl stop jujud-machine-0
+	cd /
+	rm -r /var/lib/juju /var/log/juju
+	tar -C juju-backup/root -x -f - | tar -C / -xpz -f -
+	initctl start juju-db
+	mongo --ssl -u admin -p newAdminSecret localhost:37017/admin
+		db.machines.update({_id: 0}, {$set: {instanceid: {{.NewInstanceId}} } })
+		db.instanceData.update({_id: 0}, {$set: {instanceid: {{.NewInstanceId}} } })
+	initctl start jujud-machine-0
+`))
+
+
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	cfg, err := environs.ConfigForName(c.EnvName, store)
+	if err != nil {
+		return err
+	}
+	// Turn on safe mode so that the newly bootstrapped instance
+	// will not destroy all the instances it does not know about.
+	cfg, err = cfg.Apply(map[string]interface{} {
+		"provisioner-safe-mode": true,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot enable provisioner-safe-mode: %v", err)
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return err
+	}
+	state, err := bootstrap.LoadState(env.Storage())
+	if err != nil {
+		return fmt.Errorf("cannot retrieve environment storage; perhaps the environment was not bootstrapped: %v", err)
+	}
+	if len(state.StateInstances) == 0 {
+		return fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped", err)
+	}
+	if len(state.StateInstances) > 1 {
+		return fmt.Errorf("restore does not support HA juju configurations yet")
+	}
+	inst, err := env.Instances(state.StateInstances)
+	if err == nil {
+		return fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+	}
+	if err != environs.ErrNoInstances {
+		return fmt.Errorf("cannot detect whether old instance is still running: %v", err)
+	}
+	// Remove the storage so that we can bootstrap without the provider complaining.
+	if err := env.Storage.Remove(bootstrap.StateFile); err != nil {
+		return fmt.Errorf("cannot remove %q from storage: %v", bootstrap.StateFile, err)
+	}
+	
+	// TODO If we fail beyond here, then we won't have a state file and
+	// we won't be able to re-run this script because it fails without it.
+	// We could either try to recreate the file if we fail (which is itself
+	// error-prone) or we could provide a --no-check flag to make
+	// it go ahead anyway without the check.
+
+	if err := bootstrap.Bootstrap(env, c.Constraints); err != nil {
+		return fmt.Errorf("cannot bootstrap new instance: %v", err)
+	}
+	logger.Printf("connecting to new instance")
+	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
+	if err != nil {
+		return fmt.Errorf("cannot connect to bootstrap instance: %v")
+	}
+	addr, err := conn.State.Client().PublicAddress("machine-0")
+	if err != nil {
+		return fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
+	}
+	if err := scp(c.backupFile, addr, "~/juju-backup.tgz"); err != nil {
+		return fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
+	}
+	if err := ssh(addr, 
+	ssh to machine 0
+	
+	script to run on machine 0, as root:
+	
+		initctl stop juju-db
+		initctl stop jujud-machine-0
+		cd /
+		rm -r /var/lib/juju /var/log/juju
+		tar xpzf /tmp/juju-backup.tgz
+		initctl start juju-db
+		mongo --ssl -u admin -p newAdminSecret localhost:37017/admin
+			db.machines.update({_id: 0}, {$set: {instanceid: newInstanceId}})
+			db.instanceData.update({_id: 0}, {$set: {instanceid: newInstanceId}})
+			# initctl start jujud-machine-0
+
+	updateAllMachines()
+}
+
+func scp(file, host, destFile string) error {
+	cmd := exec.Command("scp", "-B", "-q", file, host + ":" + destFile)
+	logger.Printf("copying backup file to bootstrap host")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	if _, ok := err.(*exec.ExitError); ok {
+		return fmt.Errorf("scp failed: %s", out)
+	}
+	return err
+}
+
+
+func (c *restoreCommand) updateAllMachines() {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
