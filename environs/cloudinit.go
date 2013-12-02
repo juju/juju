@@ -134,7 +134,7 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
 	if cfg.StateServer {
-		if err := cloudinit.ConfigureBasic(cfg.AuthorizedKeys, cloudcfg); err != nil {
+		if err := cloudinit.ConfigureBasic(cfg, cloudcfg); err != nil {
 			return nil, err
 		}
 	} else {

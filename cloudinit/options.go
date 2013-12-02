@@ -240,6 +240,20 @@ func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 	cfg.attrs["output"] = out
 }
 
+// Output returns the output destination passed to SetOutput for
+// the specified output kind.
+func (cfg *Config) Output(kind OutputKind) (stdout, stderr string) {
+	if out, ok := cfg.attrs["output"].(map[string]interface{}); ok {
+		switch out := out[string(kind)].(type) {
+		case string:
+			stdout = out
+		case []string:
+			stdout, stderr = out[0], out[1]
+		}
+	}
+	return stdout, stderr
+}
+
 // AddSSHKey adds a pre-generated ssh key to the
 // server keyring. Keys that are added like this will be
 // written to /etc/ssh and new random keys will not

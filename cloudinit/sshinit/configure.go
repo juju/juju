@@ -74,10 +74,24 @@ func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 	// We prepend "set -xe". This is already in runcmds,
 	// but added here to avoid relying on that to be
 	// invariant.
-	script := []string{"#!/bin/bash", "set -xe"}
+	script := []string{"#!/bin/bash", "set -e"}
+	// We must initialise progress reporting before entering
+	// the subshell and redirecting stderr.
+	script = append(script, cloudinit.InitProgressCmd())
+	stdout, stderr := cloudcfg.Output(cloudinit.OutAll)
+	script = append(script, "(")
+	if stderr != "" {
+		script = append(script, "(")
+	}
 	script = append(script, bootcmds...)
 	script = append(script, pkgcmds...)
 	script = append(script, runcmds...)
+	if stderr != "" {
+		script = append(script, ") "+stdout)
+		script = append(script, ") "+stderr)
+	} else {
+		script = append(script, ") "+stdout+" 2>&1")
+	}
 	return strings.Join(script, "\n"), nil
 }
 
@@ -86,11 +100,12 @@ func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	var cmds []string
 	if len(cfg.AptSources()) > 0 {
-		// Ensure apt-add-repository is available.
+		// Ensure add-apt-repository is available.
+		cmds = append(cmds, cloudinit.LogProgressCmd("Installing add-apt-repository"))
 		cmds = append(cmds, "apt-get -y install python-software-properties")
 	}
 	for _, src := range cfg.AptSources() {
-		// PPA keys are obtained by apt-add-repository, from launchpad.
+		// PPA keys are obtained by add-apt-repository, from launchpad.
 		if !strings.HasPrefix(src.Source, "ppa:") {
 			if src.Key != "" {
 				key := utils.ShQuote(src.Key)
@@ -98,15 +113,19 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 				cmds = append(cmds, cmd)
 			}
 		}
-		cmds = append(cmds, "apt-add-repository -y "+utils.ShQuote(src.Source))
+		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Source))
+		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
 	}
 	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
 		cmds = append(cmds, "apt-get -y update")
 	}
 	if cfg.AptUpgrade() {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
 		cmds = append(cmds, "apt-get -y upgrade")
 	}
 	for _, pkg := range cfg.Packages() {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
 		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
 		cmds = append(cmds, cmd)
 	}

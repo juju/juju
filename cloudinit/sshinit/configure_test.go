@@ -96,7 +96,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 		c.Assert(
 			script,
 			checkIff(gc.Matches, needsCloudTools),
-			"(.|\n)*apt-add-repository.*cloud-tools(.|\n)*",
+			"(.|\n)*add-apt-repository.*cloud-tools(.|\n)*",
 		)
 
 		// Only Quantal requires the PPA (for mongo).
@@ -104,10 +104,10 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 		c.Assert(
 			script,
 			checkIff(gc.Matches, needsJujuPPA),
-			"(.|\n)*apt-add-repository.*ppa:juju/stable(.|\n)*",
+			"(.|\n)*add-apt-repository.*ppa:juju/stable(.|\n)*",
 		)
 
-		// Only install python-software-properties (apt-add-repository)
+		// Only install python-software-properties (add-apt-repository)
 		// if we need to.
 		c.Assert(
 			script,

@@ -128,11 +128,13 @@ func base64yaml(m *config.Config) string {
 // Configure updates the provided cloudinit.Config with
 // configuration to initialize a Juju machine agent.
 func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
-	if err := ConfigureBasic(cfg.AuthorizedKeys, c); err != nil {
+	if err := ConfigureBasic(cfg, c); err != nil {
 		return err
 	}
 	return ConfigureJuju(cfg, c)
 }
+
+const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 
 // ConfigureBasic updates the provided cloudinit.Config with
 // basic configuration to initialise an OS image, such that it can
@@ -146,9 +148,9 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 // Doing it later brings the benefit of feedback in the face of errors,
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
-func ConfigureBasic(authorizedKeys string, c *cloudinit.Config) error {
-	c.AddSSHAuthorizedKeys(authorizedKeys)
-	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
+func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
+	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
+	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
 	return nil
 }
 
@@ -157,6 +159,22 @@ func ConfigureBasic(authorizedKeys string, c *cloudinit.Config) error {
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err := verifyConfig(cfg); err != nil {
 		return err
+	}
+
+	// Initialise progress reporting. We need to do separately for runcmd
+	// and (possibly, below) for bootcmd, as they may be run in different
+	// shell sessions.
+	initProgressCmd := cloudinit.InitProgressCmd()
+	c.AddRunCmd(initProgressCmd)
+
+	// If we're doing synchronous bootstrap or manual provisioning, then
+	// ConfigureBasic won't have been invoked; thus, the output log won't
+	// have been set. We don't want to show the log to the user, so simply
+	// append to the log file rather than teeing.
+	if stdout, _ := c.Output(cloudinit.OutAll); stdout == "" {
+		c.SetOutput(cloudinit.OutAll, ">> "+cloudInitOutputLog, "")
+		c.AddBootCmd(initProgressCmd)
+		c.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", cloudInitOutputLog))
 	}
 
 	// Bring packages up-to-date.
@@ -182,6 +200,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 			wgetCommand = "wget --no-check-certificate"
 		}
 		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
+		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {
@@ -253,6 +272,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
 		}
+		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			// The bootstrapping is always run with debug on.
@@ -361,6 +381,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
 	}
+	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
 }
@@ -382,6 +403,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
 	}
+	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
 }

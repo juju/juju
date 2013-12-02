@@ -87,9 +87,11 @@ var cloudinitTests = []cloudinitTest{
 		setEnvConfig: true,
 		expectScripts: `
 echo ENABLE_MONGODB="no" > /etc/default/mongodb
+test -e /proc/self/fd/9 \|\| exec 9>&2
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
+echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
 wget --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz'
@@ -113,6 +115,7 @@ chmod 0700 /var/lib/juju/db
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
+echo 'Starting MongoDB server \(juju-db\)'.*
 cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
@@ -120,10 +123,12 @@ install -m 644 /dev/null '/var/lib/juju/agents/bootstrap/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/format'
 install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'Bootstrapping Juju machine agent'.*
 echo 'some-url' > /tmp/provider-state-url
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
+echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0
 `,
@@ -190,9 +195,11 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			},
 		},
 		expectScripts: `
+test -e /proc/self/fd/9 \|\| exec 9>&2
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
+echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
 wget --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz'
@@ -210,6 +217,7 @@ printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
+echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
 cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
 start jujud-machine-99
 `,
