@@ -181,8 +181,13 @@ func (s *filestorageSuite) TestRelativePath(c *gc.C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), os.ModePerm)
 	c.Assert(err, gc.IsNil)
+	cwd, err := os.Getwd()
+	c.Assert(err, gc.IsNil)
 	err = os.Chdir(filepath.Join(dir, "a", "b", "c"))
 	c.Assert(err, gc.IsNil)
+	defer func() {
+		os.Chdir(cwd)
+	}()
 	reader, err := filestorage.NewFileStorageReader("../..")
 	c.Assert(err, gc.IsNil)
 	url, err := reader.URL("")
