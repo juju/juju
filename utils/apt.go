@@ -76,22 +76,11 @@ func AptConfigProxy() (string, error) {
 
 // IsUbuntu executes lxb_release to see if the host OS is Ubuntu.
 func IsUbuntu() bool {
-	out, err := exec.Command("lsb_release", "-i", "-s").CombinedOutput()
+	out, err := RunCommand("lsb_release", "-i", "-s")
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(out)) == "Ubuntu"
-}
-
-// RunCommand executes the command and return the combined output.
-func RunCommand(command string, args ...string) (output string, err error) {
-	cmd := exec.Command(command, args...)
-	out, err := cmd.CombinedOutput()
-	output = string(out)
-	if err != nil {
-		return output, err
-	}
-	return output, nil
+	return strings.TrimSpace(out) == "Ubuntu"
 }
 
 // IsPackageInstalled uses dpkg-query to determine if the `packageName`

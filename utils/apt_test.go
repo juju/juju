@@ -5,8 +5,6 @@ package utils_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
@@ -115,38 +113,9 @@ func (s *AptSuite) TestConfigProxyError(c *gc.C) {
 	c.Assert(out, gc.Equals, "")
 }
 
-func (s *AptSuite) patchExecutable(c *gc.C, execName string, script string) {
-	dir := c.MkDir()
-	s.PatchEnvironment("PATH", dir)
-	filename := filepath.Join(dir, execName)
-	ioutil.WriteFile(filename, []byte(script), 0755)
-}
-
-func (s *AptSuite) TestRunCommandCombinesOutput(c *gc.C) {
-	content := `#!/bin/bash --norc
-echo stdout
-echo stderr 1>&2
-`
-	s.patchExecutable(c, "test-output", content)
-	output, err := utils.RunCommand("test-output")
-	c.Assert(err, gc.IsNil)
-	c.Assert(output, gc.Equals, "stdout\nstderr\n")
-}
-
-func (s *AptSuite) TestRunCommandNonZeroExit(c *gc.C) {
-	content := `#!/bin/bash --norc
-echo stdout
-exit 1
-`
-	s.patchExecutable(c, "test-output", content)
-	output, err := utils.RunCommand("test-output")
-	c.Assert(err, gc.ErrorMatches, `exit status 1`)
-	c.Assert(output, gc.Equals, "stdout\n")
-}
-
 func (s *AptSuite) patchLsbRelease(c *gc.C, name string) {
 	content := fmt.Sprintf("#!/bin/bash --norc\necho %s", name)
-	s.patchExecutable(c, "lsb_release", content)
+	patchExecutable(s, c.MkDir(), "lsb_release", content)
 }
 
 func (s *AptSuite) TestIsUbuntu(c *gc.C) {
@@ -165,7 +134,7 @@ func (s *AptSuite) patchDpkgQuery(c *gc.C, installed bool) {
 		rc = 1
 	}
 	content := fmt.Sprintf("#!/bin/bash --norc\nexit %v", rc)
-	s.patchExecutable(c, "dpkg-query", content)
+	patchExecutable(s, c.MkDir(), "dpkg-query", content)
 }
 
 func (s *AptSuite) TestIsPackageInstalled(c *gc.C) {
