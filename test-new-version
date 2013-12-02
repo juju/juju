@@ -1,30 +1,20 @@
 #!/bin/bash
-EXIT_STATUS=0
+set -eux
+which juju
 # Test upgrading an existing environment
-if ! bash <<"EOT"
-  set -ex
-  sudo dpkg -i $PACKAGE
-  version=$(juju --version|sed -r 's/([^-]*).*/\1/')
-  for env in $ENVS; do
-    if [ "$env" == "local" ]; then
-      extra_args="--upload-tools "
-    else
-      extra_args=""
-    fi
-    juju upgrade-juju $extra_args--show-log -e $env --version $version
-  done
-  for env in $ENVS; do
-    $SCRIPTS/wait_for_agent_update.py $env
-  done
-EOT
-then
-  EXIT_STATUS=1
-else
-  # Test deploying on the new version
-  $SCRIPTS/destroy-environment $ENVS
-  sleep 5
-  if ! $SCRIPTS/deploy_stack.py $ENVS; then
-    EXIT_STATUS=1
+export version=$(juju --version|sed -r 's/([^-]*).*/\1/')
+for env in $ENVS; do
+  if [ "$env" == "local" ]; then
+    extra_args="--upload-tools "
+  else
+    extra_args=""
   fi
-fi
-exit $EXIT_STATUS
+  juju upgrade-juju $extra_args--show-log -e $env --version $version
+done
+for env in $ENVS; do
+  $SCRIPTS/wait_for_agent_update.py $env
+done
+# Test deploying on the new version
+$SCRIPTS/destroy-environment $ENVS
+sleep 5
+$SCRIPTS/deploy_stack.py $ENVS

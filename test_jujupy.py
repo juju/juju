@@ -103,8 +103,8 @@ class TestJujuClientDevel(TestCase):
         full = JujuClientDevel._full_args(env, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', 'bar', '-e', 'foo', 'baz', 'qux'), full)
         full = JujuClientDevel._full_args(env, 'bar', True, ('baz', 'qux'))
-        self.assertEqual(('sudo', 'juju', 'bar', '-e', 'foo', 'baz', 'qux'),
-                         full)
+        self.assertEqual(
+            ('sudo', '-E', 'juju', 'bar', '-e', 'foo', 'baz', 'qux'), full)
         full = JujuClientDevel._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', 'bar', 'baz', 'qux'), full)
 
