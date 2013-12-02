@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -56,6 +57,11 @@ KVM support.`
 
 const neetToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
     sudo apt-get install cpu-checker`
+
+const missingKVMDeps = `Some required packages are missing for KVM to work:
+
+    sudo apt-get install %s
+`
 
 // mongodPath is the path to "mongod", the MongoDB server.
 // This is a variable only to support unit testing.
@@ -110,16 +116,8 @@ func verifyLxc() error {
 	return nil
 }
 
-func isUbuntu() bool {
-	out, err := exec.Command("lsb_release", "-i", "-s").CombinedOutput()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) == "Ubuntu"
-}
-
 func wrapMongodNotExist(err error) error {
-	if isUbuntu() {
+	if utils.IsUbuntu() {
 		series := version.Current.Series
 		args := []interface{}{err, installMongodUbuntu}
 		format := "%v\n%s\n%s"
@@ -134,14 +132,14 @@ func wrapMongodNotExist(err error) error {
 }
 
 func wrapLxcNotFound(err error) error {
-	if isUbuntu() {
+	if utils.IsUbuntu() {
 		return fmt.Errorf("%v\n%s", err, installLxcUbuntu)
 	}
 	return fmt.Errorf("%v\n%s", err, installLxcGeneric)
 }
 
 func verifyKvm() error {
-	if !isUbuntu() {
+	if !utils.IsUbuntu() {
 		return fmt.Errorf(kvmNeedsUbuntu)
 	}
 	supported, err := kvm.IsKVMSupported()
@@ -153,9 +151,15 @@ func verifyKvm() error {
 		return fmt.Errorf(kvmNotSupported)
 	}
 	// Check for other packages needed.
-	// TODO: also check for:
-	//   virsh from libvirt-bin
-	//   uvt-kvm from uvtool-libvirt
-	//   something from the kvm package
+	packagesNeeded := []string{"libvirt-bin", "uvtool-libvirt", "kvm"}
+	toInstall := []string{}
+	for _, pkg := range packagesNeeded {
+		if !utils.IsPackageInstalled(pkg) {
+			toInstall = append(toInstall, pkg)
+		}
+	}
+	if len(toInstall) > 0 {
+		return fmt.Errorf(missingKVMDeps, strings.Join(toInstall, " "))
+	}
 	return nil
 }

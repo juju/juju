@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"launchpad.net/loggo"
 )
@@ -71,4 +72,31 @@ func AptConfigProxy() (string, error) {
 		return "", fmt.Errorf("apt-config failed: %v", err)
 	}
 	return string(bytes.Join(aptProxyRE.FindAll(out, -1), []byte("\n"))), nil
+}
+
+// IsUbuntu executes lxb_release to see if the host OS is Ubuntu.
+func IsUbuntu() bool {
+	out, err := exec.Command("lsb_release", "-i", "-s").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "Ubuntu"
+}
+
+// RunCommand executes the command and return the combined output.
+func RunCommand(command string, args ...string) (output string, err error) {
+	cmd := exec.Command(command, args...)
+	out, err := cmd.CombinedOutput()
+	output = string(out)
+	if err != nil {
+		return output, err
+	}
+	return output, nil
+}
+
+// IsPackageInstalled uses dpkg-query to determine if the `packageName`
+// package is installed.
+func IsPackageInstalled(packageName string) bool {
+	_, err := RunCommand("dpkg-query", "--status", packageName)
+	return err == nil
 }
