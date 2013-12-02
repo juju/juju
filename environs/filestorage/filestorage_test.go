@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	gc "launchpad.net/gocheck"
@@ -170,11 +171,16 @@ func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
-	reader, err := filestorage.NewFileStorageReader("~/foo")
+	homeDir := osenv.Home()
+	tempDir, err := ioutil.TempDir(homeDir, "")
+	c.Assert(err, gc.IsNil)
+	defer os.RemoveAll(tempDir)
+	dirName := strings.Replace(tempDir, homeDir, "", -1)
+	reader, err := filestorage.NewFileStorageReader(filepath.Join("~", dirName))
 	c.Assert(err, gc.IsNil)
 	url, err := reader.URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "file://"+osenv.Home()+"/foo")
+	c.Assert(url, gc.Equals, "file://"+filepath.Join(homeDir, dirName))
 }
 
 func (s *filestorageSuite) TestRelativePath(c *gc.C) {
@@ -185,9 +191,7 @@ func (s *filestorageSuite) TestRelativePath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = os.Chdir(filepath.Join(dir, "a", "b", "c"))
 	c.Assert(err, gc.IsNil)
-	defer func() {
-		os.Chdir(cwd)
-	}()
+	defer os.Chdir(cwd)
 	reader, err := filestorage.NewFileStorageReader("../..")
 	c.Assert(err, gc.IsNil)
 	url, err := reader.URL("")
