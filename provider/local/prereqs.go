@@ -9,10 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -110,16 +110,8 @@ func verifyLxc() error {
 	return nil
 }
 
-func isUbuntu() bool {
-	out, err := exec.Command("lsb_release", "-i", "-s").CombinedOutput()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) == "Ubuntu"
-}
-
 func wrapMongodNotExist(err error) error {
-	if isUbuntu() {
+	if utils.IsUbuntu() {
 		series := version.Current.Series
 		args := []interface{}{err, installMongodUbuntu}
 		format := "%v\n%s\n%s"
@@ -134,14 +126,14 @@ func wrapMongodNotExist(err error) error {
 }
 
 func wrapLxcNotFound(err error) error {
-	if isUbuntu() {
+	if utils.IsUbuntu() {
 		return fmt.Errorf("%v\n%s", err, installLxcUbuntu)
 	}
 	return fmt.Errorf("%v\n%s", err, installLxcGeneric)
 }
 
 func verifyKvm() error {
-	if !isUbuntu() {
+	if !utils.IsUbuntu() {
 		return fmt.Errorf(kvmNeedsUbuntu)
 	}
 	supported, err := kvm.IsKVMSupported()
