@@ -14,7 +14,12 @@ export JUJU_HOME=$HOME/juju-ci
 export PACKAGE=$WORKSPACE/new-version.deb
 set -x
 rm * -rf
-wget -q localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact/new-version.deb
+artifact=localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact
+wget -q $artifact/new-version.deb
+# Determine BRANCH and REVNO
+wget -q $artifact/buildvars.bash
+source buildvars.bash
+echo "Testing $BRANCH $REVNO on $ENVS"
 dpkg-deb -x $PACKAGE extracted-bin
 export NEW_PATH=$(dirname $(find extracted-bin -name juju)):$PATH
 # Try to ensure a clean environment
