@@ -87,20 +87,10 @@ func (inst *MgoInstance) Start() error {
 		return err
 	}
 
-	// wait until it's running
-	deadline := time.Now().Add(time.Second * 10)
-	for {
-		err := inst.ping()
-		if err == nil || time.Now().After(deadline) {
-			return err
-		}
-	}
-}
-
-func (inst *MgoInstance) ping() error {
+	// by dialing right now, we'll wait until it's running
 	session := inst.MgoDialDirect()
-	defer session.Close()
-	return session.Ping()
+	session.Close()
+	return nil
 }
 
 // runMgoServer runs the MongoDB server at the
