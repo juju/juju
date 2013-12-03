@@ -84,6 +84,59 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "old-name")
 }
 
+func getSimpleTestConfig(c *gc.C, agentName interface{}) *config.Config {
+	attrs := map[string]interface{}{
+		"name":            "test env",
+		"maas-server":     "http://maas.testing.invalid",
+		"maas-oauth":      "a:b:c",
+		"admin-secret":    "pssst",
+		"authorized-keys": "I-am-not-a-real-key",
+	}
+	if agentName != nil {
+		attrs["maas-agent-name"] = agentName
+	}
+	ecfg, err := newConfig(attrs)
+	c.Assert(err, gc.IsNil)
+	return ecfg.Config
+}
+
+func (*environSuite) TestSetConfigRefusesChangingAgentName(c *gc.C) {
+	oldCfg := getSimpleTestConfig(c, "agent-one")
+	newCfgTwo := getSimpleTestConfig(c, "agent-two")
+	env, err := NewEnviron(oldCfg)
+	c.Assert(err, gc.IsNil)
+
+	// SetConfig() fails, even though both the old and the new config are
+	// individually valid.
+	err = env.SetConfig(newCfgTwo)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
+
+	// The old config is still in place.  The new config never took effect.
+	c.Check(env.ecfg().maasAgentName(), gc.Equals, "agent-one")
+
+	// It also refuses to set it to the empty string:
+	err = env.SetConfig(getSimpleTestConfig(c, ""))
+	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
+
+	// And to nil
+	err = env.SetConfig(getSimpleTestConfig(c, nil))
+	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
+}
+
+func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.C) {
+	oldCfg := getSimpleTestConfig(c, nil)
+	newCfgTwo := getSimpleTestConfig(c, "")
+	env, err := NewEnviron(oldCfg)
+	c.Assert(err, gc.IsNil)
+
+	// SetConfig() fails, even though both the old and the new config are
+	// individually valid.
+	err = env.SetConfig(newCfgTwo)
+	c.Assert(err, gc.IsNil)
+	c.Check(env.ecfg().maasAgentName(), gc.Equals, "")
+}
+
 func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas2.testing.invalid", "a:b:c", "secret")
