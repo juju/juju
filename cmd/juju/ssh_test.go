@@ -60,7 +60,7 @@ func (s *SSHCommonSuite) TearDownTest(c *gc.C) {
 
 const (
 	commonArgs = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	sshArgs    = `-l ubuntu -t ` + commonArgs
+	sshArgs    = commonArgs + `-t `
 )
 
 var sshTests = []struct {
@@ -69,30 +69,30 @@ var sshTests = []struct {
 }{
 	{
 		[]string{"ssh", "0"},
-		sshArgs + "dummyenv-0.dns\n",
+		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
 	// juju ssh 0 'uname -a'
 	{
 		[]string{"ssh", "0", "uname -a"},
-		sshArgs + "dummyenv-0.dns uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
 	},
 	// juju ssh 0 -- uname -a
 	{
 		[]string{"ssh", "0", "--", "uname", "-a"},
-		sshArgs + "dummyenv-0.dns -- uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
 	},
 	// juju ssh 0 uname -a
 	{
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "dummyenv-0.dns uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
 	},
 	{
 		[]string{"ssh", "mysql/0"},
-		sshArgs + "dummyenv-0.dns\n",
+		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
 	{
 		[]string{"ssh", "mongodb/1"},
-		sshArgs + "dummyenv-2.dns\n",
+		sshArgs + "ubuntu@dummyenv-2.dns\n",
 	},
 }
 

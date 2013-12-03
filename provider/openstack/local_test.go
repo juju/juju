@@ -167,6 +167,8 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -203,6 +205,8 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	c.Logf("Running local tests")
 }
 
@@ -740,6 +744,9 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	defer restoreFinishBootstrap()
+
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	metadataStorage := openstack.MetadataStorage(s.env)
 	url, err := metadataStorage.URL("")

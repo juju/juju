@@ -39,7 +39,7 @@ var scpTests = []struct {
 	},
 	{
 		[]string{"a", "b", "mysql/0"},
-		commonArgs + "a b mysql/0\n",
+		commonArgs + "a b\n",
 	},
 	{
 		[]string{"mongodb/1:foo", "mongodb/0:"},
