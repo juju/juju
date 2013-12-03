@@ -96,7 +96,11 @@ func (manager *containerManager) StartContainer(
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	kvmContainer := KvmObjectFactory.New(name)
-	return kvmContainer.Stop()
+	if err := kvmContainer.Stop(); err != nil {
+		logger.Errorf("failed to stop kvm container: %v", err)
+		return err
+	}
+	return container.RemoveDirectory(name)
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
