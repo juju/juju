@@ -56,7 +56,7 @@ func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
 	defer closer.Close()
 
 	err := bootstrap.DeleteStateFile(stor)
-	c.Assert(err, gc.IsNil) // doesn't exist, juju don't carea
+	c.Assert(err, gc.IsNil) // doesn't exist, juju don't care
 
 	_, err = bootstrap.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)

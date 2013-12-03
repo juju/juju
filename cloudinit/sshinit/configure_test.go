@@ -33,14 +33,14 @@ func (p *testProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 }
 
 func init() {
-	environs.RegisterProvider("sshinit", &testProvider{})
+	environs.RegisterProvider("sshinit_test", &testProvider{})
 }
 
 func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, gc.IsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
-		"type":           "sshinit",
+		"type":           "sshinit_test",
 		"default-series": vers.Series,
 		"agent-version":  vers.Number.String(),
 	})

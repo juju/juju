@@ -32,7 +32,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	commontesting "launchpad.net/juju-core/provider/common/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -168,7 +167,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
-	restoreFinishBootstrap := commontesting.DisableFinishBootstrap()
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
@@ -206,7 +205,7 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
-	restoreFinishBootstrap := commontesting.DisableFinishBootstrap()
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	c.Logf("Running local tests")
 }
@@ -745,7 +744,7 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
-	restoreFinishBootstrap := commontesting.DisableFinishBootstrap()
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	defer restoreFinishBootstrap()
 
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.

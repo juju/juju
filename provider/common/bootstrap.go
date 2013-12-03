@@ -57,11 +57,13 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 		return err
 	}
 
-	var hw *instance.HardwareCharacteristics
-	inst, hw, err = env.StartInstance(cons, selectedTools, machineConfig)
+	fmt.Fprintln(ctx.Stderr, "Launching instance")
+	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
+	fmt.Fprintf(ctx.Stderr, " - %s\n", inst.Id())
+
 	var characteristics []instance.HardwareCharacteristics
 	if hw != nil {
 		characteristics = []instance.HardwareCharacteristics{*hw}

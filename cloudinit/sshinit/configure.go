@@ -30,7 +30,7 @@ func Configure(host string, cfg *cloudinit.Config) error {
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
 	cmd := ssh.Command(
 		host,
-		fmt.Sprintf("sudo bash -c '%s'", script),
+		[]string{"sudo", fmt.Sprintf("bash -c '%s'", script)},
 		ssh.AllocateTTY,
 	)
 	cmd.Stdout = os.Stdout
