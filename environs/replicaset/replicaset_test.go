@@ -70,19 +70,36 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	session := root.MgoDial()
 	defer session.Close()
 
+	expectedStatus := []Status{
+		{
+			Address: root.Addr,
+			Self:    true,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   StartupState,
+		},
+	}
+
+	status, err := CurrentStatus(session)
+	expectedStatus[0].Uptime = status[0].Uptime
+	expectedStatus[0].Ping = status[0].Ping
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.DeepEquals, expectedStatus)
+
 	members := make([]Member, 0, 5)
+
+	// Add should automatically skip root, so test that
+	members = append(members, Member{Address: root.Addr})
+
 	for x := 0; x < 4; x++ {
 		inst, err := newServer()
 		c.Assert(err, gc.IsNil)
 		defer inst.Destroy()
 		defer Remove(session, inst.Addr)
-		members = append(members, Member{Address: inst.Addr})
+		members = append(members, Member{Address: inst.Addr, Id: x + 1})
 	}
 
-	// Add should automatically skip root, so test that
-	members = append(members, Member{Address: root.Addr})
-
-	err := Add(session, members[0:5]...)
+	err = Add(session, members[0:5]...)
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers := members[0:5]
@@ -103,7 +120,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	// now let's mix it up and set the new members to a mix of the previous
 	// plus the new arbiter
-	mems = []Member{members[4], members[2], members[0], members[5]}
+	mems = []Member{members[3], members[2], members[0], members[4]}
 
 	// reset this guy's ID to amke sure it gets set corrcetly
 	members[4].Id = 0
@@ -111,7 +128,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	err = Set(session, mems)
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers = []Member{members[4], members[2], members[0], members[5]}
+	expectedMembers = []Member{members[3], members[2], members[0], members[4]}
 
 	// any new members will get an id of max(other_ids...)+1
 	expectedMembers[0].Id = 3
@@ -137,7 +154,7 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 		// The following fields hold information about the replica set.
 		ReplicaSetName: name,
 		Addresses:      []string{root.Addr},
-		Arbiters:       []string{},
+		Arbiters:       nil,
 		PrimaryAddress: root.Addr,
 	}
 
@@ -145,7 +162,33 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
 	res.LocalTime = time.Time{}
-	c.Check(res, gc.DeepEquals, exp)
+	c.Check(*res, gc.DeepEquals, exp)
+}
+
+func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
+	session := root.MgoDial()
+	defer session.Close()
+
+	exp := IsMasterResults{
+		// The following fields hold information about the specific mongodb node.
+		IsMaster:  true,
+		Secondary: false,
+		Arbiter:   false,
+		Address:   root.Addr,
+		LocalTime: time.Time{},
+
+		// The following fields hold information about the replica set.
+		ReplicaSetName: name,
+		Addresses:      []string{root.Addr},
+		Arbiters:       nil,
+		PrimaryAddress: root.Addr,
+	}
+
+	res, err := IsMaster(session)
+	c.Assert(err, gc.IsNil)
+	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
+	res.LocalTime = time.Time{}
+	c.Check(*res, gc.DeepEquals, exp)
 }
 
 func closeEnough(expected, obtained time.Time) bool {

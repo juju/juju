@@ -1,6 +1,7 @@
 package replicaset
 
 import (
+	"fmt"
 	"io"
 	"time"
 
@@ -158,7 +159,7 @@ func Set(session *mgo.Session, members []Member) error {
 
 	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
 	if err == io.EOF {
-		// EOF means we got disconnected due to the Remove... this is normal.
+		// EOF means we got disconnected due to a Remove... this is normal.
 		// Refreshing should fix us up.
 		session.Refresh()
 		err = nil
@@ -185,7 +186,7 @@ type IsMasterResults struct {
 // IsMaster returns information about the configuration of the node that
 // the given session is connected to.
 func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
-	var results *IsMasterResults
+	results := &IsMasterResults{}
 	err := session.Run("isMaster", results)
 	if err != nil {
 		return nil, err
@@ -207,7 +208,7 @@ func getConfig(session *mgo.Session) (*replicaConfig, error) {
 	cfg := &replicaConfig{}
 	err := session.DB("local").C("system.replset").Find(nil).One(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error getting replset config : %s", err.Error())
 	}
 	return cfg, nil
 }
