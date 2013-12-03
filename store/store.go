@@ -780,6 +780,11 @@ func (s *Store) DeleteCharm(url *charm.URL) (info *CharmInfo, err error) {
 		log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
 		return nil, err
 	}
+	err = session.Charms().Remove(bson.D{{"urls", url}})
+	if err != nil {
+		log.Errorf("store: Failed to delete metadata for charm %s: %v", url, err)
+		return nil, err
+	}
 	return
 }
 
