@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	ContainerSnippet = "(/[a-z]+/" + NumberSnippet + ")"
-	MachineSnippet   = NumberSnippet + ContainerSnippet + "*"
+	ContainerTypeSnippet = "[a-z]+"
+	ContainerSnippet     = "(/" + ContainerTypeSnippet + "/" + NumberSnippet + ")"
+	MachineSnippet       = NumberSnippet + ContainerSnippet + "*"
 )
 
 var validMachine = regexp.MustCompile("^" + MachineSnippet + "$")

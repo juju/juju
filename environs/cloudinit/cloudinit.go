@@ -58,6 +58,10 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
+	// SyslogPort specifies the port number that will be used when
+	// sending the log messages using rsyslog.
+	SyslogPort int
+
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
@@ -128,16 +132,60 @@ func base64yaml(m *config.Config) string {
 // Configure updates the provided cloudinit.Config with
 // configuration to initialize a Juju machine agent.
 func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
+	if err := ConfigureBasic(cfg, c); err != nil {
+		return err
+	}
+	return ConfigureJuju(cfg, c)
+}
+
+const cloudInitOutputLog = "/var/log/cloud-init-output.log"
+
+// ConfigureBasic updates the provided cloudinit.Config with
+// basic configuration to initialise an OS image, such that it can
+// be connected to via SSH, and log to a standard location.
+//
+// Any potentially failing operation should not be added to the
+// configuration, but should instead be done in ConfigureJuju.
+//
+// Note: we don't do apt update/upgrade here so as not to have to wait on
+// apt to finish when performing the second half of image initialisation.
+// Doing it later brings the benefit of feedback in the face of errors,
+// but adds to the running time of initialisation due to lack of activity
+// between image bringup and start of agent installation.
+func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
+	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
+	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
+	return nil
+}
+
+// ConfigureJuju updates the provided cloudinit.Config with configuration
+// to initialise a Juju machine agent.
+func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err := verifyConfig(cfg); err != nil {
 		return err
 	}
 
-	// General options.
-	c.SetAptUpgrade(true)
-	c.SetAptUpdate(true)
-	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
-	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
+	// Initialise progress reporting. We need to do separately for runcmd
+	// and (possibly, below) for bootcmd, as they may be run in different
+	// shell sessions.
+	initProgressCmd := cloudinit.InitProgressCmd()
+	c.AddRunCmd(initProgressCmd)
 
+	// If we're doing synchronous bootstrap or manual provisioning, then
+	// ConfigureBasic won't have been invoked; thus, the output log won't
+	// have been set. We don't want to show the log to the user, so simply
+	// append to the log file rather than teeing.
+	if stdout, _ := c.Output(cloudinit.OutAll); stdout == "" {
+		c.SetOutput(cloudinit.OutAll, ">> "+cloudInitOutputLog, "")
+		c.AddBootCmd(initProgressCmd)
+		c.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", cloudInitOutputLog))
+	}
+
+	// Bring packages up-to-date.
+	c.SetAptUpdate(true)
+	c.SetAptUpgrade(true)
+
+	// juju requires git for managing charm directories.
 	c.AddPackage("git")
 
 	c.AddScripts(
@@ -145,17 +193,18 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
-	wgetCommand := "wget"
-	if cfg.DisableSSLHostnameVerification {
-		wgetCommand = "wget --no-check-certificate"
-	}
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
 	var copyCmd string
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
+		wgetCommand := "wget"
+		if cfg.DisableSSLHostnameVerification {
+			wgetCommand = "wget --no-check-certificate"
+		}
 		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
+		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {
@@ -227,6 +276,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
 		}
+		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			// The bootstrapping is always run with debug on.
@@ -243,13 +293,14 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 }
 
 func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
+	namespace := cfg.AgentEnvironment[agent.Namespace]
 	var configRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId))
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace)
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace, cfg.stateHostAddrs())
 	}
 	content, err := configRenderer.Render()
 	if err != nil {
@@ -335,6 +386,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
 	}
+	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
 }
@@ -356,6 +408,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
 	}
+	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
 }
@@ -499,6 +552,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.APIInfo == nil {
 		return fmt.Errorf("missing API info")
+	}
+	if cfg.SyslogPort == 0 {
+		return fmt.Errorf("missing syslog port")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")

@@ -31,6 +31,13 @@ func (cfg *Config) SetAptUpgrade(yes bool) {
 	cfg.set("apt_upgrade", yes, yes)
 }
 
+// AptUpgrade returns the value set by SetAptUpgrade, or
+// false if no call to SetAptUpgrade has been made.
+func (cfg *Config) AptUpgrade() bool {
+	update, _ := cfg.attrs["apt_upgrade"].(bool)
+	return update
+}
+
 // SetUpdate sets whether cloud-init runs "apt-get update"
 // on first boot.
 func (cfg *Config) SetAptUpdate(yes bool) {
@@ -231,6 +238,20 @@ func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 		out[string(kind)] = []string{stdout, stderr}
 	}
 	cfg.attrs["output"] = out
+}
+
+// Output returns the output destination passed to SetOutput for
+// the specified output kind.
+func (cfg *Config) Output(kind OutputKind) (stdout, stderr string) {
+	if out, ok := cfg.attrs["output"].(map[string]interface{}); ok {
+		switch out := out[string(kind)].(type) {
+		case string:
+			stdout = out
+		case []string:
+			stdout, stderr = out[0], out[1]
+		}
+	}
+	return stdout, stderr
 }
 
 // AddSSHKey adds a pre-generated ssh key to the

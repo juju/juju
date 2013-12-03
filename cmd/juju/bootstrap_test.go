@@ -313,6 +313,40 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
 }
 
+func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
+	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	// Bootstrap the environment with an invalid source.
+	// The command returns with an error.
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", c.MkDir()})
+	c.Check(code, gc.Equals, 1)
+
+	// Now check that there are no tools available.
+	_, err := envtools.FindTools(
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
+}
+
+func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
+	sourceDir := createToolsSource(c, vAll)
+	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	// Bootstrap the environment with the valid source.
+	// The bootstrapping has to show no error, because the tools
+	// are automatically synchronized.
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", sourceDir})
+	c.Check(code, gc.Equals, 0)
+
+	// Now check the available tools which are the 1.2.0 envtools.
+	checkTools(c, env, v120All)
+}
+
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
 	s.PatchValue(&sync.Upload, mockUploadTools)
 	sourceDir := createToolsSource(c, vAll)
