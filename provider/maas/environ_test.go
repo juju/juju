@@ -174,8 +174,6 @@ func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.
 	env, err := NewEnviron(oldCfg)
 	c.Assert(err, gc.IsNil)
 
-	// SetConfig() fails, even though both the old and the new config are
-	// individually valid.
 	err = env.SetConfig(newCfgTwo)
 	c.Assert(err, gc.IsNil)
 	c.Check(env.ecfg().maasAgentName(), gc.Equals, "")
