@@ -21,8 +21,13 @@ type AddMachineParams struct {
 	Series string
 
 	// Constraints are the constraints to be used when finding
-	// an instance for the machine.
+	// an instance for the machine. They override the environment
+	// level constraints.
 	Constraints constraints.Value
+
+	// Jobs holds the jobs to run on the machine's instance.
+	// A machine must have at least one job to do.
+	Jobs []MachineJob
 
 	// ParentId holds the machine id of the machine that
 	// will contain the new machine. If this is set,
@@ -34,22 +39,19 @@ type AddMachineParams struct {
 	// ignored if ParentId is empty.
 	ContainerType instance.ContainerType
 
-	// HardwareCharacteristics holds the h/w characteristics to
-	// be associated with the machine.
-	HardwareCharacteristics instance.HardwareCharacteristics
-
 	// InstanceId holds the instance id to associate with the machine.
 	// If this is empty, the provisioner will try to provision the machine.
 	InstanceId instance.Id
+
+	// HardwareCharacteristics holds the h/w characteristics to
+	// be associated with the machine. This is ignored if InstanceId
+	// is not set.
+	HardwareCharacteristics instance.HardwareCharacteristics
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
 	// See Machine.SetProvisioned. This must be set if InstanceId is set.
 	Nonce string
-
-	// Jobs holds the jobs to run on the machine's instance.
-	// A machine must have at least one job to do.
-	Jobs []MachineJob
 }
 
 // machineTemplate holds attributes that are to be associated
@@ -239,7 +241,7 @@ func (st *State) addMachineOps(template machineTemplate) (*machineDoc, []txn.Op,
 
 // addMachineWithInstanceIdOps returns operations to add a new
 // top level machine based on the given template and with the
-// given hardward characteristics.
+// given hardware characteristics.
 // The template must contain a valid instance id and nonce.
 func (st *State) addMachineWithInstanceIdOps(template machineTemplate, hwc instance.HardwareCharacteristics) (*machineDoc, []txn.Op, error) {
 	if template.instanceId == "" || template.nonce == "" {
