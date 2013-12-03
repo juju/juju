@@ -27,7 +27,8 @@ remote_cmd() {
 		echo $1
 		echo '**************************************************************'
 	}
-	
+
+	cd ~			# Make sure we've started in $HOME
 	next_step 'Preparing to perform backup'
 	if [ -d juju-backup ]; then
 		echo Older juju backup exists, moving to juju-backup-previous
