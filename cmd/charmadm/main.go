@@ -12,7 +12,7 @@ import (
 func main() {
 	admcmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "charmadm",
-		Log: &cmd.Log{},
+		Log:  &cmd.Log{},
 	})
 
 	admcmd.Register(&DeleteCharmCommand{})
