@@ -23,7 +23,6 @@ import (
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -67,7 +66,6 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	config := coretesting.EnvironConfig(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -79,46 +77,20 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:       []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewKvmBroker(config, tools, s.agentConfig)
+	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-
-	series := "series"
-	nonce := "fake-nonce"
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
-	kvm, _, err := provider.StartInstance(s.broker, machineId, nonce, series, cons, stateInfo, apiInfo)
+	possibleTools := s.broker.(coretools.HasTools).Tools()
+	kvm, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
 	c.Assert(err, gc.IsNil)
 	return kvm
-}
-
-func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
-	machineId := "1/kvm/0"
-	kvm := s.startInstance(c, machineId)
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
-	c.Assert(s.kvmContainerDir(kvm), jc.IsDirectory)
-	s.assertInstances(c, kvm)
-	// Uses default network config
-	kvmConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(kvm.Id()), "kvm.conf"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(kvmConfContents), jc.Contains, "kvm.network.type = veth")
-	c.Assert(string(kvmConfContents), jc.Contains, "kvm.network.link = kvmbr0")
-}
-
-func (s *kvmBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
-	s.agentConfig.SetValue(agent.KvmBridge, "br0")
-	machineId := "1/kvm/0"
-	kvm := s.startInstance(c, machineId)
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
-	c.Assert(s.kvmContainerDir(kvm), jc.IsDirectory)
-	s.assertInstances(c, kvm)
-	// Uses default network config
-	kvmConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(kvm.Id()), "kvm.conf"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(kvmConfContents), jc.Contains, "kvm.network.type = veth")
-	c.Assert(string(kvmConfContents), jc.Contains, "kvm.network.link = br0")
 }
 
 func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
@@ -233,10 +205,14 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) *provisioner.Provisioner {
+func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.MachineTag(s.machineId)
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewProvisioner(provisioner.KVM, s.State, s.machineId, agentConfig)
+	tools, err := s.provisioner.Tools(agentConfig.Tag())
+	c.Assert(err, gc.IsNil)
+	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig)
+	c.Assert(err, gc.IsNil)
+	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
 }
 
 func (s *kvmProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
