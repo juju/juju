@@ -12,9 +12,7 @@ import (
 func main() {
 	admcmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "charmadm",
-		//Doc:             jujuDoc,
 		Log: &cmd.Log{},
-		//MissingCallback: RunPlugin,
 	})
 
 	admcmd.Register(&DeleteCharmCommand{})
