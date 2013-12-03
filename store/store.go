@@ -767,25 +767,25 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 }
 
 // DeleteCharm deletes the charm currently available at url.
-func (s *Store) DeleteCharm(url *charm.URL) (info *CharmInfo, err error) {
+func (s *Store) DeleteCharm(url *charm.URL) (*CharmInfo, error) {
 	log.Debugf("store: Deleting charm %s", url)
-	info, err = s.CharmInfo(url)
+	info, err := s.CharmInfo(url)
 	if err != nil {
 		return nil, err
 	}
 	session := s.session.Copy()
 	defer session.Close()
-	err = session.CharmFS().RemoveId(info.fileId)
-	if err != nil {
-		log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
-		return nil, err
-	}
 	err = session.Charms().Remove(bson.D{{"urls", url}})
 	if err != nil {
 		log.Errorf("store: Failed to delete metadata for charm %s: %v", url, err)
 		return nil, err
 	}
-	return
+	err = session.CharmFS().RemoveId(info.fileId)
+	if err != nil {
+		log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
+		return nil, err
+	}
+	return info, err
 }
 
 type reader struct {
