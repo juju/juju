@@ -481,7 +481,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, owner string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
 	if !names.IsService(name) {
@@ -504,12 +504,17 @@ func (st *State) AddService(name, owner string, ch *Charm) (service *Service, er
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      owner,
+		OwnerTag:      ownerTag,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
+		{
+			C:      st.users.Name,
+			Id:     NameFromTag(ownerTag),
+			Assert: txn.DocExists,
+		},
 		{
 			C:      st.settingsrefs.Name,
 			Id:     svc.settingsKey(),
@@ -528,9 +533,6 @@ func (st *State) AddService(name, owner string, ch *Charm) (service *Service, er
 	}
 	ops = append(ops, peerOps...)
 
-	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that the service
-	// already exists.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {

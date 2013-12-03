@@ -1421,7 +1421,7 @@ func (s *ServiceSuite) TestAnnotationRemovalForService(c *gc.C) {
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-// Check that GetOwnerTag returns admin-owner even
+// Check that GetOwnerTag returns user-admin even
 // when the service has no owner
 func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 	service := s.AddTestingService(c, "foobar", s.charm)

@@ -146,3 +146,7 @@ func (s *UserSuite) TestName(c *gc.C) {
 	c.Assert(u.Name(), gc.Equals, "someuser")
 	c.Assert(u.Tag(), gc.Equals, "user-someuser")
 }
+
+func (s *UserSuite) TestNameFromTag(c *gc.C) {
+	c.Assert(state.NameFromTag("user-admin"), gc.Equals, "admin")
+}
