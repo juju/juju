@@ -53,57 +53,57 @@ class JujuClientDevel:
     # latest version is easy to read, and older versions can be trivially
     # deleted.
 
-    def __init__(self, version):
+    def __init__(self, version, full_path):
         self.version = version
+        self.full_path = full_path
 
     @classmethod
     def get_version(cls):
-        return cls.get_juju_output(None, '--version').strip()
+        return subprocess.check_output(('juju', '--version')).strip()
+
+    @classmethod
+    def get_full_path(cls):
+        return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
     def by_version(cls):
         version = cls.get_version()
+        full_path = cls.get_full_path()
         if version.startswith('1.16'):
-            return JujuClient16(version)
+            return JujuClient16(version, full_path)
         else:
-            return JujuClientDevel(version)
+            return JujuClientDevel(version, full_path)
 
-    @staticmethod
-    def _full_args(environment, command, sudo, args):
+    def _full_args(self, environment, command, sudo, args):
         e_arg = () if environment is None else ('-e', environment.environment)
-        sudo_args = ('sudo', '-E') if sudo else ()
-        return sudo_args + ('juju', command) + e_arg + args
+        sudo_args = ('sudo', '-E', self.full_path) if sudo else ('juju',)
+        return sudo_args + (command,) + e_arg + args
 
-    @classmethod
-    def bootstrap(cls, environment):
+    def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
         if environment.needs_upload():
             upload_tools = ('--upload-tools',)
         else:
             upload_tools = ()
-        cls.juju(environment, 'bootstrap', ('--constraints', 'mem=2G') +
-                 upload_tools, environment.needs_sudo())
+        self.juju(environment, 'bootstrap', ('--constraints', 'mem=2G') +
+                  upload_tools, environment.needs_sudo())
 
-    @classmethod
-    def destroy_environment(cls, environment):
-        cls.juju(
+    def destroy_environment(self, environment):
+        self.juju(
             None, 'destroy-environment', (environment.environment, '-y'),
             environment.needs_sudo(), check=False)
 
-    @classmethod
-    def get_juju_output(cls, environment, command):
-        args = cls._full_args(environment, command, False, ())
+    def get_juju_output(self, environment, command):
+        args = self._full_args(environment, command, False, ())
         return subprocess.check_output(args)
 
-    @classmethod
-    def get_status(cls, environment):
+    def get_status(self, environment):
         """Get the current status as a dict."""
-        return Status(yaml_loads(cls.get_juju_output(environment, 'status')))
+        return Status(yaml_loads(self.get_juju_output(environment, 'status')))
 
-    @classmethod
-    def juju(cls, environment, command, args, sudo=False, check=True):
+    def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
-        args = cls._full_args(environment, command, sudo, args)
+        args = self._full_args(environment, command, sudo, args)
         print ' '.join(args)
         sys.stdout.flush()
         if check:
@@ -113,10 +113,9 @@ class JujuClientDevel:
 
 class JujuClient16(JujuClientDevel):
 
-    @classmethod
-    def destroy_environment(cls, environment):
-        cls.juju(environment, 'destroy-environment', ('-y',),
-                 environment.needs_sudo(), check=False)
+    def destroy_environment(self, environment):
+        self.juju(environment, 'destroy-environment', ('-y',),
+                  environment.needs_sudo(), check=False)
 
 
 class Status:
