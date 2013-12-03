@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -123,6 +124,9 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 
 	// Determine the version to upgrade to, uploading tools if necessary.
 	attrs, err := client.EnvironmentGet()
+	if rpc.IsNoSuchRequest(err) {
+		return c.run1dot16()
+	}
 	if err != nil {
 		return err
 	}
@@ -152,6 +156,53 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	log.Infof("available tools: %s", v.tools)
 
 	if err := client.SetEnvironAgentVersion(v.chosen); err != nil {
+		return err
+	}
+	log.Noticef("started upgrade to %s", v.chosen)
+	return nil
+}
+
+// run1dot16 implements the command without access to the API. This is
+// needed for compatibility, so 1.16 can be upgraded to newer
+// releases. It should be removed in 1.18.
+func (c *UpgradeJujuCommand) run1dot16() error {
+	log.Warningf("running in 1.16 compatibility mode")
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	defer func() {
+		if err == errUpToDate {
+			log.Noticef(err.Error())
+			err = nil
+		}
+	}()
+
+	// Determine the version to upgrade to, uploading tools if necessary.
+	env := conn.Environ
+	cfg, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	v, err := c.initVersions(cfg, env)
+	if err != nil {
+		return err
+	}
+	if c.UploadTools {
+		series := getUploadSeries(cfg, c.Series)
+		if err := v.uploadTools(env.Storage(), series); err != nil {
+			return err
+		}
+	}
+	if err := v.validate(); err != nil {
+		return err
+	}
+	log.Infof("upgrade version chosen: %s", v.chosen)
+	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
+	log.Infof("available tools: %s", v.tools)
+
+	if err := conn.State.SetEnvironAgentVersion(v.chosen); err != nil {
 		return err
 	}
 	log.Noticef("started upgrade to %s", v.chosen)

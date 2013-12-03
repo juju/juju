@@ -71,6 +71,7 @@ var cloudinitTests = []cloudinitTest{
 			StateServerKey:  serverKey,
 			StatePort:       37017,
 			APIPort:         17070,
+			SyslogPort:      514,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
@@ -101,7 +102,7 @@ tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+printf '%s\\n' '.*' > '/etc/rsyslog.d/25-juju.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
@@ -145,6 +146,7 @@ start jujud-machine-0
 			StateServerKey:  serverKey,
 			StatePort:       37017,
 			APIPort:         17070,
+			SyslogPort:      514,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
@@ -193,6 +195,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
+			SyslogPort: 514,
 		},
 		expectScripts: `
 test -e /proc/self/fd/9 \|\| exec 9>&2
@@ -209,7 +212,7 @@ tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
 printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-99-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-99.log\\n\$InputFileTag juju-machine-99:\\n\$InputFileStateFile machine-99\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
@@ -244,10 +247,11 @@ start jujud-machine-99
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
+			SyslogPort: 514,
 		},
 		inexactMatch: true,
 		expectScripts: `
-printf '%s\\n' '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-2-lxc-1-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-2-lxc-1.log\\n\$InputFileTag juju-machine-2-lxc-1:\\n\$InputFileStateFile machine-2-lxc-1\\n\$InputRunFileMonitor\\n\\n:syslogtag, startswith, \"juju-\" @state-addr.testing.invalid:514\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/format'
@@ -280,6 +284,7 @@ start jujud-machine-2-lxc-1
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
+			SyslogPort:                     514,
 			DisableSSLHostnameVerification: true,
 		},
 		inexactMatch: true,
@@ -299,6 +304,7 @@ wget --no-check-certificate --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.co
 			StateServerKey:  serverKey,
 			StatePort:       37017,
 			APIPort:         17070,
+			SyslogPort:      514,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
@@ -589,6 +595,9 @@ var verifyTests = []struct {
 	{"missing API info", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIInfo = nil
 	}},
+	{"missing syslog port", func(cfg *cloudinit.MachineConfig) {
+		cfg.SyslogPort = 0
+	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
@@ -692,6 +701,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		StateServerKey:   serverKey,
 		StatePort:        1234,
 		APIPort:          1235,
+		SyslogPort:       2345,
 		MachineId:        "99",
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:   "sshkey1",

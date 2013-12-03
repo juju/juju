@@ -126,3 +126,18 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	}
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
+
+func (s *Service) GetOwnerTag() (string, error) {
+	var result params.StringResult
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag}},
+	}
+	err := s.st.caller.Call("Uniter", "", "GetOwnerTag", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}

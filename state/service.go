@@ -42,6 +42,7 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	MinUnits      int
+	OwnerTag      string
 	TxnRevno      int64 `bson:"txn-revno"`
 }
 
@@ -601,6 +602,22 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil
+}
+
+// GetOwnerTag returns the owner of this service
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (s *serviceDoc) GetOwnerTag() string {
+	if s.OwnerTag != "" {
+		return s.OwnerTag
+	}
+	return "user-admin"
+}
+
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (s *Service) GetOwnerTag() string {
+	return s.doc.GetOwnerTag()
 }
 
 // AddUnit adds a new principal unit to the service.

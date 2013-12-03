@@ -1559,7 +1559,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// The host only supports lxc containers.
-	err = host.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
 
 	// Set up params for adding 4 containers.
