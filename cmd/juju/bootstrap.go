@@ -34,9 +34,9 @@ constraints on the environment for all future machines, exactly as if the
 constraints were set with juju set-constraints.
 
 Bootstrap initializes the cloud environment synchronously and displays information
-about the current installation steps.  The time for bootstrap to be complete varies 
-across cloud providers from a small number of seconds to several minutes.  Most other 
-commands are synchronous and will wait until bootstrap is finished to complete.
+about the current installation steps.  The time for bootstrap to complete varies 
+across cloud providers from a few seconds to several minutes.  Once bootstrap has 
+completed, you can run other juju commands against your environment.
 
 See Also:
    juju help switch
