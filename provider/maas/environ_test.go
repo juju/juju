@@ -84,14 +84,18 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "old-name")
 }
 
-func getSimpleTestConfig(c *gc.C, agentName interface{}) *config.Config {
-	attrs := map[string]interface{}{
+func getSimpleTestMap() map[string]interface{} {
+	return map[string]interface{}{
 		"name":            "test env",
 		"maas-server":     "http://maas.testing.invalid",
 		"maas-oauth":      "a:b:c",
 		"admin-secret":    "pssst",
 		"authorized-keys": "I-am-not-a-real-key",
 	}
+}
+
+func getSimpleTestConfig(c *gc.C, agentName interface{}) *config.Config {
+	attrs := getSimpleTestMap()
 	if agentName != nil {
 		attrs["maas-agent-name"] = agentName
 	}
@@ -121,6 +125,46 @@ func (*environSuite) TestSetConfigRefusesChangingAgentName(c *gc.C) {
 
 	// And to nil
 	err = env.SetConfig(getSimpleTestConfig(c, nil))
+	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
+}
+
+func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
+	// bug #1256179 is that when using an older version of Juju (<1.16.2)
+	// we didn't include maas-agent-name in the database, so it was 'nil'
+	// in the OldConfig. However, when setting an environment, we would set
+	// it to "" (because maasEnvironConfig.Validate ensures it is a 'valid'
+	// string). We can't create that from NewEnviron or newConfig because
+	// both of them Validate the contents. 'cmd/juju/environment
+	// SetEnvironmentCommand' instead uses conn.State.EnvironConfig() which
+	// just reads the content of the database into a map, so we just create
+	// the map ourselves.
+
+	// Even though we use 'nil' here, it actually stores it as "" because
+	// 1.16.2 already validates the value
+	baseCfg := getSimpleTestConfig(c, nil)
+	c.Check(baseCfg.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
+	env, err := NewEnviron(baseCfg)
+	c.Assert(err, gc.IsNil)
+	provider := env.Provider()
+
+	attrs := getSimpleTestMap()
+	// These are attrs we need to make it a valid Config, but would usually
+	// be set by other infrastructure
+	attrs["type"] = "maas"
+	attrs["firewall-mode"] = baseCfg.FirewallMode()
+	attrs["development"] = baseCfg.Development()
+	attrs["ssl-hostname-verification"] = baseCfg.SSLHostnameVerification()
+	attrs["default-series"] = baseCfg.DefaultSeries()
+	attrs["state-port"] = baseCfg.StatePort()
+	attrs["api-port"] = baseCfg.APIPort()
+	nilCfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	validatedConfig, err := provider.Validate(baseCfg, nilCfg)
+	c.Assert(err, gc.IsNil)
+	c.Check(validatedConfig.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
+	// However, you can't set it to an actual value if you haven't been using a value
+	valueCfg := getSimpleTestConfig(c, "agent-name")
+	_, err = provider.Validate(valueCfg, nilCfg)
 	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
 }
 
