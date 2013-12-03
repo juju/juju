@@ -5,15 +5,12 @@ package provisioner_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/kvm/mock"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
@@ -156,18 +153,19 @@ func (s *kvmProvisionerSuite) TearDownSuite(c *gc.C) {
 func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.kvmSuite.SetUpTest(c)
-	// Write the tools file.
-	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
-	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
-	c.Assert(err, gc.IsNil)
 
 	// The kvm provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	err = m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
 	c.Assert(err, gc.IsNil)
 	s.machineId = m.Id()
+	s.APILogin(c, m)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
