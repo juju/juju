@@ -143,6 +143,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 
 	c.AddPackage("git")
+	c.AddPackage("cpu-checker")
 
 	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
