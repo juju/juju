@@ -75,7 +75,7 @@ do
 	}" $agent/agent.conf
 	if [[ $agent = unit-* ]]
 	then
-		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/*
+		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/* || true
 	fi
 	initctl start jujud-$agent
 done
