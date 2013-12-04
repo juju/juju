@@ -187,7 +187,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		packages []string
 	}{
 		{instance.LXC, []string{"lxc"}},
-		{instance.KVM, []string{"uvtool-libvirt", "uvtool", "kvm"}},
+		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)
 	}
