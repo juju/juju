@@ -18,14 +18,10 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/instance"
+	containertesting "launchpad.net/juju-core/container/testing"
 	instancetest "launchpad.net/juju-core/instance/testing"
-	jujutesting "launchpad.net/juju-core/juju/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -66,28 +62,9 @@ var (
 	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
 )
 
-func StartContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
-	stateInfo := jujutesting.FakeStateInfo(machineId)
-	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", stateInfo, apiInfo)
-	machineConfig.SyslogPort = 2345
-	machineConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
-	}
-
-	series := "series"
-	network := container.BridgeNetworkConfig("nic42")
-	inst, hardware, err := manager.StartContainer(machineConfig, series, network)
-	c.Assert(err, gc.IsNil)
-	c.Assert(hardware, gc.NotNil)
-	c.Assert(hardware, gc.Not(gc.Equals), &instance.HardwareCharacteristics{})
-	return inst
-}
-
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	// Check our container config files.
@@ -96,10 +73,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
 
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
-	c.Assert(cloudInitFilename, jc.IsNonEmptyFile)
-	data, err := ioutil.ReadFile(cloudInitFilename)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	data := containertesting.AssertCloudInit(c, cloudInitFilename)
 
 	x := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &x)
@@ -135,7 +109,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
@@ -149,7 +123,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
@@ -163,7 +137,7 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	targetDir := filepath.Join(s.RemovedDir, name)
@@ -181,7 +155,7 @@ func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{Name: "eric"})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), gc.Equals, "eric-machine-1-lxc-0")
 }
 
@@ -189,12 +163,12 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	foo := lxc.NewContainerManager(container.ManagerConfig{Name: "foo"})
 	bar := lxc.NewContainerManager(container.ManagerConfig{Name: "bar"})
 
-	foo1 := StartContainer(c, foo, "1/lxc/0")
-	foo2 := StartContainer(c, foo, "1/lxc/1")
-	foo3 := StartContainer(c, foo, "1/lxc/2")
+	foo1 := containertesting.StartContainer(c, foo, "1/lxc/0")
+	foo2 := containertesting.StartContainer(c, foo, "1/lxc/1")
+	foo3 := containertesting.StartContainer(c, foo, "1/lxc/2")
 
-	bar1 := StartContainer(c, bar, "1/lxc/0")
-	bar2 := StartContainer(c, bar, "1/lxc/1")
+	bar1 := containertesting.StartContainer(c, bar, "1/lxc/0")
+	bar2 := containertesting.StartContainer(c, bar, "1/lxc/1")
 
 	result, err := foo.ListContainers()
 	c.Assert(err, gc.IsNil)
@@ -207,14 +181,14 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 
 func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
 func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
