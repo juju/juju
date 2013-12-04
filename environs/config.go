@@ -202,23 +202,12 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 // secret attributes removed. If the resulting config is not suitable
 // for bootstrapping an environment, an error is returned.
 func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	p, err := Provider(cfg.Type())
-	if err != nil {
-		return nil, err
-	}
-	secrets, err := p.SecretAttrs(cfg)
-	if err != nil {
-		return nil, err
-	}
 	m := cfg.AllAttrs()
-	for k := range secrets {
-		delete(m, k)
-	}
-
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
 	delete(m, "ca-private-key")
-	if cfg, err = config.New(config.NoDefaults, m); err != nil {
+	cfg, err := config.New(config.NoDefaults, m)
+	if err != nil {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

@@ -134,23 +134,10 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 
-	// Verify we have no secret in the environ config
+	// Verify we have secrets in the environ config already.
 	cfg, err = st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.UnknownAttrs()["secret"], gc.IsNil)
-
-	// Make a new Conn, which will push the secrets.
-	conn, err := juju.NewConn(env)
-	c.Assert(err, gc.IsNil)
-	defer conn.Close()
-
-	cfg, err = conn.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], gc.Equals, "pork")
-
-	// Reset the admin password so the state db can be reused.
-	err = conn.State.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
 }
 
 func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
