@@ -79,72 +79,85 @@ class TestJujuClientDevel(TestCase):
             yield ' 5.6 \n'
 
         JujuClientDevelFake.set_output(juju_cmd_iterator())
-        version = JujuClientDevelFake.get_version()
+        with patch(
+                'subprocess.check_output', side_effect=lambda x: ' 5.6 \n'
+                ) as vsn:
+            version = JujuClientDevelFake.get_version()
         self.assertEqual('5.6', version)
+        vsn.assert_called_with(('juju', '--version'))
+
 
     def test_by_version(self):
         def juju_cmd_iterator():
-            yield
             yield '1.17'
             yield '1.16'
             yield '1.16.1'
             yield '1.15'
 
-        JujuClientDevelFake.set_output(juju_cmd_iterator())
-        self.assertIs(JujuClientDevel, type(JujuClientDevelFake.by_version()))
-        self.assertIs(JujuClient16, type(JujuClientDevelFake.by_version()))
-        self.assertIs(JujuClient16, type(JujuClientDevelFake.by_version()))
-        client = JujuClientDevelFake.by_version()
-        self.assertIs(JujuClientDevel, type(client))
-        self.assertEqual('1.15', client.version)
+        context = patch.object(JujuClientDevel, 'get_version',
+                side_effect=juju_cmd_iterator().next)
+        with context:
+            self.assertIs(JujuClientDevel,
+                          type(JujuClientDevel.by_version()))
+            self.assertIs(JujuClient16, type(JujuClientDevel.by_version()))
+            self.assertIs(JujuClient16, type(JujuClientDevel.by_version()))
+            client = JujuClientDevel.by_version()
+            self.assertIs(JujuClientDevel, type(client))
+            self.assertEqual('1.15', client.version)
 
     def test_full_args(self):
         env = Environment('foo', '')
-        full = JujuClientDevel._full_args(env, 'bar', False, ('baz', 'qux'))
+        client = JujuClientDevel(None, 'my/juju/bin')
+        full = client._full_args(env, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-        full = JujuClientDevel._full_args(env, 'bar', True, ('baz', 'qux'))
+        full = client._full_args(env, 'bar', True, ('baz', 'qux'))
         self.assertEqual(
-            ('sudo', '-E', 'juju', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-        full = JujuClientDevel._full_args(None, 'bar', False, ('baz', 'qux'))
+            ('sudo', '-E', 'my/juju/bin', 'bar', '-e', 'foo', 'baz', 'qux'),
+            full)
+        full = client._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', 'bar', 'baz', 'qux'), full)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
         with patch.object(env, 'needs_sudo', lambda: False):
             with patch.object(JujuClientDevel, 'juju') as mock:
-                JujuClientDevel.bootstrap(env)
+                JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
                 env, 'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
+        client = JujuClientDevel(None, None)
         with patch.object(env, 'needs_sudo', lambda: True):
             with patch.object(JujuClientDevel, 'juju') as mock:
-                JujuClientDevel.bootstrap(env)
+                client.bootstrap(env)
             mock.assert_called_with(
                 env, 'bootstrap', ('--constraints', 'mem=2G'), True)
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
+        client = JujuClientDevel(None, None)
         with patch.object(env, 'needs_sudo', lambda: False):
             with patch.object(JujuClientDevel, 'juju') as mock:
-                JujuClientDevel.destroy_environment(env)
+                client.destroy_environment(env)
             mock.assert_called_with(
                 None, 'destroy-environment', ('foo', '-y'), False, check=False)
 
     def test_destroy_environment_sudo(self):
         env = Environment('foo', '')
+        client = JujuClientDevel(None, None)
         with patch.object(env, 'needs_sudo', lambda: True):
             with patch.object(JujuClientDevel, 'juju') as mock:
-                JujuClientDevel.destroy_environment(env)
+                client.destroy_environment(env)
             mock.assert_called_with(
                 None, 'destroy-environment', ('foo', '-y'), True, check=False)
 
     def test_get_juju_output(self):
         env = Environment('foo', '')
         asdf = lambda x: 'asdf'
+        client = JujuClientDevel(None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
-            result = JujuClientDevel.get_juju_output(env, 'bar')
+            result = client.get_juju_output(env, 'bar')
         self.assertEqual('asdf', result)
         mock.assert_called_with(('juju', 'bar', '-e', 'foo'))
 
@@ -156,25 +169,28 @@ class TestJujuClientDevel(TestCase):
                 - b
                 - c
                 """)
-        JujuClientDevelFake.set_output(output_iterator())
+        client = JujuClientDevelFake(None, None)
+        client.set_output(output_iterator())
         env = Environment('foo', '')
-        result = JujuClientDevelFake.get_status(env)
+        result = client.get_status(env)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
     def test_juju(self):
         env = Environment('qux', '')
+        client = JujuClientDevel(None, None)
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.check_call') as mock:
-                JujuClientDevel.juju(env, 'foo', ('bar', 'baz'))
+                client.juju(env, 'foo', ('bar', 'baz'))
         mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check(self):
         env = Environment('qux', '')
+        client = JujuClientDevel(None, None)
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.call') as mock:
-                JujuClientDevel.juju(env, 'foo', ('bar', 'baz'), check=False)
+                client.juju(env, 'foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
@@ -185,7 +201,7 @@ class TestJujuClient16(TestCase):
         env = Environment('foo', '')
         with patch.object(env, 'needs_sudo', lambda: False):
             with patch.object(JujuClient16, 'juju') as mock:
-                JujuClient16.destroy_environment(env)
+                JujuClient16(None, None).destroy_environment(env)
             mock.assert_called_with(
                 env, 'destroy-environment', ('-y',), False, check=False)
 
@@ -193,7 +209,7 @@ class TestJujuClient16(TestCase):
         env = Environment('foo', '')
         with patch.object(env, 'needs_sudo', lambda: True):
             with patch.object(JujuClient16, 'juju') as mock:
-                JujuClient16.destroy_environment(env)
+                JujuClient16(None, None).destroy_environment(env)
             mock.assert_called_with(
                 env, 'destroy-environment', ('-y',), True, check=False)
 
@@ -346,7 +362,7 @@ class TestEnvironment(TestCase):
                         agent-state: started
             """)
         JujuClientDevelFake.set_output(output_iterator())
-        env = Environment('local', JujuClientDevelFake)
+        env = Environment('local', JujuClientDevelFake(None, None))
         env.wait_for_started()
 
     def test_wait_for_started_timeout(self):
