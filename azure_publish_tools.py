@@ -66,9 +66,9 @@ def get_local_files(purpose, local_dir):
         print('%s not found.' % local_dir)
         return None
     if purpose == TESTING:
-        replacements = (local_dir, TESTING)
+        replacements = (local_dir + '/', TESTING)
     else:
-        replacements = (local_dir, '')
+        replacements = (local_dir + '/', '')
     found = []
     for path, subdirs, files in os.walk(local_dir):
         for name in files:
@@ -149,6 +149,9 @@ def publish_files(purpose, local_dir, options):
     local_files = get_local_files(purpose, local_dir)
     if local_files is None:
         return NO_LOCAL_FILES
+    if options.verbose:
+        for lf in local_files:
+            print(lf.path)
     published_dict = dict(
         (sync_file.path, sync_file) for sync_file in published_files)
     for sync_file in local_files:
@@ -162,6 +165,9 @@ def publish_files(purpose, local_dir, options):
                         published_dict[sync_file.path].md5content,
                         sync_file.md5content))
         else:
+            if options.verbose:
+                print("Nothing to do: %s == %s" % (
+                    sync_file.path, published_dict[sync_file.path].md5content))
             continue
         if not options.dry_run:
             publish_local_file(purpose, blob_service, sync_file)
