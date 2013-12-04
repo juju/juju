@@ -89,13 +89,13 @@ func (broker *kvmBroker) StartInstance(
 		return nil, nil, err
 	}
 
-	inst, err := broker.manager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := broker.manager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
 	}
-	kvmLogger.Infof("started kvm container for machineId: %s, %s", machineId, inst.Id())
-	return inst, nil, nil
+	kvmLogger.Infof("started kvm container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
+	return inst, hardware, nil
 }
 
 // StopInstances shuts down the given instances.
