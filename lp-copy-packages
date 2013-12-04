@@ -17,7 +17,6 @@ def copy_packages(lp, version, archive_name):
         if package.source_package_version.startswith(version)]
     juju_team = lp.people['juju']
     stable_archive = juju_team.getPPAByName(name=archive_name)
-    return
     for package in package_histories:
         stable_archive.copyPackage(
             from_archive=build_archive,
