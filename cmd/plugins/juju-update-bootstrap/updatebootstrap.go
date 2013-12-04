@@ -121,7 +121,7 @@ func updateAllMachines(conn *juju.Conn, stateAddr string) error {
 	for _, machine := range machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machine.IsStateServer() || machine.Life() != state.Alive {
+		if machine.IsManager() || machine.Life() != state.Alive {
 			continue
 		}
 		pendingMachineCount += 1

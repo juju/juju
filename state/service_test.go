@@ -1090,7 +1090,7 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, gc.IsNil)
 	for _, unit := range units {
-		assertUnitLife(c, unit, state.Alive)
+		assertLife(c, unit, state.Alive)
 	}
 
 	// Check a cleanup doc was added.
@@ -1103,9 +1103,9 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, unit := range units {
 		if i%2 != 0 {
-			assertUnitLife(c, unit, state.Dying)
+			assertLife(c, unit, state.Dying)
 		} else {
-			assertUnitRemoved(c, unit)
+			assertRemoved(c, unit)
 		}
 	}
 
