@@ -358,7 +358,9 @@ func (s *StoreSuite) TestAuthorization(c *gc.C) {
 	_, err := store.Get(charmURL)
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.server.authorizations, gc.NotNil)
+
+	c.Assert(s.server.authorizations, gc.HasLen, 1)
+	c.Assert(s.server.authorizations[0], gc.Equals, "charmstore token=value")
 }
 
 func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
