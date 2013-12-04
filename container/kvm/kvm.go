@@ -63,7 +63,7 @@ var _ container.Manager = (*containerManager)(nil)
 func (manager *containerManager) StartContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig) (instance.Instance, error) {
+	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	name := names.MachineTag(machineConfig.MachineId)
 	if manager.name != "" {
@@ -77,20 +77,24 @@ func (manager *containerManager) StartContainer(
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container directory: %v", err)
+		return nil, nil, fmt.Errorf("failed to create container directory: %v", err)
 	}
 	logger.Tracef("write cloud-init")
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "failed to write user data: %v", err)
+		return nil, nil, log.LoggedErrorf(logger, "failed to write user data: %v", err)
 	}
 	// Create the container.
+	arch := version.Current.Arch
+	hardware := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
 	logger.Tracef("create the container")
-	if err := kvmContainer.Start(series, version.Current.Arch, userDataFilename, network); err != nil {
-		return nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
+	if err := kvmContainer.Start(series, arch, userDataFilename, network); err != nil {
+		return nil, nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
 	}
 	logger.Tracef("kvm container created")
-	return &kvmInstance{kvmContainer, name}, nil
+	return &kvmInstance{kvmContainer, name}, hardware, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {

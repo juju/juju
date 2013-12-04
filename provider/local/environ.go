@@ -295,12 +295,11 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 		return nil, nil, err
 	}
 	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO(thumper): return some hardware characteristics.
-	return inst, nil, nil
+	return inst, hardware, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

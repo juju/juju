@@ -95,9 +95,13 @@ func startContainer(c *gc.C, manager container.Manager, machineId string) instan
 	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	instance, err := manager.StartContainer(machineConfig, "precise", network)
+	inst, hardware, err := manager.StartContainer(machineConfig, "precise", network)
 	c.Assert(err, gc.IsNil)
-	return instance
+	c.Assert(hardware, gc.NotNil)
+	arch := version.Current.Arch
+	expected := instance.HardwareCharacteristics{Arch: &arch}.String()
+	c.Assert(hardware.String(), gc.Equals, expected)
+	return inst
 }
 
 func (s *LiveSuite) TestShutdownMachines(c *gc.C) {
