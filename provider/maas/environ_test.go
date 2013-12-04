@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	coretesting "launchpad.net/juju-core/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -84,24 +85,17 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "old-name")
 }
 
-func getSimpleTestMap() map[string]interface{} {
-	return map[string]interface{}{
-		"name":            "test env",
-		"maas-server":     "http://maas.testing.invalid",
-		"maas-oauth":      "a:b:c",
-		"admin-secret":    "pssst",
-		"authorized-keys": "I-am-not-a-real-key",
-	}
-}
-
 func getSimpleTestConfig(c *gc.C, agentName interface{}) *config.Config {
-	attrs := getSimpleTestMap()
+	attrs := coretesting.FakeConfig()
+	attrs["type"] = "maas"
+	attrs["maas-server"]    =  "http://maas.testing.invalid"
+	attrs["maas-oauth"]      = "a:b:c"
 	if agentName != nil {
 		attrs["maas-agent-name"] = agentName
 	}
-	ecfg, err := newConfig(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	return ecfg.Config
+	return cfg
 }
 
 func (*environSuite) TestSetConfigRefusesChangingAgentName(c *gc.C) {
@@ -141,22 +135,16 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 
 	// Even though we use 'nil' here, it actually stores it as "" because
 	// 1.16.2 already validates the value
-	baseCfg := getSimpleTestConfig(c, nil)
+	baseCfg := getSimpleTestConfig(c, "")
 	c.Check(baseCfg.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
 	env, err := NewEnviron(baseCfg)
 	c.Assert(err, gc.IsNil)
 	provider := env.Provider()
 
-	attrs := getSimpleTestMap()
+	attrs := coretesting.FakeConfig()
 	// These are attrs we need to make it a valid Config, but would usually
 	// be set by other infrastructure
 	attrs["type"] = "maas"
-	attrs["firewall-mode"] = baseCfg.FirewallMode()
-	attrs["development"] = baseCfg.Development()
-	attrs["ssl-hostname-verification"] = baseCfg.SSLHostnameVerification()
-	attrs["default-series"] = baseCfg.DefaultSeries()
-	attrs["state-port"] = baseCfg.StatePort()
-	attrs["api-port"] = baseCfg.APIPort()
 	nilCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	validatedConfig, err := provider.Validate(baseCfg, nilCfg)
