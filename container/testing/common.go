@@ -32,7 +32,7 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 	inst, hardware, err := manager.StartContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
-	c.Assert(hardware, gc.Not(gc.Equals), &instance.HardwareCharacteristics{})
+	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
 	return inst
 }
 
