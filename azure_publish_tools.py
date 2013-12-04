@@ -37,6 +37,9 @@ JUJU_DIST = 'juju-tools'
 CHUNK_SIZE = 4 * 1024 * 1024
 
 
+SIGNED_EXTS = ('.sjson', '.gpg')
+
+
 SyncFile = namedtuple(
     'SyncFile', ['path', 'size', 'md5content', 'mimetype', 'local_path'])
 
@@ -66,7 +69,7 @@ def get_local_files(purpose, local_dir):
         print('%s not found.' % local_dir)
         return None
     if purpose == TESTING:
-        replacements = (local_dir + '/', TESTING)
+        replacements = (local_dir, TESTING)
     else:
         replacements = (local_dir + '/', '')
     found = []
@@ -76,6 +79,9 @@ def get_local_files(purpose, local_dir):
             publish_path = local_path.replace(*replacements)
             if 'mirror' in name or os.path.islink(local_path):
                 # The mirror files only belong on streams.canonical.com.
+                continue
+            ignore, extension = os.path.splitext(name)
+            if purpose == TESTING and extension in SIGNED_EXTS:
                 continue
             size = os.path.getsize(local_path)
             md5content = get_md5content(local_path)
