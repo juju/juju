@@ -36,8 +36,6 @@ check_deps() {
         echo "  canonistacktoolsrc, hptoolsrc, s3cfg, azuretoolsrc"
         exit 2
     fi
-    juju_version=$(juju --version)
-    echo "Using installed juju: $juju_version"
 }
 
 
