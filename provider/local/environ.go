@@ -288,7 +288,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	series := possibleTools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
 	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = instance.LXC
+	machineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", machineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
