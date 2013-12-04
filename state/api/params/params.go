@@ -63,11 +63,27 @@ type DestroyRelation struct {
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
-	Series                  string
-	ContainerType           instance.ContainerType
-	Constraints             constraints.Value
-	ParentId                string
-	Jobs                    []MachineJob
+	// The following fields hold attributes that will be given to the
+	// new machine when it is created.
+	Series      string
+	Constraints constraints.Value
+	Jobs        []MachineJob
+
+	// If ParentId is non-empty, it specifies the id of the
+	// parent machine within which the new machine will
+	// be created. In that case, ContainerType must also be
+	// set.
+	ParentId string
+
+	// ContainerType gives the container type of the
+	// new machine when ParentId is specified.
+	ContainerType instance.ContainerType
+
+	// If InstanceId is non-empty, it will be associated with
+	// the new machine along with the given nonce,
+	// hardware characteristics and addresses.
+	// All the following fields will be ignored if ContainerType
+	// is set.
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics

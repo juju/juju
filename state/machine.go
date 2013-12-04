@@ -704,11 +704,7 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 
 // SetAddresses records any addresses related to the machine
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
-	var stateAddresses []address
-	for _, address := range addresses {
-		stateAddresses = append(stateAddresses, NewAddress(address))
-	}
-
+	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,

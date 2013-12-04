@@ -158,7 +158,7 @@ func recordMachineInState(
 		Addrs:                   addrs,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 	}
-	results, err := client.InjectMachines([]params.AddMachineParams{machineParams})
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", "", "", err
 	}

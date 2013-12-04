@@ -29,6 +29,10 @@ type MachineTemplate struct {
 	// A machine must have at least one job to do.
 	Jobs []MachineJob
 
+	// Addresses holds the addresses to be associated with the
+	// new machine.
+	Addresses []instance.Address
+
 	// InstanceId holds the instance id to associate with the machine.
 	// If this is empty, the provisioner will try to provision the machine.
 	// If this is non-empty, the HardwareCharacteristics and Nonce
@@ -322,6 +326,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		Life:       Alive,
 		InstanceId: template.InstanceId,
 		Nonce:      template.Nonce,
+		Addresses:  instanceAddressesToAddresses(template.Addresses),
 	}
 }
 

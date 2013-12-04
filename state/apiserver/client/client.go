@@ -512,32 +512,6 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
-func createAddMachineParameters(machineParams params.AddMachineParams,
-	defaultSeries string) (*state.AddMachineParams, error) {
-
-	stateMachineParams := &state.AddMachineParams{
-		Series:        machineParams.Series,
-		Constraints:   machineParams.Constraints,
-		ParentId:      machineParams.ParentId,
-		ContainerType: machineParams.ContainerType,
-		InstanceId:    machineParams.InstanceId,
-		Nonce:         machineParams.Nonce,
-		HardwareCharacteristics: machineParams.HardwareCharacteristics,
-	}
-	if stateMachineParams.Series == "" {
-		stateMachineParams.Series = defaultSeries
-	}
-	// Convert params.MachineJob to state.MachineJob
-	stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
-	var jobError error
-	for j, job := range machineParams.Jobs {
-		if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
-			return nil, jobError
-		}
-	}
-	return stateMachineParams, nil
-}
-
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
@@ -551,16 +525,11 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	}
 	defaultSeries = conf.DefaultSeries()
 
-	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
-		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
+	for i, p := range args.MachineParams {
+		m, err := c.addOneMachine(p, defaultSeries)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
-			results.Machines[i].Machine = machine.String()
+			results.Machines[i].Machine = m.Id()
 		}
 	}
 	return results, nil
@@ -568,36 +537,54 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	results := params.AddMachinesResults{
-		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	return c.AddMachines(args)
+}
+
+func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) (*state.Machine, error) {
+	if p.Series == "" {
+		p.Series = defaultSeries
+	}
+	if p.ParentId != "" {
+		// Guard against dubious client by making sure that
+		// the following attributes can only be set when
+		// a new top level machine is being created.
+		p.InstanceId = ""
+		p.Nonce = ""
+		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
+		p.Addrs = nil
+	} else {
+		p.ContainerType = ""
 	}
 
-	var defaultSeries string
-	conf, err := c.api.state.EnvironConfig()
+	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
-	defaultSeries = conf.DefaultSeries()
+	template := state.MachineTemplate{
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
+		HardwareCharacteristics: p.HardwareCharacteristics,
+		Addresses:               p.Addrs,
+	}
+	if p.ParentId == "" {
+		return c.api.state.AddOneMachine(template)
+	}
+	return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+}
 
-	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+	newJobs := make([]state.MachineJob, len(jobs))
+	for i, job := range jobs {
+		newJob, err := state.MachineJobFromParams(job)
 		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			continue
+			return nil, err
 		}
-		machine, err := c.api.state.InjectMachine(stateMachineParams)
-		results.Machines[i].Error = common.ServerError(err)
-		if err == nil {
-			results.Machines[i].Machine = machine.String()
-			if err = machine.SetAddresses(machineParams.Addrs); err != nil {
-				results.Machines[i].Error = common.ServerError(err)
-				logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
-				machine.EnsureDead()
-				machine.Remove()
-			}
-		}
+		newJobs[i] = newJob
 	}
-	return results, nil
+	return newJobs, nil
 }
 
 // MachineConfig returns information from the environment config that is

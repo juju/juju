@@ -18,7 +18,7 @@ type address struct {
 	NetworkScope instance.NetworkScope `bson:",omitempty"`
 }
 
-func NewAddress(addr instance.Address) address {
+func newAddress(addr instance.Address) address {
 	stateaddr := address{
 		Value:        addr.Value,
 		AddressType:  addr.Type,
@@ -44,6 +44,14 @@ func addressesToInstanceAddresses(addrs []address) []instance.Address {
 		instanceAddrs[i] = addr.InstanceAddress()
 	}
 	return instanceAddrs
+}
+
+func instanceAddressesToAddresses(instanceAddrs []instance.Address) []address {
+	addrs := make([]address, len(instanceAddrs))
+	for i, addr := range instanceAddrs {
+		addrs[i] = newAddress(addr)
+	}
+	return addrs
 }
 
 // stateServerAddresses returns the list of internal addresses of the state

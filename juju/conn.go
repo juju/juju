@@ -357,9 +357,9 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 				// Create the new machine marked as dirty so that
 				// nothing else will grab it before we assign the unit to it.
 				template := state.MachineTemplate{
-					Series:        unit.Series(),
-					Jobs:          []state.MachineJob{state.JobHostUnits},
-					Dirty: true,
+					Series: unit.Series(),
+					Jobs:   []state.MachineJob{state.JobHostUnits},
+					Dirty:  true,
 				}
 				m, err = conn.State.AddMachineInsideMachine(template, mid, containerType)
 			} else {
