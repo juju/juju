@@ -49,7 +49,7 @@ func (broker *lxcBroker) Tools() tools.List {
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+	// TODO: refactor common code out of the container brokers.
 	machineId := machineConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
