@@ -4,11 +4,14 @@
 package kvm_test
 
 import (
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
+	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -16,9 +19,17 @@ import (
 
 type KVMSuite struct {
 	kvmtesting.TestSuite
+	manager container.Manager
 }
 
 var _ = gc.Suite(&KVMSuite{})
+
+func (s *KVMSuite) SetUpTest(c *gc.C) {
+	s.TestSuite.SetUpTest(c)
+	var err error
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
+	c.Assert(err, gc.IsNil)
+}
 
 func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
 	manager, err := kvm.NewContainerManager(container.ManagerConfig{})
@@ -26,10 +37,8 @@ func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
 	c.Assert(manager, gc.IsNil)
 }
 
-func (*KVMSuite) TestListInitiallyEmpty(c *gc.C) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
-	c.Assert(err, gc.IsNil)
-	containers, err := manager.ListContainers()
+func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
+	containers, err := s.manager.ListContainers()
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.HasLen, 0)
 }
@@ -42,13 +51,11 @@ func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 }
 
 func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
-	c.Assert(err, gc.IsNil)
 	s.createRunningContainer(c, "test-match1")
 	s.createRunningContainer(c, "test-match2")
 	s.createRunningContainer(c, "testNoMatch")
 	s.createRunningContainer(c, "other")
-	containers, err := manager.ListContainers()
+	containers, err := s.manager.ListContainers()
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.HasLen, 2)
 	expectedIds := []instance.Id{"test-match1", "test-match2"}
@@ -57,12 +64,30 @@ func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
 }
 
 func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
-	c.Assert(err, gc.IsNil)
 	running := s.createRunningContainer(c, "test-running")
 	s.Factory.New("test-stopped")
-	containers, err := manager.ListContainers()
+	containers, err := s.manager.ListContainers()
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.HasLen, 1)
 	c.Assert(string(containers[0].Id()), gc.Equals, running.Name())
+}
+
+func (s *KVMSuite) TestStartContainer(c *gc.C) {
+	instance := containertesting.StartContainer(c, s.manager, "1/kvm/0")
+	name := string(instance.Id())
+	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
+	containertesting.AssertCloudInit(c, cloudInitFilename)
+}
+
+func (s *KVMSuite) TestStopContainer(c *gc.C) {
+	instance := containertesting.StartContainer(c, s.manager, "1/lxc/0")
+
+	err := s.manager.StopContainer(instance)
+	c.Assert(err, gc.IsNil)
+
+	name := string(instance.Id())
+	// Check that the container dir is no longer in the container dir
+	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
+	// but instead, in the removed container dir
+	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
 }
