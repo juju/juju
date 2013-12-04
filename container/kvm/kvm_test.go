@@ -4,11 +4,14 @@
 package kvm_test
 
 import (
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
+	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -65,4 +68,14 @@ func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.HasLen, 1)
 	c.Assert(string(containers[0].Id()), gc.Equals, running.Name())
+}
+
+func (s *KVMSuite) TestStartContainer(c *gc.C) {
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
+	c.Assert(err, gc.IsNil)
+	instance := containertesting.StartContainer(c, manager, "1/kvm/0")
+
+	name := string(instance.Id())
+	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
+	containertesting.AssertCloudInit(c, cloudInitFilename)
 }

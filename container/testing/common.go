@@ -4,12 +4,15 @@
 package testing
 
 import (
+	"io/ioutil"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -29,4 +32,12 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 	inst, err := manager.StartContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
 	return inst
+}
+
+func AssertCloudInit(c *gc.C, filename string) []byte {
+	c.Assert(filename, jc.IsNonEmptyFile)
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	return data
 }

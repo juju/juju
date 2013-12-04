@@ -73,10 +73,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
 
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
-	c.Assert(cloudInitFilename, jc.IsNonEmptyFile)
-	data, err := ioutil.ReadFile(cloudInitFilename)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	data := containertesting.AssertCloudInit(c, cloudInitFilename)
 
 	x := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &x)
