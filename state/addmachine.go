@@ -44,9 +44,9 @@ type MachineTemplate struct {
 	// See Machine.SetProvisioned. This must be set if InstanceId is set.
 	Nonce string
 
-	// dirty signifies whether the new machine will be treated
+	// Dirty signifies whether the new machine will be treated
 	// as unclean for unit-assignment purposes.
-	dirty bool
+	Dirty bool
 
 	// principals holds the principal units that will
 	// associated with the machine.
@@ -317,7 +317,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		Id:         id,
 		Series:     template.Series,
 		Jobs:       template.Jobs,
-		Clean:      !template.dirty,
+		Clean:      !template.Dirty,
 		Principals: template.principals,
 		Life:       Alive,
 		InstanceId: template.InstanceId,

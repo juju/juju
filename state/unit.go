@@ -887,7 +887,7 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 // the supplied params, with the supplied constraints.
 func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) error {
 	template.principals = []string{u.doc.Name}
-	template.dirty = true
+	template.Dirty = true
 
 	var (
 		mdoc *machineDoc
