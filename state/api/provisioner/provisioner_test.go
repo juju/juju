@@ -365,6 +365,31 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *provisionerSuite) TestWatchEnvironConfig(c *gc.C) {
+	envConfig, err := s.provisioner.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	w, err := s.provisioner.WatchEnvironConfig()
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewEnvironConfigWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	attrs := envConfig.AllAttrs()
+	wc.AssertChange(attrs)
+
+	// Change the environment configuration, check it's detected.
+	attrs["type"] = "blah"
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(newConfig)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(attrs)
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	err := s.machine.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),

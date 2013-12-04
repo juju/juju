@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/params"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 )
@@ -30,25 +31,34 @@ type EnvironConfigGetter interface {
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
 // it receives a value on dying.
-func WaitForEnviron(w apiwatcher.NotifyWatcher, st EnvironConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
+func WaitForEnviron(w apiwatcher.EnvironConfigWatcher, st EnvironConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
 	for {
 		select {
 		case <-dying:
 			return nil, tomb.ErrDying
-		case _, ok := <-w.Changes():
+		case configAttr, ok := <-w.Changes():
 			if !ok {
 				return nil, watcher.MustErr(w)
 			}
-			config, err := st.EnvironConfig()
-			if err != nil {
-				return nil, err
-			}
-			environ, err := environs.New(config)
+			environ, err := newEnviron(configAttr)
 			if err == nil {
 				return environ, nil
 			}
-			logger.Errorf("loaded invalid environment configuration: %v", err)
 			loadedInvalid()
 		}
 	}
+}
+
+func newEnviron(configAttr params.EnvironConfig) (environs.Environ, error) {
+	conf, err := config.New(config.NoDefaults, configAttr)
+	if err != nil {
+		logger.Errorf("received invalid environ config: %v", err)
+		return nil, err
+	}
+	environ, err := environs.New(conf)
+	if err != nil {
+		logger.Errorf("error creating Environ: %v", err)
+		return nil, err
+	}
+	return environ, nil
 }

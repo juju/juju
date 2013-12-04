@@ -168,8 +168,9 @@ type EnvironConfig map[string]interface{}
 
 // EnvironConfigResult holds environment configuration or an error.
 type EnvironConfigResult struct {
-	Error  *Error
-	Config EnvironConfig
+	EnvironConfigWatcherId string
+	Error                  *Error
+	Config                 EnvironConfig
 }
 
 // RelationUnit holds a relation and a unit tag.

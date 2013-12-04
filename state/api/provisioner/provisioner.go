@@ -55,6 +55,21 @@ func (st *State) Machine(tag string) (*Machine, error) {
 	}, nil
 }
 
+// WatchEnvironConfig return a EnvironConfigWatcher waiting for the
+// environment configuration to change.
+func (st *State) WatchEnvironConfig() (watcher.EnvironConfigWatcher, error) {
+	var result params.EnvironConfigResult
+	err := st.caller.Call("Provisioner", "", "WatchEnvironConfig", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewEnvironConfigWatcher(st.caller, result)
+	return w, nil
+}
+
 // WatchForEnvironConfigChanges return a NotifyWatcher waiting for the
 // environment configuration to change.
 func (st *State) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {

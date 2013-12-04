@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -149,6 +150,51 @@ func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params
 	return p.WatchContainers(args)
 }
 
+func (p *ProvisionerAPI) allowedConfig(cfg *config.Config) (map[string]interface{}, error) {
+	allAttrs := cfg.AllAttrs()
+	if !p.authorizer.AuthEnvironManager() {
+		// Mask out any secrets in the environment configuration
+		// with values of the same type, so it'll pass validation.
+		//
+		// TODO(dimitern) 201309-26 bug #1231384
+		// This needs to change so we won't return anything to
+		// entities other than the environment manager, but the
+		// provisioner code should be refactored first.
+		env, err := environs.New(cfg)
+		if err != nil {
+			return nil, err
+		}
+		secretAttrs, err := env.Provider().SecretAttrs(cfg)
+		for k := range secretAttrs {
+			allAttrs[k] = "not available"
+		}
+	}
+	return allAttrs, nil
+}
+
+// WatchEnvironConfig returns a EnvironConfigWatcher to observe
+// changes to the environment configuration.
+func (p *ProvisionerAPI) WatchEnvironConfig() (params.EnvironConfigResult, error) {
+	nothing := params.EnvironConfigResult{}
+	watch := p.st.WatchEnvironConfig()
+	// Consume the initial event and forward it to the result.
+	if configAttr, ok := <-watch.Changes(); ok {
+		cfg, err := config.New(config.NoDefaults, configAttr)
+		if err != nil {
+			return nothing, err
+		}
+		if allowedConfig, err := p.allowedConfig(cfg); err != nil {
+			return nothing, watcher.MustErr(watch)
+		} else {
+			return params.EnvironConfigResult{
+				EnvironConfigWatcherId: p.resources.Register(watch),
+				Config:                 allowedConfig,
+			}, nil
+		}
+	}
+	return nothing, watcher.MustErr(watch)
+}
+
 // WatchForEnvironConfigChanges returns a NotifyWatcher to observe
 // changes to the environment configuration.
 func (p *ProvisionerAPI) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
@@ -173,25 +219,11 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 	if err != nil {
 		return result, err
 	}
-	allAttrs := config.AllAttrs()
-	if !p.authorizer.AuthEnvironManager() {
-		// Mask out any secrets in the environment configuration
-		// with values of the same type, so it'll pass validation.
-		//
-		// TODO(dimitern) 201309-26 bug #1231384
-		// This needs to change so we won't return anything to
-		// entities other than the environment manager, but the
-		// provisioner code should be refactored first.
-		env, err := environs.New(config)
-		if err != nil {
-			return result, err
-		}
-		secretAttrs, err := env.Provider().SecretAttrs(config)
-		for k := range secretAttrs {
-			allAttrs[k] = "not available"
-		}
+	if allowedConfig, err := p.allowedConfig(config); err != nil {
+		return result, err
+	} else {
+		result.Config = allowedConfig
 	}
-	result.Config = allAttrs
 	return result, nil
 }
 

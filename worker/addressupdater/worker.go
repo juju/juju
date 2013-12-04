@@ -15,7 +15,7 @@ type updaterWorker struct {
 	st   *state.State
 	tomb tomb.Tomb
 
-	observer *environObserver
+	observer *worker.EnvironObserver
 }
 
 // NewWorker returns a worker that keeps track of
@@ -42,7 +42,7 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.observer, err = newEnvironObserver(u.st, u.tomb.Dying())
+	u.observer, err = worker.NewEnvironObserver(u.st, u.tomb.Dying())
 	if err != nil {
 		return err
 	}

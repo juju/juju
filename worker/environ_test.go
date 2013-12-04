@@ -27,7 +27,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 func (s *waitForEnvironSuite) TestStop(c *gc.C) {
-	w := s.State.WatchForEnvironConfigChanges()
+	w := s.State.WatchEnvironConfig()
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
 	done := make(chan error)
@@ -40,7 +40,7 @@ func (s *waitForEnvironSuite) TestStop(c *gc.C) {
 	c.Assert(<-done, gc.Equals, tomb.ErrDying)
 }
 
-func stopWatcher(c *gc.C, w state.NotifyWatcher) {
+func stopWatcher(c *gc.C, w state.Watcher) {
 	err := w.Stop()
 	c.Check(err, gc.IsNil)
 }
@@ -53,7 +53,7 @@ func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
 		oldType = attrs["type"].(string)
 		return attrs.Merge(coretesting.Attrs{"type": "unknown"})
 	})
-	w := s.State.WatchForEnvironConfigChanges()
+	w := s.State.WatchEnvironConfig()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
@@ -61,7 +61,7 @@ func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
 		c.Check(err, gc.IsNil)
 		done <- env
 	}()
-	// Wait for the loop to process the invalid configuratrion
+	// Wait for the loop to process the invalid configuration
 	<-worker.LoadedInvalid
 
 	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {

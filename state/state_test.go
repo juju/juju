@@ -1245,7 +1245,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, gc.Equals, true)
-			c.Assert(got.AllAttrs(), gc.DeepEquals, cfg.AllAttrs())
+			c.Assert(map[string]interface{}(got), gc.DeepEquals, cfg.AllAttrs())
 		case <-time.After(testing.LongWait):
 			c.Fatalf("did not get change: %#v", change)
 		}
@@ -1307,7 +1307,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	// Start watching the configuration.
 	watcher := s.State.WatchEnvironConfig()
 	defer watcher.Stop()
-	done := make(chan *config.Config)
+	done := make(chan params.EnvironConfig)
 	go func() {
 		select {
 		case cfg, ok := <-watcher.Changes():
@@ -1338,7 +1338,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	s.State.StartSync()
 	select {
 	case got := <-done:
-		c.Assert(got.AllAttrs(), gc.DeepEquals, fixed)
+		c.Assert(map[string]interface{}(got), gc.DeepEquals, fixed)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("no environment configuration observed")
 	}

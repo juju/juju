@@ -30,3 +30,11 @@ type RelationUnitsWatcher interface {
 	Stop() error
 	Err() error
 }
+
+// EnvironConfigWatcher will send events when something changes.
+// The content for the changes is a params.EnvironConfig struct.
+type EnvironConfigWatcher interface {
+	Changes() <-chan params.EnvironConfig
+	Stop() error
+	Err() error
+}

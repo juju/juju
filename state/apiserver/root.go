@@ -199,6 +199,25 @@ func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	}, nil
 }
 
+// EnvironConfigWatcher returns an object that provides
+// API access to methods on a state.EnvironConfigWatcher.
+// Each client has its own current set of watchers, stored
+// in r.resources.
+func (r *srvRoot) EnvironConfigWatcher(id string) (*srvEnvironConfigWatcher, error) {
+	if err := r.requireAgent(); err != nil {
+		return nil, err
+	}
+	watcher, ok := r.resources.Get(id).(state.EnvironConfigWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvEnvironConfigWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
+}
+
 // StringsWatcher returns an object that provides API access to
 // methods on a state.StringsWatcher.  Each client has its own
 // current set of watchers, stored in r.resources.

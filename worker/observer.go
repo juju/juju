@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package addressupdater
+package worker
 
 import (
 	"sync"
@@ -11,19 +11,16 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/worker"
 )
 
 // TODO(rog) 2013-10-02
-// Put this somewhere generally available and
-// refactor other workers to use it.
+// Refactor other workers to use this common functionality.
 
-// environObserver watches the current environment configuration
-// and makes it available. It discards invalid environment
-// configurations.
-type environObserver struct {
+// EnvironObserver watches the current environment configuration
+// and makes it available.
+type EnvironObserver struct {
 	tomb           tomb.Tomb
-	environWatcher state.NotifyWatcher
+	environWatcher state.EnvironConfigWatcher
 	st             *state.State
 	mu             sync.Mutex
 	environ        environs.Environ
@@ -33,13 +30,13 @@ type environObserver struct {
 // configuration and returns a new environment observer. While waiting
 // for the first environment configuration, it will return with
 // tomb.ErrDying if it receives a value on dying.
-func newEnvironObserver(st *state.State, dying <-chan struct{}) (*environObserver, error) {
-	environWatcher := st.WatchForEnvironConfigChanges()
-	environ, err := worker.WaitForEnviron(environWatcher, st, dying)
+func NewEnvironObserver(st *state.State, dying <-chan struct{}) (*EnvironObserver, error) {
+	environWatcher := st.WatchEnvironConfig()
+	environ, err := WaitForEnviron(environWatcher, st, dying)
 	if err != nil {
 		return nil, err
 	}
-	obs := &environObserver{
+	obs := &EnvironObserver{
 		st:             st,
 		environ:        environ,
 		environWatcher: environWatcher,
@@ -52,43 +49,37 @@ func newEnvironObserver(st *state.State, dying <-chan struct{}) (*environObserve
 	return obs, nil
 }
 
-func (obs *environObserver) loop() error {
+func (obs *EnvironObserver) loop() error {
 	for {
 		select {
 		case <-obs.tomb.Dying():
 			return nil
-		case _, ok := <-obs.environWatcher.Changes():
+		case configAttr, ok := <-obs.environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(obs.environWatcher)
 			}
+			environ, err := newEnviron(configAttr)
+			if err != nil {
+				continue
+			}
+			obs.mu.Lock()
+			obs.environ = environ
+			obs.mu.Unlock()
 		}
-		config, err := obs.st.EnvironConfig()
-		if err != nil {
-			logger.Warningf("error reading environment config: %v", err)
-			continue
-		}
-		environ, err := environs.New(config)
-		if err != nil {
-			logger.Warningf("error creating Environ: %v", err)
-			continue
-		}
-		obs.mu.Lock()
-		obs.environ = environ
-		obs.mu.Unlock()
 	}
 }
 
 // Environ returns the most recent valid Environ.
-func (obs *environObserver) Environ() environs.Environ {
+func (obs *EnvironObserver) Environ() environs.Environ {
 	obs.mu.Lock()
 	defer obs.mu.Unlock()
 	return obs.environ
 }
 
-func (obs *environObserver) Kill() {
+func (obs *EnvironObserver) Kill() {
 	obs.tomb.Kill(nil)
 }
 
-func (obs *environObserver) Wait() error {
+func (obs *EnvironObserver) Wait() error {
 	return obs.tomb.Wait()
 }

@@ -24,7 +24,7 @@ type Firewaller struct {
 	tomb            tomb.Tomb
 	st              *state.State
 	environ         environs.Environ
-	environWatcher  state.NotifyWatcher
+	environWatcher  state.EnvironConfigWatcher
 	machinesWatcher state.StringsWatcher
 	machineds       map[string]*machineData
 	unitsChange     chan *unitsChange
@@ -40,7 +40,7 @@ type Firewaller struct {
 func NewFirewaller(st *state.State) *Firewaller {
 	fw := &Firewaller{
 		st:              st,
-		environWatcher:  st.WatchForEnvironConfigChanges(),
+		environWatcher:  st.WatchEnvironConfig(),
 		machinesWatcher: st.WatchEnvironMachines(),
 		machineds:       make(map[string]*machineData),
 		unitsChange:     make(chan *unitsChange),
@@ -74,15 +74,15 @@ func (fw *Firewaller) loop() error {
 		select {
 		case <-fw.tomb.Dying():
 			return tomb.ErrDying
-		case _, ok := <-fw.environWatcher.Changes():
+		case configAttr, ok := <-fw.environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(fw.environWatcher)
 			}
-			config, err := fw.st.EnvironConfig()
+			environConfig, err := config.New(config.NoDefaults, configAttr)
 			if err != nil {
 				return err
 			}
-			if err := fw.environ.SetConfig(config); err != nil {
+			if err := fw.environ.SetConfig(environConfig); err != nil {
 				log.Errorf("worker/firewaller: loaded invalid environment configuration: %v", err)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():

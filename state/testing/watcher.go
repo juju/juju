@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
@@ -251,6 +252,64 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, departed []string)
 }
 
 func (c RelationUnitsWatcherC) AssertClosed() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsFalse)
+	default:
+		c.Fatalf("watcher not closed")
+	}
+}
+
+// EnvironConfigWatcherC embeds a gocheck.C and adds methods to help
+// verify the behaviour of any watcher that uses a <-chan
+// params.EnvironConfig.
+type EnvironConfigWatcherC struct {
+	*gc.C
+	State   *state.State
+	Watcher EnvironConfigWatcher
+}
+
+// NewEnvironConfigWatcherC returns a EnvironConfigWatcherC that
+// checks for aggressive event coalescence.
+func NewEnvironConfigWatcherC(c *gc.C, st *state.State, w EnvironConfigWatcher) EnvironConfigWatcherC {
+	return EnvironConfigWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+type EnvironConfigWatcher interface {
+	Stop() error
+	Changes() <-chan params.EnvironConfig
+}
+
+func (c EnvironConfigWatcherC) AssertNoChange() {
+	c.State.StartSync()
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+// AssertChange asserts the given changes was reported by the watcher,
+// but does not assume there are no following changes.
+func (c EnvironConfigWatcherC) AssertChange(expect map[string]interface{}) {
+	c.State.StartSync()
+	timeout := time.After(testing.LongWait)
+	select {
+	case actual, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+		cfg, err := config.New(config.NoDefaults, actual)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg.AllAttrs(), gc.DeepEquals, expect)
+	case <-timeout:
+		c.Fatalf("watcher did not send change")
+	}
+}
+
+func (c EnvironConfigWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, jc.IsFalse)

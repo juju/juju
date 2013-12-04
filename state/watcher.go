@@ -62,6 +62,13 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan params.RelationUnitsChange
 }
 
+// EnvironConfigWatcher generates signals when the environment config changes,
+// returning the environment config attributes.
+type EnvironConfigWatcher interface {
+	Watcher
+	Changes() <-chan params.EnvironConfig
+}
+
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -913,25 +920,25 @@ func (w *unitsWatcher) loop(coll, id string, revno int64) error {
 	return nil
 }
 
-// EnvironConfigWatcher observes changes to the
+// environConfigWatcher observes changes to the
 // environment configuration.
-type EnvironConfigWatcher struct {
+type environConfigWatcher struct {
 	commonWatcher
-	out chan *config.Config
+	out chan params.EnvironConfig
 }
 
-var _ Watcher = (*EnvironConfigWatcher)(nil)
+var _ Watcher = (*environConfigWatcher)(nil)
 
 // WatchEnvironConfig returns a watcher for observing changes
 // to the environment configuration.
-func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
-	return newEnvironConfigWatcher(s)
+func (st *State) WatchEnvironConfig() EnvironConfigWatcher {
+	return newEnvironConfigWatcher(st)
 }
 
-func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
-	w := &EnvironConfigWatcher{
+func newEnvironConfigWatcher(s *State) EnvironConfigWatcher {
+	w := &environConfigWatcher{
 		commonWatcher: commonWatcher{st: s},
-		out:           make(chan *config.Config),
+		out:           make(chan params.EnvironConfig),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -944,16 +951,16 @@ func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
 // Changes returns a channel that will receive the new environment
 // configuration when a change is detected. Note that multiple changes may
 // be observed as a single event in the channel.
-func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
+func (w *environConfigWatcher) Changes() <-chan params.EnvironConfig {
 	return w.out
 }
 
-func (w *EnvironConfigWatcher) loop() (err error) {
+func (w *environConfigWatcher) loop() (err error) {
 	sw := w.st.watchSettings(environGlobalKey)
 	defer sw.Stop()
 	out := w.out
 	out = nil
-	cfg := &config.Config{}
+	configParams := params.EnvironConfig{}
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -964,13 +971,15 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			if !ok {
 				return watcher.MustErr(sw)
 			}
-			cfg, err = config.New(config.NoDefaults, settings.Map())
+			cfg, err := config.New(config.NoDefaults, settings.Map())
 			if err == nil {
 				out = w.out
+				configParams = params.EnvironConfig(cfg.AllAttrs())
 			} else {
+				logger.Warningf("invalid environment config: %v", err)
 				out = nil
 			}
-		case out <- cfg:
+		case out <- configParams:
 			out = nil
 		}
 	}
