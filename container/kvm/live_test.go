@@ -95,8 +95,10 @@ func startContainer(c *gc.C, manager container.Manager, machineId string) instan
 	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	instance, _, err := manager.StartContainer(machineConfig, "precise", network)
+	instance, hardware, err := manager.StartContainer(machineConfig, "precise", network)
 	c.Assert(err, gc.IsNil)
+	c.Assert(hardware, gc.NotNil)
+	c.Assert(hardware, gc.Not(gc.Equals), &instance.HardwareCharacteristics{})
 	return instance
 }
 

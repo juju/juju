@@ -78,8 +78,10 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 
 	series := "series"
 	network := container.BridgeNetworkConfig("nic42")
-	inst, _, err := manager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := manager.StartContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
+	c.Assert(hardware, gc.NotNil)
+	c.Assert(hardware, gc.Not(gc.Equals), &instance.HardwareCharacteristics{})
 	return inst
 }
 
