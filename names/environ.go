@@ -4,7 +4,7 @@
 package names
 
 import (
-	"launchpad.net/juju-core/utils"
+	"strings"
 )
 
 // EnvironTag returns the tag of an environment with the given environment UUID.
@@ -14,5 +14,8 @@ func EnvironTag(uuid string) string {
 
 // IsEnvironment returns whether id is a valid environment UUID.
 func IsEnvironment(id string) bool {
-	return utils.IsValidUUIDString(id)
+	// TODO(axw) 2013-12-04 #1257587
+	// We should not accept environment tags that
+	// do not look like UUIDs.
+	return !strings.Contains(id, "/")
 }

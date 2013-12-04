@@ -616,7 +616,14 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != env.UUID() {
-			return nil, errors.NotFoundf("environment %q", id)
+			if utils.IsValidUUIDString(id) {
+				return nil, errors.NotFoundf("environment %q", id)
+			}
+			// TODO(axw) 2013-12-04 #1257587
+			// We should not accept environment tags that do not match the
+			// environment's UUID. We accept anything that doesn't look
+			// like a UUID for now, for backwards compatibility.
+			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
 		}
 		return env, nil
 	case names.RelationTagKind:

@@ -93,9 +93,9 @@ var parseTagTests = []struct {
 	expectKind: "machine",
 	resultErr:  `"unit-wordpress-0" is not a valid machine tag`,
 }, {
-	tag:        "environment-9f484882-2f18-4fd2-967d-db9663db7bea",
+	tag:        "environment-foo",
 	expectKind: names.EnvironTagKind,
-	resultId:   "9f484882-2f18-4fd2-967d-db9663db7bea",
+	resultId:   "foo",
 }, {
 	tag:        "relation-my-svc1.myrel1#other-svc.other-rel2",
 	expectKind: names.RelationTagKind,
@@ -105,9 +105,9 @@ var parseTagTests = []struct {
 	expectKind: names.RelationTagKind,
 	resultId:   "riak:ring",
 }, {
-	tag:        "environment-foo",
+	tag:        "environment-/",
 	expectKind: names.EnvironTagKind,
-	resultErr:  `"environment-foo" is not a valid environment tag`,
+	resultErr:  `"environment-/" is not a valid environment tag`,
 }, {
 	tag:        "user-foo",
 	expectKind: names.UserTagKind,

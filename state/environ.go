@@ -76,27 +76,32 @@ func (e *Environment) Refresh() error {
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
 func (e *Environment) Destroy() error {
-	// TODO(axw) SCHEMACHANGE
-	//
-	// Ideally we would gate Destroy on there being no services
-	// or non-manager machines in state. This is not feasible
-	// without reference counts for those things, which we do
-	// not currently have.
-	const life = Dying
+	if e.Life() == Dying {
+		return nil
+	}
+	// Note: we add a cleanup for services, but not for machines;
+	// machines are destroyed via the provider interface. The
+	// exception to this rule is manual machines, the existence
+	// of which prevent a successful destroy-environment.
 	ops := []txn.Op{{
 		C:      e.st.environments.Name,
 		Id:     e.doc.UUID,
-		Update: D{{"$set", D{{"life", life}}}},
-		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"life", Dying}}}},
+		Assert: isAliveDoc,
 	}, e.st.newCleanupOp("services", "")}
-	// TODO(axw) (before landing) what about machines?
 	err := e.st.runTransaction(ops)
 	switch err {
 	case nil:
-		e.doc.Life = life
+		e.doc.Life = Dying
 	case txn.ErrAborted:
-		// If the transaction aborted, the environment is Dead.
-		// This should not be possible.
+		// If the transaction aborted, the environment is either
+		// Dying or Dead; the former is not an error, and the
+		// latter should not be possible.
+		if err := e.Refresh(); err != nil {
+			return err
+		} else if e.Life() == Dying {
+			return nil
+		}
 		panic(err)
 	}
 	return err

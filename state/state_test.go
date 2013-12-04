@@ -207,14 +207,29 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	check(m[1], "1", "blahblah", allJobs)
 }
 
-func (s *StateSuite) TestAddMachinesEnvironmentLife(c *gc.C) {
+func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	// Check that machines cannot be added if the environment is Dying.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
 }
@@ -542,16 +557,31 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentLife(c *gc.C) {
+func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("s0", charm)
 	c.Assert(err, gc.IsNil)
-
-	// Check that services cannot be added if the environment is Dying.
+	// Check that services cannot be added if the environment is initially Dying.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that services cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
 	_, err = s.State.AddService("s1", charm)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
 }
@@ -1614,7 +1644,8 @@ var findEntityTests = []findEntityTest{{
 	tag: "user-arble",
 }, {
 	tag: "environment-notauuid",
-	err: `"environment-notauuid" is not a valid environment tag`,
+	// TODO(axw) remove backwards compatibility for environment-tag; see lp:1257587
+	//err: `"environment-notauuid" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -1661,7 +1692,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			kind, err := names.TagKind(test.tag)
 			c.Assert(err, gc.IsNil)
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
-			c.Assert(e.Tag(), gc.Equals, test.tag)
+			if kind == "environment" {
+				// TODO(axw) remove backwards compatibility for environment-tag; see lp:1257587
+				// We *should* only be able to get the entity with its tag, but
+				// for backwards-compatibility we accept any non-UUID tag.
+				c.Assert(e.Tag(), gc.Equals, env.Tag())
+			} else {
+				c.Assert(e.Tag(), gc.Equals, test.tag)
+			}
 		}
 	}
 }
