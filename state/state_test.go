@@ -591,6 +591,24 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "admin", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
+}
+
+func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "machine-3", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3")
+}
+
+func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "user-doesnt-exist", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": adding service failed transaction aborted")
+}
+
 func (s *StateSuite) TestAllServices(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	services, err := s.State.AllServices()

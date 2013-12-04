@@ -538,7 +538,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops = append(ops, peerOps...)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		return nil, fmt.Errorf("service already exists")
+		return nil, fmt.Errorf("adding service failed %v", err)
 	} else if err != nil {
 		return nil, err
 	}
