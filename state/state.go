@@ -506,13 +506,17 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 		Life:          Alive,
 		OwnerTag:      ownerTag,
 	}
+	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || kind != names.UserTagKind {
+		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,
-			Id:     NameFromTag(ownerTag),
+			Id:     ownerId,
 			Assert: txn.DocExists,
 		},
 		{

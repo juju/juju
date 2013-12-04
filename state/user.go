@@ -15,7 +15,6 @@ import (
 )
 
 var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
-var userTag = regexp.MustCompile("user-")
 
 // AddUser adds a user to the state.
 func (st *State) AddUser(name, password string) (*User, error) {
@@ -152,9 +151,4 @@ func (u *User) Refresh() error {
 	}
 	u.doc = udoc
 	return nil
-}
-
-// Removes the tag from an input string and returns the name
-func NameFromTag(tag string) string {
-	return userTag.ReplaceAllString(tag, "")
 }
