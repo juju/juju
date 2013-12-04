@@ -5,6 +5,7 @@ package common
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -114,7 +115,10 @@ func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instan
 var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	var t tomb.Tomb
 	ctx.SetInterruptHandler(func() { t.Killf("interrupted") })
-	dnsName, err := waitSSH(ctx, inst, &t)
+	// TODO: jam 2013-12-04 bug #1257649
+	// It would be nice if users had some controll over their bootstrap
+	// timeout, since it is unlikely to be a perfect match for all clouds.
+	dnsName, err := waitSSH(ctx, inst, &t, DefaultBootstrapSSHTimeout())
 	if err != nil {
 		return err
 	}
@@ -131,10 +135,45 @@ var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machin
 	return sshinit.Configure("ubuntu@"+dnsName, cloudcfg)
 }
 
+// This is the same as api.DialOpts, but that isn't in an easy to share
+// location
+type SSHTimeoutOpts struct {
+	// Timeout is the amount of time to wait contacting
+	// a state server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time to wait between
+	// unsucssful connection attempts.
+	RetryDelay time.Duration
+
+	// DNSNameDelay is the amount of time between looking up the DNS name
+	DNSNameDelay time.Duration
+}
+
+// DefaultBootstrapSSHTimeout is the time we'll wait for SSH to come up on the bootstrap node
+func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
+	return SSHTimeoutOpts{
+		Timeout:      10 * time.Minute,
+		RetryDelay:   5 * time.Second,
+		DNSNameDelay: 1 * time.Second,
+	}
+}
+
+// All we need for waitSSH is to ask for the DNS name
+
+type dnsNamer interface {
+	// DNSName returns the DNS name for the instance.
+	// If the name is not yet allocated, it will return
+	// an ErrNoDNSName error.
+	DNSName() (string, error)
+}
+
 // waitSSH waits for the instance to be assigned a DNS
 // entry, then waits until we can connect to it via SSH.
-func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
+func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTimeoutOpts) (dnsName string, err error) {
 	defer t.Done()
+
+	globalTimeout := time.After(timeout.Timeout)
 
 	// Wait for a DNS name.
 	fmt.Fprint(ctx.Stderr, "Waiting for DNS name")
@@ -148,7 +187,10 @@ func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsNa
 			return "", t.Killf("getting DNS name: %v", err)
 		}
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(timeout.DNSNameDelay):
+		case <-globalTimeout:
+			fmt.Fprintln(ctx.Stderr)
+			return "", t.Killf("waited for %s without getting a DNS name: %s", timeout.Timeout, err)
 		case <-t.Dying():
 			fmt.Fprintln(ctx.Stderr)
 			return "", t.Err()
@@ -160,7 +202,9 @@ func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsNa
 	fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22", dnsName)
 	for {
 		fmt.Fprintf(ctx.Stderr, ".")
-		conn, err := net.DialTimeout("tcp", dnsName+":22", 5*time.Second)
+		connectionAddress := dnsName + ":22"
+		retryTimeout := time.After(timeout.RetryDelay)
+		conn, err := net.DialTimeout("tcp", connectionAddress, timeout.RetryDelay)
 		if err == nil {
 			conn.Close()
 			fmt.Fprintln(ctx.Stderr)
@@ -169,8 +213,13 @@ func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsNa
 			logger.Debugf("connection failed: %v", err)
 		}
 		select {
-		case <-time.After(5 * time.Second):
+		case <-retryTimeout:
+		case <-globalTimeout:
+			fmt.Fprintln(ctx.Stderr)
+			return "", t.Killf("waited for %s without being able to connect to %q: %s",
+				timeout.Timeout, connectionAddress, err)
 		case <-t.Dying():
+			fmt.Fprintln(ctx.Stderr)
 			return "", t.Err()
 		}
 	}
@@ -182,7 +231,7 @@ type BootstrapContext struct {
 	once        sync.Once
 	handlerchan chan func()
 
-	Stderr *os.File
+	Stderr io.Writer
 }
 
 func (ctx *BootstrapContext) SetInterruptHandler(f func()) {
