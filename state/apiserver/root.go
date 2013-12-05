@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/agent"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/credentials"
 	"launchpad.net/juju-core/state/apiserver/deployer"
 	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
@@ -178,6 +179,16 @@ func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+}
+
+// Credentials returns an object that provides access to the Credentials API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) Credentials(id string) (*credentials.CredentialsAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return credentials.NewCredentialsAPI(r.srv.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
