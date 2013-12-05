@@ -25,13 +25,18 @@ var (
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 	DefaultKvmBridge                  = "virbr0"
 
+	// In order for Juju to be able to create the hardware characteristics of
+	// the kvm machines it creates, we need to be explicit in our definition
+	// of memory, cpu-cores and root-disk.  The defaults here have been
+	// extracted from the uvt-kvm executable.
 	DefaultMemory uint64 = 512 // MB
 	DefaultCpu    uint64 = 1
 	DefaultDisk   uint64 = 8 // GB
 
-	MinMemory uint64 = 512
+	// There are some values where it doesn't make sense to go below.
+	MinMemory uint64 = 512 // MB
 	MinCpu    uint64 = 1
-	MinDisk   uint64 = 2
+	MinDisk   uint64 = 2 // GB
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.

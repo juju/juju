@@ -45,9 +45,9 @@ func (c *kvmContainer) Start(params StartParams) error {
 		Arch:          params.Arch,
 		UserDataFile:  params.UserDataFile,
 		NetworkBridge: bridge,
-		Memory:        fmt.Sprint(params.Memory),
-		CpuCores:      fmt.Sprint(params.CpuCores),
-		RootDisk:      fmt.Sprint(params.RootDisk),
+		Memory:        params.Memory,
+		CpuCores:      params.CpuCores,
+		RootDisk:      params.RootDisk,
 	}); err != nil {
 		return err
 	}
