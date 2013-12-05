@@ -30,7 +30,7 @@ check_deps() {
     test -f $JUJU_DIR/s3cfg || has_deps=0
     test -f $JUJU_DIR/environments.yaml || has_deps=0
     if [[ $has_deps == 0 ]]; then
-        echo "Install golang, lftp, s3cmd, then configure s3cmd, and juju."
+        echo "Install golang, lftp, s3cmd, then configure s3cmd."
         exit 2
     fi
 }
