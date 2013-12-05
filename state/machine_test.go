@@ -1185,21 +1185,13 @@ func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
 func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	// Create a machine and add lxc and kvm containers prior to calling SetSupportedContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	addParams := state.AddMachineParams{
-		ParentId:      machine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&addParams)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
-	addParams = state.AddMachineParams{
-		ParentId:      machine.Id(),
-		ContainerType: instance.KVM,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	supportedContainer, err := s.State.AddMachineWithConstraints(&addParams)
+	supportedContainer, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.KVM)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
@@ -1225,14 +1217,12 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 	// Create a machine and add all container types prior to calling SupportsNoContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	var containers []*state.Machine
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
 	for _, containerType := range instance.ContainerTypes {
-		addParams := state.AddMachineParams{
-			ParentId:      machine.Id(),
-			ContainerType: containerType,
-			Series:        "quantal",
-			Jobs:          []state.MachineJob{state.JobHostUnits},
-		}
-		container, err := s.State.AddMachineWithConstraints(&addParams)
+		container, err := s.State.AddMachineInsideMachine(template, machine.Id(), containerType)
 		c.Assert(err, gc.IsNil)
 		containers = append(containers, container)
 	}
