@@ -213,6 +213,8 @@ func getConfig(session *mgo.Session) (*replicaConfig, error) {
 	return cfg, nil
 }
 
+// replicaConfig is the document stored in mongodb that defines the servers in
+// the replicaset
 type replicaConfig struct {
 	Name    string   `bson:"_id"`
 	Version int      `bson:"version"`
@@ -311,28 +313,3 @@ func (state MemberState) String() string {
 	}
 	return "INVALID_MEMBER_STATE"
 }
-
-/*
-// MemberDefaults holds the usual member configuration defaults.
-// It is used by AddressToMember when constructing Member
-// instances.
-var MemberDefaults = Member{
-	BuildIndexes: true,
-	Priority:     1,
-	Votes:        1,
-}
-*/
-
-/*
-// AddressToMember returns replica set configuration values for the given host
-// addresses, using MemberDefaults to fill in the member field values.
-func AddressToMember(hostAddrs ...string) []Member {
-	members := make([]Member, 0, len(hostAddrs))
-	for _, addr := range hostAddrs {
-		m := MemberDefaults
-		m.Address = addr
-		members = append(members, m)
-	}
-	return members
-}
-*/
