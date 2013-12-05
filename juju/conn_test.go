@@ -117,6 +117,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
+	c.Skip("this test is a source of unreliability")
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "side-effect secret",
 		"secret":       "pork",
@@ -154,6 +155,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
+	c.Skip("this test is a source of unreliability")
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"secret": "pork",
 	})
@@ -190,6 +192,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
+	c.Skip("this test is a source of unreliability")
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "nutkin",
 	})

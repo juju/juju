@@ -1225,11 +1225,6 @@ type addMachine struct {
 }
 
 func (am addMachine) step(c *gc.C, ctx *context) {
-	params := &state.AddMachineParams{
-		Series:      "quantal",
-		Constraints: am.cons,
-		Jobs:        []state.MachineJob{am.job},
-	}
 	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Constraints: am.cons,
@@ -1246,13 +1241,11 @@ type addContainer struct {
 }
 
 func (ac addContainer) step(c *gc.C, ctx *context) {
-	params := &state.AddMachineParams{
-		ParentId:      ac.parentId,
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{ac.job},
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{ac.job},
 	}
-	m, err := ctx.st.AddMachineWithConstraints(params)
+	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }

@@ -1578,7 +1578,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	c.Check(machines[1].Machine, gc.Equals, "2")
 	c.Check(machines[1].Error, gc.IsNil)
 	c.Assert(machines[2].Error, gc.NotNil)
-	c.Check(machines[2].Error, gc.ErrorMatches, "cannot add a new container: no container type specified")
+	c.Check(machines[2].Error, gc.ErrorMatches, "parent machine specified without container type")
 	c.Assert(machines[2].Error, gc.NotNil)
 	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
 }

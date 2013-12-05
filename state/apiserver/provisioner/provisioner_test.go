@@ -165,15 +165,13 @@ func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create some containers to work on.
-	constraints := state.AddMachineParams{
-		ParentId:      s.machines[0].Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
-		container, err := s.State.AddMachineWithConstraints(&constraints)
+		container, err := s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
 		c.Check(err, gc.IsNil)
 		containers = append(containers, container)
 	}
@@ -517,12 +515,12 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
-	machineParams := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=123", "mem=8G"),
 	}
-	consMachine, err := s.State.AddMachineWithConstraints(&machineParams)
+	consMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -540,7 +538,7 @@ func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ConstraintsResults{
 		Results: []params.ConstraintsResult{
 			{Constraints: machine0Constraints},
-			{Constraints: machineParams.Constraints},
+			{Constraints: template.Constraints},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

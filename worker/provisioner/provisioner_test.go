@@ -313,12 +313,11 @@ func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
-	params := state.AddMachineParams{
+	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      config.DefaultSeries,
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
-	}
-	return s.BackingState.AddMachineWithConstraints(&params)
+	})
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -395,13 +394,11 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
-	params := state.AddMachineParams{
-		ParentId:      m.Id(),
-		ContainerType: instance.LXC,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	// the PA should not attempt to create it

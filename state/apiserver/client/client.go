@@ -544,16 +544,16 @@ func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) 
 	if p.Series == "" {
 		p.Series = defaultSeries
 	}
-	if p.ParentId != "" {
+	if p.ContainerType != "" {
 		// Guard against dubious client by making sure that
-		// the following attributes can only be set when
-		// a new top level machine is being created.
+		// the following attributes can only be set when we're
+		// not making a new container.
 		p.InstanceId = ""
 		p.Nonce = ""
 		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
 		p.Addrs = nil
-	} else {
-		p.ContainerType = ""
+	} else if p.ParentId != "" {
+		return nil, fmt.Errorf("parent machine specified without container type")
 	}
 
 	jobs, err := stateJobs(p.Jobs)
@@ -569,10 +569,13 @@ func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) 
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               p.Addrs,
 	}
-	if p.ParentId == "" {
+	if p.ContainerType == "" {
 		return c.api.state.AddOneMachine(template)
 	}
-	return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+	if p.ParentId != "" {
+		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+	}
+	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
 func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {

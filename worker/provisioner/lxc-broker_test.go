@@ -257,13 +257,11 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
-	params := state.AddMachineParams{
-		ParentId:      s.parentMachineId,
-		ContainerType: instance.LXC,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, s.parentMachineId, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	return container
 }
