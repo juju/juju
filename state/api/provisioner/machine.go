@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"errors"
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
@@ -218,8 +219,21 @@ func (m *Machine) SetPassword(password string) error {
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of containers on the machine.
+// to the lifecycles of containers of the specified type on the machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
+	if string(ctype) == "" {
+		return nil, errors.New("container type must be specified")
+	}
+	supported := false
+	for _, c := range instance.ContainerTypes {
+		if ctype == c {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		return nil, fmt.Errorf("unsupported container type %q", ctype)
+	}
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
 		Params: []params.WatchContainer{
@@ -241,15 +255,39 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	return w, nil
 }
 
-// AddSupportedContainers updates the list of containers supported by this machine.
-func (m *Machine) AddSupportedContainers(containerTypes ...instance.ContainerType) error {
+// WatchAllContainers returns a StringsWatcher that notifies of changes
+// to the lifecycles of all containers on the machine.
+func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.WatchContainers{
+		Params: []params.WatchContainer{
+			{MachineTag: m.tag},
+		},
+	}
+	err := m.st.caller.Call("Provisioner", "", "WatchContainers", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(m.st.caller, result)
+	return w, nil
+}
+
+// SetSupportedContainers updates the list of containers supported by this machine.
+func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
 	var results params.ErrorResults
-	args := params.AddSupportedContainers{
-		Params: []params.AddMachineSupportedContainers{
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "AddSupportedContainers", args, &results)
+	err := m.st.caller.Call("Provisioner", "", "SetSupportedContainers", args, &results)
 	if err != nil {
 		return err
 	}
@@ -261,4 +299,9 @@ func (m *Machine) AddSupportedContainers(containerTypes ...instance.ContainerTyp
 		return apiError
 	}
 	return nil
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() error {
+	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }

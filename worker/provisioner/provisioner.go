@@ -56,6 +56,8 @@ type provisioner struct {
 	tomb        tomb.Tomb
 }
 
+// configObserver is implemented so that tests can see
+// when the environment configuration changes.
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config
@@ -94,7 +96,7 @@ func (p *provisioner) Stop() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask() (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	auth, err := NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
@@ -107,6 +109,7 @@ func (p *provisioner) getStartTask() (ProvisionerTask, error) {
 	}
 	task := NewProvisionerTask(
 		p.agentConfig.Tag(),
+		safeMode,
 		p.st,
 		machineWatcher,
 		p.broker,
@@ -134,7 +137,6 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 }
 
 func (p *environProvisioner) loop() error {
-	// Only wait for the environment if we are an environmental provisioner.
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
@@ -149,7 +151,8 @@ func (p *environProvisioner) loop() error {
 	}
 	p.broker = p.environ
 
-	task, err := p.getStartTask()
+	safeMode := p.environ.Config().ProvisionerSafeMode()
+	task, err := p.getStartTask(safeMode)
 	if err != nil {
 		return err
 	}
@@ -167,14 +170,15 @@ func (p *environProvisioner) loop() error {
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			config, err := p.st.EnvironConfig()
+			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
 				logger.Errorf("cannot load environment configuration: %v", err)
 				return err
 			}
-			if err := p.setConfig(config); err != nil {
+			if err := p.setConfig(environConfig); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
+			task.SetSafeMode(environConfig.ProvisionerSafeMode())
 		}
 	}
 }
@@ -185,11 +189,11 @@ func (p *environProvisioner) getWatcher() (Watcher, error) {
 
 // setConfig updates the environment configuration and notifies
 // the config observer.
-func (p *environProvisioner) setConfig(config *config.Config) error {
-	if err := p.environ.SetConfig(config); err != nil {
+func (p *environProvisioner) setConfig(environConfig *config.Config) error {
+	if err := p.environ.SetConfig(environConfig); err != nil {
 		return err
 	}
-	p.configObserver.notify(config)
+	p.configObserver.notify(environConfig)
 	return nil
 }
 
@@ -217,7 +221,7 @@ func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovis
 }
 
 func (p *containerProvisioner) loop() error {
-	task, err := p.getStartTask()
+	task, err := p.getStartTask(false)
 	if err != nil {
 		return err
 	}

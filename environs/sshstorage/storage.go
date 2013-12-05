@@ -20,6 +20,7 @@ import (
 
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // base64LineLength is the default line length for wrapping
@@ -44,12 +45,11 @@ type SSHStorage struct {
 }
 
 var sshCommand = func(host string, tty bool, command string) *exec.Cmd {
-	sshArgs := []string{host}
+	var options []ssh.Option
 	if tty {
-		sshArgs = append(sshArgs, "-t")
+		options = append(options, ssh.AllocateTTY)
 	}
-	sshArgs = append(sshArgs, "--", command)
-	return exec.Command("ssh", sshArgs...)
+	return ssh.Command(host, []string{command}, options...)
 }
 
 type flockmode string

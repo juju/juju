@@ -33,6 +33,8 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {

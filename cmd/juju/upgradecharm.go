@@ -111,6 +111,12 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
+	conf, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+
 	oldURL, _ := service.CharmURL()
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
@@ -131,6 +137,9 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
+	repo = AuthorizeCharmRepo(repo, conf)
+
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	explicitRevision := true

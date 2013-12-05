@@ -264,6 +264,28 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	for _, ctype := range instance.ContainerTypes {
+		w, err := apiMachine.WatchContainers(ctype)
+		c.Assert(w, gc.NotNil)
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	_, err = apiMachine.WatchContainers(instance.NONE)
+	c.Assert(err, gc.ErrorMatches, `unsupported container type "none"`)
+
+	_, err = apiMachine.WatchContainers("")
+	c.Assert(err, gc.ErrorMatches, "container type must be specified")
+}
+
 func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	w, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
@@ -371,6 +393,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, "my-keys")
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
+	c.Assert(result.SyslogPort, gc.Equals, 2345)
 }
 
 func (s *provisionerSuite) TestCACert(c *gc.C) {
@@ -399,10 +422,10 @@ func (s *provisionerSuite) TestTools(c *gc.C) {
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
 }
 
-func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
+func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
-	err = apiMachine.AddSupportedContainers(instance.LXC, instance.KVM)
+	err = apiMachine.SetSupportedContainers(instance.LXC, instance.KVM)
 	c.Assert(err, gc.IsNil)
 
 	err = s.machine.Refresh()
@@ -410,4 +433,17 @@ func (s *provisionerSuite) TestAddSupportedContainers(c *gc.C) {
 	containers, ok := s.machine.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	containers, ok := s.machine.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }

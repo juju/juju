@@ -269,6 +269,37 @@ func (S) TestPackages(c *gc.C) {
 	c.Assert(cfg.Packages(), gc.DeepEquals, []string{"a b c", "d!"})
 }
 
+func (S) TestSetOutput(c *gc.C) {
+	type test struct {
+		kind   cloudinit.OutputKind
+		stdout string
+		stderr string
+	}
+	tests := []test{{
+		cloudinit.OutAll, "a", "",
+	}, {
+		cloudinit.OutAll, "", "b",
+	}, {
+		cloudinit.OutInit, "a", "b",
+	}, {
+		cloudinit.OutAll, "a", "b",
+	}, {
+		cloudinit.OutAll, "", "",
+	}}
+
+	cfg := cloudinit.New()
+	stdout, stderr := cfg.Output(cloudinit.OutAll)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	for i, t := range tests {
+		c.Logf("test %d: %+v", i, t)
+		cfg.SetOutput(t.kind, t.stdout, t.stderr)
+		stdout, stderr = cfg.Output(t.kind)
+		c.Assert(stdout, gc.Equals, t.stdout)
+		c.Assert(stderr, gc.Equals, t.stderr)
+	}
+}
+
 //#cloud-config
 //packages:
 //- juju

@@ -13,12 +13,16 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/version"
 )
 
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
 	KvmObjectFactory ContainerFactory = &containerFactory{}
+	DefaultKvmBridge                  = "virbr0"
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
@@ -59,12 +63,48 @@ var _ container.Manager = (*containerManager)(nil)
 func (manager *containerManager) StartContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig) (instance.Instance, error) {
-	return nil, fmt.Errorf("not yet implemented")
+	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	name := names.MachineTag(machineConfig.MachineId)
+	if manager.name != "" {
+		name = fmt.Sprintf("%s-%s", manager.name, name)
+	}
+	// Note here that the kvmObjectFacotry only returns a valid container
+	// object, and doesn't actually construct the underlying kvm container on
+	// disk.
+	kvmContainer := KvmObjectFactory.New(name)
+
+	// Create the cloud-init.
+	directory, err := container.NewDirectory(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create container directory: %v", err)
+	}
+	logger.Tracef("write cloud-init")
+	userDataFilename, err := container.WriteUserData(machineConfig, directory)
+	if err != nil {
+		return nil, nil, log.LoggedErrorf(logger, "failed to write user data: %v", err)
+	}
+	// Create the container.
+	arch := version.Current.Arch
+	hardware := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	logger.Tracef("create the container")
+	if err := kvmContainer.Start(series, arch, userDataFilename, network); err != nil {
+		return nil, nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
+	}
+	logger.Tracef("kvm container created")
+	return &kvmInstance{kvmContainer, name}, hardware, nil
 }
 
-func (manager *containerManager) StopContainer(instance.Instance) error {
-	return fmt.Errorf("not yet implemented")
+func (manager *containerManager) StopContainer(instance instance.Instance) error {
+	name := string(instance.Id())
+	kvmContainer := KvmObjectFactory.New(name)
+	if err := kvmContainer.Stop(); err != nil {
+		logger.Errorf("failed to stop kvm container: %v", err)
+		return err
+	}
+	return container.RemoveDirectory(name)
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
