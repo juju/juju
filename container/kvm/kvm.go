@@ -137,5 +137,9 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 // no defined values in the constraints for those fields, default values are
 // used.  Other constrains cause a warning to be emitted.
 func ParseConstraintsToStartParams(cons constraints.Value) StartParams {
-	return StartParams{}
+	return StartParams{
+		Memory: DefaultMemory,
+		Cpu:    DefaultCpu,
+		Disk:   DefaultDisk,
+	}
 }
