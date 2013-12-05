@@ -448,64 +448,6 @@ func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *provisionerSuite) TestWatchEnvironConfig(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	result, err := s.provisioner.WatchEnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.EnvironConfigResult{
-		EnvironConfigWatcherId: "1",
-		Config:                 envConfig.AllAttrs(),
-	})
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewEnvironConfigWatcherC(c, s.State, resource.(state.EnvironConfigWatcher))
-	wc.AssertNoChange()
-}
-
-func (s *provisionerSuite) TestWatchEnvironConfigNonAdmin(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
-	anAuthorizer.Manager = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
-		anAuthorizer)
-	c.Assert(err, gc.IsNil)
-
-	// We need to see the secret attributes masked out, and for
-	// the dummy provider it's only one: "secret".
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	expectedConfig := envConfig.AllAttrs()
-	expectedConfig["secret"] = "not available"
-
-	result, err := aProvisioner.WatchEnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.EnvironConfigResult{
-		EnvironConfigWatcherId: "1",
-		Config:                 expectedConfig,
-	})
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewEnvironConfigWatcherC(c, s.State, resource.(state.EnvironConfigWatcher))
-	wc.AssertNoChange()
-}
-
 func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 

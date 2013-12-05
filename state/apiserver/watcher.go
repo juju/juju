@@ -110,32 +110,3 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 func (w *srvRelationUnitsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
-
-// srvEnvironConfigWatcher notifies about changes to the environ config
-// sending the changes as a map of config attribute values.
-type srvEnvironConfigWatcher struct {
-	watcher   state.EnvironConfigWatcher
-	id        string
-	resources *common.Resources
-}
-
-// Next returns when a change has occurred the environ config
-// since the most recent call to Next, or the Watch call that
-// created the srvEnvironConfigWatcher.
-func (w *srvEnvironConfigWatcher) Next() (params.EnvironConfigResult, error) {
-	if config, ok := <-w.watcher.Changes(); ok {
-		return params.EnvironConfigResult{
-			Config: config,
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = common.ErrStoppedWatcher
-	}
-	return params.EnvironConfigResult{}, err
-}
-
-// Stop stops the watcher.
-func (w *srvEnvironConfigWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}
