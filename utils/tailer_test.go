@@ -69,7 +69,7 @@ func (tailerSuite) TestFiltered(c *gc.C) {
 
 	t := utils.StartTailer(rs, 7, filter, 2*time.Millisecond, buffer)
 
-	assertCollected(c, buffer, []string{"Alpha", "Bravo", "Charlie", "Delta", "India"}, nil, true)
+	assertCollected(c, buffer, []string{"Delta", "India"}, nil, true)
 	signal(c, sigc)
 	assertCollected(c, buffer, []string{"Lima", "Oscar", "Papa", "Sierra", "Tango", "X-ray"}, nil, true)
 
@@ -221,10 +221,16 @@ func (r *readSeeker) Seek(offset int64, whence int) (ret int64, err error) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 	var newPos int64
-	if whence != 2 {
+	switch whence {
+	case 0:
+		newPos = offset
+	case 1:
+		newPos = int64(r.pos) + offset
+	case 2:
+		newPos = int64(len(r.buffer)) + offset
+	default:
 		return 0, fmt.Errorf("invalid whence: %d", whence)
 	}
-	newPos = int64(len(r.buffer)) + offset
 	if newPos < 0 {
 		return 0, fmt.Errorf("negative position: %d", newPos)
 	}

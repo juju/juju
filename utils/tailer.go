@@ -64,6 +64,54 @@ func (t *Tailer) Err() error {
 	return t.tomb.Err()
 }
 
+// seekLastLines sets the read position of the ReadSeeker the
+// wanted number of lines before the end. The filter is NOT
+// used here.
+func (t *Tailer) seekLastLines() error {
+	buffer := make([]byte, 4096)
+	seekPos := int64(0)
+	foundNewlines := 0
+	offset, err := t.readSeeker.Seek(0, os.SEEK_END)
+	if err != nil {
+		return err
+	}
+	// Seek backwards.
+SeekLoop:
+	for {
+		newOffset := offset - int64(len(buffer))
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		_, err := t.readSeeker.Seek(newOffset, os.SEEK_SET)
+		if err != nil {
+			println("> error:", err.Error())
+			return err
+		}
+		n := int(offset - newOffset)
+		offset = newOffset
+		n, err = t.readSeeker.Read(buffer[0:n])
+		if err != nil {
+			println("> error:", err.Error())
+			return err
+		}
+		for i := n; i >= 0; i-- {
+			if buffer[i] == '\n' {
+				foundNewlines++
+				if foundNewlines-1 == t.lines {
+					seekPos = offset + int64(i) + 1
+					break SeekLoop
+				}
+			}
+		}
+		if offset == 0 {
+			break SeekLoop
+		}
+	}
+	// Final positioning.
+	t.readSeeker.Seek(seekPos, os.SEEK_SET)
+	return nil
+}
+
 // loop writes the last lines based on the buffer size to the
 // writer and then polls for more data to write it to the
 // writer too.
@@ -71,18 +119,15 @@ func (t *Tailer) loop() error {
 	// Do the initial reading into the buffer.
 	reader := bufio.NewReader(t.readSeeker)
 	writer := bufio.NewWriter(t.writer)
-	buffer := make([]string, t.lines)
-	bufPointer := 0
-	bufCount := 0
+	// Position the readSeeker.
+	if err := t.seekLastLines(); err != nil {
+		return err
+	}
 	for {
 		line, err := reader.ReadString('\n')
 		if len(line) > 0 {
 			if t.filter == nil || t.filter(line) {
-				buffer[bufPointer] = line
-				bufPointer = (bufPointer + 1) % t.lines
-				if bufCount < t.lines {
-					bufCount++
-				}
+				writer.WriteString(line)
 			}
 		}
 		if err != nil {
@@ -91,14 +136,6 @@ func (t *Tailer) loop() error {
 			}
 			break
 		}
-	}
-	// Write so far collected lines.
-	start := (bufPointer - bufCount + t.lines) % t.lines
-	bufPointer = start
-	for bufCount > 0 {
-		writer.WriteString(buffer[bufPointer])
-		bufPointer = (bufPointer + 1) % t.lines
-		bufCount--
 	}
 	// Poll the file for new appended data.
 	timer := time.NewTimer(t.polltime)
