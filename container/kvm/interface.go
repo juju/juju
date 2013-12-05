@@ -13,9 +13,9 @@ type StartParams struct {
 	Arch         string
 	UserDataFile string
 	Network      *container.NetworkConfig
-	Memory       int // MB
-	Cpu          int
-	Disk         int // GB
+	Memory       uint64 // MB
+	CpuCores     uint64
+	RootDisk     uint64 // GB
 }
 
 // Container represents a virtualized container instance and provides

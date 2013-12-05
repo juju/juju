@@ -25,9 +25,13 @@ var (
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 	DefaultKvmBridge                  = "virbr0"
 
-	DefaultMemory = 512 // MB
-	DefaultCpu    = 1
-	DefaultDisk   = 8 // GB
+	DefaultMemory uint64 = 512 // MB
+	DefaultCpu    uint64 = 1
+	DefaultDisk   uint64 = 8 // GB
+
+	MinMemory uint64 = 512
+	MinCpu    uint64 = 1
+	MinDisk   uint64 = 2
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
@@ -137,9 +141,48 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 // no defined values in the constraints for those fields, default values are
 // used.  Other constrains cause a warning to be emitted.
 func ParseConstraintsToStartParams(cons constraints.Value) StartParams {
-	return StartParams{
-		Memory: DefaultMemory,
-		Cpu:    DefaultCpu,
-		Disk:   DefaultDisk,
+	params := StartParams{
+		Memory:   DefaultMemory,
+		CpuCores: DefaultCpu,
+		RootDisk: DefaultDisk,
 	}
+
+	if cons.Mem != nil {
+		mem := *cons.Mem
+		if mem < MinMemory {
+			params.Memory = MinMemory
+		} else {
+			params.Memory = mem
+		}
+	}
+	if cons.CpuCores != nil {
+		cores := *cons.CpuCores
+		if cores < MinCpu {
+			params.CpuCores = MinCpu
+		} else {
+			params.CpuCores = cores
+		}
+	}
+	if cons.RootDisk != nil {
+		size := *cons.RootDisk / 1024
+		if size < MinDisk {
+			params.RootDisk = MinDisk
+		} else {
+			params.RootDisk = size
+		}
+	}
+	if cons.Arch != nil {
+		logger.Infof("arch constraint of %q being ignored as not supported", *cons.Arch)
+	}
+	if cons.Container != nil {
+		logger.Infof("container constraint of %q being ignored as not supported", *cons.Container)
+	}
+	if cons.CpuPower != nil {
+		logger.Infof("cpu-power constraint of %v being ignored as not supported", *cons.CpuPower)
+	}
+	if cons.Tags != nil {
+		logger.Infof("tags constraint of %q being ignored as not supported", strings.Join(*cons.Tags, ","))
+	}
+
+	return params
 }
