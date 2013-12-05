@@ -221,7 +221,7 @@ func Reset() {
 	}
 	providerInstance.state = make(map[int]*environState)
 	if testing.MgoServer.Addr != "" {
-		testing.MgoServer.MgoReset()
+		testing.MgoServer.Reset()
 	}
 }
 
@@ -241,7 +241,7 @@ func (state *environState) destroy() {
 		state.apiState = nil
 	}
 	if testing.MgoServer.Addr != "" {
-		testing.MgoServer.MgoReset()
+		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false
 }

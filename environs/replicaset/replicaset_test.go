@@ -29,7 +29,7 @@ func TestPackage(t *testing.T) {
 	// note, this is an actual test around Initiate, but again, I don't want to
 	// have to redo it, so I just do it once.
 	func() {
-		session := root.MgoDialDirect()
+		session := root.DialDirect()
 		defer session.Close()
 
 		err := Initiate(session, root.Addr, name)
@@ -67,7 +67,7 @@ type MongoSuite struct{}
 var _ = gc.Suite(&MongoSuite{})
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
-	session := root.MgoDial()
+	session := root.Dial()
 	defer session.Close()
 
 	expectedStatus := []Status{
@@ -91,9 +91,13 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// Add should automatically skip root, so test that
 	members = append(members, Member{Address: root.Addr})
 
+	instances := make([]*coretesting.MgoInstance, 0, 5)
+	instances = append(instances, root)
+
 	for x := 0; x < 4; x++ {
 		inst, err := newServer()
 		c.Assert(err, gc.IsNil)
+		instances = append(instances, inst)
 		defer inst.Destroy()
 		defer Remove(session, inst.Addr)
 		members = append(members, Member{Address: inst.Addr, Id: x + 1})
@@ -122,10 +126,22 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// plus the new arbiter
 	mems = []Member{members[3], members[2], members[0], members[4]}
 
-	// reset this guy's ID to amke sure it gets set corrcetly
-	members[4].Id = 0
+	// reset this guy's ID to make sure it gets set corrcetly
+	mems[3].Id = 0
 
 	err = Set(session, mems)
+	c.Assert(err, gc.IsNil)
+
+	deadline := time.Now().Add(time.Second * 60)
+
+	for {
+		// can dial whichever replica address here, mongo will figure it out
+		session = instances[0].DialDirect()
+		err := session.Ping()
+		if err == nil || time.Now().After(deadline) {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers = []Member{members[3], members[2], members[0], members[4]}
@@ -140,7 +156,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 }
 
 func (s *MongoSuite) TestIsMaster(c *gc.C) {
-	session := root.MgoDial()
+	session := root.Dial()
 	defer session.Close()
 
 	exp := IsMasterResults{
@@ -166,7 +182,7 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 }
 
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
-	session := root.MgoDial()
+	session := root.Dial()
 	defer session.Close()
 
 	exp := IsMasterResults{

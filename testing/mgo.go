@@ -65,7 +65,7 @@ type MgoSuite struct {
 	Session *mgo.Session
 }
 
-// startMgoServer starts a MongoDB server in a temporary directory.
+// Start starts a MongoDB server in a temporary directory.
 func (inst *MgoInstance) Start() error {
 	dbdir, err := ioutil.TempDir("", "test-mgo")
 	if err != nil {
@@ -79,23 +79,30 @@ func (inst *MgoInstance) Start() error {
 	inst.Port = FindTCPPort()
 	inst.Addr = fmt.Sprintf("localhost:%d", inst.Port)
 	inst.Dir = dbdir
-	if err := inst.runMgoServer(); err != nil {
+	if err := inst.run(); err != nil {
 		inst.Addr = ""
 		inst.Port = 0
 		os.RemoveAll(inst.Dir)
 		inst.Dir = ""
-		return err
 	}
+	return err
 
 	// by dialing right now, we'll wait until it's running
-	session := inst.MgoDialDirect()
-	session.Close()
-	return nil
+	deadline := time.Now().Add(time.Second * 5)
+	for {
+		session := inst.DialDirect()
+		session.SetMode(mgo.Monotonic, true)
+		err := session.Ping()
+		session.Close()
+		if err == nil || time.Now().After(deadline) {
+			return err
+		}
+	}
 }
 
-// runMgoServer runs the MongoDB server at the
+// run runs the MongoDB server at the
 // address and directory already configured.
-func (inst *MgoInstance) runMgoServer() error {
+func (inst *MgoInstance) run() error {
 	if inst.Server != nil {
 		panic("mongo server is already running")
 	}
@@ -146,7 +153,7 @@ func (inst *MgoInstance) runMgoServer() error {
 	return nil
 }
 
-func (inst *MgoInstance) mgoKill() {
+func (inst *MgoInstance) kill() {
 	inst.Server.Process.Kill()
 	<-inst.Exited
 	inst.Server = nil
@@ -155,16 +162,16 @@ func (inst *MgoInstance) mgoKill() {
 
 func (inst *MgoInstance) Destroy() {
 	if inst.Server != nil {
-		inst.mgoKill()
+		inst.kill()
 		os.RemoveAll(inst.Dir)
 		inst.Addr, inst.Dir = "", ""
 	}
 }
 
-// MgoRestart restarts the mongo server, useful for
+// Restart restarts the mongo server, useful for
 // testing what happens when a state server goes down.
-func (inst *MgoInstance) MgoRestart() {
-	inst.mgoKill()
+func (inst *MgoInstance) Restart() {
+	inst.kill()
 	if err := inst.Start(); err != nil {
 		panic(err)
 	}
@@ -221,15 +228,15 @@ func (s *MgoSuite) TearDownSuite(c *gc.C) {
 	utils.FastInsecureHash = false
 }
 
-// MgoDial returns a new connection to the shared MongoDB server.
-func (inst *MgoInstance) MgoDial() *mgo.Session {
+// Dial returns a new connection to the shared MongoDB server.
+func (inst *MgoInstance) Dial() *mgo.Session {
 	return inst.dial(false)
 }
 
-// MgoDialDirect returns a new direct connection to the shared MongoDB server. This
+// DialDirect returns a new direct connection to the shared MongoDB server. This
 // must be used if you're connecting to a replicaset that hasn't been initiated
 // yet.
-func (inst *MgoInstance) MgoDialDirect() *mgo.Session {
+func (inst *MgoInstance) DialDirect() *mgo.Session {
 	return inst.dial(true)
 }
 
@@ -260,17 +267,17 @@ func (inst *MgoInstance) dial(direct bool) *mgo.Session {
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
-	s.Session = MgoServer.MgoDial()
+	s.Session = MgoServer.Dial()
 }
 
-// MgoReset deletes all content from the shared MongoDB server.
-func (inst *MgoInstance) MgoReset() {
-	session := inst.MgoDial()
+// Reset deletes all content from the shared MongoDB server.
+func (inst *MgoInstance) Reset() {
+	session := inst.Dial()
 	defer session.Close()
 
 	dbnames, ok := resetAdminPasswordAndFetchDBNames(session)
 	if ok {
-		log.Infof("MgoReset successfully reset admin password")
+		log.Infof("Reset successfully reset admin password")
 	} else {
 		// We restart it to regain access.  This should only
 		// happen when tests fail.
@@ -295,7 +302,7 @@ func (inst *MgoInstance) MgoReset() {
 // resetAdminPasswordAndFetchDBNames logs into the database with a
 // plausible password and returns all the database's db names. We need
 // to try several passwords because we don't know what state the mongo
-// server is in when MgoReset is called. If the test has set a custom
+// server is in when Reset is called. If the test has set a custom
 // password, we're out of luck, but if they are using
 // DefaultStatePassword, we can succeed.
 func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
@@ -351,7 +358,7 @@ func isUnauthorized(err error) bool {
 }
 
 func (s *MgoSuite) TearDownTest(c *gc.C) {
-	MgoServer.MgoReset()
+	MgoServer.Reset()
 	s.Session.Close()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
