@@ -26,11 +26,7 @@ type Container interface {
 	Name() string
 
 	// Start runs the container as a daemon.
-	Start(series string,
-		arch string,
-		userDataFile string,
-		network *container.NetworkConfig,
-	) error
+	Start(params StartParams) error
 
 	// Stop terminates the running container.
 	Stop() error

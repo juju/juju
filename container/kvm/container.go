@@ -25,21 +25,15 @@ func (c *kvmContainer) Name() string {
 	return c.name
 }
 
-func (c *kvmContainer) Start(
-	series string,
-	arch string,
-	userDataFile string,
-	network *container.NetworkConfig,
-) error {
-	// TODO: handle memory, cpu, disk etc.
-	logger.Debugf("Synchronise images for %s %s", series, arch)
-	if err := SyncImages(series, arch); err != nil {
+func (c *kvmContainer) Start(params StartParams) error {
+	logger.Debugf("Synchronise images for %s %s", params.Series, params.Arch)
+	if err := SyncImages(params.Series, params.Arch); err != nil {
 		return err
 	}
 	var bridge string
-	if network != nil {
-		if network.NetworkType == container.BridgeNetwork {
-			bridge = network.Device
+	if params.Network != nil {
+		if params.Network.NetworkType == container.BridgeNetwork {
+			bridge = params.Network.Device
 		} else {
 			return log.LoggedErrorf(logger, "Non-bridge network devices not yet supported")
 		}
@@ -47,9 +41,9 @@ func (c *kvmContainer) Start(
 	logger.Debugf("Create the machine %s", c.name)
 	if err := CreateMachine(CreateMachineParams{
 		Hostname:      c.name,
-		Series:        series,
-		Arch:          arch,
-		UserDataFile:  userDataFile,
+		Series:        params.Series,
+		Arch:          params.Arch,
+		UserDataFile:  params.UserDataFile,
 		NetworkBridge: bridge,
 	}); err != nil {
 		return err

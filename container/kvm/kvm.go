@@ -94,16 +94,26 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, log.LoggedErrorf(logger, "failed to write user data: %v", err)
 	}
 	// Create the container.
-	arch := version.Current.Arch
-	hardware := &instance.HardwareCharacteristics{
-		Arch: &arch,
+	startParams := ParseConstraintsToStartParams(machineConfig.Constraints)
+	startParams.Arch = version.Current.Arch
+	startParams.Series = series
+	startParams.Network = network
+	startParams.UserDataFile = userDataFilename
+
+	var hardware instance.HardwareCharacteristics
+	hardware, err = instance.ParseHardware(
+		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cpu-cores=%v",
+			startParams.Arch, startParams.Memory, startParams.RootDisk, startParams.CpuCores))
+	if err != nil {
+		logger.Warningf("failed to parse hardware: %v", err)
 	}
+
 	logger.Tracef("create the container")
-	if err := kvmContainer.Start(series, arch, userDataFilename, network); err != nil {
+	if err := kvmContainer.Start(startParams); err != nil {
 		return nil, nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
 	}
 	logger.Tracef("kvm container created")
-	return &kvmInstance{kvmContainer, name}, hardware, nil
+	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
