@@ -56,11 +56,6 @@ func writeAuthorisedKeys(keys []string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create ssh key directory: %v", err)
 	}
-	for _, key := range keys {
-		if _, err := parseKey(key); err != nil {
-			return err
-		}
-	}
 	keyData := strings.Join(keys, "\n") + "\n"
 	sshKeyFile := filepath.Join(keyDir, authKeysFile)
 	return ioutil.WriteFile(sshKeyFile, []byte(keyData), 0644)
@@ -76,64 +71,72 @@ func parseKey(key string) (string, error) {
 
 var mutex sync.Mutex
 
-// AddKey adds the specified ssh key to the authorized_keys file.
-func AddKey(newKey string) error {
+// AddKeys adds the specified ssh keys to the authorized_keys file.
+// Returns an error if there is an issue with *any* of the supplied keys.
+func AddKeys(newKeys ...string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
-	comment, err := parseKey(newKey)
-	if err != nil {
-		return err
-	}
-	if comment == "" {
-		return fmt.Errorf("cannot add ssh key without comment")
-	}
 	existingKeys, err := readAuthorisedKeys()
 	if err != nil {
 		return err
 	}
-	for _, key := range existingKeys {
-		existingComment, err := parseKey(key)
+	for _, newKey := range newKeys {
+		comment, err := parseKey(newKey)
 		if err != nil {
-			logger.Warningf("invalid existing ssh key %q: %v", key, err)
-			continue
+			return err
 		}
-		if existingComment == comment {
-			return fmt.Errorf("cannot add duplicate ssh key: %v", comment)
+		if comment == "" {
+			return fmt.Errorf("cannot add ssh key without comment")
+		}
+		for _, key := range existingKeys {
+			existingComment, err := parseKey(key)
+			if err != nil {
+				logger.Warningf("invalid existing ssh key %q: %v", key, err)
+				continue
+			}
+			if existingComment == comment {
+				return fmt.Errorf("cannot add duplicate ssh key: %v", comment)
+			}
 		}
 	}
-	sshKeys := append(existingKeys, newKey)
+	sshKeys := append(existingKeys, newKeys...)
 	return writeAuthorisedKeys(sshKeys)
 }
 
-// DeleteKey removes the ssh key with the given comment from the authorized ssh keys file.
-func DeleteKey(comment string) error {
+// DeleteKeys removes the ssh keys with the given comments from the authorized ssh keys file.
+// Returns an error if there is an issue with *any* of the keys to delete.
+func DeleteKeys(comments ...string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
-	existingKeys, err := readAuthorisedKeys()
+	existingKeyData, err := readAuthorisedKeys()
 	if err != nil {
 		return err
 	}
-	var newKeys []string
-	found := false
-	for _, key := range existingKeys {
-		existingComment, err := parseKey(key)
-		if err != nil {
-			logger.Warningf("invalid existing ssh key %q: %v", key, err)
+	var keysToWrite []string
+	var sshKeys = make(map[string]string)
+	for _, key := range existingKeyData {
+		comment, err := parseKey(key)
+		if err != nil || comment == "" {
+			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
+			keysToWrite = append(keysToWrite, key)
 			continue
 		}
-		if existingComment == comment {
-			found = true
-		} else {
-			newKeys = append(newKeys, key)
+		sshKeys[comment] = key
+	}
+	for _, comment := range comments {
+		_, ok := sshKeys[comment]
+		if !ok {
+			return fmt.Errorf("cannot delete non existent key: %v", comment)
 		}
+		delete(sshKeys, comment)
 	}
-	if !found {
-		return fmt.Errorf("cannot delete non existent key: %v", comment)
+	for _, key := range sshKeys {
+		keysToWrite = append(keysToWrite, key)
 	}
-	if len(newKeys) == 0 {
-		return fmt.Errorf("cannot delete only key: %v", comment)
+	if len(keysToWrite) == 0 {
+		return fmt.Errorf("cannot delete all keys")
 	}
-	return writeAuthorisedKeys(newKeys)
+	return writeAuthorisedKeys(keysToWrite)
 }
 
 // ListKeys returns either the full keys or key comments from the authorized ssh keys file.
