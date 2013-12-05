@@ -142,8 +142,6 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		err = m.SetAgentVersion(version.Current)
 		c.Assert(err, gc.IsNil)
-		err = m.SetAgentVersion(version.Current)
-		c.Assert(err, gc.IsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
 }
@@ -164,8 +162,6 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	})
 	c.Assert(err, gc.IsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
-	c.Assert(err, gc.IsNil)
-	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)

@@ -352,46 +352,50 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	s.assertMachineContainers(c, host, nil)
 }
 
-//func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
-//	oneJob := []state.MachineJob{state.JobHostUnits}
-//	cons := constraints.MustParse("mem=4G")
-//
-//	template := state.MachineTemplate{
-//		Series: "quantal",
-//		Constraints: cons,
-//		Jobs: oneJob,
-//	}
-//
-//	template.InstanceId = "id"
-//	_, err := s.State.AddMachines(template)
-//	c.Assert(err, gc.ErrorMatches, "cannot specify an instance id when adding a new machine")
-//
-//	_, err := s.State.AddMachine
-//	params := state.AddMachineParams{
-//		ParentId:      "",
-//		ContainerType: instance.LXC,
-//		Series:        "quantal",
-//		Constraints:   cons,
-//		Jobs:          oneJob,
-//	}
-//	params.InstanceId = "id"
-//	m, err := s.State.AddMachineWithConstraints(&params)
-//	c.Assert(err, gc.ErrorMatches, "cannot specify an instance id when adding a new machine")
-//	params.InstanceId = ""
-//	params.Nonce = "nonce"
-//	m, err = s.State.AddMachineWithConstraints(&params)
-//	c.Assert(err, gc.ErrorMatches, "cannot specify a nonce when adding a new machine")
-//	params.Nonce = ""
-//	m, err = s.State.AddMachineWithConstraints(&params)
-//	c.Assert(err, gc.IsNil)
-//	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
-//	c.Assert(m.Series(), gc.Equals, "quantal")
-//	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
-//	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-//	mcons, err := m.Constraints()
-//	c.Assert(err, gc.IsNil)
-//	c.Assert(cons, gc.DeepEquals, mcons)
-//}
+func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
+	instIdTemplate := state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "i-foo",
+	}
+	normalTemplate := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	_, err := s.State.AddMachineInsideMachine(instIdTemplate, "0", instance.LXC)
+	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
+
+	_, err = s.State.AddMachineInsideNewMachine(instIdTemplate, normalTemplate, instance.LXC)
+	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
+
+	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, instIdTemplate, instance.LXC)
+	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
+
+	_, err = s.State.AddOneMachine(instIdTemplate)
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot inject a machine without a nonce")
+
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
+		InstanceId: "i-foo",
+	})
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("cannot add a new machine: duplicate job: %s", state.JobHostUnits))
+
+	noSeriesTemplate := state.MachineTemplate{
+		Jobs: []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
+	}
+	_, err = s.State.AddOneMachine(noSeriesTemplate)
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
+
+	_, err = s.State.AddMachineInsideNewMachine(noSeriesTemplate, normalTemplate, instance.LXC)
+	c.Check(err, gc.ErrorMatches, "cannot add a new container: no series specified")
+
+	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, noSeriesTemplate, instance.LXC)
+	c.Check(err, gc.ErrorMatches, "cannot add a new container: no series specified")
+
+	_, err = s.State.AddMachineInsideMachine(noSeriesTemplate, "0", instance.LXC)
+	c.Check(err, gc.ErrorMatches, "cannot add a new container: no series specified")
+}
 
 func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 	template := state.MachineTemplate{

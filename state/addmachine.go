@@ -235,6 +235,9 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
 func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+	if template.InstanceId != "" {
+		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
+	}
 	template, err := st.effectiveMachineTemplate(template)
 	if err != nil {
 		return nil, nil, err
@@ -284,6 +287,9 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
 func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
+	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
+		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
+	}
 	seq, err := st.sequence("machine")
 	if err != nil {
 		return nil, nil, err
@@ -293,7 +299,6 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, err
 	}
 	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
-	logger.Infof("parentDoc series %q", parentDoc.Series)
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {
 		return nil, nil, err
