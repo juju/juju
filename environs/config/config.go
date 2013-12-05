@@ -673,12 +673,16 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
+type Authorizer interface {
+	WithAuthAttrs(string) charm.Repository
+}
+
 // AuthorizeCharmRepo returns a repository with authentication added
 // from the specified configuration.
 func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(*charm.CharmStore); isCS {
+		if CS, isCS := repo.(Authorizer); isCS {
 			repo = CS.WithAuthAttrs(auth)
 		}
 	}
