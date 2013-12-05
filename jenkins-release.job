@@ -8,7 +8,7 @@ set -eu
 # lp:XXXX/XXXX/cloud-city
 #lp:/~juju-qa/juju-core/ci-cd-scripts2
 export JUJU_HOME="~jenkins/cloud-city"
-SCRIPTS="~jenkins/ci-cd-scripts2"
+SCRIPTS="${SCRIPTS-~jenkins/ci-cd-scripts2}"
 SIGNING_KEY="6A157DB3"
 
 if [[ ! -d new-tools ]]; then
