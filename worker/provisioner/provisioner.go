@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
@@ -138,8 +137,8 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 }
 
 func (p *environProvisioner) loop() error {
-	var environConfigChanges <-chan params.EnvironConfig
-	environWatcher, err := p.st.WatchEnvironConfig()
+	var environConfigChanges <-chan struct{}
+	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
 		return err
 	}
@@ -167,11 +166,11 @@ func (p *environProvisioner) loop() error {
 			err := task.Err()
 			logger.Errorf("environ provisioner died: %v", err)
 			return err
-		case configAttr, ok := <-environConfigChanges:
+		case _, ok := <-environConfigChanges:
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
-			environConfig, err := config.New(config.NoDefaults, configAttr)
+			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
 				logger.Errorf("cannot load environment configuration: %v", err)
 				return err

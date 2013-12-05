@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package worker_test
+package addressupdater
 
 import (
 	"strings"
@@ -12,7 +12,6 @@ import (
 
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker"
 )
 
 var _ = gc.Suite(&observerSuite{})
@@ -22,7 +21,7 @@ type observerSuite struct {
 }
 
 func (s *observerSuite) TestWaitsForValidEnviron(c *gc.C) {
-	obs, err := worker.NewEnvironObserver(s.State, nil)
+	obs, err := newEnvironObserver(s.State, nil)
 	c.Assert(err, gc.IsNil)
 	env := obs.Environ()
 	stateConfig, err := s.State.EnvironConfig()
@@ -38,7 +37,7 @@ func (s *observerSuite) TestEnvironmentChanges(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("testing", logc, loggo.WARNING), gc.IsNil)
 	defer loggo.RemoveWriter("testing")
 
-	obs, err := worker.NewEnvironObserver(s.State, nil)
+	obs, err := newEnvironObserver(s.State, nil)
 	c.Assert(err, gc.IsNil)
 
 	env := obs.Environ()
