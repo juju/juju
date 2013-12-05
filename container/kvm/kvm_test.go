@@ -8,12 +8,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -90,4 +92,19 @@ func (s *KVMSuite) TestStopContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
+}
+
+type ConstraintsSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&ConstraintsSuite{})
+
+func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
+	params := kvm.ParseConstraintsToStartParams(constraints.Value{})
+	c.Assert(params, gc.DeepEquals, kvm.StartParams{
+		Memory: kvm.DefaultMemory,
+		Cpu:    kvm.DefaultCpu,
+		Disk:   kvm.DefaultDisk,
+	})
 }

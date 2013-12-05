@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
@@ -23,6 +24,10 @@ var (
 
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 	DefaultKvmBridge                  = "virbr0"
+
+	DefaultMemory = 512 // MB
+	DefaultCpu    = 1
+	DefaultDisk   = 8 // GB
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
@@ -125,4 +130,12 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		}
 	}
 	return
+}
+
+// ParseConstraintsToStartParams takes a constrants object and returns a bare
+// StartParams object that has Memory, Cpu, and Disk populated.  If there are
+// no defined values in the constraints for those fields, default values are
+// used.  Other constrains cause a warning to be emitted.
+func ParseConstraintsToStartParams(cons constraints.Value) StartParams {
+	return StartParams{}
 }

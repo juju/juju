@@ -7,6 +7,17 @@ import (
 	"launchpad.net/juju-core/container"
 )
 
+// StartParams is a simple parameter struct for Container.Start.
+type StartParams struct {
+	Series       string
+	Arch         string
+	UserDataFile string
+	Network      *container.NetworkConfig
+	Memory       int // MB
+	Cpu          int
+	Disk         int // GB
+}
+
 // Container represents a virtualized container instance and provides
 // operations to create, maintain and destroy the container.
 type Container interface {
@@ -15,9 +26,7 @@ type Container interface {
 	Name() string
 
 	// Start runs the container as a daemon.
-	// TODO: add constraints.
-	Start(
-		series string,
+	Start(series string,
 		arch string,
 		userDataFile string,
 		network *container.NetworkConfig,
