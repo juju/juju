@@ -108,7 +108,7 @@ func (manager *containerManager) StartContainer(
 		logger.Warningf("failed to parse hardware: %v", err)
 	}
 
-	logger.Tracef("create the container")
+	logger.Tracef("create the container, constraints: %v", machineConfig.Constraints)
 	if err := kvmContainer.Start(startParams); err != nil {
 		return nil, nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
 	}

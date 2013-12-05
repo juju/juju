@@ -294,6 +294,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
 		return nil, nil, err
 	}
+	machineConfig.Constraints = cons
 	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
