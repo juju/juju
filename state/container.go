@@ -18,73 +18,48 @@ type machineContainers struct {
 	Children []string `bson:",omitempty"`
 }
 
-// containerRefParams specify how a machineContainers document is to be created.
-type containerRefParams struct {
-	hostId      string
-	newHost     bool
-	hostOnly    bool
-	containerId string
+func (st *State) addChildToContainerRefOp(parentId string, childId string) txn.Op {
+	return txn.Op{
+		C:      st.containerRefs.Name,
+		Id:     parentId,
+		Assert: txn.DocExists,
+		Update: D{{"$addToSet", D{{"children", childId}}}},
+	}
 }
 
-// createContainerRefOp the txn.Op's that update a parent machine's container references to add
-// a new container with the specified container id. If no container id is specified, an empty
-// machineContainers doc is created.
-func createContainerRefOp(st *State, params *containerRefParams) []txn.Op {
-	// See if we are creating a parent machine to subsequently host a new container. In this case,
-	// the container ref doc will be created later once the container id is known.
-	if !params.hostOnly && params.containerId == "" {
-		return []txn.Op{}
-	}
-	if params.hostOnly {
-		// Create an empty containers reference for a new host machine which will have no containers.
-		return []txn.Op{
-			{
-				C:      st.containerRefs.Name,
-				Id:     params.hostId,
-				Assert: txn.DocMissing,
-				Insert: &machineContainers{
-					Id: params.hostId,
-				},
-			},
-		}
-	}
-	var ops []txn.Op
-	if params.newHost {
-		// If the host machine doesn't exist yet, create a new containers record.
-		mc := machineContainers{
-			Id:       params.hostId,
-			Children: []string{params.containerId},
-		}
-		ops = []txn.Op{
-			{
-				C:      st.containerRefs.Name,
-				Id:     mc.Id,
-				Assert: txn.DocMissing,
-				Insert: &mc,
-			},
-		}
-	} else {
-		// The host machine exists so update its containers record.
-		ops = []txn.Op{
-			{
-				C:      st.containerRefs.Name,
-				Id:     params.hostId,
-				Assert: txn.DocExists,
-				Update: D{{"$addToSet", D{{"children", params.containerId}}}},
-			},
-		}
-	}
-	// Create a containers reference document for the container itself.
-	mc := machineContainers{
-		Id: params.containerId,
-	}
-	ops = append(ops, txn.Op{
+func (st *State) insertNewContainerRefOp(machineId string, children ...string) txn.Op {
+	return txn.Op{
 		C:      st.containerRefs.Name,
-		Id:     mc.Id,
+		Id:     machineId,
 		Assert: txn.DocMissing,
-		Insert: &mc,
-	})
-	return ops
+		Insert: &machineContainers{
+			Id:       machineId,
+			Children: children,
+		},
+	}
+}
+
+// removeContainerRefOps returns the txn.Op's necessary to remove a machine container record.
+// These include removing the record itself and updating the host machine's children property.
+func removeContainerRefOps(st *State, machineId string) []txn.Op {
+	removeRefOp := txn.Op{
+		C:      st.containerRefs.Name,
+		Id:     machineId,
+		Assert: txn.DocExists,
+		Remove: true,
+	}
+	// If the machine is a container, figure out its parent host.
+	parentId := ParentId(machineId)
+	if parentId == "" {
+		return []txn.Op{removeRefOp}
+	}
+	removeParentRefOp := txn.Op{
+		C:      st.containerRefs.Name,
+		Id:     parentId,
+		Assert: txn.DocExists,
+		Update: D{{"$pull", D{{"children", machineId}}}},
+	}
+	return []txn.Op{removeRefOp, removeParentRefOp}
 }
 
 // ParentId returns the id of the host machine if machineId a container id, or ""
@@ -117,27 +92,4 @@ func NestingLevel(machineId string) int {
 func TopParentId(machineId string) string {
 	idParts := strings.Split(machineId, "/")
 	return idParts[0]
-}
-
-// removeContainerRefOps returns the txn.Op's necessary to remove a machine container record.
-// These include removing the record itself and updating the host machine's children property.
-func removeContainerRefOps(st *State, machineId string) []txn.Op {
-	removeRefOp := txn.Op{
-		C:      st.containerRefs.Name,
-		Id:     machineId,
-		Assert: txn.DocExists,
-		Remove: true,
-	}
-	// If the machine is a container, figure out its parent host.
-	parentId := ParentId(machineId)
-	if parentId == "" {
-		return []txn.Op{removeRefOp}
-	}
-	removeParentRefOp := txn.Op{
-		C:      st.containerRefs.Name,
-		Id:     parentId,
-		Assert: txn.DocExists,
-		Update: D{{"$pull", D{{"children", machineId}}}},
-	}
-	return []txn.Op{removeRefOp, removeParentRefOp}
 }
