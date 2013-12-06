@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	ShortAttempt   = &shortAttempt
-	APIVersion	= apiVersion
+	ShortAttempt = &shortAttempt
+	APIVersion   = apiVersion
 )
 
 func MAASAgentName(env environs.Environ) string {

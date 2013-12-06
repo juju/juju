@@ -10,9 +10,9 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/environs/config"
-	coretesting "launchpad.net/juju-core/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/maas"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -28,7 +28,6 @@ var _ = gc.Suite(&environSuite{})
 func TestMAAS(t *stdtesting.T) {
 	gc.TestingT(t)
 }
-
 
 // TDOO: jam 2013-12-06 This is copied from the providerSuite which is in a
 // whitebox package maas. Either move that into a whitebox test so it can be
@@ -62,8 +61,8 @@ var _ = gc.Suite(&environSuite{})
 func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	attrs := coretesting.FakeConfig()
 	attrs["type"] = "maas"
-	attrs["maas-server"]    =  "http://maas.testing.invalid"
-	attrs["maas-oauth"]      = "a:b:c"
+	attrs["maas-server"] = "http://maas.testing.invalid"
+	attrs["maas-oauth"] = "a:b:c"
 	for k, v := range extraAttrs {
 		attrs[k] = v
 	}
@@ -161,8 +160,8 @@ func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.
 
 func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	origAttrs := coretesting.Attrs{
-		"server-name": "http://maas2.testing.invalid",
-		"maas-oauth": "a:b:c",
+		"server-name":  "http://maas2.testing.invalid",
+		"maas-oauth":   "a:b:c",
 		"admin-secret": "secret",
 	}
 	cfg := getSimpleTestConfig(c, origAttrs)
@@ -174,8 +173,8 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	anotherOauth := "c:d:e"
 	anotherSecret := "secret2"
 	newAttrs := coretesting.Attrs{
-		"server-name": anotherServer,
-		"maas-oauth": anotherOauth,
+		"server-name":  anotherServer,
+		"maas-oauth":   anotherOauth,
 		"admin-secret": anotherSecret,
 	}
 	cfg2 := getSimpleTestConfig(c, newAttrs)
