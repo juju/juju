@@ -8,7 +8,7 @@ import jujupy
 
 def main():
     for env in sys.argv[1:]:
-        jujupy.Environment(env).destroy_environment()
+        jujupy.Environment.from_config(env).destroy_environment()
 
 
 if __name__ == '__main__':

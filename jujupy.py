@@ -12,6 +12,8 @@ import sys
 from time import sleep
 import urllib2
 
+from jujuconfig import get_selected_environment
+
 
 class ErroredUnit(Exception):
 
@@ -161,12 +163,19 @@ class Status:
 
 class Environment:
 
-    def __init__(self, environment, client=None):
+    def __init__(self, environment, client=None, config=None):
         self.environment = environment
-        if client is None:
-            client = JujuClientDevel.by_version()
         self.client = client
-        self.local = bool(self.environment == 'local')
+        self.config = config
+        if self.config is not None:
+            self.local = bool(self.config.get('type') == 'local')
+        else:
+            self.local = False
+
+    @classmethod
+    def from_config(cls, name):
+        client = JujuClientDevel.by_version()
+        return cls(name, client, get_selected_environment(name)[0])
 
     def needs_sudo(self):
         return self.local

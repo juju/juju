@@ -16,7 +16,7 @@ def deploy_stack(environments):
 
     :param environment: The name of the desired environment.
     """
-    envs = [Environment(e) for e in environments]
+    envs = [Environment.from_config(e) for e in environments]
     for env in envs:
         env.bootstrap()
     for env in envs:

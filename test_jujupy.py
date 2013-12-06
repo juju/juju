@@ -1,10 +1,15 @@
 __metaclass__ = type
 
 from datetime import timedelta
-from mock import patch
+import os
+import shutil
 from StringIO import StringIO
+import tempfile
 from textwrap import dedent
 from unittest import TestCase
+
+from mock import patch
+import yaml
 
 from jujupy import (
     check_wordpress,
@@ -389,6 +394,34 @@ class TestEnvironment(TestCase):
                     Exception,
                     'Timed out waiting for agents to start in local'):
                 env.wait_for_started()
+
+    def test_local_from_config(self):
+        env = Environment('local', '', {'type': 'openstack'})
+        self.assertFalse(env.local, 'Does not respect config type.')
+        env = Environment('local', '', {'type': 'local'})
+        self.assertTrue(env.local, 'Does not respect config type.')
+
+    def test_from_config(self):
+        home = tempfile.mkdtemp()
+        try:
+            environments_path = os.path.join(home, 'environments.yaml')
+            old_home = os.environ.get('JUJU_HOME')
+            os.environ['JUJU_HOME'] = home
+            try:
+                with open(environments_path, 'w') as environments:
+                    yaml.dump({'environments': {
+                        'foo': {'type': 'local'}
+                    }}, environments)
+                env = Environment.from_config('foo')
+                self.assertIs(Environment, type(env))
+                self.assertEqual({'type': 'local'}, env.config)
+            finally:
+                if old_home is None:
+                    del os.environ['JUJU_HOME']
+                else:
+                    os.environ['JUJU_HOME'] = old_home
+        finally:
+            shutil.rmtree(home)
 
 
 class TestFormatListing(TestCase):
