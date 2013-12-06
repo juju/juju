@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
@@ -23,6 +24,19 @@ var (
 
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 	DefaultKvmBridge                  = "virbr0"
+
+	// In order for Juju to be able to create the hardware characteristics of
+	// the kvm machines it creates, we need to be explicit in our definition
+	// of memory, cpu-cores and root-disk.  The defaults here have been
+	// extracted from the uvt-kvm executable.
+	DefaultMemory uint64 = 512 // MB
+	DefaultCpu    uint64 = 1
+	DefaultDisk   uint64 = 8 // GB
+
+	// There are some values where it doesn't make sense to go below.
+	MinMemory uint64 = 512 // MB
+	MinCpu    uint64 = 1
+	MinDisk   uint64 = 2 // GB
 )
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
@@ -85,16 +99,26 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, log.LoggedErrorf(logger, "failed to write user data: %v", err)
 	}
 	// Create the container.
-	arch := version.Current.Arch
-	hardware := &instance.HardwareCharacteristics{
-		Arch: &arch,
+	startParams := ParseConstraintsToStartParams(machineConfig.Constraints)
+	startParams.Arch = version.Current.Arch
+	startParams.Series = series
+	startParams.Network = network
+	startParams.UserDataFile = userDataFilename
+
+	var hardware instance.HardwareCharacteristics
+	hardware, err = instance.ParseHardware(
+		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cpu-cores=%v",
+			startParams.Arch, startParams.Memory, startParams.RootDisk, startParams.CpuCores))
+	if err != nil {
+		logger.Warningf("failed to parse hardware: %v", err)
 	}
-	logger.Tracef("create the container")
-	if err := kvmContainer.Start(series, arch, userDataFilename, network); err != nil {
+
+	logger.Tracef("create the container, constraints: %v", machineConfig.Constraints)
+	if err := kvmContainer.Start(startParams); err != nil {
 		return nil, nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
 	}
 	logger.Tracef("kvm container created")
-	return &kvmInstance{kvmContainer, name}, hardware, nil
+	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -125,4 +149,55 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		}
 	}
 	return
+}
+
+// ParseConstraintsToStartParams takes a constrants object and returns a bare
+// StartParams object that has Memory, Cpu, and Disk populated.  If there are
+// no defined values in the constraints for those fields, default values are
+// used.  Other constrains cause a warning to be emitted.
+func ParseConstraintsToStartParams(cons constraints.Value) StartParams {
+	params := StartParams{
+		Memory:   DefaultMemory,
+		CpuCores: DefaultCpu,
+		RootDisk: DefaultDisk,
+	}
+
+	if cons.Mem != nil {
+		mem := *cons.Mem
+		if mem < MinMemory {
+			params.Memory = MinMemory
+		} else {
+			params.Memory = mem
+		}
+	}
+	if cons.CpuCores != nil {
+		cores := *cons.CpuCores
+		if cores < MinCpu {
+			params.CpuCores = MinCpu
+		} else {
+			params.CpuCores = cores
+		}
+	}
+	if cons.RootDisk != nil {
+		size := *cons.RootDisk / 1024
+		if size < MinDisk {
+			params.RootDisk = MinDisk
+		} else {
+			params.RootDisk = size
+		}
+	}
+	if cons.Arch != nil {
+		logger.Infof("arch constraint of %q being ignored as not supported", *cons.Arch)
+	}
+	if cons.Container != nil {
+		logger.Infof("container constraint of %q being ignored as not supported", *cons.Container)
+	}
+	if cons.CpuPower != nil {
+		logger.Infof("cpu-power constraint of %v being ignored as not supported", *cons.CpuPower)
+	}
+	if cons.Tags != nil {
+		logger.Infof("tags constraint of %q being ignored as not supported", strings.Join(*cons.Tags, ","))
+	}
+
+	return params
 }
