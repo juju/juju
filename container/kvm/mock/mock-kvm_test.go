@@ -6,27 +6,17 @@ package mock_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/container/kvm/mock"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/version"
 )
 
 type MockSuite struct {
 	testbase.LoggingSuite
 }
 
-var (
-	_ = gc.Suite(&MockSuite{})
-
-	// Start args
-	series   = "quantal"
-	arch     = version.Current.Arch
-	userData = "/some/path/to/userdata.txt"
-	network  = container.BridgeNetworkConfig("testbr0")
-)
+var _ = gc.Suite(&MockSuite{})
 
 func (*MockSuite) TestListInitiallyEmpty(c *gc.C) {
 	factory := mock.MockFactory()
