@@ -216,7 +216,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Check that machines cannot be added if the environment is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
@@ -231,7 +231,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is being destroyed")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -567,7 +567,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("s1", charm)
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
@@ -583,7 +583,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService("s1", charm)
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is being destroyed`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1643,9 +1643,13 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: "user-arble",
 }, {
-	tag: "environment-notauuid",
 	// TODO(axw) remove backwards compatibility for environment-tag; see lp:1257587
+	tag: "environment-notauuid",
+	err: `environment "notauuid" not found`,
 	//err: `"environment-notauuid" is not a valid environment tag`,
+}, {
+	tag: "environment-testenv",
+	//err: `"environment-testenv" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{

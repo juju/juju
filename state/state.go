@@ -360,7 +360,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 	if err != nil {
 		return nil, nil, err
 	} else if env.Life() != Alive {
-		return nil, nil, fmt.Errorf("environment is being destroyed")
+		return nil, nil, fmt.Errorf("environment is no longer alive")
 	}
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same constraints.Value struct
@@ -489,7 +489,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		if env, err := st.Environment(); err != nil {
 			return nil, err
 		} else if env.Life() != Alive {
-			return nil, fmt.Errorf("environment is being destroyed")
+			return nil, fmt.Errorf("environment is no longer alive")
 		}
 	} else if err != nil {
 		return nil, err
@@ -621,9 +621,16 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 			}
 			// TODO(axw) 2013-12-04 #1257587
 			// We should not accept environment tags that do not match the
-			// environment's UUID. We accept anything that doesn't look
-			// like a UUID for now, for backwards compatibility.
+			// environment's UUID. We also accept environment name for now,
+			// for backwards compatibility.
 			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
+			conf, err := st.EnvironConfig()
+			if err != nil {
+				return nil, err
+			}
+			if id != conf.Name() {
+				return nil, errors.NotFoundf("environment %q", id)
+			}
 		}
 		return env, nil
 	case names.RelationTagKind:
@@ -743,7 +750,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	if err != nil {
 		return nil, err
 	} else if env.Life() != Alive {
-		return nil, fmt.Errorf("environment is being destroyed")
+		return nil, fmt.Errorf("environment is no longer alive")
 	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
@@ -785,7 +792,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		if err := env.Refresh(); err != nil {
 			return nil, err
 		} else if env.Life() != Alive {
-			return nil, fmt.Errorf("environment is being destroyed")
+			return nil, fmt.Errorf("environment is no longer alive")
 		}
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {

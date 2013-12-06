@@ -32,7 +32,7 @@ type environmentDoc struct {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	env := &Environment{st: st}
-	if err := env.Refresh(); err != nil {
+	if err := env.refresh(st.environments.Find(nil)); err != nil {
 		return nil, err
 	}
 	env.annotator = annotator{
@@ -66,7 +66,11 @@ func (e *Environment) globalKey() string {
 }
 
 func (e *Environment) Refresh() error {
-	err := e.st.environments.Find(nil).One(&e.doc)
+	return e.refresh(e.st.environments.FindId(e.UUID()))
+}
+
+func (e *Environment) refresh(query *mgo.Query) error {
+	err := query.One(&e.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("environment")
 	}
@@ -76,13 +80,14 @@ func (e *Environment) Refresh() error {
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
 func (e *Environment) Destroy() error {
-	if e.Life() == Dying {
+	if e.Life() != Alive {
 		return nil
 	}
 	// Note: we add a cleanup for services, but not for machines;
 	// machines are destroyed via the provider interface. The
-	// exception to this rule is manual machines, the existence
-	// of which prevent a successful destroy-environment.
+	// exception to this rule is manual machines; the API prevents
+	// destroy-environment from succeeding if any non-manager
+	// manual machines exist.
 	ops := []txn.Op{{
 		C:      e.st.environments.Name,
 		Id:     e.doc.UUID,
@@ -95,14 +100,8 @@ func (e *Environment) Destroy() error {
 		e.doc.Life = Dying
 	case txn.ErrAborted:
 		// If the transaction aborted, the environment is either
-		// Dying or Dead; the former is not an error, and the
-		// latter should not be possible.
-		if err := e.Refresh(); err != nil {
-			return err
-		} else if e.Life() == Dying {
-			return nil
-		}
-		panic(err)
+		// Dying or Dead; neither case is an error.
+		err = e.Refresh()
 	}
 	return err
 }
