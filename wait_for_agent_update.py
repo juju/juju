@@ -8,7 +8,7 @@ import sys
 
 
 def agent_update(environment):
-    env = Environment(environment)
+    env = Environment.from_config(environment)
     env.wait_for_version(env.get_matching_agent_version())
 
 
