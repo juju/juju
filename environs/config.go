@@ -198,9 +198,10 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 	return environsFilepath, nil
 }
 
-// BootstrapConfig returns a copy of the supplied configuration with
-// secret attributes removed. If the resulting config is not suitable
-// for bootstrapping an environment, an error is returned.
+// BootstrapConfig returns a copy of the supplied configuration with the
+// admin-secret and ca-private-key attributes removed. If the resulting
+// config is not suitable for bootstrapping an environment, an error is
+// returned.
 func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 	m := cfg.AllAttrs()
 	// We never want to push admin-secret or the root CA private key to the cloud.
