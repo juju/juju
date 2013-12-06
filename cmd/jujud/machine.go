@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/addressupdater"
+	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -170,6 +171,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
+	})
+	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+		return authenticationworker.NewWorker(st.Credentials(), agentConfig), nil
 	})
 
 	// Perform the operations needed to set up hosting for containers.
