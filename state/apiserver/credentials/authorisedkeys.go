@@ -90,7 +90,13 @@ func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) params.StringsRes
 		return params.StringsResults{results}
 	}
 
+	var keys []string
 	config, configErr := api.state.EnvironConfig()
+	if configErr == nil {
+		keysString := config.AuthorizedKeys()
+		keys = strings.Split(keysString, "\n")
+	}
+
 	// For now, authorised keys are global, common to all machines, so
 	// we don't use the machine except to verify it exists.
 	for i, entity := range arg.Entities {
@@ -100,8 +106,6 @@ func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) params.StringsRes
 		}
 		var err error
 		if configErr == nil {
-			keysString := config.AuthorizedKeys()
-			keys := strings.Split(keysString, "\n")
 			results[i].Result = keys
 			err = nil
 		} else {
