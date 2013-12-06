@@ -466,18 +466,9 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	if err != nil {
 		return nil, err
 	}
-	attrs := make(map[string]string)
-	if extra, ok := ecfg.attrs["extra-secret"].(string); ok {
-		attrs["extra-secret"] = extra
-	}
-	// As a dummy-ism, we do not add "secret" if it has a special
-	// value. This allows us to test that extra-secret can be
-	// pushed, by ignoring the fact that secret is always initially
-	// in the state server.
-	if secret := ecfg.secret(); secret != "elide" {
-		attrs["secret"] = secret
-	}
-	return attrs, nil
+	return map[string]string{
+		"secret": ecfg.secret(),
+	}, nil
 }
 
 func (*environProvider) PublicAddress() (string, error) {

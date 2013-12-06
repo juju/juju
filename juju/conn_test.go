@@ -134,35 +134,31 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 
-	// Verify we have secrets in the environ config already,
-	// but we still push secrets for backwards compatibility.
-	// We have two secrets: "secret" and "extra-secret". The
-	// first one is in state initially, but the second one is
-	// not.
+	// Verify we have secrets in the environ config already.
 	statecfg, err := st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
-	c.Assert(statecfg.UnknownAttrs()["extra-secret"], gc.IsNil)
+
+	// Remove the secret from state, and then make sure it gets
+	// pushed back again.
+	attrs = statecfg.AllAttrs()
+	delete(attrs, "secret")
+	newcfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = st.SetEnvironConfig(newcfg, statecfg)
+	c.Assert(err, gc.IsNil)
+	statecfg, err = st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.IsNil)
 
 	// Make a new Conn, which will push the secrets.
-	cfg, err = env.Config().Apply(map[string]interface{}{
-		"extra-secret": "sauce",
-		"secret":       "elide",
-	})
-	c.Assert(err, gc.IsNil)
-	err = env.SetConfig(cfg)
-	c.Assert(err, gc.IsNil)
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 
-	secretAttrs, err := env.Provider().SecretAttrs(cfg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(secretAttrs, gc.DeepEquals, map[string]string{"extra-secret": "sauce"})
-
 	statecfg, err = conn.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(statecfg.UnknownAttrs()["extra-secret"], gc.Equals, "sauce")
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
 	err = conn.State.SetAdminMongoPassword("")
