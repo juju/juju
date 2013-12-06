@@ -37,8 +37,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	command := restoreCommand{}
-	os.Exit(cmd.Main(&command, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(&restoreCommand{}, cmd.DefaultContext(), args[1:]))
 }
 
 var logger = loggo.GetLogger("juju.plugins.restore")
