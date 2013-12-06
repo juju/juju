@@ -4,7 +4,13 @@
 package apiserver_test
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"os"
 	stdtesting "testing"
 	"time"
 
@@ -205,4 +211,161 @@ func (s *serverSuite) assertAlive(c *gc.C, entity agentAliver, isAlive bool) {
 	alive, err := entity.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, isAlive)
+}
+
+type charmsSuite struct {
+	jujutesting.JujuConnSuite
+	machineTag string
+	password   string
+}
+
+var _ = gc.Suite(&charmsSuite{})
+
+func (s *charmsSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.machineTag = machine.Tag()
+	s.password = password
+}
+
+func (s *charmsSuite) charmsUri(c *gc.C, query string) string {
+	_, info, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, gc.IsNil)
+	return "https://" + info.Addrs[0] + "/charms" + query
+}
+
+func (s *charmsSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, uri, body)
+	c.Assert(err, gc.IsNil)
+	if tag != "" && password != "" {
+		req.SetBasicAuth(tag, password)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	return utils.GetNonValidatingHTTPClient().Do(req)
+}
+
+func (s *charmsSuite) authRequest(c *gc.C, method, uri, contentType string, body io.Reader) (*http.Response, error) {
+	return s.sendRequest(c, s.machineTag, s.password, method, uri, contentType, body)
+}
+
+func (s *charmsSuite) uploadRequest(c *gc.C, uri string, paths ...string) (*http.Response, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	prepare := func(i int, path string) error {
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		name := fmt.Sprintf("charm%d", i)
+		part, err := writer.CreateFormFile(name, name+".zip")
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(part, file); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for i, path := range paths {
+		if err := prepare(i, path); err != nil {
+			return nil, err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return s.authRequest(c, "POST", uri, writer.FormDataContentType(), body)
+}
+
+func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
+	_, info, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, gc.IsNil)
+	uri := "http://" + info.Addrs[0] + "/charms"
+	_, err = s.sendRequest(c, "", "", "GET", uri, "", nil)
+	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
+}
+
+func (s *charmsSuite) TestCharmsUploadRequiresAuth(c *gc.C) {
+	resp, err := s.sendRequest(c, "", "", "GET", s.charmsUri(c, ""), "", nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
+}
+
+func (s *charmsSuite) TestCharmsUploadRequiresPOST(c *gc.C) {
+	resp, err := s.authRequest(c, "GET", s.charmsUri(c, ""), "", nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	assertBody(c, resp, "unsupported method: GET\n")
+}
+
+func (s *charmsSuite) TestCharmsUploadRequiresSeries(c *gc.C) {
+	resp, err := s.authRequest(c, "POST", s.charmsUri(c, ""), "", nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	assertBody(c, resp, "expected series= URL argument\n")
+}
+
+func (s *charmsSuite) TestCharmsUploadRequiresMultipartForm(c *gc.C) {
+	resp, err := s.authRequest(c, "POST", s.charmsUri(c, "?series=quantal"), "", nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	assertBody(c, resp, "request Content-Type isn't multipart/form-data\n")
+}
+
+func (s *charmsSuite) TestCharmsUploadRequiresUploadedFile(c *gc.C) {
+	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	assertBody(c, resp, "expected a single uploaded file, got none\n")
+}
+
+func (s *charmsSuite) TestCharmsUploadRequiresSingleUploadedFile(c *gc.C) {
+	// Create an empty file.
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, gc.IsNil)
+	path := tempFile.Name()
+
+	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), path, path)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	assertBody(c, resp, "expected a single uploaded file, got more\n")
+}
+
+func (s *charmsSuite) TestChramsFailsWithInvalidZip(c *gc.C) {
+	// Create an empty file.
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, gc.IsNil)
+
+	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), tempFile.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	assertBody(c, resp, "invalid charm archive: zip: not a valid zip file\n")
+}
+
+func (s *charmsSuite) TestCharmsUploadSuccess(c *gc.C) {
+	archivePath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
+	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), archivePath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	assertBody(c, resp, "local:quantal/dummy\n")
+}
+
+func assertBody(c *gc.C, resp *http.Response, expected string) {
+	body, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(body), gc.Matches, expected)
 }

@@ -5,8 +5,13 @@ package apiserver
 
 import (
 	"crypto/tls"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,9 +20,11 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
@@ -138,8 +145,105 @@ func (srv *Server) run(lis net.Listener) {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("/charms", http.HandlerFunc(srv.charmsHandler))
 	// The error from http.Serve is not interesting.
-	http.Serve(lis, handler)
+	http.Serve(lis, mux)
+}
+
+func (srv *Server) httpAuthenticate(w http.ResponseWriter, r *http.Request) error {
+	if r == nil {
+		return fmt.Errorf("invalid request")
+	}
+	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(parts) != 2 || parts[0] != "Basic" {
+		// Invalid header format or no header provided.
+		return fmt.Errorf("invalid request format")
+	}
+	// Challenge is a base64-encoded "tag:pass" string.
+	challenge, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid request format")
+	}
+	tagPass := strings.SplitN(string(challenge), ":", 2)
+	if len(tagPass) != 2 {
+		return fmt.Errorf("invalid request format")
+	}
+	_, err = checkCreds(srv.state, params.Creds{
+		AuthTag:  tagPass[0],
+		Password: tagPass[1],
+	})
+	return err
+}
+
+func (srv *Server) requireHttpAuth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
+	w.WriteHeader(http.StatusUnauthorized)
+	w.Write([]byte("401 Unauthorized\n"))
+}
+
+func (srv *Server) charmsHandler(w http.ResponseWriter, r *http.Request) {
+	if err := srv.httpAuthenticate(w, r); err != nil {
+		srv.requireHttpAuth(w, r)
+		return
+	}
+	if r.Method != "POST" {
+		http.Error(w, fmt.Sprintf("unsupported method: %s", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+	query := r.URL.Query()
+	series := query.Get("series")
+	if series == "" {
+		http.Error(w, fmt.Sprintf("expected series= URL argument"), http.StatusBadRequest)
+		return
+	}
+	reader, err := r.MultipartReader()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	part, err := reader.NextPart()
+	if err == io.EOF {
+		http.Error(w, "expected a single uploaded file, got none", http.StatusBadRequest)
+		return
+	} else if err != nil {
+		http.Error(w, fmt.Sprintf("cannot process uploaded file: %v", err), http.StatusBadRequest)
+		return
+	}
+	tempFile, err := ioutil.TempFile("", "charm")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("cannot create temp file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer tempFile.Close()
+	buffer := make([]byte, 100000)
+	for {
+		numRead, err := part.Read(buffer)
+		if err != nil && err != io.EOF {
+			http.Error(w, fmt.Sprintf("uploaded file read error: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if numRead == 0 {
+			break
+		}
+		if _, err := tempFile.Write(buffer[:numRead]); err != nil {
+			http.Error(w, fmt.Sprintf("temp file write error: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+	if _, err := reader.NextPart(); err != io.EOF {
+		http.Error(w, "expected a single uploaded file, got more", http.StatusBadRequest)
+		return
+	}
+	archive, err := charm.ReadBundle(tempFile.Name())
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid charm archive: %v", err), http.StatusBadRequest)
+		return
+	}
+	charmUrl := "local:" + series + "/" + archive.Meta().Name
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(charmUrl + "\n"))
 }
 
 // Addr returns the address that the server is listening on.
