@@ -71,7 +71,7 @@ type BootstrapStorager interface {
 	// EnableBootstrapStorage enables bootstrap storage, returning an
 	// error if enablement failed. If nil is returned, then calling
 	// this again will have no effect and will return nil.
-	EnableBootstrapStorage() error
+	EnableBootstrapStorage(*BootstrapContext) error
 }
 
 // ConfigGetter implements access to an environments configuration.
@@ -136,7 +136,7 @@ type Environ interface {
 	// Bootstrap is responsible for selecting the appropriate tools,
 	// and setting the agent-version configuration attribute prior to
 	// bootstrapping the environment.
-	Bootstrap(cons constraints.Value) error
+	Bootstrap(ctx *BootstrapContext, cons constraints.Value) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

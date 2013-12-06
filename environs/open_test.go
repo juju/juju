@@ -40,7 +40,8 @@ func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	c.Assert(bootstrap.Bootstrap(env, constraints.Value{}), gc.IsNil)
+	err = bootstrap.Bootstrap(envtesting.NewBootstrapContext(c), env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {

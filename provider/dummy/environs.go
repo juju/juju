@@ -102,6 +102,7 @@ type GenericOperation struct {
 }
 
 type OpBootstrap struct {
+	Context     *environs.BootstrapContext
 	Env         string
 	Constraints constraints.Value
 }
@@ -522,7 +523,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
 	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
@@ -592,7 +593,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		estate.apiState = st
 	}
 	estate.bootstrapped = true
-	estate.ops <- OpBootstrap{Env: e.name, Constraints: cons}
+	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Constraints: cons}
 	return nil
 }
 

@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.environs.bootstrap")
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(environ environs.Environ, cons constraints.Value) error {
+func Bootstrap(ctx *environs.BootstrapContext, environ environs.Environ, cons constraints.Value) error {
 	cfg := environ.Config()
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
@@ -43,7 +43,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 		return err
 	}
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	return environ.Bootstrap(cons)
+	return environ.Bootstrap(ctx, cons)
 }
 
 // SetBootstrapTools returns the newest tools from the given tools list,

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -74,6 +75,7 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
 		PossibleTools: toolsList,
+		Context:       envtesting.NewBootstrapContext(c),
 	}
 }
 

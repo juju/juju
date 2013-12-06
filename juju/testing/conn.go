@@ -198,7 +198,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 
 	envtesting.MustUploadFakeTools(environ.Storage())
-	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), gc.IsNil)
+	ctx := envtesting.NewBootstrapContext(c)
+	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 

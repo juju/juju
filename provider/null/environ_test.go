@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/sshstorage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -117,17 +118,18 @@ echo JUJU-RC: $RC
 	s.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
 
 	s.PatchEnvironment("RC", "99") // simulate ssh failure
-	err = s.env.EnableBootstrapStorage()
+	ctx := envtesting.NewBootstrapContext(c)
+	err = s.env.EnableBootstrapStorage(ctx)
 	c.Assert(err, gc.ErrorMatches, "exit code 99")
 	c.Assert(s.env.Storage(), gc.Not(gc.FitsTypeOf), new(sshstorage.SSHStorage))
 
 	s.PatchEnvironment("RC", "0")
-	err = s.env.EnableBootstrapStorage()
+	err = s.env.EnableBootstrapStorage(ctx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.env.Storage(), gc.FitsTypeOf, new(sshstorage.SSHStorage))
 
 	// Check idempotency
-	err = s.env.EnableBootstrapStorage()
+	err = s.env.EnableBootstrapStorage(ctx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.env.Storage(), gc.FitsTypeOf, new(sshstorage.SSHStorage))
 }

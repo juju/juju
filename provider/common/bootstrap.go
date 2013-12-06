@@ -6,9 +6,6 @@ package common
 import (
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
-	"sync"
 	"time"
 
 	"launchpad.net/loggo"
@@ -29,19 +26,13 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
+func Bootstrap(ctx *environs.BootstrapContext, env environs.Environ, cons constraints.Value) (err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
-	// TODO(axw) 2013-11-22 #1237736
-	// Modify environs/Environ Bootstrap method signature
-	// to take a new context structure, which contains
-	// Std{in,out,err}, and interrupt signal handling.
-	ctx := BootstrapContext{Stderr: os.Stderr}
-
 	var inst instance.Instance
-	defer func() { handleBootstrapError(err, &ctx, inst, env) }()
+	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
@@ -77,11 +68,11 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
-	return FinishBootstrap(&ctx, inst, machineConfig)
+	return FinishBootstrap(ctx, inst, machineConfig)
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
-func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instance, env environs.Environ) {
+func handleBootstrapError(err error, ctx *environs.BootstrapContext, inst instance.Instance, env environs.Environ) {
 	if err == nil {
 		return
 	}
@@ -111,7 +102,7 @@ func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instan
 // to the instance via SSH and carrying out the cloud-config.
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
-var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+var FinishBootstrap = func(ctx *environs.BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	var t tomb.Tomb
 	ctx.SetInterruptHandler(func() { t.Killf("interrupted") })
 	dnsName, err := waitSSH(ctx, inst, &t)
@@ -128,12 +119,18 @@ var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machin
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
-	return sshinit.Configure("ubuntu@"+dnsName, cloudcfg)
+	return sshinit.Configure(sshinit.ConfigureParams{
+		Host:   "ubuntu@" + dnsName,
+		Config: cloudcfg,
+		Stdin:  ctx.Stdin,
+		Stdout: ctx.Stdout,
+		Stderr: ctx.Stderr,
+	})
 }
 
 // waitSSH waits for the instance to be assigned a DNS
 // entry, then waits until we can connect to it via SSH.
-func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
+func waitSSH(ctx *environs.BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
 	defer t.Done()
 
 	// Wait for a DNS name.
@@ -172,49 +169,6 @@ func waitSSH(ctx *BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsNa
 		case <-time.After(5 * time.Second):
 		case <-t.Dying():
 			return "", t.Err()
-		}
-	}
-}
-
-// TODO(axw) move this to environs; see
-// comment near the top of common.Bootstrap.
-type BootstrapContext struct {
-	once        sync.Once
-	handlerchan chan func()
-
-	Stderr *os.File
-}
-
-func (ctx *BootstrapContext) SetInterruptHandler(f func()) {
-	ctx.once.Do(ctx.initHandler)
-	ctx.handlerchan <- f
-}
-
-func (ctx *BootstrapContext) initHandler() {
-	ctx.handlerchan = make(chan func())
-	go ctx.handleInterrupt()
-}
-
-func (ctx *BootstrapContext) handleInterrupt() {
-	signalchan := make(chan os.Signal, 1)
-	var s chan os.Signal
-	var handler func()
-	for {
-		select {
-		case handler = <-ctx.handlerchan:
-			if handler == nil {
-				if s != nil {
-					signal.Stop(signalchan)
-					s = nil
-				}
-			} else {
-				if s == nil {
-					s = signalchan
-					signal.Notify(signalchan, os.Interrupt)
-				}
-			}
-		case <-s:
-			handler()
 		}
 	}
 }

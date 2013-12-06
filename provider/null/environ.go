@@ -85,7 +85,7 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
+func (e *nullEnviron) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
 	envConfig := e.envConfig()
 	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
 	if err != nil {
@@ -96,6 +96,8 @@ func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	return manual.Bootstrap(manual.BootstrapArgs{
+		// TODO
+		//Context:                 ctx,
 		Host:                    e.envConfig().sshHost(),
 		DataDir:                 dataDir,
 		Environ:                 e,
@@ -144,7 +146,7 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 }
 
 // Implements environs.BootstrapStorager.
-func (e *nullEnviron) EnableBootstrapStorage() error {
+func (e *nullEnviron) EnableBootstrapStorage(ctx *environs.BootstrapContext) error {
 	e.bootstrapStorageMutex.Lock()
 	defer e.bootstrapStorageMutex.Unlock()
 	if e.bootstrapStorage != nil {
@@ -153,7 +155,14 @@ func (e *nullEnviron) EnableBootstrapStorage() error {
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	bootstrapStorage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	params := sshstorage.NewSSHStorageParams{
+		Host:       cfg.sshHost(),
+		StorageDir: storageDir,
+		TmpDir:     storageTmpdir,
+		Stdin:      ctx.Stdin,
+		Stdout:     ctx.Stdout,
+	}
+	bootstrapStorage, err := sshstorage.NewSSHStorage(params)
 	if err != nil {
 		return err
 	}

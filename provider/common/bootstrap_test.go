@@ -75,7 +75,8 @@ func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
 		putErr:  fmt.Errorf("noes!"),
 	}
 	env := &mockEnviron{storage: brokenStorage}
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx := envtesting.NewBootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot create initial state file: noes!")
 }
 
@@ -101,7 +102,8 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	err = common.Bootstrap(env, checkCons)
+	ctx := envtesting.NewBootstrapContext(c)
+	err = common.Bootstrap(ctx, env, checkCons)
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
@@ -131,7 +133,8 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx := envtesting.NewBootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
@@ -167,7 +170,8 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx := envtesting.NewBootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
@@ -205,7 +209,8 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		startInstance: startInstance,
 		config:        getConfig,
 	}
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx := envtesting.NewBootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	savedState, err := bootstrap.LoadStateFromURL(checkURL)

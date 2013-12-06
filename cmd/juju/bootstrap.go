@@ -89,10 +89,14 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	bootstrapContext := environs.NewBootstrapContext()
+	bootstrapContext.Stdin = ctx.Stdin
+	bootstrapContext.Stdout = ctx.Stdout
+	bootstrapContext.Stderr = ctx.Stderr
 	// If the environment has a special bootstrap Storage, use it wherever
 	// we'd otherwise use environ.Storage.
 	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		if err := bs.EnableBootstrapStorage(); err != nil {
+		if err := bs.EnableBootstrapStorage(bootstrapContext); err != nil {
 			return fmt.Errorf("failed to enable bootstrap storage: %v", err)
 		}
 	}
@@ -116,7 +120,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(environ, c.Constraints)
+	return bootstrap.Bootstrap(bootstrapContext, environ, c.Constraints)
 }
 
 func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {
