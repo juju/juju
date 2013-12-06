@@ -33,7 +33,7 @@ func NewCredentialsAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*CredentialsAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthStateManager() {
 		return nil, common.ErrPerm
 	}
 	return &CredentialsAPI{state: st, resources: resources, authorizer: authorizer}, nil
@@ -45,15 +45,19 @@ func NewCredentialsAPI(
 // This will change as new user management and authorisation functionality is added.
 func (api *CredentialsAPI) WatchAuthorisedKeys(arg params.Entities) params.NotifyWatchResults {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
+
+	if !api.authorizer.AuthStateManager() {
+		for i, _ := range arg.Entities {
+			results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return params.NotifyWatchResults{results}
+	}
+
 	// For now, authorised keys are global, common to all machines, so
 	// we don't use the machine except to verify it exists.
 	for i, entity := range arg.Entities {
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
 			results[i].Error = common.ServerError(err)
-			continue
-		}
-		if !api.authorizer.AuthEnvironManager() {
-			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		var err error
@@ -78,16 +82,20 @@ func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) params.StringsRes
 		return params.StringsResults{}
 	}
 	results := make([]params.StringsResult, len(arg.Entities))
+
+	if !api.authorizer.AuthStateManager() {
+		for i, _ := range arg.Entities {
+			results[i].Error = common.ServerError(common.ErrPerm)
+		}
+		return params.StringsResults{results}
+	}
+
 	config, configErr := api.state.EnvironConfig()
 	// For now, authorised keys are global, common to all machines, so
 	// we don't use the machine except to verify it exists.
 	for i, entity := range arg.Entities {
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
 			results[i].Error = common.ServerError(err)
-			continue
-		}
-		if !api.authorizer.AuthEnvironManager() {
-			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		var err error

@@ -40,9 +40,9 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as a state server
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:      s.rawMachine.Tag(),
-		LoggedIn: true,
-		Manager:  true,
+		Tag:          s.rawMachine.Tag(),
+		LoggedIn:     true,
+		StateManager: true,
 	}
 	s.credentials, err = credentials.NewCredentialsAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
@@ -56,7 +56,7 @@ func (s *authorisedKeysSuite) TestNewCredentialsAPIAcceptsStateServer(c *gc.C) {
 
 func (s *authorisedKeysSuite) TestNewCredentialsAPIRefusesNonStateServer(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.Manager = false
+	anAuthoriser.StateManager = false
 	endPoint, err := credentials.NewCredentialsAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
