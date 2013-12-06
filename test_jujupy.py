@@ -109,13 +109,14 @@ class TestJujuClientDevel(TestCase):
         env = Environment('foo', '')
         client = JujuClientDevel(None, 'my/juju/bin')
         full = client._full_args(env, 'bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+        self.assertEqual(('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+                          'qux'), full)
         full = client._full_args(env, 'bar', True, ('baz', 'qux'))
-        self.assertEqual(
-            ('sudo', '-E', 'my/juju/bin', 'bar', '-e', 'foo', 'baz', 'qux'),
-            full)
+        self.assertEqual((
+            'sudo', '-E', 'my/juju/bin', '--show-log', 'bar', '-e', 'foo',
+            'baz', 'qux'), full)
         full = client._full_args(None, 'bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', 'bar', 'baz', 'qux'), full)
+        self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -159,7 +160,7 @@ class TestJujuClientDevel(TestCase):
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output(env, 'bar')
         self.assertEqual('asdf', result)
-        mock.assert_called_with(('juju', 'bar', '-e', 'foo'))
+        mock.assert_called_with(('juju', '--show-log', 'bar', '-e', 'foo'))
 
     def test_get_status(self):
         def output_iterator():
@@ -182,7 +183,8 @@ class TestJujuClientDevel(TestCase):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.check_call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'))
-        mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+                                 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check(self):
@@ -191,7 +193,8 @@ class TestJujuClientDevel(TestCase):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'), check=False)
-        mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+                                 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
 

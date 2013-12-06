@@ -77,7 +77,7 @@ class JujuClientDevel:
     def _full_args(self, environment, command, sudo, args):
         e_arg = () if environment is None else ('-e', environment.environment)
         sudo_args = ('sudo', '-E', self.full_path) if sudo else ('juju',)
-        return sudo_args + (command,) + e_arg + args
+        return sudo_args + ('--show-log', command,) + e_arg + args
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
