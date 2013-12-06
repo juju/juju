@@ -85,6 +85,7 @@ func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instan
 	if err == nil {
 		return
 	}
+	logger.Errorf("bootstrap failed: %v", err)
 	ctx.SetInterruptHandler(func() {
 		fmt.Fprintln(ctx.Stderr, "Cleaning up failed bootstrap")
 	})
