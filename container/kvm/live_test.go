@@ -4,6 +4,7 @@
 package kvm_test
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 
@@ -95,9 +96,12 @@ func startContainer(c *gc.C, manager container.Manager, machineId string) instan
 	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	instance, err := manager.StartContainer(machineConfig, "precise", network)
+	inst, hardware, err := manager.StartContainer(machineConfig, "precise", network)
 	c.Assert(err, gc.IsNil)
-	return instance
+	c.Assert(hardware, gc.NotNil)
+	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", version.Current.Arch)
+	c.Assert(hardware.String(), gc.Equals, expected)
+	return inst
 }
 
 func (s *LiveSuite) TestShutdownMachines(c *gc.C) {
