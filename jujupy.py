@@ -184,7 +184,7 @@ class Environment:
         return self.client.bootstrap(self)
 
     def upgrade_juju(self):
-        args = ('--version', str(self.get_matching_agent_version()))
+        args = ('--version', self.get_matching_agent_version(no_build=True))
         if self.local:
             args += ('--upload-tools',)
         self.client.juju(self, 'upgrade-juju', args)
@@ -222,9 +222,9 @@ class Environment:
         else:
             raise Exception('Some versions did not update.')
 
-    def get_matching_agent_version(self):
+    def get_matching_agent_version(self, no_build=False):
         version_number = self.client.version.split('-')[0]
-        if self.local:
+        if not no_build and self.local:
             version_number += '.1'
         return version_number
 

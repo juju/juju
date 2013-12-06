@@ -433,12 +433,19 @@ class TestEnvironment(TestCase):
         env.client.juju.assert_called_with(env, 'upgrade-juju',
                                            ('--version', '1.234'))
 
+    def test_get_matching_agent_version(self):
+        env = Environment('foo', MagicMock(), {'type': 'local'})
+        env.client.version = '1.234-76'
+        self.assertEqual('1.234.1', env.get_matching_agent_version())
+        self.assertEqual('1.234', env.get_matching_agent_version(
+                         no_build=True))
+
     def test_upgrade_juju_local(self):
         env = Environment('foo', MagicMock(), {'type': 'local'})
         env.client.version = '1.234-76'
         env.upgrade_juju()
         env.client.juju.assert_called_with(
-            env, 'upgrade-juju', ('--version', '1.234.1', '--upload-tools',))
+            env, 'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
 
 class TestFormatListing(TestCase):

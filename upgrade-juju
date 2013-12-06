@@ -8,3 +8,6 @@ import jujupy
 def main():
     for env in sys.argv[1:]:
         jujupy.Environment.from_config(env).upgrade_juju()
+
+if __name__ == '__main__':
+    main()
