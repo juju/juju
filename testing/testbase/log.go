@@ -37,6 +37,7 @@ func (t *LoggingSuite) SetUpSuite(c *gc.C) {
 
 func (t *LoggingSuite) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
+	t.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
 	t.setUp(c)
 }
 
