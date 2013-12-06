@@ -5,10 +5,10 @@ package main
 
 import (
 	"errors"
-	"os/exec"
 	"strings"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // SCPCommand is responsible for launching a scp command to copy files to/from remote machine(s)
@@ -80,9 +80,7 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	args := []string{"-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no"}
-	args = append(args, c.Args...)
-	cmd := exec.Command("scp", args...)
+	cmd := ssh.ScpCommand(c.Args[0], c.Args[1], ssh.NoPasswordAuthentication)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr

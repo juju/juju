@@ -617,6 +617,12 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
+//
+// When provisioning an instance, a nonce should be created and passed
+// when starting it, before adding the machine to the state. This means
+// that if the provisioner crashes (or its connection to the state is
+// lost) after starting the instance, we can be sure that only a single
+// instance will be able to act for that machine.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 

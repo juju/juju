@@ -211,7 +211,7 @@ do
 	}" $agent/agent.conf
 	if [[ $agent = unit-* ]]
 	then
-		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/*
+		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/* || true
 	fi
 	initctl start jujud-$agent
 done
@@ -257,10 +257,10 @@ func updateAllMachines(conn *juju.Conn, stateAddr string) error {
 	for _, machine := range machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machine.IsManager() || machine.Life() != state.Alive {
+		if machine.IsManager() || machine.Life() == state.Dead {
 			continue
 		}
-		pendingMachineCount += 1
+		pendingMachineCount++
 		machine := machine
 		go func() {
 			err := runMachineUpdate(machine, renderScriptArg(stateAddr))

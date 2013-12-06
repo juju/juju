@@ -87,9 +87,14 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	transactionHooks := <-st.transactionHooks
 	st.transactionHooks <- nil
 	if len(transactionHooks) > 0 {
+		// Note that this code should only ever be triggered
+		// during tests. If we see the log messages below
+		// in a production run, something is wrong.
 		defer func() {
 			if transactionHooks[0].After != nil {
+				logger.Infof("transaction 'after' hook start")
 				transactionHooks[0].After()
+				logger.Infof("transaction 'after' hook end")
 			}
 			if <-st.transactionHooks != nil {
 				panic("concurrent use of transaction hooks")
@@ -97,7 +102,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			st.transactionHooks <- transactionHooks[1:]
 		}()
 		if transactionHooks[0].Before != nil {
+			logger.Infof("transaction 'before' hook start")
 			transactionHooks[0].Before()
+			logger.Infof("transaction 'before' hook end")
 		}
 	}
 	return st.runner.Run(ops, "", nil)
@@ -242,18 +249,27 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 
 // SetEnvironConfig replaces the current configuration of the
 // environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg *config.Config) error {
+func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return err
 	}
-	// TODO(niemeyer): This isn't entirely right as the change is done as a
-	// delta that the user didn't ask for. Instead, take a (old, new) config
-	// pair, and apply *known* delta.
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
 	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
-	settings.Update(cfg.AllAttrs())
+	newattrs := cfg.AllAttrs()
+	for k, _ := range old.AllAttrs() {
+		if _, ok := newattrs[k]; !ok {
+			settings.Delete(k)
+		}
+	}
+	settings.Update(newattrs)
 	_, err = settings.Write()
 	return err
 }

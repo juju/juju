@@ -17,7 +17,7 @@ import (
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/factory"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -194,11 +194,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 
-	env.containerManager = lxc.NewContainerManager(
+	env.containerManager, err = factory.NewContainerManager(
+		ecfg.container(),
 		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
 		})
+	if err != nil {
+		return err
+	}
 
 	// Here is the end of normal config setting.
 	if ecfg.bootstrapped() {
@@ -284,19 +288,22 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	series := possibleTools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
 	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = instance.LXC
+	machineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", machineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
 		return nil, nil, err
 	}
+	// TODO: evaluate the impact of setting the contstraints on the
+	// machineConfig for all machines rather than just state server nodes.
+	// This limiation is why the constraints are assigned directly here.
+	machineConfig.Constraints = cons
 	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO(thumper): return some hardware characteristics.
-	return inst, nil, nil
+	return inst, hardware, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

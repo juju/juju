@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package sshinit
 
 import (
 	"encoding/base64"
@@ -9,25 +9,29 @@ import (
 	"os"
 	"strings"
 
-	corecloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
-// ProvisionMachineAgent connects to a machine over SSH,
-// and installs a machine agent.
-func ProvisionMachineAgent(host string, mcfg *cloudinit.MachineConfig) error {
+var logger = loggo.GetLogger("juju.cloudinit.sshinit")
+
+// Configure connects to the specified host over SSH,
+// and executes a script that carries out cloud-config.
+func Configure(host string, cfg *cloudinit.Config) error {
 	logger.Infof("Provisioning machine agent on %s", host)
-	script, err := provisionMachineAgentScript(mcfg)
+	script, err := generateScript(cfg)
 	if err != nil {
 		return err
 	}
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	cmd := sshCommand(
+	cmd := ssh.Command(
 		host,
-		fmt.Sprintf("sudo bash -c '%s'", script),
-		allocateTTY,
+		[]string{"sudo", fmt.Sprintf("bash -c '%s'", script)},
+		ssh.AllocateTTY,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -35,17 +39,9 @@ func ProvisionMachineAgent(host string, mcfg *cloudinit.MachineConfig) error {
 	return cmd.Run()
 }
 
-// provisionMachineAgentScript generates the script necessary
-// to install a machine agent with the provided MachineConfig.
-func provisionMachineAgentScript(mcfg *cloudinit.MachineConfig) (string, error) {
-	// We generate a cloud-init config, which we'll then pull the runcmds
-	// and prerequisite packages out of. Rather than generating a cloud-config,
-	// we'll just generate a shell script.
-	cloudcfg := corecloudinit.New()
-	if err := cloudinit.Configure(mcfg, cloudcfg); err != nil {
-		return "", err
-	}
-
+// generateScript generates the script that applies
+// the specified cloud-config.
+func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.
@@ -78,23 +74,38 @@ func provisionMachineAgentScript(mcfg *cloudinit.MachineConfig) (string, error) 
 	// We prepend "set -xe". This is already in runcmds,
 	// but added here to avoid relying on that to be
 	// invariant.
-	script := []string{"#!/bin/bash", "set -xe"}
+	script := []string{"#!/bin/bash", "set -e"}
+	// We must initialise progress reporting before entering
+	// the subshell and redirecting stderr.
+	script = append(script, cloudinit.InitProgressCmd())
+	stdout, stderr := cloudcfg.Output(cloudinit.OutAll)
+	script = append(script, "(")
+	if stderr != "" {
+		script = append(script, "(")
+	}
 	script = append(script, bootcmds...)
 	script = append(script, pkgcmds...)
 	script = append(script, runcmds...)
+	if stderr != "" {
+		script = append(script, ") "+stdout)
+		script = append(script, ") "+stderr)
+	} else {
+		script = append(script, ") "+stdout+" 2>&1")
+	}
 	return strings.Join(script, "\n"), nil
 }
 
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
-func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
+func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	var cmds []string
 	if len(cfg.AptSources()) > 0 {
-		// Ensure apt-add-repository is available.
+		// Ensure add-apt-repository is available.
+		cmds = append(cmds, cloudinit.LogProgressCmd("Installing add-apt-repository"))
 		cmds = append(cmds, "apt-get -y install python-software-properties")
 	}
 	for _, src := range cfg.AptSources() {
-		// PPA keys are obtained by apt-add-repository, from launchpad.
+		// PPA keys are obtained by add-apt-repository, from launchpad.
 		if !strings.HasPrefix(src.Source, "ppa:") {
 			if src.Key != "" {
 				key := utils.ShQuote(src.Key)
@@ -102,14 +113,19 @@ func addPackageCommands(cfg *corecloudinit.Config) ([]string, error) {
 				cmds = append(cmds, cmd)
 			}
 		}
-		cmds = append(cmds, "apt-add-repository -y "+utils.ShQuote(src.Source))
+		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Source))
+		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
 	}
-	if len(cfg.AptSources()) > 0 {
+	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
 		cmds = append(cmds, "apt-get -y update")
 	}
-	// Note: explicitly ignoring apt_upgrade, so as not to trample the target
-	// machine's existing configuration.
+	if cfg.AptUpgrade() {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
+		cmds = append(cmds, "apt-get -y upgrade")
+	}
 	for _, pkg := range cfg.Packages() {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
 		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
 		cmds = append(cmds, cmd)
 	}

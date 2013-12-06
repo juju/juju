@@ -52,6 +52,11 @@ func CreateStateFile(storage storage.Storage) (string, error) {
 	return storage.URL(StateFile)
 }
 
+// DeleteStateFile deletes the state file on the given storage.
+func DeleteStateFile(storage storage.Storage) error {
+	return storage.Remove(StateFile)
+}
+
 // SaveState writes the given state to the given storage.
 func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 	data, err := goyaml.Marshal(state)

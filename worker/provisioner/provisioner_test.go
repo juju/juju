@@ -93,7 +93,7 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 	c.Assert(err, gc.IsNil)
 	cfg, err := oldCfg.Apply(map[string]interface{}{"broken": environMethod})
 	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(cfg)
+	err = st.SetEnvironConfig(cfg, oldCfg)
 	c.Assert(err, gc.IsNil)
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
@@ -118,13 +118,17 @@ func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
 	attrs["type"] = "unknown"
 	invalidCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(invalidCfg)
+	err = s.State.SetEnvironConfig(invalidCfg, s.cfg)
 	c.Assert(err, gc.IsNil)
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *CommonProvisionerSuite) fixEnvironment() error {
-	return s.State.SetEnvironConfig(s.cfg)
+	cfg, err := s.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	return s.State.SetEnvironConfig(s.cfg, cfg)
 }
 
 // stopper is stoppable.
@@ -595,13 +599,13 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	cfgObserver := make(chan *config.Config, 1)
 	provisioner.SetObserver(p, cfgObserver)
 
-	cfg, err := s.State.EnvironConfig()
+	oldcfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	attrs := cfg.AllAttrs()
+	attrs := oldcfg.AllAttrs()
 	attrs["secret"] = "beef"
-	cfg, err = config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 
 	s.BackingState.StartSync()
 
@@ -643,13 +647,13 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	c.Assert(m1.Remove(), gc.IsNil)
 
 	// turn on safe mode
-	cfg, err := s.State.EnvironConfig()
+	oldcfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	attrs := cfg.AllAttrs()
+	attrs := oldcfg.AllAttrs()
 	attrs["provisioner-safe-mode"] = true
-	cfg, err = config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 
 	// start a new provisioner to shut down only the machine still in state.
 	p = s.newEnvironProvisioner(c)
@@ -689,13 +693,13 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	provisioner.SetObserver(p, cfgObserver)
 
 	// turn on safe mode
-	cfg, err := s.State.EnvironConfig()
+	oldcfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	attrs := cfg.AllAttrs()
+	attrs := oldcfg.AllAttrs()
 	attrs["provisioner-safe-mode"] = true
-	cfg, err = config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 
 	s.BackingState.StartSync()
 
