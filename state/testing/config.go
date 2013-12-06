@@ -14,9 +14,9 @@ func UpdateConfig(st *state.State, newValues map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	cfg, err = cfg.Apply(newValues)
+	newcfg, err := cfg.Apply(newValues)
 	if err != nil {
 		return err
 	}
-	return st.SetEnvironConfig(cfg)
+	return st.SetEnvironConfig(newcfg, cfg)
 }
