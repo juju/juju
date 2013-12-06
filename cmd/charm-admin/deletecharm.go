@@ -51,20 +51,13 @@ func (c *DeleteCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Read & check config
-	conf := make(map[interface{}]interface{})
-	c.ReadConfig(&conf)
-
-	var mongoUrl string
-	if v, has := conf["mongo-url"]; !has {
-		return fmt.Errorf("missing mongo-url in config file")
-	} else if url, is := v.(string); !is {
-		return fmt.Errorf("invalid mongo-url '%v' in config file", url)
-	} else {
-		mongoUrl = url
+	conf, err := store.ReadConfig(c.ConfigPath)
+	if err != nil {
+		return err
 	}
 
 	// Open the charm store storage
-	s, err := store.Open(mongoUrl)
+	s, err := store.Open(conf.MongoURL)
 	if err != nil {
 		return err
 	}

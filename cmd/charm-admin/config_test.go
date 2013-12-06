@@ -1,11 +1,10 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package main_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	gc "launchpad.net/gocheck"
@@ -47,50 +46,20 @@ func (c *SomeConfigCommand) Info() *cmd.Info {
 }
 
 func (s *ConfigSuite) TestReadConfig(c *gc.C) {
-	f, err := ioutil.TempFile("", "")
+	confDir := c.MkDir()
+	f, err := os.Create(path.Join(confDir, "charmd.conf"))
 	c.Assert(err, gc.IsNil)
-	var cfgPath string
+	cfgPath := f.Name()
 	{
 		defer f.Close()
 		fmt.Fprint(f, testConfig)
-		cfgPath = f.Name()
 	}
-	defer os.Remove(cfgPath)
 
 	config := &SomeConfigCommand{}
 	err = testing.InitCommand(config, []string{"--config", cfgPath})
 	c.Assert(err, gc.IsNil)
 
-	dmap := make(map[string]interface{})
-	config.ReadConfig(&dmap)
-	{
-		v, has := dmap["mongo-url"]
-		c.Assert(has, gc.Equals, true)
-		c.Assert(v, gc.FitsTypeOf, "s")
-		c.Assert(v.(string), gc.Equals, "localhost:23456")
-	}
-	{
-		v, has := dmap["foo"]
-		c.Assert(has, gc.Equals, true)
-		c.Assert(v, gc.FitsTypeOf, 1)
-		c.Assert(v.(int), gc.Equals, 1)
-	}
-	{
-		v, has := dmap["bar"]
-		c.Assert(has, gc.Equals, true)
-		c.Assert(v, gc.FitsTypeOf, true)
-		c.Assert(v.(bool), gc.Equals, false)
-	}
-	{
-		_, has := dmap["nope"]
-		c.Assert(has, gc.Equals, false)
-	}
-
-	// store-admin might want to reuse charmd/charmload config files.
-	// Let's see if extra keys pose a problem.
-	dstr := struct {
-		MongoUrl string `yaml:"mongo-url"`
-	}{}
-	config.ReadConfig(&dstr)
+	dstr, err := config.ReadConfig()
+	c.Assert(err, gc.IsNil)
 	c.Assert(dstr.MongoUrl, gc.Equals, "localhost:23456")
 }
