@@ -187,6 +187,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 
 	// juju requires git for managing charm directories.
 	c.AddPackage("git")
+	c.AddPackage("cpu-checker")
 
 	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.

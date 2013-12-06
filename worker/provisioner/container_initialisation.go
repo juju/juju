@@ -148,7 +148,11 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		broker = NewLxcBroker(cs.provisioner, tools, cs.config)
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
-		//TODO - implement kvm broker
+		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config)
+		if err != nil {
+			logger.Errorf("failed to create new kvm broker")
+			return nil, nil, err
+		}
 	default:
 		return nil, nil, fmt.Errorf("unknown container type: %v", containerType)
 	}

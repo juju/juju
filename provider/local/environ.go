@@ -288,19 +288,22 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	series := possibleTools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
 	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = instance.LXC
+	machineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", machineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
 		return nil, nil, err
 	}
+	// TODO: evaluate the impact of setting the contstraints on the
+	// machineConfig for all machines rather than just state server nodes.
+	// This limiation is why the constraints are assigned directly here.
+	machineConfig.Constraints = cons
 	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO(thumper): return some hardware characteristics.
-	return inst, nil, nil
+	return inst, hardware, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

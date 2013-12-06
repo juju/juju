@@ -20,7 +20,7 @@ func ChangeEnvironConfig(c *gc.C, st *state.State, change func(coretesting.Attrs
 	c.Assert(err, gc.IsNil)
 	newCfg, err := config.New(config.NoDefaults, change(cfg.AllAttrs()))
 	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(newCfg)
+	err = st.SetEnvironConfig(newCfg, cfg)
 	c.Assert(err, gc.IsNil)
 }
 

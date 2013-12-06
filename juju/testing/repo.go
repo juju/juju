@@ -27,11 +27,11 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Change the environ's config to ensure we're using the one in state,
 	// not the one in the local environments.yaml
-	cfg, err := s.State.EnvironConfig()
+	oldcfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{"default-series": "precise"})
+	cfg, err := oldcfg.Apply(map[string]interface{}{"default-series": "precise"})
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 	c.Assert(err, gc.IsNil)
 	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()
