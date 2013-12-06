@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+__metaclass__ = type
+
+import sys
+
+import jujupy
+
+def main():
+    for env in sys.argv[1:]:
+        jujupy.Environment.from_config(env).upgrade_juju()

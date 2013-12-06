@@ -183,6 +183,12 @@ class Environment:
     def bootstrap(self):
         return self.client.bootstrap(self)
 
+    def upgrade_juju(self):
+        args = ('--version', str(self.get_matching_agent_version()))
+        if self.local:
+            args += ('--upload-tools',)
+        self.client.juju(self, 'upgrade-juju', args)
+
     def destroy_environment(self):
         return self.client.destroy_environment(self)
 

@@ -8,7 +8,10 @@ import tempfile
 from textwrap import dedent
 from unittest import TestCase
 
-from mock import patch
+from mock import (
+    MagicMock,
+    patch,
+)
 import yaml
 
 from jujupy import (
@@ -422,6 +425,20 @@ class TestEnvironment(TestCase):
                     os.environ['JUJU_HOME'] = old_home
         finally:
             shutil.rmtree(home)
+
+    def test_upgrade_juju_nonlocal(self):
+        env = Environment('foo', MagicMock(), {'type': 'nonlocal'})
+        env.client.version = '1.234-76'
+        env.upgrade_juju()
+        env.client.juju.assert_called_with(env, 'upgrade-juju',
+                                           ('--version', '1.234'))
+
+    def test_upgrade_juju_local(self):
+        env = Environment('foo', MagicMock(), {'type': 'local'})
+        env.client.version = '1.234-76'
+        env.upgrade_juju()
+        env.client.juju.assert_called_with(
+            env, 'upgrade-juju', ('--version', '1.234.1', '--upload-tools',))
 
 
 class TestFormatListing(TestCase):
