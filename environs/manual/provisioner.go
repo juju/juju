@@ -62,11 +62,36 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	if err != nil {
 		return "", err
 	}
+	// Used for fallback to 1.16 code
+	var stateConn *juju.Conn
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
+			// Note: In theory, if we have stateConn, then we are
+			// in 1.16 compatibility mode and we should issue
+			// DestroyMachines directly on the state, rather than
+			// via API (because DestroyMachine *also* didn't exist
+			// in 1.16).
+			// However, 1.16 *also* didn't have
+			// ForceDestroyMachines, and calling DestroyMachines at
+			// this point just leaves a machine record in
+			// "agent-state: pending", "life: dying". which will
+			// never get cleaned up either.
+			// And the code for state.DestroyMachines got moved
+			// into the API server, so it isn't really worth
+			// messing with.
+			if stateConn != nil {
+				// We are in compatibility w/ 1.16 mode.
+				// <=1.16.4 doesn't have a DestroyMachines API
+				// call (it might be added in 1.16.5). As such,
+				// just DestroyMachine in the DB directly.
+			}
 			client.DestroyMachines(machineId)
 			machineId = ""
+		}
+		if stateConn != nil {
+			stateConn.Close()
+			stateConn = nil
 		}
 		client.Close()
 	}()
@@ -79,10 +104,16 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	if machineParams.HardwareCharacteristics.Arch != nil {
 		arch = *machineParams.HardwareCharacteristics.Arch
 	}
+
 	// Inform Juju that the machine exists.
 	machineId, err = recordMachineInState(client, *machineParams)
 	if rpc.IsNoSuchRequest(err) {
-		machineId, err = recordMachineInState1dot16(args.EnvName, *machineParams)
+		logger.Infof("InjectMachines not supported by the API server, " +
+			"falling back to 1.16 compatibility mode (direct DB access)")
+		stateConn, err = juju.NewConnFromName(args.EnvName)
+		if err == nil {
+			machineId, err = recordMachineInState1dot16(stateConn, *machineParams)
+		}
 	}
 	if err != nil {
 		return "", err
@@ -139,18 +170,11 @@ func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 }
 
 func recordMachineInState1dot16(
-	envName string, machineParams params.AddMachineParams) (machineId string, err error) {
-	logger.Infof("InjectMachines not supported by the API server, " +
-		"falling back to 1.16 compatibility mode (direct DB access)")
+	stateConn *juju.Conn, machineParams params.AddMachineParams) (machineId string, err error) {
 	stateJobs, err := convertToStateJobs(machineParams.Jobs)
 	if err != nil {
 		return "", err
 	}
-	stateConn, err := juju.NewConnFromName(envName)
-	if err != nil {
-		return "", err
-	}
-	defer stateConn.Close()
 	stateParams := state.AddMachineParams{
 		Series: machineParams.Series,
 		Constraints: machineParams.Constraints, // not used
