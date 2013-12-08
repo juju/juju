@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -70,22 +71,25 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		client.Close()
 	}()
 
-	// Generate a unique nonce for the machine.
-	uuid, err := utils.NewUUID()
+	machineParams, err := gatherMachineParams(args.Host)
 	if err != nil {
 		return "", err
 	}
-	instanceId := instance.Id(manualInstancePrefix + hostWithoutUser(args.Host))
-	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
-
+	arch := ""
+	if machineParams.HardwareCharacteristics.Arch != nil {
+		arch = *machineParams.HardwareCharacteristics.Arch
+	}
 	// Inform Juju that the machine exists.
-	machineId, series, arch, err := recordMachineInState(client, args.Host, nonce, instanceId)
+	machineId, err = recordMachineInState(client, *machineParams)
+	if rpc.IsNoSuchRequest(err) {
+		machineId, err = recordMachineInState1dot16(args.EnvName, *machineParams)
+	}
 	if err != nil {
 		return "", err
 	}
 
 	// Gather the information needed by the machine agent to run the provisioning script.
-	mcfg, err := createMachineConfig(client, machineId, series, arch, nonce, args.DataDir)
+	mcfg, err := createMachineConfig(client, machineId, machineParams.Series, arch, machineParams.Nonce, args.DataDir)
 	if err != nil {
 		return machineId, err
 	}
@@ -109,8 +113,68 @@ func hostWithoutUser(host string) string {
 }
 
 func recordMachineInState(
-	client *api.Client, host, nonce string, instanceId instance.Id) (machineId, series, arch string, err error) {
+	client *api.Client, machineParams params.AddMachineParams) (machineId string, err error) {
+	results, err := client.InjectMachines([]params.AddMachineParams{machineParams})
+	if err != nil {
+		return "", err
+	}
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return "", machineInfo.Error
+	}
+	return machineInfo.Machine, nil
+}
 
+// convertToStateJobs takes a slice of params.MachineJob and makes them a slice of state.MachineJob
+func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+	outJobs := make([]state.MachineJob, len(jobs))
+	var err error
+	for j, job := range jobs {
+		if outJobs[j], err = state.MachineJobFromParams(job); err != nil {
+			return nil, err
+		}
+	}
+	return outJobs, nil
+}
+
+func recordMachineInState1dot16(
+	envName string, machineParams params.AddMachineParams) (machineId string, err error) {
+	logger.Infof("InjectMachines not supported by the API server, " +
+		"falling back to 1.16 compatibility mode (direct DB access)")
+	stateJobs, err := convertToStateJobs(machineParams.Jobs)
+	if err != nil {
+		return "", err
+	}
+	stateConn, err := juju.NewConnFromName(envName)
+	if err != nil {
+		return "", err
+	}
+	defer stateConn.Close()
+	stateParams := state.AddMachineParams{
+		Series: machineParams.Series,
+		Constraints: machineParams.Constraints, // not used
+		Jobs: stateJobs,
+		ParentId: machineParams.ParentId, //not used
+		ContainerType: machineParams.ContainerType, // not used
+		InstanceId: machineParams.InstanceId,
+		HardwareCharacteristics: machineParams.HardwareCharacteristics,
+		Nonce: machineParams.Nonce,
+	}
+	machine, err := stateConn.State.InjectMachine(&stateParams)
+	if err != nil {
+		return "", err
+	}
+	return machine.Id(), nil
+}
+
+func gatherMachineParams(host string) (*params.AddMachineParams, error) {
+
+	// Generate a unique nonce for the machine.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
 	// First, gather the parameters needed to inject the existing host into state.
 	sshHostWithoutUser := hostWithoutUser(host)
 	if ip := net.ParseIP(sshHostWithoutUser); ip != nil {
@@ -126,33 +190,34 @@ func recordMachineInState(
 	}
 	addrs, err := instance.HostAddresses(sshHostWithoutUser)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 	logger.Infof("addresses for %v: %v", sshHostWithoutUser, addrs)
 
 	provisioned, err := checkProvisioned(host)
 	if err != nil {
 		err = fmt.Errorf("error checking if provisioned: %v", err)
-		return "", "", "", err
+		return nil, err
 	}
 	if provisioned {
-		return "", "", "", ErrProvisioned
+		return nil, ErrProvisioned
 	}
 
 	hc, series, err := DetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
-		return "", "", "", err
+		return nil, err
 	}
 
-	// Inject a new machine into state.
-	//
 	// There will never be a corresponding "instance" that any provider
 	// knows about. This is fine, and works well with the provisioner
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
-	machineParams := params.AddMachineParams{
+
+	instanceId := instance.Id(manualInstancePrefix + hostWithoutUser(host))
+	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
+	machineParams := &params.AddMachineParams{
 		Series:                  series,
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
@@ -160,16 +225,7 @@ func recordMachineInState(
 		Addrs:                   addrs,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 	}
-	results, err := client.InjectMachines([]params.AddMachineParams{machineParams})
-	if err != nil {
-		return "", "", "", err
-	}
-	// Currently, only one machine is added, but in future there may be several added in one call.
-	machineInfo := results[0]
-	if machineInfo.Error != nil {
-		return "", "", "", machineInfo.Error
-	}
-	return machineInfo.Machine, series, *hc.Arch, nil
+	return machineParams, nil
 }
 
 func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
