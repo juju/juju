@@ -243,6 +243,21 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDNSName(c *gc.C) {
 	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\\.{5,11}\n")
 }
 
+func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDNSName(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	go func() {
+		<-time.After(2 * time.Millisecond)
+		t.Killf("stopping WaitSSH during DNSName")
+	}()
+	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during DNSName")
+	// Exact timing is imprecise but it should have tried a few times before being killed
+	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\\.{1,4}\n")
+}
+
 type brokenDNSName struct {
 }
 
@@ -282,4 +297,22 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 		"Waiting for DNS name\\.\n"+
 			" - 0.1.2.3\n"+
 			"Attempting to connect to 0.1.2.3:22\\.{5,11}\n")
+}
+
+func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	go func() {
+		<-time.After(2 * time.Millisecond)
+		t.Killf("stopping WaitSSH during Dial")
+	}()
+	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Dial")
+	// Exact timing is imprecise but it should have tried a few times before being killed
+	c.Check(buf.String(), gc.Matches,
+		"Waiting for DNS name\\.\n"+
+			" - 0.1.2.3\n"+
+			"Attempting to connect to 0.1.2.3:22\\.{1,3}\n")
 }

@@ -135,8 +135,9 @@ var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machin
 	return sshinit.Configure("ubuntu@"+dnsName, cloudcfg)
 }
 
-// This is the same as api.DialOpts, but that isn't in an easy to share
-// location
+// SSHTimeoutOpts lists the amount of time we will wait for various parts of
+// the SSH connection to complete. This is similar to DialOpts, see
+// http://pad.lv/1258889 about possibly deduplicating them.
 type SSHTimeoutOpts struct {
 	// Timeout is the amount of time to wait contacting
 	// a state server.
@@ -158,8 +159,6 @@ func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
 		DNSNameDelay: 1 * time.Second,
 	}
 }
-
-// All we need for waitSSH is to ask for the DNS name
 
 type dnsNamer interface {
 	// DNSName returns the DNS name for the instance.
@@ -199,10 +198,10 @@ func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTime
 	fmt.Fprintf(ctx.Stderr, "\n - %v\n", dnsName)
 
 	// Wait until we can open a connection to port 22.
-	fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22", dnsName)
+	connectionAddress := dnsName + ":22"
+	fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s", connectionAddress)
 	for {
 		fmt.Fprintf(ctx.Stderr, ".")
-		connectionAddress := dnsName + ":22"
 		retryTimeout := time.After(timeout.RetryDelay)
 		conn, err := net.DialTimeout("tcp", connectionAddress, timeout.RetryDelay)
 		if err == nil {
