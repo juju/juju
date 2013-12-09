@@ -1,17 +1,16 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package store
+package store_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -47,5 +46,5 @@ func (s *ConfigSuite) TestReadConfig(c *gc.C) {
 
 	dstr, err := store.ReadConfig(cfgPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(dstr.MongoUrl, gc.Equals, "localhost:23456")
+	c.Assert(dstr.MongoURL, gc.Equals, "localhost:23456")
 }

@@ -1,11 +1,12 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main_test
+package main
 
 import (
 	"fmt"
 	"os"
+	"path"
 
 	gc "launchpad.net/gocheck"
 
@@ -56,10 +57,12 @@ func (s *ConfigSuite) TestReadConfig(c *gc.C) {
 	}
 
 	config := &SomeConfigCommand{}
-	err = testing.InitCommand(config, []string{"--config", cfgPath})
+	args := []string{"--config", cfgPath}
+	err = testing.InitCommand(config, args)
+	c.Assert(err, gc.IsNil)
+	_, err = testing.RunCommand(c, config, args)
 	c.Assert(err, gc.IsNil)
 
-	dstr, err := config.ReadConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(dstr.MongoUrl, gc.Equals, "localhost:23456")
+	c.Assert(config.Config, gc.Not(gc.IsNil))
+	c.Assert(config.Config.MongoURL, gc.Equals, "localhost:23456")
 }

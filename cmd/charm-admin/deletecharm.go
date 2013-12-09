@@ -31,17 +31,22 @@ func (c *DeleteCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeleteCharmCommand) Init(args []string) error {
-	return nil
-}
-
-func (c *DeleteCharmCommand) Run(ctx *cmd.Context) error {
 	// Check flags
-	err := c.ConfigCommand.Run(ctx)
+	err := c.ConfigCommand.Init(args)
 	if err != nil {
 		return err
 	}
 	if c.Url == "" {
 		return fmt.Errorf("--url is required")
+	}
+	return nil
+}
+
+func (c *DeleteCharmCommand) Run(ctx *cmd.Context) error {
+	// Read config
+	err := c.ConfigCommand.Run(ctx)
+	if err != nil {
+		return err
 	}
 
 	// Parse the charm URL
@@ -50,25 +55,19 @@ func (c *DeleteCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// Read & check config
-	conf, err := store.ReadConfig(c.ConfigPath)
-	if err != nil {
-		return err
-	}
-
 	// Open the charm store storage
-	s, err := store.Open(conf.MongoURL)
+	s, err := store.Open(c.Config.MongoURL)
 	if err != nil {
 		return err
 	}
 	defer s.Close()
 
 	// Delete the charm by URL
-	info, err := s.DeleteCharm(charmUrl)
+	_, err = s.DeleteCharm(charmUrl)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(ctx.Stdout, "Charm", info.Meta().Name, "deleted.")
+	fmt.Fprintln(ctx.Stdout, "Charm", charmUrl, "deleted.")
 	return nil
 }
 
