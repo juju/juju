@@ -11,7 +11,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api/credentials"
+	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
@@ -20,8 +20,8 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 
-type credentialsWorker struct {
-	st       *credentials.State
+type keyupdaterWorker struct {
+	st       *keyupdater.State
 	tomb     tomb.Tomb
 	tag      string
 	jujuKeys set.Strings
@@ -30,12 +30,12 @@ type credentialsWorker struct {
 // NewWorker returns a worker that keeps track of
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
-func NewWorker(st *credentials.State, agentConfig agent.Config) worker.Worker {
-	cw := &credentialsWorker{st: st, tag: agentConfig.Tag()}
+func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
+	cw := &keyupdaterWorker{st: st, tag: agentConfig.Tag()}
 	return worker.NewNotifyWorker(cw)
 }
 
-func (cw *credentialsWorker) SetUp() (watcher.NotifyWatcher, error) {
+func (cw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// Read the keys Juju knows about
 	jujuKeys, err := cw.st.AuthorisedKeys(cw.tag)
 	if err != nil {
@@ -56,13 +56,13 @@ func (cw *credentialsWorker) SetUp() (watcher.NotifyWatcher, error) {
 
 	w, err := cw.st.WatchAuthorisedKeys(cw.tag)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "starting credentials worker: %v", err)
+		return nil, log.LoggedErrorf(logger, "starting key updater worker: %v", err)
 	}
-	logger.Infof("%q credentials worker started", cw.tag)
+	logger.Infof("%q key updater worker started", cw.tag)
 	return w, nil
 }
 
-func (cw *credentialsWorker) Handle() error {
+func (cw *keyupdaterWorker) Handle() error {
 	// Read the keys that Juju has.
 	newKeys, err := cw.st.AuthorisedKeys(cw.tag)
 	if err != nil {
@@ -100,7 +100,7 @@ func (cw *credentialsWorker) Handle() error {
 	return nil
 }
 
-func (cw *credentialsWorker) TearDown() error {
+func (cw *keyupdaterWorker) TearDown() error {
 	// Nothing to do here.
 	return nil
 }

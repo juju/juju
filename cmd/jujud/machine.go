@@ -173,7 +173,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-		return authenticationworker.NewWorker(st.Credentials(), agentConfig), nil
+		return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 	})
 
 	// Perform the operations needed to set up hosting for containers.
