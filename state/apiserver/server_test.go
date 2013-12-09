@@ -354,7 +354,7 @@ func (s *charmsSuite) TestCharmsUploadSuccess(c *gc.C) {
 	archivePath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
 	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), archivePath)
 	c.Assert(err, gc.IsNil)
-	assertResponse(c, resp, http.StatusOK, "", "local:quantal/dummy")
+	assertResponse(c, resp, http.StatusOK, "", "local:quantal/dummy-1")
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expCode int, expError, expCharmURL string) {

@@ -276,7 +276,7 @@ func (srv *Server) charmsHandler(w http.ResponseWriter, r *http.Request) {
 		sendError(w, 0, fmt.Sprintf("invalid charm archive: %v", err))
 		return
 	}
-	charmUrl := "local:" + series + "/" + archive.Meta().Name
+	charmUrl := fmt.Sprintf("local:%s/%s-%d", series, archive.Meta().Name, archive.Revision())
 	sendJSON(w, &CharmsResponse{Code: http.StatusOK, CharmURL: charmUrl})
 }
 
