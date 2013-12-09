@@ -20,10 +20,11 @@ type authorisedKeysSuite struct {
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
-	rawMachine  *state.Machine
-	credentials *credentials.CredentialsAPI
-	resources   *common.Resources
-	authoriser  apiservertesting.FakeAuthorizer
+	rawMachine       *state.Machine
+	unrelatedMachine *state.Machine
+	credentials      *credentials.CredentialsAPI
+	resources        *common.Resources
+	authoriser       apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&authorisedKeysSuite{})
@@ -33,16 +34,18 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	// Create a machine to work with
+	// Create machines to work with
 	var err error
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	s.unrelatedMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// The default auth is as a state server
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
-		StateManager: true,
+		MachineAgent: true,
 	}
 	s.credentials, err = credentials.NewCredentialsAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
@@ -54,9 +57,9 @@ func (s *authorisedKeysSuite) TestNewCredentialsAPIAcceptsStateServer(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
-func (s *authorisedKeysSuite) TestNewCredentialsAPIRefusesNonStateServer(c *gc.C) {
+func (s *authorisedKeysSuite) TestNewCredentialsAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.StateManager = false
+	anAuthoriser.MachineAgent = false
 	endPoint, err := credentials.NewCredentialsAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -64,7 +67,8 @@ func (s *authorisedKeysSuite) TestNewCredentialsAPIRefusesNonStateServer(c *gc.C
 
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results := s.credentials.WatchAuthorisedKeys(params.Entities{})
+	results, err := s.credentials.WatchAuthorisedKeys(params.Entities{})
+	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
@@ -80,13 +84,16 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: s.rawMachine.Tag()},
+			{Tag: s.unrelatedMachine.Tag()},
 			{Tag: "machine-42"},
 		},
 	}
-	results := s.credentials.WatchAuthorisedKeys(args)
+	results, err := s.credentials.WatchAuthorisedKeys(args)
+	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 		},
 	})
@@ -108,7 +115,8 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
 	// Not an error to request nothing, dumb, but not an error.
-	results := s.credentials.AuthorisedKeys(params.Entities{})
+	results, err := s.credentials.AuthorisedKeys(params.Entities{})
+	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
@@ -118,13 +126,16 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: s.rawMachine.Tag()},
+			{Tag: s.unrelatedMachine.Tag()},
 			{Tag: "machine-42"},
 		},
 	}
-	results := s.credentials.AuthorisedKeys(args)
+	results, err := s.credentials.AuthorisedKeys(args)
+	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{"key1", "key2"}},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 		},
 	})

@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/credentials"
 	"launchpad.net/juju-core/state/testing"
-	"launchpad.net/juju-core/utils"
 )
 
 type credentialsSuite struct {
@@ -19,8 +18,7 @@ type credentialsSuite struct {
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
-	rawStateServer *state.Machine
-	rawMachine     *state.Machine
+	rawMachine *state.Machine
 
 	credentials *credentials.State
 }
@@ -30,23 +28,10 @@ var _ = gc.Suite(&credentialsSuite{})
 func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var stateAPI *api.State
-
-	var err error
-	s.rawStateServer, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
-	c.Assert(err, gc.IsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	err = s.rawStateServer.SetPassword(password)
-	c.Assert(err, gc.IsNil)
-	err = s.rawStateServer.SetProvisioned("i-manager", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	stateAPI = s.OpenAPIAsMachine(c, s.rawStateServer.Tag(), password, "fake_nonce")
+	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	c.Assert(stateAPI, gc.NotNil)
 	s.credentials = stateAPI.Credentials()
 	c.Assert(s.credentials, gc.NotNil)
-
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
 
 }
 
@@ -55,13 +40,10 @@ func (s *credentialsSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
 }
 
-func (s *credentialsSuite) TestAuthorisedKeysNonStateServer(c *gc.C) {
-	stateAPI, _ := s.OpenAPIAsNewMachine(c)
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+func (s *credentialsSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
-	creds := stateAPI.Credentials()
-	c.Assert(creds, gc.NotNil)
-	_, err = creds.AuthorisedKeys(m.Tag())
+	_, err = s.credentials.AuthorisedKeys(m.Tag())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
