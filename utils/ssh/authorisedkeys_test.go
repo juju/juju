@@ -14,19 +14,12 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
 
 func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
-
-var validKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEX/dPu4PmtvgK3La9zioCEDrJ` +
-	`yUr6xEIK7Pr+rLgydcqWTU/kt7w7gKjOw4vvzgHfjKl09CWyvgb+y5dCiTk` +
-	`9MxI+erGNhs3pwaoS+EavAbawB7iEqYyTep3YaJK+4RJ4OX7ZlXMAIMrTL+` +
-	`UVrK89t56hCkFYaAgo3VY+z6rb/b3bDBYtE1Y2tS7C3au73aDgeb9psIrSV` +
-	`86ucKBTl5X62FnYiyGd++xCnLB6uLximM5OKXfLzJQNS/QyZyk12g3D8y69` +
-	`Xw1GzCSKX1u1+MQboyf0HJcG2ryUCLHdcDVppApyHx2OLq53hlkQ/yxdflD` +
-	`qCqAE4j+doagSsIfC1T2T`
 
 type AuthorisedKeysKeysSuite struct {
 	testbase.LoggingSuite
@@ -50,19 +43,21 @@ func writeAuthKeysFile(c *gc.C, keys []string) {
 
 func (s *AuthorisedKeysKeysSuite) TestListKeys(c *gc.C) {
 	keys := []string{
-		validKey + " user@host",
-		validKey + " anotheruser@host",
+		sshtesting.ValidKeyOne.Key + " user@host",
+		sshtesting.ValidKeyTwo.Key,
 	}
 	writeAuthKeysFile(c, keys)
-	keys, err := ssh.ListKeys(ssh.KeyComments)
+	keys, err := ssh.ListKeys(ssh.Fingerprints)
 	c.Assert(err, gc.IsNil)
-	c.Assert(keys, gc.DeepEquals, []string{"user@host", "anotheruser@host"})
+	c.Assert(
+		keys, gc.DeepEquals,
+		[]string{sshtesting.ValidKeyOne.Fingerprint + " (user@host)", sshtesting.ValidKeyTwo.Fingerprint})
 }
 
 func (s *AuthorisedKeysKeysSuite) TestListKeysFull(c *gc.C) {
 	keys := []string{
-		validKey + " user@host",
-		validKey + " anotheruser@host",
+		sshtesting.ValidKeyOne.Key + " user@host",
+		sshtesting.ValidKeyTwo.Key + " anotheruser@host",
 	}
 	writeAuthKeysFile(c, keys)
 	actual, err := ssh.ListKeys(ssh.FullKeys)
@@ -71,7 +66,7 @@ func (s *AuthorisedKeysKeysSuite) TestListKeysFull(c *gc.C) {
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddNewKey(c *gc.C) {
-	key := validKey + " user@host"
+	key := sshtesting.ValidKeyOne.Key + " user@host"
 	err := ssh.AddKeys(key)
 	c.Assert(err, gc.IsNil)
 	actual, err := ssh.ListKeys(ssh.FullKeys)
@@ -80,11 +75,11 @@ func (s *AuthorisedKeysKeysSuite) TestAddNewKey(c *gc.C) {
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddMoreKeys(c *gc.C) {
-	firstKey := validKey + " user@host"
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
 	writeAuthKeysFile(c, []string{firstKey})
 	moreKeys := []string{
-		validKey + " anotheruser@host",
-		validKey + " yetanotheruser@host",
+		sshtesting.ValidKeyTwo.Key + " anotheruser@host",
+		sshtesting.ValidKeyThree.Key + " yetanotheruser@host",
 	}
 	err := ssh.AddKeys(moreKeys...)
 	c.Assert(err, gc.IsNil)
@@ -94,70 +89,90 @@ func (s *AuthorisedKeysKeysSuite) TestAddMoreKeys(c *gc.C) {
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddDuplicateKey(c *gc.C) {
-	key := validKey + " user@host"
+	key := sshtesting.ValidKeyOne.Key + " user@host"
 	err := ssh.AddKeys(key)
 	c.Assert(err, gc.IsNil)
 	moreKeys := []string{
-		validKey + " user@host",
-		validKey + " yetanotheruser@host",
+		sshtesting.ValidKeyOne.Key + " user@host",
+		sshtesting.ValidKeyTwo.Key + " yetanotheruser@host",
 	}
 	err = ssh.AddKeys(moreKeys...)
-	c.Assert(err, gc.ErrorMatches, "cannot add duplicate ssh key: user@host")
+	c.Assert(err, gc.ErrorMatches, "cannot add duplicate ssh key: "+sshtesting.ValidKeyOne.Fingerprint)
+}
+
+func (s *AuthorisedKeysKeysSuite) TestAddDuplicateComment(c *gc.C) {
+	key := sshtesting.ValidKeyOne.Key + " user@host"
+	err := ssh.AddKeys(key)
+	c.Assert(err, gc.IsNil)
+	moreKeys := []string{
+		sshtesting.ValidKeyTwo.Key + " user@host",
+		sshtesting.ValidKeyThree.Key + " yetanotheruser@host",
+	}
+	err = ssh.AddKeys(moreKeys...)
+	c.Assert(err, gc.ErrorMatches, "cannot add ssh key with duplicate comment: user@host")
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddKeyWithoutComment(c *gc.C) {
 	keys := []string{
-		validKey + " user@host",
-		validKey,
+		sshtesting.ValidKeyOne.Key + " user@host",
+		sshtesting.ValidKeyTwo.Key,
 	}
 	err := ssh.AddKeys(keys...)
 	c.Assert(err, gc.ErrorMatches, "cannot add ssh key without comment")
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddKeepsUnrecognised(c *gc.C) {
-	writeAuthKeysFile(c, []string{validKey, "invalid-key"})
-	anotherKey := validKey + " anotheruser@host"
+	writeAuthKeysFile(c, []string{sshtesting.ValidKeyOne.Key, "invalid-key"})
+	anotherKey := sshtesting.ValidKeyTwo.Key + " anotheruser@host"
 	err := ssh.AddKeys(anotherKey)
 	c.Assert(err, gc.IsNil)
 	actual, err := ssh.ReadAuthorisedKeys()
 	c.Assert(err, gc.IsNil)
-	c.Assert(actual, gc.DeepEquals, []string{validKey, "invalid-key", anotherKey})
+	c.Assert(actual, gc.DeepEquals, []string{sshtesting.ValidKeyOne.Key, "invalid-key", anotherKey})
 }
 
 func (s *AuthorisedKeysKeysSuite) TestDeleteKeys(c *gc.C) {
-	firstKey := validKey + " user@host"
-	anotherKey := validKey + " anotheruser@host"
-	writeAuthKeysFile(c, []string{firstKey, anotherKey})
-	err := ssh.DeleteKeys("user@host")
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
+	anotherKey := sshtesting.ValidKeyTwo.Key
+	thirdKey := sshtesting.ValidKeyThree.Key + " anotheruser@host"
+	writeAuthKeysFile(c, []string{firstKey, anotherKey, thirdKey})
+	err := ssh.DeleteKeys("user@host", sshtesting.ValidKeyTwo.Fingerprint)
 	c.Assert(err, gc.IsNil)
 	actual, err := ssh.ListKeys(ssh.FullKeys)
 	c.Assert(err, gc.IsNil)
-	c.Assert(actual, gc.DeepEquals, []string{anotherKey})
+	c.Assert(actual, gc.DeepEquals, []string{thirdKey})
 }
 
-func (s *AuthorisedKeysKeysSuite) TestDeleteKeysKeepsUnregognised(c *gc.C) {
-	firstKey := validKey + " user@host"
-	writeAuthKeysFile(c, []string{firstKey, validKey, "invalid-key"})
+func (s *AuthorisedKeysKeysSuite) TestDeleteKeysKeepsUnrecognised(c *gc.C) {
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
+	writeAuthKeysFile(c, []string{firstKey, sshtesting.ValidKeyTwo.Key, "invalid-key"})
 	err := ssh.DeleteKeys("user@host")
 	c.Assert(err, gc.IsNil)
 	actual, err := ssh.ReadAuthorisedKeys()
 	c.Assert(err, gc.IsNil)
-	c.Assert(actual, gc.DeepEquals, []string{validKey, "invalid-key"})
+	c.Assert(actual, gc.DeepEquals, []string{"invalid-key", sshtesting.ValidKeyTwo.Key})
 }
 
-func (s *AuthorisedKeysKeysSuite) TestDeleteNonExistentKey(c *gc.C) {
-	firstKey := validKey + " user@host"
+func (s *AuthorisedKeysKeysSuite) TestDeleteNonExistentComment(c *gc.C) {
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
 	writeAuthKeysFile(c, []string{firstKey})
 	err := ssh.DeleteKeys("someone@host")
 	c.Assert(err, gc.ErrorMatches, "cannot delete non existent key: someone@host")
 }
 
+func (s *AuthorisedKeysKeysSuite) TestDeleteNonExistentFingerprint(c *gc.C) {
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
+	writeAuthKeysFile(c, []string{firstKey})
+	err := ssh.DeleteKeys(sshtesting.ValidKeyTwo.Fingerprint)
+	c.Assert(err, gc.ErrorMatches, "cannot delete non existent key: "+sshtesting.ValidKeyTwo.Fingerprint)
+}
+
 func (s *AuthorisedKeysKeysSuite) TestDeleteLastKeyForbidden(c *gc.C) {
 	keys := []string{
-		validKey + " user@host",
-		validKey + " yetanotheruser@host",
+		sshtesting.ValidKeyOne.Key + " user@host",
+		sshtesting.ValidKeyTwo.Key + " yetanotheruser@host",
 	}
 	writeAuthKeysFile(c, keys)
-	err := ssh.DeleteKeys("user@host", "yetanotheruser@host")
+	err := ssh.DeleteKeys("user@host", sshtesting.ValidKeyTwo.Fingerprint)
 	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
 }
