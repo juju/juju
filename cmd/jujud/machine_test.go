@@ -578,32 +578,38 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestManageStateRunsAuthorisedKeysWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
-		sshKey := sshtesting.ValidKeyOne.Key + " user@host"
-		err := statetesting.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": sshKey})
-		c.Assert(err, gc.IsNil)
 
-		// Wait for ssh keys file to be updated.
-		s.State.StartSync()
-		timeout := time.After(testing.LongWait)
-		for {
-			select {
-			case <-timeout:
-				c.Fatalf("timeout while waiting for authoirsed ssh keys to change")
-			case <-time.After(10 * time.Millisecond):
-				keys, err := ssh.ListKeys(ssh.FullKeys)
-				c.Assert(err, gc.IsNil)
-				keysStr := strings.Join(keys, "\n")
-				if sshKey != keysStr {
-					continue
-				}
-				return
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Update the keys in the environment.
+	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
+	err := statetesting.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": sshKey})
+	c.Assert(err, gc.IsNil)
+
+	// Wait for ssh keys file to be updated.
+	s.State.StartSync()
+	timeout := time.After(testing.LongWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for authorised ssh keys to change")
+		case <-time.After(10 * time.Millisecond):
+			keys, err := ssh.ListKeys(ssh.FullKeys)
+			c.Assert(err, gc.IsNil)
+			keysStr := strings.Join(keys, "\n")
+			if sshKey != keysStr {
+				continue
 			}
+			return
 		}
-	})
+	}
 }
 
 // opRecvTimeout waits for any of the given kinds of operation to
