@@ -57,6 +57,7 @@ type Uniter struct {
 	sf           *StateFile
 	rand         *rand.Rand
 	hookLock     *fslock.Lock
+	runListener  *RunListener
 
 	ranConfigChanged bool
 }
@@ -154,6 +155,15 @@ func (u *Uniter) init(unitTag string) (err error) {
 		return err
 	}
 	u.uuid, err = env.UUID()
+	if err != nil {
+		return err
+	}
+
+	runListenerSocketPath := filepath.Join(u.baseDir, "run.socket")
+	// TODO: find out what this means...
+	// Use abstract namespace so we don't get stale socket files.
+	runListenerSocketPath = "@" + runListenerSocketPath
+	u.runListener, err = NewRunListener(u.hookLock, "unix", runListenerSocketPath)
 	if err != nil {
 		return err
 	}
