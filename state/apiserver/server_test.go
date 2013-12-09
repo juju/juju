@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -301,35 +302,31 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 func (s *charmsSuite) TestCharmsUploadRequiresAuth(c *gc.C) {
 	resp, err := s.sendRequest(c, "", "", "GET", s.charmsUri(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
+	assertResponse(c, resp, http.StatusUnauthorized, "unauthorized", "")
 }
 
 func (s *charmsSuite) TestCharmsUploadRequiresPOST(c *gc.C) {
 	resp, err := s.authRequest(c, "GET", s.charmsUri(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	assertBody(c, resp, "unsupported method: GET\n")
+	assertResponse(c, resp, http.StatusMethodNotAllowed, "unsupported method: GET", "")
 }
 
 func (s *charmsSuite) TestCharmsUploadRequiresSeries(c *gc.C) {
 	resp, err := s.authRequest(c, "POST", s.charmsUri(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
-	assertBody(c, resp, "expected series= URL argument\n")
+	assertResponse(c, resp, http.StatusBadRequest, "expected series= URL argument", "")
 }
 
 func (s *charmsSuite) TestCharmsUploadRequiresMultipartForm(c *gc.C) {
 	resp, err := s.authRequest(c, "POST", s.charmsUri(c, "?series=quantal"), "", nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
-	assertBody(c, resp, "request Content-Type isn't multipart/form-data\n")
+	assertResponse(c, resp, http.StatusBadRequest, "request Content-Type isn't multipart/form-data", "")
 }
 
 func (s *charmsSuite) TestCharmsUploadRequiresUploadedFile(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
-	assertBody(c, resp, "expected a single uploaded file, got none\n")
+	assertResponse(c, resp, http.StatusBadRequest, "expected a single uploaded file, got none", "")
 }
 
 func (s *charmsSuite) TestCharmsUploadRequiresSingleUploadedFile(c *gc.C) {
@@ -340,8 +337,7 @@ func (s *charmsSuite) TestCharmsUploadRequiresSingleUploadedFile(c *gc.C) {
 
 	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), path, path)
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
-	assertBody(c, resp, "expected a single uploaded file, got more\n")
+	assertResponse(c, resp, http.StatusBadRequest, "expected a single uploaded file, got more", "")
 }
 
 func (s *charmsSuite) TestChramsFailsWithInvalidZip(c *gc.C) {
@@ -351,21 +347,28 @@ func (s *charmsSuite) TestChramsFailsWithInvalidZip(c *gc.C) {
 
 	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), tempFile.Name())
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
-	assertBody(c, resp, "invalid charm archive: zip: not a valid zip file\n")
+	assertResponse(c, resp, http.StatusBadRequest, "invalid charm archive: zip: not a valid zip file", "")
 }
 
 func (s *charmsSuite) TestCharmsUploadSuccess(c *gc.C) {
 	archivePath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
 	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), archivePath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	assertBody(c, resp, "local:quantal/dummy\n")
+	assertResponse(c, resp, http.StatusOK, "", "local:quantal/dummy")
 }
 
-func assertBody(c *gc.C, resp *http.Response, expected string) {
+func assertResponse(c *gc.C, resp *http.Response, expCode int, expError, expCharmURL string) {
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(body), gc.Matches, expected)
+	var jsonResponse apiserver.CharmsResponse
+	err = json.Unmarshal(body, &jsonResponse)
+	c.Assert(err, gc.IsNil)
+	if expError != "" {
+		c.Assert(jsonResponse.Code, gc.Equals, expCode)
+		c.Assert(jsonResponse.Error, gc.Matches, expError)
+	} else {
+		c.Assert(jsonResponse.Code, gc.Equals, expCode)
+		c.Assert(jsonResponse.CharmURL, gc.Equals, expCharmURL)
+	}
 }

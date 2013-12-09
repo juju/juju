@@ -6,6 +6,7 @@ package apiserver
 import (
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -152,6 +153,41 @@ func (srv *Server) run(lis net.Listener) {
 	http.Serve(lis, mux)
 }
 
+// CharmsResponse is the server response to a charm upload request.
+type CharmsResponse struct {
+	Code     int    `json:"code,omitempty"`
+	Error    string `json:"error,omitempty"`
+	CharmURL string `json:"charmUrl,omitempty"`
+}
+
+func sendJSON(w http.ResponseWriter, response *CharmsResponse) error {
+	if response == nil {
+		return fmt.Errorf("response is nil")
+	}
+	w.WriteHeader(response.Code)
+	body, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+	w.Write(body)
+	return nil
+}
+
+func sendError(w http.ResponseWriter, code int, message string) error {
+	if code == 0 {
+		// Use code 400 by default.
+		code = http.StatusBadRequest
+	} else if code == http.StatusOK {
+		// Dont' report 200 OK.
+		code = 0
+	}
+	err := sendJSON(w, &CharmsResponse{Code: code, Error: message})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (srv *Server) httpAuthenticate(w http.ResponseWriter, r *http.Request) error {
 	if r == nil {
 		return fmt.Errorf("invalid request")
@@ -177,35 +213,34 @@ func (srv *Server) httpAuthenticate(w http.ResponseWriter, r *http.Request) erro
 	return err
 }
 
-func (srv *Server) requireHttpAuth(w http.ResponseWriter, r *http.Request) {
+func (srv *Server) requireHttpAuth(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	w.WriteHeader(http.StatusUnauthorized)
-	w.Write([]byte("401 Unauthorized\n"))
+	sendError(w, http.StatusUnauthorized, "unauthorized")
 }
 
 func (srv *Server) charmsHandler(w http.ResponseWriter, r *http.Request) {
 	if err := srv.httpAuthenticate(w, r); err != nil {
-		srv.requireHttpAuth(w, r)
+		srv.requireHttpAuth(w)
 		return
 	}
 	if r.Method != "POST" {
-		http.Error(w, fmt.Sprintf("unsupported method: %s", r.Method), http.StatusMethodNotAllowed)
+		sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %s", r.Method))
 		return
 	}
 	query := r.URL.Query()
 	series := query.Get("series")
 	if series == "" {
-		http.Error(w, fmt.Sprintf("expected series= URL argument"), http.StatusBadRequest)
+		sendError(w, 0, "expected series= URL argument")
 		return
 	}
 	reader, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendError(w, 0, err.Error())
 		return
 	}
 	part, err := reader.NextPart()
 	if err == io.EOF {
-		http.Error(w, "expected a single uploaded file, got none", http.StatusBadRequest)
+		sendError(w, 0, "expected a single uploaded file, got none")
 		return
 	} else if err != nil {
 		http.Error(w, fmt.Sprintf("cannot process uploaded file: %v", err), http.StatusBadRequest)
@@ -213,7 +248,7 @@ func (srv *Server) charmsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	tempFile, err := ioutil.TempFile("", "charm")
 	if err != nil {
-		http.Error(w, fmt.Sprintf("cannot create temp file: %v", err), http.StatusInternalServerError)
+		sendError(w, http.StatusInternalServerError, fmt.Sprintf("cannot create temp file: %v", err))
 		return
 	}
 	defer tempFile.Close()
@@ -221,29 +256,28 @@ func (srv *Server) charmsHandler(w http.ResponseWriter, r *http.Request) {
 	for {
 		numRead, err := part.Read(buffer)
 		if err != nil && err != io.EOF {
-			http.Error(w, fmt.Sprintf("uploaded file read error: %v", err), http.StatusInternalServerError)
+			sendError(w, http.StatusInternalServerError, fmt.Sprintf("uploaded file read error: %v", err))
 			return
 		}
 		if numRead == 0 {
 			break
 		}
 		if _, err := tempFile.Write(buffer[:numRead]); err != nil {
-			http.Error(w, fmt.Sprintf("temp file write error: %v", err), http.StatusInternalServerError)
+			sendError(w, http.StatusInternalServerError, fmt.Sprintf("temp file write error: %v", err))
 			return
 		}
 	}
 	if _, err := reader.NextPart(); err != io.EOF {
-		http.Error(w, "expected a single uploaded file, got more", http.StatusBadRequest)
+		sendError(w, 0, "expected a single uploaded file, got more")
 		return
 	}
 	archive, err := charm.ReadBundle(tempFile.Name())
 	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid charm archive: %v", err), http.StatusBadRequest)
+		sendError(w, 0, fmt.Sprintf("invalid charm archive: %v", err))
 		return
 	}
 	charmUrl := "local:" + series + "/" + archive.Meta().Name
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(charmUrl + "\n"))
+	sendJSON(w, &CharmsResponse{Code: http.StatusOK, CharmURL: charmUrl})
 }
 
 // Addr returns the address that the server is listening on.
