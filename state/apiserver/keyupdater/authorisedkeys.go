@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentials
+package keyupdater
 
 import (
 	"strings"
@@ -12,30 +12,30 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
-// Credentials defines the methods on the credentials API end point.
-type Credentials interface {
+// KeyUpdater defines the methods on the keyupdater API end point.
+type KeyUpdater interface {
 	AuthorisedKeys(args params.Entities) (params.StringsResults, error)
 	WatchAuthorisedKeys(args params.Entities) (params.NotifyWatchResults, error)
 }
 
-// CredentialsAPI implements the Credentials interface and is the concrete
+// KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
-type CredentialsAPI struct {
+type KeyUpdaterAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
 	getCanRead common.GetAuthFunc
 }
 
-var _ Credentials = (*CredentialsAPI)(nil)
+var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
 
-// NewCredentialsAPI creates a new server-side credentials API end point.
-func NewCredentialsAPI(
+// NewKeyUpdaterAPI creates a new server-side keyupdater API end point.
+func NewKeyUpdaterAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*CredentialsAPI, error) {
-	// Only machine agents have access to the credentials service.
+) (*KeyUpdaterAPI, error) {
+	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -43,14 +43,14 @@ func NewCredentialsAPI(
 	getCanRead := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	return &CredentialsAPI{state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
+	return &KeyUpdaterAPI{state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
 }
 
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys
 // for the specified machines.
 // The current implementation relies on global authorised keys being stored in the environment config.
 // This will change as new user management and authorisation functionality is added.
-func (api *CredentialsAPI) WatchAuthorisedKeys(arg params.Entities) (params.NotifyWatchResults, error) {
+func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
 
 	getCanRead, err := api.getCanRead()
@@ -83,7 +83,7 @@ func (api *CredentialsAPI) WatchAuthorisedKeys(arg params.Entities) (params.Noti
 // AuthorisedKeys reports the authorised ssh keys for the specified machines.
 // The current implementation relies on global authorised keys being stored in the environment config.
 // This will change as new user management and authorisation functionality is added.
-func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) (params.StringsResults, error) {
+func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsResults, error) {
 	if len(arg.Entities) == 0 {
 		return params.StringsResults{}, nil
 	}

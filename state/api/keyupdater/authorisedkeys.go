@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentials
+package keyupdater
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ func (st *State) AuthorisedKeys(machineTag string) ([]string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	err := st.caller.Call("Credentials", "", "AuthorisedKeys", args, &results)
+	err := st.caller.Call("KeyUpdater", "", "AuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -50,7 +50,7 @@ func (st *State) WatchAuthorisedKeys(machineTag string) (watcher.NotifyWatcher, 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	err := st.caller.Call("Credentials", "", "WatchAuthorisedKeys", args, &results)
+	err := st.caller.Call("KeyUpdater", "", "WatchAuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

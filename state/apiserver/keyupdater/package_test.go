@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentials_test
+package keyupdater_test
 
 import (
 	stdtesting "testing"

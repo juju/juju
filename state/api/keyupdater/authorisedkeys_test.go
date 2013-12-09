@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentials_test
+package keyupdater_test
 
 import (
 	gc "launchpad.net/gocheck"
@@ -9,58 +9,58 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/credentials"
+	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/testing"
 )
 
-type credentialsSuite struct {
+type keyupdaterSuite struct {
 	jujutesting.JujuConnSuite
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
 
-	credentials *credentials.State
+	keyupdater *keyupdater.State
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+var _ = gc.Suite(&keyupdaterSuite{})
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *keyupdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var stateAPI *api.State
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	c.Assert(stateAPI, gc.NotNil)
-	s.credentials = stateAPI.Credentials()
-	c.Assert(s.credentials, gc.NotNil)
+	s.keyupdater = stateAPI.KeyUpdater()
+	c.Assert(s.keyupdater, gc.NotNil)
 
 }
 
-func (s *credentialsSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
-	_, err := s.credentials.AuthorisedKeys("machine-42")
+func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
+	_, err := s.keyupdater.AuthorisedKeys("machine-42")
 	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
 }
 
-func (s *credentialsSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
+func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
-	_, err = s.credentials.AuthorisedKeys(m.Tag())
+	_, err = s.keyupdater.AuthorisedKeys(m.Tag())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *credentialsSuite) TestAuthorisedKeys(c *gc.C) {
+func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, "key1\nkey2")
-	keys, err := s.credentials.AuthorisedKeys(s.rawMachine.Tag())
+	keys, err := s.keyupdater.AuthorisedKeys(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(keys, gc.DeepEquals, []string{"key1", "key2"})
 }
 
-func (s *credentialsSuite) setAuthorisedKeys(c *gc.C, keys string) {
+func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
 	err := testing.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": keys})
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *credentialsSuite) TestWatchAuthorisedKeys(c *gc.C) {
-	watcher, err := s.credentials.WatchAuthorisedKeys(s.rawMachine.Tag())
+func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
+	watcher, err := s.keyupdater.WatchAuthorisedKeys(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	defer testing.AssertStop(c, watcher)
 	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
