@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -252,6 +253,7 @@ func (srv *Server) charmsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
 	buffer := make([]byte, 100000)
 	for {
 		numRead, err := part.Read(buffer)
