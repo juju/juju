@@ -13,11 +13,12 @@ import (
 	"launchpad.net/juju-core/agent"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/credentials"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
 )
@@ -27,14 +28,6 @@ import (
 // not affect the overall running time of the tests
 // unless they fail.
 const worstCase = 5 * time.Second
-
-var validKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEX/dPu4PmtvgK3La9zioCEDrJ` +
-	`yUr6xEIK7Pr+rLgydcqWTU/kt7w7gKjOw4vvzgHfjKl09CWyvgb+y5dCiTk` +
-	`9MxI+erGNhs3pwaoS+EavAbawB7iEqYyTep3YaJK+4RJ4OX7ZlXMAIMrTL+` +
-	`UVrK89t56hCkFYaAgo3VY+z6rb/b3bDBYtE1Y2tS7C3au73aDgeb9psIrSV` +
-	`86ucKBTl5X62FnYiyGd++xCnLB6uLximM5OKXfLzJQNS/QyZyk12g3D8y69` +
-	`Xw1GzCSKX1u1+MQboyf0HJcG2ryUCLHdcDVppApyHx2OLq53hlkQ/yxdflD` +
-	`qCqAE4j+doagSsIfC1T2T`
 
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -48,7 +41,8 @@ type workerSuite struct {
 	machine        *state.Machine
 	credentialsApi *credentials.State
 
-	existingKeys []string
+	existingEnvKey string
+	existingKeys   []string
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
@@ -58,25 +52,16 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Replace the default dummy key in the test environment with a valid one.
-	s.setAuthorisedKeys(c, validKey+" firstuser@host")
+	s.existingEnvKey = sshtesting.ValidKeyOne.Key + " firstuser@host"
+	s.setAuthorisedKeys(c, s.existingEnvKey)
 
-	// Set up an existing key in the ssh authorised_keys file
-	s.existingKeys = []string{validKey + " existinguser@host"}
+	// Set up an existing key (which is not in the environment) in the ssh authorised_keys file.
+	s.existingKeys = []string{sshtesting.ValidKeyTwo.Key + " existinguser@host"}
 	err := ssh.AddKeys(s.existingKeys...)
 	c.Assert(err, gc.IsNil)
 
-	s.machine, err = s.BackingState.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-
-	s.stateMachine, err = s.BackingState.AddMachine("quantal", state.JobManageState, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	err = s.stateMachine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
-	err = s.stateMachine.SetProvisioned("i-manager", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	apiRoot := s.OpenAPIAsMachine(c, s.stateMachine.Tag(), password, "fake_nonce")
+	var apiRoot *api.State
+	apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(apiRoot, gc.NotNil)
 	s.credentialsApi = apiRoot.Credentials()
 	c.Assert(s.credentialsApi, gc.NotNil)
@@ -130,13 +115,13 @@ func (s *workerSuite) TestKeyUpdateRetainsExisting(c *gc.C) {
 	authWorker := authenticationworker.NewWorker(s.credentialsApi, agentConfig(c, s.machine.Tag()))
 	defer stop(c, authWorker)
 
-	newKey := validKey + " user@host"
+	newKey := sshtesting.ValidKeyThree.Key + " user@host"
 	s.setAuthorisedKeys(c, newKey)
 	s.waitSSHKeys(c, append(s.existingKeys, newKey))
 }
 
 func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
-	newKey := validKey + " user@host"
+	newKey := sshtesting.ValidKeyThree.Key + " user@host"
 	s.setAuthorisedKeys(c, newKey)
 
 	authWorker := authenticationworker.NewWorker(s.credentialsApi, agentConfig(c, s.machine.Tag()))
@@ -146,16 +131,13 @@ func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
 }
 
 func (s *workerSuite) TestDeleteKey(c *gc.C) {
-	newKey := validKey + " user@host"
-	s.setAuthorisedKeys(c, newKey)
-
 	authWorker := authenticationworker.NewWorker(s.credentialsApi, agentConfig(c, s.machine.Tag()))
 	defer stop(c, authWorker)
 
 	// Add another key
-	anotherKey := validKey + " another@host"
-	s.setAuthorisedKeys(c, newKey, anotherKey)
-	s.waitSSHKeys(c, append(s.existingKeys, newKey, anotherKey))
+	anotherKey := sshtesting.ValidKeyThree.Key + " another@host"
+	s.setAuthorisedKeys(c, s.existingEnvKey, anotherKey)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey, anotherKey))
 
 	// Delete the original key and check anotherKey plus the existing keys remain.
 	s.setAuthorisedKeys(c, anotherKey)
@@ -165,14 +147,12 @@ func (s *workerSuite) TestDeleteKey(c *gc.C) {
 func (s *workerSuite) TestMultipleChanges(c *gc.C) {
 	authWorker := authenticationworker.NewWorker(s.credentialsApi, agentConfig(c, s.machine.Tag()))
 	defer stop(c, authWorker)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 
-	newKey := validKey + " user@host"
-	anotherKey := validKey + " another@host"
-	s.setAuthorisedKeys(c, newKey, anotherKey)
-	s.waitSSHKeys(c, append(s.existingKeys, newKey, anotherKey))
-
-	// Add a key and delete a key.
-	yetAnotherKey := validKey + " yetanother@host"
-	s.setAuthorisedKeys(c, newKey, yetAnotherKey)
-	s.waitSSHKeys(c, append(s.existingKeys, newKey, yetAnotherKey))
+	// Perform a set to add a key and delete a key.
+	// added: key 3
+	// deleted: key 1 (existing env key)
+	yetAnotherKey := sshtesting.ValidKeyThree.Key + " yetanother@host"
+	s.setAuthorisedKeys(c, yetAnotherKey)
+	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKey))
 }

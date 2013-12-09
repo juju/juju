@@ -32,6 +32,7 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/deployer"
@@ -577,19 +578,11 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 	})
 }
 
-var validKey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEX/dPu4PmtvgK3La9zioCEDrJ` +
-	`yUr6xEIK7Pr+rLgydcqWTU/kt7w7gKjOw4vvzgHfjKl09CWyvgb+y5dCiTk` +
-	`9MxI+erGNhs3pwaoS+EavAbawB7iEqYyTep3YaJK+4RJ4OX7ZlXMAIMrTL+` +
-	`UVrK89t56hCkFYaAgo3VY+z6rb/b3bDBYtE1Y2tS7C3au73aDgeb9psIrSV` +
-	`86ucKBTl5X62FnYiyGd++xCnLB6uLximM5OKXfLzJQNS/QyZyk12g3D8y69` +
-	`Xw1GzCSKX1u1+MQboyf0HJcG2ryUCLHdcDVppApyHx2OLq53hlkQ/yxdflD` +
-	`qCqAE4j+doagSsIfC1T2T`
-
 func (s *MachineSuite) TestManageStateRunsAuthorisedKeysWorker(c *gc.C) {
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
-		sshKey := validKey + " user@host"
+		sshKey := sshtesting.ValidKeyOne.Key + " user@host"
 		err := statetesting.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": sshKey})
 		c.Assert(err, gc.IsNil)
 
