@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentials_test
+package keyupdater_test
 
 import (
 	gc "launchpad.net/gocheck"
@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/apiserver/credentials"
+	"launchpad.net/juju-core/state/apiserver/keyupdater"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 )
@@ -22,7 +22,7 @@ type authorisedKeysSuite struct {
 	// should never be touched by the API calls themselves
 	rawMachine       *state.Machine
 	unrelatedMachine *state.Machine
-	credentials      *credentials.CredentialsAPI
+	keyupdater       *keyupdater.KeyUpdaterAPI
 	resources        *common.Resources
 	authoriser       apiservertesting.FakeAuthorizer
 }
@@ -47,27 +47,27 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 		LoggedIn:     true,
 		MachineAgent: true,
 	}
-	s.credentials, err = credentials.NewCredentialsAPI(s.State, s.resources, s.authoriser)
+	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *authorisedKeysSuite) TestNewCredentialsAPIAcceptsStateServer(c *gc.C) {
-	endPoint, err := credentials.NewCredentialsAPI(s.State, s.resources, s.authoriser)
+func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsStateServer(c *gc.C) {
+	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
-func (s *authorisedKeysSuite) TestNewCredentialsAPIRefusesNonMachineAgent(c *gc.C) {
+func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.MachineAgent = false
-	endPoint, err := credentials.NewCredentialsAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.credentials.WatchAuthorisedKeys(params.Entities{})
+	results, err := s.keyupdater.WatchAuthorisedKeys(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -88,7 +88,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	results, err := s.credentials.WatchAuthorisedKeys(args)
+	results, err := s.keyupdater.WatchAuthorisedKeys(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -115,7 +115,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
 	// Not an error to request nothing, dumb, but not an error.
-	results, err := s.credentials.AuthorisedKeys(params.Entities{})
+	results, err := s.keyupdater.AuthorisedKeys(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -130,7 +130,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	results, err := s.credentials.AuthorisedKeys(args)
+	results, err := s.keyupdater.AuthorisedKeys(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
