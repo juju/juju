@@ -4,17 +4,18 @@
 package credentials
 
 import (
+	"strings"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
-	"strings"
 )
 
 // Credentials defines the methods on the credentials API end point.
 type Credentials interface {
-	AuthorisedKeys(args params.Entities) params.StringsResults
-	WatchAuthorisedKeys(args params.Entities) params.NotifyWatchResults
+	AuthorisedKeys(args params.Entities) (params.StringsResults, error)
+	WatchAuthorisedKeys(args params.Entities) (params.NotifyWatchResults, error)
 }
 
 // CredentialsAPI implements the Credentials interface and is the concrete
@@ -23,6 +24,7 @@ type CredentialsAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
+	getCanRead common.GetAuthFunc
 }
 
 var _ Credentials = (*CredentialsAPI)(nil)
@@ -33,31 +35,35 @@ func NewCredentialsAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*CredentialsAPI, error) {
-	if !authorizer.AuthStateManager() {
+	// Only machine agents have access to the credentials service.
+	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &CredentialsAPI{state: st, resources: resources, authorizer: authorizer}, nil
+	// No-one else except the machine itself can only read a machine's own credentials.
+	getCanRead := func() (common.AuthFunc, error) {
+		return authorizer.AuthOwner, nil
+	}
+	return &CredentialsAPI{state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
 }
 
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys
 // for the specified machines.
 // The current implementation relies on global authorised keys being stored in the environment config.
 // This will change as new user management and authorisation functionality is added.
-func (api *CredentialsAPI) WatchAuthorisedKeys(arg params.Entities) params.NotifyWatchResults {
+func (api *CredentialsAPI) WatchAuthorisedKeys(arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
 
-	if !api.authorizer.AuthStateManager() {
-		for i, _ := range arg.Entities {
-			results[i].Error = common.ServerError(common.ErrPerm)
-		}
-		return params.NotifyWatchResults{results}
+	getCanRead, err := api.getCanRead()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
 	}
-
-	// For now, authorised keys are global, common to all machines, so
-	// we don't use the machine except to verify it exists.
 	for i, entity := range arg.Entities {
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
 			results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !getCanRead(entity.Tag) {
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		var err error
@@ -71,25 +77,19 @@ func (api *CredentialsAPI) WatchAuthorisedKeys(arg params.Entities) params.Notif
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.NotifyWatchResults{results}
+	return params.NotifyWatchResults{results}, nil
 }
 
 // AuthorisedKeys reports the authorised ssh keys for the specified machines.
 // The current implementation relies on global authorised keys being stored in the environment config.
 // This will change as new user management and authorisation functionality is added.
-func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) params.StringsResults {
+func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) (params.StringsResults, error) {
 	if len(arg.Entities) == 0 {
-		return params.StringsResults{}
+		return params.StringsResults{}, nil
 	}
 	results := make([]params.StringsResult, len(arg.Entities))
 
-	if !api.authorizer.AuthStateManager() {
-		for i, _ := range arg.Entities {
-			results[i].Error = common.ServerError(common.ErrPerm)
-		}
-		return params.StringsResults{results}
-	}
-
+	// For now, authorised keys are global, common to all machines.
 	var keys []string
 	config, configErr := api.state.EnvironConfig()
 	if configErr == nil {
@@ -97,11 +97,17 @@ func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) params.StringsRes
 		keys = strings.Split(keysString, "\n")
 	}
 
-	// For now, authorised keys are global, common to all machines, so
-	// we don't use the machine except to verify it exists.
+	getCanRead, err := api.getCanRead()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
 	for i, entity := range arg.Entities {
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
 			results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !getCanRead(entity.Tag) {
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		var err error
@@ -113,5 +119,5 @@ func (api *CredentialsAPI) AuthorisedKeys(arg params.Entities) params.StringsRes
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.StringsResults{results}
+	return params.StringsResults{results}, nil
 }
