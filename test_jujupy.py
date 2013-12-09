@@ -1,10 +1,18 @@
 __metaclass__ = type
 
 from datetime import timedelta
-from mock import patch
+import os
+import shutil
 from StringIO import StringIO
+import tempfile
 from textwrap import dedent
 from unittest import TestCase
+
+from mock import (
+    MagicMock,
+    patch,
+)
+import yaml
 
 from jujupy import (
     check_wordpress,
@@ -109,13 +117,14 @@ class TestJujuClientDevel(TestCase):
         env = Environment('foo', '')
         client = JujuClientDevel(None, 'my/juju/bin')
         full = client._full_args(env, 'bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+        self.assertEqual(('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+                          'qux'), full)
         full = client._full_args(env, 'bar', True, ('baz', 'qux'))
-        self.assertEqual(
-            ('sudo', '-E', 'my/juju/bin', 'bar', '-e', 'foo', 'baz', 'qux'),
-            full)
+        self.assertEqual((
+            'sudo', '-E', 'my/juju/bin', '--show-log', 'bar', '-e', 'foo',
+            'baz', 'qux'), full)
         full = client._full_args(None, 'bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', 'bar', 'baz', 'qux'), full)
+        self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -159,7 +168,7 @@ class TestJujuClientDevel(TestCase):
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output(env, 'bar')
         self.assertEqual('asdf', result)
-        mock.assert_called_with(('juju', 'bar', '-e', 'foo'))
+        mock.assert_called_with(('juju', '--show-log', 'bar', '-e', 'foo'))
 
     def test_get_status(self):
         def output_iterator():
@@ -182,7 +191,8 @@ class TestJujuClientDevel(TestCase):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.check_call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'))
-        mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+                                 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check(self):
@@ -191,7 +201,8 @@ class TestJujuClientDevel(TestCase):
         with patch('sys.stdout') as stdout_mock:
             with patch('subprocess.call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'), check=False)
-        mock.assert_called_with(('juju', 'foo', '-e', 'qux', 'bar', 'baz'))
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+                                 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
 
@@ -386,6 +397,55 @@ class TestEnvironment(TestCase):
                     Exception,
                     'Timed out waiting for agents to start in local'):
                 env.wait_for_started()
+
+    def test_local_from_config(self):
+        env = Environment('local', '', {'type': 'openstack'})
+        self.assertFalse(env.local, 'Does not respect config type.')
+        env = Environment('local', '', {'type': 'local'})
+        self.assertTrue(env.local, 'Does not respect config type.')
+
+    def test_from_config(self):
+        home = tempfile.mkdtemp()
+        try:
+            environments_path = os.path.join(home, 'environments.yaml')
+            old_home = os.environ.get('JUJU_HOME')
+            os.environ['JUJU_HOME'] = home
+            try:
+                with open(environments_path, 'w') as environments:
+                    yaml.dump({'environments': {
+                        'foo': {'type': 'local'}
+                    }}, environments)
+                env = Environment.from_config('foo')
+                self.assertIs(Environment, type(env))
+                self.assertEqual({'type': 'local'}, env.config)
+            finally:
+                if old_home is None:
+                    del os.environ['JUJU_HOME']
+                else:
+                    os.environ['JUJU_HOME'] = old_home
+        finally:
+            shutil.rmtree(home)
+
+    def test_upgrade_juju_nonlocal(self):
+        env = Environment('foo', MagicMock(), {'type': 'nonlocal'})
+        env.client.version = '1.234-76'
+        env.upgrade_juju()
+        env.client.juju.assert_called_with(env, 'upgrade-juju',
+                                           ('--version', '1.234'))
+
+    def test_get_matching_agent_version(self):
+        env = Environment('foo', MagicMock(), {'type': 'local'})
+        env.client.version = '1.234-76'
+        self.assertEqual('1.234.1', env.get_matching_agent_version())
+        self.assertEqual('1.234', env.get_matching_agent_version(
+                         no_build=True))
+
+    def test_upgrade_juju_local(self):
+        env = Environment('foo', MagicMock(), {'type': 'local'})
+        env.client.version = '1.234-76'
+        env.upgrade_juju()
+        env.client.juju.assert_called_with(
+            env, 'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
 
 class TestFormatListing(TestCase):

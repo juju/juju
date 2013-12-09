@@ -12,6 +12,8 @@ import sys
 from time import sleep
 import urllib2
 
+from jujuconfig import get_selected_environment
+
 
 class ErroredUnit(Exception):
 
@@ -77,7 +79,7 @@ class JujuClientDevel:
     def _full_args(self, environment, command, sudo, args):
         e_arg = () if environment is None else ('-e', environment.environment)
         sudo_args = ('sudo', '-E', self.full_path) if sudo else ('juju',)
-        return sudo_args + (command,) + e_arg + args
+        return sudo_args + ('--show-log', command,) + e_arg + args
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
@@ -161,18 +163,31 @@ class Status:
 
 class Environment:
 
-    def __init__(self, environment, client=None):
+    def __init__(self, environment, client=None, config=None):
         self.environment = environment
-        if client is None:
-            client = JujuClientDevel.by_version()
         self.client = client
-        self.local = bool(self.environment == 'local')
+        self.config = config
+        if self.config is not None:
+            self.local = bool(self.config.get('type') == 'local')
+        else:
+            self.local = False
+
+    @classmethod
+    def from_config(cls, name):
+        client = JujuClientDevel.by_version()
+        return cls(name, client, get_selected_environment(name)[0])
 
     def needs_sudo(self):
         return self.local
 
     def bootstrap(self):
         return self.client.bootstrap(self)
+
+    def upgrade_juju(self):
+        args = ('--version', self.get_matching_agent_version(no_build=True))
+        if self.local:
+            args += ('--upload-tools',)
+        self.client.juju(self, 'upgrade-juju', args)
 
     def destroy_environment(self):
         return self.client.destroy_environment(self)
@@ -207,9 +222,9 @@ class Environment:
         else:
             raise Exception('Some versions did not update.')
 
-    def get_matching_agent_version(self):
+    def get_matching_agent_version(self, no_build=False):
         version_number = self.client.version.split('-')[0]
-        if self.local:
+        if not no_build and self.local:
             version_number += '.1'
         return version_number
 
