@@ -22,7 +22,7 @@ type authorisedKeysSuite struct {
 	// should never be touched by the API calls themselves
 	rawMachine       *state.Machine
 	unrelatedMachine *state.Machine
-	keyupdater      *keyupdater.KeyUpdaterAPI
+	keyupdater       *keyupdater.KeyUpdaterAPI
 	resources        *common.Resources
 	authoriser       apiservertesting.FakeAuthorizer
 }
