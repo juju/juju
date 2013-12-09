@@ -55,7 +55,7 @@ retrieve_released_tools() {
     # to work for historic releases.
     [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 2: Retrieving released tools."
-    s3cmd -c $JUJU_DIR/s3cfg sync --rexclude 'juju-1.1[5-6].[0-2].*tgz' \
+    s3cmd -c $JUJU_DIR/s3cfg sync --rexclude 'juju-1.1[5-6].[0-3].*tgz' \
         s3://juju-dist/tools/releases/ $DEST_TOOLS/
 }
 
