@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	stdssh "code.google.com/p/go.crypto/ssh"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/utils"
@@ -22,8 +21,8 @@ var logger = loggo.GetLogger("juju.ssh")
 type ListMode bool
 
 var (
-	FullKeys    ListMode = true
-	KeyComments ListMode = false
+	FullKeys     ListMode = true
+	Fingerprints ListMode = false
 )
 
 const (
@@ -38,7 +37,7 @@ func readAuthorisedKeys() ([]string, error) {
 		return []string{}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading ssh authorised keys file: %v", err)
 	}
 	var keys []string
 	for _, key := range strings.Split(string(keyData), "\n") {
@@ -61,14 +60,9 @@ func writeAuthorisedKeys(keys []string) error {
 	return ioutil.WriteFile(sshKeyFile, []byte(keyData), 0644)
 }
 
-func parseKey(key string) (string, error) {
-	if _, comment, _, _, ok := stdssh.ParseAuthorizedKey([]byte(key)); !ok {
-		return "", fmt.Errorf("invalid ssh key: %v", key)
-	} else {
-		return comment, nil
-	}
-}
-
+// We need a mutex because updates to the authorised keys file are done by
+// reading the contents, updating, and writing back out. So only one caller
+// at a time can use either Add, Delete, List.
 var mutex sync.Mutex
 
 // AddKeys adds the specified ssh keys to the authorized_keys file.
@@ -81,7 +75,7 @@ func AddKeys(newKeys ...string) error {
 		return err
 	}
 	for _, newKey := range newKeys {
-		comment, err := parseKey(newKey)
+		fingerprint, comment, err := keyFingerprint(newKey)
 		if err != nil {
 			return err
 		}
@@ -89,13 +83,16 @@ func AddKeys(newKeys ...string) error {
 			return fmt.Errorf("cannot add ssh key without comment")
 		}
 		for _, key := range existingKeys {
-			existingComment, err := parseKey(key)
+			existingFingerprint, existingComment, err := keyFingerprint(key)
 			if err != nil {
 				logger.Warningf("invalid existing ssh key %q: %v", key, err)
 				continue
 			}
+			if existingFingerprint == fingerprint {
+				return fmt.Errorf("cannot add duplicate ssh key: %v", fingerprint)
+			}
 			if existingComment == comment {
-				return fmt.Errorf("cannot add duplicate ssh key: %v", comment)
+				return fmt.Errorf("cannot add ssh key with duplicate comment: %v", comment)
 			}
 		}
 	}
@@ -103,32 +100,46 @@ func AddKeys(newKeys ...string) error {
 	return writeAuthorisedKeys(sshKeys)
 }
 
-// DeleteKeys removes the ssh keys with the given comments from the authorized ssh keys file.
+// DeleteKeys removes the specified ssh keys from the authorized ssh keys file.
+// keyIds may be either key comments or fingerprints.
 // Returns an error if there is an issue with *any* of the keys to delete.
-func DeleteKeys(comments ...string) error {
+func DeleteKeys(keyIds ...string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 	existingKeyData, err := readAuthorisedKeys()
 	if err != nil {
 		return err
 	}
+	// Build up a map of keys indexed by fingerprint, and fingerprints indexed by comment
+	// so we can easily get the key represented by each keyId, which may be either a fingerprint
+	// or comment.
 	var keysToWrite []string
 	var sshKeys = make(map[string]string)
+	var keyComments = make(map[string]string)
 	for _, key := range existingKeyData {
-		comment, err := parseKey(key)
-		if err != nil || comment == "" {
+		fingerprint, comment, err := keyFingerprint(key)
+		if err != nil {
 			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
 			keysToWrite = append(keysToWrite, key)
 			continue
 		}
-		sshKeys[comment] = key
-	}
-	for _, comment := range comments {
-		_, ok := sshKeys[comment]
-		if !ok {
-			return fmt.Errorf("cannot delete non existent key: %v", comment)
+		sshKeys[fingerprint] = key
+		if comment != "" {
+			keyComments[comment] = fingerprint
 		}
-		delete(sshKeys, comment)
+	}
+	for _, keyId := range keyIds {
+		// assume keyId may be a fingerprint
+		fingerprint := keyId
+		_, ok := sshKeys[keyId]
+		if !ok {
+			// keyId is a comment
+			fingerprint, ok = keyComments[keyId]
+		}
+		if !ok {
+			return fmt.Errorf("cannot delete non existent key: %v", keyId)
+		}
+		delete(sshKeys, fingerprint)
 	}
 	for _, key := range sshKeys {
 		keysToWrite = append(keysToWrite, key)
@@ -149,15 +160,19 @@ func ListKeys(mode ListMode) ([]string, error) {
 	}
 	var keys []string
 	for _, key := range keyData {
-		comment, err := parseKey(key)
+		fingerprint, comment, err := keyFingerprint(key)
 		if err != nil {
 			logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
 			continue
 		}
-		if mode == FullKeys || comment == "" {
+		if mode == FullKeys {
 			keys = append(keys, key)
 		} else {
-			keys = append(keys, comment)
+			shortKey := fingerprint
+			if comment != "" {
+				shortKey += fmt.Sprintf(" (%s)", comment)
+			}
+			keys = append(keys, shortKey)
 		}
 	}
 	return keys, nil
