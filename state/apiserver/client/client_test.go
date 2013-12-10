@@ -415,9 +415,9 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 
 	err = s.State.Cleanup()
 	c.Assert(err, gc.IsNil)
-	assertRemoved(c, m0)
+	assertLife(c, m0, state.Dead)
 	assertLife(c, m1, state.Alive)
-	assertRemoved(c, m2)
+	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
 }
 
