@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -87,6 +88,26 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		c.Logf("%#v", s)
 		s.step(c, ctx)
 	}
+}
+
+type aliver interface {
+	AgentAlive() (bool, error)
+	SetAgentAlive() (*presence.Pinger, error)
+	WaitAgentAlive(time.Duration) error
+}
+
+func (ctx *context) setAgentAlive(c *gc.C, a aliver) *presence.Pinger {
+	pinger, err := a.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	ctx.st.StartSync()
+	st := ctx.conn.Environ.(testing.GetStater).GetStateInAPIServer()
+	st.StartSync()
+	err = a.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	agentAlive, err := a.AgentAlive()
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
+	return pinger
 }
 
 // shortcuts for expected output.
@@ -1288,14 +1309,7 @@ type startAliveMachine struct {
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
 	c.Assert(err, gc.IsNil)
-	pinger, err := m.SetAgentAlive()
-	c.Assert(err, gc.IsNil)
-	ctx.st.StartSync()
-	err = m.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	agentAlive, err := m.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	pinger := ctx.setAgentAlive(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
@@ -1383,14 +1397,7 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
 	c.Assert(err, gc.IsNil)
-	pinger, err := u.SetAgentAlive()
-	c.Assert(err, gc.IsNil)
-	ctx.st.StartSync()
-	err = u.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	agentAlive, err := u.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	pinger := ctx.setAgentAlive(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
@@ -1408,15 +1415,7 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	us, err := s.AllUnits()
 	c.Assert(err, gc.IsNil)
 	for _, u := range us {
-		pinger, err := u.SetAgentAlive()
-		c.Assert(err, gc.IsNil)
-		ctx.st.StartSync()
-		err = u.WaitAgentAlive(coretesting.LongWait)
-		c.Assert(err, gc.IsNil)
-		agentAlive, err := u.AgentAlive()
-		c.Assert(err, gc.IsNil)
-		c.Assert(agentAlive, gc.Equals, true)
-		ctx.pingers[u.Name()] = pinger
+		ctx.pingers[u.Name()] = ctx.setAgentAlive(c, u)
 	}
 }
 

@@ -222,6 +222,9 @@ func formatStatus(status *api.Status) formattedStatus {
 	for k, m := range status.Machines {
 		out.Machines[k] = formatMachine(m)
 	}
+	for k, s := range status.Services {
+		out.Services[k] = formatService(s)
+	}
 	return out
 }
 
@@ -249,6 +252,7 @@ func formatMachine(machine api.MachineStatus) machineStatus {
 func formatService(service api.ServiceStatus) serviceStatus {
 	out := serviceStatus{
 		Err:           service.Err,
+		Charm:         service.Charm,
 		Exposed:       service.Exposed,
 		Life:          service.Life,
 		Relations:     service.Relations,
