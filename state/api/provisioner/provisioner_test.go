@@ -352,12 +352,12 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	attrs["type"] = "blah"
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
+	err = s.State.SetEnvironConfig(newConfig, envConfig)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
-	err = s.State.SetEnvironConfig(envConfig)
+	err = s.State.SetEnvironConfig(envConfig, newConfig)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
