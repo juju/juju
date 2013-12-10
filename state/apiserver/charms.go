@@ -4,16 +4,23 @@
 package apiserver
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -151,8 +158,115 @@ func (h *charmsHandler) processPost(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, 0, fmt.Sprintf("invalid charm archive: %v", err))
 		return
 	}
-	charmUrl := fmt.Sprintf("local:%s/%s-%d", series, archive.Meta().Name, archive.Revision())
-	h.sendJSON(w, &CharmsResponse{Code: http.StatusOK, CharmURL: charmUrl})
+	// We got it, now let's reserve a charm URL for it in state.
+	preparedUrl := fmt.Sprintf("local:%s/%s-%d", series, archive.Meta().Name, archive.Revision())
+	archiveUrl := charm.MustParseURL(preparedUrl)
+	preparedCharm, err := h.state.PrepareCharmUpload(archiveUrl)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Now we need to repackage it with the reserved URL, upload it to
+	// provider storage and update the state.
+	err = h.repackageAndUploadCharm(archive, preparedCharm.URL())
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// All done.
+	h.sendJSON(w, &CharmsResponse{
+		Code:     http.StatusOK,
+		CharmURL: preparedCharm.URL().String(),
+	})
+}
+
+// repackageAndUploadCharm expands the given charm archive to a
+// temporary directoy, repackages it with the given curl's revision,
+// then uploads it to providr storage, and finally updates the state.
+func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *charm.URL) error {
+	// Create a temp dir and file to use below.
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%d", archive.Meta().Name, rand.Int()))
+	tempFile, err := ioutil.TempFile("", "charm")
+	if err != nil {
+		return fmt.Errorf("cannot create temp file: %v", err)
+	}
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	// Expand and repack it with the revision specified by curl.
+	archive.SetRevision(curl.Revision)
+	if err := archive.ExpandTo(tempDir); err != nil {
+		return fmt.Errorf("cannot extract uploaded charm: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	charmDir, err := charm.ReadDir(tempDir)
+	if err != nil {
+		return fmt.Errorf("cannot read extracted charm: %v", err)
+	}
+	if err := charmDir.BundleTo(tempFile); err != nil {
+		return fmt.Errorf("cannot repackage uploaded charm: %v", err)
+	}
+
+	// Calculate the SHA256 hash.
+	bundleSha256, size, err := getSha256(tempFile)
+	if err != nil {
+		return fmt.Errorf("cannot calculate charm SHA-256: %v", err)
+	}
+
+	// Now upload to provider storage.
+	storage, err := getEnvironStorage(h.state)
+	if err != nil {
+		return fmt.Errorf("cannot access provider storage: %v", err)
+	}
+	name := charm.Quote(curl.String())
+	if err := storage.Put(name, tempFile, size); err != nil {
+		return fmt.Errorf("cannot upload charm: %v", err)
+	}
+	storageUrl, err := storage.URL(name)
+	if err != nil {
+		return fmt.Errorf("cannot get storage URL for charm: %v", err)
+	}
+	bundleURL, err := url.Parse(storageUrl)
+	if err != nil {
+		return fmt.Errorf("cannot parse storage URL: %v", err)
+	}
+
+	// And finally, update state.
+	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSha256)
+	if err != nil {
+		return fmt.Errorf("cannot upload charm to storage: %v", err)
+	}
+	return nil
+}
+
+// getSha256 calculates the SHA-256 hash of the contents of source and
+// returns it as a hex-encoded string, along with the source size in
+// bytes.
+func getSha256(source io.ReadSeeker) (string, int64, error) {
+	hash := sha256.New()
+	size, err := io.Copy(hash, source)
+	if err != nil {
+		return "", 0, err
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	if _, err := source.Seek(0, 0); err != nil {
+		return "", 0, err
+	}
+	return digest, size, nil
+}
+
+// getEnvironStorage creates an Environ from the config in state and
+// returns its storage interface.
+func getEnvironStorage(st *state.State) (storage.Storage, error) {
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get environment config: %v", err)
+	}
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return nil, fmt.Errorf("cannot access environment: %v", err)
+	}
+	return env.Storage(), nil
 }
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

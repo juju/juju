@@ -5,6 +5,9 @@ package apiserver
 
 import "reflect"
 
-var RootType = reflect.TypeOf(&srvRoot{})
-
-var NewPingTimeout = newPingTimeout
+var (
+	RootType          = reflect.TypeOf(&srvRoot{})
+	NewPingTimeout    = newPingTimeout
+	GetEnvironStorage = getEnvironStorage
+	GetSha256         = getSha256
+)

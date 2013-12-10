@@ -12,15 +12,18 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -129,11 +132,68 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	s.assertResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip, got: application/octet-stream", "")
 }
 
-func (s *charmsSuite) TestUploadSuccess(c *gc.C) {
-	archivePath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
-	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), true, archivePath)
+func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
+	// Add the dummy charm with revision 1.
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusOK, "", "local:quantal/dummy-1")
+	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+
+	// Now try uploading the same revision and verify it gets bumped,
+	// and the BundleURL and BundleSha256 are calculated.
+	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+	expectedUrl := charm.MustParseURL("local:quantal/dummy-2")
+	s.assertResponse(c, resp, http.StatusOK, "", expectedUrl.String())
+	sch, err := s.State.Charm(expectedUrl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedUrl)
+	c.Assert(sch.Revision(), gc.Equals, 2)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	// No more checks for these two here, because they
+	// are verified in TestUploadRequiresSingleUploadedFile.
+	c.Assert(sch.BundleURL(), gc.Not(gc.Equals), "")
+	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
+}
+
+func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
+	// Make a dummy charm dir with revision 123.
+	dir := coretesting.Charms.ClonedDir(c.MkDir(), "dummy")
+	dir.SetDiskRevision(123)
+	// Now bundle the dir.
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, gc.IsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = dir.BundleTo(tempFile)
+	c.Assert(err, gc.IsNil)
+
+	// Now try uploading it and ensure the revision persists.
+	resp, err := s.uploadRequest(c, s.charmsUri(c, "?series=quantal"), true, tempFile.Name())
+	c.Assert(err, gc.IsNil)
+	expectedUrl := charm.MustParseURL("local:quantal/dummy-123")
+	s.assertResponse(c, resp, http.StatusOK, "", expectedUrl.String())
+	sch, err := s.State.Charm(expectedUrl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedUrl)
+	c.Assert(sch.Revision(), gc.Equals, 123)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+
+	// Finally, verify the SHA256 and uploaded URL.
+	expectedSha256, _, err := apiserver.GetSha256(tempFile)
+	c.Assert(err, gc.IsNil)
+	name := charm.Quote(expectedUrl.String())
+	storage, err := apiserver.GetEnvironStorage(s.State)
+	c.Assert(err, gc.IsNil)
+	expectedUploadUrl, err := storage.URL(name)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(sch.BundleURL().String(), gc.Equals, expectedUploadUrl)
+	c.Assert(sch.BundleSha256(), gc.Equals, expectedSha256)
 }
 
 func (s *charmsSuite) charmsUri(c *gc.C, query string) string {
@@ -219,10 +279,12 @@ func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expCode int, 
 	err = json.Unmarshal(body, &jsonResponse)
 	c.Assert(err, gc.IsNil)
 	if expError != "" {
-		c.Assert(jsonResponse.Code, gc.Equals, expCode)
-		c.Assert(jsonResponse.Error, gc.Matches, expError)
+		c.Check(jsonResponse.Code, gc.Equals, expCode)
+		c.Check(jsonResponse.Error, gc.Matches, expError)
+		c.Check(jsonResponse.CharmURL, gc.Equals, "")
 	} else {
-		c.Assert(jsonResponse.Code, gc.Equals, expCode)
-		c.Assert(jsonResponse.CharmURL, gc.Equals, expCharmURL)
+		c.Check(jsonResponse.Code, gc.Equals, expCode)
+		c.Check(jsonResponse.Error, gc.Equals, "")
+		c.Check(jsonResponse.CharmURL, gc.Equals, expCharmURL)
 	}
 }
