@@ -124,7 +124,6 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
-	delete(oldAttrs, "secret")
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := mcfg.StateServerCert
 	srvKeyPEM := mcfg.StateServerKey

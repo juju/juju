@@ -4,6 +4,7 @@
 package kvm_test
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 
@@ -98,8 +99,7 @@ func startContainer(c *gc.C, manager container.Manager, machineId string) instan
 	inst, hardware, err := manager.StartContainer(machineConfig, "precise", network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
-	arch := version.Current.Arch
-	expected := instance.HardwareCharacteristics{Arch: &arch}.String()
+	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", version.Current.Arch)
 	c.Assert(hardware.String(), gc.Equals, expected)
 	return inst
 }
