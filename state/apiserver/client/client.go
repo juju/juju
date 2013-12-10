@@ -63,26 +63,6 @@ func (r *API) Client(id string) (*Client, error) {
 	return r.client, nil
 }
 
-func (c *Client) Status() (api.Status, error) {
-	ms, err := c.api.state.AllMachines()
-	if err != nil {
-		return api.Status{}, err
-	}
-	status := api.Status{
-		Machines: make(map[string]api.MachineInfo),
-	}
-	for _, m := range ms {
-		instId, err := m.InstanceId()
-		if err != nil && !state.IsNotProvisionedError(err) {
-			return api.Status{}, err
-		}
-		status.Machines[m.Id()] = api.MachineInfo{
-			InstanceId: string(instId),
-		}
-	}
-	return status, nil
-}
-
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	w := c.api.state.Watch()
 	return params.AllWatcherId{
