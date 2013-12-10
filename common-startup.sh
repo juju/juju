@@ -9,10 +9,10 @@ dump_logs(){
 export JUJU_HOME=$HOME/juju-ci
 export PACKAGE=$WORKSPACE/new-version.deb
 artifacts_path=$WORKSPACE/artifacts
-mkdir -p $artifacts_path
-touch $artifacts_path/empty
 set -x
 rm * -rf
+mkdir -p $artifacts_path
+touch $artifacts_path/empty
 artifact=localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact
 wget -q $artifact/new-version.deb
 # Determine BRANCH and REVNO
