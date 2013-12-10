@@ -4,7 +4,7 @@ dump_logs(){
   artifacts_path=$WORKSPACE/artifacts
   mkdir -p $artifacts_path
   log_path=${artifacts_path}/all-machines-${ENV}.log
-  if juju --show-log scp -e $ENV -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $JUJU_HOME/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
+  if timeout 5m juju --show-log scp -e $ENV -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $JUJU_HOME/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
     gzip $log_path
   fi
 }
