@@ -1734,7 +1734,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeploy(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldConfig)
 	c.Assert(err, gc.IsNil)
 
 	curl, _ := addCharm(c, store, "dummy")
