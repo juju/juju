@@ -342,7 +342,7 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 	return srv, socketPath, nil
 }
 
-// runComamnds executes the supplied copmmands in a hook context.
+// runComamnds executes the supplied commands in a hook context.
 func (u *Uniter) runCommands(commands string) (results *RunResults, err error) {
 	logger.Tracef("run commands: %s", commands)
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
