@@ -372,7 +372,7 @@ func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
 	_, err := store.Get(charmURL)
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.server.authorizations, gc.IsNil)
+	c.Assert(s.server.authorizations, gc.HasLen, 0)
 }
 
 func (s *StoreSuite) TestEventWarning(c *gc.C) {
