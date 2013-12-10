@@ -140,6 +140,92 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 }
 
+func (s *StateSuite) TestPrepareUploadedCharm(c *gc.C) {
+	// First test the sanity checks.
+	sch, err := s.State.PrepareCharmUpload(nil)
+	c.Assert(err, gc.ErrorMatches, "expected charm URL, got nil")
+	c.Assert(sch, gc.IsNil)
+	sch, err = s.State.PrepareCharmUpload(charm.MustParseURL("local:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
+	c.Assert(sch, gc.IsNil)
+	sch, err = s.State.PrepareCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with local schema, got .*")
+	c.Assert(sch, gc.IsNil)
+
+	curl := charm.MustParseURL("local:quantal/missing-123")
+	sch, err = s.State.PrepareCharmUpload(curl)
+	c.Assert(err, gc.IsNil)
+	// Make sure all but the URL and PendingUpload are set
+	// as expected (since there's no such charm in state, the
+	// revision we gave must be used).
+	c.Assert(sch.URL(), gc.DeepEquals, curl)
+	c.Assert(sch.Revision(), gc.Equals, 123)
+	c.Assert(sch.IsUploaded(), jc.IsFalse)
+	c.Assert(sch.Meta(), gc.IsNil)
+	c.Assert(sch.Config(), gc.IsNil)
+	c.Assert(sch.BundleURL(), gc.IsNil)
+	c.Assert(sch.BundleSha256(), gc.Equals, "")
+
+	// Find it directly.
+	doc := state.CharmDoc{}
+	err = s.charms.FindId(sch.URL()).One(&doc)
+	c.Assert(err, gc.IsNil)
+	c.Logf("%#v", doc)
+	c.Assert(doc.URL, gc.DeepEquals, sch.URL())
+
+	// Make sure we can't find it with st.Charm().
+	_, err = s.State.Charm(sch.URL())
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Try adding it again with the same revision and ensure it gets bumped.
+	sch, err = s.State.PrepareCharmUpload(sch.URL())
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.Revision(), gc.Equals, 124)
+
+	// Also ensure the revision cannot decrease.
+	sch, err = s.State.PrepareCharmUpload(sch.URL().WithRevision(42))
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.Revision(), gc.Equals, 125)
+
+	// Check the given revision is respected.
+	sch, err = s.State.PrepareCharmUpload(sch.URL().WithRevision(1234))
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.Revision(), gc.Equals, 1234)
+}
+
+func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
+	ch := testing.Charms.Dir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+
+	// First test with already uploaded and a missing charms.
+	sch, err := s.State.UpdateUploadedCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", curl))
+	c.Assert(sch, gc.IsNil)
+	missingCurl := charm.MustParseURL("local:quantal/missing-1")
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(sch, gc.IsNil)
+
+	// Now try with an uploaded charm.
+	_, err = s.State.PrepareCharmUpload(missingCurl)
+	c.Assert(err, gc.IsNil)
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
+	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+}
+
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
