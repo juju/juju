@@ -59,7 +59,21 @@ func newServer() (*coretesting.MgoInstance, error) {
 	inst := &coretesting.MgoInstance{}
 	inst.Params = []string{"--replSet", name}
 	err := inst.Start()
-	return inst, err
+	if err != nil {
+		return nil, err
+	}
+
+	// by dialing right now, we'll wait until it's running
+	deadline := time.Now().Add(time.Second * 5)
+	for {
+		session := inst.DialDirect()
+		session.SetMode(mgo.Monotonic, true)
+		err := session.Ping()
+		session.Close()
+		if err == nil || time.Now().After(deadline) {
+			return inst, err
+		}
+	}
 }
 
 type MongoSuite struct{}

@@ -229,7 +229,7 @@ func CurrentStatus(session *mgo.Session) ([]Status, error) {
 	list := &statuslist{}
 	err := session.Run("replSetGetStatus", list)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error from replSetGetStatus: %v", err)
 	}
 	return list.Members, nil
 }
