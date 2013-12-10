@@ -756,3 +756,19 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 		c.Check(executionEnvironment[key], gc.Equals, value)
 	}
 }
+
+func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
+	context := s.GetHookContext(c)
+	charmDir := c.MkDir()
+	commands := `
+echo this is standard out
+echo this is standard err >&2
+exit 42
+`
+	result, err := context.RunCommands(commands, charmDir, "/path/to/tools", "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(result.StdOut, gc.Equals, "this is standard out\n")
+	c.Assert(result.StdErr, gc.Equals, "this is standard err\n")
+	c.Assert(result.ReturnCode, gc.Equals, 42)
+}
