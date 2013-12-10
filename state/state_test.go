@@ -805,7 +805,7 @@ func (s *StateSuite) TestEnvironConfig(c *gc.C) {
 		"arbitrary-key":   "shazam!",
 	})
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(change)
+	err = s.State.SetEnvironConfig(change, cfg)
 	c.Assert(err, gc.IsNil)
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -1236,9 +1236,10 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 		cfg, err := s.State.EnvironConfig()
 		c.Assert(err, gc.IsNil)
 		if change != nil {
+			oldcfg := cfg
 			cfg, err = cfg.Apply(change)
 			c.Assert(err, gc.IsNil)
-			err = s.State.SetEnvironConfig(cfg)
+			err = s.State.SetEnvironConfig(cfg, oldcfg)
 			c.Assert(err, gc.IsNil)
 		}
 		s.State.StartSync()
@@ -1296,6 +1297,7 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
+	oldcfg := cfg
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -1331,7 +1333,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
 
@@ -2075,7 +2077,7 @@ func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name strin
 	attrs[name] = value
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.State.SetEnvironConfig(newConfig), gc.IsNil)
+	c.Assert(s.State.SetEnvironConfig(newConfig, envConfig), gc.IsNil)
 }
 
 func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
