@@ -718,3 +718,41 @@ func convertMap(settingsMap map[string]interface{}) params.RelationSettings {
 	}
 	return result
 }
+
+type RunCommandSuite struct {
+	HookContextSuite
+}
+
+var _ = gc.Suite(&RunCommandSuite{})
+
+func (s *RunCommandSuite) GetHookContext(c *gc.C) *uniter.HookContext {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	return s.HookContextSuite.GetHookContext(c, uuid.String(), -1, "")
+}
+
+func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
+	context := s.GetHookContext(c)
+	charmDir := c.MkDir()
+	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	executionEnvironment := map[string]string{}
+	for _, value := range strings.Split(result.StdOut, "\n") {
+		bits := strings.SplitN(value, "=", 2)
+		if len(bits) == 2 {
+			executionEnvironment[bits[0]] = bits[1]
+		}
+	}
+	expected := map[string]string{
+		"APT_LISTCHANGES_FRONTEND": "none",
+		"DEBIAN_FRONTEND":          "noninteractive",
+		"CHARM_DIR":                charmDir,
+		"JUJU_CONTEXT_ID":          "TestCtx",
+		"JUJU_AGENT_SOCKET":        "/path/to/socket",
+		"JUJU_UNIT_NAME":           "u/0",
+	}
+	for key, value := range expected {
+		c.Check(executionEnvironment[key], gc.Equals, value)
+	}
+}

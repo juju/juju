@@ -284,6 +284,87 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
+func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string) (context *HookContext, err error) {
+
+	apiAddrs, err := u.st.APIAddresses()
+	if err != nil {
+		return nil, err
+	}
+	ownerTag, err := u.service.GetOwnerTag()
+	if err != nil {
+		return nil, err
+	}
+	ctxRelations := map[int]*ContextRelation{}
+	for id, r := range u.relationers {
+		ctxRelations[id] = r.Context()
+	}
+
+	return NewHookContext(u.unit, hctxId, u.uuid, relationId, remoteUnitName,
+		ctxRelations, apiAddrs, ownerTag)
+}
+
+func (u *Uniter) acquireHookLock(message string) (err error) {
+	// We want to make sure we don't block forever when locking, but take the
+	// tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			// no-op to fall through to return.
+		}
+		return nil
+	}
+	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, error) {
+	// Prepare server.
+	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
+		// TODO: switch to long-running server with single context;
+		// use nonce in place of context id.
+		if ctxId != context.id {
+			return nil, fmt.Errorf("expected context id %q, got %q", context.id, ctxId)
+		}
+		return jujuc.NewCommand(context, cmdName)
+	}
+	socketPath := filepath.Join(u.baseDir, "agent.socket")
+	// Use abstract namespace so we don't get stale socket files.
+	socketPath = "@" + socketPath
+	srv, err := jujuc.NewServer(getCmd, socketPath)
+	if err != nil {
+		return nil, "", err
+	}
+	go srv.Run()
+	return srv, socketPath, nil
+}
+
+// runComamnds executes the supplied copmmands in a hook context.
+func (u *Uniter) runCommands(commands string) (results *RunResults, err error) {
+	logger.Tracef("run commands: %s", commands)
+	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
+	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return nil, err
+	}
+	defer u.hookLock.Unlock()
+
+	hctx, err := u.getHookContext(hctxId, -1, "")
+	if err != nil {
+		return nil, err
+	}
+	srv, socketPath, err := u.startJujucServer(hctx)
+	if err != nil {
+		return nil, err
+	}
+	defer srv.Close()
+
+	return hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
+}
+
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
@@ -301,59 +382,21 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	// We want to make sure we don't block forever when locking, but take the
-	// tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			// no-op to fall through to return.
-		}
-		return nil
-	}
+
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
-	if err = u.hookLock.LockWithFunc(lockMessage, checkTomb); err != nil {
+	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	ctxRelations := map[int]*ContextRelation{}
-	for id, r := range u.relationers {
-		ctxRelations[id] = r.Context()
-	}
-	apiAddrs, err := u.st.APIAddresses()
+	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit)
 	if err != nil {
 		return err
 	}
-
-	ownerTag, err := u.service.GetOwnerTag()
+	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
 	}
-	hctx, err := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
-		ctxRelations, apiAddrs, ownerTag)
-	if err != nil {
-		return err
-	}
-
-	// Prepare server.
-	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
-		// TODO: switch to long-running server with single context;
-		// use nonce in place of context id.
-		if ctxId != hctxId {
-			return nil, fmt.Errorf("expected context id %q, got %q", hctxId, ctxId)
-		}
-		return jujuc.NewCommand(hctx, cmdName)
-	}
-	socketPath := filepath.Join(u.baseDir, "agent.socket")
-	// Use abstract namespace so we don't get stale socket files.
-	socketPath = "@" + socketPath
-	srv, err := jujuc.NewServer(getCmd, socketPath)
-	if err != nil {
-		return err
-	}
-	go srv.Run()
 	defer srv.Close()
 
 	// Run the hook.

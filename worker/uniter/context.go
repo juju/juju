@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"launchpad.net/juju-core/charm"
@@ -174,6 +176,35 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	return vars
 }
 
+func (ctx *HookContext) finalizeContext(process string, err error) error {
+	writeChanges := err == nil
+	for id, rctx := range ctx.relations {
+		if writeChanges {
+			if e := rctx.WriteSettings(); e != nil {
+				e = fmt.Errorf(
+					"could not write settings from %q to relation %d: %v",
+					process, id, e,
+				)
+				logger.Errorf("%v", e)
+				if err == nil {
+					err = e
+				}
+			}
+		}
+		rctx.ClearCache()
+	}
+	return err
+}
+
+// RunHook executes a hook in an environment which allows it to to call back
+// into ctx to execute jujuc tools.
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*RunResults, error) {
+	var err error
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	result, err := runCommands(commands, charmDir, env)
+	return result, ctx.finalizeContext("run commands", err)
+}
+
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
@@ -186,23 +217,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	} else {
 		err = runCharmHook(hookName, charmDir, env)
 	}
-	write := err == nil
-	for id, rctx := range ctx.relations {
-		if write {
-			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
-					"could not write settings from %q to relation %d: %v",
-					hookName, id, e,
-				)
-				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
-				}
-			}
-		}
-		rctx.ClearCache()
-	}
-	return err
+	return ctx.finalizeContext(hookName, err)
 }
 
 func runCharmHook(hookName, charmDir string, env []string) error {
@@ -234,6 +249,38 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		}
 	}
 	return err
+}
+
+func runCommands(commands, charmDir string, env []string) (*RunResults, error) {
+	cmd := exec.Command("/bin/bash", "-s")
+	cmd.Env = env
+	cmd.Dir = charmDir
+	cmd.Stdin = bytes.NewBufferString(commands)
+
+	stdOut := &bytes.Buffer{}
+	stdErr := &bytes.Buffer{}
+
+	cmd.Stdout = stdOut
+	cmd.Stderr = stdErr
+
+	err := cmd.Start()
+	if err == nil {
+		err = cmd.Wait()
+	}
+	result := &RunResults{
+		StdOut: stdOut.String(),
+		StdErr: stdErr.String(),
+	}
+	if ee, ok := err.(*exec.ExitError); ok && err != nil {
+		status := ee.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Exited() {
+			// A non-zero return code isn't considered an error here.
+			result.ReturnCode = status.ExitStatus()
+			err = nil
+		}
+		logger.Infof("run result: %v", ee)
+	}
+	return result, err
 }
 
 type hookLogger struct {
