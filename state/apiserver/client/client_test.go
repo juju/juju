@@ -1721,7 +1721,7 @@ func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeploy(c *gc.C) {
+func (s *clientSuite) TestClientAuthorizeStoreOnDeployAndServiceSetCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
@@ -1739,9 +1739,19 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeploy(c *gc.C) {
 
 	curl, _ := addCharm(c, store, "dummy")
 	err = s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 1, "", constraints.Value{},
+		curl.String(), "service", 3, "", constraints.Value{},
 	)
 	c.Assert(err, gc.IsNil)
+
+	// check that the store's auth attributes were set
+	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+
+	store.AuthAttrs = ""
+
+	addCharm(c, store, "wordpress")
+	err = s.APIState.Client().ServiceSetCharm(
+		"service", "cs:precise/wordpress-3", false,
+	)
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
