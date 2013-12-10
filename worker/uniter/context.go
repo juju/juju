@@ -24,6 +24,19 @@ import (
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
+type missingHookError struct {
+	hookName string
+}
+
+func (e *missingHookError) Error() string {
+	return e.hookName + " does not exist"
+}
+
+func IsMissingHookError(err error) bool {
+	_, ok := err.(*missingHookError)
+	return ok
+}
+
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
@@ -244,7 +257,7 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		if os.IsNotExist(ee.Err) {
 			// Missing hook is perfectly valid, but worth mentioning.
 			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return nil
+			return &missingHookError{hookName}
 		}
 	}
 	return err

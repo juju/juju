@@ -32,6 +32,12 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
+type UniterExecutionObserver interface {
+	HookCompleted(hookName string)
+	HookFailed(hookName string)
+	RunCommandsCompleted(commands string)
+}
+
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
@@ -60,6 +66,9 @@ type Uniter struct {
 	runListener  *RunListener
 
 	ranConfigChanged bool
+	// The execution observer is only used in tests at this stage. Should this
+	// need to be extended, perhaps a list of observers would be needed.
+	observer UniterExecutionObserver
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -81,6 +90,7 @@ func (u *Uniter) loop(unitTag string) (err error) {
 	if err = u.init(unitTag); err != nil {
 		return err
 	}
+	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
@@ -167,6 +177,7 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err != nil {
 		return err
 	}
+	go u.runListener.Run()
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
@@ -365,6 +376,29 @@ func (u *Uniter) runCommands(commands string) (results *RunResults, err error) {
 	return hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
 }
 
+func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {
+	if r, ok := hctx.HookRelation(); ok {
+		remote, _ := hctx.RemoteUnitName()
+		if remote != "" {
+			remote = " " + remote
+		}
+		hook = hook + remote + " " + r.FakeId()
+	}
+	method(hook)
+}
+
+func (u *Uniter) notifyHookCompleted(hook string, hctx *HookContext) {
+	if u.observer != nil {
+		u.notifyHookInternal(hook, hctx, u.observer.HookCompleted)
+	}
+}
+
+func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
+	if u.observer != nil {
+		u.notifyHookInternal(hook, hctx, u.observer.HookFailed)
+	}
+}
+
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
@@ -404,14 +438,24 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
-	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
+	ranHook := true
+	err = hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath)
+	if IsMissingHookError(err) {
+		ranHook = false
+	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
+		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
-	logger.Infof("ran %q hook", hookName)
+	if ranHook {
+		logger.Infof("ran %q hook", hookName)
+		u.notifyHookCompleted(hookName, hctx)
+	} else {
+		logger.Infof("skipped %q hook (missing)", hookName)
+	}
 	return u.commitHook(hi)
 }
 
