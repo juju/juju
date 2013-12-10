@@ -128,17 +128,17 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertNeedsCleanup(c)
 
-	// Clean up, and check that the machine has been removed...
+	// Clean up, and check that the unit has been removed...
 	s.assertCleanupRuns(c)
 	s.assertDoesNotNeedCleanup(c)
-	err = machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	// ...and so has the unit...
 	assertRemoved(c, pr.u0)
 
-	// ...and the unit has departed relation scope.
+	// ...and the unit has departed relation scope...
 	assertNotInScope(c, pr.ru0)
+
+	// ...but that the machine remains, and is Dead, ready for removal by the
+	// provisioner.
+	assertLife(c, machine, state.Dead)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
@@ -184,11 +184,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertNeedsCleanup(c)
 
-	// Clean up, and check that all the machines have been removed...
+	// Clean up, and check that the container has been removed...
 	s.assertCleanupRuns(c)
 	s.assertDoesNotNeedCleanup(c)
-	err = machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = container.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
@@ -198,11 +196,15 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	assertRemoved(c, prr.ru0)
 	assertRemoved(c, prr.ru1)
 
-	// ...and none of the units have left relation scopes occupied.
+	// ...and none of the units have left relation scopes occupied...
 	assertNotInScope(c, prr.pru0)
 	assertNotInScope(c, prr.pru1)
 	assertNotInScope(c, prr.rru0)
 	assertNotInScope(c, prr.rru1)
+
+	// ...but that the machine remains, and is Dead, ready for removal by the
+	// provisioner.
+	assertLife(c, machine, state.Dead)
 }
 
 func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {

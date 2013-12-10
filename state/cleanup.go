@@ -151,14 +151,15 @@ func (st *State) cleanupMachine(machineId string) error {
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	if err := machine.EnsureDead(); err != nil {
-		return err
-	}
-	return machine.Remove()
+	return machine.EnsureDead()
+
+	// Note that we do *not* remove the machine entirely: we leave it for the
+	// provisioner to clean up, so that we don't end up with an unreferenced
+	// instance that would otherwise be ignored when in provisioner-safe-mode.
 }
 
 // cleanupContainers recursively calls cleanupMachine on the supplied
-// machine's containers.
+// machine's containers, and removes them from state entirely.
 func (st *State) cleanupContainers(machine *Machine) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFoundError(err) {
@@ -168,6 +169,15 @@ func (st *State) cleanupContainers(machine *Machine) error {
 	}
 	for _, containerId := range containerIds {
 		if err := st.cleanupMachine(containerId); err != nil {
+			return err
+		}
+		container, err := st.Machine(containerId)
+		if errors.IsNotFoundError(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := container.Remove(); err != nil {
 			return err
 		}
 	}
