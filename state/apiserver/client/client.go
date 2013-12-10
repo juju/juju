@@ -822,7 +822,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig)
+	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.

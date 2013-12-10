@@ -296,15 +296,15 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 
 		// Set up state and environ, and run the command.
-		cfg, err := s.State.EnvironConfig()
+		oldcfg, err := s.State.EnvironConfig()
 		c.Assert(err, gc.IsNil)
 		toolsDir := c.MkDir()
-		cfg, err = cfg.Apply(map[string]interface{}{
+		cfg, err := oldcfg.Apply(map[string]interface{}{
 			"agent-version":      test.agentVersion,
 			"tools-metadata-url": "file://" + toolsDir,
 		})
 		c.Assert(err, gc.IsNil)
-		err = s.State.SetEnvironConfig(cfg)
+		err = s.State.SetEnvironConfig(cfg, oldcfg)
 		c.Assert(err, gc.IsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
@@ -377,14 +377,14 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	cfg, err := s.State.EnvironConfig()
+	oldcfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{
+	cfg, err := oldcfg.Apply(map[string]interface{}{
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	})
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 	c.Assert(err, gc.IsNil)
 }
 
