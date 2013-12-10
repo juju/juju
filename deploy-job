@@ -1,0 +1,10 @@
+#!/bin/bash
+source $SCRIPTS/common-startup.sh
+# Do the deployment for upgrade testing.
+EXIT_STATUS=0
+PATH=$NEW_PATH $SCRIPTS/deploy_stack.py $ENV || EXIT_STATUS=$?
+if [ $EXIT_STATUS -ne 0 ]; then
+  dump_logs
+fi
+PATH=$NEW_PATH $SCRIPTS/destroy-environment $ENV
+exit $EXIT_STATUS
