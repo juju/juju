@@ -36,12 +36,7 @@ func FakeConfig() Attrs {
 // EnvironConfig returns a default environment configuration suitable for
 // setting in the state.
 func EnvironConfig(c *gc.C) *config.Config {
-	attrs := FakeConfig().Merge(Attrs{
-		"agent-version": "1.2.3",
-	}).Delete("admin-secret", "ca-private-key")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	return cfg
+	return CustomEnvironConfig(c, Attrs{})
 }
 
 // CustomEnvironConfig returns an environment configuration with
