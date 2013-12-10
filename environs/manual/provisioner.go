@@ -19,12 +19,12 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -123,8 +123,8 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	} else {
 		request := params.MachineConfigParams{
 			MachineId: machineId,
-			Series: machineParams.Series,
-			Arch: arch,
+			Series:    machineParams.Series,
+			Arch:      arch,
 		}
 		configParameters, err = statecmd.MachineConfig(stateConn.State, request)
 	}
@@ -188,12 +188,12 @@ func recordMachineInState1dot16(
 		return "", err
 	}
 	stateParams := state.AddMachineParams{
-		Series: machineParams.Series,
-		Constraints: machineParams.Constraints, // not used
-		Jobs: stateJobs,
-		ParentId: machineParams.ParentId, //not used
-		ContainerType: machineParams.ContainerType, // not used
-		InstanceId: machineParams.InstanceId,
+		Series:                  machineParams.Series,
+		Constraints:             machineParams.Constraints, // not used
+		Jobs:                    stateJobs,
+		ParentId:                machineParams.ParentId,      //not used
+		ContainerType:           machineParams.ContainerType, // not used
+		InstanceId:              machineParams.InstanceId,
 		HardwareCharacteristics: machineParams.HardwareCharacteristics,
 		Nonce: machineParams.Nonce,
 	}

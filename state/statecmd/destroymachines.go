@@ -41,5 +41,3 @@ func DestroyMachines1dot16(st *state.State, ids ...string) (err error) {
 	}
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
-
-

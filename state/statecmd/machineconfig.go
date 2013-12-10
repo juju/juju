@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/provisioner"
 )
+
 // TODO: Seems like a layering violation for the API server and CLI to want to
 // import worker/provisioner code
 
@@ -27,6 +28,7 @@ func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools,
 	}
 	return possibleTools[0], nil
 }
+
 // MachineConfig returns information from the environment config that is
 // needed for machine cloud-init (both state servers and host nodes).
 // The code is here so that it can be shared between the API server and the CLI
