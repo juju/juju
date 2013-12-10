@@ -47,6 +47,7 @@ func ReadList(stor storage.StorageReader, majorVersion, minorVersion int) (coret
 		var t coretools.Tools
 		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
+			logger.Debugf("failed to parse version %q: %v", vers, err)
 			continue
 		}
 		foundAnyTools = true

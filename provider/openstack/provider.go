@@ -470,7 +470,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
+func (e *environ) Bootstrap(cons constraints.Value) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -478,7 +478,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) er
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(e, cons, possibleTools)
+	return common.Bootstrap(e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -866,7 +866,7 @@ func (e *environ) machineFullName(machineId string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-.*", e.Name()))
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Name()))
 	return filter
 }
 

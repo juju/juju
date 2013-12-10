@@ -66,7 +66,7 @@ func (mock *mockContainer) Name() string {
 	return mock.name
 }
 
-func (mock *mockContainer) Start() error {
+func (mock *mockContainer) Start(params kvm.StartParams) error {
 	if mock.started {
 		return fmt.Errorf("container is already running")
 	}

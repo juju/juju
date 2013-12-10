@@ -52,7 +52,7 @@ func (*MockSuite) TestContainerStoppingStoppedErrors(c *gc.C) {
 func (*MockSuite) TestContainerStartStarts(c *gc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
-	err := container.Start()
+	err := container.Start(kvm.StartParams{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(container.IsRunning(), jc.IsTrue)
 }
@@ -60,16 +60,16 @@ func (*MockSuite) TestContainerStartStarts(c *gc.C) {
 func (*MockSuite) TestContainerStartingRunningErrors(c *gc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
-	err := container.Start()
+	err := container.Start(kvm.StartParams{})
 	c.Assert(err, gc.IsNil)
-	err = container.Start()
+	err = container.Start(kvm.StartParams{})
 	c.Assert(err, gc.ErrorMatches, "container is already running")
 }
 
 func (*MockSuite) TestContainerStoppingRunningStops(c *gc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
-	err := container.Start()
+	err := container.Start(kvm.StartParams{})
 	c.Assert(err, gc.IsNil)
 	err = container.Stop()
 	c.Assert(err, gc.IsNil)
@@ -132,8 +132,8 @@ func (*MockSuite) TestEvents(c *gc.C) {
 
 	first := factory.New("first")
 	second := factory.New("second")
-	first.Start()
-	second.Start()
+	first.Start(kvm.StartParams{})
+	second.Start(kvm.StartParams{})
 	second.Stop()
 	first.Stop()
 
@@ -151,7 +151,7 @@ func (*MockSuite) TestEventsGoToAllListeners(c *gc.C) {
 	factory.AddListener(second)
 
 	container := factory.New("container")
-	container.Start()
+	container.Start(kvm.StartParams{})
 	container.Stop()
 
 	c.Assert(<-first, gc.Equals, mock.Event{mock.Started, "container"})

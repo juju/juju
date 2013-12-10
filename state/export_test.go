@@ -166,6 +166,18 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
 }
 
+//SCHEMACHANGE
+// This method is used to reset the ownertag attribute
+func SetServiceOwnerTag(s *Service, ownerTag string) {
+	s.doc.OwnerTag = ownerTag
+}
+
+//SCHEMACHANGE
+// Get the owner directly
+func GetServiceOwnerTag(s *Service) string {
+	return s.doc.OwnerTag
+}
+
 func SetPasswordHash(e Authenticator, passwordHash string) error {
 	type hasSetPasswordHash interface {
 		setPasswordHash(string) error
@@ -204,4 +216,8 @@ func ParseTag(st *State, tag string) (string, string, error) {
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
+}
+
+func StateServerMachineIds(st *State) ([]string, error) {
+	return st.stateServerMachineIds()
 }

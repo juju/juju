@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -133,7 +132,11 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value, possibleTools tools.List) error
+	//
+	// Bootstrap is responsible for selecting the appropriate tools,
+	// and setting the agent-version configuration attribute prior to
+	// bootstrapping the environment.
+	Bootstrap(cons constraints.Value) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

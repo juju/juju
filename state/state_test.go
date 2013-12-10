@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 
@@ -298,6 +299,61 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
+}
+
+func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("quantal", oneJob...)
+	c.Assert(err, gc.IsNil)
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: instance.KVM,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, "0/kvm/0")
+	s.assertMachineContainers(c, host, []string{"0/kvm/0"})
+}
+
+func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainers(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("quantal", oneJob...)
+	c.Assert(err, gc.IsNil)
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: instance.LXC,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	s.assertMachineContainers(c, host, nil)
+}
+
+func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	host, err := s.State.AddMachine("quantal", oneJob...)
+	c.Assert(err, gc.IsNil)
+	err = host.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: instance.LXC,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	s.assertMachineContainers(c, host, nil)
 }
 
 func (s *StateSuite) TestAddContainerWithConstraints(c *gc.C) {
@@ -749,7 +805,7 @@ func (s *StateSuite) TestEnvironConfig(c *gc.C) {
 		"arbitrary-key":   "shazam!",
 	})
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(change)
+	err = s.State.SetEnvironConfig(change, cfg)
 	c.Assert(err, gc.IsNil)
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -1019,9 +1075,16 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Initial event is empty when no containers.
 	w := machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
+	wAll := machine.WatchAllContainers()
+	defer statetesting.AssertStop(c, wAll)
+
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
+
+	wcAll := statetesting.NewStringsWatcherC(c, s.State, wAll)
+	wcAll.AssertChange()
+	wcAll.AssertNoChange()
 
 	// Add a container of the required type: reported.
 	params.ParentId = machine.Id()
@@ -1030,18 +1093,24 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Add a container of a different type: not reported.
 	params.ContainerType = instance.KVM
 	m1, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	// But reported by the all watcher.
+	wcAll.AssertChange("0/kvm/0")
+	wcAll.AssertNoChange()
 
 	// Add a nested container of the right type: not reported.
 	params.ParentId = m.Id()
 	params.ContainerType = instance.LXC
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	wcAll.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
@@ -1050,18 +1119,27 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 	statetesting.AssertStop(c, w)
+	wcAll.AssertNoChange()
+	statetesting.AssertStop(c, wAll)
 
 	w = machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
 	wc = statetesting.NewStringsWatcherC(c, s.State, w)
+	wAll = machine.WatchAllContainers()
+	defer statetesting.AssertStop(c, wAll)
+	wcAll = statetesting.NewStringsWatcherC(c, s.State, wAll)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/kvm/0", "0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Make the container Dying: reported.
 	err = m.Destroy()
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Make the other containers Dying: not reported.
 	err = m1.Destroy()
@@ -1069,12 +1147,17 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	err = m2.Destroy()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	// But reported by the all watcher.
+	wcAll.AssertChange("0/kvm/0")
+	wcAll.AssertNoChange()
 
 	// Make the container Dead: reported.
 	err = m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
+	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertNoChange()
 
 	// Make the other containers Dead: not reported.
 	err = m1.EnsureDead()
@@ -1082,11 +1165,15 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	err = m2.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	// But reported by the all watcher.
+	wcAll.AssertChange("0/kvm/0")
+	wcAll.AssertNoChange()
 
 	// Remove the container: not reported.
 	err = m.Remove()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	wcAll.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
@@ -1149,9 +1236,10 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 		cfg, err := s.State.EnvironConfig()
 		c.Assert(err, gc.IsNil)
 		if change != nil {
+			oldcfg := cfg
 			cfg, err = cfg.Apply(change)
 			c.Assert(err, gc.IsNil)
-			err = s.State.SetEnvironConfig(cfg)
+			err = s.State.SetEnvironConfig(cfg, oldcfg)
 			c.Assert(err, gc.IsNil)
 		}
 		s.State.StartSync()
@@ -1209,6 +1297,7 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
+	oldcfg := cfg
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -1244,7 +1333,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
 
@@ -1988,7 +2077,7 @@ func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name strin
 	attrs[name] = value
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.State.SetEnvironConfig(newConfig), gc.IsNil)
+	c.Assert(s.State.SetEnvironConfig(newConfig, envConfig), gc.IsNil)
 }
 
 func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
@@ -2076,4 +2165,49 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher %T did not exit when state closed", watcher)
 	}
+}
+
+func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
+	ids, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.HasLen, 0)
+
+	// TODO(rog) more testing here when we can actually add
+	// state servers.
+}
+
+func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err = s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that we have in fact deleted the right info.
+	ids, err := state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.NotNil)
+	c.Assert(ids, gc.HasLen, 0)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	expectIds := []string{m1.Id(), m2.Id()}
+	sort.Strings(expectIds)
+	ids, err = state.StateServerMachineIds(st)
+	c.Assert(err, gc.IsNil)
+	sort.Strings(ids)
+	c.Assert(ids, gc.DeepEquals, expectIds)
+
+	// Check that it works with the original connection too.
+	ids, err = state.StateServerMachineIds(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, expectIds)
 }

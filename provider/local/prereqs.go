@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
+	"launchpad.net/juju-core/container/kvm"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -61,14 +63,20 @@ var goos = runtime.GOOS
 // VerifyPrerequisites verifies the prerequisites of
 // the local machine (machine 0) for running the local
 // provider.
-func VerifyPrerequisites() error {
+func VerifyPrerequisites(containerType instance.ContainerType) error {
 	if goos != "linux" {
 		return fmt.Errorf(errUnsupportedOS, goos)
 	}
 	if err := verifyMongod(); err != nil {
 		return err
 	}
-	return verifyLxc()
+	switch containerType {
+	case instance.LXC:
+		return verifyLxc()
+	case instance.KVM:
+		return kvm.VerifyKVMEnabled()
+	}
+	return fmt.Errorf("Unknown container type specified in the config.")
 }
 
 func verifyMongod() error {
@@ -91,16 +99,8 @@ func verifyLxc() error {
 	return nil
 }
 
-func isUbuntu() bool {
-	out, err := exec.Command("lsb_release", "-i", "-s").CombinedOutput()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) == "Ubuntu"
-}
-
 func wrapMongodNotExist(err error) error {
-	if isUbuntu() {
+	if utils.IsUbuntu() {
 		series := version.Current.Series
 		args := []interface{}{err, installMongodUbuntu}
 		format := "%v\n%s\n%s"
@@ -115,7 +115,7 @@ func wrapMongodNotExist(err error) error {
 }
 
 func wrapLxcNotFound(err error) error {
-	if isUbuntu() {
+	if utils.IsUbuntu() {
 		return fmt.Errorf("%v\n%s", err, installLxcUbuntu)
 	}
 	return fmt.Errorf("%v\n%s", err, installLxcGeneric)

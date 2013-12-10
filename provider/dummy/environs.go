@@ -37,6 +37,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -73,6 +74,7 @@ func SampleConfig() testing.Attrs {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
+		"syslog-port":               2345,
 		"default-series":            "precise",
 
 		"secret":       "pork",
@@ -520,7 +522,12 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List) error {
+func (e *environ) Bootstrap(cons constraints.Value) error {
+	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
+	if err != nil {
+		return err
+	}
+
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -533,7 +540,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	logger.Infof("would pick tools from %s", possibleTools)
+	logger.Infof("would pick tools from %s", selectedTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
 		return fmt.Errorf("cannot make bootstrap config: %v", err)
@@ -552,7 +559,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 	// we need to release the mutex for the save state to work, so regain
 	// it after the call.
 	estate.mu.Unlock()
-	if err := common.SaveState(e.Storage(), &common.BootstrapState{StateInstances: []instance.Id{"localhost"}}); err != nil {
+	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: []instance.Id{"localhost"}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		estate.mu.Lock() // otherwise defered unlock will fail
 		return err

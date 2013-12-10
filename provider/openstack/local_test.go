@@ -32,7 +32,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -168,6 +167,8 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -204,6 +205,8 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	c.Logf("Running local tests")
 }
 
@@ -477,7 +480,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := common.LoadState(env.Storage())
+	stateData, err := bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
@@ -741,6 +744,9 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	defer restoreFinishBootstrap()
+
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	metadataStorage := openstack.MetadataStorage(s.env)
 	url, err := metadataStorage.URL("")
@@ -890,4 +896,42 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 	// We *don't* test Fetch for sources[3] because it points to
 	// streams.canonical.com
+}
+
+func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
+	env := s.Prepare(c)
+	err := bootstrap.Bootstrap(env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+
+	// Check that we see 1 instance in the environment
+	insts, err := env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Check(insts, gc.HasLen, 1)
+
+	// Now start a machine 'manually' in the same account, with a similar
+	// but not matching name, and ensure it isn't seen by AllInstances
+	// See bug #1257481, for how similar names were causing them to get
+	// listed (and thus destroyed) at the wrong time
+	existingEnvName := s.TestConfig["name"]
+	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingEnvName)
+
+	// We grab the Nova client directly from the env, just to save time
+	// looking all the stuff up
+	novaClient := openstack.GetNovaClient(env)
+	entity, err := novaClient.RunServer(nova.RunServerOpts{
+		Name:     newMachineName,
+		FlavorId: "1", // test service has 1,2,3 for flavor ids
+		ImageId:  "1", // UseTestImageData sets up images 1 and 2
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity, gc.NotNil)
+
+	// List all servers with no filter, we should see both instances
+	servers, err := novaClient.ListServersDetail(nova.NewFilter())
+	c.Assert(err, gc.IsNil)
+	c.Assert(servers, gc.HasLen, 2)
+
+	insts, err = env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Check(insts, gc.HasLen, 1)
 }

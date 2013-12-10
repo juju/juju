@@ -839,7 +839,12 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig)
+	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
+}
+
+// SetEnvironAgentVersion sets the environment agent version.
+func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
+	return c.api.state.SetEnvironAgentVersion(args.Version)
 }
 
 func destroyErr(desc string, ids, errs []string) error {

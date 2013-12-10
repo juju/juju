@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/common"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -131,7 +132,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e.Storage())
-	err := bootstrap.EnsureNotBootstrapped(e)
+	err := common.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -140,12 +141,12 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
 	c.Check(apiInfo.Addrs, gc.Not(gc.HasLen), 0)
 
-	err = bootstrap.EnsureNotBootstrapped(e)
+	err = common.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
 	envtesting.UploadFakeTools(c, e2.Storage())
-	err = bootstrap.EnsureNotBootstrapped(e2)
+	err = common.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -159,12 +160,12 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	e3 := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e3.Storage())
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
+	err = common.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
+	err = common.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
