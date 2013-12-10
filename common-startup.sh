@@ -1,8 +1,6 @@
 set -eu
 export JUJU_HOME=$HOME/juju-ci
 dump_logs(){
-  artifacts_path=$WORKSPACE/artifacts
-  mkdir -p $artifacts_path
   log_path=${artifacts_path}/all-machines-${ENV}.log
   if timeout 5m juju --show-log scp -e $ENV -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $JUJU_HOME/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
     gzip $log_path
@@ -10,6 +8,9 @@ dump_logs(){
 }
 export JUJU_HOME=$HOME/juju-ci
 export PACKAGE=$WORKSPACE/new-version.deb
+artifacts_path=$WORKSPACE/artifacts
+mkdir -p $artifacts_path
+touch $artifacts_path/empty
 set -x
 rm * -rf
 artifact=localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact
