@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/utils"
@@ -67,26 +68,23 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			// Note: In theory, if we have stateConn, then we are
-			// in 1.16 compatibility mode and we should issue
+			// If we have stateConn, then we are in 1.16
+			// compatibility mode and we should issue
 			// DestroyMachines directly on the state, rather than
 			// via API (because DestroyMachine *also* didn't exist
-			// in 1.16).
-			// However, 1.16 *also* didn't have
-			// ForceDestroyMachines, and calling DestroyMachines at
-			// this point just leaves a machine record in
-			// "agent-state: pending", "life: dying". which will
-			// never get cleaned up either.
-			// And the code for state.DestroyMachines got moved
-			// into the API server, so it isn't really worth
-			// messing with.
+			// in 1.16, though it will be in 1.16.5).
+			// TODO: When this compatibility code is removed, we
+			// should remove the method in state as well (as long
+			// as destroy-machine also no longer needs it.)
+			var cleanupErr error
 			if stateConn != nil {
-				// We are in compatibility w/ 1.16 mode.
-				// <=1.16.4 doesn't have a DestroyMachines API
-				// call (it might be added in 1.16.5). As such,
-				// just DestroyMachine in the DB directly.
+				cleanupErr = statecmd.DestroyMachines1dot16(stateConn.State, machineId)
+			} else {
+				cleanupErr = client.DestroyMachines(machineId)
 			}
-			client.DestroyMachines(machineId)
+			if cleanupErr != nil {
+				logger.Warningf("error cleaning up machine: %s", cleanupErr)
+			}
 			machineId = ""
 		}
 		if stateConn != nil {
@@ -119,8 +117,22 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		return "", err
 	}
 
+	var configParameters params.MachineConfig
+	if stateConn == nil {
+		configParameters, err = client.MachineConfig(machineId, machineParams.Series, arch)
+	} else {
+		request := params.MachineConfigParams{
+			MachineId: machineId,
+			Series: machineParams.Series,
+			Arch: arch,
+		}
+		configParameters, err = statecmd.MachineConfig(stateConn.State, request)
+	}
+	if err != nil {
+		return "", err
+	}
 	// Gather the information needed by the machine agent to run the provisioning script.
-	mcfg, err := createMachineConfig(client, machineId, machineParams.Series, arch, machineParams.Nonce, args.DataDir)
+	mcfg, err := finishMachineConfig(configParameters, machineId, machineParams.Nonce, args.DataDir)
 	if err != nil {
 		return machineId, err
 	}
@@ -252,11 +264,7 @@ func gatherMachineParams(host string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
-	configParameters, err := client.MachineConfig(machineId, series, arch)
-	if err != nil {
-		return nil, err
-	}
+func finishMachineConfig(configParameters params.MachineConfig, machineId, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
 	stateInfo := &state.Info{
 		Addrs:    configParameters.StateAddrs,
 		Password: configParameters.Password,
