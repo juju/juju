@@ -106,6 +106,10 @@ func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 	return strings.Join(script, "\n"), nil
 }
 
+// The options specified are to prevent any kind of prompting.
+//  * --assume-yes answers yes to any yes/no question in apt-get;
+//  * the --force-confold option is passed to dpkg, and tells dpkg
+//    to always keep old configuration files in the face of change.
 const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
 
 // addPackageCommands returns a slice of commands that, when run,
@@ -143,6 +147,8 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {
+		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
+		// from prompting, always taking default values instead.
 		cmds = append([]string{"export DEBIAN_FRONTEND=noninteractive"}, cmds...)
 	}
 	return cmds, nil
