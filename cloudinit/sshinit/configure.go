@@ -25,7 +25,7 @@ type ConfigureParams struct {
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
-	// Stdin is required to solicit sudo prompts,
+	// Stdin is required to respond to sudo prompts,
 	// and must be a terminal (except in tests)
 	Stdin io.Reader
 

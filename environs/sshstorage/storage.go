@@ -74,7 +74,7 @@ type NewSSHStorageParams struct {
 	// an error if it cannot do so.
 	TmpDir string
 
-	// Stdin in required to solicit sudo passwords,
+	// Stdin in required to respond to sudo passwords,
 	// and must be a terminal (except in tests).
 	Stdin io.Reader
 

@@ -46,7 +46,7 @@ type ProvisionMachineArgs struct {
 	// chosen using environs/tools FindInstanceTools.
 	Tools *tools.Tools
 
-	// Stdin is required to solicit sudo prompts,
+	// Stdin is required to respond to sudo prompts,
 	// and must be a terminal (except in tests)
 	Stdin io.Reader
 
