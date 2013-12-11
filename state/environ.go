@@ -96,12 +96,13 @@ func (e *Environment) Destroy() error {
 	}, e.st.newCleanupOp("services", "")}
 	err := e.st.runTransaction(ops)
 	switch err {
-	case nil:
-		e.doc.Life = Dying
-	case txn.ErrAborted:
+	case nil, txn.ErrAborted:
 		// If the transaction aborted, the environment is either
-		// Dying or Dead; neither case is an error.
-		err = e.Refresh()
+		// Dying or Dead; neither case is an error. If it's Dead,
+		// reporting it as Dying is not incorrect; the user thought
+		// it was Alive, so we've progressed towards Dead. If the
+		// user then calls Refresh they'll get the true value.
+		e.doc.Life = Dying
 	}
 	return err
 }
@@ -118,8 +119,7 @@ func createEnvironmentOp(st *State, name, uuid string) txn.Op {
 	}
 }
 
-// assertAliveOp returns a read-only txn.Op that asserts
-// the environment is alive.
+// assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
 	return txn.Op{
 		C:      e.st.environments.Name,

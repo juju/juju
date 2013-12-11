@@ -1643,7 +1643,8 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: "user-arble",
 }, {
-	// TODO(axw) remove backwards compatibility for environment-tag; see lp:1257587
+	// TODO(axw) 2013-12-04 #1257587
+	// remove backwards compatibility for environment-tag; see state.go
 	tag: "environment-notauuid",
 	err: `environment "notauuid" not found`,
 	//err: `"environment-notauuid" is not a valid environment tag`,
@@ -1697,7 +1698,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
 			if kind == "environment" {
-				// TODO(axw) remove backwards compatibility for environment-tag; see lp:1257587
+				// TODO(axw) 2013-12-04 #1257587
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
