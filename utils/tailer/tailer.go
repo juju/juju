@@ -5,6 +5,7 @@ package tailer
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"os"
 	"time"
@@ -16,6 +17,10 @@ const (
 	bufsize   = 4096
 	polltime  = time.Second
 	delimiter = '\n'
+)
+
+var (
+	delimiters = []byte{delimiter}
 )
 
 // TailerFilterFunc decides if a line shall be tailed (func is nil or
@@ -35,18 +40,18 @@ type Tailer struct {
 	polltime   time.Duration
 }
 
-// NewStandardTailer starts a Tailer which reads strings from the passed
+// NewTailer starts a Tailer which reads strings from the passed
 // ReadSeeker line by line. If a filter function is specified the read
 // lines are filtered. The matching lines are written to the passed
-// Writer. The reading beginns the specified number of matching lines
+// Writer. The reading begins the specified number of matching lines
 // from the end.
-func NewStandardTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc) *Tailer {
-	return NewTailer(readSeeker, writer, lines, filter, bufsize, polltime)
+func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc) *Tailer {
+	return newTailer(readSeeker, writer, lines, filter, bufsize, polltime)
 }
 
-// NewTailer starts a Tailer like NewStandardTailer but allows some tuning
-// by defining the size of the read buffer and the time between pollings.
-func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc,
+// newTailer starts a Tailer like NewTailer but allows the setting of
+// the read buffer size and the time between pollings for testing.
+func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc,
 	bufsize int, polltime time.Duration) *Tailer {
 	t := &Tailer{
 		readSeeker: readSeeker,
@@ -114,90 +119,77 @@ func (t *Tailer) loop() error {
 	}
 }
 
-// seekLastLines sets the read position of the ReadSeeker the
+// seekLastLines sets the read position of the ReadSeeker to the
 // wanted number of filtered lines before the end.
 func (t *Tailer) seekLastLines() error {
-	// Start at the end.
 	offset, err := t.readSeeker.Seek(0, os.SEEK_END)
 	if err != nil {
 		return err
 	}
 	seekPos := int64(0)
-	readBuffer := make([]byte, t.bufsize)
-	lineBuffer := []byte(nil)
 	found := 0
-	beginp := -1
-	endp := -1
-	first := true
-	// Seek backwards.
+	buffer := make([]byte, t.bufsize)
 SeekLoop:
-	for {
-		// Read new block and prepare line buffer for scanning.
-		newOffset := offset - int64(len(readBuffer))
-		if newOffset < 0 {
-			newOffset = 0
+	for offset > 0 {
+		// buffer contains the data left over from the
+		// previous iteration.
+		space := cap(buffer) - len(buffer)
+		if space < t.bufsize {
+			// Grow buffer.
+			newBuffer := make([]byte, len(buffer), cap(buffer)*2)
+			copy(newBuffer, buffer)
+			buffer = newBuffer
+			space = cap(buffer) - len(buffer)
 		}
-		_, err := t.readSeeker.Seek(newOffset, os.SEEK_SET)
+		if int64(space) > offset {
+			// Use exactly the right amount of space if there's
+			// only a small amount remaining.
+			space = int(offset)
+		}
+		// Copy data remaining from last time to the end of the buffer,
+		// so we can read into the right place.
+		copy(buffer[space:cap(buffer)], buffer)
+		buffer = buffer[0 : len(buffer)+space]
+		offset -= int64(space)
+		_, err := t.readSeeker.Seek(offset, os.SEEK_SET)
 		if err != nil {
 			return err
 		}
-		n := int(offset - newOffset)
-		offset = newOffset
-		n, err = t.readSeeker.Read(readBuffer[0:n])
+		_, err = io.ReadFull(t.readSeeker, buffer[0:space])
 		if err != nil {
 			return err
 		}
-		newBuffer := make([]byte, n+len(lineBuffer))
-		copy(newBuffer, readBuffer[0:n])
-		copy(newBuffer[n:], lineBuffer)
-		lineBuffer = newBuffer
-		endp += n
-		beginp += n
-		// Scan line buffer for contained lines. If the last line of
-		// the first read block is not delimited it will be skipped.
-		// So the following readLine() of the main loop can read
-		// and check it fully.
-	ScanLoop:
+		// Find the end of the last line in the buffer.
+		// This will discard any unterminated line at the end
+		// of the file.
+		end := bytes.LastIndex(buffer, delimiters)
+		if end == -1 {
+			// No end of line found - discard incomplete
+			// line and continue looking. If this happens
+			// at the beginning of the file, we don't care
+			// because we're going to stop anyway.
+			buffer = buffer[:0]
+			continue
+		}
+		end++
 		for {
-			// First try to find the terminating delimiter.
-			if first {
-				for endp >= 0 && lineBuffer[endp] != delimiter {
-					endp--
-				}
-				if endp <= 0 {
-					// No ending or exact in the beginning.
-					// So read next block.
-					break ScanLoop
-				}
-				first = false
-				beginp = endp - 1
+			start := bytes.LastIndex(buffer[0:end-1], delimiters)
+			if start == -1 && offset >= 0 {
+				break
 			}
-			// Now the delimiter of the preceding line.
-			for beginp >= 0 && lineBuffer[beginp] != delimiter {
-				beginp--
-			}
-			if beginp < 0 {
-				// No next delimiter aka beginnig of this
-				// line. So read next block.
-				break ScanLoop
-			}
-			// Found a line inside the buffer. Check it.
-			if t.isValid(lineBuffer[beginp+1 : endp+1]) {
+			start++
+			if t.isValid(buffer[start:end]) {
 				found++
-				if found == t.lines {
-					seekPos = offset + int64(beginp+1)
+				if found >= t.lines {
+					seekPos = offset + int64(start)
 					break SeekLoop
 				}
 			}
-			// Not valid or not enough, prepare next round.
-			endp = beginp
-			beginp = endp - 1
-			lineBuffer = lineBuffer[:endp+1]
+			end = start
 		}
-		if offset == 0 {
-			// Reached beginnig of data.
-			break SeekLoop
-		}
+		// Leave the last line in buffer, as we don't know whether
+		// it's complete or not.
+		buffer = buffer[0:end]
 	}
 	// Final positioning.
 	t.readSeeker.Seek(seekPos, os.SEEK_SET)
@@ -209,29 +201,27 @@ SeekLoop:
 func (t *Tailer) readLine() ([]byte, error) {
 	line := []byte(nil)
 	for {
-		buffer, err := t.reader.ReadBytes(delimiter)
-		line = append(line, buffer...)
+		slice, err := t.reader.ReadSlice(delimiter)
 		switch err {
 		case nil:
-			// Found next line, return if valid, else drop.
+			// Found delimiter, check line.
+			if line == nil {
+				line = slice
+			} else {
+				line = append(line, slice...)
+			}
 			if t.isValid(line) {
 				return line, nil
 			}
 			line = nil
 		case bufio.ErrBufferFull:
-			// More to read.
+			// Buffer full before delimiter.
+			line = append(line, slice...)
 			continue
 		case io.EOF:
-			// EOF, do we have a terminated line?
-			if len(line) == 0 || line[len(line)-1] == delimiter {
-				if t.isValid(line) {
-					return line, err
-				}
-				line = nil
-			}
-			// Step back.
-			offset := int64(-len(line))
-			t.readSeeker.Seek(offset, os.SEEK_END)
+			// EOF without delimiter, step back.
+			offset := int64(len(line) + len(slice))
+			t.readSeeker.Seek(-offset, os.SEEK_CUR)
 			return nil, err
 		default:
 			// Other error.
@@ -243,9 +233,6 @@ func (t *Tailer) readLine() ([]byte, error) {
 // isValid checks if the passed line is valid by checking if the
 // line has content, the filter function is nil or it returns true.
 func (t *Tailer) isValid(line []byte) bool {
-	if len(line) == 0 {
-		return false
-	}
 	if t.filter == nil {
 		return true
 	}

@@ -24,15 +24,117 @@ type tailerSuite struct{}
 
 var _ = gc.Suite(tailerSuite{})
 
-func (tailerSuite) TestMoreThanTailed(c *gc.C) {
-	// Tails asks for less lines than exist.
+func (tailerSuite) TestMissingTermination(c *gc.C) {
+	// Last line is not terminated.
+	data := []string{"One\n", "Two\n", "Three\n", "Four"}
 	buffer := bytes.NewBuffer(nil)
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 5, sigc)
+	rs := startReadSeeker(c, data, 2, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 3, nil, 4096, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 2, nil, 4096, 2*time.Millisecond)
+
+	assertCollected(c, buffer, data[:2], nil)
+
+	sigc <- struct{}{}
+
+	assertCollected(c, buffer, []string{data[2]}, nil)
+
+	c.Assert(t.Stop(), gc.IsNil)
+}
+
+func (tailerSuite) TestLaggedTermination(c *gc.C) {
+	// Last line is terminated later.
+	data := []string{"One\n", "Two\n", "Three\n", "Four", "teen\n"}
+	buffer := bytes.NewBuffer(nil)
+	sigc := make(chan struct{}, 1)
+	rs := startReadSeeker(c, data, 2, sigc)
+
+	<-sigc
+
+	t := tailer.NewTestTailer(rs, buffer, 2, nil, 4096, 2*time.Millisecond)
+
+	assertCollected(c, buffer, data[:2], nil)
+
+	sigc <- struct{}{}
+
+	assertCollected(c, buffer, []string{data[2], data[3] + data[4]}, nil)
+
+	c.Assert(t.Stop(), gc.IsNil)
+}
+
+func (tailerSuite) TestLargeLines(c *gc.C) {
+	// Single lines are larger than the buffer.
+	data := []string{"abcdefghijklmnopqrstuvwxyz\n", "01234567890123456789012345\n"}
+	buffer := bytes.NewBuffer(nil)
+	sigc := make(chan struct{}, 1)
+	rs := startReadSeeker(c, data, 1, sigc)
+
+	<-sigc
+
+	t := tailer.NewTestTailer(rs, buffer, 1, nil, 5, 2*time.Millisecond)
+
+	assertCollected(c, buffer, data[:1], nil)
+
+	sigc <- struct{}{}
+
+	assertCollected(c, buffer, data[1:], nil)
+
+	c.Assert(t.Stop(), gc.IsNil)
+}
+
+func (tailerSuite) TestLargeLinesMissingTermination(c *gc.C) {
+	// Single lines are larger than the buffer, last line not terminated.
+	data := []string{"abcdefghijklmnopqrstuvwxyz\n", "01234567890123456789012345\n",
+		"the quick brown fox"}
+	buffer := bytes.NewBuffer(nil)
+	sigc := make(chan struct{}, 1)
+	rs := startReadSeeker(c, data, 1, sigc)
+
+	<-sigc
+
+	t := tailer.NewTestTailer(rs, buffer, 1, nil, 5, 2*time.Millisecond)
+
+	assertCollected(c, buffer, data[:1], nil)
+
+	sigc <- struct{}{}
+
+	assertCollected(c, buffer, []string{data[1]}, nil)
+
+	c.Assert(t.Stop(), gc.IsNil)
+}
+
+func (tailerSuite) TestLargeLinesLaggedTermination(c *gc.C) {
+	// Single lines are larger than the buffer, last line is terminated later.
+	data := []string{"abcdefghijklmnopqrstuvwxyz\n", "01234567890123456789012345\n",
+		"the quick brown fox", " jumps over the lazy dog\n"}
+	buffer := bytes.NewBuffer(nil)
+	sigc := make(chan struct{}, 1)
+	rs := startReadSeeker(c, data, 1, sigc)
+
+	<-sigc
+
+	t := tailer.NewTestTailer(rs, buffer, 1, nil, 5, 2*time.Millisecond)
+
+	assertCollected(c, buffer, data[:1], nil)
+
+	sigc <- struct{}{}
+
+	assertCollected(c, buffer, []string{data[1], data[2] + data[3]}, nil)
+
+	c.Assert(t.Stop(), gc.IsNil)
+}
+
+func (tailerSuite) TestMoreThanTailed(c *gc.C) {
+	// Tailer initially asks for less lines than exist.
+	buffer := bytes.NewBuffer(nil)
+	sigc := make(chan struct{}, 1)
+	rs := startReadSeeker(c, tailerData, 5, sigc)
+
+	<-sigc
+
+	t := tailer.NewTestTailer(rs, buffer, 3, nil, 4096, 2*time.Millisecond)
 
 	assertCollected(c, buffer, tailerData[2:5], nil)
 
@@ -44,14 +146,14 @@ func (tailerSuite) TestMoreThanTailed(c *gc.C) {
 }
 
 func (tailerSuite) TestLessThanTailed(c *gc.C) {
-	// Tail asks initially for more lines than exist so far.
+	// Tailer initially asks for more lines than exist so far.
 	buffer := bytes.NewBuffer(nil)
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 3, sigc)
+	rs := startReadSeeker(c, tailerData, 3, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 5, nil, 4096, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 5, nil, 4096, 2*time.Millisecond)
 
 	assertCollected(c, buffer, tailerData[0:3], nil)
 
@@ -63,15 +165,15 @@ func (tailerSuite) TestLessThanTailed(c *gc.C) {
 }
 
 func (tailerSuite) TestMoreThanTailedSmallBuffer(c *gc.C) {
-	// Tails asks for less lines than exist. Buffer is
-	// smaller than the data, so multiple reads are needed.
+	// Tailer initially asks for less lines than exist. Buffer
+	// is smaller than the data, so multiple reads are needed.
 	buffer := bytes.NewBuffer(nil)
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 5, sigc)
+	rs := startReadSeeker(c, tailerData, 5, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 3, nil, 16, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 3, nil, 16, 2*time.Millisecond)
 
 	assertCollected(c, buffer, tailerData[2:5], nil)
 
@@ -83,16 +185,16 @@ func (tailerSuite) TestMoreThanTailedSmallBuffer(c *gc.C) {
 }
 
 func (tailerSuite) TestLessThanTailedSmallBuffer(c *gc.C) {
-	// Tail asks initially for more lines than exist so far.
+	// Tailer initially asks for more lines than exist so far.
 	// Buffer is smaller than the data, so multiple reads
 	// are needed.
 	buffer := bytes.NewBuffer(nil)
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 3, sigc)
+	rs := startReadSeeker(c, tailerData, 3, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 5, nil, 16, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 5, nil, 16, 2*time.Millisecond)
 
 	assertCollected(c, buffer, tailerData[0:3], nil)
 
@@ -110,30 +212,31 @@ func (tailerSuite) TestFiltered(c *gc.C) {
 		return bytes.Contains(line, []byte{'e'})
 	}
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 10, sigc)
+	rs := startReadSeeker(c, tailerData, 10, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 3, filter, 4096, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 3, filter, 4096, 2*time.Millisecond)
 
-	assertCollected(c, buffer, []string{"Delta", "Hotel", "Juliet"}, nil)
+	assertCollected(c, buffer, []string{"Delta\n", "Hotel\n", "Juliet\n"}, nil)
 
 	sigc <- struct{}{}
 
-	assertCollected(c, buffer, []string{"Mike", "November", "Quebec", "Romeo", "Sierra", "Whiskey", "Yankee"}, nil)
+	assertCollected(c, buffer, []string{"Mike\n", "November\n", "Quebec\n",
+		"Romeo\n", "Sierra\n", "Whiskey\n", "Yankee\n"}, nil)
 
 	c.Assert(t.Stop(), gc.IsNil)
 }
 
 func (tailerSuite) TestStop(c *gc.C) {
-	// Stop after collected 10 lines.
+	// Stop after collecting 10 lines.
 	buffer := bytes.NewBuffer(nil)
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 5, sigc)
+	rs := startReadSeeker(c, tailerData, 5, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 3, nil, 4096, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 3, nil, 4096, 2*time.Millisecond)
 	stopper := func(lines []string) {
 		if len(lines) == 10 {
 			c.Assert(t.Stop(), gc.IsNil)
@@ -150,14 +253,14 @@ func (tailerSuite) TestStop(c *gc.C) {
 }
 
 func (tailerSuite) TestError(c *gc.C) {
-	// Generate a read error after collected 10 lines.
+	// Generate a read error after collecting 10 lines.
 	buffer := bytes.NewBuffer(nil)
 	sigc := make(chan struct{}, 1)
-	rs := startReadSeeker(c, 5, sigc)
+	rs := startReadSeeker(c, tailerData, 5, sigc)
 
 	<-sigc
 
-	t := tailer.NewTailer(rs, buffer, 3, nil, 4096, 2*time.Millisecond)
+	t := tailer.NewTestTailer(rs, buffer, 3, nil, 4096, 2*time.Millisecond)
 	disturber := func(lines []string) {
 		if len(lines) == 10 {
 			rs.setError(fmt.Errorf("ouch after 10 lines"))
@@ -194,7 +297,7 @@ func assertCollected(c *gc.C, buffer *bytes.Buffer, compare []string, addon func
 			}
 			if len(lines) == len(compare) {
 				for i := 0; i < len(lines); i++ {
-					c.Assert(lines[i], gc.Equals, compare[i]+"\n")
+					c.Assert(lines[i], gc.Equals, compare[i])
 				}
 				return
 			}
@@ -217,12 +320,12 @@ func assertCollected(c *gc.C, buffer *bytes.Buffer, compare []string, addon func
 // reading and seeking inside a file and also simulating an error.
 // The signal channel tells the test that the initial data has been
 // written and waits that it can start writing the appended lines.
-func startReadSeeker(c *gc.C, initialLeg int, sigc chan struct{}) *readSeeker {
+func startReadSeeker(c *gc.C, data []string, initialLeg int, sigc chan struct{}) *readSeeker {
 	// Write initial lines into the buffer.
 	var rs readSeeker
 	var i int
 	for i = 0; i < initialLeg; i++ {
-		rs.writeln(tailerData[i])
+		rs.write(data[i])
 	}
 
 	sigc <- struct{}{}
@@ -231,9 +334,9 @@ func startReadSeeker(c *gc.C, initialLeg int, sigc chan struct{}) *readSeeker {
 	go func() {
 		<-sigc
 
-		for ; i < len(tailerData); i++ {
+		for ; i < len(data); i++ {
 			time.Sleep(5 * time.Millisecond)
-			rs.writeln(tailerData[i])
+			rs.write(data[i])
 		}
 	}()
 	return &rs
@@ -246,11 +349,10 @@ type readSeeker struct {
 	err    error
 }
 
-func (r *readSeeker) writeln(s string) {
+func (r *readSeeker) write(s string) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 	r.buffer = append(r.buffer, []byte(s)...)
-	r.buffer = append(r.buffer, '\n')
 }
 
 func (r *readSeeker) setError(err error) {
@@ -298,30 +400,30 @@ func (r *readSeeker) Seek(offset int64, whence int) (ret int64, err error) {
 }
 
 var tailerData = []string{
-	"Alpha",
-	"Bravo",
-	"Charlie",
-	"Delta",
-	"Echo",
-	"Foxtrott",
-	"Golf",
-	"Hotel",
-	"India",
-	"Juliet",
-	"Kilo",
-	"Lima",
-	"Mike",
-	"November",
-	"Oscar",
-	"Papa",
-	"Quebec",
-	"Romeo",
-	"Sierra",
-	"Tango",
-	"Uniform",
-	"Victor",
-	"Whiskey",
-	"X-ray",
-	"Yankee",
-	"Zulu",
+	"Alpha\n",
+	"Bravo\n",
+	"Charlie\n",
+	"Delta\n",
+	"Echo\n",
+	"Foxtrott\n",
+	"Golf\n",
+	"Hotel\n",
+	"India\n",
+	"Juliet\n",
+	"Kilo\n",
+	"Lima\n",
+	"Mike\n",
+	"November\n",
+	"Oscar\n",
+	"Papa\n",
+	"Quebec\n",
+	"Romeo\n",
+	"Sierra\n",
+	"Tango\n",
+	"Uniform\n",
+	"Victor\n",
+	"Whiskey\n",
+	"X-ray\n",
+	"Yankee\n",
+	"Zulu\n",
 }
