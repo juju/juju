@@ -456,25 +456,16 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, cdoc)
 }
 
-// PrepareCharmUpload must be called before a charm is uploaded to the
-// provider storage in order to create a charm document in state. It
-// does the following:
-// 1. Finds all existing charm documents with the same URL prefix (any
-// revision).
-// 2. If none are found, creates a new charm doc with the given curl
-// and PendingUpload=true, returning the created state.Charm.
-// 3. If some are found, find the highest revision of these and if it's
-// lower than curl's revision, do the same as step 2, if the highest
-// found revision is greater or equal to curl's revision, insert a
-// new charm doc with PendingUpload=true, the same URL and the found
-// revision+1.
+// PrepareLocalCharmUpload must be called before a charm is uploaded
+// to the provider storage in order to create a charm document in
+// state. It returns a new Charm with no metadata and a unique
+// revision number.
 //
-// Because this is intended for use with uploading local charms, only
-// charms with schema "local:" are accepted. Also the given charm URL
-// must include a revision number.
-func (st *State) PrepareCharmUpload(curl *charm.URL) (sch *Charm, err error) {
+// The url's schema must be "local" and it must include a revision.
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+	// Perform a few sanity checks first.
 	if curl == nil {
-		return nil, fmt.Errorf("expected charm URL, got nil")
+		panic("expected charm URL, got nil")
 	}
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("expected charm URL with local schema, got %q", curl)
@@ -483,19 +474,13 @@ func (st *State) PrepareCharmUpload(curl *charm.URL) (sch *Charm, err error) {
 		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
 	// Get a regex with the charm URL and no revision.
-	url := curl.String()
-	i := strings.LastIndex(url, "-")
-	if i <= 0 {
-		// We just checked there is revision.
-		panic(fmt.Sprintf("invalid charm URL: %q", url))
-	}
-	curlRegex := "^" + regexp.QuoteMeta(url[:i])
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 
-	var uploadedCharm *charmDoc
 	for attempt := 0; attempt < 3; attempt++ {
 		// Find the highest revision of that charm in state.
-		docs := []charmDoc{}
-		err = st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}}).All(&docs)
+		var docs []charmDoc
+		err = st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}}).Select(D{{"_id", 1}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -507,17 +492,16 @@ func (st *State) PrepareCharmUpload(curl *charm.URL) (sch *Charm, err error) {
 			}
 		}
 
-		chosenRevision := -1
-		if maxRevision >= curl.Revision {
+		// Respect the local charm's revision first.
+		chosenRevision := curl.Revision
+		if maxRevision >= chosenRevision {
 			// More recent revision exists in state, pick the next.
 			chosenRevision = maxRevision + 1
-		} else {
-			// The uploaded charm is the most recent.
-			chosenRevision = curl.Revision
 		}
+		chosenUrl = curl.WithRevision(chosenRevision)
 
-		uploadedCharm = &charmDoc{
-			URL:           curl.WithRevision(chosenRevision),
+		uploadedCharm := &charmDoc{
+			URL:           chosenUrl,
 			PendingUpload: true,
 		}
 		ops := []txn.Op{{
@@ -537,7 +521,7 @@ func (st *State) PrepareCharmUpload(curl *charm.URL) (sch *Charm, err error) {
 	if err != nil {
 		return nil, ErrExcessiveContention
 	}
-	return newCharm(st, uploadedCharm)
+	return chosenUrl, nil
 }
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
@@ -551,34 +535,27 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 	if err != nil {
 		return nil, err
 	}
-	if doc.PendingUpload != true {
+	if !doc.PendingUpload {
 		return nil, fmt.Errorf("charm %q already uploaded", curl)
 	}
-	for attempt := 0; attempt < 3; attempt++ {
-		updateFields := D{{"$set", D{
-			{"meta", ch.Meta()},
-			{"config", ch.Config()},
-			{"bundleurl", bundleURL},
-			{"bundlesha256", bundleSha256},
-			{"pendingupload", false},
-		}}}
-		stillPending := D{{"pendingupload", true}}
-		ops := []txn.Op{{
-			C:      st.charms.Name,
-			Id:     curl,
-			Assert: stillPending,
-			Update: updateFields,
-		}}
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		break
-	}
-	if err != nil {
-		return nil, ErrExcessiveContention
+
+	updateFields := D{{"$set", D{
+		{"meta", ch.Meta()},
+		{"config", ch.Config()},
+		{"bundleurl", bundleURL},
+		{"bundlesha256", bundleSha256},
+		{"pendingupload", false},
+	}}}
+	stillPending := D{{"pendingupload", true}}
+	ops := []txn.Op{{
+		C:      st.charms.Name,
+		Id:     curl,
+		Assert: stillPending,
+		Update: updateFields,
+	}}
+	// Run the transaction, and retry on abort.
+	if err := st.runTransaction(ops); err != nil {
+		return nil, err
 	}
 	return st.Charm(curl)
 }
