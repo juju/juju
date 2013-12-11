@@ -35,8 +35,9 @@ type Runner struct {
 }
 
 func (r *Runner) RunCommands(commands string, result *RunResults) error {
-	logger.Debugf("RunCommands: %q")
-	result, err := r.runner.RunCommands(commands)
+	logger.Debugf("RunCommands: %q", commands)
+	runResult, err := r.runner.RunCommands(commands)
+	*result = *runResult
 	return err
 }
 
