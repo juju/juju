@@ -869,6 +869,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
 			},
 		),
+		// TODO: add asyncRunCommands to test for hook lock file
 	}
 	s.runUniterTests(c, tests)
 }
