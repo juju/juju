@@ -856,6 +856,19 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			runCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
 		),
+		ut(
+			"run commands: jujuc commands",
+			quickStartRelation{},
+			runCommands{
+				fmt.Sprintf("owner-get tag > %s", filepath.Join(testDir, "jujuc.output")),
+				fmt.Sprintf("unit-get private-address >> %s", filepath.Join(testDir, "jujuc.output")),
+				fmt.Sprintf("unit-get public-address >> %s", filepath.Join(testDir, "jujuc.output")),
+			},
+			verifyFile{
+				filepath.Join(testDir, "jujuc.output"),
+				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
+			},
+		),
 	}
 	s.runUniterTests(c, tests)
 }
@@ -1918,8 +1931,11 @@ type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	_, err := uniter.RunCommands(ctx.uniter, commands)
+	result, err := uniter.RunCommands(ctx.uniter, commands)
 	c.Assert(err, gc.IsNil)
+	c.Check(result.ReturnCode, gc.Equals, 0)
+	c.Check(result.StdOut, gc.Equals, "")
+	c.Check(result.StdErr, gc.Equals, "")
 }
 
 type verifyFile struct {
