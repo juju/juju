@@ -9,5 +9,4 @@ var (
 	RootType          = reflect.TypeOf(&srvRoot{})
 	NewPingTimeout    = newPingTimeout
 	GetEnvironStorage = getEnvironStorage
-	GetSha256         = getSha256
 )

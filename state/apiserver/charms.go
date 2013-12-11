@@ -11,11 +11,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"launchpad.net/juju-core/charm"
@@ -34,17 +32,33 @@ type charmsHandler struct {
 
 // CharmsResponse is the server response to a charm upload request.
 type CharmsResponse struct {
-	Code     int    `json:"code,omitempty"`
 	Error    string `json:"error,omitempty"`
 	CharmURL string `json:"charmUrl,omitempty"`
 }
 
-// sendJSON sends a JSON-encoded response to the client.
-func (h *charmsHandler) sendJSON(w http.ResponseWriter, response *CharmsResponse) error {
-	if response == nil {
-		return fmt.Errorf("response is nil")
+func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := h.authenticate(r); err != nil {
+		h.authError(w)
+		return
 	}
-	w.WriteHeader(response.Code)
+
+	switch r.Method {
+	case "POST":
+		charmUrl, err := h.processPost(r)
+		if err != nil {
+			h.sendError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		h.sendJSON(w, http.StatusOK, &CharmsResponse{CharmURL: charmUrl.String()})
+	// Possible future extensions, like GET.
+	default:
+		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
+	}
+}
+
+// sendJSON sends a JSON-encoded response to the client.
+func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *CharmsResponse) error {
+	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {
 		return err
@@ -54,33 +68,20 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, response *CharmsResponse
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *charmsHandler) sendError(w http.ResponseWriter, code int, message string) error {
-	if code == 0 {
-		// Use code 400 by default.
-		code = http.StatusBadRequest
-	} else if code == http.StatusOK {
-		// Dont' report 200 OK.
-		code = 0
-	}
-	err := h.sendJSON(w, &CharmsResponse{Code: code, Error: message})
-	if err != nil {
-		return err
-	}
-	return nil
+func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
+	return h.sendJSON(w, statusCode, &CharmsResponse{Error: message})
 }
 
 // authenticate parses HTTP basic authentication and authorizes the
 // request by looking up the provided tag and password against state.
-func (h *charmsHandler) authenticate(w http.ResponseWriter, r *http.Request) error {
-	if r == nil {
-		return fmt.Errorf("invalid request")
-	}
+func (h *charmsHandler) authenticate(r *http.Request) error {
 	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
 		return fmt.Errorf("invalid request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
+	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
 		return fmt.Errorf("invalid request format")
@@ -111,73 +112,63 @@ func (h *charmsHandler) authError(w http.ResponseWriter) {
 }
 
 // processPost handles a charm upload POST request after authentication.
-func (h *charmsHandler) processPost(w http.ResponseWriter, r *http.Request) {
+func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	query := r.URL.Query()
 	series := query.Get("series")
 	if series == "" {
-		h.sendError(w, 0, "expected series= URL argument")
-		return
+		return nil, fmt.Errorf("expected series= URL argument")
 	}
 	reader, err := r.MultipartReader()
 	if err != nil {
-		h.sendError(w, 0, err.Error())
-		return
+		return nil, err
 	}
 	// Get the first (and hopefully only) uploaded part to process.
 	part, err := reader.NextPart()
 	if err == io.EOF {
-		h.sendError(w, 0, "expected a single uploaded file, got none")
-		return
+		return nil, fmt.Errorf("expected a single uploaded file, got none")
 	} else if err != nil {
-		http.Error(w, fmt.Sprintf("cannot process uploaded file: %v", err), http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("cannot process uploaded file: %v", err)
 	}
 	// Make sure the content type is zip.
 	contentType := part.Header.Get("Content-Type")
 	if contentType != "application/zip" {
-		h.sendError(w, 0, fmt.Sprintf("expected Content-Type: application/zip, got: %v", contentType))
-		return
+		return nil, fmt.Errorf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 	tempFile, err := ioutil.TempFile("", "charm")
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("cannot create temp file: %v", err))
-		return
+		return nil, fmt.Errorf("cannot create temp file: %v", err)
 	}
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 	if _, err := io.Copy(tempFile, part); err != nil {
-		h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("error processing file upload: %v", err))
-		return
+		return nil, fmt.Errorf("error processing file upload: %v", err)
 	}
 	if _, err := reader.NextPart(); err != io.EOF {
-		h.sendError(w, 0, "expected a single uploaded file, got more")
-		return
+		return nil, fmt.Errorf("expected a single uploaded file, got more")
 	}
 	archive, err := charm.ReadBundle(tempFile.Name())
 	if err != nil {
-		h.sendError(w, 0, fmt.Sprintf("invalid charm archive: %v", err))
-		return
+		return nil, fmt.Errorf("invalid charm archive: %v", err)
 	}
 	// We got it, now let's reserve a charm URL for it in state.
-	preparedUrl := fmt.Sprintf("local:%s/%s-%d", series, archive.Meta().Name, archive.Revision())
-	archiveUrl := charm.MustParseURL(preparedUrl)
-	preparedCharm, err := h.state.PrepareCharmUpload(archiveUrl)
+	archiveUrl := &charm.URL{
+		Schema:   "local",
+		Series:   series,
+		Name:     archive.Meta().Name,
+		Revision: archive.Revision(),
+	}
+	preparedUrl, err := h.state.PrepareLocalCharmUpload(archiveUrl)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, err
 	}
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = h.repackageAndUploadCharm(archive, preparedCharm.URL())
+	err = h.repackageAndUploadCharm(archive, preparedUrl)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, err
 	}
 	// All done.
-	h.sendJSON(w, &CharmsResponse{
-		Code:     http.StatusOK,
-		CharmURL: preparedCharm.URL().String(),
-	})
+	return preparedUrl, nil
 }
 
 // repackageAndUploadCharm expands the given charm archive to a
@@ -185,8 +176,12 @@ func (h *charmsHandler) processPost(w http.ResponseWriter, r *http.Request) {
 // then uploads it to providr storage, and finally updates the state.
 func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *charm.URL) error {
 	// Create a temp dir and file to use below.
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%d", archive.Meta().Name, rand.Int()))
-	tempFile, err := ioutil.TempFile("", "charm")
+	tempDir, err := ioutil.TempDir("", archive.Meta().Name)
+	if err != nil {
+		return fmt.Errorf("cannot create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	tempFile, err := ioutil.TempFile("", archive.Meta().Name)
 	if err != nil {
 		return fmt.Errorf("cannot create temp file: %v", err)
 	}
@@ -198,19 +193,26 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	if err := archive.ExpandTo(tempDir); err != nil {
 		return fmt.Errorf("cannot extract uploaded charm: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
 	charmDir, err := charm.ReadDir(tempDir)
 	if err != nil {
 		return fmt.Errorf("cannot read extracted charm: %v", err)
 	}
-	if err := charmDir.BundleTo(tempFile); err != nil {
+	// Bundle the charm and calculate its sha256 hash at the
+	// same time.
+	hash := sha256.New()
+	multiWriter := io.MultiWriter(hash, tempFile)
+	if err := charmDir.BundleTo(multiWriter); err != nil {
 		return fmt.Errorf("cannot repackage uploaded charm: %v", err)
 	}
-
-	// Calculate the SHA256 hash.
-	bundleSha256, size, err := getSha256(tempFile)
+	bundleSha256 := hex.EncodeToString(hash.Sum(nil))
+	size, err := tempFile.Seek(0, 2)
 	if err != nil {
-		return fmt.Errorf("cannot calculate charm SHA-256: %v", err)
+		return fmt.Errorf("cannot get charm file size: %v", err)
+	}
+	// Seek to the beginning so the subsequent Put will read
+	// the whole file again.
+	if _, err := tempFile.Seek(0, 0); err != nil {
+		return fmt.Errorf("cannot rewind the charm file reader: %v", err)
 	}
 
 	// Now upload to provider storage.
@@ -220,7 +222,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	}
 	name := charm.Quote(curl.String())
 	if err := storage.Put(name, tempFile, size); err != nil {
-		return fmt.Errorf("cannot upload charm: %v", err)
+		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
 	storageUrl, err := storage.URL(name)
 	if err != nil {
@@ -234,25 +236,9 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	// And finally, update state.
 	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSha256)
 	if err != nil {
-		return fmt.Errorf("cannot upload charm to storage: %v", err)
+		return fmt.Errorf("cannot update uploaded charm in state: %v", err)
 	}
 	return nil
-}
-
-// getSha256 calculates the SHA-256 hash of the contents of source and
-// returns it as a hex-encoded string, along with the source size in
-// bytes.
-func getSha256(source io.ReadSeeker) (string, int64, error) {
-	hash := sha256.New()
-	size, err := io.Copy(hash, source)
-	if err != nil {
-		return "", 0, err
-	}
-	digest := hex.EncodeToString(hash.Sum(nil))
-	if _, err := source.Seek(0, 0); err != nil {
-		return "", 0, err
-	}
-	return digest, size, nil
 }
 
 // getEnvironStorage creates an Environ from the config in state and
@@ -267,19 +253,4 @@ func getEnvironStorage(st *state.State) (storage.Storage, error) {
 		return nil, fmt.Errorf("cannot access environment: %v", err)
 	}
 	return env.Storage(), nil
-}
-
-func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.authenticate(w, r); err != nil {
-		h.authError(w)
-		return
-	}
-
-	switch r.Method {
-	case "POST":
-		h.processPost(w, r)
-	// Possible future extensions, like GET.
-	default:
-		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
-	}
 }

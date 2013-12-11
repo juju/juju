@@ -5,6 +5,8 @@ package apiserver_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -184,7 +186,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 
 	// Finally, verify the SHA256 and uploaded URL.
-	expectedSha256, _, err := apiserver.GetSha256(tempFile)
+	expectedSha256, _, err := getSha256(tempFile)
 	c.Assert(err, gc.IsNil)
 	name := charm.Quote(expectedUrl.String())
 	storage, err := apiserver.GetEnvironStorage(s.State)
@@ -235,16 +237,14 @@ func (s *charmsSuite) uploadRequest(c *gc.C, uri string, asZip bool, paths ...st
 
 		if asZip {
 			// The following is copied from mime/multipart
-			// with a slight modification to set the correct
-			// content type.
+			// Writer.CreateFormFile method, with slight
+			// modification to set the correct content type.
 			quoteEscaper := strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
-			escapeQuotes := func(s string) string {
-				return quoteEscaper.Replace(s)
-			}
+			escapeQuotes := quoteEscaper.Replace
 
 			h := make(textproto.MIMEHeader)
 			h.Set("Content-Disposition",
-				fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+				fmt.Sprintf("form-data; name=%q; filename=%q",
 					escapeQuotes(fieldname), escapeQuotes(filename)))
 			h.Set("Content-Type", "application/zip")
 			part, err = writer.CreatePart(h)
@@ -279,12 +279,25 @@ func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expCode int, 
 	err = json.Unmarshal(body, &jsonResponse)
 	c.Assert(err, gc.IsNil)
 	if expError != "" {
-		c.Check(jsonResponse.Code, gc.Equals, expCode)
 		c.Check(jsonResponse.Error, gc.Matches, expError)
 		c.Check(jsonResponse.CharmURL, gc.Equals, "")
 	} else {
-		c.Check(jsonResponse.Code, gc.Equals, expCode)
 		c.Check(jsonResponse.Error, gc.Equals, "")
 		c.Check(jsonResponse.CharmURL, gc.Equals, expCharmURL)
 	}
+	c.Check(resp.StatusCode, gc.Equals, expCode)
+}
+
+func getSha256(source io.ReadSeeker) (string, int64, error) {
+	// Rewind the reader.
+	if _, err := source.Seek(0, 0); err != nil {
+		return "", 0, err
+	}
+	hash := sha256.New()
+	size, err := io.Copy(hash, source)
+	if err != nil {
+		return "", 0, err
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	return digest, size, nil
 }
