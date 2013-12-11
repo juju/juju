@@ -1748,9 +1748,9 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployAndServiceSetCharm(c *gc.C
 
 	store.AuthAttrs = ""
 
-	addCharm(c, store, "wordpress")
+	curl, _ = addCharm(c, store, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
-		"service", "cs:precise/wordpress-3", false,
+		"service", curl.String(), false,
 	)
 
 	// check that the store's auth attributes were set
