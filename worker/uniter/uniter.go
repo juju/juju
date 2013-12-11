@@ -35,7 +35,6 @@ var logger = loggo.GetLogger("juju.worker.uniter")
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
-	RunCommandsCompleted(commands string)
 }
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
@@ -173,11 +172,10 @@ func (u *Uniter) init(unitTag string) (err error) {
 	// TODO: find out what this means...
 	// Use abstract namespace so we don't get stale socket files.
 	runListenerSocketPath = "@" + runListenerSocketPath
-	u.runListener, err = NewRunListener(u.hookLock, "unix", runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, "unix", runListenerSocketPath)
 	if err != nil {
 		return err
 	}
-	go u.runListener.Run()
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
@@ -354,7 +352,7 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 }
 
 // runComamnds executes the supplied commands in a hook context.
-func (u *Uniter) runCommands(commands string) (results *RunResults, err error) {
+func (u *Uniter) RunCommands(commands string) (results *RunResults, err error) {
 	logger.Tracef("run commands: %s", commands)
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
@@ -373,7 +371,11 @@ func (u *Uniter) runCommands(commands string) (results *RunResults, err error) {
 	}
 	defer srv.Close()
 
-	return hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
+	if result != nil {
+		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.ReturnCode, result.StdOut, result.StdErr)
+	}
+	return result, err
 }
 
 func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {

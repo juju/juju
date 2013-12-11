@@ -10,14 +10,15 @@ import (
 	"net"
 	"net/rpc"
 	"sync"
-
-	"launchpad.net/juju-core/utils/fslock"
 )
+
+type CommandRunner interface {
+	RunCommands(commands string) (results *RunResults, err error)
+}
 
 type RunListener struct {
 	listener net.Listener
 	server   *rpc.Server
-	hookLock *fslock.Lock
 	closed   chan bool
 	closing  chan bool
 	wg       sync.WaitGroup
@@ -29,22 +30,19 @@ type RunResults struct {
 	ReturnCode int
 }
 
-type Runner struct{}
-
-func (*Runner) RunCommands(commands string, result *RunResults) error {
-	// TODO: grab the hook flock, and pipe the commands through /bin/bash -s
-	logger.Debugf("RunCommands: %q")
-	result = &RunResults{
-		StdOut:     "stdout",
-		StdErr:     "stderr",
-		ReturnCode: 0,
-	}
-	return nil
+type Runner struct {
+	runner CommandRunner
 }
 
-func NewRunListener(hookLock *fslock.Lock, netType, localAddr string) (*RunListener, error) {
+func (r *Runner) RunCommands(commands string, result *RunResults) error {
+	logger.Debugf("RunCommands: %q")
+	result, err := r.runner.RunCommands(commands)
+	return err
+}
+
+func NewRunListener(runner CommandRunner, netType, localAddr string) (*RunListener, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&Runner{}); err != nil {
+	if err := server.Register(&Runner{runner}); err != nil {
 		return nil, err
 	}
 	listener, err := net.Listen(netType, localAddr)
@@ -52,14 +50,14 @@ func NewRunListener(hookLock *fslock.Lock, netType, localAddr string) (*RunListe
 		logger.Errorf("failed to listen on %s %s: %v", netType, localAddr, err)
 		return nil, err
 	}
-	runner := &RunListener{
+	runListener := &RunListener{
 		listener: listener,
 		server:   server,
-		hookLock: hookLock,
 		closed:   make(chan bool),
 		closing:  make(chan bool),
 	}
-	return runner, nil
+	go runListener.Run()
+	return runListener, nil
 }
 
 // Run accepts new connections until it encounters an error, or until Close is
