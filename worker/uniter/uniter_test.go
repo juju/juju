@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	stdtesting "testing"
@@ -32,7 +31,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
@@ -812,7 +811,7 @@ var upgradeConflictsTests = []uniterTest{
 
 			// ignore should not (only in v1)
 			_, err = os.Stat(filepath.Join(ctx.path, "charm", "ignore"))
-			c.Assert(err, checkers.Satisfies, os.IsNotExist)
+			c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 			// data should contain what was written in the start hook
 			data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
@@ -846,6 +845,19 @@ var upgradeConflictsTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	s.runUniterTests(c, upgradeConflictsTests)
+}
+
+func (s *UniterSuite) TestRunCommand(c *gc.C) {
+	testDir := c.MkDir()
+	tests := []uniterTest{
+		ut(
+			"run commands: environment",
+			quickStart{},
+			runCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
+			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
+		),
+	}
+	s.runUniterTests(c, tests)
 }
 
 var relationsTests = []uniterTest{
@@ -1666,7 +1678,7 @@ type relationState struct {
 func (s relationState) step(c *gc.C, ctx *context) {
 	err := ctx.relation.Refresh()
 	if s.removed {
-		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 		return
 	}
 	c.Assert(err, gc.IsNil)
@@ -1894,10 +1906,29 @@ var releaseHookSyncLock = custom{func(c *gc.C, ctx *context) {
 
 var verifyHookSyncLockUnlocked = custom{func(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), gc.Equals, false)
+	c.Assert(lock.IsLocked(), jc.IsFalse)
 }}
 
 var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock, checkers.Satisfies, (*fslock.Lock).IsLocked)
+	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
+
+type runCommands []string
+
+func (cmds runCommands) step(c *gc.C, ctx *context) {
+	commands := strings.Join(cmds, "\n")
+	_, err := uniter.RunCommands(ctx.uniter, commands)
+	c.Assert(err, gc.IsNil)
+}
+
+type verifyFile struct {
+	filename string
+	content  string
+}
+
+func (verify verifyFile) step(c *gc.C, ctx *context) {
+	content, err := ioutil.ReadFile(verify.filename)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, verify.content)
+}
