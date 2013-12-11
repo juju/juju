@@ -1646,7 +1646,6 @@ var findEntityTests = []findEntityTest{{
 	// TODO(axw) 2013-12-04 #1257587
 	// remove backwards compatibility for environment-tag; see state.go
 	tag: "environment-notauuid",
-	err: `environment "notauuid" not found`,
 	//err: `"environment-notauuid" is not a valid environment tag`,
 }, {
 	tag: "environment-testenv",

@@ -486,10 +486,11 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	ops = append(ops, machineOps...)
 
 	if err = st.runTransaction(ops); err == txn.ErrAborted {
-		if env, err := st.Environment(); err != nil {
-			return nil, err
-		} else if env.Life() != Alive {
+		env, err := st.Environment()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
 			return nil, fmt.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, err
 		}
 	} else if err != nil {
 		return nil, err
@@ -621,15 +622,14 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 			}
 			// TODO(axw) 2013-12-04 #1257587
 			// We should not accept environment tags that do not match the
-			// environment's UUID. We also accept environment name for now,
-			// for backwards compatibility.
+			// environment's UUID. We accept anything for now, to cater
+			// both for past usage, and for potentially supporting aliases.
 			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
 			conf, err := st.EnvironConfig()
 			if err != nil {
-				return nil, err
-			}
-			if id != conf.Name() {
-				return nil, errors.NotFoundf("environment %q", id)
+				logger.Warningf("EnvironConfig failed: %v", err)
+			} else if id != conf.Name() {
+				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
 			}
 		}
 		return env, nil
@@ -789,10 +789,11 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// because all the possible failed assertions imply that either the
 	// service already exists, or the environment is being destroyed.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := env.Refresh(); err != nil {
-			return nil, err
-		} else if env.Life() != Alive {
+		err := env.Refresh()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
 			return nil, fmt.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, err
 		}
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {

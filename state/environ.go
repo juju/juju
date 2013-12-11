@@ -83,7 +83,13 @@ func (e *Environment) Destroy() error {
 	if e.Life() != Alive {
 		return nil
 	}
-	// Note: we add a cleanup for services, but not for machines;
+	// TODO(axw) 2013-12-11 #1218688
+	// Resolve the race between checking for manual machines and
+	// destroying the environment. We can set Environment to Dying
+	// to resolve the race, but that puts the environment into an
+	// unusable state.
+	//
+	// We add a cleanup for services, but not for machines;
 	// machines are destroyed via the provider interface. The
 	// exception to this rule is manual machines; the API prevents
 	// destroy-environment from succeeding if any non-manager
