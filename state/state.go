@@ -450,11 +450,12 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
 	cdoc := &charmDoc{
-		URL:          curl,
-		Meta:         ch.Meta(),
-		Config:       ch.Config(),
-		BundleURL:    bundleURL,
-		BundleSha256: bundleSha256,
+		URL:           curl,
+		Meta:          ch.Meta(),
+		Config:        ch.Config(),
+		BundleURL:     bundleURL,
+		BundleSha256:  bundleSha256,
+		PendingUpload: false,
 	}
 	err = st.charms.Insert(cdoc)
 	if err != nil {
@@ -466,7 +467,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // Charm returns the charm with the given URL.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
+	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}}).One(cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -477,6 +478,106 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
 	}
 	return newCharm(st, cdoc)
+}
+
+// PrepareLocalCharmUpload must be called before a charm is uploaded
+// to the provider storage in order to create a charm document in
+// state. It returns a new Charm with no metadata and a unique
+// revision number.
+//
+// The url's schema must be "local" and it must include a revision.
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+
+	for attempt := 0; attempt < 3; attempt++ {
+		// Find the highest revision of that charm in state.
+		var docs []charmDoc
+		err = st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}}).Select(D{{"_id", 1}}).All(&docs)
+		if err != nil {
+			return nil, err
+		}
+		// Find the highest revision.
+		maxRevision := -1
+		for _, doc := range docs {
+			if doc.URL.Revision > maxRevision {
+				maxRevision = doc.URL.Revision
+			}
+		}
+
+		// Respect the local charm's revision first.
+		chosenRevision := curl.Revision
+		if maxRevision >= chosenRevision {
+			// More recent revision exists in state, pick the next.
+			chosenRevision = maxRevision + 1
+		}
+		chosenUrl = curl.WithRevision(chosenRevision)
+
+		uploadedCharm := &charmDoc{
+			URL:           chosenUrl,
+			PendingUpload: true,
+		}
+		ops := []txn.Op{{
+			C:      st.charms.Name,
+			Id:     uploadedCharm.URL,
+			Assert: txn.DocMissing,
+			Insert: uploadedCharm,
+		}}
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		break
+	}
+	if err != nil {
+		return nil, ErrExcessiveContention
+	}
+	return chosenUrl, nil
+}
+
+// UpdateUploadedCharm marks the given charm URL as uploaded and
+// updates the rest of its data, returning it as *state.Charm.
+func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+	doc := &charmDoc{}
+	err := st.charms.FindId(curl).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !doc.PendingUpload {
+		return nil, fmt.Errorf("charm %q already uploaded", curl)
+	}
+
+	updateFields := D{{"$set", D{
+		{"meta", ch.Meta()},
+		{"config", ch.Config()},
+		{"bundleurl", bundleURL},
+		{"bundlesha256", bundleSha256},
+		{"pendingupload", false},
+	}}}
+	stillPending := D{{"pendingupload", true}}
+	ops := []txn.Op{{
+		C:      st.charms.Name,
+		Id:     curl,
+		Assert: stillPending,
+		Update: updateFields,
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return nil, onAbort(err, fmt.Errorf("charm revision already uploaded"))
+	}
+	return st.Charm(curl)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
