@@ -464,9 +464,6 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 // The url's schema must be "local" and it must include a revision.
 func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
 	// Perform a few sanity checks first.
-	if curl == nil {
-		panic("expected charm URL, got nil")
-	}
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("expected charm URL with local schema, got %q", curl)
 	}
@@ -553,9 +550,8 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 		Assert: stillPending,
 		Update: updateFields,
 	}}
-	// Run the transaction, and retry on abort.
 	if err := st.runTransaction(ops); err != nil {
-		return nil, err
+		return nil, onAbort(err, fmt.Errorf("charm revision already uploaded"))
 	}
 	return st.Charm(curl)
 }

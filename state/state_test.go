@@ -142,8 +142,6 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 
 func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	// First test the sanity checks.
-	testFunc := func() { s.State.PrepareLocalCharmUpload(nil) }
-	c.Assert(testFunc, gc.PanicMatches, "expected charm URL, got nil")
 	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
 	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
 	c.Assert(curl, gc.IsNil)
