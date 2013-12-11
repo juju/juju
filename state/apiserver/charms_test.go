@@ -289,7 +289,7 @@ func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expCode int, 
 }
 
 func getSha256(source io.ReadSeeker) (string, int64, error) {
-	// Rewind the reader.
+	// Rewind the reader to get the accurate hash.
 	if _, err := source.Seek(0, 0); err != nil {
 		return "", 0, err
 	}
