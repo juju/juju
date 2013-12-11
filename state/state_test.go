@@ -207,6 +207,33 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	check(m[1], "1", "blahblah", allJobs)
 }
 
+func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
+}
+
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, gc.IsNil)
@@ -583,6 +610,35 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+	// Check that services cannot be added if the environment is initially Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that services cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1611,10 +1667,12 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-var findEntityTests = []struct {
+type findEntityTest struct {
 	tag string
 	err string
-}{{
+}
+
+var findEntityTests = []findEntityTest{{
 	tag: "",
 	err: `"" is not a valid tag`,
 }, {
@@ -1651,8 +1709,8 @@ var findEntityTests = []struct {
 	tag: "service-foo/bar",
 	err: `"service-foo/bar" is not a valid service tag`,
 }, {
-	tag: "environment-foo",
-	err: `environment "foo" not found`,
+	tag: "environment-9f484882-2f18-4fd2-967d-db9663db7bea",
+	err: `environment "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 }, {
 	tag: "machine-1234",
 	err: `machine 1234 not found`,
@@ -1673,7 +1731,13 @@ var findEntityTests = []struct {
 }, {
 	tag: "user-arble",
 }, {
+	// TODO(axw) 2013-12-04 #1257587
+	// remove backwards compatibility for environment-tag; see state.go
+	tag: "environment-notauuid",
+	//err: `"environment-notauuid" is not a valid environment tag`,
+}, {
 	tag: "environment-testenv",
+	//err: `"environment-testenv" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -1702,6 +1766,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
+	// environment tag is dynamically generated
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	findEntityTests = append([]findEntityTest{}, findEntityTests...)
+	findEntityTests = append(findEntityTests, findEntityTest{
+		tag: "environment-" + env.UUID(),
+	})
+
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)
 		e, err := s.State.FindEntity(test.tag)
@@ -1712,7 +1784,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			kind, err := names.TagKind(test.tag)
 			c.Assert(err, gc.IsNil)
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
-			c.Assert(e.Tag(), gc.Equals, test.tag)
+			if kind == "environment" {
+				// TODO(axw) 2013-12-04 #1257587
+				// We *should* only be able to get the entity with its tag, but
+				// for backwards-compatibility we accept any non-UUID tag.
+				c.Assert(e.Tag(), gc.Equals, env.Tag())
+			} else {
+				c.Assert(e.Tag(), gc.Equals, test.tag)
+			}
 		}
 	}
 }
@@ -1725,7 +1804,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		"foo-",
 		"---",
 		"foo-bar",
-		"environment-foo",
 		"unit-foo",
 	}
 	for _, name := range bad {
@@ -1766,6 +1844,14 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
+	c.Assert(err, gc.IsNil)
+
+	// Parse an environment entity name.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	coll, id, err = state.ParseTag(s.State, env.Tag())
+	c.Assert(coll, gc.Equals, "environments")
+	c.Assert(id, gc.Equals, env.UUID())
 	c.Assert(err, gc.IsNil)
 }
 

@@ -390,16 +390,29 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.ServiceTagKind:
 		return st.Service(id)
 	case names.EnvironTagKind:
-		conf, err := st.EnvironConfig()
+		env, err := st.Environment()
 		if err != nil {
 			return nil, err
 		}
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
-		if id != conf.Name() {
-			return nil, errors.NotFoundf("environment %q", id)
+		if id != env.UUID() {
+			if utils.IsValidUUIDString(id) {
+				return nil, errors.NotFoundf("environment %q", id)
+			}
+			// TODO(axw) 2013-12-04 #1257587
+			// We should not accept environment tags that do not match the
+			// environment's UUID. We accept anything for now, to cater
+			// both for past usage, and for potentially supporting aliases.
+			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
+			conf, err := st.EnvironConfig()
+			if err != nil {
+				logger.Warningf("EnvironConfig failed: %v", err)
+			} else if id != conf.Name() {
+				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+			}
 		}
-		return st.Environment()
+		return env, nil
 	case names.RelationTagKind:
 		return st.KeyRelation(id)
 	}
@@ -424,6 +437,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.users.Name
 	case names.RelationTagKind:
 		coll = st.relations.Name
+	case names.EnvironTagKind:
+		coll = st.environments.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -511,6 +526,12 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is no longer alive")
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -523,6 +544,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
@@ -544,9 +566,15 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	ops = append(ops, peerOps...)
 
 	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that the service
-	// already exists.
+	// because all the possible failed assertions imply that either the
+	// service already exists, or the environment is being destroyed.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		err := env.Refresh()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
+			return nil, fmt.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, err
+		}
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
