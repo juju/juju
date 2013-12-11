@@ -133,7 +133,6 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	if _, err := io.Copy(tempFile, r.Body); err != nil {
 		return nil, fmt.Errorf("error processing file upload: %v", err)
 	}
-	defer r.Body.Close()
 	archive, err := charm.ReadBundle(tempFile.Name())
 	if err != nil {
 		return nil, fmt.Errorf("invalid charm archive: %v", err)
