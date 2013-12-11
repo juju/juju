@@ -186,6 +186,11 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
+	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+	c.commonflags.SetOutput(ioutil.Discard)
+	f.VisitAll(func(flag *gnuflag.Flag) {
+		c.commonflags.Var(flag.Value, flag.Name, flag.Usage)
+	})
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
 	// In the case where we are providing the basis for a plugin,
@@ -193,12 +198,6 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 	// The Purpose attribute will be printed (if defined), allowing
 	// plugins to provide a sensible line of text for 'juju help plugins'.
 	f.BoolVar(&c.showDescription, "description", false, "")
-
-	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-	c.commonflags.SetOutput(ioutil.Discard)
-	f.VisitAll(func(flag *gnuflag.Flag) {
-		c.commonflags.Var(flag.Value, flag.Name, flag.Usage)
-	})
 }
 
 // SetFlags adds the options that apply to all commands, particularly those
