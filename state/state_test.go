@@ -605,8 +605,8 @@ func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "user-doesnt-exist", charm)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": adding service failed transaction aborted")
+	_, err := s.State.AddService("wordpress", "user-notAuser", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": user notAuser doesn't exist")
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {

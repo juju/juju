@@ -483,6 +483,10 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
+	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || kind != names.UserTagKind {
+		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	}
 	// Sanity checks.
 	if !names.IsService(name) {
 		return nil, fmt.Errorf("invalid name")
@@ -495,6 +499,11 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	if userExists, err := st.checkUserExists(ownerId); err != nil {
+		return nil, err
+	} else if !userExists {
+		return nil, fmt.Errorf("user %v doesn't exist", ownerId)
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -505,10 +514,6 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      ownerTag,
-	}
-	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
-	if err != nil || kind != names.UserTagKind {
-		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
@@ -524,7 +529,8 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		}, {
+		},
+		{
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
@@ -538,7 +544,13 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops = append(ops, peerOps...)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		return nil, fmt.Errorf("adding service failed %v", err)
+		if userExists, ueErr := st.checkUserExists(ownerId); ueErr == nil {
+			if !userExists {
+				return nil, fmt.Errorf("unknown user %v", ownerTag)
+			}
+			return nil, fmt.Errorf("service already exists")
+		}
+		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
 	}
