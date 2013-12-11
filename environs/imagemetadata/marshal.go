@@ -13,6 +13,7 @@ import (
 
 const (
 	ProductMetadataPath = "streams/v1/com.ubuntu.cloud:released:imagemetadata.json"
+	ImageContentId      = "com.ubuntu.cloud:custom"
 )
 
 // MarshalImageMetadataJSON marshals image metadata to index and products JSON.
@@ -44,7 +45,7 @@ func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec []simple
 	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = "index:1.0"
 	indices.Indexes = map[string]*simplestreams.IndexMetadata{
-		"com.ubuntu.cloud:custom": &simplestreams.IndexMetadata{
+		ImageContentId: &simplestreams.IndexMetadata{
 			CloudName:        "custom",
 			Updated:          indices.Updated,
 			Format:           "products:1.0",
@@ -64,6 +65,7 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 	var cloud simplestreams.CloudMetadata
 	cloud.Updated = updated.Format(time.RFC1123Z)
 	cloud.Format = "products:1.0"
+	cloud.ContentId = ImageContentId
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
 	itemsversion := updated.Format("20060201") // YYYYMMDD
 	for _, t := range metadata {

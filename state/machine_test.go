@@ -1089,7 +1089,7 @@ func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container insta
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	containers := []instance.ContainerType{container}
-	err = machine.AddSupportedContainers(containers)
+	err = machine.SetSupportedContainers(containers)
 	c.Assert(err, gc.IsNil)
 	assertSupportedContainers(c, machine, containers)
 	return machine
@@ -1131,11 +1131,11 @@ func (s *MachineSuite) TestSupportsNoContainers(c *gc.C) {
 	assertSupportedContainers(c, machine, []instance.ContainerType{})
 }
 
-func (s *MachineSuite) TestAddSupportedContainerTypeNoneIsError(c *gc.C) {
+func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	err = machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.NONE})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.NONE})
 	c.Assert(err, gc.ErrorMatches, `"none" is not a valid container type`)
 	assertSupportedContainersUnknown(c, machine)
 	err = machine.Refresh()
@@ -1151,44 +1151,115 @@ func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
 	assertSupportedContainers(c, machine, []instance.ContainerType{})
 }
 
-func (s *MachineSuite) TestAddSupportedContainersSingle(c *gc.C) {
+func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	err = machine.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC})
 }
 
-func (s *MachineSuite) TestAddSupportedContainersExisitng(c *gc.C) {
+func (s *MachineSuite) TestSetSupportedContainersSame(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
-	err := machine.AddSupportedContainers([]instance.ContainerType{instance.LXC})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC})
 }
 
-func (s *MachineSuite) TestAddSupportedContainersNew(c *gc.C) {
+func (s *MachineSuite) TestSetSupportedContainersNew(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
-	err := machine.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
 }
 
-func (s *MachineSuite) TestAddSupportedContainersMultipeNew(c *gc.C) {
+func (s *MachineSuite) TestSetSupportedContainersMultipeNew(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	err = machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
 }
 
-func (s *MachineSuite) TestAddSupportedContainersMultipleExisting(c *gc.C) {
+func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
 	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
 
-	err := machine.AddSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
 	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
+	// Create a machine and add lxc and kvm containers prior to calling SetSupportedContainers
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	addParams := state.AddMachineParams{
+		ParentId:      machine.Id(),
+		ContainerType: instance.LXC,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&addParams)
+	c.Assert(err, gc.IsNil)
+	addParams = state.AddMachineParams{
+		ParentId:      machine.Id(),
+		ContainerType: instance.KVM,
+		Series:        "quantal",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	supportedContainer, err := s.State.AddMachineWithConstraints(&addParams)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	c.Assert(err, gc.IsNil)
+
+	// A supported (kvm) container will have a pending status.
+	err = supportedContainer.Refresh()
+	c.Assert(err, gc.IsNil)
+	status, info, data, err := supportedContainer.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusPending)
+
+	// An unsupported (lxc) container will have an error status.
+	err = container.Refresh()
+	c.Assert(err, gc.IsNil)
+	status, info, data, err = container.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "unsupported container")
+	c.Assert(data, gc.DeepEquals, params.StatusData{"type": "lxc"})
+}
+
+func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
+	// Create a machine and add all container types prior to calling SupportsNoContainers
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	var containers []*state.Machine
+	for _, containerType := range instance.ContainerTypes {
+		addParams := state.AddMachineParams{
+			ParentId:      machine.Id(),
+			ContainerType: containerType,
+			Series:        "quantal",
+			Jobs:          []state.MachineJob{state.JobHostUnits},
+		}
+		container, err := s.State.AddMachineWithConstraints(&addParams)
+		c.Assert(err, gc.IsNil)
+		containers = append(containers, container)
+	}
+
+	err = machine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+
+	// All containers should be in error state.
+	for _, container := range containers {
+		err = container.Refresh()
+		c.Assert(err, gc.IsNil)
+		status, info, data, err := container.Status()
+		c.Assert(err, gc.IsNil)
+		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(info, gc.Equals, "unsupported container")
+		containerType := state.ContainerTypeFromId(container.Id())
+		c.Assert(data, gc.DeepEquals, params.StatusData{"type": string(containerType)})
+	}
 }

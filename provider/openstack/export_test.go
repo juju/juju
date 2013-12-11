@@ -307,3 +307,7 @@ func CreateCustomStorage(e environs.Environ, containerName string) storage.Stora
 		swift:         swiftClient,
 	}
 }
+
+func GetNovaClient(e environs.Environ) *nova.Client {
+	return e.(*environ).nova()
+}

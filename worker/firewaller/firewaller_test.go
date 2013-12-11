@@ -109,13 +109,14 @@ func (s *FirewallerSuite) setGlobalMode(c *gc.C) {
 	// TODO(rog) This should not be possible - you shouldn't
 	// be able to set the firewalling mode after an environment
 	// has bootstrapped.
-	attrs := s.Conn.Environ.Config().AllAttrs()
+	oldConfig := s.Conn.Environ.Config()
+	attrs := oldConfig.AllAttrs()
 	delete(attrs, "admin-secret")
 	delete(attrs, "ca-private-key")
 	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
+	err = s.State.SetEnvironConfig(newConfig, oldConfig)
 	c.Assert(err, gc.IsNil)
 	err = s.Conn.Environ.SetConfig(newConfig)
 	c.Assert(err, gc.IsNil)

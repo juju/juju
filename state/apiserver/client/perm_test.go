@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 type permSuite struct {
@@ -114,6 +115,10 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.EnvironmentSet",
 	op:    opClientEnvironmentSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetEnvironAgentVersion",
+	op:    opClientSetEnvironAgentVersion,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -403,6 +408,25 @@ func opClientEnvironmentSet(c *gc.C, st *api.State, mst *state.State) (func(), e
 	return func() {
 		args["some-key"] = nil
 		st.Client().EnvironmentSet(args)
+	}, nil
+}
+
+func opClientSetEnvironAgentVersion(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	attrs, err := st.Client().EnvironmentGet()
+	if err != nil {
+		return func() {}, err
+	}
+	err = st.Client().SetEnvironAgentVersion(version.Current.Number)
+	if err != nil {
+		return func() {}, err
+	}
+
+	return func() {
+		oldAgentVersion, found := attrs["agent-version"]
+		if found {
+			versionString := oldAgentVersion.(string)
+			st.Client().SetEnvironAgentVersion(version.MustParse(versionString))
+		}
 	}, nil
 }
 

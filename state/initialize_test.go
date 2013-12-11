@@ -114,7 +114,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	// admin-secret blocks SetEnvironConfig.
 	st := state.TestingInitialize(c, good)
 	st.Close()
-	err = s.State.SetEnvironConfig(bad)
+	err = s.State.SetEnvironConfig(bad, good)
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// EnvironConfig remains inviolate.
@@ -137,7 +137,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	// Bad agent-version blocks SetEnvironConfig.
 	st := state.TestingInitialize(c, good)
 	st.Close()
-	err = s.State.SetEnvironConfig(bad)
+	err = s.State.SetEnvironConfig(bad, good)
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	// EnvironConfig remains inviolate.

@@ -11,6 +11,8 @@ import (
 
 	"launchpad.net/loggo"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -89,7 +91,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Finally, provision the machine agent.
-	err = ProvisionMachineAgent(args.Host, mcfg)
+	err = provisionMachineAgent(args.Host, mcfg)
 	if err != nil {
 		return machineId, err
 	}
@@ -182,7 +184,7 @@ func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dat
 		CACert:   configParameters.CACert,
 	}
 	apiInfo := &api.Info{
-		Addrs:    configParameters.StateAddrs,
+		Addrs:    configParameters.APIAddrs,
 		Password: configParameters.Password,
 		Tag:      configParameters.Tag,
 		CACert:   configParameters.CACert,
@@ -201,4 +203,15 @@ func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dat
 		return nil, err
 	}
 	return mcfg, nil
+}
+
+func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig) error {
+	cloudcfg := coreCloudinit.New()
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+		return err
+	}
+	// Explicitly disabling apt_upgrade so as not to trample
+	// the target machine's existing configuration.
+	cloudcfg.SetAptUpgrade(false)
+	return sshinit.Configure(host, cloudcfg)
 }

@@ -866,7 +866,7 @@ func (e *environ) machineFullName(machineId string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-.*", e.Name()))
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Name()))
 	return filter
 }
 
