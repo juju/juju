@@ -52,7 +52,7 @@ func (s *AuthorisedKeysSuite) TestHelpCommands(c *gc.C) {
 			subcommandsFound = true
 			continue
 		}
-		if !subcommandsFound ||  len(f) == 0 || !strings.HasPrefix(line, "    ") {
+		if !subcommandsFound || len(f) == 0 || !strings.HasPrefix(line, "    ") {
 			continue
 		}
 		names = append(names, f[0])

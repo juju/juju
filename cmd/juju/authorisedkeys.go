@@ -22,10 +22,10 @@ type AuthorisedKeysCommand struct {
 func NewAuthorisedKeysCommand() cmd.Command {
 	sshkeyscmd := &AuthorisedKeysCommand{
 		SuperCommand: cmd.NewSuperCommand(cmd.SuperCommandParams{
-			Name:    "authorised-keys",
-			Doc:     authKeysDoc,
+			Name:        "authorised-keys",
+			Doc:         authKeysDoc,
 			UsagePrefix: "juju",
-			Purpose: "manage authorised ssh keys",
+			Purpose:     "manage authorised ssh keys",
 		}),
 	}
 	sshkeyscmd.Register(&ListKeysCommand{})
