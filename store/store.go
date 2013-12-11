@@ -713,8 +713,9 @@ func (ci *CharmInfo) Config() *charm.Config {
 	return ci.config
 }
 
-// CharmInfo retrieves the CharmInfo value for the charm at url.
-func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
+// getRevisions returns at most the last n revisions for charm at url,
+// in descending revision order. For limit n=0, all revisions are returned.
+func (s *Store) getRevisions(url *charm.URL, n int) ([]*CharmInfo, error) {
 	session := s.session.Copy()
 	defer session.Close()
 
@@ -723,28 +724,46 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	url = url.WithRevision(-1)
 
 	charms := session.Charms()
-	var cdoc charmDoc
+	var cdocs []charmDoc
 	var qdoc interface{}
 	if rev == -1 {
 		qdoc = bson.D{{"urls", url}}
 	} else {
 		qdoc = bson.D{{"urls", url}, {"revision", rev}}
 	}
-	err = charms.Find(qdoc).Sort("-revision").One(&cdoc)
-	if err != nil {
+	q := charms.Find(qdoc).Sort("-revision")
+	if n > 0 {
+		q = q.Limit(n)
+	}
+	if err := q.All(&cdocs); err != nil {
 		log.Errorf("store: Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
-	info = &CharmInfo{
-		cdoc.Revision,
-		cdoc.Digest,
-		cdoc.Sha256,
-		cdoc.Size,
-		cdoc.FileId,
-		cdoc.Meta,
-		cdoc.Config,
+	var infos []*CharmInfo
+	for _, cdoc := range cdocs {
+		infos = append(infos, &CharmInfo{
+			cdoc.Revision,
+			cdoc.Digest,
+			cdoc.Sha256,
+			cdoc.Size,
+			cdoc.FileId,
+			cdoc.Meta,
+			cdoc.Config,
+		})
 	}
-	return info, nil
+	return infos, nil
+}
+
+// CharmInfo retrieves the CharmInfo value for the charm at url.
+func (s *Store) CharmInfo(url *charm.URL) (*CharmInfo, error) {
+	infos, err := s.getRevisions(url, 1)
+	if err != nil {
+		log.Errorf("store: Failed to find charm %s: %v", url, err)
+		return nil, ErrNotFound
+	} else if len(infos) < 1 {
+		return nil, ErrNotFound
+	}
+	return infos[0], nil
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.
@@ -766,26 +785,32 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 	return
 }
 
-// DeleteCharm deletes the charm currently available at url.
-func (s *Store) DeleteCharm(url *charm.URL) (*CharmInfo, error) {
+// DeleteCharm deletes the charms matching url. If no revision is specified,
+// all revisions of the charm are deleted.
+func (s *Store) DeleteCharm(url *charm.URL) ([]*CharmInfo, error) {
 	log.Debugf("store: Deleting charm %s", url)
-	info, err := s.CharmInfo(url)
+	infos, err := s.getRevisions(url, 0)
 	if err != nil {
 		return nil, err
 	}
 	session := s.session.Copy()
 	defer session.Close()
-	err = session.Charms().Remove(bson.D{{"urls", url}})
-	if err != nil {
-		log.Errorf("store: Failed to delete metadata for charm %s: %v", url, err)
-		return nil, err
+	var deleted []*CharmInfo
+	for _, info := range infos {
+		err := session.Charms().Remove(
+			bson.D{{"urls", url.WithRevision(-1)}, {"revision", info.Revision()}})
+		if err != nil {
+			log.Errorf("store: Failed to delete metadata for charm %s: %v", url, err)
+			return deleted, err
+		}
+		err = session.CharmFS().RemoveId(info.fileId)
+		if err != nil {
+			log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
+			return deleted, err
+		}
+		deleted = append(deleted, info)
 	}
-	err = session.CharmFS().RemoveId(info.fileId)
-	if err != nil {
-		log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
-		return nil, err
-	}
-	return info, err
+	return deleted, err
 }
 
 type reader struct {

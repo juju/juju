@@ -150,28 +150,52 @@ func (s *StoreSuite) TestCharmPublisher(c *gc.C) {
 }
 
 func (s *StoreSuite) TestDeleteCharm(c *gc.C) {
-	url := charm.MustParseURL("cs:oneiric/wordpress-d")
-	urls := []*charm.URL{url}
+	url := charm.MustParseURL("cs:oneiric/wordpress")
+	for i := 0; i < 4; i++ {
+		pub, err := s.store.CharmPublisher([]*charm.URL{url},
+			fmt.Sprintf("some-digest-%d", i))
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, i)
 
-	pub, err := s.store.CharmPublisher(urls, "some-digest")
-	c.Assert(err, gc.IsNil)
-	c.Assert(pub.Revision(), gc.Equals, 0)
+		err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+		c.Assert(err, gc.IsNil)
+	}
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
-	c.Assert(err, gc.IsNil)
-
+	// Verify charms were published
 	info, rc, err := s.store.OpenCharm(url)
 	c.Assert(err, gc.IsNil)
 	err = rc.Close()
 	c.Assert(err, gc.IsNil)
+	c.Assert(info.Revision(), gc.Equals, 3)
 
-	info2, err := s.store.DeleteCharm(url)
+	// Delete an arbitrary middle revision
+	url1 := url.WithRevision(1)
+	infos, err := s.store.DeleteCharm(url1)
 	c.Assert(err, gc.IsNil)
+	c.Assert(len(infos), gc.Equals, 1)
 
-	// We deleted the charm we expected to
-	c.Assert(info.Meta().Name, gc.Equals, info2.Meta().Name)
+	// Verify still published
+	info, rc, err = s.store.OpenCharm(url)
+	c.Assert(err, gc.IsNil)
+	err = rc.Close()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Revision(), gc.Equals, 3)
 
-	// The charm is gone
+	// Delete all revisions
+	expectedRevs := map[int]bool{0: true, 2: true, 3: true}
+	infos, err = s.store.DeleteCharm(url)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(infos), gc.Equals, 3)
+	for _, deleted := range infos {
+		// We deleted the charm we expected to
+		c.Assert(info.Meta().Name, gc.Equals, deleted.Meta().Name)
+		_, has := expectedRevs[deleted.Revision()]
+		c.Assert(has, gc.Equals, true)
+		delete(expectedRevs, deleted.Revision())
+	}
+	c.Assert(len(expectedRevs), gc.Equals, 0)
+
+	// The charm is all gone
 	_, _, err = s.store.OpenCharm(url)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
