@@ -176,3 +176,33 @@ func (s *AuthorisedKeysKeysSuite) TestDeleteLastKeyForbidden(c *gc.C) {
 	err := ssh.DeleteKeys("user@host", sshtesting.ValidKeyTwo.Fingerprint)
 	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
 }
+
+func (s *AuthorisedKeysKeysSuite) TestReplaceKeys(c *gc.C) {
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
+	anotherKey := sshtesting.ValidKeyTwo.Key
+	writeAuthKeysFile(c, []string{firstKey, anotherKey})
+
+	replaceKey := sshtesting.ValidKeyThree.Key + " anotheruser@host"
+	err := ssh.ReplaceKeys(replaceKey)
+	c.Assert(err, gc.IsNil)
+	actual, err := ssh.ListKeys(ssh.FullKeys)
+	c.Assert(err, gc.IsNil)
+	c.Assert(actual, gc.DeepEquals, []string{replaceKey})
+}
+
+func (s *AuthorisedKeysKeysSuite) TestEnsureJujuComment(c *gc.C) {
+	sshKey := sshtesting.ValidKeyOne.Key
+	for _, test := range []struct {
+		key      string
+		expected string
+	}{
+		{"invalid-key", "invalid-key"},
+		{sshKey, sshKey + " Juju:sshkey"},
+		{sshKey + " user@host", sshKey + " Juju:user@host"},
+		{sshKey + " Juju:user@host", sshKey + " Juju:user@host"},
+		{sshKey + " " + sshKey[3:5], sshKey + " Juju:" + sshKey[3:5]},
+	} {
+		actual := ssh.EnsureJujuComment(test.key)
+		c.Assert(actual, gc.Equals, test.expected)
+	}
+}

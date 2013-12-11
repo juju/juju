@@ -596,6 +596,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	// Wait for ssh keys file to be updated.
 	s.State.StartSync()
 	timeout := time.After(testing.LongWait)
+	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	for {
 		select {
 		case <-timeout:
@@ -604,7 +605,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 			keys, err := ssh.ListKeys(ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
-			if sshKey != keysStr {
+			if sshKeyWithCommentPrefix != keysStr {
 				continue
 			}
 			return

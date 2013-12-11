@@ -4,7 +4,7 @@
 package authenticationworker
 
 import (
-	stdssh "code.google.com/p/go.crypto/ssh"
+	"strings"
 
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
@@ -21,86 +21,92 @@ import (
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 
 type keyupdaterWorker struct {
-	st       *keyupdater.State
-	tomb     tomb.Tomb
-	tag      string
+	st   *keyupdater.State
+	tomb tomb.Tomb
+	tag  string
+	// jujuKeys are the most recently retrieved keys from state.
 	jujuKeys set.Strings
+	// nonJujuKeys are those added externally to auth keys file
+	// such keys do not have comments with the Juju: prefix.
+	nonJujuKeys []string
 }
 
 // NewWorker returns a worker that keeps track of
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
 func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
-	cw := &keyupdaterWorker{st: st, tag: agentConfig.Tag()}
-	return worker.NewNotifyWorker(cw)
+	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag()}
+	return worker.NewNotifyWorker(kw)
 }
 
-func (cw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
-	// Read the keys Juju knows about
-	jujuKeys, err := cw.st.AuthorisedKeys(cw.tag)
+func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
+	// Record the keys Juju knows about.
+	jujuKeys, err := kw.st.AuthorisedKeys(kw.tag)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", cw.tag, err)
+		return nil, log.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
 	}
-	cw.jujuKeys = set.NewStrings(jujuKeys...)
+	kw.jujuKeys = set.NewStrings(jujuKeys...)
 
-	// Read the keys currently in ~/.ssh/authorised_keys
+	// Read the keys currently in ~/.ssh/authorised_keys.
 	sshKeys, err := ssh.ListKeys(ssh.FullKeys)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "reading ssh authorized keys for %q: %v", cw.tag, err)
+		return nil, log.LoggedErrorf(logger, "reading ssh authorized keys for %q: %v", kw.tag, err)
 	}
-	// Find what's in Juju but not stored locally and update the local keys.
-	missing := cw.jujuKeys.Difference(set.NewStrings(sshKeys...))
-	if err := ssh.AddKeys(missing.Values()...); err != nil {
-		return nil, log.LoggedErrorf(logger, "adding missing Juju keys to ssh authorised keys: %v", err)
+	// Record any keys not added by Juju.
+	for _, key := range sshKeys {
+		_, comment, err := ssh.KeyFingerprint(key)
+		// Also record keys which we cannot parse.
+		if err != nil || !strings.HasPrefix(comment, ssh.JujuCommentPrefix) {
+			kw.nonJujuKeys = append(kw.nonJujuKeys, key)
+		}
+	}
+	// Write out the ssh authorised keys file to match the current state of the world.
+	if err := kw.writeSSHKeys(jujuKeys); err != nil {
+		return nil, log.LoggedErrorf(logger, "adding current Juju keys to ssh authorised keys: %v", err)
 	}
 
-	w, err := cw.st.WatchAuthorisedKeys(cw.tag)
+	w, err := kw.st.WatchAuthorisedKeys(kw.tag)
 	if err != nil {
 		return nil, log.LoggedErrorf(logger, "starting key updater worker: %v", err)
 	}
-	logger.Infof("%q key updater worker started", cw.tag)
+	logger.Infof("%q key updater worker started", kw.tag)
 	return w, nil
 }
 
-func (cw *keyupdaterWorker) Handle() error {
-	// Read the keys that Juju has.
-	newKeys, err := cw.st.AuthorisedKeys(cw.tag)
-	if err != nil {
-		return log.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", cw.tag, err)
+// writeSSHKeys writes out a new ~/.ssh/authorised_keys file, retaining any non Juju keys
+// and adding the specified set of Juju keys.
+func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
+	allKeys := kw.nonJujuKeys
+	// Ensure any Juju keys have the required prefix in their comment.
+	for i, key := range jujuKeys {
+		jujuKeys[i] = ssh.EnsureJujuComment(key)
 	}
-	// Figure out what needs to be added and deleted.
-	newJujuKeys := set.NewStrings(newKeys...)
-	toDelete := cw.jujuKeys.Difference(newJujuKeys)
+	allKeys = append(allKeys, jujuKeys...)
+	return ssh.ReplaceKeys(allKeys...)
+}
 
-	toAdd := newJujuKeys.Difference(cw.jujuKeys)
-	if toAdd.Size() > 0 {
-		keysToAdd := toAdd.Values()
-		logger.Debugf("adding ssh keys to authorised keys: %v", keysToAdd)
-		if err = ssh.AddKeys(keysToAdd...); err != nil {
-			return log.LoggedErrorf(logger, "adding new ssh keys: %v", err)
+func (kw *keyupdaterWorker) Handle() error {
+	// Read the keys that Juju has.
+	newKeys, err := kw.st.AuthorisedKeys(kw.tag)
+	if err != nil {
+		return log.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
+	}
+	// Figure out if any keys have been added or deleted.
+	newJujuKeys := set.NewStrings(newKeys...)
+	deleted := kw.jujuKeys.Difference(newJujuKeys)
+	added := newJujuKeys.Difference(kw.jujuKeys)
+	if added.Size() > 0 || deleted.Size() > 0 {
+		logger.Debugf("adding ssh keys to authorised keys: %v", added)
+		logger.Debugf("deleting ssh keys from authorised keys: %v", deleted)
+		if err = kw.writeSSHKeys(newKeys); err != nil {
+			return log.LoggedErrorf(logger, "updating ssh keys: %v", err)
 		}
 	}
-	if toDelete.Size() > 0 {
-		keysToDelete := toDelete.Values()
-		logger.Debugf("deleting ssh keys from authorised keys: %v", keysToDelete)
-		var deleteComments []string
-		for _, key := range keysToDelete {
-			_, comment, _, _, ok := stdssh.ParseAuthorizedKey([]byte(key))
-			if !ok || comment == "" {
-				logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
-				continue
-			}
-			deleteComments = append(deleteComments, comment)
-		}
-		if err = ssh.DeleteKeys(deleteComments...); err != nil {
-			return log.LoggedErrorf(logger, "deleting old ssh keys: %v", err)
-		}
-	}
-	cw.jujuKeys = newJujuKeys
+	kw.jujuKeys = newJujuKeys
 	return nil
 }
 
-func (cw *keyupdaterWorker) TearDown() error {
+func (kw *keyupdaterWorker) TearDown() error {
 	// Nothing to do here.
 	return nil
 }
