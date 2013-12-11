@@ -18,14 +18,14 @@ import (
 type keymanagerSuite struct {
 	jujutesting.JujuConnSuite
 
-	keymanager *keymanager.State
+	keymanager *keymanager.Client
 }
 
 var _ = gc.Suite(&keymanagerSuite{})
 
 func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.keymanager = s.APIState.KeyManager()
+	s.keymanager = keymanager.NewClient(s.APIState)
 	c.Assert(s.keymanager, gc.NotNil)
 
 }
