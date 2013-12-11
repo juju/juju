@@ -21,14 +21,14 @@ import (
 	"launchpad.net/juju-core/utils/set"
 )
 
-func Status(conn *juju.Conn, patterns []string) (api.Status, error) {
+func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 	var context statusContext
 	unitMatcher, err := NewUnitMatcher(patterns)
 	if err != nil {
-		return api.Status{}, err
+		return nil, err
 	}
 	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
-		return api.Status{}, err
+		return nil, err
 	}
 
 	// Filter machines by units in scope.
@@ -36,11 +36,11 @@ func Status(conn *juju.Conn, patterns []string) (api.Status, error) {
 	if !unitMatcher.matchesAny() {
 		machineIds, err = fetchUnitMachineIds(context.units)
 		if err != nil {
-			return api.Status{}, err
+			return nil, err
 		}
 	}
 	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
-		return api.Status{}, err
+		return nil, err
 	}
 
 	context.instances, err = fetchAllInstances(conn.Environ)
@@ -48,7 +48,7 @@ func Status(conn *juju.Conn, patterns []string) (api.Status, error) {
 		// XXX: return both err and result as both may be useful?
 		err = nil
 	}
-	return api.Status{
+	return &api.Status{
 		EnvironmentName: conn.Environ.Name(),
 		Machines:        context.processMachines(),
 		Services:        context.processServices(),

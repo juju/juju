@@ -10,10 +10,10 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 )
 
-func (c *Client) Status(args params.StatusParams) (api.Status, error) {
+func (c *Client) Status(args params.StatusParams) (*api.Status, error) {
 	conn, err := juju.NewConnFromState(c.api.state)
 	if err != nil {
-		return api.Status{}, err
+		return nil, err
 	}
 
 	return statecmd.Status(conn, args.Patterns)

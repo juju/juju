@@ -75,8 +75,7 @@ func (c *StatusCommand) getStatus1dot16() (*api.Status, error) {
 	}
 	defer conn.Close()
 
-	state, err := statecmd.Status(conn, c.patterns)
-	return &state, err
+	return statecmd.Status(conn, c.patterns)
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -98,9 +97,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 			"(direct DB access)")
 		status, err = c.getStatus1dot16()
 	}
+	// Display any error, but continue to print status if some was returned
 	if err != nil {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-		// XXX: no early return, to allow for err+result output?
 	}
 	result := formatStatus(status)
 	return c.out.Write(ctx, result)

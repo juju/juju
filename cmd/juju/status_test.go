@@ -66,8 +66,9 @@ type context struct {
 }
 
 func (s *StatusSuite) newContext() *context {
+	st := s.Conn.Environ.(testing.GetStater).GetStateInAPIServer()
 	return &context{
-		st:      s.State,
+		st:      st,
 		conn:    s.Conn,
 		charms:  make(map[string]*state.Charm),
 		pingers: make(map[string]*presence.Pinger),
@@ -100,8 +101,6 @@ func (ctx *context) setAgentAlive(c *gc.C, a aliver) *presence.Pinger {
 	pinger, err := a.SetAgentAlive()
 	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
-	st := ctx.conn.Environ.(testing.GetStater).GetStateInAPIServer()
-	st.StartSync()
 	err = a.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 	agentAlive, err := a.AgentAlive()
