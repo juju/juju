@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"launchpad.net/juju-core/charm"
@@ -32,8 +33,8 @@ type charmsHandler struct {
 
 // CharmsResponse is the server response to a charm upload request.
 type CharmsResponse struct {
-	Error    string `json:"error,omitempty"`
-	CharmURL string `json:"charmUrl,omitempty"`
+	Error    string `json:",omitempty"`
+	CharmURL string `json:",omitempty"`
 }
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -44,12 +45,12 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		charmUrl, err := h.processPost(r)
+		charmURL, err := h.processPost(r)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		h.sendJSON(w, http.StatusOK, &CharmsResponse{CharmURL: charmUrl.String()})
+		h.sendJSON(w, http.StatusOK, &CharmsResponse{CharmURL: charmURL.String()})
 	// Possible future extensions, like GET.
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -75,7 +76,7 @@ func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message
 // authenticate parses HTTP basic authentication and authorizes the
 // request by looking up the provided tag and password against state.
 func (h *charmsHandler) authenticate(r *http.Request) error {
-	parts := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
 		return fmt.Errorf("invalid request format")
@@ -118,19 +119,8 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	if series == "" {
 		return nil, fmt.Errorf("expected series= URL argument")
 	}
-	reader, err := r.MultipartReader()
-	if err != nil {
-		return nil, err
-	}
-	// Get the first (and hopefully only) uploaded part to process.
-	part, err := reader.NextPart()
-	if err == io.EOF {
-		return nil, fmt.Errorf("expected a single uploaded file, got none")
-	} else if err != nil {
-		return nil, fmt.Errorf("cannot process uploaded file: %v", err)
-	}
 	// Make sure the content type is zip.
-	contentType := part.Header.Get("Content-Type")
+	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
 		return nil, fmt.Errorf("expected Content-Type: application/zip, got: %v", contentType)
 	}
@@ -140,78 +130,78 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	}
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
-	if _, err := io.Copy(tempFile, part); err != nil {
+	if _, err := io.Copy(tempFile, r.Body); err != nil {
 		return nil, fmt.Errorf("error processing file upload: %v", err)
 	}
-	if _, err := reader.NextPart(); err != io.EOF {
-		return nil, fmt.Errorf("expected a single uploaded file, got more")
-	}
+	defer r.Body.Close()
 	archive, err := charm.ReadBundle(tempFile.Name())
 	if err != nil {
 		return nil, fmt.Errorf("invalid charm archive: %v", err)
 	}
 	// We got it, now let's reserve a charm URL for it in state.
-	archiveUrl := &charm.URL{
+	archiveURL := &charm.URL{
 		Schema:   "local",
 		Series:   series,
 		Name:     archive.Meta().Name,
 		Revision: archive.Revision(),
 	}
-	preparedUrl, err := h.state.PrepareLocalCharmUpload(archiveUrl)
+	preparedURL, err := h.state.PrepareLocalCharmUpload(archiveURL)
 	if err != nil {
 		return nil, err
 	}
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = h.repackageAndUploadCharm(archive, preparedUrl)
+	err = h.repackageAndUploadCharm(archive, preparedURL)
 	if err != nil {
 		return nil, err
 	}
 	// All done.
-	return preparedUrl, nil
+	return preparedURL, nil
 }
 
 // repackageAndUploadCharm expands the given charm archive to a
 // temporary directoy, repackages it with the given curl's revision,
 // then uploads it to providr storage, and finally updates the state.
 func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *charm.URL) error {
-	// Create a temp dir and file to use below.
-	tempDir, err := ioutil.TempDir("", archive.Meta().Name)
+	// Create a temp dir to contain the extracted charm
+	// dir and the repackaged archive.
+	tempDir, err := ioutil.TempDir("", "charm-download")
 	if err != nil {
 		return fmt.Errorf("cannot create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	tempFile, err := ioutil.TempFile("", archive.Meta().Name)
+	extractPath := filepath.Join(tempDir, "extracted")
+	repackagedPath := filepath.Join(tempDir, "repackaged.zip")
+	repackagedArchive, err := os.Create(repackagedPath)
 	if err != nil {
-		return fmt.Errorf("cannot create temp file: %v", err)
+		return fmt.Errorf("cannot repackage uploaded charm: %v", err)
 	}
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	defer repackagedArchive.Close()
 
 	// Expand and repack it with the revision specified by curl.
 	archive.SetRevision(curl.Revision)
-	if err := archive.ExpandTo(tempDir); err != nil {
+	if err := archive.ExpandTo(extractPath); err != nil {
 		return fmt.Errorf("cannot extract uploaded charm: %v", err)
 	}
-	charmDir, err := charm.ReadDir(tempDir)
+	charmDir, err := charm.ReadDir(extractPath)
 	if err != nil {
 		return fmt.Errorf("cannot read extracted charm: %v", err)
 	}
 	// Bundle the charm and calculate its sha256 hash at the
 	// same time.
 	hash := sha256.New()
-	multiWriter := io.MultiWriter(hash, tempFile)
-	if err := charmDir.BundleTo(multiWriter); err != nil {
+	err = charmDir.BundleTo(io.MultiWriter(hash, repackagedArchive))
+	if err != nil {
 		return fmt.Errorf("cannot repackage uploaded charm: %v", err)
 	}
-	bundleSha256 := hex.EncodeToString(hash.Sum(nil))
-	size, err := tempFile.Seek(0, 2)
+	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
+	size, err := repackagedArchive.Seek(0, 2)
 	if err != nil {
 		return fmt.Errorf("cannot get charm file size: %v", err)
 	}
 	// Seek to the beginning so the subsequent Put will read
 	// the whole file again.
-	if _, err := tempFile.Seek(0, 0); err != nil {
+	if _, err := repackagedArchive.Seek(0, 0); err != nil {
 		return fmt.Errorf("cannot rewind the charm file reader: %v", err)
 	}
 
@@ -221,20 +211,20 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 		return fmt.Errorf("cannot access provider storage: %v", err)
 	}
 	name := charm.Quote(curl.String())
-	if err := storage.Put(name, tempFile, size); err != nil {
+	if err := storage.Put(name, repackagedArchive, size); err != nil {
 		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
-	storageUrl, err := storage.URL(name)
+	storageURL, err := storage.URL(name)
 	if err != nil {
 		return fmt.Errorf("cannot get storage URL for charm: %v", err)
 	}
-	bundleURL, err := url.Parse(storageUrl)
+	bundleURL, err := url.Parse(storageURL)
 	if err != nil {
 		return fmt.Errorf("cannot parse storage URL: %v", err)
 	}
 
 	// And finally, update state.
-	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSha256)
+	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSHA256)
 	if err != nil {
 		return fmt.Errorf("cannot update uploaded charm in state: %v", err)
 	}

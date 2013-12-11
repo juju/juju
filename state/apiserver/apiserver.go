@@ -25,11 +25,10 @@ var logger = loggo.GetLogger("juju.state.apiserver")
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb   tomb.Tomb
-	wg     sync.WaitGroup
-	state  *state.State
-	addr   net.Addr
-	charms *charmsHandler
+	tomb  tomb.Tomb
+	wg    sync.WaitGroup
+	state *state.State
+	addr  net.Addr
 }
 
 // Serve serves the given state by accepting requests on the given
@@ -46,9 +45,8 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		return nil, err
 	}
 	srv := &Server{
-		state:  s,
-		addr:   lis.Addr(),
-		charms: &charmsHandler{state: s},
+		state: s,
+		addr:  lis.Addr(),
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -142,7 +140,7 @@ func (srv *Server) run(lis net.Listener) {
 	})
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
-	mux.Handle("/charms", srv.charms)
+	mux.Handle("/charms", &charmsHandler{state: srv.state})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }
