@@ -78,6 +78,11 @@ type SuperCommand struct {
 	missingCallback MissingCallback
 }
 
+// IsSuperCommand implements Command.IsSuperCommand
+func (c *SuperCommand) IsSuperCommand() bool {
+	return true
+}
+
 // Because Go doesn't have constructors that initialize the object into a
 // ready state.
 func (c *SuperCommand) init() {
@@ -179,18 +184,13 @@ func (c *SuperCommand) Info() *Info {
 
 const helpPurpose = "show help on a command or other topic"
 
-// setCommonFlags creates a new "commonflags" flagset, whose
+// SetCommonFlags creates a new "commonflags" flagset, whose
 // flags are shared with the argument f; this enables us to
 // add non-global flags to f, which do not carry into subcommands.
-func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
+func (c *SuperCommand) SetCommonFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
-	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-	c.commonflags.SetOutput(ioutil.Discard)
-	f.VisitAll(func(flag *gnuflag.Flag) {
-		c.commonflags.Var(flag.Value, flag.Name, flag.Usage)
-	})
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
 	// In the case where we are providing the basis for a plugin,
@@ -198,13 +198,18 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 	// The Purpose attribute will be printed (if defined), allowing
 	// plugins to provide a sensible line of text for 'juju help plugins'.
 	f.BoolVar(&c.showDescription, "description", false, "")
+	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+	c.commonflags.SetOutput(ioutil.Discard)
+	f.VisitAll(func(flag *gnuflag.Flag) {
+		c.commonflags.Var(flag.Value, flag.Name, flag.Usage)
+	})
 }
 
 // SetFlags adds the options that apply to all commands, particularly those
 // due to logging.
 func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.setCommonFlags(f)
-	// Only flags set by setCommonFlags are passed on to subcommands.
+	c.SetCommonFlags(f)
+	// Only flags set by SetCommonFlags are passed on to subcommands.
 	// Any flags added below only take effect when no subcommand is
 	// specified (e.g. juju --version).
 	f.BoolVar(&c.showVersion, "version", false, "Show the version of juju")
@@ -245,7 +250,13 @@ func (c *SuperCommand) Init(args []string) error {
 		return fmt.Errorf("unrecognized command: %s %s", c.Name, args[0])
 	}
 	args = args[1:]
-	c.subcmd.SetFlags(c.commonflags)
+	if c.subcmd.IsSuperCommand() {
+		f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+		f.SetOutput(ioutil.Discard)
+		c.subcmd.SetFlags(f)
+	} else {
+		c.subcmd.SetFlags(c.commonflags)
+	}
 	if err := c.commonflags.Parse(c.subcmd.AllowInterspersedFlags(), args); err != nil {
 		return err
 	}
@@ -356,7 +367,7 @@ command.
 `)
 
 	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	c.super.setCommonFlags(f)
+	c.super.SetCommonFlags(f)
 	f.SetOutput(buf)
 	f.PrintDefaults()
 	return buf.String()

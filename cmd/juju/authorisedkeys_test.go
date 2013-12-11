@@ -45,9 +45,14 @@ func (s *AuthorisedKeysSuite) TestHelpCommands(c *gc.C) {
 	out := badrun(c, 0, "authorised-keys", "--help")
 	lines := strings.Split(out, "\n")
 	var names []string
+	subcommandsFound := false
 	for _, line := range lines {
 		f := strings.Fields(line)
-		if len(f) == 0 || !strings.HasPrefix(line, "    ") {
+		if len(f) == 1 && f[0] == "commands:" {
+			subcommandsFound = true
+			continue
+		}
+		if !subcommandsFound ||  len(f) == 0 || !strings.HasPrefix(line, "    ") {
 			continue
 		}
 		names = append(names, f[0])

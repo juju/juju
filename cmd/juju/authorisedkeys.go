@@ -4,6 +4,8 @@
 package main
 
 import (
+	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 )
 
@@ -22,9 +24,14 @@ func NewAuthorisedKeysCommand() cmd.Command {
 		SuperCommand: cmd.NewSuperCommand(cmd.SuperCommandParams{
 			Name:    "authorised-keys",
 			Doc:     authKeysDoc,
+			UsagePrefix: "juju",
 			Purpose: "manage authorised ssh keys",
 		}),
 	}
 	sshkeyscmd.Register(&ListKeysCommand{})
 	return sshkeyscmd
+}
+
+func (c *AuthorisedKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.SetCommonFlags(f)
 }

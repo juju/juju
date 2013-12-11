@@ -60,6 +60,11 @@ Launch an ssh shell on the state server machine and tail the consolidated log fi
 The consolidated log file contains log messages from all nodes in the environment.
 `
 
+// IsSuperCommand implements Command.IsSuperCommand
+func (c *DebugLogCommand) IsSuperCommand() bool {
+	return false
+}
+
 func (c *DebugLogCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-log",
