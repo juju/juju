@@ -115,7 +115,7 @@ func Main(args []string) {
 		code = 2
 		err = fmt.Errorf("jujuc should not be called directly")
 	} else if commandName == "juju-run" {
-		code, err = jujuRun(args[1:])
+		code = cmd.Main(&RunCommand{}, cmd.DefaultContext(), args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)
 	}

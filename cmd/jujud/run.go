@@ -9,13 +9,24 @@ import (
 	"os"
 	"path/filepath"
 
+	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
 var AgentDir = "/var/lib/juju/agents"
 
-const usage = `juju-run <unit-name> <commands>
+type RunCommand struct {
+	cmd.CommandBase
+	unit     string
+	commands string
+	showHelp bool
+}
+
+const runCommandDoc = `
+Run the specified commands in the hook context for the unit.
 
 unit-name can be either the unit tag:
  i.e.  unit-ubuntu-0
@@ -25,63 +36,73 @@ or the unit id:
 The commands are executed with '/bin/bash -s', and the output returned.
 `
 
-func printUsage() {
-	os.Stdout.Write([]byte(usage))
+// Info returns usage information for the command.
+func (c *RunCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "juju-run",
+		Args:    "<unit-name> <commands>",
+		Purpose: "run commands in a unit's hook context",
+		Doc:     runCommandDoc,
+	}
 }
 
-func jujuRun(args []string) (code int, err error) {
-	code = 1
+func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.showHelp, "h", false, "show help on juju-run")
+	f.BoolVar(&c.showHelp, "help", false, "")
+}
+
+func (c *RunCommand) Init(args []string) error {
 	// make sure we aren't in an existing hook context
 	if contextId, err := getenv("JUJU_CONTEXT_ID"); err == nil && contextId != "" {
-		return code, fmt.Errorf("juju-run cannot be called from within a hook, have context %q", contextId)
+		return fmt.Errorf("juju-run cannot be called from within a hook, have context %q", contextId)
 	}
-
 	if len(args) < 1 {
-		printUsage()
-		return code, fmt.Errorf("missing unit-name")
+		return fmt.Errorf("missing unit-name")
 	}
 	if len(args) < 2 {
-		printUsage()
-		return code, fmt.Errorf("missing commands")
+		return fmt.Errorf("missing commands")
 	}
-	if len(args) > 2 {
-		printUsage()
-		return code, fmt.Errorf("too many arguments")
+	c.unit, args = args[0], args[1:]
+	if names.IsUnit(c.unit) {
+		c.unit = names.UnitTag(c.unit)
 	}
-	unit := args[0]
-	if names.IsUnit(unit) {
-		unit = names.UnitTag(unit)
-	}
-	commands := args[1]
+	c.commands, args = args[0], args[1:]
+	return cmd.CheckEmpty(args)
+}
 
-	unitDir := filepath.Join(AgentDir, unit)
+func (c *RunCommand) Run(ctx *cmd.Context) error {
+	if c.showHelp {
+		return gnuflag.ErrHelp
+	}
+
+	unitDir := filepath.Join(AgentDir, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	fileInfo, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {
-		return code, fmt.Errorf("unit %q not found on this machine", unit)
+		return fmt.Errorf("unit %q not found on this machine", c.unit)
 	} else if err != nil {
-		return code, err
+		return err
 	}
 	if !fileInfo.IsDir() {
-		return code, fmt.Errorf("%q is not a directory", unitDir)
+		return fmt.Errorf("%q is not a directory", unitDir)
 	}
 
 	socketPath := filepath.Join(unitDir, uniter.RunListenerFile)
 	// make sure the socket exists
 	client, err := rpc.Dial("unix", socketPath)
 	if err != nil {
-		return
+		return err
 	}
 	defer client.Close()
 
-	var result uniter.RunResults
-	err = client.Call("Runner.RunCommands", commands, &result)
+	var result cmd.RemoteResponse
+	err = client.Call("Runner.RunCommands", c.commands, &result)
 	if err != nil {
-		return
+		return err
 	}
 
-	os.Stdout.Write([]byte(result.StdOut))
-	os.Stderr.Write([]byte(result.StdErr))
-	return result.ReturnCode, nil
+	ctx.Stdout.Write(result.Stdout)
+	ctx.Stderr.Write(result.Stderr)
+	return cmd.NewRcPassthroughError(result.Code)
 }
