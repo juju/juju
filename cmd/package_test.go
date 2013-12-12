@@ -18,11 +18,10 @@ type Dependencies struct{}
 var _ = gc.Suite(&Dependencies{})
 
 func (*Dependencies) TestPackageDependencies(c *gc.C) {
-	// This test is to ensure we don't bring in dependencies on state, environ
-	// or any of the other bigger packages that'll drag in yet more dependencies.
-	// Only imports that start with "launchpad.net/juju-core" are checked, and the
-	// resulting slice has that prefix removed to keep the output short.
+	// This test is to ensure we don't bring in dependencies without thinking.
+	// Looking at the "environs/config", it is just for JujuHome.  This should
+	// really be moved into "juju/osenv".
 	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/cmd"),
 		gc.DeepEquals,
-		[]string{"environs/config", "juju/osenv", "log", "names", "version"})
+		[]string{"environs/config", "juju/osenv", "names", "version"})
 }
