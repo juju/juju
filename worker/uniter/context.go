@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
@@ -211,7 +212,7 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
-func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*RunResults, error) {
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*cmd.RemoteResponse, error) {
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	result, err := runCommands(commands, charmDir, env)
 	return result, ctx.finalizeContext("run commands", err)
@@ -263,31 +264,31 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	return err
 }
 
-func runCommands(commands, charmDir string, env []string) (*RunResults, error) {
-	cmd := exec.Command("/bin/bash", "-s")
-	cmd.Env = env
-	cmd.Dir = charmDir
-	cmd.Stdin = bytes.NewBufferString(commands)
+func runCommands(commands, charmDir string, env []string) (*cmd.RemoteResponse, error) {
+	ps := exec.Command("/bin/bash", "-s")
+	ps.Env = env
+	ps.Dir = charmDir
+	ps.Stdin = bytes.NewBufferString(commands)
 
-	stdOut := &bytes.Buffer{}
-	stdErr := &bytes.Buffer{}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
 
-	cmd.Stdout = stdOut
-	cmd.Stderr = stdErr
+	ps.Stdout = stdout
+	ps.Stderr = stderr
 
-	err := cmd.Start()
+	err := ps.Start()
 	if err == nil {
-		err = cmd.Wait()
+		err = ps.Wait()
 	}
-	result := &RunResults{
-		StdOut: stdOut.String(),
-		StdErr: stdErr.String(),
+	result := &cmd.RemoteResponse{
+		Stdout: stdout.Bytes(),
+		Stderr: stderr.Bytes(),
 	}
 	if ee, ok := err.(*exec.ExitError); ok && err != nil {
 		status := ee.ProcessState.Sys().(syscall.WaitStatus)
 		if status.Exited() {
 			// A non-zero return code isn't considered an error here.
-			result.ReturnCode = status.ExitStatus()
+			result.Code = status.ExitStatus()
 			err = nil
 		}
 		logger.Infof("run result: %v", ee)
