@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/rpc"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -849,8 +852,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			quickStart{},
 			runCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
-		),
-		ut(
+		), ut(
 			"run commands: jujuc commands",
 			quickStartRelation{},
 			runCommands{
@@ -862,8 +864,20 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				filepath.Join(testDir, "jujuc.output"),
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
 			},
+		), ut(
+			"run commands: async using rpc client",
+			quickStart{},
+			asyncRunCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
+			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
+		), ut(
+			"run commands: waits for lock",
+			quickStart{},
+			acquireHookSyncLock{},
+			asyncRunCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "wait.output"))},
+			verifyNoFile{filepath.Join(testDir, "wait.output")},
+			releaseHookSyncLock,
+			verifyFile{filepath.Join(testDir, "wait.output"), "juju run u/0\n"},
 		),
-		// TODO: add asyncRunCommands to test for hook lock file
 	}
 	s.runUniterTests(c, tests)
 }
@@ -1928,9 +1942,30 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
 	result, err := ctx.uniter.RunCommands(commands)
 	c.Assert(err, gc.IsNil)
-	c.Check(result.ReturnCode, gc.Equals, 0)
-	c.Check(result.StdOut, gc.Equals, "")
-	c.Check(result.StdErr, gc.Equals, "")
+	c.Check(result.Code, gc.Equals, 0)
+	c.Check(string(result.Stdout), gc.Equals, "")
+	c.Check(string(result.Stderr), gc.Equals, "")
+}
+
+type asyncRunCommands []string
+
+func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
+	commands := strings.Join(cmds, "\n")
+	socketPath := filepath.Join(ctx.path, uniter.RunListenerFile)
+
+	go func() {
+		// make sure the socket exists
+		client, err := rpc.Dial("unix", socketPath)
+		c.Assert(err, gc.IsNil)
+		defer client.Close()
+
+		var result cmd.RemoteResponse
+		err = client.Call("Runner.RunCommands", commands, &result)
+		c.Assert(err, gc.IsNil)
+		c.Check(result.Code, gc.Equals, 0)
+		c.Check(string(result.Stdout), gc.Equals, "")
+		c.Check(string(result.Stderr), gc.Equals, "")
+	}()
 }
 
 type verifyFile struct {
@@ -1938,8 +1973,45 @@ type verifyFile struct {
 	content  string
 }
 
-func (verify verifyFile) step(c *gc.C, ctx *context) {
+func (verify verifyFile) fileExists() bool {
+	_, err := os.Stat(verify.filename)
+	return err == nil
+}
+
+func (verify verifyFile) checkContent(c *gc.C) {
 	content, err := ioutil.ReadFile(verify.filename)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Equals, verify.content)
+}
+
+func (verify verifyFile) step(c *gc.C, ctx *context) {
+	if verify.fileExists() {
+		verify.checkContent(c)
+		return
+	}
+	c.Logf("waiting for file: %s", verify.filename)
+	timeout := time.After(worstCase)
+	for {
+		select {
+		case <-time.After(coretesting.ShortWait):
+			if verify.fileExists() {
+				verify.checkContent(c)
+				return
+			}
+		case <-timeout:
+			c.Fatalf("file does not exist")
+		}
+	}
+}
+
+// verify that the file does not exist
+type verifyNoFile struct {
+	filename string
+}
+
+func (verify verifyNoFile) step(c *gc.C, ctx *context) {
+	c.Assert(verify.filename, jc.DoesNotExist)
+	// Wait a short time and check again.
+	time.Sleep(coretesting.ShortWait)
+	c.Assert(verify.filename, jc.DoesNotExist)
 }
