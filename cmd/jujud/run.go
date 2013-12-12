@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
@@ -16,7 +17,12 @@ var AgentDir = "/var/lib/juju/agents"
 
 const usage = `juju-run <unit-name> <commands>
 
-add some useful help.
+unit-name can be either the unit tag:
+ i.e.  unit-ubuntu-0
+or the unit id:
+ i.e.  ubuntu/0
+
+The commands are executed with '/bin/bash -s', and the output returned.
 `
 
 func printUsage() {
@@ -43,8 +49,11 @@ func jujuRun(args []string) (code int, err error) {
 		return code, fmt.Errorf("too many arguments")
 	}
 	unit := args[0]
+	if names.IsUnit(unit) {
+		unit = names.UnitTag(unit)
+	}
 	commands := args[1]
-	// TODO: change unit name to tag?
+
 	unitDir := filepath.Join(AgentDir, unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
