@@ -852,8 +852,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			quickStart{},
 			runCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
-		),
-		ut(
+		), ut(
 			"run commands: jujuc commands",
 			quickStartRelation{},
 			runCommands{
@@ -865,13 +864,21 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				filepath.Join(testDir, "jujuc.output"),
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
 			},
-		),
-		ut(
+		), ut(
 			"run commands: async using rpc client",
 			quickStart{},
 			asyncRunCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
+		), ut(
+			"run commands: waits for lock",
+			quickStart{},
+			acquireHookSyncLock{},
+			asyncRunCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "wait.output"))},
+			verifyNoFile{filepath.Join(testDir, "wait.output")},
+			releaseHookSyncLock,
+			verifyFile{filepath.Join(testDir, "wait.output"), "juju run u/0\n"},
 		),
+
 		// TODO: add asyncRunCommands to test for hook lock file
 	}
 	s.runUniterTests(c, tests)
@@ -1999,4 +2006,16 @@ func (verify verifyFile) step(c *gc.C, ctx *context) {
 			c.Fatalf("file not written")
 		}
 	}
+}
+
+// verify that the file does not exist
+type verifyNoFile struct {
+	filename string
+}
+
+func (verify verifyNoFile) step(c *gc.C, ctx *context) {
+	c.Assert(verify.filename, jc.DoesNotExist)
+	// Wait a short time and check again.
+	time.Sleep(coretesting.ShortWait)
+	c.Assert(verify.filename, jc.DoesNotExist)
 }
