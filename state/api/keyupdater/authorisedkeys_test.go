@@ -37,7 +37,7 @@ func (s *keyupdaterSuite) SetUpTest(c *gc.C) {
 
 func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
 	_, err := s.keyupdater.AuthorisedKeys("machine-42")
-	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {

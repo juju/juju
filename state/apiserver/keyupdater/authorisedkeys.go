@@ -59,7 +59,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 	}
 	for i, entity := range arg.Entities {
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !getCanRead(entity.Tag) {
@@ -103,7 +103,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 	}
 	for i, entity := range arg.Entities {
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !getCanRead(entity.Tag) {
