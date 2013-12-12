@@ -15,6 +15,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
@@ -237,7 +238,7 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// Ensure that the auth token is a set of key=value pairs.
-	authToken := cfg.CharmStoreAuth()
+	authToken, _ := cfg.CharmStoreAuth()
 	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
 	if !validAuthToken.MatchString(authToken) {
 		return fmt.Errorf("charm store auth token needs to be a set"+
@@ -464,8 +465,9 @@ func (c *Config) LoggingConfig() string {
 }
 
 // Auth token sent to charm store
-func (c *Config) CharmStoreAuth() string {
-	return c.asString("charm-store-auth")
+func (c *Config) CharmStoreAuth() (string, bool) {
+	auth := c.asString("charm-store-auth")
+	return auth, auth != ""
 }
 
 // ProvisionerSafeMode reports whether the provisioner should not
@@ -666,4 +668,20 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	}
 	var noHostnames []string
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
+}
+
+type Authorizer interface {
+	WithAuthAttrs(string) charm.Repository
+}
+
+// AuthorizeCharmRepo returns a repository with authentication added
+// from the specified configuration.
+func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+	// If a charm store auth token is set, pass it on to the charm store
+	if auth, authSet := cfg.CharmStoreAuth(); authSet {
+		if CS, isCS := repo.(Authorizer); isCS {
+			repo = CS.WithAuthAttrs(auth)
+		}
+	}
+	return repo
 }
