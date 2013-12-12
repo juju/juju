@@ -10,6 +10,7 @@ import (
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/keymanager"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -55,4 +56,77 @@ func (s *keymanagerSuite) TestListKeysErrors(c *gc.C) {
 	c.Assert(len(keyResults), gc.Equals, 1)
 	result := keyResults[0]
 	c.Assert(result.Error, gc.ErrorMatches, `permission denied`)
+}
+
+func clientError(message string) *params.Error {
+	return &params.Error{
+		Message: message,
+		Code:    "",
+	}
+}
+
+func (s *keymanagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	keys := envConfig.AuthorizedKeys()
+	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
+}
+
+func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	newKeys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key, "invalid"}
+	errResults, err := s.keymanager.AddKeys("admin", newKeys...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+		{Error: clientError("invalid ssh key: invalid")},
+	})
+	s.assertEnvironKeys(c, append([]string{key1}, newKeys[:2]...))
+}
+
+func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	key3 := sshtesting.ValidKeyThree.Key
+	initialKeys := []string{key1, key2, key3, "invalid"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	errResults, err := s.keymanager.DeleteKeys("admin", sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+		{Error: clientError("invalid ssh key: missing")},
+	})
+	s.assertEnvironKeys(c, []string{"invalid", key3})
+}
+
+func (s *keymanagerSuite) assertInvalidUserOperation(c *gc.C, test func(user string, keys []string) error) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	// Run the required test code and check the error.
+	keys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key}
+	err := test("invalid", keys)
+	c.Assert(err, gc.ErrorMatches, `permission denied`)
+
+	// No environ changes.
+	s.assertEnvironKeys(c, []string{key1})
+}
+
+func (s *keymanagerSuite) TestAddKeysInvalidUser(c *gc.C) {
+	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
+		_, err := s.keymanager.AddKeys(user, keys...)
+		return err
+	})
+}
+
+func (s *keymanagerSuite) TestDeleteKeysInvalidUser(c *gc.C) {
+	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
+		_, err := s.keymanager.DeleteKeys(user, keys...)
+		return err
+	})
 }
