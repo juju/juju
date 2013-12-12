@@ -878,8 +878,6 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			releaseHookSyncLock,
 			verifyFile{filepath.Join(testDir, "wait.output"), "juju run u/0\n"},
 		),
-
-		// TODO: add asyncRunCommands to test for hook lock file
 	}
 	s.runUniterTests(c, tests)
 }
@@ -1958,9 +1956,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 	go func() {
 		// make sure the socket exists
 		client, err := rpc.Dial("unix", socketPath)
-		if err != nil {
-			return
-		}
+		c.Assert(err, gc.IsNil)
 		defer client.Close()
 
 		var result cmd.RemoteResponse
@@ -2003,7 +1999,7 @@ func (verify verifyFile) step(c *gc.C, ctx *context) {
 				return
 			}
 		case <-timeout:
-			c.Fatalf("file not written")
+			c.Fatalf("file does not exist")
 		}
 	}
 }
