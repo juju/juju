@@ -1,5 +1,30 @@
 #!/bin/bash
-instance_id=$(ec2-run-instances -k id_rsa -t m1.small ami-659fbd0c|sed '/^INSTANCE/!d'|cut -f 2)
+set -x
+tarfile=$(python <<EOT
+import json
+import sys
+import urllib2
+
+build_data = urllib2.urlopen(
+  'http://162.213.35.54:8080/job/prepare-new-version/lastSuccessfulBuild/api/json')
+build_json = json.load(build_data)
+for artifact in build_json['artifacts']:
+  filename = artifact['fileName']
+  if filename.endswith('.tar.gz'):
+    break
+else:
+  sys.exit(1)
+print filename
+EOT
+)
+RUN_OUTPUT=$(ec2-run-instances -k id_rsa -t m1.small ami-659fbd0c)
+echo $RUN_OUTPUT
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+instance_id=$(echo $RUN_OUTPUT|sed -r 's/.*INSTANCE (i-[^ ]*) .*/\1/')
+set +x
 echo Starting instance $instance_id
 instance_ip=''
 echo -n Waiting for IP address
@@ -10,11 +35,25 @@ while [ -z "$instance_ip" ]; do
 done
 echo
 echo Instance has ip $instance_ip
+sleep 30
 echo -n Waiting for SSH
 while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
   sleep 1
   echo -n .
 done
 echo
-ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" echo Hi there!
+set -x
+ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+set -eux
+wget -q http://162.213.35.54:8080/job/prepare-new-version/lastSuccessfulBuild/artifact/$tarfile
+tar -xzvf $tarfile
+export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
+cd \$GOPATH/src/launchpad.net/juju-core
+sudo apt-get install -y build-essential
+make install-dependencies
+bzr whoami 'J. Random Hacker <jrandom@example.org>'
+make check
+EOT
+EXIT_STATUS=$?
 ec2-terminate-instances $instance_id
+exit $EXIT_STATUS
