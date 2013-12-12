@@ -238,6 +238,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
+	c.AddScripts(
+		fmt.Sprintf("ln -s %s/tools/%s/jujud /usr/local/bin/juju-run", cfg.DataDir, machineTag),
+	)
 
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,

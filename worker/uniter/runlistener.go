@@ -64,6 +64,7 @@ func NewRunListener(runner CommandRunner, netType, localAddr string) (*RunListen
 // Run accepts new connections until it encounters an error, or until Close is
 // called, and then blocks until all existing connections have been closed.
 func (s *RunListener) Run() (err error) {
+	logger.Debugf("juju-run listener running")
 	var conn net.Conn
 	for {
 		conn, err = s.listener.Accept()
@@ -76,6 +77,7 @@ func (s *RunListener) Run() (err error) {
 			s.wg.Done()
 		}(conn)
 	}
+	logger.Debugf("juju-run listener stopping")
 	select {
 	case <-s.closing:
 		// Someone has called Close(), so it is overwhelmingly likely that
@@ -95,4 +97,5 @@ func (s *RunListener) Close() {
 	close(s.closing)
 	s.listener.Close()
 	<-s.closed
+	logger.Debugf("juju-run listener stopped")
 }

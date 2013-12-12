@@ -32,6 +32,14 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
+const (
+	// These work fine for linux, but should we need to work with windows
+	// workloads in the future, we'll need to move these into a file that is
+	// compiled conditionally for different targets and use tcp (most likely).
+	RunListenerNetType = "unix"
+	RunListenerFile    = "run.socket"
+)
+
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
@@ -168,12 +176,17 @@ func (u *Uniter) init(unitTag string) (err error) {
 		return err
 	}
 
-	runListenerSocketPath := filepath.Join(u.baseDir, "run.socket")
+	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
 	// TODO: find out what this means...
 	// Use abstract namespace so we don't get stale socket files.
-	runListenerSocketPath = "@" + runListenerSocketPath
-	u.runListener, err = NewRunListener(u, "unix", runListenerSocketPath)
+	// runListenerSocketPath = "@" + runListenerSocketPath
+	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, RunListenerNetType, runListenerSocketPath)
 	if err != nil {
+		return err
+	}
+	// The socket needs to have permissions 777 in order for other users to use it.
+	if err := os.Chmod(runListenerSocketPath, 0777); err != nil {
 		return err
 	}
 	u.relationers = map[int]*Relationer{}
