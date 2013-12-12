@@ -659,6 +659,7 @@ type assignCleanSuite struct {
 }
 
 func (s *assignCleanSuite) SetUpTest(c *gc.C) {
+	c.Logf("assignment policy for this test: %q", s.policy)
 	s.ConnSuite.SetUpTest(c)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
@@ -1079,6 +1080,8 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
+	err = hostMachine.Refresh()
+	c.Assert(err, gc.IsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 

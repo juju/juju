@@ -181,7 +181,7 @@ func (c *SetEnvironmentCommand) run1dot16() error {
 		return err
 	}
 	// Now try to apply the new validated config.
-	return conn.State.SetEnvironConfig(newProviderConfig)
+	return conn.State.SetEnvironConfig(newProviderConfig, oldConfig)
 }
 
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {

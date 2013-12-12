@@ -87,9 +87,14 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	transactionHooks := <-st.transactionHooks
 	st.transactionHooks <- nil
 	if len(transactionHooks) > 0 {
+		// Note that this code should only ever be triggered
+		// during tests. If we see the log messages below
+		// in a production run, something is wrong.
 		defer func() {
 			if transactionHooks[0].After != nil {
+				logger.Infof("transaction 'after' hook start")
 				transactionHooks[0].After()
+				logger.Infof("transaction 'after' hook end")
 			}
 			if <-st.transactionHooks != nil {
 				panic("concurrent use of transaction hooks")
@@ -97,7 +102,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			st.transactionHooks <- transactionHooks[1:]
 		}()
 		if transactionHooks[0].Before != nil {
+			logger.Infof("transaction 'before' hook start")
 			transactionHooks[0].Before()
+			logger.Infof("transaction 'before' hook end")
 		}
 	}
 	return st.runner.Run(ops, "", nil)
@@ -242,18 +249,27 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 
 // SetEnvironConfig replaces the current configuration of the
 // environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg *config.Config) error {
+func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return err
 	}
-	// TODO(niemeyer): This isn't entirely right as the change is done as a
-	// delta that the user didn't ask for. Instead, take a (old, new) config
-	// pair, and apply *known* delta.
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
 	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
-	settings.Update(cfg.AllAttrs())
+	newattrs := cfg.AllAttrs()
+	for k, _ := range old.AllAttrs() {
+		if _, ok := newattrs[k]; !ok {
+			settings.Delete(k)
+		}
+	}
+	settings.Update(newattrs)
 	_, err = settings.Write()
 	return err
 }
@@ -374,16 +390,29 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.ServiceTagKind:
 		return st.Service(id)
 	case names.EnvironTagKind:
-		conf, err := st.EnvironConfig()
+		env, err := st.Environment()
 		if err != nil {
 			return nil, err
 		}
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
-		if id != conf.Name() {
-			return nil, errors.NotFoundf("environment %q", id)
+		if id != env.UUID() {
+			if utils.IsValidUUIDString(id) {
+				return nil, errors.NotFoundf("environment %q", id)
+			}
+			// TODO(axw) 2013-12-04 #1257587
+			// We should not accept environment tags that do not match the
+			// environment's UUID. We accept anything for now, to cater
+			// both for past usage, and for potentially supporting aliases.
+			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
+			conf, err := st.EnvironConfig()
+			if err != nil {
+				logger.Warningf("EnvironConfig failed: %v", err)
+			} else if id != conf.Name() {
+				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+			}
 		}
-		return st.Environment()
+		return env, nil
 	case names.RelationTagKind:
 		return st.KeyRelation(id)
 	}
@@ -408,6 +437,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.users.Name
 	case names.RelationTagKind:
 		coll = st.relations.Name
+	case names.EnvironTagKind:
+		coll = st.environments.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -419,11 +450,12 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
 	cdoc := &charmDoc{
-		URL:          curl,
-		Meta:         ch.Meta(),
-		Config:       ch.Config(),
-		BundleURL:    bundleURL,
-		BundleSha256: bundleSha256,
+		URL:           curl,
+		Meta:          ch.Meta(),
+		Config:        ch.Config(),
+		BundleURL:     bundleURL,
+		BundleSha256:  bundleSha256,
+		PendingUpload: false,
 	}
 	err = st.charms.Insert(cdoc)
 	if err != nil {
@@ -435,7 +467,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // Charm returns the charm with the given URL.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
+	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}}).One(cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -446,6 +478,106 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
 	}
 	return newCharm(st, cdoc)
+}
+
+// PrepareLocalCharmUpload must be called before a charm is uploaded
+// to the provider storage in order to create a charm document in
+// state. It returns a new Charm with no metadata and a unique
+// revision number.
+//
+// The url's schema must be "local" and it must include a revision.
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+
+	for attempt := 0; attempt < 3; attempt++ {
+		// Find the highest revision of that charm in state.
+		var docs []charmDoc
+		err = st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}}).Select(D{{"_id", 1}}).All(&docs)
+		if err != nil {
+			return nil, err
+		}
+		// Find the highest revision.
+		maxRevision := -1
+		for _, doc := range docs {
+			if doc.URL.Revision > maxRevision {
+				maxRevision = doc.URL.Revision
+			}
+		}
+
+		// Respect the local charm's revision first.
+		chosenRevision := curl.Revision
+		if maxRevision >= chosenRevision {
+			// More recent revision exists in state, pick the next.
+			chosenRevision = maxRevision + 1
+		}
+		chosenUrl = curl.WithRevision(chosenRevision)
+
+		uploadedCharm := &charmDoc{
+			URL:           chosenUrl,
+			PendingUpload: true,
+		}
+		ops := []txn.Op{{
+			C:      st.charms.Name,
+			Id:     uploadedCharm.URL,
+			Assert: txn.DocMissing,
+			Insert: uploadedCharm,
+		}}
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		break
+	}
+	if err != nil {
+		return nil, ErrExcessiveContention
+	}
+	return chosenUrl, nil
+}
+
+// UpdateUploadedCharm marks the given charm URL as uploaded and
+// updates the rest of its data, returning it as *state.Charm.
+func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+	doc := &charmDoc{}
+	err := st.charms.FindId(curl).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !doc.PendingUpload {
+		return nil, fmt.Errorf("charm %q already uploaded", curl)
+	}
+
+	updateFields := D{{"$set", D{
+		{"meta", ch.Meta()},
+		{"config", ch.Config()},
+		{"bundleurl", bundleURL},
+		{"bundlesha256", bundleSha256},
+		{"pendingupload", false},
+	}}}
+	stillPending := D{{"pendingupload", true}}
+	ops := []txn.Op{{
+		C:      st.charms.Name,
+		Id:     curl,
+		Assert: stillPending,
+		Update: updateFields,
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return nil, onAbort(err, fmt.Errorf("charm revision already uploaded"))
+	}
+	return st.Charm(curl)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
@@ -499,6 +631,12 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is no longer alive")
+	}
 	if userExists, err := st.checkUserExists(ownerId); err != nil {
 		return nil, err
 	} else if !userExists {
@@ -517,6 +655,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
@@ -544,11 +683,19 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops = append(ops, peerOps...)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		err := env.Refresh()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
+			return nil, fmt.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, err
+		}
+
 		if userExists, ueErr := st.checkUserExists(ownerId); ueErr != nil {
 			return nil, ueErr
 		} else if !userExists {
 			return nil, fmt.Errorf("unknown user %q", ownerId)
 		}
+
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err

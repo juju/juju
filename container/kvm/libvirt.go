@@ -56,7 +56,9 @@ type CreateMachineParams struct {
 	Arch          string
 	UserDataFile  string
 	NetworkBridge string
-	// TODO memory, cpu and disk
+	Memory        uint64
+	CpuCores      uint64
+	RootDisk      uint64
 }
 
 // CreateMachine creates a virtual machine and starts it.
@@ -73,6 +75,15 @@ func CreateMachine(params CreateMachineParams) error {
 	}
 	if params.NetworkBridge != "" {
 		args = append(args, "--bridge", params.NetworkBridge)
+	}
+	if params.Memory != 0 {
+		args = append(args, "--memory", fmt.Sprint(params.Memory))
+	}
+	if params.CpuCores != 0 {
+		args = append(args, "--cpu", fmt.Sprint(params.CpuCores))
+	}
+	if params.RootDisk != 0 {
+		args = append(args, "--disk", fmt.Sprint(params.RootDisk))
 	}
 	// TODO add memory, cpu and disk prior to hostname
 	args = append(args, params.Hostname)

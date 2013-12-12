@@ -453,6 +453,6 @@ func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerificatio
 	attrs["ssl-hostname-verification"] = SSLHostnameVerification
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(newConfig)
+	err = st.SetEnvironConfig(newConfig, envConfig)
 	c.Assert(err, gc.IsNil)
 }

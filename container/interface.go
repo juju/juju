@@ -22,7 +22,7 @@ type Manager interface {
 	StartContainer(
 		machineConfig *cloudinit.MachineConfig,
 		series string,
-		network *NetworkConfig) (instance.Instance, error)
+		network *NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
 	// StopContainer stops and destroyes the container identified by Instance.
 	StopContainer(instance.Instance) error
 	// ListContainers return a list of containers that have been started by

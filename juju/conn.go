@@ -160,11 +160,11 @@ func (c *Conn) updateSecrets() error {
 			attrs[k] = v
 		}
 	}
-	cfg, err = config.New(config.NoDefaults, attrs)
+	newcfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return err
 	}
-	return c.State.SetEnvironConfig(cfg)
+	return c.State.SetEnvironConfig(newcfg, cfg)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
