@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -1929,8 +1930,8 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 	result, err := ctx.uniter.RunCommands(commands)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Code, gc.Equals, 0)
-	c.Check(result.Stdout, gc.Equals, "")
-	c.Check(result.Stderr, gc.Equals, "")
+	c.Check(string(result.Stdout), gc.Equals, "")
+	c.Check(string(result.Stderr), gc.Equals, "")
 }
 
 type verifyFile struct {
