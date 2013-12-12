@@ -6,6 +6,7 @@ package keyupdater
 import (
 	"strings"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -53,25 +54,31 @@ func NewKeyUpdaterAPI(
 func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
 
-	getCanRead, err := api.getCanRead()
+	canRead, err := api.getCanRead()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
 	}
 	for i, entity := range arg.Entities {
+		// 1. Check permissions
+		if !canRead(entity.Tag) {
+			results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		// 2. Check entity exists
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
-			results[i].Error = common.ServerError(common.ErrPerm)
+			if errors.IsNotFoundError(err) {
+				results[i].Error = common.ServerError(common.ErrPerm)
+			} else {
+				results[i].Error = common.ServerError(err)
+			}
 			continue
 		}
-		if !getCanRead(entity.Tag) {
-			results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
+		// 3. Watch fr changes
 		var err error
 		watch := api.state.WatchForEnvironConfigChanges()
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
 			results[i].NotifyWatcherId = api.resources.Register(watch)
-			err = nil
 		} else {
 			err = watcher.MustErr(watch)
 		}
@@ -97,23 +104,29 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 		keys = strings.Split(keysString, "\n")
 	}
 
-	getCanRead, err := api.getCanRead()
+	canRead, err := api.getCanRead()
 	if err != nil {
 		return params.StringsResults{}, err
 	}
 	for i, entity := range arg.Entities {
+		// 1. Check permissions
+		if !canRead(entity.Tag) {
+			results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		// 2. Check entity exists
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
-			results[i].Error = common.ServerError(common.ErrPerm)
+			if errors.IsNotFoundError(err) {
+				results[i].Error = common.ServerError(common.ErrPerm)
+			} else {
+				results[i].Error = common.ServerError(err)
+			}
 			continue
 		}
-		if !getCanRead(entity.Tag) {
-			results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
+		// 3. Get keys
 		var err error
 		if configErr == nil {
 			results[i].Result = keys
-			err = nil
 		} else {
 			err = configErr
 		}
