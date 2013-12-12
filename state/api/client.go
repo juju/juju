@@ -349,3 +349,11 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
+
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment() error {
+	return c.st.Call("Client", "", "DestroyEnvironment", nil, nil)
+}

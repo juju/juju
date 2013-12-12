@@ -15,6 +15,9 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api"
 )
 
 var NoEnvironmentError = errors.New("no environment specified")
@@ -62,11 +65,15 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 			return errors.New("Environment destruction aborted")
 		}
 	}
-
-	// TODO(axw) 2013-08-30 bug 1218688
-	// destroy manually provisioned machines, or otherwise
-	// block destroy-environment until all manually provisioned
-	// machines have been manually "destroyed".
+	conn, err := juju.NewAPIConn(environ, api.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	err = conn.State.Client().DestroyEnvironment()
+	if err != nil && !rpc.IsNoSuchRequest(err) {
+		return fmt.Errorf("could not remove agents: %v", err)
+	}
 	return environs.Destroy(environ, store)
 }
 
