@@ -1,6 +1,7 @@
 package replicaset
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -18,46 +19,11 @@ var (
 )
 
 func TestPackage(t *testing.T) {
-	var err error
-	// do all this stuff here, since we don't want to have to redo it for each test
-	root, err = newServer()
-	if err != nil {
-		t.Fatalf("Got non-nil error from Start of root server: %q", err.Error())
-	}
-	defer root.Destroy()
-
-	// note, this is an actual test around Initiate, but again, I don't want to
-	// have to redo it, so I just do it once.
-	func() {
-		session := root.DialDirect()
-		defer session.Close()
-
-		err := Initiate(session, root.Addr, name)
-		if err != nil {
-			t.Fatalf("Got non-nil error from Intiate %q", err.Error())
-		}
-
-		expectedMembers := []Member{Member{Address: root.Addr}}
-
-		// need to set mode to strong so that we wait for the write to succeed
-		// before reading and thus ensure that we're getting consistent reads.
-		session.SetMode(mgo.Strong, false)
-
-		mems, err := CurrentMembers(session)
-		if err != nil {
-			t.Fatalf("Got non-nil error from CurrentMembers %q", err.Error())
-		}
-		if !reflect.DeepEqual(mems, expectedMembers) {
-			t.Fatalf("Expected members %v, got members %v ", expectedMembers, mems)
-		}
-	}()
 	gc.TestingT(t)
-
 }
 
 func newServer() (*coretesting.MgoInstance, error) {
-	inst := &coretesting.MgoInstance{}
-	inst.Params = []string{"--replSet", name}
+	inst := &coretesting.MgoInstance{Params: []string{"--replSet", name}}
 	err := inst.Start()
 	if err != nil {
 		return nil, err
@@ -79,6 +45,69 @@ func newServer() (*coretesting.MgoInstance, error) {
 type MongoSuite struct{}
 
 var _ = gc.Suite(&MongoSuite{})
+
+func (s *MongoSuite) SetUpSuite(c *gc.C) {
+	var err error
+	// do all this stuff here, since we don't want to have to redo it for each test
+	root, err = newServer()
+	if err != nil {
+		c.Fatalf("Got non-nil error from Start of root server: %q", err.Error())
+	}
+
+	// note, this is an actual test around Initiate, but again, I don't want to
+	// have to redo it, so I just do it once.
+	func() {
+		session := root.DialDirect()
+		defer session.Close()
+
+		err := Initiate(session, root.Addr, name)
+		if err != nil {
+			c.Fatalf("Got non-nil error from Intiate %q", err.Error())
+		}
+
+		expectedMembers := []Member{Member{Address: root.Addr}}
+
+		// need to set mode to strong so that we wait for the write to succeed
+		// before reading and thus ensure that we're getting consistent reads.
+		session.SetMode(mgo.Strong, false)
+
+		mems, err := CurrentMembers(session)
+		if err != nil {
+			c.Fatalf("Got non-nil error from CurrentMembers %q", err.Error())
+		}
+		if !reflect.DeepEqual(mems, expectedMembers) {
+			c.Fatalf("Expected members %v, got members %v ", expectedMembers, mems)
+		}
+
+		// now add some data so we get a more real-life test
+
+		type foo struct {
+			Name    string
+			Address string
+			Count   int
+		}
+
+		for col := 0; col < 10; col++ {
+			foos := make([]foo, 10000)
+			for n := range foos {
+				foos[n] = foo{
+					Name:    fmt.Sprintf("name_%d_%d", col, n),
+					Address: fmt.Sprintf("address_%d_%d", col, n),
+					Count:   n * (col + 1),
+				}
+			}
+
+			err = session.DB("testing").C(fmt.Sprintf("data%d", col)).Insert(foos)
+			if err != nil {
+				c.Fatalf("Error inserting test data: %v", err)
+			}
+		}
+	}()
+}
+
+func (s *MongoSuite) TearDownSuite(c *gc.C) {
+	root.Destroy()
+}
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	session := root.Dial()
@@ -102,7 +131,8 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	members := make([]Member, 0, 5)
 
-	// Add should automatically skip root, so test that
+	// Add should be idempotent, so re-adding root here shouldn't result in
+	// two copies of root in the replica set
 	members = append(members, Member{Address: root.Addr})
 
 	instances := make([]*coretesting.MgoInstance, 0, 5)
@@ -117,20 +147,18 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		members = append(members, Member{Address: inst.Addr, Id: x + 1})
 	}
 
-	err = Add(session, members[0:5]...)
+	err = Add(session, members...)
 	c.Assert(err, gc.IsNil)
-
-	expectedMembers := members[0:5]
 
 	mems, err := CurrentMembers(session)
 	c.Assert(err, gc.IsNil)
-	c.Assert(mems, gc.DeepEquals, expectedMembers)
+	c.Assert(mems, gc.DeepEquals, members)
 
 	// Now remove the last two Members
 	err = Remove(session, members[3].Address, members[4].Address)
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers = members[0:3]
+	expectedMembers := members[0:3]
 
 	mems, err = CurrentMembers(session)
 	c.Assert(err, gc.IsNil)

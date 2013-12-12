@@ -41,13 +41,13 @@ type MgoInstance struct {
 	Port int
 
 	// Server holds the running MongoDB command.
-	Server *exec.Cmd
+	server *exec.Cmd
 
 	// Exited receives a value when the mongodb server exits.
-	Exited <-chan struct{}
+	exited <-chan struct{}
 
 	// Dir holds the directory that MongoDB is running in.
-	Dir string
+	dir string
 
 	// params is a list of additional parameters that will be passed to
 	// the mongod application
@@ -78,12 +78,12 @@ func (inst *MgoInstance) Start() error {
 	}
 	inst.Port = FindTCPPort()
 	inst.Addr = fmt.Sprintf("localhost:%d", inst.Port)
-	inst.Dir = dbdir
+	inst.dir = dbdir
 	if err := inst.run(); err != nil {
 		inst.Addr = ""
 		inst.Port = 0
-		os.RemoveAll(inst.Dir)
-		inst.Dir = ""
+		os.RemoveAll(inst.dir)
+		inst.dir = ""
 	}
 	return err
 }
@@ -91,15 +91,15 @@ func (inst *MgoInstance) Start() error {
 // run runs the MongoDB server at the
 // address and directory already configured.
 func (inst *MgoInstance) run() error {
-	if inst.Server != nil {
+	if inst.server != nil {
 		panic("mongo server is already running")
 	}
 	mgoport := strconv.Itoa(inst.Port)
 	mgoargs := []string{
 		"--auth",
-		"--dbpath", inst.Dir,
+		"--dbpath", inst.dir,
 		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", filepath.Join(inst.Dir, "server.pem"),
+		"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
 		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "localhost",
 		"--port", mgoport,
@@ -132,27 +132,27 @@ func (inst *MgoInstance) run() error {
 		}
 		close(exited)
 	}()
-	inst.Exited = exited
+	inst.exited = exited
 	if err := server.Start(); err != nil {
 		return err
 	}
-	inst.Server = server
+	inst.server = server
 
 	return nil
 }
 
 func (inst *MgoInstance) kill() {
-	inst.Server.Process.Kill()
-	<-inst.Exited
-	inst.Server = nil
-	inst.Exited = nil
+	inst.server.Process.Kill()
+	<-inst.exited
+	inst.server = nil
+	inst.exited = nil
 }
 
 func (inst *MgoInstance) Destroy() {
-	if inst.Server != nil {
+	if inst.server != nil {
 		inst.kill()
-		os.RemoveAll(inst.Dir)
-		inst.Addr, inst.Dir = "", ""
+		os.RemoveAll(inst.dir)
+		inst.Addr, inst.dir = "", ""
 	}
 }
 

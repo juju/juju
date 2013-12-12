@@ -9,7 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-// Initiate sets up a replica set with the given replica set name. It need be
+// Initiate sets up a replica set with the given replica set name.  It need be
 // called only once for a given mongo replica set.
 //
 // Note that you must set DialWithInfo and set Direct = true when dialing into a
@@ -22,8 +22,6 @@ func Initiate(session *mgo.Session, address, name string) error {
 }
 
 // Member holds configuration information for a replica set member.
-// The zero value for the type does not hold useful defaults - start
-// with MemberDefaults instead.
 type Member struct {
 	// Id is a unique id for a member in a set.
 	Id int `bson:"_id"`
@@ -33,31 +31,35 @@ type Member struct {
 	// See http://goo.gl/VYnZ2z
 	Address string `bson:"host"`
 
-	// Arbiter holds whether the member is an arbiter only,
+	// Arbiter holds whether the member is an arbiter only.
+	// Value is optional, defaults to false.
 	// See http://goo.gl/LbdhnR
 	Arbiter *bool `bson:"arbiterOnly,omitempty"`
 
-	// BuildIndexes determines whether the mongod builds indexes on this member,
-	// defaulting to true.
+	// BuildIndexes determines whether the mongod builds indexes on this member.
+	// Value is optional, defaults to true.
 	// See http://goo.gl/o3hSxg
 	BuildIndexes *bool `bson:"buildIndexes,omitempty"`
 
 	// Hidden determines whether the replica set hides this member from
 	// the output of IsMaster.
+	// Value is optional, defaults to false.
 	// See http://goo.gl/ERXGev
 	Hidden *bool `bson:"hidden,omitempty"`
 
 	// Priority determines eligibility of a member to become primary.
+	// Value is optional, defaults to 1.
 	// See http://goo.gl/kB27Ku
 	Priority *float64 `bson:"priority,omitempty"`
 
 	// SlaveDelay describes the number of seconds behind the master that this
-	// replica set member should lag rounded up to the
-	// nearest second.
+	// replica set member should lag rounded up to the nearest second.
+	// Value is optional, defaults to 0.
 	// See http://goo.gl/7vKUr6
 	SlaveDelay *time.Duration `bson:"slaveDelay,omitempty"`
 
 	// Votes controls the number of votes a server has in a replica set election.
+	// Value is optional, defaults to 1.
 	// See http://goo.gl/kgqrU1
 	Votes *int `bson:"votes,omitempty"`
 }
@@ -131,11 +133,8 @@ func Set(session *mgo.Session, members []Member) error {
 
 	config.Version++
 
-	// ok, this is ugly, but mongo gets mad if you try to change the Id of an
-	// existing member, so we have to look through the members and if there are
-	// any duplicates, make sure that duplicate has the same id it used to have.
-	// All other members get incremental ids above the value of the highest id
-	// that already existed
+	// Assign ids to members that did not previously exist, starting above the
+	// value of the highest id that already existed
 	ids := map[string]int{}
 	max := -1
 	for _, m := range config.Members {
@@ -214,7 +213,7 @@ func getConfig(session *mgo.Session) (*replicaConfig, error) {
 }
 
 // replicaConfig is the document stored in mongodb that defines the servers in
-// the replicaset
+// the replica set
 type replicaConfig struct {
 	Name    string   `bson:"_id"`
 	Version int      `bson:"version"`
@@ -285,31 +284,24 @@ const (
 	ShunnedState
 )
 
+var memberStateStrings = []string{
+	StartupState:    "STARTUP",
+	PrimaryState:    "PRIMARY",
+	SecondaryState:  "SECONDARY",
+	RecoveringState: "RECOVERING",
+	FatalState:      "FATAL",
+	Startup2State:   "STARTUP2",
+	UnknownState:    "UNKNOWN",
+	ArbiterState:    "ARBITER",
+	DownState:       "DOWN",
+	RollbackState:   "ROLLBACK",
+	ShunnedState:    "SHUNNED",
+}
+
 // String returns a string describing the state.
 func (state MemberState) String() string {
-	switch state {
-	case StartupState:
-		return "STARTUP"
-	case PrimaryState:
-		return "PRIMARY"
-	case SecondaryState:
-		return "SECONDARY"
-	case RecoveringState:
-		return "RECOVERING"
-	case FatalState:
-		return "FATAL"
-	case Startup2State:
-		return "STARTUP2"
-	case UnknownState:
-		return "UNKNOWN"
-	case ArbiterState:
-		return "ARBITER"
-	case DownState:
-		return "DOWN"
-	case RollbackState:
-		return "ROLLBACK"
-	case ShunnedState:
-		return "SHUNNED"
+	if state < 0 || int(state) >= len(memberStateStrings) {
+		return "INVALID_MEMBER_STATE"
 	}
-	return "INVALID_MEMBER_STATE"
+	return memberStateStrings[state]
 }
