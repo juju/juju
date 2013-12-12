@@ -267,8 +267,8 @@ func (S) TestRunCmds(c *gc.C) {
 	cfg.AddRunCmdArgs("c", "d")
 	cfg.AddRunCmd("e")
 	c.Assert(cfg.RunCmds(), gc.DeepEquals, []interface{}{
-			"a", "b", []string{"c", "d"}, "e",
-		})
+		"a", "b", []string{"c", "d"}, "e",
+	})
 }
 
 func (S) TestPackages(c *gc.C) {
