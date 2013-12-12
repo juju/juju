@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/uniter"
 )
@@ -48,13 +49,13 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer client.Close()
 
-	var result uniter.RunResults
+	var result cmd.RemoteResponse
 	err = client.Call("Runner.RunCommands", "some-command", &result)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(result.StdOut, gc.Equals, "some-command stdout")
-	c.Assert(result.StdErr, gc.Equals, "some-command stderr")
-	c.Assert(result.ReturnCode, gc.Equals, 42)
+	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
+	c.Assert(string(result.Stderr), gc.Equals, "some-command stderr")
+	c.Assert(result.Code, gc.Equals, 42)
 }
 
 type mockRunner struct {
@@ -63,11 +64,11 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *uniter.RunResults, err error) {
+func (r *mockRunner) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
 	r.c.Log("mock runner: " + commands)
-	return &uniter.RunResults{
-		StdOut:     commands + " stdout",
-		StdErr:     commands + " stderr",
-		ReturnCode: 42,
+	return &cmd.RemoteResponse{
+		Code:   42,
+		Stdout: []byte(commands + " stdout"),
+		Stderr: []byte(commands + " stderr"),
 	}, nil
 }

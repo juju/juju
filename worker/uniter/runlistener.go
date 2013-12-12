@@ -10,10 +10,12 @@ import (
 	"net"
 	"net/rpc"
 	"sync"
+
+	"launchpad.net/juju-core/cmd"
 )
 
 type CommandRunner interface {
-	RunCommands(commands string) (results *RunResults, err error)
+	RunCommands(commands string) (results *cmd.RemoteResponse, err error)
 }
 
 type RunListener struct {
@@ -24,17 +26,11 @@ type RunListener struct {
 	wg       sync.WaitGroup
 }
 
-type RunResults struct {
-	StdOut     string
-	StdErr     string
-	ReturnCode int
-}
-
 type Runner struct {
 	runner CommandRunner
 }
 
-func (r *Runner) RunCommands(commands string, result *RunResults) error {
+func (r *Runner) RunCommands(commands string, result *cmd.RemoteResponse) error {
 	logger.Debugf("RunCommands: %q", commands)
 	runResult, err := r.runner.RunCommands(commands)
 	*result = *runResult
