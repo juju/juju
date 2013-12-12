@@ -743,7 +743,7 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	executionEnvironment := map[string]string{}
-	for _, value := range strings.Split(result.StdOut, "\n") {
+	for _, value := range strings.Split(string(result.Stdout), "\n") {
 		bits := strings.SplitN(value, "=", 2)
 		if len(bits) == 2 {
 			executionEnvironment[bits[0]] = bits[1]
@@ -773,7 +773,7 @@ exit 42
 	result, err := context.RunCommands(commands, charmDir, "/path/to/tools", "/path/to/socket")
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(result.StdOut, gc.Equals, "this is standard out\n")
-	c.Assert(result.StdErr, gc.Equals, "this is standard err\n")
-	c.Assert(result.ReturnCode, gc.Equals, 42)
+	c.Assert(result.Code, gc.Equals, 42)
+	c.Assert(string(result.Stdout), gc.Equals, "this is standard out\n")
+	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
 }
