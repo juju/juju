@@ -115,9 +115,9 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 	return st.Client(), nil
 }
 
-// NewKeyManagerAPIClientFromName returns an api.keymanager.Client connected to the API Server for
+// NewKeyManagerClient returns an api.keymanager.Client connected to the API Server for
 // the named environment. If envName is "", the default environment will be used.
-func NewKeyManagerAPIClientFromName(envName string) (*keymanager.Client, error) {
+func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
 	st, err := newAPIClient(envName)
 	if err != nil {
 		return nil, err
