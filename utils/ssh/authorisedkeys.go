@@ -62,19 +62,16 @@ func writeAuthorisedKeys(keys []string) error {
 	keyData := strings.Join(keys, "\n") + "\n"
 
 	// Write the data to a temp file
-	f, err := ioutil.TempFile(os.TempDir(), authKeysFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = f.Write([]byte(keyData))
+	tempFile := filepath.Join(keyDir, "newkeyfile")
+	defer os.Remove(tempFile)
+	err = ioutil.WriteFile(tempFile, []byte(keyData), 0755)
 	if err != nil {
 		return err
 	}
 
-	// Copy the temp file to the final location
+	// Rename temp file to the final location
 	sshKeyFile := filepath.Join(keyDir, authKeysFile)
-	return utils.CopyFile(sshKeyFile, f.Name())
+	return os.Rename(tempFile, sshKeyFile)
 }
 
 // We need a mutex because updates to the authorised keys file are done by
