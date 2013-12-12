@@ -144,11 +144,7 @@ type SSHTimeoutOpts struct {
 	// a state server.
 	Timeout time.Duration
 
-	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
-	RetryDelay time.Duration
-
-	// DNSNameDelay is the amount of time between looking up the DNS name
+	// DNSNameDelay is the amount of time between refreshing the DNS name
 	DNSNameDelay time.Duration
 }
 
@@ -156,7 +152,6 @@ type SSHTimeoutOpts struct {
 func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
 	return SSHTimeoutOpts{
 		Timeout:      10 * time.Minute,
-		RetryDelay:   5 * time.Second,
 		DNSNameDelay: 1 * time.Second,
 	}
 }
@@ -172,54 +167,57 @@ type dnsNamer interface {
 // entry, then waits until we can connect to it via SSH.
 func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTimeoutOpts) (dnsName string, err error) {
 	defer t.Done()
-
 	globalTimeout := time.After(timeout.Timeout)
-
-	// Wait for a DNS name.
-	fmt.Fprint(ctx.Stderr, "Waiting for DNS name")
+	pollDNS := time.NewTimer(0)
+	fmt.Fprintln(ctx.Stderr, "Waiting for DNS name")
+	var dialResultChan chan error
 	for {
-		fmt.Fprintf(ctx.Stderr, ".")
-		dnsName, err = inst.DNSName()
-		if err == nil {
-			break
-		} else if err != instance.ErrNoDNSName {
-			fmt.Fprintln(ctx.Stderr)
-			return "", t.Killf("getting DNS name: %v", err)
+		if dnsName != "" && dialResultChan == nil {
+			addr := dnsName + ":22"
+			fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s\n", addr)
+			dialResultChan = make(chan error, 1)
+			go func() {
+				c, err := net.Dial("tcp", addr)
+				if err == nil {
+					c.Close()
+				}
+				dialResultChan <- err
+			}()
 		}
 		select {
-		case <-time.After(timeout.DNSNameDelay):
-		case <-globalTimeout:
-			fmt.Fprintln(ctx.Stderr)
-			return "", t.Killf("waited for %s without getting a DNS name: %s", timeout.Timeout, err)
-		case <-t.Dying():
-			fmt.Fprintln(ctx.Stderr)
-			return "", t.Err()
-		}
-	}
-	fmt.Fprintf(ctx.Stderr, "\n - %v\n", dnsName)
-
-	// Wait until we can open a connection to port 22.
-	connectionAddress := dnsName + ":22"
-	fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s", connectionAddress)
-	for {
-		fmt.Fprintf(ctx.Stderr, ".")
-		retryTimeout := time.After(timeout.RetryDelay)
-		conn, err := net.DialTimeout("tcp", connectionAddress, timeout.RetryDelay)
-		if err == nil {
-			conn.Close()
-			fmt.Fprintln(ctx.Stderr)
-			return dnsName, nil
-		} else {
+		case <-pollDNS.C:
+			pollDNS.Reset(timeout.DNSNameDelay)
+			var newDNSName string
+			newDNSName, dnsNameErr := inst.DNSName()
+			if dnsNameErr != nil && dnsNameErr != instance.ErrNoDNSName {
+				return "", t.Killf("getting DNS name: %v", dnsNameErr)
+			} else if dnsNameErr != nil {
+				err = dnsNameErr
+			} else if newDNSName != dnsName {
+				dnsName = newDNSName
+				dialResultChan = nil
+			}
+		case err = <-dialResultChan:
+			if err == nil {
+				return dnsName, nil
+			}
 			logger.Debugf("connection failed: %v", err)
-		}
-		select {
-		case <-retryTimeout:
+			dialResultChan = nil // retry
 		case <-globalTimeout:
-			fmt.Fprintln(ctx.Stderr)
-			return "", t.Killf("waited for %s without being able to connect to %q: %s",
-				timeout.Timeout, connectionAddress, err)
+			format := "waited for %s "
+			args := []interface{}{timeout.Timeout}
+			if dnsName == "" {
+				format += "without getting a DNS name"
+			} else {
+				format += "without being able to connect to %q"
+				args = append(args, dnsName)
+			}
+			if err != nil {
+				format += ": %s"
+				args = append(args, err)
+			}
+			return "", t.Killf(format, args...)
 		case <-t.Dying():
-			fmt.Fprintln(ctx.Stderr)
 			return "", t.Err()
 		}
 	}
