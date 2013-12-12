@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
 )
 
@@ -56,45 +55,10 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 	if err != nil {
 		return nil, err
 	}
-	// TODO(axw) remove this once we have synchronous bootstrap.
-	if err := updateSecrets(environ, st); err != nil {
-		apiClose(st)
-		return nil, err
-	}
 	return &APIConn{
 		Environ: environ,
 		State:   st,
 	}, nil
-}
-
-// updateSecrets pushes environment secrets to the API server.
-// NOTE: this is a temporary hack, and will disappear when we
-// have synchronous bootstrap.
-var updateSecrets = func(environ environs.Environ, st *api.State) error {
-	secrets, err := environ.Provider().SecretAttrs(environ.Config())
-	if err != nil {
-		return err
-	}
-	client := st.Client()
-	cfg, err := client.EnvironmentGet()
-	if rpc.IsNoSuchRequest(err) {
-		// Ignore checking for secrets when using an older (1.16) API
-		// server. This should be removed in 1.18.
-		logger.Warningf("running in 1.16 compatibility mode; connection may fail if environment is just bootstrapped")
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for k, v := range secrets {
-		if _, exists := cfg[k]; exists {
-			// Environment already has secrets. Won't send again.
-			return nil
-		} else {
-			cfg[k] = v
-		}
-	}
-	return client.EnvironmentSet(cfg)
 }
 
 // Close terminates the connection to the environment and releases

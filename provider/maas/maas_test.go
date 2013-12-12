@@ -4,8 +4,6 @@
 package maas
 
 import (
-	stdtesting "testing"
-
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
@@ -14,10 +12,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
-
-func TestMAAS(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type providerSuite struct {
 	testbase.LoggingSuite

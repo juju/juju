@@ -24,9 +24,7 @@ func (s *EnvironSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestTag(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	expected := "environment-" + cfg.Name()
+	expected := "environment-" + s.env.UUID()
 	c.Assert(s.env.Tag(), gc.Equals, expected)
 }
 

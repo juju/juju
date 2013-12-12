@@ -11,11 +11,12 @@ import (
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	URL          *charm.URL `bson:"_id"`
-	Meta         *charm.Meta
-	Config       *charm.Config
-	BundleURL    *url.URL
-	BundleSha256 string
+	URL           *charm.URL `bson:"_id"`
+	Meta          *charm.Meta
+	Config        *charm.Config
+	BundleURL     *url.URL
+	BundleSha256  string
+	PendingUpload bool
 }
 
 // Charm represents the state of a charm in the environment.
@@ -63,4 +64,10 @@ func (c *Charm) BundleURL() *url.URL {
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
 func (c *Charm) BundleSha256() string {
 	return c.doc.BundleSha256
+}
+
+// IsUploaded returns whether the charm has been uploaded to the
+// provider storage.
+func (c *Charm) IsUploaded() bool {
+	return !c.doc.PendingUpload
 }
