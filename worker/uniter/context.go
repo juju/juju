@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"launchpad.net/juju-core/charm"
@@ -209,6 +211,14 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*RunResults, error) {
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	result, err := runCommands(commands, charmDir, env)
+	return result, ctx.finalizeContext("run commands", err)
+}
+
+// RunHook executes a hook in an environment which allows it to to call back
+// into ctx to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
@@ -251,6 +261,38 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		}
 	}
 	return err
+}
+
+func runCommands(commands, charmDir string, env []string) (*RunResults, error) {
+	cmd := exec.Command("/bin/bash", "-s")
+	cmd.Env = env
+	cmd.Dir = charmDir
+	cmd.Stdin = bytes.NewBufferString(commands)
+
+	stdOut := &bytes.Buffer{}
+	stdErr := &bytes.Buffer{}
+
+	cmd.Stdout = stdOut
+	cmd.Stderr = stdErr
+
+	err := cmd.Start()
+	if err == nil {
+		err = cmd.Wait()
+	}
+	result := &RunResults{
+		StdOut: stdOut.String(),
+		StdErr: stdErr.String(),
+	}
+	if ee, ok := err.(*exec.ExitError); ok && err != nil {
+		status := ee.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Exited() {
+			// A non-zero return code isn't considered an error here.
+			result.ReturnCode = status.ExitStatus()
+			err = nil
+		}
+		logger.Infof("run result: %v", ee)
+	}
+	return result, err
 }
 
 type hookLogger struct {
