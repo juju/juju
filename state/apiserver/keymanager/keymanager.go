@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"fmt"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -67,23 +68,26 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 		keyInfo = parseKeys(keysString, arg.Mode)
 	}
 
-	getCanRead, err := api.getCanRead()
+	canRead, err := api.getCanRead()
 	if err != nil {
 		return params.StringsResults{}, err
 	}
 	for i, entity := range arg.Entities.Entities {
-		if _, err := api.state.User(entity.Tag); err != nil {
+		if !canRead(entity.Tag) {
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if !getCanRead(entity.Tag) {
-			results[i].Error = common.ServerError(common.ErrPerm)
+		if _, err := api.state.User(entity.Tag); err != nil {
+			if errors.IsNotFoundError(err) {
+				results[i].Error = common.ServerError(common.ErrPerm)
+			} else {
+				results[i].Error = common.ServerError(err)
+			}
 			continue
 		}
 		var err error
 		if configErr == nil {
 			results[i].Result = keyInfo
-			err = nil
 		} else {
 			err = configErr
 		}
