@@ -303,6 +303,7 @@ environments:
 		})
 		_, err = envs.Config("deprecated")
 		c.Check(err, gc.IsNil)
+		c.Assert(s.writer.Log, gc.HasLen, 1)
 		stripped := strings.Replace(s.writer.Log[0].Message, "\n", "", -1)
 		expected := fmt.Sprintf(`.*Config attribute "%s" \(aknowndeprecatedfield\) is deprecated.*`, attr)
 		c.Assert(stripped, gc.Matches, expected)
