@@ -94,7 +94,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
@@ -136,7 +136,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 		Results: []params.StringsResult{
 			{Result: []string{"key1", "key2"}},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }

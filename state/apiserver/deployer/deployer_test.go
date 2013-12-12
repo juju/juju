@@ -89,10 +89,9 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            names.MachineTag(s.machine1.Id()),
-		LoggedIn:       true,
-		EnvironManager: false,
-		MachineAgent:   true,
+		Tag:          names.MachineTag(s.machine1.Id()),
+		LoggedIn:     true,
+		MachineAgent: true,
 	}
 
 	// Create the resource registry separately to track invocations to

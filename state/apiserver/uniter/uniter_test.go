@@ -73,11 +73,10 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            s.wordpressUnit.Tag(),
-		LoggedIn:       true,
-		EnvironManager: false,
-		UnitAgent:      true,
-		Entity:         s.wordpressUnit,
+		Tag:       s.wordpressUnit.Tag(),
+		LoggedIn:  true,
+		UnitAgent: true,
+		Entity:    s.wordpressUnit,
 	}
 
 	// Create the resource registry separately to track invocations to
