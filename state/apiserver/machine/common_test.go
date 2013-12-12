@@ -37,9 +37,8 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            s.machine1.Tag(),
-		LoggedIn:       true,
-		EnvironManager: false,
-		MachineAgent:   true,
+		Tag:          s.machine1.Tag(),
+		LoggedIn:     true,
+		MachineAgent: true,
 	}
 }
