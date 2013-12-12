@@ -32,6 +32,14 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
+const (
+	// These work fine for linux, but should we need to work with windows
+	// workloads in the future, we'll need to move these into a file that is
+	// compiled conditionally for different targets and use tcp (most likely).
+	RunListenerNetType = "unix"
+	RunListenerFile    = "run.socket"
+)
+
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
@@ -62,6 +70,7 @@ type Uniter struct {
 	sf           *StateFile
 	rand         *rand.Rand
 	hookLock     *fslock.Lock
+	runListener  *RunListener
 
 	ranConfigChanged bool
 	// The execution observer is only used in tests at this stage. Should this
@@ -88,6 +97,7 @@ func (u *Uniter) loop(unitTag string) (err error) {
 	if err = u.init(unitTag); err != nil {
 		return err
 	}
+	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
@@ -163,6 +173,20 @@ func (u *Uniter) init(unitTag string) (err error) {
 	}
 	u.uuid, err = env.UUID()
 	if err != nil {
+		return err
+	}
+
+	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
+	// TODO: find out what this means...
+	// Use abstract namespace so we don't get stale socket files.
+	// runListenerSocketPath = "@" + runListenerSocketPath
+	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, RunListenerNetType, runListenerSocketPath)
+	if err != nil {
+		return err
+	}
+	// The socket needs to have permissions 777 in order for other users to use it.
+	if err := os.Chmod(runListenerSocketPath, 0777); err != nil {
 		return err
 	}
 	u.relationers = map[int]*Relationer{}
@@ -338,6 +362,33 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 	}
 	go srv.Run()
 	return srv, socketPath, nil
+}
+
+// runComamnds executes the supplied commands in a hook context.
+func (u *Uniter) RunCommands(commands string) (results *RunResults, err error) {
+	logger.Tracef("run commands: %s", commands)
+	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
+	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return nil, err
+	}
+	defer u.hookLock.Unlock()
+
+	hctx, err := u.getHookContext(hctxId, -1, "")
+	if err != nil {
+		return nil, err
+	}
+	srv, socketPath, err := u.startJujucServer(hctx)
+	if err != nil {
+		return nil, err
+	}
+	defer srv.Close()
+
+	result, err := hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
+	if result != nil {
+		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.ReturnCode, result.StdOut, result.StdErr)
+	}
+	return result, err
 }
 
 func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {

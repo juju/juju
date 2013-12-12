@@ -841,6 +841,33 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	s.runUniterTests(c, upgradeConflictsTests)
 }
 
+func (s *UniterSuite) TestRunCommand(c *gc.C) {
+	testDir := c.MkDir()
+	tests := []uniterTest{
+		ut(
+			"run commands: environment",
+			quickStart{},
+			runCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
+			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
+		),
+		ut(
+			"run commands: jujuc commands",
+			quickStartRelation{},
+			runCommands{
+				fmt.Sprintf("owner-get tag > %s", filepath.Join(testDir, "jujuc.output")),
+				fmt.Sprintf("unit-get private-address >> %s", filepath.Join(testDir, "jujuc.output")),
+				fmt.Sprintf("unit-get public-address >> %s", filepath.Join(testDir, "jujuc.output")),
+			},
+			verifyFile{
+				filepath.Join(testDir, "jujuc.output"),
+				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
+			},
+		),
+		// TODO: add asyncRunCommands to test for hook lock file
+	}
+	s.runUniterTests(c, tests)
+}
+
 var relationsTests = []uniterTest{
 	// Relations.
 	ut(
@@ -1894,3 +1921,25 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
+
+type runCommands []string
+
+func (cmds runCommands) step(c *gc.C, ctx *context) {
+	commands := strings.Join(cmds, "\n")
+	result, err := ctx.uniter.RunCommands(commands)
+	c.Assert(err, gc.IsNil)
+	c.Check(result.ReturnCode, gc.Equals, 0)
+	c.Check(result.StdOut, gc.Equals, "")
+	c.Check(result.StdErr, gc.Equals, "")
+}
+
+type verifyFile struct {
+	filename string
+	content  string
+}
+
+func (verify verifyFile) step(c *gc.C, ctx *context) {
+	content, err := ioutil.ReadFile(verify.filename)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, verify.content)
+}
