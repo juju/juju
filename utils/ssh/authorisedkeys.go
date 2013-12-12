@@ -61,16 +61,26 @@ func writeAuthorisedKeys(keys []string) error {
 	}
 	keyData := strings.Join(keys, "\n") + "\n"
 
+	// Get perms to use on auth keys file
+	sshKeyFile := filepath.Join(keyDir, authKeysFile)
+	perms := os.FileMode(0644)
+	info, err := os.Stat(sshKeyFile)
+	if err == nil {
+		perms = info.Mode().Perm()
+	}
 	// Write the data to a temp file
-	tempFile := filepath.Join(keyDir, "newkeyfile")
-	defer os.Remove(tempFile)
-	err = ioutil.WriteFile(tempFile, []byte(keyData), 0755)
+	tempDir, err := ioutil.TempDir(keyDir, "")
+	if err != nil {
+		return err
+	}
+	tempFile := filepath.Join(tempDir, "newkeyfile")
+	defer os.RemoveAll(tempDir)
+	err = ioutil.WriteFile(tempFile, []byte(keyData), perms)
 	if err != nil {
 		return err
 	}
 
 	// Rename temp file to the final location
-	sshKeyFile := filepath.Join(keyDir, authKeysFile)
 	return os.Rename(tempFile, sshKeyFile)
 }
 
