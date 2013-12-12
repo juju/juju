@@ -153,8 +153,7 @@ type context struct {
 	relationUnits map[string]*state.RelationUnit
 	subordinate   *state.Unit
 
-	hooksCompleted    []string
-	commandsCompleted []string
+	hooksCompleted []string
 }
 
 var _ uniter.UniterExecutionObserver = (*context)(nil)
@@ -165,10 +164,6 @@ func (ctx *context) HookCompleted(hookName string) {
 
 func (ctx *context) HookFailed(hookName string) {
 	ctx.hooksCompleted = append(ctx.hooksCompleted, "fail-"+hookName)
-}
-
-func (ctx *context) RunCommandsCompleted(commands string) {
-	ctx.commandsCompleted = append(ctx.commandsCompleted, commands)
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
