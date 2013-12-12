@@ -1928,9 +1928,9 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
 	result, err := ctx.uniter.RunCommands(commands)
 	c.Assert(err, gc.IsNil)
-	c.Check(result.ReturnCode, gc.Equals, 0)
-	c.Check(result.StdOut, gc.Equals, "")
-	c.Check(result.StdErr, gc.Equals, "")
+	c.Check(result.Code, gc.Equals, 0)
+	c.Check(result.Stdout, gc.Equals, "")
+	c.Check(result.Stderr, gc.Equals, "")
 }
 
 type verifyFile struct {

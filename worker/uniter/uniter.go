@@ -177,9 +177,6 @@ func (u *Uniter) init(unitTag string) (err error) {
 	}
 
 	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
-	// TODO: find out what this means...
-	// Use abstract namespace so we don't get stale socket files.
-	// runListenerSocketPath = "@" + runListenerSocketPath
 	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
 	u.runListener, err = NewRunListener(u, RunListenerNetType, runListenerSocketPath)
 	if err != nil {
@@ -364,8 +361,8 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 	return srv, socketPath, nil
 }
 
-// runComamnds executes the supplied commands in a hook context.
-func (u *Uniter) RunCommands(commands string) (results *RunResults, err error) {
+// RunCommands executes the supplied commands in a hook context.
+func (u *Uniter) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
@@ -386,7 +383,7 @@ func (u *Uniter) RunCommands(commands string) (results *RunResults, err error) {
 
 	result, err := hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
 	if result != nil {
-		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.ReturnCode, result.StdOut, result.StdErr)
+		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
 	return result, err
 }
