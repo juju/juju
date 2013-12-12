@@ -1,0 +1,20 @@
+#!/bin/bash
+instance_id=$(ec2-run-instances -k id_rsa -t m1.small ami-659fbd0c|sed '/^INSTANCE/!d'|cut -f 2)
+echo Starting instance $instance_id
+instance_ip=''
+echo -n Waiting for IP address
+while [ -z "$instance_ip" ]; do
+  sleep 1
+  instance_ip=$(ec2-describe-instances $instance_id|sed '/^INSTANCE/!d'|cut -f 17)
+  echo -n .
+done
+echo
+echo Instance has ip $instance_ip
+echo -n Waiting for SSH
+while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
+  sleep 1
+  echo -n .
+done
+echo
+ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" echo Hi there!
+ec2-terminate-instances $instance_id
