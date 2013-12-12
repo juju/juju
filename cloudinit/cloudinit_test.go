@@ -111,7 +111,7 @@ var ctests = []struct {
 	{
 		"SSHAuthorizedKeys",
 		fmt.Sprintf(
-			"ssh_authorized_keys:\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
+			"ssh_authorized_keys:\n- %s Juju:user@host\n- %s Juju:another@host\n",
 			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key),
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyOne.Key + " Juju:user@host")
@@ -121,7 +121,7 @@ var ctests = []struct {
 	{
 		"SSHAuthorizedKeys",
 		fmt.Sprintf(
-			"ssh_authorized_keys:\n- %s\n  Juju:sshkey\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
+			"ssh_authorized_keys:\n- %s Juju:sshkey\n- %s Juju:user@host\n- %s Juju:another@host\n",
 			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key),
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHAuthorizedKeys("#command\n" + sshtesting.ValidKeyOne.Key)
@@ -267,8 +267,8 @@ func (S) TestRunCmds(c *gc.C) {
 	cfg.AddRunCmdArgs("c", "d")
 	cfg.AddRunCmd("e")
 	c.Assert(cfg.RunCmds(), gc.DeepEquals, []interface{}{
-		"a", "b", []string{"c", "d"}, "e",
-	})
+			"a", "b", []string{"c", "d"}, "e",
+		})
 }
 
 func (S) TestPackages(c *gc.C) {
