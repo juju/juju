@@ -9,7 +9,9 @@ fi
 EXIT_STATUS=0
 
 PATH=$NEW_PATH $SCRIPTS/upgrade-juju $ENV || EXIT_STATUS=$?
-PATH=$NEW_PATH $SCRIPTS/wait_for_agent_update.py $ENV || EXIT_STATUS=$?
+if [ $EXIT_STATUS -eq 0 ]; then
+  PATH=$NEW_PATH $SCRIPTS/wait_for_agent_update.py $ENV || EXIT_STATUS=$?
+fi
 
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
