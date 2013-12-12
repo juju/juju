@@ -129,7 +129,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	logger.Infof("connecting to newly bootstrapped instance")
 	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
 	if err != nil {
-		return fmt.Errorf("cannot connect to bootstrap instance: %v")
+		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
 	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile)
 	if err != nil {
