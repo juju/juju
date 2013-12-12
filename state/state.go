@@ -544,11 +544,10 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops = append(ops, peerOps...)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if userExists, ueErr := st.checkUserExists(ownerId); ueErr == nil {
-			if !userExists {
-				return nil, fmt.Errorf("unknown user %v", ownerTag)
-			}
-			return nil, fmt.Errorf("service already exists")
+		if userExists, ueErr := st.checkUserExists(ownerId); ueErr != nil {
+			return nil, ueErr
+		} else if !userExists {
+			return nil, fmt.Errorf("unknown user %q", ownerId)
 		}
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {

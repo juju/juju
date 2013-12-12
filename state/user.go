@@ -17,18 +17,12 @@ import (
 var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
 
 func (st *State) checkUserExists(name string) (bool, error) {
-	ops := []txn.Op{{
-		C:      st.users.Name,
-		Id:     name,
-		Assert: txn.DocMissing,
-	}}
-	err := st.runTransaction(ops)
-	if err == txn.ErrAborted {
-		return true, nil
-	} else if err != nil {
+	var count int
+	var err error
+	if count, err = st.users.FindId(name).Count(); err != nil {
 		return false, err
 	}
-	return false, nil
+	return count > 0, nil
 }
 
 // AddUser adds a user to the state.
