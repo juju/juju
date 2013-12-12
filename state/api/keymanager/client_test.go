@@ -54,5 +54,5 @@ func (s *keymanagerSuite) TestListKeysErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(keyResults), gc.Equals, 1)
 	result := keyResults[0]
-	c.Assert(result.Error, gc.ErrorMatches, `user "invalid" not found`)
+	c.Assert(result.Error, gc.ErrorMatches, `permission denied`)
 }

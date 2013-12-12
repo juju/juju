@@ -82,7 +82,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{key1, key2, "Invalid key: bad key"}},
-			{Error: apiservertesting.NotFoundError(`user "invalid"`)},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }

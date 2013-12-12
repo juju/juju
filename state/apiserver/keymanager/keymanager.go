@@ -73,7 +73,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 	}
 	for i, entity := range arg.Entities.Entities {
 		if _, err := api.state.User(entity.Tag); err != nil {
-			results[i].Error = common.ServerError(err)
+			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !getCanRead(entity.Tag) {
