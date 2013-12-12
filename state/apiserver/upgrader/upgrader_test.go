@@ -43,11 +43,9 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            s.rawMachine.Tag(),
-		LoggedIn:       true,
-		EnvironManager: false,
-		MachineAgent:   true,
-		Client:         false,
+		Tag:          s.rawMachine.Tag(),
+		LoggedIn:     true,
+		MachineAgent: true,
 	}
 	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)

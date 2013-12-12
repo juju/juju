@@ -60,7 +60,6 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		LoggedIn:       true,
 		EnvironManager: true,
-		MachineAgent:   false,
 	}
 
 	// Create the resource registry separately to track invocations to
