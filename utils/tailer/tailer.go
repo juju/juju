@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	bufsize   = 4096
-	polltime  = time.Second
-	delimiter = '\n'
+	bufferSize = 4096
+	polltime   = time.Second
+	delimiter  = '\n'
 )
 
 var (
@@ -30,14 +30,15 @@ type TailerFilterFunc func(line []byte) bool
 // Tailer reads an input line by line an tails them into the passed Writer.
 // The lines have to be terminated with a newline.
 type Tailer struct {
-	tomb       tomb.Tomb
-	readSeeker io.ReadSeeker
-	reader     *bufio.Reader
-	writer     *bufio.Writer
-	lines      int
-	filter     TailerFilterFunc
-	bufsize    int
-	polltime   time.Duration
+	tomb        tomb.Tomb
+	readSeeker  io.ReadSeeker
+	reader      *bufio.Reader
+	writeCloser io.WriteCloser
+	writer      *bufio.Writer
+	lines       int
+	filter      TailerFilterFunc
+	bufferSize  int
+	polltime    time.Duration
 }
 
 // NewTailer starts a Tailer which reads strings from the passed
@@ -45,22 +46,23 @@ type Tailer struct {
 // lines are filtered. The matching lines are written to the passed
 // Writer. The reading begins the specified number of matching lines
 // from the end.
-func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writer, lines, filter, bufsize, polltime)
+func NewTailer(readSeeker io.ReadSeeker, writeCloser io.WriteCloser, lines int, filter TailerFilterFunc) *Tailer {
+	return newTailer(readSeeker, writeCloser, lines, filter, bufferSize, polltime)
 }
 
 // newTailer starts a Tailer like NewTailer but allows the setting of
 // the read buffer size and the time between pollings for testing.
-func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc,
-	bufsize int, polltime time.Duration) *Tailer {
+func newTailer(readSeeker io.ReadSeeker, writeCloser io.WriteCloser, lines int, filter TailerFilterFunc,
+	bufferSize int, polltime time.Duration) *Tailer {
 	t := &Tailer{
-		readSeeker: readSeeker,
-		reader:     bufio.NewReaderSize(readSeeker, bufsize),
-		writer:     bufio.NewWriter(writer),
-		lines:      lines,
-		filter:     filter,
-		bufsize:    bufsize,
-		polltime:   polltime,
+		readSeeker:  readSeeker,
+		reader:      bufio.NewReaderSize(readSeeker, bufferSize),
+		writeCloser: writeCloser,
+		writer:      bufio.NewWriter(writeCloser),
+		lines:       lines,
+		filter:      filter,
+		bufferSize:  bufferSize,
+		polltime:    polltime,
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -84,6 +86,7 @@ func (t *Tailer) Err() error {
 // writer and then polls for more data to write it to the
 // writer too.
 func (t *Tailer) loop() error {
+	defer t.writeCloser.Close()
 	// Position the readSeeker.
 	if err := t.seekLastLines(); err != nil {
 		return err
@@ -128,13 +131,13 @@ func (t *Tailer) seekLastLines() error {
 	}
 	seekPos := int64(0)
 	found := 0
-	buffer := make([]byte, t.bufsize)
+	buffer := make([]byte, t.bufferSize)
 SeekLoop:
 	for offset > 0 {
 		// buffer contains the data left over from the
 		// previous iteration.
 		space := cap(buffer) - len(buffer)
-		if space < t.bufsize {
+		if space < t.bufferSize {
 			// Grow buffer.
 			newBuffer := make([]byte, len(buffer), cap(buffer)*2)
 			copy(newBuffer, buffer)
@@ -199,33 +202,30 @@ SeekLoop:
 // readLine reads the next valid line from the reader, even if it is
 // larger than the reader buffer.
 func (t *Tailer) readLine() ([]byte, error) {
-	line := []byte(nil)
 	for {
 		slice, err := t.reader.ReadSlice(delimiter)
+		if err == nil {
+			if t.isValid(slice) {
+				return slice, nil
+			}
+			continue
+		}
+		line := append([]byte(nil), slice...)
+		for err == bufio.ErrBufferFull {
+			slice, err = t.reader.ReadSlice(delimiter)
+			line = append(line, slice...)
+		}
 		switch err {
 		case nil:
-			// Found delimiter, check line.
-			if line == nil {
-				line = slice
-			} else {
-				line = append(line, slice...)
-			}
 			if t.isValid(line) {
 				return line, nil
 			}
-			line = nil
-		case bufio.ErrBufferFull:
-			// Buffer full before delimiter.
-			line = append(line, slice...)
-			continue
 		case io.EOF:
 			// EOF without delimiter, step back.
-			offset := int64(len(line) + len(slice))
-			t.readSeeker.Seek(-offset, os.SEEK_CUR)
+			t.readSeeker.Seek(-int64(len(line)), os.SEEK_CUR)
 			return nil, err
 		default:
-			// Other error.
-			return line, err
+			return nil, err
 		}
 	}
 }
