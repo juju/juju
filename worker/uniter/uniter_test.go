@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	stdtesting "testing"
 	"time"
 
