@@ -23,6 +23,10 @@ type CharmdConfig struct {
 	MongoUrl string `yaml:"mongo-url"`
 }
 
+func (c *ConfigCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.ConfigPath, "config", "", "charmd configuration file")
+}
+
 func (c *ConfigCommand) Init(args []string) error {
 	if c.ConfigPath == "" {
 		return fmt.Errorf("--config is required")
@@ -30,11 +34,7 @@ func (c *ConfigCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *ConfigCommand) Run(ctx *cmd.Context) (err error) {
+func (c *ConfigCommand) ReadConfig(ctx *cmd.Context) (err error) {
 	c.Config, err = store.ReadConfig(ctx.AbsPath(c.ConfigPath))
 	return err
-}
-
-func (c *ConfigCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ConfigPath, "config", "", "charmd configuration file")
 }

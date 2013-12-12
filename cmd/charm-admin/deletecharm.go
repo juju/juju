@@ -44,7 +44,7 @@ func (c *DeleteCharmCommand) Init(args []string) error {
 
 func (c *DeleteCharmCommand) Run(ctx *cmd.Context) error {
 	// Read config
-	err := c.ConfigCommand.Run(ctx)
+	err := c.ConfigCommand.ReadConfig(ctx)
 	if err != nil {
 		return err
 	}

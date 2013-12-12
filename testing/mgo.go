@@ -43,6 +43,9 @@ var (
 
 	// mgoDir holds the directory that MongoDB is running in.
 	mgoDir string
+
+	// mgoSsl keeps track of whether we're running MongoDB with ssl or not.
+	mgoSsl bool
 )
 
 // We specify a timeout to mgo.Dial, to prevent
@@ -90,9 +93,6 @@ func runMgoServer() error {
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", mgoDir,
-		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", filepath.Join(mgoDir, "server.pem"),
-		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "localhost",
 		"--port", mgoport,
 		"--nssize", "1",
@@ -101,6 +101,13 @@ func runMgoServer() error {
 		"--nojournal",
 		"--nounixsocket",
 	}
+	if mgoSsl {
+		mgoargs = append(mgoargs,
+			"--sslOnNormalPorts",
+			"--sslPEMKeyFile", filepath.Join(mgoDir, "server.pem"),
+			"--sslPEMKeyPassword", "ignored")
+	}
+	fmt.Println(mgoargs)
 	server := exec.Command("mongod", mgoargs...)
 	out, err := server.StdoutPipe()
 	if err != nil {
@@ -156,6 +163,16 @@ func MgoRestart() {
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
+	mgoSsl = true
+	if err := startMgoServer(); err != nil {
+		t.Fatal(err)
+	}
+	defer destroyMgoServer()
+	gc.TestingT(t)
+}
+
+func LocalMgoTestPackage(t *stdtesting.T) {
+	mgoSsl = false
 	if err := startMgoServer(); err != nil {
 		t.Fatal(err)
 	}

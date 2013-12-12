@@ -793,6 +793,9 @@ func (s *Store) DeleteCharm(url *charm.URL) ([]*CharmInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(infos) == 0 {
+		return nil, ErrNotFound
+	}
 	session := s.session.Copy()
 	defer session.Close()
 	var deleted []*CharmInfo

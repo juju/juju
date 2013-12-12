@@ -46,6 +46,10 @@ func (c *SomeConfigCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *SomeConfigCommand) Run(ctx *cmd.Context) error {
+	return c.ReadConfig(ctx)
+}
+
 func (s *ConfigSuite) TestReadConfig(c *gc.C) {
 	confDir := c.MkDir()
 	f, err := os.Create(path.Join(confDir, "charmd.conf"))
@@ -63,6 +67,6 @@ func (s *ConfigSuite) TestReadConfig(c *gc.C) {
 	_, err = testing.RunCommand(c, config, args)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(config.Config, gc.Not(gc.IsNil))
+	c.Assert(config.Config, gc.NotNil)
 	c.Assert(config.Config.MongoURL, gc.Equals, "localhost:23456")
 }

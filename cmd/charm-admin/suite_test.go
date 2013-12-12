@@ -6,9 +6,9 @@ package main
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing"
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	testing.LocalMgoTestPackage(t)
 }
