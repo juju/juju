@@ -4,6 +4,8 @@
 package sshinit
 
 import (
+	"regexp"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
@@ -77,6 +79,8 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
+var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta(aptget)
+
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
@@ -112,7 +116,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 		c.Assert(
 			script,
 			checkIff(gc.Matches, needsCloudTools || needsJujuPPA),
-			"(.|\n)*apt-get -y install.*python-software-properties(.|\n)*",
+			aptgetRegexp+"install.*python-software-properties(.|\n)*",
 		)
 	}
 }
@@ -130,7 +134,7 @@ func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match b
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// apt-get update is run if either AptUpdate is set,
 	// or apt sources are defined.
-	const aptGetUpdatePattern = "(.|\n)*apt-get -y update(.|\n)*"
+	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
 	cfg := cloudinit.New()
 	c.Assert(cfg.AptUpdate(), gc.Equals, false)
 	c.Assert(cfg.AptSources(), gc.HasLen, 0)
@@ -144,7 +148,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 
 func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	// apt-get upgrade is only run if AptUpgrade is set.
-	const aptGetUpgradePattern = "(.|\n)*apt-get -y upgrade(.|\n)*"
+	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
 	cfg := cloudinit.New()
 	cfg.SetAptUpdate(true)
 	cfg.AddAptSource("source", "key")
