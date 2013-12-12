@@ -42,7 +42,7 @@ func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ListKeysCommand) Run(context *cmd.Context) error {
-	client, err := juju.NewKeyManagerAPIClientFromName(c.EnvName)
+	client, err := juju.NewKeyManagerClient(c.EnvName)
 	if err != nil {
 		return err
 	}
