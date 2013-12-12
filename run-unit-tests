@@ -18,7 +18,6 @@ print filename
 EOT
 )
 RUN_OUTPUT=$(ec2-run-instances -k id_rsa -t m1.small ami-659fbd0c)
-echo $RUN_OUTPUT
 if [ $? -ne 0 ]; then
   exit 1
 fi
