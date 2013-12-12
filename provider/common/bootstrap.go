@@ -171,6 +171,7 @@ func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTime
 	pollDNS := time.NewTimer(0)
 	fmt.Fprintln(ctx.Stderr, "Waiting for DNS name")
 	var dialResultChan chan error
+	var lastErr error
 	for {
 		if dnsName != "" && dialResultChan == nil {
 			addr := dnsName + ":22"
@@ -187,24 +188,23 @@ func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTime
 		select {
 		case <-pollDNS.C:
 			pollDNS.Reset(timeout.DNSNameDelay)
-			var newDNSName string
-			newDNSName, dnsNameErr := inst.DNSName()
-			if dnsNameErr != nil && dnsNameErr != instance.ErrNoDNSName {
-				return "", t.Killf("getting DNS name: %v", dnsNameErr)
-			} else if dnsNameErr != nil {
-				err = dnsNameErr
+			newDNSName, err := inst.DNSName()
+			if err != nil && err != instance.ErrNoDNSName {
+				return "", t.Killf("getting DNS name: %v", err)
+			} else if err != nil {
+				lastErr = err
 			} else if newDNSName != dnsName {
 				dnsName = newDNSName
 				dialResultChan = nil
 			}
-		case err = <-dialResultChan:
-			if err == nil {
+		case lastErr = <-dialResultChan:
+			if lastErr == nil {
 				return dnsName, nil
 			}
-			logger.Debugf("connection failed: %v", err)
+			logger.Debugf("connection failed: %v", lastErr)
 			dialResultChan = nil // retry
 		case <-globalTimeout:
-			format := "waited for %s "
+			format := "waited for %v "
 			args := []interface{}{timeout.Timeout}
 			if dnsName == "" {
 				format += "without getting a DNS name"
@@ -212,9 +212,9 @@ func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTime
 				format += "without being able to connect to %q"
 				args = append(args, dnsName)
 			}
-			if err != nil {
-				format += ": %s"
-				args = append(args, err)
+			if lastErr != nil {
+				format += ": %v"
+				args = append(args, lastErr)
 			}
 			return "", t.Killf(format, args...)
 		case <-t.Dying():
