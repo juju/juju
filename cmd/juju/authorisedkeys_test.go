@@ -25,6 +25,8 @@ type AuthorisedKeysSuite struct {
 var _ = gc.Suite(&AuthorisedKeysSuite{})
 
 var authKeysCommandNames = []string{
+	"add",
+	"delete",
 	"help",
 	"list",
 }
@@ -75,29 +77,49 @@ func (s *AuthorisedKeysSuite) TestHelpList(c *gc.C) {
 	s.assertHelpOutput(c, "list", "")
 }
 
-type ListKeysSuite struct {
+func (s *AuthorisedKeysSuite) TestHelpAdd(c *gc.C) {
+	s.assertHelpOutput(c, "add", "<ssh key>")
+}
+
+func (s *AuthorisedKeysSuite) TestHelpDelete(c *gc.C) {
+	s.assertHelpOutput(c, "delete", "<ssh key id>")
+}
+
+type keySuiteBase struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&ListKeysSuite{})
-
-func (s *ListKeysSuite) SetUpSuite(c *gc.C) {
+func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.PatchEnvironment(osenv.JujuEnv, "dummyenv")
 }
 
-func (s *ListKeysSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"authorized-keys": keys})
+func (s *keySuiteBase) setAuthorisedKeys(c *gc.C, keys ...string) {
+	keyString := strings.Join(keys, "\n")
+	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"authorized-keys": keyString})
 	c.Assert(err, gc.IsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keys)
+	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keyString)
 }
+
+func (s *keySuiteBase) assertEnvironKeys(c *gc.C, expected ...string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	keys := envConfig.AuthorizedKeys()
+	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
+}
+
+type ListKeysSuite struct {
+	keySuiteBase
+}
+
+var _ = gc.Suite(&ListKeysSuite{})
 
 func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+	s.setAuthorisedKeys(c, key1, key2)
 
 	context, err := coretesting.RunCommand(c, &ListKeysCommand{}, []string{})
 	c.Assert(err, gc.IsNil)
@@ -109,7 +131,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+	s.setAuthorisedKeys(c, key1, key2)
 
 	context, err := coretesting.RunCommand(c, &ListKeysCommand{}, []string{"--full"})
 	c.Assert(err, gc.IsNil)
@@ -121,7 +143,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+	s.setAuthorisedKeys(c, key1, key2)
 	_, err := s.State.AddUser("fred", "password")
 	c.Assert(err, gc.IsNil)
 
@@ -135,4 +157,84 @@ func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {
 	_, err := coretesting.RunCommand(c, &ListKeysCommand{}, []string{"foo"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
+}
+
+type AddKeySuite struct {
+	keySuiteBase
+}
+
+var _ = gc.Suite(&AddKeySuite{})
+
+func (s *AddKeySuite) TestAddKey(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	_, err := coretesting.RunCommand(c, &AddKeyCommand{}, []string{key2})
+	c.Assert(err, gc.IsNil)
+	s.assertEnvironKeys(c, key1, key2)
+}
+
+func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+	_, err := s.State.AddUser("fred", "password")
+	c.Assert(err, gc.IsNil)
+
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	_, err = coretesting.RunCommand(c, &AddKeyCommand{}, []string{"--user", "fred", key2})
+	c.Assert(err, gc.IsNil)
+	s.assertEnvironKeys(c, key1, key2)
+}
+
+func (s *AddKeySuite) TestTooManyArgs(c *gc.C) {
+	_, err := coretesting.RunCommand(c, &AddKeyCommand{}, []string{"foo", "bar"})
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
+}
+
+func (s *AddKeySuite) TestAddError(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	_, err := coretesting.RunCommand(c, &AddKeyCommand{}, []string{key1})
+	c.Assert(err, gc.ErrorMatches, `duplicate ssh key: .*`)
+}
+
+type DeleteKeySuite struct {
+	keySuiteBase
+}
+
+var _ = gc.Suite(&DeleteKeySuite{})
+
+func (s *DeleteKeySuite) TestDeleteKey(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	s.setAuthorisedKeys(c, key1, key2)
+
+	_, err := coretesting.RunCommand(c, &DeleteKeyCommand{}, []string{sshtesting.ValidKeyTwo.Fingerprint})
+	c.Assert(err, gc.IsNil)
+	s.assertEnvironKeys(c, key1)
+}
+
+func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	s.setAuthorisedKeys(c, key1, key2)
+	_, err := s.State.AddUser("fred", "password")
+	c.Assert(err, gc.IsNil)
+
+	_, err = coretesting.RunCommand(
+		c, &DeleteKeyCommand{}, []string{"--user", "fred", sshtesting.ValidKeyTwo.Fingerprint})
+	c.Assert(err, gc.IsNil)
+	s.assertEnvironKeys(c, key1)
+}
+
+func (s *DeleteKeySuite) TestTooManyArgs(c *gc.C) {
+	_, err := coretesting.RunCommand(c, &DeleteKeyCommand{}, []string{"foo", "bar"})
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
+}
+
+func (s *DeleteKeySuite) TestDeleteError(c *gc.C) {
+	_, err := coretesting.RunCommand(c, &DeleteKeyCommand{}, []string{sshtesting.ValidKeyOne.Fingerprint})
+	c.Assert(err, gc.ErrorMatches, `invalid ssh key: .*`)
 }
