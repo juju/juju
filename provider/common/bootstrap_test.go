@@ -324,3 +324,32 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 		"Waiting for DNS name\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
+
+type dnsNameChanges struct {
+	names []string
+}
+
+func (d *dnsNameChanges) DNSName() (string, error) {
+	name := d.names[0]
+	if len(d.names) > 1 {
+		d.names = d.names[1:]
+	}
+	if name == "" {
+		return "", instance.ErrNoDNSName
+	}
+	return name, nil
+}
+
+func (s *BootstrapSuite) TestWaitSSHRefreshDNSName(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	_, err := common.WaitSSH(ctx, &dnsNameChanges{[]string{"", "0.1.2.3", "0.1.2.3", "", "0.1.2.4"}}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches,
+		`waited for 10ms without being able to connect to "0.1.2.4": dial tcp 0.1.2.4:22: invalid argument`)
+	c.Check(buf.String(), gc.Matches,
+		"Waiting for DNS name\n"+
+			"(Attempting to connect to 0.1.2.3:22\n)+"+
+			"(Attempting to connect to 0.1.2.4:22\n)+")
+}

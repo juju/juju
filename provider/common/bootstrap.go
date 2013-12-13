@@ -78,6 +78,7 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
+	inst = &refreshingInstance{Instance: inst, env: env}
 	return FinishBootstrap(&ctx, inst, machineConfig)
 }
 
@@ -107,6 +108,26 @@ func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instan
 		}
 	}
 	ctx.SetInterruptHandler(nil)
+}
+
+// refreshingInstance is one that refreshes the
+// underlying Instance before each call to DNSName.
+type refreshingInstance struct {
+	instance.Instance
+	env     environs.Environ
+	refresh bool
+}
+
+func (i *refreshingInstance) DNSName() (string, error) {
+	if i.refresh {
+		instances, err := i.env.Instances([]instance.Id{i.Instance.Id()})
+		if err != nil {
+			return "", err
+		}
+		i.Instance = instances[0]
+	}
+	i.refresh = true
+	return i.Instance.DNSName()
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
@@ -151,8 +172,10 @@ type SSHTimeoutOpts struct {
 // DefaultBootstrapSSHTimeout is the time we'll wait for SSH to come up on the bootstrap node
 func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
 	return SSHTimeoutOpts{
-		Timeout:      10 * time.Minute,
-		DNSNameDelay: 1 * time.Second,
+		Timeout: 10 * time.Minute,
+
+		// Not too frequent, as we refresh addresses from the provider each time.
+		DNSNameDelay: 10 * time.Second,
 	}
 }
 
