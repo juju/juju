@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"launchpad.net/gnuflag"
 
@@ -12,55 +13,57 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-var importKeyDoc = `
-Import a new authorised ssh key to allow the holder of that key to log on to Juju nodes or machines.
-The key is imported using ssh-import-id.
+var importKeysDoc = `
+Import new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
+The keys are imported using ssh-import-id.
 `
 
-// ImportKeyCommand is used to add a new authorized ssh key for a user.
-type ImportKeyCommand struct {
+// ImportKeysCommand is used to add new authorized ssh keys for a user.
+type ImportKeysCommand struct {
 	cmd.EnvCommandBase
-	user     string
-	sshKeyId string
+	user      string
+	sshKeyIds []string
 }
 
-func (c *ImportKeyCommand) Info() *cmd.Info {
+func (c *ImportKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "import",
-		Args:    "<ssh key id>",
-		Doc:     importKeyDoc,
-		Purpose: "using ssh-import-id, import a new authorized ssh key for a Juju user",
+		Args:    "<ssh key id> [...]",
+		Doc:     importKeysDoc,
+		Purpose: "using ssh-import-id, import new authorized ssh keys for a Juju user",
 	}
 }
 
-func (c *ImportKeyCommand) Init(args []string) error {
+func (c *ImportKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")
-	case 1:
-		c.sshKeyId = args[0]
-		return nil
 	default:
-		return cmd.CheckEmpty(args[1:])
+		c.sshKeyIds = args
 	}
+	return nil
 }
 
-func (c *ImportKeyCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ImportKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.StringVar(&c.user, "user", "admin", "the user for which to import the key")
+	f.StringVar(&c.user, "user", "admin", "the user for which to import the keys")
 }
 
-func (c *ImportKeyCommand) Run(context *cmd.Context) error {
+func (c *ImportKeysCommand) Run(context *cmd.Context) error {
 	client, err := juju.NewKeyManagerClient(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	results, err := client.ImportKeys(c.user, c.sshKeyId)
+	results, err := client.ImportKeys(c.user, c.sshKeyIds...)
 	if err != nil {
 		return err
 	}
-	result := results[0]
-	return result.Error
+	for i, result := range results {
+		if result.Error != nil {
+			fmt.Fprintf(context.Stderr, "cannot import key id %q: %v\n", c.sshKeyIds[i], result.Error)
+		}
+	}
+	return nil
 }

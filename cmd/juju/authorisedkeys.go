@@ -28,9 +28,9 @@ func NewAuthorisedKeysCommand() cmd.Command {
 			Purpose:     "manage authorised ssh keys",
 		}),
 	}
-	sshkeyscmd.Register(&AddKeyCommand{})
-	sshkeyscmd.Register(&DeleteKeyCommand{})
-	sshkeyscmd.Register(&ImportKeyCommand{})
+	sshkeyscmd.Register(&AddKeysCommand{})
+	sshkeyscmd.Register(&DeleteKeysCommand{})
+	sshkeyscmd.Register(&ImportKeysCommand{})
 	sshkeyscmd.Register(&ListKeysCommand{})
 	return sshkeyscmd
 }

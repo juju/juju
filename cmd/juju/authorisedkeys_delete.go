@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"launchpad.net/gnuflag"
 
@@ -12,56 +13,58 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-var deleteKeyDoc = `
-Delete an existing authorised ssh key to remove ssh access for the holder of that key.
-The key to delete is found by specifying either the "comment" portion of the ssh key,
+var deleteKeysDoc = `
+Delete existing authorised ssh keys to remove ssh access for the holder of those keys.
+The keys to delete are found by specifying either the "comment" portion of the ssh key,
 typically something like "user@host", or the key fingerprint found by using ssh-keygen.
 `
 
-// DeleteKeyCommand is used to delete an authorized ssh key for a user.
-type DeleteKeyCommand struct {
+// DeleteKeysCommand is used to delete authorized ssh keys for a user.
+type DeleteKeysCommand struct {
 	cmd.EnvCommandBase
-	user  string
-	keyId string
+	user   string
+	keyIds []string
 }
 
-func (c *DeleteKeyCommand) Info() *cmd.Info {
+func (c *DeleteKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "delete",
-		Args:    "<ssh key id>",
-		Doc:     deleteKeyDoc,
-		Purpose: "delete an authorized ssh key for a Juju user",
+		Args:    "<ssh key id> [...]",
+		Doc:     deleteKeysDoc,
+		Purpose: "delete authorized ssh keys for a Juju user",
 	}
 }
 
-func (c *DeleteKeyCommand) Init(args []string) error {
+func (c *DeleteKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")
-	case 1:
-		c.keyId = args[0]
-		return nil
 	default:
-		return cmd.CheckEmpty(args[1:])
+		c.keyIds = args
 	}
+	return nil
 }
 
-func (c *DeleteKeyCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *DeleteKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.StringVar(&c.user, "user", "admin", "the user for which to delete the key")
+	f.StringVar(&c.user, "user", "admin", "the user for which to delete the keys")
 }
 
-func (c *DeleteKeyCommand) Run(context *cmd.Context) error {
+func (c *DeleteKeysCommand) Run(context *cmd.Context) error {
 	client, err := juju.NewKeyManagerClient(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	results, err := client.DeleteKeys(c.user, c.keyId)
+	results, err := client.DeleteKeys(c.user, c.keyIds...)
 	if err != nil {
 		return err
 	}
-	result := results[0]
-	return result.Error
+	for i, result := range results {
+		if result.Error != nil {
+			fmt.Fprintf(context.Stderr, "cannot delete key id %q: %v\n", c.keyIds[i], result.Error)
+		}
+	}
+	return nil
 }
