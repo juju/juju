@@ -1,12 +1,12 @@
 #!/bin/bash
-set -x
+set -eux
 tarfile=$(python <<EOT
 import json
 import sys
 import urllib2
 
 build_data = urllib2.urlopen(
-  '$JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/api/json')
+  'http://localhost:8080/job/prepare-new-version/lastSuccessfulBuild/api/json')
 build_json = json.load(build_data)
 for artifact in build_json['artifacts']:
   filename = artifact['fileName']
