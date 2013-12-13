@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/keymanager"
+	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/utils/ssh"
@@ -185,4 +186,46 @@ func (s *keyManagerSuite) TestDeleteKeysInvalidUser(c *gc.C) {
 		_, err := s.keymanager.DeleteKeys(args)
 		return err
 	})
+}
+
+func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
+	s.PatchValue(&keymanager.RunSSHImportId, keymanagertesting.FakeImport)
+
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	key3 := sshtesting.ValidKeyThree.Key
+	initialKeys := []string{key1, key2, "bad key"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: "admin",
+		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
+	}
+	results, err := s.keymanager.ImportKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
+			{Error: nil},
+			{Error: apiservertesting.ServerError("invalid ssh key id: invalid-key")},
+		},
+	})
+	s.assertEnvironKeys(c, append(initialKeys, key3))
+}
+
+func (s *keyManagerSuite) TestCallSSHImportId(c *gc.C) {
+	output, err := keymanager.RunSSHImportId("lp:wallyworld")
+	c.Assert(err, gc.IsNil)
+	lines := strings.Split(output, "\n")
+	var key string
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "ssh-") {
+			continue
+		}
+		_, _, err := ssh.KeyFingerprint(line)
+		if err == nil {
+			key = line
+		}
+	}
+	c.Assert(key, gc.Not(gc.Equals), "")
 }

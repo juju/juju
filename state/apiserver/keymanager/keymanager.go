@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -26,7 +27,7 @@ type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
 	AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 	DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
-	//	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
+	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 }
 
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
@@ -209,6 +210,89 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 			continue
 		}
 		sshKeys = append(sshKeys, key)
+	}
+	err = api.writeSSHKeys(currentConfig, sshKeys)
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	return result, nil
+}
+
+type importedSSHKey struct {
+	key         string
+	fingerprint string
+	err         error
+}
+
+//  Override for testing
+var RunSSHImportId = runSSHImportId
+
+func runSSHImportId(keyId string) (string, error) {
+	return utils.RunCommand("ssh-import-id", "-o", "-", keyId)
+}
+
+// runSSHKeyImport uses ssh-import-id to find the ssh keys for the specified key ids.
+func runSSHKeyImport(keyIds []string) []importedSSHKey {
+	keyInfo := make([]importedSSHKey, len(keyIds))
+	for i, keyId := range keyIds {
+		output, err := RunSSHImportId(keyId)
+		if err != nil {
+			keyInfo[i].err = err
+			continue
+		}
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			if !strings.HasPrefix(line, "ssh-") {
+				continue
+			}
+			keyInfo[i].fingerprint, _, keyInfo[i].err = ssh.KeyFingerprint(line)
+			if err == nil {
+				keyInfo[i].key = line
+			}
+		}
+		if keyInfo[i].key == "" {
+			keyInfo[i].err = fmt.Errorf("invalid ssh key id: %s", keyId)
+		}
+	}
+	return keyInfo
+}
+
+// ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
+func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(arg.Keys)),
+	}
+	if len(arg.Keys) == 0 {
+		return result, nil
+	}
+
+	canWrite, err := api.getCanWrite()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	if !canWrite(arg.User) {
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	}
+
+	// For now, authorised keys are global, common to all users.
+	sshKeys, currentFingerprints, currentConfig, err := api.currentKeyDataForAdd()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
+	}
+
+	importedKeyInfo := runSSHKeyImport(arg.Keys)
+	// Ensure we are not going to add invalid or duplicate keys.
+	result.Results = make([]params.ErrorResult, len(importedKeyInfo))
+	for i, keyInfo := range importedKeyInfo {
+		if keyInfo.err != nil {
+			result.Results[i].Error = common.ServerError(keyInfo.err)
+			continue
+		}
+		if currentFingerprints.Contains(keyInfo.fingerprint) {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("duplicate ssh key: %s", keyInfo.key))
+			continue
+		}
+		sshKeys = append(sshKeys, keyInfo.key)
 	}
 	err = api.writeSSHKeys(currentConfig, sshKeys)
 	if err != nil {

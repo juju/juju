@@ -11,6 +11,8 @@ import (
 
 	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
+	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -28,6 +30,7 @@ var authKeysCommandNames = []string{
 	"add",
 	"delete",
 	"help",
+	"import",
 	"list",
 }
 
@@ -83,6 +86,10 @@ func (s *AuthorisedKeysSuite) TestHelpAdd(c *gc.C) {
 
 func (s *AuthorisedKeysSuite) TestHelpDelete(c *gc.C) {
 	s.assertHelpOutput(c, "delete", "<ssh key id>")
+}
+
+func (s *AuthorisedKeysSuite) TestHelpImport(c *gc.C) {
+	s.assertHelpOutput(c, "import", "<ssh key id>")
 }
 
 type keySuiteBase struct {
@@ -237,4 +244,45 @@ func (s *DeleteKeySuite) TestTooManyArgs(c *gc.C) {
 func (s *DeleteKeySuite) TestDeleteError(c *gc.C) {
 	_, err := coretesting.RunCommand(c, &DeleteKeyCommand{}, []string{sshtesting.ValidKeyOne.Fingerprint})
 	c.Assert(err, gc.ErrorMatches, `invalid ssh key: .*`)
+}
+
+type ImportKeySuite struct {
+	keySuiteBase
+}
+
+var _ = gc.Suite(&ImportKeySuite{})
+
+func (s *ImportKeySuite) SetUpTest(c *gc.C) {
+	s.keySuiteBase.SetUpTest(c)
+	s.PatchValue(&keymanagerserver.RunSSHImportId, keymanagertesting.FakeImport)
+}
+
+func (s *ImportKeySuite) TestImportKey(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	_, err := coretesting.RunCommand(c, &ImportKeyCommand{}, []string{"lp:validuser"})
+	c.Assert(err, gc.IsNil)
+	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
+}
+
+func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+	_, err := s.State.AddUser("fred", "password")
+	c.Assert(err, gc.IsNil)
+
+	_, err = coretesting.RunCommand(c, &ImportKeyCommand{}, []string{"--user", "fred", "lp:validuser"})
+	c.Assert(err, gc.IsNil)
+	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
+}
+
+func (s *ImportKeySuite) TestTooManyArgs(c *gc.C) {
+	_, err := coretesting.RunCommand(c, &ImportKeyCommand{}, []string{"foo", "bar"})
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
+}
+
+func (s *ImportKeySuite) TestImportError(c *gc.C) {
+	_, err := coretesting.RunCommand(c, &ImportKeyCommand{}, []string{"invalid-key"})
+	c.Assert(err, gc.ErrorMatches, `invalid ssh key id: .*`)
 }

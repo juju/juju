@@ -30,6 +30,7 @@ func NewAuthorisedKeysCommand() cmd.Command {
 	}
 	sshkeyscmd.Register(&AddKeyCommand{})
 	sshkeyscmd.Register(&DeleteKeyCommand{})
+	sshkeyscmd.Register(&ImportKeyCommand{})
 	sshkeyscmd.Register(&ListKeysCommand{})
 	return sshkeyscmd
 }
