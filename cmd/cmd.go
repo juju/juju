@@ -29,6 +29,9 @@ var ErrSilent = errors.New("cmd: error out silently")
 
 // Command is implemented by types that interpret command-line arguments.
 type Command interface {
+	// IsSuperCommand returns true if the command is a super command.
+	IsSuperCommand() bool
+
 	// Info returns information about the Command.
 	Info() *Info
 
@@ -49,6 +52,11 @@ type Command interface {
 
 // CommandBase provides the default implementation for SetFlags, Init, and Help.
 type CommandBase struct{}
+
+// IsSuperCommand implements Command.IsSuperCommand
+func (c *CommandBase) IsSuperCommand() bool {
+	return false
+}
 
 // SetFlags does nothing in the simplest case.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
