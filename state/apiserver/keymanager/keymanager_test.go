@@ -155,7 +155,7 @@ func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
 	s.assertEnvironKeys(c, initialKeys)
 }
 
-func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, test func(args params.ModifyUserSSHKeys) error) {
+func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, runTestLogic func(args params.ModifyUserSSHKeys) error) {
 	initialKey := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorisedKeys(c, initialKey)
 
@@ -166,7 +166,7 @@ func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, test func(args par
 		Keys: []string{newKey},
 	}
 	// Run the required test code and check the error.
-	err := test(args)
+	err := runTestLogic(args)
 	c.Assert(err, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 
 	// No environ changes.
