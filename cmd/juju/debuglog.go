@@ -13,6 +13,7 @@ import (
 )
 
 type DebugLogCommand struct {
+	cmd.CommandBase
 	// The debug log command simply invokes juju ssh with the required arguments.
 	sshCmd cmd.Command
 	lines  linesValue
@@ -59,11 +60,6 @@ const debuglogDoc = `
 Launch an ssh shell on the state server machine and tail the consolidated log file.
 The consolidated log file contains log messages from all nodes in the environment.
 `
-
-// IsSuperCommand implements Command.IsSuperCommand
-func (c *DebugLogCommand) IsSuperCommand() bool {
-	return false
-}
 
 func (c *DebugLogCommand) Info() *cmd.Info {
 	return &cmd.Info{
