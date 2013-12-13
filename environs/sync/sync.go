@@ -22,6 +22,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2/httpstorage"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -189,21 +190,6 @@ func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	return dest.Put(toolsName, buf, nBytes)
 }
 
-// copyFile writes the contents of the given source file to dest.
-func copyFile(dest, source string) error {
-	df, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	f, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(df, f)
-	return err
-}
-
 // UploadFunc is the type of Upload, which may be
 // reassigned to control the behaviour of tools
 // uploading.
@@ -249,7 +235,7 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 	defer os.RemoveAll(baseToolsDir)
 	putTools := func(vers version.Binary) (string, error) {
 		name := envtools.StorageName(vers)
-		err = copyFile(filepath.Join(baseToolsDir, name), f.Name())
+		err = utils.CopyFile(filepath.Join(baseToolsDir, name), f.Name())
 		if err != nil {
 			return "", err
 		}

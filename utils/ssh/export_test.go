@@ -3,6 +3,7 @@
 
 package ssh
 
-func ReadAuthorisedKeys() ([]string, error) {
-	return readAuthorisedKeys()
-}
+var (
+	ReadAuthorisedKeys  = readAuthorisedKeys
+	WriteAuthorisedKeys = writeAuthorisedKeys
+)
