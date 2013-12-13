@@ -294,16 +294,30 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
 
+type killOnDial struct {
+	name     string
+	tomb     *tomb.Tomb
+	returned bool
+}
+
+func (k *killOnDial) DNSName() (string, error) {
+	// kill the tomb the second time DNSName is called
+	if !k.returned {
+		k.returned = true
+	} else {
+		k.tomb.Killf("stopping WaitSSH during Dial")
+	}
+	return k.name, nil
+}
+
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 	ctx := &common.BootstrapContext{}
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
-	go func() {
-		<-time.After(2 * time.Millisecond)
-		t.Killf("stopping WaitSSH during Dial")
-	}()
-	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	timeout := testSSHTimeout
+	timeout.Timeout = 1 * time.Minute
+	_, err := common.WaitSSH(ctx, &killOnDial{name: "0.1.2.3", tomb: &t}, &t, timeout)
 	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Dial")
 	// Exact timing is imprecise but it should have tried a few times before being killed
 	c.Check(buf.String(), gc.Matches,
