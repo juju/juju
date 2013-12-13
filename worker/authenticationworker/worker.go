@@ -31,6 +31,8 @@ type keyupdaterWorker struct {
 	nonJujuKeys []string
 }
 
+var _ worker.NotifyWatchHandler = (*keyupdaterWorker)(nil)
+
 // NewWorker returns a worker that keeps track of
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
@@ -39,6 +41,7 @@ func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
 	return worker.NewNotifyWorker(kw)
 }
 
+// SetUp is defined on the worker.NotifyWatchHandler interface.
 func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// Record the keys Juju knows about.
 	jujuKeys, err := kw.st.AuthorisedKeys(kw.tag)
@@ -85,6 +88,7 @@ func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
 	return ssh.ReplaceKeys(allKeys...)
 }
 
+// Handle is defined on the worker.NotifyWatchHandler interface.
 func (kw *keyupdaterWorker) Handle() error {
 	// Read the keys that Juju has.
 	newKeys, err := kw.st.AuthorisedKeys(kw.tag)
@@ -106,6 +110,7 @@ func (kw *keyupdaterWorker) Handle() error {
 	return nil
 }
 
+// TearDown is defined on the worker.NotifyWatchHandler interface.
 func (kw *keyupdaterWorker) TearDown() error {
 	// Nothing to do here.
 	return nil
