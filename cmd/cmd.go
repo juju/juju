@@ -17,6 +17,26 @@ import (
 	"launchpad.net/gnuflag"
 )
 
+type rcPassthroughError struct {
+	code int
+}
+
+func (e *rcPassthroughError) Error() string {
+	return fmt.Sprintf("rc: %v", e.code)
+}
+
+func IsRcPassthroughError(err error) bool {
+	_, ok := err.(*rcPassthroughError)
+	return ok
+}
+
+// NewRcPassthroughError creates an error that will have the code used at the
+// return code from the cmd.Main function rather than the default of 1 if
+// there is an error.
+func NewRcPassthroughError(code int) error {
+	return &rcPassthroughError{code}
+}
+
 func init() {
 	// Don't replace the default transport as other init blocks
 	// register protocols.
@@ -173,6 +193,9 @@ func Main(c Command, ctx *Context, args []string) int {
 		return rc
 	}
 	if err := c.Run(ctx); err != nil {
+		if IsRcPassthroughError(err) {
+			return err.(*rcPassthroughError).code
+		}
 		if err != ErrSilent {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		}
