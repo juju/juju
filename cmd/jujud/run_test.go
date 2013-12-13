@@ -62,3 +62,10 @@ func (*RunTestSuite) TestWrongArgs(c *gc.C) {
 		}
 	}
 }
+
+func (s *RunTestSuite) TestInsideContext(c *gc.C) {
+	s.PatchEnvironment("JUJU_CONTEXT_ID", "fake-id")
+	runCommand := &RunCommand{}
+	err := runCommand.Init([]string{"foo", "bar"})
+	c.Assert(err, gc.ErrorMatches, "juju-run cannot be called from within a hook.*")
+}
