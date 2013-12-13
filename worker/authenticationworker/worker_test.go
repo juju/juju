@@ -46,9 +46,6 @@ type workerSuite struct {
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
-	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
-
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Replace the default dummy key in the test environment with a valid one.
@@ -100,7 +97,7 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 		select {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authoirsed ssh keys to change")
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			keys, err := ssh.ListKeys(ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
