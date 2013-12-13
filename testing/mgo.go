@@ -171,7 +171,9 @@ func MgoTestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-func LocalMgoTestPackage(t *stdtesting.T) {
+// NoSslMgoTestPackage should be called to register the tests for any package that
+// requires a MongoDB server running locally without SSL.
+func NoSslMgoTestPackage(t *stdtesting.T) {
 	mgoSsl = false
 	if err := startMgoServer(); err != nil {
 		t.Fatal(err)
