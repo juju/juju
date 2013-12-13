@@ -4,10 +4,13 @@
 package common_test
 
 import (
+	"bytes"
 	"fmt"
+	"time"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
+	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -214,4 +217,110 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		StateInstances:  []instance.Id{instance.Id(checkInstanceId)},
 		Characteristics: []instance.HardwareCharacteristics{checkHardware},
 	})
+}
+
+type neverDNSName struct {
+}
+
+func (neverDNSName) DNSName() (string, error) {
+	return "", instance.ErrNoDNSName
+}
+
+var testSSHTimeout = common.SSHTimeoutOpts{
+	Timeout:      10 * time.Millisecond,
+	DNSNameDelay: 1 * time.Millisecond,
+}
+
+func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDNSName(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting a DNS name: DNS name not allocated")
+	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
+}
+
+func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDNSName(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	go func() {
+		<-time.After(2 * time.Millisecond)
+		t.Killf("stopping WaitSSH during DNSName")
+	}()
+	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during DNSName")
+	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
+}
+
+type brokenDNSName struct {
+}
+
+func (brokenDNSName) DNSName() (string, error) {
+	return "", fmt.Errorf("DNSName will never work")
+}
+
+func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	_, err := common.WaitSSH(ctx, brokenDNSName{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "getting DNS name: DNSName will never work")
+	c.Check(buf.String(), gc.Equals, "Waiting for DNS name\n")
+}
+
+type neverOpensPort struct {
+	name string
+}
+
+func (n *neverOpensPort) DNSName() (string, error) {
+	return n.name, nil
+}
+
+func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	// 0.x.y.z addresses are always invalid
+	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches,
+		`waited for 10ms without being able to connect to "0.1.2.3": dial tcp 0.1.2.3:22: invalid argument`)
+	c.Check(buf.String(), gc.Matches,
+		"Waiting for DNS name\n"+
+			"(Attempting to connect to 0.1.2.3:22\n)+")
+}
+
+type killOnDial struct {
+	name     string
+	tomb     *tomb.Tomb
+	returned bool
+}
+
+func (k *killOnDial) DNSName() (string, error) {
+	// kill the tomb the second time DNSName is called
+	if !k.returned {
+		k.returned = true
+	} else {
+		k.tomb.Killf("stopping WaitSSH during Dial")
+	}
+	return k.name, nil
+}
+
+func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
+	ctx := &common.BootstrapContext{}
+	buf := &bytes.Buffer{}
+	ctx.Stderr = buf
+	var t tomb.Tomb
+	timeout := testSSHTimeout
+	timeout.Timeout = 1 * time.Minute
+	_, err := common.WaitSSH(ctx, &killOnDial{name: "0.1.2.3", tomb: &t}, &t, timeout)
+	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Dial")
+	// Exact timing is imprecise but it should have tried a few times before being killed
+	c.Check(buf.String(), gc.Matches,
+		"Waiting for DNS name\n"+
+			"(Attempting to connect to 0.1.2.3:22\n)+")
 }

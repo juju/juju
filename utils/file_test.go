@@ -4,6 +4,9 @@
 package utils_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
@@ -46,4 +49,20 @@ func (*fileSuite) TestNormalizePath(c *gc.C) {
 	}} {
 		c.Assert(utils.NormalizePath(test.path), gc.Equals, test.expected)
 	}
+}
+
+func (*fileSuite) TestCopyFile(c *gc.C) {
+	dir := c.MkDir()
+	f, err := ioutil.TempFile(dir, "source")
+	c.Assert(err, gc.IsNil)
+	defer f.Close()
+	_, err = f.Write([]byte("hello world"))
+	c.Assert(err, gc.IsNil)
+	dest := filepath.Join(dir, "dest")
+
+	err = utils.CopyFile(dest, f.Name())
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadFile(dest)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, "hello world")
 }

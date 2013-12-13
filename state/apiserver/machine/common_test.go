@@ -39,7 +39,6 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine1.Tag(),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
 	}
 }

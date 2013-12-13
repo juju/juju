@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -61,7 +62,7 @@ func NewContainerManager(conf container.ManagerConfig) container.Manager {
 func (manager *containerManager) StartContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig) (instance.Instance, error) {
+	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	name := names.MachineTag(machineConfig.MachineId)
 	if manager.name != "" {
@@ -75,19 +76,19 @@ func (manager *containerManager) StartContainer(
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Tracef("write cloud-init")
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
 		logger.Errorf("failed to write user data: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
 	configFile, err := writeLxcConfig(network, directory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	templateParams := []string{
 		"--debug",                      // Debug errors in the cloud image
@@ -99,19 +100,19 @@ func (manager *containerManager) StartContainer(
 	logger.Tracef("create the container")
 	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	// Make sure that the mount dir has been created.
 	logger.Tracef("make the mount dir for the shard logs")
 	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
 		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Tracef("lxc container created")
 	// Now symlink the config file into the restart directory.
 	containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
 	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Tracef("auto-restart link created")
 
@@ -126,10 +127,14 @@ func (manager *containerManager) StartContainer(
 	// setting it ourselves.
 	if err = lxcContainer.Start("", consoleFile); err != nil {
 		logger.Errorf("container failed to start: %v", err)
-		return nil, err
+		return nil, nil, err
+	}
+	arch := version.Current.Arch
+	hardware := &instance.HardwareCharacteristics{
+		Arch: &arch,
 	}
 	logger.Tracef("container started")
-	return &lxcInstance{lxcContainer, name}, nil
+	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {

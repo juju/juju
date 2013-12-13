@@ -74,7 +74,16 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	}
 	if oldCfg != nil {
 		oldAttrs := oldCfg.UnknownAttrs()
-		if validated["maas-agent-name"] != oldAttrs["maas-agent-name"] {
+		validMaasAgentName := false
+		if oldName, ok := oldAttrs["maas-agent-name"]; !ok || oldName == nil {
+			// If maas-agent-name was nil (because the config was
+			// generated pre-1.16.2 the only correct value for it is ""
+			// See bug #1256179
+			validMaasAgentName = (validated["maas-agent-name"] == "")
+		} else {
+			validMaasAgentName = (validated["maas-agent-name"] == oldName)
+		}
+		if !validMaasAgentName {
 			return nil, fmt.Errorf("cannot change maas-agent-name")
 		}
 	}
