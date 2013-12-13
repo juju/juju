@@ -26,56 +26,34 @@ type tailerSuite struct{}
 
 var _ = gc.Suite(tailerSuite{})
 
-var (
-	alphabetData = []string{
-		"alpha alpha\n",
-		"bravo bravo\n",
-		"charlie charlie\n",
-		"delta delta\n",
-		"echo echo\n",
-		"foxtrott foxtrott\n",
-		"golf golf\n",
-		"hotel hotel\n",
-		"india india\n",
-		"juliet juliet\n",
-		"kilo kilo\n",
-		"lima lima\n",
-		"mike mike\n",
-		"november november\n",
-		"oscar oscar\n",
-		"papa papa\n",
-		"quebec quebec\n",
-		"romeo romeo\n",
-		"sierra sierra\n",
-		"tango tango\n",
-		"uniform uniform\n",
-		"victor victor\n",
-		"whiskey whiskey\n",
-		"x-ray x-ray\n",
-		"yankee yankee\n",
-		"zulu zulu\n",
-	}
-
-	unterminatedData = []string{
-		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
-		"0123456789012345678901234567890123456789012345678901\n",
-		"the quick brown fox ",
-		"jumps over the lazy dog\n",
-	}
-
-	emptyLinesData = []string{
-		"one one\n",
-		"two two\n",
-		"\n",
-		"\n",
-		"three three\n",
-		"four four\n",
-		"\n",
-		"\n",
-		"five five\n",
-		"six six\n",
-	}
-)
+var alphabetData = []string{
+	"alpha alpha\n",
+	"bravo bravo\n",
+	"charlie charlie\n",
+	"delta delta\n",
+	"echo echo\n",
+	"foxtrott foxtrott\n",
+	"golf golf\n",
+	"hotel hotel\n",
+	"india india\n",
+	"juliet juliet\n",
+	"kilo kilo\n",
+	"lima lima\n",
+	"mike mike\n",
+	"november november\n",
+	"oscar oscar\n",
+	"papa papa\n",
+	"quebec quebec\n",
+	"romeo romeo\n",
+	"sierra sierra\n",
+	"tango tango\n",
+	"uniform uniform\n",
+	"victor victor\n",
+	"whiskey whiskey\n",
+	"x-ray x-ray\n",
+	"yankee yankee\n",
+	"zulu zulu\n",
+}
 
 var tests = []struct {
 	description           string
@@ -89,56 +67,107 @@ var tests = []struct {
 	appendedCollectedData []string
 	err                   string
 }{{
-	description:           "lines are longer than buffer size",
-	data:                  unterminatedData[0:2],
+	description: "lines are longer than buffer size",
+	data: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+		"0123456789012345678901234567890123456789012345678901\n",
+	},
 	initialLinesWritten:   1,
 	initialLinesRequested: 1,
 	bufferSize:            5,
-	initialCollectedData:  unterminatedData[0:1],
-	appendedCollectedData: unterminatedData[1:2],
+	initialCollectedData: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+	},
+	appendedCollectedData: []string{
+		"0123456789012345678901234567890123456789012345678901\n",
+	},
 }, {
-	description:           "lines are longer than buffer size, missing termination of last line",
-	data:                  unterminatedData[0:2],
+	description: "lines are longer than buffer size, missing termination of last line",
+	data: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox ",
+	},
 	initialLinesWritten:   1,
 	initialLinesRequested: 1,
 	bufferSize:            5,
-	initialCollectedData:  unterminatedData[0:1],
-	appendedCollectedData: unterminatedData[1:2],
+	initialCollectedData: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+	},
+	appendedCollectedData: []string{
+		"0123456789012345678901234567890123456789012345678901\n",
+	},
 }, {
-	description:           "lines are longer than buffer size, last line is terminated later",
-	data:                  unterminatedData,
+	description: "lines are longer than buffer size, last line is terminated later",
+	data: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox ",
+		"jumps over the lazy dog\n",
+	},
 	initialLinesWritten:   1,
 	initialLinesRequested: 1,
 	bufferSize:            5,
-	initialCollectedData:  unterminatedData[0:1],
-	appendedCollectedData: []string{unterminatedData[1], unterminatedData[2] + unterminatedData[3]},
+	initialCollectedData: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+	},
+	appendedCollectedData: []string{
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox jumps over the lazy dog\n",
+	},
 }, {
-	description:           "missing termination of last line",
-	data:                  unterminatedData[0:2],
+	description: "missing termination of last line",
+	data: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox ",
+	},
 	initialLinesWritten:   1,
 	initialLinesRequested: 1,
-	initialCollectedData:  unterminatedData[0:1],
-	appendedCollectedData: unterminatedData[1:2],
+	initialCollectedData: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+	},
+	appendedCollectedData: []string{
+		"0123456789012345678901234567890123456789012345678901\n",
+	},
 }, {
-	description:           "last line is terminated later",
-	data:                  unterminatedData,
+	description: "last line is terminated later",
+	data: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox ",
+		"jumps over the lazy dog\n",
+	},
 	initialLinesWritten:   1,
 	initialLinesRequested: 1,
-	initialCollectedData:  unterminatedData[0:1],
-	appendedCollectedData: []string{unterminatedData[1], unterminatedData[2] + unterminatedData[3]},
+	initialCollectedData: []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+	},
+	appendedCollectedData: []string{
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox jumps over the lazy dog\n",
+	},
 }, {
 	description:           "more lines already written than initially requested",
 	data:                  alphabetData,
 	initialLinesWritten:   5,
 	initialLinesRequested: 3,
-	initialCollectedData:  alphabetData[2:5],
+	initialCollectedData: []string{
+		"charlie charlie\n",
+		"delta delta\n",
+		"echo echo\n",
+	},
 	appendedCollectedData: alphabetData[5:],
 }, {
 	description:           "less lines already written than initially requested",
 	data:                  alphabetData,
 	initialLinesWritten:   3,
 	initialLinesRequested: 5,
-	initialCollectedData:  alphabetData[0:3],
+	initialCollectedData: []string{
+		"alpha alpha\n",
+		"bravo bravo\n",
+		"charlie charlie\n",
+	},
 	appendedCollectedData: alphabetData[3:],
 }, {
 	description:           "lines are longer than buffer size, more lines already written than initially requested",
@@ -146,7 +175,11 @@ var tests = []struct {
 	initialLinesWritten:   5,
 	initialLinesRequested: 3,
 	bufferSize:            5,
-	initialCollectedData:  alphabetData[2:5],
+	initialCollectedData: []string{
+		"charlie charlie\n",
+		"delta delta\n",
+		"echo echo\n",
+	},
 	appendedCollectedData: alphabetData[5:],
 }, {
 	description:           "lines are longer than buffer size, less lines already written than initially requested",
@@ -154,7 +187,11 @@ var tests = []struct {
 	initialLinesWritten:   3,
 	initialLinesRequested: 5,
 	bufferSize:            5,
-	initialCollectedData:  alphabetData[0:3],
+	initialCollectedData: []string{
+		"alpha alpha\n",
+		"bravo bravo\n",
+		"charlie charlie\n",
+	},
 	appendedCollectedData: alphabetData[3:],
 }, {
 	description:           "filter lines which contain the char 'e'",
@@ -164,9 +201,20 @@ var tests = []struct {
 	filter: func(line []byte) bool {
 		return bytes.Contains(line, []byte{'e'})
 	},
-	initialCollectedData: []string{alphabetData[4], alphabetData[7], alphabetData[9]},
-	appendedCollectedData: []string{alphabetData[12], alphabetData[13], alphabetData[16],
-		alphabetData[17], alphabetData[18], alphabetData[22], alphabetData[24]},
+	initialCollectedData: []string{
+		"echo echo\n",
+		"hotel hotel\n",
+		"juliet juliet\n",
+	},
+	appendedCollectedData: []string{
+		"mike mike\n",
+		"november november\n",
+		"quebec quebec\n",
+		"romeo romeo\n",
+		"sierra sierra\n",
+		"whiskey whiskey\n",
+		"yankee yankee\n",
+	},
 }, {
 	description:           "stop tailing after 10 collected lines",
 	data:                  alphabetData,
@@ -179,7 +227,11 @@ var tests = []struct {
 			}
 		}
 	},
-	initialCollectedData:  alphabetData[2:5],
+	initialCollectedData: []string{
+		"charlie charlie\n",
+		"delta delta\n",
+		"echo echo\n",
+	},
 	appendedCollectedData: alphabetData[5:],
 }, {
 	description:           "generate an error after 10 collected lines",
@@ -193,26 +245,71 @@ var tests = []struct {
 			}
 		}
 	},
-	initialCollectedData:  alphabetData[2:5],
+	initialCollectedData: []string{
+		"charlie charlie\n",
+		"delta delta\n",
+		"echo echo\n",
+	},
 	appendedCollectedData: alphabetData[5:],
 	err: "ouch after 10 lines",
 }, {
-	description:           "more lines already written than initially requested, some empty, unfiltered",
-	data:                  emptyLinesData,
+	description: "more lines already written than initially requested, some empty, unfiltered",
+	data: []string{
+		"one one\n",
+		"two two\n",
+		"\n",
+		"\n",
+		"three three\n",
+		"four four\n",
+		"\n",
+		"\n",
+		"five five\n",
+		"six six\n",
+	},
 	initialLinesWritten:   3,
 	initialLinesRequested: 2,
-	initialCollectedData:  emptyLinesData[1:3],
-	appendedCollectedData: emptyLinesData[3:],
+	initialCollectedData: []string{
+		"two two\n",
+		"\n",
+	},
+	appendedCollectedData: []string{
+		"\n",
+		"three three\n",
+		"four four\n",
+		"\n",
+		"\n",
+		"five five\n",
+		"six six\n",
+	},
 }, {
-	description:           "more lines already written than initially requested, some empty, those filtered",
-	data:                  emptyLinesData,
+	description: "more lines already written than initially requested, some empty, those filtered",
+	data: []string{
+		"one one\n",
+		"two two\n",
+		"\n",
+		"\n",
+		"three three\n",
+		"four four\n",
+		"\n",
+		"\n",
+		"five five\n",
+		"six six\n",
+	},
 	initialLinesWritten:   3,
 	initialLinesRequested: 2,
 	filter: func(line []byte) bool {
 		return len(bytes.TrimSpace(line)) > 0
 	},
-	initialCollectedData:  emptyLinesData[0:2],
-	appendedCollectedData: []string{emptyLinesData[4], emptyLinesData[5], emptyLinesData[8], emptyLinesData[9]},
+	initialCollectedData: []string{
+		"one one\n",
+		"two two\n",
+	},
+	appendedCollectedData: []string{
+		"three three\n",
+		"four four\n",
+		"five five\n",
+		"six six\n",
+	},
 }}
 
 func (tailerSuite) TestTailer(c *gc.C) {
