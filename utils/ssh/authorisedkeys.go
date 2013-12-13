@@ -30,6 +30,10 @@ const (
 	authKeysFile = "authorized_keys"
 )
 
+// KeyFingerprint returns the fingerprint and comment for the specified key, using
+// the OS dependent function keyFingerprint.
+var KeyFingerprint = keyFingerprint
+
 func readAuthorisedKeys() ([]string, error) {
 	sshKeyFile := utils.NormalizePath(filepath.Join(authKeysDir, authKeysFile))
 	keyData, err := ioutil.ReadFile(sshKeyFile)
@@ -150,6 +154,24 @@ func DeleteKeys(keyIds ...string) error {
 	return writeAuthorisedKeys(keysToWrite)
 }
 
+// ReplaceKeys writes the specified ssh keys to the authorized_keys file,
+// replacing any that are already there.
+// Returns an error if there is an issue with *any* of the supplied keys.
+func ReplaceKeys(newKeys ...string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for _, newKey := range newKeys {
+		_, comment, err := keyFingerprint(newKey)
+		if err != nil {
+			return err
+		}
+		if comment == "" {
+			return fmt.Errorf("cannot add ssh key without comment")
+		}
+	}
+	return writeAuthorisedKeys(newKeys)
+}
+
 // ListKeys returns either the full keys or key comments from the authorized ssh keys file.
 func ListKeys(mode ListMode) ([]string, error) {
 	mutex.Lock()
@@ -176,4 +198,28 @@ func ListKeys(mode ListMode) ([]string, error) {
 		}
 	}
 	return keys, nil
+}
+
+// Any ssh key added to the authorised keys list by Juju will have this prefix.
+// This allows Juju to know which keys have been added externally and any such keys
+// will always be retained by Juju when updating the authorised keys file.
+const JujuCommentPrefix = "Juju:"
+
+func EnsureJujuComment(key string) string {
+	_, comment, err := keyFingerprint(key)
+	// Just return an invalid key as is.
+	if err != nil {
+		logger.Warningf("invalid Juju ssh key %s: %v", key, err)
+		return key
+	}
+	if comment == "" {
+		return key + " " + JujuCommentPrefix + "sshkey"
+	} else {
+		// Add the Juju prefix to the comment if necessary.
+		if !strings.HasPrefix(comment, JujuCommentPrefix) {
+			commentIndex := strings.LastIndex(key, comment)
+			return key[:commentIndex] + JujuCommentPrefix + comment
+		}
+	}
+	return key
 }
