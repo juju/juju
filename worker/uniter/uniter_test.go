@@ -846,37 +846,43 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 
 func (s *UniterSuite) TestRunCommand(c *gc.C) {
 	testDir := c.MkDir()
+	testFile := func(name string) string {
+		return filepath.Join(testDir, name)
+	}
+	echoUnitNameToFile := func(name string) string {
+		return fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, name))
+	}
 	tests := []uniterTest{
 		ut(
 			"run commands: environment",
 			quickStart{},
-			runCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
+			runCommands{echoUnitNameToFile("run.output")},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
 		), ut(
 			"run commands: jujuc commands",
 			quickStartRelation{},
 			runCommands{
-				fmt.Sprintf("owner-get tag > %s", filepath.Join(testDir, "jujuc.output")),
-				fmt.Sprintf("unit-get private-address >> %s", filepath.Join(testDir, "jujuc.output")),
-				fmt.Sprintf("unit-get public-address >> %s", filepath.Join(testDir, "jujuc.output")),
+				fmt.Sprintf("owner-get tag > %s", testFile("jujuc.output")),
+				fmt.Sprintf("unit-get private-address >> %s", testFile("jujuc.output")),
+				fmt.Sprintf("unit-get public-address >> %s", testFile("jujuc.output")),
 			},
 			verifyFile{
-				filepath.Join(testDir, "jujuc.output"),
+				testFile("jujuc.output"),
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
 			},
 		), ut(
 			"run commands: async using rpc client",
 			quickStart{},
-			asyncRunCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "run.output"))},
-			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
+			asyncRunCommands{echoUnitNameToFile("run.output")},
+			verifyFile{testFile("run.output"), "juju run u/0\n"},
 		), ut(
 			"run commands: waits for lock",
 			quickStart{},
 			acquireHookSyncLock{},
-			asyncRunCommands{fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, "wait.output"))},
-			verifyNoFile{filepath.Join(testDir, "wait.output")},
+			asyncRunCommands{echoUnitNameToFile("wait.output")},
+			verifyNoFile{testFile("wait.output")},
 			releaseHookSyncLock,
-			verifyFile{filepath.Join(testDir, "wait.output"), "juju run u/0\n"},
+			verifyFile{testFile("wait.output"), "juju run u/0\n"},
 		),
 	}
 	s.runUniterTests(c, tests)
@@ -1960,7 +1966,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer client.Close()
 
 		var result cmd.RemoteResponse
-		err = client.Call("Runner.RunCommands", commands, &result)
+		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)
 		c.Check(string(result.Stdout), gc.Equals, "")
