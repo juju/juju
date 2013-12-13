@@ -25,7 +25,7 @@ var logger = loggo.GetLogger("juju.state.apiserver.keymanager")
 type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
 	AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
-	//	DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
+	DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 	//	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 }
 
