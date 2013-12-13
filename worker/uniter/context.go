@@ -210,8 +210,8 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 	return err
 }
 
-// RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute jujuc tools.
+// RunCommands executes the commands in an environment which allows it to to
+// call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*cmd.RemoteResponse, error) {
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	result, err := runCommands(commands, charmDir, env)
@@ -219,7 +219,7 @@ func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath str
 }
 
 // RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute jujuc tools.
+// into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
