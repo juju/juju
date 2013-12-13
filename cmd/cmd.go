@@ -30,6 +30,9 @@ func IsRcPassthroughError(err error) bool {
 	return ok
 }
 
+// NewRcPassthroughError creates an error that will have the code used at the
+// return code from the cmd.Main function rather than the default of 1 if
+// there is an error.
 func NewRcPassthroughError(code int) error {
 	return &rcPassthroughError{code}
 }

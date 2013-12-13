@@ -63,6 +63,9 @@ func (c *RunCommand) Init(args []string) error {
 		return fmt.Errorf("missing commands")
 	}
 	c.unit, args = args[0], args[1:]
+	// If the command line param is a unit id (like service/2) we need to
+	// change it to the unit tag as that is the format of the agent directory
+	// on disk (unit-service-2).
 	if names.IsUnit(c.unit) {
 		c.unit = names.UnitTag(c.unit)
 	}

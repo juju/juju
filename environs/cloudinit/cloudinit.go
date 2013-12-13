@@ -239,6 +239,11 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		return err
 	}
 	c.AddScripts(
+		// We specifically make the symlink here to the machine's current
+		// tools, not to the specific version tool directory (from
+		// cfg.jujuTools()), as we want the jujud that is linked to in
+		// /usr/local/bin to also upgrade when the machine agent upgrades its
+		// tools and changes the tools directory that it is using.
 		fmt.Sprintf("ln -s %s/tools/%s/jujud /usr/local/bin/juju-run", cfg.DataDir, machineTag),
 	)
 
