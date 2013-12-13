@@ -17,9 +17,6 @@ type RunTestSuite struct {
 
 var _ = gc.Suite(&RunTestSuite{})
 
-//func (s *RunTestSuite) SetUpTest(c *gc.C) {
-//}
-
 func (*RunTestSuite) TestWrongArgs(c *gc.C) {
 	for i, test := range []struct {
 		title    string
