@@ -9,21 +9,73 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"testing"
+	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
 type tailerSuite struct{}
 
 var _ = gc.Suite(tailerSuite{})
+
+var (
+	alphabetData = []string{
+		"alpha alpha\n",
+		"bravo bravo\n",
+		"charlie charlie\n",
+		"delta delta\n",
+		"echo echo\n",
+		"foxtrott foxtrott\n",
+		"golf golf\n",
+		"hotel hotel\n",
+		"india india\n",
+		"juliet juliet\n",
+		"kilo kilo\n",
+		"lima lima\n",
+		"mike mike\n",
+		"november november\n",
+		"oscar oscar\n",
+		"papa papa\n",
+		"quebec quebec\n",
+		"romeo romeo\n",
+		"sierra sierra\n",
+		"tango tango\n",
+		"uniform uniform\n",
+		"victor victor\n",
+		"whiskey whiskey\n",
+		"x-ray x-ray\n",
+		"yankee yankee\n",
+		"zulu zulu\n",
+	}
+
+	unterminatedData = []string{
+		"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
+		"0123456789012345678901234567890123456789012345678901\n",
+		"the quick brown fox ",
+		"jumps over the lazy dog\n",
+	}
+
+	emptyLinesData = []string{
+		"one one\n",
+		"two two\n",
+		"\n",
+		"\n",
+		"three three\n",
+		"four four\n",
+		"\n",
+		"\n",
+		"five five\n",
+		"six six\n",
+	}
+)
 
 var tests = []struct {
 	description           string
@@ -36,133 +88,132 @@ var tests = []struct {
 	initialCollectedData  []string
 	appendedCollectedData []string
 	err                   string
-}{
-	{
-		description:           "lines are longer than buffer size",
-		data:                  data[26:29],
-		initialLinesWritten:   1,
-		initialLinesRequested: 1,
-		bufferSize:            5,
-		initialCollectedData:  data[26:27],
-		appendedCollectedData: data[27:28],
-	}, {
-		description:           "lines are longer than buffer size, missing termination of last line",
-		data:                  data[26:30],
-		initialLinesWritten:   1,
-		initialLinesRequested: 1,
-		bufferSize:            5,
-		initialCollectedData:  data[26:27],
-		appendedCollectedData: data[27:28],
-	}, {
-		description:           "lines are longer than buffer size, last line is terminated later",
-		data:                  data[26:30],
-		initialLinesWritten:   1,
-		initialLinesRequested: 1,
-		bufferSize:            5,
-		initialCollectedData:  data[26:27],
-		appendedCollectedData: []string{data[27], data[28] + data[29]},
-	}, {
-		description:           "missing termination of last line",
-		data:                  data[26:29],
-		initialLinesWritten:   1,
-		initialLinesRequested: 1,
-		initialCollectedData:  data[26:27],
-		appendedCollectedData: data[27:28],
-	}, {
-		description:           "last line is terminated later",
-		data:                  data[26:30],
-		initialLinesWritten:   1,
-		initialLinesRequested: 1,
-		initialCollectedData:  data[26:27],
-		appendedCollectedData: []string{data[27], data[28] + data[29]},
-	}, {
-		description:           "more lines already written than initially requested",
-		data:                  data[:26],
-		initialLinesWritten:   5,
-		initialLinesRequested: 3,
-		initialCollectedData:  data[2:5],
-		appendedCollectedData: data[5:26],
-	}, {
-		description:           "less lines already written than initially requested",
-		data:                  data[:26],
-		initialLinesWritten:   3,
-		initialLinesRequested: 5,
-		initialCollectedData:  data[0:3],
-		appendedCollectedData: data[3:26],
-	}, {
-		description:           "lines are longer than buffer size, more lines already written than initially requested",
-		data:                  data[:26],
-		initialLinesWritten:   5,
-		initialLinesRequested: 3,
-		bufferSize:            5,
-		initialCollectedData:  data[2:5],
-		appendedCollectedData: data[5:26],
-	}, {
-		description:           "lines are longer than buffer size, less lines already written than initially requested",
-		data:                  data[:26],
-		initialLinesWritten:   3,
-		initialLinesRequested: 5,
-		bufferSize:            5,
-		initialCollectedData:  data[0:3],
-		appendedCollectedData: data[3:26],
-	}, {
-		description:           "filter lines which contain the char 'e'",
-		data:                  data[:26],
-		initialLinesWritten:   10,
-		initialLinesRequested: 3,
-		filter: func(line []byte) bool {
-			return bytes.Contains(line, []byte{'e'})
-		},
-		initialCollectedData:  []string{data[4], data[7], data[9]},
-		appendedCollectedData: []string{data[12], data[13], data[16], data[17], data[18], data[22], data[24]},
-	}, {
-		description:           "stop tailing after 10 collected lines",
-		data:                  data[:26],
-		initialLinesWritten:   5,
-		initialLinesRequested: 3,
-		injector: func(t *tailer.Tailer, rs *readSeeker) func([]string) {
-			return func(lines []string) {
-				if len(lines) == 10 {
-					t.Stop()
-				}
-			}
-		},
-		initialCollectedData:  data[2:5],
-		appendedCollectedData: data[5:26],
-	}, {
-		description:           "generate an error after 10 collected lines",
-		data:                  data[:26],
-		initialLinesWritten:   5,
-		initialLinesRequested: 3,
-		injector: func(t *tailer.Tailer, rs *readSeeker) func([]string) {
-			return func(lines []string) {
-				if len(lines) == 10 {
-					rs.setError(fmt.Errorf("ouch after 10 lines"))
-				}
-			}
-		},
-		initialCollectedData:  data[2:5],
-		appendedCollectedData: data[5:26],
-		err: "ouch after 10 lines",
-	}, {
-		description:           "more lines already written than initially requested, some empty, unfiltered",
-		data:                  data[30:40],
-		initialLinesWritten:   3,
-		initialLinesRequested: 2,
-		initialCollectedData:  data[31:33],
-		appendedCollectedData: data[33:40],
-	}, {
-		description:           "more lines already written than initially requested, some empty, those filtered",
-		data:                  data[30:40],
-		initialLinesWritten:   3,
-		initialLinesRequested: 2,
-		filter: func(line []byte) bool {
-			return len(bytes.TrimSpace(line)) > 0
-		},
-		initialCollectedData:  data[30:32],
-		appendedCollectedData: []string{data[34], data[35], data[38], data[39]},
+}{{
+	description:           "lines are longer than buffer size",
+	data:                  unterminatedData[0:2],
+	initialLinesWritten:   1,
+	initialLinesRequested: 1,
+	bufferSize:            5,
+	initialCollectedData:  unterminatedData[0:1],
+	appendedCollectedData: unterminatedData[1:2],
+}, {
+	description:           "lines are longer than buffer size, missing termination of last line",
+	data:                  unterminatedData[0:2],
+	initialLinesWritten:   1,
+	initialLinesRequested: 1,
+	bufferSize:            5,
+	initialCollectedData:  unterminatedData[0:1],
+	appendedCollectedData: unterminatedData[1:2],
+}, {
+	description:           "lines are longer than buffer size, last line is terminated later",
+	data:                  unterminatedData,
+	initialLinesWritten:   1,
+	initialLinesRequested: 1,
+	bufferSize:            5,
+	initialCollectedData:  unterminatedData[0:1],
+	appendedCollectedData: []string{unterminatedData[1], unterminatedData[2] + unterminatedData[3]},
+}, {
+	description:           "missing termination of last line",
+	data:                  unterminatedData[0:2],
+	initialLinesWritten:   1,
+	initialLinesRequested: 1,
+	initialCollectedData:  unterminatedData[0:1],
+	appendedCollectedData: unterminatedData[1:2],
+}, {
+	description:           "last line is terminated later",
+	data:                  unterminatedData,
+	initialLinesWritten:   1,
+	initialLinesRequested: 1,
+	initialCollectedData:  unterminatedData[0:1],
+	appendedCollectedData: []string{unterminatedData[1], unterminatedData[2] + unterminatedData[3]},
+}, {
+	description:           "more lines already written than initially requested",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	initialLinesRequested: 3,
+	initialCollectedData:  alphabetData[2:5],
+	appendedCollectedData: alphabetData[5:],
+}, {
+	description:           "less lines already written than initially requested",
+	data:                  alphabetData,
+	initialLinesWritten:   3,
+	initialLinesRequested: 5,
+	initialCollectedData:  alphabetData[0:3],
+	appendedCollectedData: alphabetData[3:],
+}, {
+	description:           "lines are longer than buffer size, more lines already written than initially requested",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	initialLinesRequested: 3,
+	bufferSize:            5,
+	initialCollectedData:  alphabetData[2:5],
+	appendedCollectedData: alphabetData[5:],
+}, {
+	description:           "lines are longer than buffer size, less lines already written than initially requested",
+	data:                  alphabetData,
+	initialLinesWritten:   3,
+	initialLinesRequested: 5,
+	bufferSize:            5,
+	initialCollectedData:  alphabetData[0:3],
+	appendedCollectedData: alphabetData[3:],
+}, {
+	description:           "filter lines which contain the char 'e'",
+	data:                  alphabetData,
+	initialLinesWritten:   10,
+	initialLinesRequested: 3,
+	filter: func(line []byte) bool {
+		return bytes.Contains(line, []byte{'e'})
 	},
-}
+	initialCollectedData: []string{alphabetData[4], alphabetData[7], alphabetData[9]},
+	appendedCollectedData: []string{alphabetData[12], alphabetData[13], alphabetData[16],
+		alphabetData[17], alphabetData[18], alphabetData[22], alphabetData[24]},
+}, {
+	description:           "stop tailing after 10 collected lines",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	initialLinesRequested: 3,
+	injector: func(t *tailer.Tailer, rs *readSeeker) func([]string) {
+		return func(lines []string) {
+			if len(lines) == 10 {
+				t.Stop()
+			}
+		}
+	},
+	initialCollectedData:  alphabetData[2:5],
+	appendedCollectedData: alphabetData[5:],
+}, {
+	description:           "generate an error after 10 collected lines",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	initialLinesRequested: 3,
+	injector: func(t *tailer.Tailer, rs *readSeeker) func([]string) {
+		return func(lines []string) {
+			if len(lines) == 10 {
+				rs.setError(fmt.Errorf("ouch after 10 lines"))
+			}
+		}
+	},
+	initialCollectedData:  alphabetData[2:5],
+	appendedCollectedData: alphabetData[5:],
+	err: "ouch after 10 lines",
+}, {
+	description:           "more lines already written than initially requested, some empty, unfiltered",
+	data:                  emptyLinesData,
+	initialLinesWritten:   3,
+	initialLinesRequested: 2,
+	initialCollectedData:  emptyLinesData[1:3],
+	appendedCollectedData: emptyLinesData[3:],
+}, {
+	description:           "more lines already written than initially requested, some empty, those filtered",
+	data:                  emptyLinesData,
+	initialLinesWritten:   3,
+	initialLinesRequested: 2,
+	filter: func(line []byte) bool {
+		return len(bytes.TrimSpace(line)) > 0
+	},
+	initialCollectedData:  emptyLinesData[0:2],
+	appendedCollectedData: []string{emptyLinesData[4], emptyLinesData[5], emptyLinesData[8], emptyLinesData[9]},
+}}
 
 func (tailerSuite) TestTailer(c *gc.C) {
 	for i, test := range tests {
@@ -175,11 +226,11 @@ func (tailerSuite) TestTailer(c *gc.C) {
 		reader, writer := io.Pipe()
 		sigc := make(chan struct{}, 1)
 		rs := startReadSeeker(c, test.data, test.initialLinesWritten, sigc)
-
-		t := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond)
+		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond)
+		linec := startReading(c, tailer, reader, writer)
 
 		// Collect initial data.
-		assertCollected(c, reader, test.initialCollectedData, nil)
+		assertCollected(c, linec, test.initialCollectedData, nil)
 
 		sigc <- struct{}{}
 
@@ -187,55 +238,83 @@ func (tailerSuite) TestTailer(c *gc.C) {
 		// earlier or generate an error.
 		var injection func([]string)
 		if test.injector != nil {
-			injection = test.injector(t, rs)
+			injection = test.injector(tailer, rs)
 		}
 
-		assertCollected(c, reader, test.appendedCollectedData, injection)
+		assertCollected(c, linec, test.appendedCollectedData, injection)
 
 		if test.err == "" {
-			c.Assert(t.Stop(), gc.IsNil)
+			c.Assert(tailer.Stop(), gc.IsNil)
 		} else {
-			c.Assert(t.Err(), gc.ErrorMatches, test.err)
+			c.Assert(tailer.Err(), gc.ErrorMatches, test.err)
 		}
 	}
 }
 
-// assertCollected reads lines out of the reader used by the Tailer
-// to write the collected data in. It compares if those are the one passed
-// with compare until the timeout. If this time is reached earlier the
-// assertion fails. The injection function allows to interrupt the processing
-// with a function generating an error or a regular stopping during
-// the tailing. As in this case the lines to compare will no be reached
-// the timeout will not be interpreted as failure.
-func assertCollected(c *gc.C, reader io.Reader, compare []string, injection func([]string)) {
-	buffer := bufio.NewReader(reader)
-	timeout := time.Now().Add(250 * time.Millisecond)
+// startReading starts a goroutine receiving the lines out of the reader
+// in the background and passing them to a created string channel. This
+// will used in the assertions.
+func startReading(c *gc.C, tailer *tailer.Tailer, reader *io.PipeReader, writer *io.PipeWriter) chan string {
+	linec := make(chan string)
+	// Start goroutine for reading.
+	go func() {
+		defer close(linec)
+		reader := bufio.NewReader(reader)
+		for {
+			line, err := reader.ReadString('\n')
+			switch err {
+			case nil:
+				linec <- line
+			case io.EOF:
+				return
+			default:
+				c.Fail()
+			}
+		}
+	}()
+	// Close writer when tailer is stopped or has an error. Tailer using
+	// components can do it the same way.
+	go func() {
+		tailer.Wait()
+		writer.Close()
+	}()
+	return linec
+}
+
+// assertCollected reads lines from the string channel linec. It compares if
+// those are the one passed with compare until a timeout. If the timeout is
+// reached earlier than all lines are collected the assertion fails. The
+// injection function allows to interrupt the processing with a function
+// generating an error or a regular stopping during the tailing. In case the
+// linec is closed due to stopping or an error only the values so far care
+// compared. Checking the reason for termination is done in the test.
+func assertCollected(c *gc.C, linec chan string, compare []string, injection func([]string)) {
+	timeout := time.After(testing.LongWait)
 	lines := []string{}
 	for {
-		line, err := buffer.ReadString('\n')
-		if len(line) > 0 {
-			lines = append(lines, line)
-			if injection != nil {
-				injection(lines)
-			}
-			if len(lines) == len(compare) {
-				for i := 0; i < len(lines); i++ {
-					c.Assert(lines[i], gc.Equals, compare[i])
+		select {
+		case line, ok := <-linec:
+			if ok {
+				lines = append(lines, line)
+				if injection != nil {
+					injection(lines)
 				}
+				if len(lines) == len(compare) {
+					// All data received.
+					c.Assert(lines, gc.DeepEquals, compare)
+					return
+				}
+			} else {
+				// linec closed after stopping or error.
+				c.Assert(lines, gc.DeepEquals, compare[:len(lines)])
 				return
 			}
-		}
-		if err == io.EOF {
-			if time.Now().Sub(timeout) > 0 {
-				if injection == nil {
-					c.Fatalf("timeout during tailer collection")
-				}
-				return
+		case <-timeout:
+			if injection == nil {
+				c.Fatalf("timeout during tailer collection")
 			}
-			time.Sleep(time.Millisecond)
-			continue
+			return
 		}
-		c.Assert(err, gc.IsNil)
 	}
 }
 
@@ -318,48 +397,3 @@ func (r *readSeeker) Seek(offset int64, whence int) (ret int64, err error) {
 	r.pos = int(newPos)
 	return newPos, nil
 }
-
-var data = []string{
-	"alpha alpha\n",
-	"bravo bravo\n",
-	"charlie charlie\n",
-	"delta delta\n",
-	"echo echo\n",
-	"foxtrott foxtrott\n",
-	"golf golf\n",
-	"hotel hotel\n",
-	"india india\n",
-	"juliet juliet\n",
-	"kilo kilo\n",
-	"lima lima\n",
-	"mike mike\n",
-	"november november\n",
-	"oscar oscar\n",
-	"papa papa\n",
-	"quebec quebec\n",
-	"romeo romeo\n",
-	"sierra sierra\n",
-	"tango tango\n",
-	"uniform uniform\n",
-	"victor victor\n",
-	"whiskey whiskey\n",
-	"x-ray x-ray\n",
-	"yankee yankee\n",
-	"zulu zulu\n",
-	"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n",
-	"0123456789012345678901234567890123456789012345678901\n",
-	"the quick brown fox ",
-	"jumps over the lazy dog\n",
-	"one one\n",
-	"two two\n",
-	"\n",
-	"\n",
-	"three three\n",
-	"four four\n",
-	"\n",
-	"\n",
-	"five five\n",
-	"six six\n",
-}
-
-var tailerData = data

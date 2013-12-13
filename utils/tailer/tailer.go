@@ -46,23 +46,22 @@ type Tailer struct {
 // lines are filtered. The matching lines are written to the passed
 // Writer. The reading begins the specified number of matching lines
 // from the end.
-func NewTailer(readSeeker io.ReadSeeker, writeCloser io.WriteCloser, lines int, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writeCloser, lines, filter, bufferSize, polltime)
+func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc) *Tailer {
+	return newTailer(readSeeker, writer, lines, filter, bufferSize, polltime)
 }
 
 // newTailer starts a Tailer like NewTailer but allows the setting of
 // the read buffer size and the time between pollings for testing.
-func newTailer(readSeeker io.ReadSeeker, writeCloser io.WriteCloser, lines int, filter TailerFilterFunc,
+func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc,
 	bufferSize int, polltime time.Duration) *Tailer {
 	t := &Tailer{
-		readSeeker:  readSeeker,
-		reader:      bufio.NewReaderSize(readSeeker, bufferSize),
-		writeCloser: writeCloser,
-		writer:      bufio.NewWriter(writeCloser),
-		lines:       lines,
-		filter:      filter,
-		bufferSize:  bufferSize,
-		polltime:    polltime,
+		readSeeker: readSeeker,
+		reader:     bufio.NewReaderSize(readSeeker, bufferSize),
+		writer:     bufio.NewWriter(writer),
+		lines:      lines,
+		filter:     filter,
+		bufferSize: bufferSize,
+		polltime:   polltime,
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -77,6 +76,18 @@ func (t *Tailer) Stop() error {
 	return t.tomb.Wait()
 }
 
+// Wait waits until the tailer is stopped due to command
+// or an error. In case of an error it returns the reason.
+func (t *Tailer) Wait() error {
+	return t.tomb.Wait()
+}
+
+// Dead returns the channel that can be used to wait until
+// the tailer is stopped.
+func (t *Tailer) Dead() <-chan struct{} {
+	return t.tomb.Dead()
+}
+
 // Err returns a possible error.
 func (t *Tailer) Err() error {
 	return t.tomb.Err()
@@ -86,7 +97,6 @@ func (t *Tailer) Err() error {
 // writer and then polls for more data to write it to the
 // writer too.
 func (t *Tailer) loop() error {
-	defer t.writeCloser.Close()
 	// Position the readSeeker.
 	if err := t.seekLastLines(); err != nil {
 		return err
