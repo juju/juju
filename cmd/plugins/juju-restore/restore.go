@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"text/template"
 
 	"launchpad.net/gnuflag"
@@ -83,31 +82,41 @@ func (c *restoreCommand) Init(args []string) error {
 	return nil
 }
 
-var updateBootstrapMachineTemplate = template.Must(template.New("").Parse(`
+var updateBootstrapMachineTemplate = mustParseTemplate(`
 	set -e -x
 	tar xzf juju-backup.tgz
 	test -d juju-backup
-	initctl stop juju-db
+
 	initctl stop jujud-machine-0
-	cd /
+
+	initctl stop juju-db
 	rm -r /var/lib/juju /var/log/juju
-	tar -C juju-backup/root -x -f - | tar -C / -xpz -f -
+	tar -C juju-backup/root -c -f - . | tar -C / -xp -f -
+	ls -lR ~
+	mongorestore --drop --dbpath /var/lib/juju/db juju-backup/dump
 	initctl start juju-db
-	mongo --ssl -u admin -p newAdminSecret localhost:37017/admin
+
+	mongoEval() {
+		mongo --ssl -u admin -p {{.AdminSecret | shquote}} localhost:37017/admin --eval "$1"
+	}
+	# wait for mongo to come up after starting the juju-db upstart service.
+	for i in 0 1 2 3 5 6 7
+	do
+		mongoEval ' ' && break
+		sleep 1
+	done
+	mongoEval '
 		db.machines.update({_id: 0}, {$set: {instanceid: {{.NewInstanceId}} } })
 		db.instanceData.update({_id: 0}, {$set: {instanceid: {{.NewInstanceId}} } })
+	'
 	initctl start jujud-machine-0
-`))
+`)
 
-func updateBootstrapMachineScript(newInstanceId instance.Id) string {
-	var buf bytes.Buffer
-	err := updateBootstrapMachineTemplate.Execute(&buf, struct {
+func updateBootstrapMachineScript(instanceId instance.Id, adminSecret string) string {
+	return execTemplate(updateBootstrapMachineTemplate, struct {
 		NewInstanceId instance.Id
-	}{newInstanceId})
-	if err != nil {
-		panic(fmt.Errorf("template error: %v", err))
-	}
-	return buf.String()
+		AdminSecret string
+	}{instanceId, adminSecret})
 }
 
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
@@ -210,7 +219,7 @@ func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, 
 }
 
 func restoreBootstrapMachine(conn *juju.APIConn, backupFile string) (newInstId instance.Id, addr string, err error) {
-	addr, err = conn.State.Client().PublicAddress("machine-0")
+	addr, err = conn.State.Client().PublicAddress("0")
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
 	}
@@ -228,13 +237,14 @@ func restoreBootstrapMachine(conn *juju.APIConn, backupFile string) (newInstId i
 		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
 	}
 
-	if err := ssh(addr, updateBootstrapMachineScript(newInstId)); err != nil {
+	adminSecret := conn.Environ.Config().AdminSecret()
+	if err := ssh(addr, updateBootstrapMachineScript(newInstId, adminSecret)); err != nil {
 		return "", "", fmt.Errorf("update script failed: %v", err)
 	}
 	return newInstId, addr, nil
 }
 
-var agentAddressTemplate = `
+var agentAddressTemplate = mustParseTemplate(`
 set -exu
 cd /var/lib/juju/agents
 for agent in *
@@ -242,7 +252,7 @@ do
 	initctl stop jujud-$agent
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
-		s/- .*(:[0-9]+)/- $ADDR\1/
+		s/- .*(:[0-9]+)/- {{.Address}}\1/
 	}" $agent/agent.conf
 	if [[ $agent = unit-* ]]
 	then
@@ -250,13 +260,14 @@ do
 	fi
 	initctl start jujud-$agent
 done
-sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+.*)$/\1'$ADDR'\3/' /etc/rsyslog.d/*-juju*.conf
-`
+sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+.*)$/\1{{.Address}}\3/' /etc/rsyslog.d/*-juju*.conf
+`)
 
-// renderScriptArg generates an ssh script argument to update state addresses
-func renderScriptArg(stateAddr string) string {
-	script := strings.Replace(agentAddressTemplate, "$ADDR", stateAddr, -1)
-	return "sudo bash -c " + utils.ShQuote(script)
+// setAgentAddressScript generates an ssh script argument to update state addresses
+func setAgentAddressScript(stateAddr string) string {
+	return execTemplate(agentAddressTemplate, struct {
+		Address string
+	}{stateAddr})
 }
 
 // updateAllMachines finds all machines and resets the stored state address
@@ -277,7 +288,7 @@ func updateAllMachines(st *state.State, stateAddr string) error {
 		pendingMachineCount++
 		machine := machine
 		go func() {
-			err := runMachineUpdate(machine, renderScriptArg(stateAddr))
+			err := runMachineUpdate(machine, setAgentAddressScript(stateAddr))
 			if err != nil {
 				logger.Errorf("failed to update machine %s: %v", machine, err)
 			} else {
@@ -324,7 +335,7 @@ func ssh(addr string, script string) error {
 		"-o", "StrictHostKeyChecking no",
 		"-o", "PasswordAuthentication no",
 		addr,
-		script,
+		"sudo -n bash -c " + utils.ShQuote(script),
 	}
 	c := exec.Command("ssh", args...)
 	if data, err := c.CombinedOutput(); err != nil {
@@ -334,8 +345,9 @@ func ssh(addr string, script string) error {
 }
 
 func scp(file, host, destFile string) error {
-	cmd := exec.Command("scp", "-B", "-q", file, host+":"+destFile)
+	cmd := exec.Command("scp", "-B", "-q", file, "ubuntu@"+host+":"+destFile)
 	logger.Infof("copying backup file to bootstrap host")
+	logger.Debugf("scp command: %s %q", cmd.Path, cmd.Args)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		return nil
@@ -344,4 +356,20 @@ func scp(file, host, destFile string) error {
 		return fmt.Errorf("scp failed: %s", out)
 	}
 	return err
+}
+
+func mustParseTemplate(templ string) *template.Template {
+	t := template.New("").Funcs(template.FuncMap{
+		"shquote": utils.ShQuote,
+	})
+	return template.Must(t.Parse(templ))
+}
+
+func execTemplate(tmpl *template.Template, data interface{}) string {
+	var buf bytes.Buffer
+	err := updateBootstrapMachineTemplate.Execute(&buf, data)
+	if err != nil {
+		panic(fmt.Errorf("template error: %v", err))
+	}
+	return buf.String()
 }
