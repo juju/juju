@@ -1,8 +1,8 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The run listener is a worker go-routine that opens listens on a free high
-// port for juju-run commands.
+// The run listener is a worker go-routine that listens on either a unix
+// socket or a tcp connection for juju-run commands.
 
 package uniter
 
@@ -14,32 +14,48 @@ import (
 	"launchpad.net/juju-core/cmd"
 )
 
+const JujuRunEndpoint = "JujuRunServer.RunCommands"
+
+// A CommandRunner is something that will actually execute the commands and
+// return the results of that execution in the cmd.RemoteResponse (which
+// contains stdout, stderr, and return code).
 type CommandRunner interface {
 	RunCommands(commands string) (results *cmd.RemoteResponse, err error)
 }
 
+// RunListener is responsible for listening on the network connection and
+// seting up the rpc server on that net connection. Also starts the go routine
+// that listens and hands off the work.
 type RunListener struct {
 	listener net.Listener
 	server   *rpc.Server
-	closed   chan bool
-	closing  chan bool
+	closed   chan struct{}
+	closing  chan struct{}
 	wg       sync.WaitGroup
 }
 
-type Runner struct {
+// The JujuRunServer is the entity that has the methods that are called over
+// the rpc connection.
+type JujuRunServer struct {
 	runner CommandRunner
 }
 
-func (r *Runner) RunCommands(commands string, result *cmd.RemoteResponse) error {
+// RunCommands delegates the actual running to the runner and populates the
+// response structure.
+func (r *JujuRunServer) RunCommands(commands string, result *cmd.RemoteResponse) error {
 	logger.Debugf("RunCommands: %q", commands)
 	runResult, err := r.runner.RunCommands(commands)
 	*result = *runResult
 	return err
 }
 
+// NewRunListener returns a new RunListener that is listening on the network
+// type and address passed in. If a valid RunListener is returned, is has the
+// go routine running, and should be closed by the creator when they are done
+// with it.
 func NewRunListener(runner CommandRunner, netType, localAddr string) (*RunListener, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&Runner{runner}); err != nil {
+	if err := server.Register(&JujuRunServer{runner}); err != nil {
 		return nil, err
 	}
 	listener, err := net.Listen(netType, localAddr)
@@ -50,8 +66,8 @@ func NewRunListener(runner CommandRunner, netType, localAddr string) (*RunListen
 	runListener := &RunListener{
 		listener: listener,
 		server:   server,
-		closed:   make(chan bool),
-		closing:  make(chan bool),
+		closed:   make(chan struct{}),
+		closing:  make(chan struct{}),
 	}
 	go runListener.Run()
 	return runListener, nil

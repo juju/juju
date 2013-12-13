@@ -50,7 +50,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	defer client.Close()
 
 	var result cmd.RemoteResponse
-	err = client.Call("Runner.RunCommands", "some-command", &result)
+	err = client.Call(uniter.JujuRunEndpoint, "some-command", &result)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
