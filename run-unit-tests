@@ -17,7 +17,7 @@ else:
 print filename
 EOT
 )
-RUN_OUTPUT=$(ec2-run-instances -k id_rsa -t m1.small ami-659fbd0c)
+RUN_OUTPUT=$(euca-run-instances -k id_rsa -t m1.small ami-659fbd0c)
 if [ $? -ne 0 ]; then
   exit 1
 fi
@@ -29,7 +29,7 @@ instance_ip=''
 echo -n Waiting for IP address
 while [ -z "$instance_ip" ]; do
   sleep 1
-  instance_ip=$(ec2-describe-instances $instance_id|sed '/^INSTANCE/!d'|cut -f 17)
+  instance_ip=$(euca-describe-instances $instance_id|sed '/^INSTANCE/!d'|cut -f 17)
   echo -n .
 done
 echo
@@ -54,5 +54,5 @@ bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
 EXIT_STATUS=$?
-ec2-terminate-instances $instance_id
+euca-terminate-instances $instance_id
 exit $EXIT_STATUS
