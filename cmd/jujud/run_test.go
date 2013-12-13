@@ -30,6 +30,24 @@ func (*RunTestSuite) TestWrongArgs(c *gc.C) {
 	}{{
 		title:    "no args",
 		errMatch: "missing unit-name",
+	}, {
+		title:    "one arg",
+		args:     []string{"foo"},
+		errMatch: "missing commands",
+	}, {
+		title:    "more than two arg",
+		args:     []string{"foo", "bar", "baz"},
+		errMatch: `unrecognized args: \["baz"\]`,
+	}, {
+		title:    "unit and command assignment",
+		args:     []string{"unit-name", "command"},
+		unit:     "unit-name",
+		commands: "command",
+	}, {
+		title:    "unit id converted to tag",
+		args:     []string{"foo/1", "command"},
+		unit:     "unit-foo-1",
+		commands: "command",
 	},
 	} {
 		c.Log(fmt.Sprintf("\n%d: %s", i, test.title))
