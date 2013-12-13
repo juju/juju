@@ -208,7 +208,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.GetHookContext(c, uuid.String(), t.relid, t.remote)
+		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote)
 		var charmDir, outPath string
 		var hookExists bool
 		if t.spec.perm == 0 {
@@ -260,7 +260,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.GetHookContext(c, uuid.String(), -1, "")
+	ctx := s.getHookContext(c, uuid.String(), -1, "")
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -551,7 +551,7 @@ func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
 	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.GetHookContext(c, uuid.String(), relId, remoteName)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName)
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
@@ -696,7 +696,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(apiRelUnit, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
@@ -730,14 +730,14 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) GetHookContext(c *gc.C) *uniter.HookContext {
+func (s *RunCommandSuite) getHookContext(c *gc.C) *uniter.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.GetHookContext(c, uuid.String(), -1, "")
+	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "")
 }
 
 func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
-	context := s.GetHookContext(c)
+	context := s.getHookContext(c)
 	charmDir := c.MkDir()
 	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
 	c.Assert(err, gc.IsNil)
@@ -763,7 +763,7 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 }
 
 func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
-	context := s.GetHookContext(c)
+	context := s.getHookContext(c)
 	charmDir := c.MkDir()
 	commands := `
 echo this is standard out
