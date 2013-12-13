@@ -83,11 +83,11 @@ func SampleConfig() testing.Attrs {
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
 func stateInfo() *state.Info {
-	if testing.MgoServer.Addr == "" {
+	if testing.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	return &state.Info{
-		Addrs:  []string{testing.MgoServer.Addr},
+		Addrs:  []string{testing.MgoServer.Addr()},
 		CACert: []byte(testing.CACert),
 	}
 }
@@ -220,7 +220,7 @@ func Reset() {
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
-	if testing.MgoServer.Addr != "" {
+	if testing.MgoServer.Addr() != "" {
 		testing.MgoServer.Reset()
 	}
 }
@@ -240,7 +240,7 @@ func (state *environState) destroy() {
 		}
 		state.apiState = nil
 	}
-	if testing.MgoServer.Addr != "" {
+	if testing.MgoServer.Addr() != "" {
 		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false

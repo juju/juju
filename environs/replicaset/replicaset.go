@@ -9,12 +9,16 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-// Initiate sets up a replica set with the given replica set name.  It need be
-// called only once for a given mongo replica set.
+// Initiate sets up a replica set with the given replica set name with the
+// single given member.  It need be called only once for a given mongo replica
+// set.
 //
 // Note that you must set DialWithInfo and set Direct = true when dialing into a
 // specific non-initiated mongo server.  The session will be set to Monotonic
 // mode.
+//
+// See http://docs.mongodb.org/manual/reference/method/rs.initiate/ for more
+// details.
 func Initiate(session *mgo.Session, address, name string) error {
 	session.SetMode(mgo.Monotonic, true)
 	cfg := replicaConfig{Name: name, Version: 1, Members: []Member{Member{Address: address}}}
@@ -22,45 +26,41 @@ func Initiate(session *mgo.Session, address, name string) error {
 }
 
 // Member holds configuration information for a replica set member.
+//
+// See http://docs.mongodb.org/v2.4/reference/replica-configuration/#local.system.replset.members
+// for more details
 type Member struct {
 	// Id is a unique id for a member in a set.
 	Id int `bson:"_id"`
 
 	// Address holds the network address of the member,
 	// in the form hostname:port.
-	// See http://goo.gl/VYnZ2z
 	Address string `bson:"host"`
 
 	// Arbiter holds whether the member is an arbiter only.
-	// Value is optional, defaults to false.
-	// See http://goo.gl/LbdhnR
+	// This value is optional; it defaults to false.
 	Arbiter *bool `bson:"arbiterOnly,omitempty"`
 
 	// BuildIndexes determines whether the mongod builds indexes on this member.
-	// Value is optional, defaults to true.
-	// See http://goo.gl/o3hSxg
+	// This value is optional; it defaults to true.
 	BuildIndexes *bool `bson:"buildIndexes,omitempty"`
 
 	// Hidden determines whether the replica set hides this member from
 	// the output of IsMaster.
-	// Value is optional, defaults to false.
-	// See http://goo.gl/ERXGev
+	// This value is optional; it defaults to false.
 	Hidden *bool `bson:"hidden,omitempty"`
 
 	// Priority determines eligibility of a member to become primary.
-	// Value is optional, defaults to 1.
-	// See http://goo.gl/kB27Ku
+	// This value is optional; it defaults to 1.
 	Priority *float64 `bson:"priority,omitempty"`
 
 	// SlaveDelay describes the number of seconds behind the master that this
 	// replica set member should lag rounded up to the nearest second.
-	// Value is optional, defaults to 0.
-	// See http://goo.gl/7vKUr6
+	// This value is optional; it defaults to 0.
 	SlaveDelay *time.Duration `bson:"slaveDelay,omitempty"`
 
 	// Votes controls the number of votes a server has in a replica set election.
-	// Value is optional, defaults to 1.
-	// See http://goo.gl/kgqrU1
+	// This value is optional; it defaults to 1.
 	Votes *int `bson:"votes,omitempty"`
 }
 

@@ -55,7 +55,7 @@ func (s *mgoSuite) TestResetWhenUnauthorized(c *gc.C) {
 }
 
 func (s *mgoSuite) TestStartAndClean(c *gc.C) {
-	c.Assert(testing.MgoServer.Addr, gc.Not(gc.Equals), "")
+	c.Assert(testing.MgoServer.Addr(), gc.Not(gc.Equals), "")
 
 	session := testing.MgoServer.Dial()
 	defer session.Close()

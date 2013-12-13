@@ -2,7 +2,6 @@ package replicaset
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -53,56 +52,52 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	if err != nil {
 		c.Fatalf("Got non-nil error from Start of root server: %q", err.Error())
 	}
-
 	// note, this is an actual test around Initiate, but again, I don't want to
 	// have to redo it, so I just do it once.
-	func() {
-		session := root.DialDirect()
-		defer session.Close()
+	dialAndTestInitiate(c)
+}
 
-		err := Initiate(session, root.Addr, name)
-		if err != nil {
-			c.Fatalf("Got non-nil error from Intiate %q", err.Error())
-		}
+func dialAndTestInitiate(c *gc.C) {
+	session := root.DialDirect()
+	defer session.Close()
 
-		expectedMembers := []Member{Member{Address: root.Addr}}
+	err := Initiate(session, root.Addr(), name)
+	c.Assert(err, gc.IsNil)
 
-		// need to set mode to strong so that we wait for the write to succeed
-		// before reading and thus ensure that we're getting consistent reads.
-		session.SetMode(mgo.Strong, false)
+	expectedMembers := []Member{Member{Address: root.Addr()}}
 
-		mems, err := CurrentMembers(session)
-		if err != nil {
-			c.Fatalf("Got non-nil error from CurrentMembers %q", err.Error())
-		}
-		if !reflect.DeepEqual(mems, expectedMembers) {
-			c.Fatalf("Expected members %v, got members %v ", expectedMembers, mems)
-		}
+	// need to set mode to strong so that we wait for the write to succeed
+	// before reading and thus ensure that we're getting consistent reads.
+	session.SetMode(mgo.Strong, false)
 
-		// now add some data so we get a more real-life test
+	mems, err := CurrentMembers(session)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
-		type foo struct {
-			Name    string
-			Address string
-			Count   int
-		}
+	// now add some data so we get a more real-life test
+	loadData(session, c)
+}
 
-		for col := 0; col < 10; col++ {
-			foos := make([]foo, 10000)
-			for n := range foos {
-				foos[n] = foo{
-					Name:    fmt.Sprintf("name_%d_%d", col, n),
-					Address: fmt.Sprintf("address_%d_%d", col, n),
-					Count:   n * (col + 1),
-				}
-			}
+func loadData(session *mgo.Session, c *gc.C) {
+	type foo struct {
+		Name    string
+		Address string
+		Count   int
+	}
 
-			err = session.DB("testing").C(fmt.Sprintf("data%d", col)).Insert(foos)
-			if err != nil {
-				c.Fatalf("Error inserting test data: %v", err)
+	for col := 0; col < 10; col++ {
+		foos := make([]foo, 10000)
+		for n := range foos {
+			foos[n] = foo{
+				Name:    fmt.Sprintf("name_%d_%d", col, n),
+				Address: fmt.Sprintf("address_%d_%d", col, n),
+				Count:   n * (col + 1),
 			}
 		}
-	}()
+
+		err := session.DB("testing").C(fmt.Sprintf("data%d", col)).Insert(foos)
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *MongoSuite) TearDownSuite(c *gc.C) {
@@ -115,7 +110,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	expectedStatus := []Status{
 		{
-			Address: root.Addr,
+			Address: root.Addr(),
 			Self:    true,
 			ErrMsg:  "",
 			Healthy: true,
@@ -133,7 +128,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	// Add should be idempotent, so re-adding root here shouldn't result in
 	// two copies of root in the replica set
-	members = append(members, Member{Address: root.Addr})
+	members = append(members, Member{Address: root.Addr()})
 
 	instances := make([]*coretesting.MgoInstance, 0, 5)
 	instances = append(instances, root)
@@ -143,8 +138,8 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		instances = append(instances, inst)
 		defer inst.Destroy()
-		defer Remove(session, inst.Addr)
-		members = append(members, Member{Address: inst.Addr, Id: x + 1})
+		defer Remove(session, inst.Addr())
+		members = append(members, Member{Address: inst.Addr(), Id: x + 1})
 	}
 
 	err = Add(session, members...)
@@ -206,14 +201,14 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 		IsMaster:  true,
 		Secondary: false,
 		Arbiter:   false,
-		Address:   root.Addr,
+		Address:   root.Addr(),
 		LocalTime: time.Time{},
 
 		// The following fields hold information about the replica set.
 		ReplicaSetName: name,
-		Addresses:      []string{root.Addr},
+		Addresses:      []string{root.Addr()},
 		Arbiters:       nil,
-		PrimaryAddress: root.Addr,
+		PrimaryAddress: root.Addr(),
 	}
 
 	res, err := IsMaster(session)
@@ -232,14 +227,14 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		IsMaster:  true,
 		Secondary: false,
 		Arbiter:   false,
-		Address:   root.Addr,
+		Address:   root.Addr(),
 		LocalTime: time.Time{},
 
 		// The following fields hold information about the replica set.
 		ReplicaSetName: name,
-		Addresses:      []string{root.Addr},
+		Addresses:      []string{root.Addr()},
 		Arbiters:       nil,
-		PrimaryAddress: root.Addr,
+		PrimaryAddress: root.Addr(),
 	}
 
 	res, err := IsMaster(session)

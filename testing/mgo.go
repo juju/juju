@@ -33,25 +33,34 @@ var (
 )
 
 type MgoInstance struct {
-	// Addr holds the address of the shared MongoDB server set up by
-	// MgoTestPackage.
-	Addr string
+	// addr holds the address of the MongoDB server
+	addr string
 
-	// MgoPort holds the port used by the shared MongoDB server.
-	Port int
+	// MgoPort holds the port of the MongoDB server.
+	port int
 
-	// Server holds the running MongoDB command.
+	// server holds the running MongoDB command.
 	server *exec.Cmd
 
-	// Exited receives a value when the mongodb server exits.
+	// exited receives a value when the mongodb server exits.
 	exited <-chan struct{}
 
-	// Dir holds the directory that MongoDB is running in.
+	// dir holds the directory that MongoDB is running in.
 	dir string
 
-	// params is a list of additional parameters that will be passed to
+	// Params is a list of additional parameters that will be passed to
 	// the mongod application
 	Params []string
+}
+
+// Addr returns the address of the MongoDB server.
+func (m *MgoInstance) Addr() string {
+	return m.addr
+}
+
+// Port returns the port of the MongoDB server.
+func (m *MgoInstance) Port() int {
+	return m.port
 }
 
 // We specify a timeout to mgo.Dial, to prevent
@@ -76,12 +85,12 @@ func (inst *MgoInstance) Start() error {
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
-	inst.Port = FindTCPPort()
-	inst.Addr = fmt.Sprintf("localhost:%d", inst.Port)
+	inst.port = FindTCPPort()
+	inst.addr = fmt.Sprintf("localhost:%d", inst.port)
 	inst.dir = dbdir
 	if err := inst.run(); err != nil {
-		inst.Addr = ""
-		inst.Port = 0
+		inst.addr = ""
+		inst.port = 0
 		os.RemoveAll(inst.dir)
 		inst.dir = ""
 	}
@@ -94,7 +103,7 @@ func (inst *MgoInstance) run() error {
 	if inst.server != nil {
 		panic("mongo server is already running")
 	}
-	mgoport := strconv.Itoa(inst.Port)
+	mgoport := strconv.Itoa(inst.port)
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", inst.dir,
@@ -152,7 +161,7 @@ func (inst *MgoInstance) Destroy() {
 	if inst.server != nil {
 		inst.kill()
 		os.RemoveAll(inst.dir)
-		inst.Addr, inst.dir = "", ""
+		inst.addr, inst.dir = "", ""
 	}
 }
 
@@ -176,7 +185,7 @@ func MgoTestPackage(t *stdtesting.T) {
 }
 
 func (s *MgoSuite) SetUpSuite(c *gc.C) {
-	if MgoServer.Addr == "" {
+	if MgoServer.addr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
@@ -241,7 +250,7 @@ func (inst *MgoInstance) dial(direct bool) *mgo.Session {
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
 		Direct: direct,
-		Addrs:  []string{inst.Addr},
+		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		},
