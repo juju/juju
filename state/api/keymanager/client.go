@@ -35,3 +35,19 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 	err := c.st.Call("KeyManager", "", "ListKeys", p, results)
 	return results.Results, err
 }
+
+// AddKeys adds the authorised ssh keys for the specified user.
+func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, error) {
+	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
+	results := new(params.ErrorResults)
+	err := c.st.Call("KeyManager", "", "AddKeys", p, results)
+	return results.Results, err
+}
+
+// DeleteKeys deletes the authorised ssh keys for the specified user.
+func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, error) {
+	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
+	results := new(params.ErrorResults)
+	err := c.st.Call("KeyManager", "", "DeleteKeys", p, results)
+	return results.Results, err
+}

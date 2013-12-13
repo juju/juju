@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"fmt"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -84,5 +85,104 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 			{Result: []string{key1, key2, "Invalid key: bad key"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
+	})
+}
+
+func (s *keyManagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	keys := envConfig.AuthorizedKeys()
+	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
+}
+
+func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2, "bad key"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
+	args := params.ModifyUserSSHKeys{
+		User: "admin",
+		Keys: []string{key2, newKey, "invalid-key"},
+	}
+	results, err := s.keymanager.AddKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
+			{Error: nil},
+			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
+		},
+	})
+	s.assertEnvironKeys(c, append(initialKeys, newKey))
+}
+
+func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2, "bad key"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: "admin",
+		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
+	}
+	results, err := s.keymanager.DeleteKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: apiservertesting.ServerError("invalid ssh key: " + sshtesting.ValidKeyThree.Fingerprint)},
+			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
+		},
+	})
+	s.assertEnvironKeys(c, []string{"bad key", key1})
+}
+
+func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: "admin",
+		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
+	}
+	_, err := s.keymanager.DeleteKeys(args)
+	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
+	s.assertEnvironKeys(c, initialKeys)
+}
+
+func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, runTestLogic func(args params.ModifyUserSSHKeys) error) {
+	initialKey := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, initialKey)
+
+	// Set up the params.
+	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
+	args := params.ModifyUserSSHKeys{
+		User: "invalid",
+		Keys: []string{newKey},
+	}
+	// Run the required test code and check the error.
+	err := runTestLogic(args)
+	c.Assert(err, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+
+	// No environ changes.
+	s.assertEnvironKeys(c, []string{initialKey})
+}
+
+func (s *keyManagerSuite) TestAddKeysInvalidUser(c *gc.C) {
+	s.assertInvalidUserOperation(c, func(args params.ModifyUserSSHKeys) error {
+		_, err := s.keymanager.AddKeys(args)
+		return err
+	})
+}
+
+func (s *keyManagerSuite) TestDeleteKeysInvalidUser(c *gc.C) {
+	s.assertInvalidUserOperation(c, func(args params.ModifyUserSSHKeys) error {
+		_, err := s.keymanager.DeleteKeys(args)
+		return err
 	})
 }

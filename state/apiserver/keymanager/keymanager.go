@@ -4,31 +4,39 @@
 package keymanager
 
 import (
+	stderrors "errors"
+	"fmt"
 	"strings"
 
-	"fmt"
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.keymanager")
 
 // KeyManager defines the methods on the keymanager API end point.
 type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
-	// soon
-	// AddKeys()
-	// DeleteKeys()
+	AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
+	DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
+	//	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 }
 
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
 type KeyManagerAPI struct {
-	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
-	getCanRead common.GetAuthFunc
+	state       *state.State
+	resources   *common.Resources
+	authorizer  common.Authorizer
+	getCanRead  common.GetAuthFunc
+	getCanWrite common.GetAuthFunc
 }
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
@@ -50,7 +58,18 @@ func NewKeyManagerAPI(
 			return authorizer.GetAuthTag() == "user-admin"
 		}, nil
 	}
-	return &KeyManagerAPI{state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
+	// TODO(wallyworld) - replace stub with real canRead function
+	// For now, only admins can write authorised ssh keys.
+	getCanWrite := func() (common.AuthFunc, error) {
+		return func(tag string) bool {
+			if _, err := st.User(tag); err != nil {
+				return false
+			}
+			return authorizer.GetAuthTag() == "user-admin"
+		}, nil
+	}
+	return &KeyManagerAPI{
+		state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead, getCanWrite: getCanWrite}, nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
@@ -62,9 +81,9 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 
 	// For now, authorised keys are global, common to all users.
 	var keyInfo []string
-	config, configErr := api.state.EnvironConfig()
+	cfg, configErr := api.state.EnvironConfig()
 	if configErr == nil {
-		keysString := config.AuthorizedKeys()
+		keysString := cfg.AuthorizedKeys()
 		keyInfo = parseKeys(keysString, arg.Mode)
 	}
 
@@ -118,4 +137,168 @@ func parseKeys(text string, mode ssh.ListMode) (keyInfo []string) {
 		}
 	}
 	return keyInfo
+}
+
+func (api *KeyManagerAPI) writeSSHKeys(currentConfig *config.Config, sshKeys []string) error {
+	// Write out the new keys.
+	keyStr := strings.Join(sshKeys, "\n")
+	newConfig, err := currentConfig.Apply(map[string]interface{}{"authorized-keys": keyStr})
+	if err != nil {
+		return fmt.Errorf("creating new environ config: %v", err)
+	}
+	err = api.state.SetEnvironConfig(newConfig, currentConfig)
+	if err != nil {
+		return fmt.Errorf("writing environ config: %v", err)
+	}
+	return nil
+}
+
+// currentKeyDataForAdd gathers data used when adding ssh keys.
+func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints *set.Strings, cfg *config.Config, err error) {
+	fp := set.NewStrings()
+	fingerprints = &fp
+	cfg, err = api.state.EnvironConfig()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	keysString := cfg.AuthorizedKeys()
+	keys = strings.Split(keysString, "\n")
+	for _, key := range keys {
+		fingerprint, _, err := ssh.KeyFingerprint(key)
+		if err != nil {
+			logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
+		}
+		fingerprints.Add(fingerprint)
+	}
+	return keys, fingerprints, cfg, nil
+}
+
+// AddKeys adds new authorised ssh keys for the specified user.
+func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(arg.Keys)),
+	}
+	if len(arg.Keys) == 0 {
+		return result, nil
+	}
+
+	canWrite, err := api.getCanWrite()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	if !canWrite(arg.User) {
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	}
+
+	// For now, authorised keys are global, common to all users.
+	sshKeys, currentFingerprints, currentConfig, err := api.currentKeyDataForAdd()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
+	}
+
+	// Ensure we are not going to add invalid or duplicate keys.
+	result.Results = make([]params.ErrorResult, len(arg.Keys))
+	for i, key := range arg.Keys {
+		fingerprint, _, err := ssh.KeyFingerprint(key)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", key))
+			continue
+		}
+		if currentFingerprints.Contains(fingerprint) {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("duplicate ssh key: %s", key))
+			continue
+		}
+		sshKeys = append(sshKeys, key)
+	}
+	err = api.writeSSHKeys(currentConfig, sshKeys)
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	return result, nil
+}
+
+// currentKeyDataForAdd gathers data used when deleting ssh keys.
+func (api *KeyManagerAPI) currentKeyDataForDelete() (
+	keys map[string]string, invalidKeys []string, comments map[string]string, cfg *config.Config, err error) {
+
+	// For now, authorised keys are global, common to all users.
+	cfg, err = api.state.EnvironConfig()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
+	}
+	keysString := cfg.AuthorizedKeys()
+	existingSSHKeys := strings.Split(keysString, "\n")
+
+	// Build up a map of keys indexed by fingerprint, and fingerprints indexed by comment
+	// so we can easily get the key represented by each keyId, which may be either a fingerprint
+	// or comment.
+	keys = make(map[string]string)
+	comments = make(map[string]string)
+	for _, key := range existingSSHKeys {
+		fingerprint, comment, err := ssh.KeyFingerprint(key)
+		if err != nil {
+			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
+			invalidKeys = append(invalidKeys, key)
+			continue
+		}
+		keys[fingerprint] = key
+		if comment != "" {
+			comments[comment] = fingerprint
+		}
+	}
+	return keys, invalidKeys, comments, cfg, nil
+}
+
+// DeleteKeys deletes the authorised ssh keys for the specified user.
+func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(arg.Keys)),
+	}
+	if len(arg.Keys) == 0 {
+		return result, nil
+	}
+
+	canWrite, err := api.getCanWrite()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	if !canWrite(arg.User) {
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	}
+
+	sshKeys, invalidKeys, keyComments, currentConfig, err := api.currentKeyDataForDelete()
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
+	}
+
+	// We keep all existing invalid keys.
+	keysToWrite := invalidKeys
+
+	// Find the keys corresponding to the specified key fingerprints or comments.
+	for i, keyId := range arg.Keys {
+		// assume keyId may be a fingerprint
+		fingerprint := keyId
+		_, ok := sshKeys[keyId]
+		if !ok {
+			// keyId is a comment
+			fingerprint, ok = keyComments[keyId]
+		}
+		if !ok {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
+		}
+		// We found the key to delete so remove it from those we wish to keep.
+		delete(sshKeys, fingerprint)
+	}
+	for _, key := range sshKeys {
+		keysToWrite = append(keysToWrite, key)
+	}
+	if len(keysToWrite) == 0 {
+		return params.ErrorResults{}, common.ServerError(stderrors.New("cannot delete all keys"))
+	}
+
+	err = api.writeSSHKeys(currentConfig, keysToWrite)
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	return result, nil
 }

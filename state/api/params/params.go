@@ -298,6 +298,12 @@ type ListSSHKeys struct {
 	Mode ssh.ListMode
 }
 
+// ModifySSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
+type ModifyUserSSHKeys struct {
+	User string
+	Keys []string
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
