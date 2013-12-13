@@ -32,6 +32,9 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
+// A UniterExecutionObserver gets the appropriate methods called when a hook
+// is executed and either succeeds or fails.  Missing hooks don't get reported
+// in this way.
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
