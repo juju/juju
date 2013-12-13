@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 )
@@ -138,7 +139,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = AuthorizeCharmRepo(repo, conf)
+	repo = config.AuthorizeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

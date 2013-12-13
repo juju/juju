@@ -6,6 +6,7 @@ package api
 import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
@@ -73,4 +74,9 @@ func (st *State) Deployer() *deployer.State {
 // Logger returns access to the Logger API
 func (st *State) Logger() *logger.State {
 	return logger.NewState(st)
+}
+
+// KeyUpdater returns access to the KeyUpdater API
+func (st *State) KeyUpdater() *keyupdater.State {
+	return keyupdater.NewState(st)
 }

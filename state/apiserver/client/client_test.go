@@ -1720,3 +1720,39 @@ func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
 	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
 }
+
+func (s *clientSuite) TestClientAuthorizeStoreOnDeployAndServiceSetCharm(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	oldConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	attrs := coretesting.Attrs(oldConfig.AllAttrs())
+	attrs = attrs.Merge(coretesting.Attrs{"charm-store-auth": "token=value"})
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironConfig(cfg, oldConfig)
+	c.Assert(err, gc.IsNil)
+
+	curl, _ := addCharm(c, store, "dummy")
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", constraints.Value{},
+	)
+	c.Assert(err, gc.IsNil)
+
+	// check that the store's auth attributes were set
+	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+
+	store.AuthAttrs = ""
+
+	curl, _ = addCharm(c, store, "wordpress")
+	err = s.APIState.Client().ServiceSetCharm(
+		"service", curl.String(), false,
+	)
+
+	// check that the store's auth attributes were set
+	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+}

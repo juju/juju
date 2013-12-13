@@ -6,6 +6,7 @@ package main
 import (
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -23,11 +24,15 @@ import (
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/deployer"
@@ -571,6 +576,41 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 			}
 		}
 	})
+}
+
+func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
+	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
+	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Update the keys in the environment.
+	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
+	err := statetesting.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": sshKey})
+	c.Assert(err, gc.IsNil)
+
+	// Wait for ssh keys file to be updated.
+	s.State.StartSync()
+	timeout := time.After(testing.LongWait)
+	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for authorised ssh keys to change")
+		case <-time.After(testing.ShortWait):
+			keys, err := ssh.ListKeys(ssh.FullKeys)
+			c.Assert(err, gc.IsNil)
+			keysStr := strings.Join(keys, "\n")
+			if sshKeyWithCommentPrefix != keysStr {
+				continue
+			}
+			return
+		}
+	}
 }
 
 // opRecvTimeout waits for any of the given kinds of operation to

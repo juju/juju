@@ -22,6 +22,19 @@ import (
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
+type missingHookError struct {
+	hookName string
+}
+
+func (e *missingHookError) Error() string {
+	return e.hookName + " does not exist"
+}
+
+func IsMissingHookError(err error) bool {
+	_, ok := err.(*missingHookError)
+	return ok
+}
+
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
@@ -174,6 +187,26 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	return vars
 }
 
+func (ctx *HookContext) finalizeContext(process string, err error) error {
+	writeChanges := err == nil
+	for id, rctx := range ctx.relations {
+		if writeChanges {
+			if e := rctx.WriteSettings(); e != nil {
+				e = fmt.Errorf(
+					"could not write settings from %q to relation %d: %v",
+					process, id, e,
+				)
+				logger.Errorf("%v", e)
+				if err == nil {
+					err = e
+				}
+			}
+		}
+		rctx.ClearCache()
+	}
+	return err
+}
+
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
@@ -186,23 +219,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	} else {
 		err = runCharmHook(hookName, charmDir, env)
 	}
-	write := err == nil
-	for id, rctx := range ctx.relations {
-		if write {
-			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
-					"could not write settings from %q to relation %d: %v",
-					hookName, id, e,
-				)
-				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
-				}
-			}
-		}
-		rctx.ClearCache()
-	}
-	return err
+	return ctx.finalizeContext(hookName, err)
 }
 
 func runCharmHook(hookName, charmDir string, env []string) error {
@@ -230,7 +247,7 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		if os.IsNotExist(ee.Err) {
 			// Missing hook is perfectly valid, but worth mentioning.
 			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return nil
+			return &missingHookError{hookName}
 		}
 	}
 	return err

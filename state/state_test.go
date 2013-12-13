@@ -140,6 +140,87 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 }
 
+func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
+	// First test the sanity checks.
+	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
+	c.Assert(curl, gc.IsNil)
+	curl, err = s.State.PrepareLocalCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with local schema, got .*")
+	c.Assert(curl, gc.IsNil)
+
+	// No charm in state, so the call should respect given revision.
+	testCurl := charm.MustParseURL("local:quantal/missing-123")
+	curl, err = s.State.PrepareLocalCharmUpload(testCurl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl, gc.DeepEquals, testCurl)
+
+	// Find it directly and verify only the charm URL and
+	// PendingUpload are set.
+	doc := state.CharmDoc{}
+	err = s.charms.FindId(curl).One(&doc)
+	c.Assert(err, gc.IsNil)
+	c.Logf("%#v", doc)
+	c.Assert(doc.URL, gc.DeepEquals, curl)
+	c.Assert(doc.PendingUpload, jc.IsTrue)
+	c.Assert(doc.Meta, gc.IsNil)
+	c.Assert(doc.Config, gc.IsNil)
+	c.Assert(doc.BundleURL, gc.IsNil)
+	c.Assert(doc.BundleSha256, gc.Equals, "")
+
+	// Make sure we can't find it with st.Charm().
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Try adding it again with the same revision and ensure it gets bumped.
+	curl, err = s.State.PrepareLocalCharmUpload(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl.Revision, gc.Equals, 124)
+
+	// Also ensure the revision cannot decrease.
+	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(42))
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl.Revision, gc.Equals, 125)
+
+	// Check the given revision is respected.
+	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(1234))
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl.Revision, gc.Equals, 1234)
+}
+
+func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
+	ch := testing.Charms.Dir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+
+	// First test with already uploaded and a missing charms.
+	sch, err := s.State.UpdateUploadedCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", curl))
+	c.Assert(sch, gc.IsNil)
+	missingCurl := charm.MustParseURL("local:quantal/missing-1")
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(sch, gc.IsNil)
+
+	// Now try with an uploaded charm.
+	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
+	c.Assert(err, gc.IsNil)
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
+	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+}
+
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -205,6 +286,33 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(m, gc.HasLen, 2)
 	check(m[0], "0", "quantal", oneJob)
 	check(m[1], "1", "blahblah", allJobs)
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -583,6 +691,35 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+	// Check that services cannot be added if the environment is initially Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s0", charm)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that services cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
+	_, err = s.State.AddService("s1", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1611,10 +1748,12 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-var findEntityTests = []struct {
+type findEntityTest struct {
 	tag string
 	err string
-}{{
+}
+
+var findEntityTests = []findEntityTest{{
 	tag: "",
 	err: `"" is not a valid tag`,
 }, {
@@ -1651,8 +1790,8 @@ var findEntityTests = []struct {
 	tag: "service-foo/bar",
 	err: `"service-foo/bar" is not a valid service tag`,
 }, {
-	tag: "environment-foo",
-	err: `environment "foo" not found`,
+	tag: "environment-9f484882-2f18-4fd2-967d-db9663db7bea",
+	err: `environment "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 }, {
 	tag: "machine-1234",
 	err: `machine 1234 not found`,
@@ -1673,7 +1812,13 @@ var findEntityTests = []struct {
 }, {
 	tag: "user-arble",
 }, {
+	// TODO(axw) 2013-12-04 #1257587
+	// remove backwards compatibility for environment-tag; see state.go
+	tag: "environment-notauuid",
+	//err: `"environment-notauuid" is not a valid environment tag`,
+}, {
 	tag: "environment-testenv",
+	//err: `"environment-testenv" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -1702,6 +1847,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
 
+	// environment tag is dynamically generated
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	findEntityTests = append([]findEntityTest{}, findEntityTests...)
+	findEntityTests = append(findEntityTests, findEntityTest{
+		tag: "environment-" + env.UUID(),
+	})
+
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)
 		e, err := s.State.FindEntity(test.tag)
@@ -1712,7 +1865,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			kind, err := names.TagKind(test.tag)
 			c.Assert(err, gc.IsNil)
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
-			c.Assert(e.Tag(), gc.Equals, test.tag)
+			if kind == "environment" {
+				// TODO(axw) 2013-12-04 #1257587
+				// We *should* only be able to get the entity with its tag, but
+				// for backwards-compatibility we accept any non-UUID tag.
+				c.Assert(e.Tag(), gc.Equals, env.Tag())
+			} else {
+				c.Assert(e.Tag(), gc.Equals, test.tag)
+			}
 		}
 	}
 }
@@ -1725,7 +1885,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		"foo-",
 		"---",
 		"foo-bar",
-		"environment-foo",
 		"unit-foo",
 	}
 	for _, name := range bad {
@@ -1766,6 +1925,14 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
+	c.Assert(err, gc.IsNil)
+
+	// Parse an environment entity name.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	coll, id, err = state.ParseTag(s.State, env.Tag())
+	c.Assert(coll, gc.Equals, "environments")
+	c.Assert(id, gc.Equals, env.UUID())
 	c.Assert(err, gc.IsNil)
 }
 

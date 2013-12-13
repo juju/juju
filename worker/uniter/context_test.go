@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -206,9 +207,10 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
-		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
+		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
 		ctx := s.GetHookContext(c, uuid.String(), t.relid, t.remote)
 		var charmDir, outPath string
+		var hookExists bool
 		if t.spec.perm == 0 {
 			charmDir = c.MkDir()
 		} else {
@@ -216,12 +218,15 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			spec.name = "something-happened"
 			c.Logf("makeCharm %#v", spec)
 			charmDir, outPath = makeCharm(c, spec)
+			hookExists = true
 		}
 		toolsDir := c.MkDir()
 		t0 := time.Now()
 		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
-		if t.err == "" {
+		if t.err == "" && hookExists {
 			c.Assert(err, gc.IsNil)
+		} else if !hookExists {
+			c.Assert(uniter.IsMissingHookError(err), jc.IsTrue)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}

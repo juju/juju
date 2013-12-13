@@ -128,14 +128,14 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
-		`<- \[\d+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
+		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
 			`{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`-> \[\d+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
-		`<- \[\d+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`-> \[\d+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
+		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
 }

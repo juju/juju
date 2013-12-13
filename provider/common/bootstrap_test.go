@@ -229,7 +229,6 @@ func (neverDNSName) DNSName() (string, error) {
 var testSSHTimeout = common.SSHTimeoutOpts{
 	Timeout:      10 * time.Millisecond,
 	DNSNameDelay: 1 * time.Millisecond,
-	RetryDelay:   1 * time.Millisecond,
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDNSName(c *gc.C) {
@@ -239,8 +238,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDNSName(c *gc.C) {
 	var t tomb.Tomb
 	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting a DNS name: DNS name not allocated")
-	// Exact timing is imprecise but it should have tried a few times before giving up
-	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\\.{5,11}\n")
+	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDNSName(c *gc.C) {
@@ -254,8 +252,7 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDNSName(c *gc.C) {
 	}()
 	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during DNSName")
-	// Exact timing is imprecise but it should have tried a few times before being killed
-	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\\.{1,4}\n")
+	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
 }
 
 type brokenDNSName struct {
@@ -272,8 +269,7 @@ func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
 	var t tomb.Tomb
 	_, err := common.WaitSSH(ctx, brokenDNSName{}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "getting DNS name: DNSName will never work")
-	// We only try 1 time if we don't get ErrNoDNSName back
-	c.Check(buf.String(), gc.Equals, "Waiting for DNS name.\n")
+	c.Check(buf.String(), gc.Equals, "Waiting for DNS name\n")
 }
 
 type neverOpensPort struct {
@@ -292,11 +288,26 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	// 0.x.y.z addresses are always invalid
 	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect to "0.1.2.3:22": dial tcp 0.1.2.3:22: invalid argument`)
+		`waited for 10ms without being able to connect to "0.1.2.3": dial tcp 0.1.2.3:22: invalid argument`)
 	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\\.\n"+
-			" - 0.1.2.3\n"+
-			"Attempting to connect to 0.1.2.3:22\\.{5,11}\n")
+		"Waiting for DNS name\n"+
+			"(Attempting to connect to 0.1.2.3:22\n)+")
+}
+
+type killOnDial struct {
+	name     string
+	tomb     *tomb.Tomb
+	returned bool
+}
+
+func (k *killOnDial) DNSName() (string, error) {
+	// kill the tomb the second time DNSName is called
+	if !k.returned {
+		k.returned = true
+	} else {
+		k.tomb.Killf("stopping WaitSSH during Dial")
+	}
+	return k.name, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -304,15 +315,12 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
-	go func() {
-		<-time.After(2 * time.Millisecond)
-		t.Killf("stopping WaitSSH during Dial")
-	}()
-	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	timeout := testSSHTimeout
+	timeout.Timeout = 1 * time.Minute
+	_, err := common.WaitSSH(ctx, &killOnDial{name: "0.1.2.3", tomb: &t}, &t, timeout)
 	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Dial")
 	// Exact timing is imprecise but it should have tried a few times before being killed
 	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\\.\n"+
-			" - 0.1.2.3\n"+
-			"Attempting to connect to 0.1.2.3:22\\.{1,3}\n")
+		"Waiting for DNS name\n"+
+			"(Attempting to connect to 0.1.2.3:22\n)+")
 }

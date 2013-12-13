@@ -51,6 +51,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	_, err := s.State.EnvironConfig()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.FindEntity("environment-foo")
+	// TODO(axw) 2013-12-04 #1257587
+	// remove backwards compatibility for environment-tag; see state.go
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.EnvironConstraints()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
@@ -66,10 +68,13 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
-	env0, err := s.State.FindEntity("environment-" + cfg.Name())
+
+	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	env := env0.(state.Annotator)
-	annotations, err := env.Annotations()
+	entity, err := s.State.FindEntity("environment-" + env.UUID())
+	c.Assert(err, gc.IsNil)
+	annotator := entity.(state.Annotator)
+	annotations, err := annotator.Annotations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(annotations, gc.HasLen, 0)
 	cons, err := s.State.EnvironConstraints()
