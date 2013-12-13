@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/keyupdater"
 	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
@@ -180,6 +181,16 @@ func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
 	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 }
 
+// KeyUpdater returns an object that provides access to the KeyUpdater API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
+}
+
 // NotifyWatcher returns an object that provides
 // API access to methods on a state.NotifyWatcher.
 // Each client has its own current set of watchers, stored
@@ -284,6 +295,12 @@ func (r *srvRoot) AuthOwner(tag string) bool {
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
+}
+
+// AuthStateManager returns whether the authenticated user is a
+// machine with running the ManageState job.
+func (r *srvRoot) AuthStateManager() bool {
+	return isMachineWithJob(r.entity, state.JobManageState)
 }
 
 // AuthClient returns whether the authenticated entity is a client
