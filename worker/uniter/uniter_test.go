@@ -202,7 +202,7 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (ctx *context) matchLogHooks(c *gc.C) (match bool, overshoot bool) {
+func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
@@ -1507,7 +1507,7 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
-	match, overshoot := ctx.matchLogHooks(c)
+	match, overshoot := ctx.matchHooks(c)
 	if overshoot && len(s) == 0 {
 		c.Fatalf("ran more hooks than expected")
 	}
@@ -1519,7 +1519,7 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
-			if match, _ = ctx.matchLogHooks(c); match {
+			if match, _ = ctx.matchHooks(c); match {
 				return
 			}
 		case <-timeout:
