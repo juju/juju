@@ -76,7 +76,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 		return
 	}
 	defer client.Close()
-	var resp jujuc.Response
+	var resp cmd.RemoteResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil {
 		return
