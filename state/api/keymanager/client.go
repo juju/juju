@@ -51,3 +51,11 @@ func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, 
 	err := c.st.Call("KeyManager", "", "DeleteKeys", p, results)
 	return results.Results, err
 }
+
+// ImportKeys imports the authorised ssh keys with the specified key ids for the specified user.
+func (c *Client) ImportKeys(user string, keyIds ...string) ([]params.ErrorResult, error) {
+	p := params.ModifyUserSSHKeys{User: user, Keys: keyIds}
+	results := new(params.ErrorResults)
+	err := c.st.Call("KeyManager", "", "ImportKeys", p, results)
+	return results.Results, err
+}

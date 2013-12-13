@@ -11,6 +11,8 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/keymanager"
 	"launchpad.net/juju-core/state/api/params"
+	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
+	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
 	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -104,6 +106,22 @@ func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
 	s.assertEnvironKeys(c, []string{"invalid", key3})
 }
 
+func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
+	s.PatchValue(&keymanagerserver.RunSSHImportId, keymanagertesting.FakeImport)
+
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	keyIds := []string{"lp:validuser", "invalid-key"}
+	errResults, err := s.keymanager.ImportKeys("admin", keyIds...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: clientError("invalid ssh key id: invalid-key")},
+	})
+	s.assertEnvironKeys(c, []string{key1, sshtesting.ValidKeyThree.Key})
+}
+
 func (s *keymanagerSuite) assertInvalidUserOperation(c *gc.C, test func(user string, keys []string) error) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorisedKeys(c, key1)
@@ -127,6 +145,13 @@ func (s *keymanagerSuite) TestAddKeysInvalidUser(c *gc.C) {
 func (s *keymanagerSuite) TestDeleteKeysInvalidUser(c *gc.C) {
 	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
 		_, err := s.keymanager.DeleteKeys(user, keys...)
+		return err
+	})
+}
+
+func (s *keymanagerSuite) TestImportKeysInvalidUser(c *gc.C) {
+	s.assertInvalidUserOperation(c, func(user string, keys []string) error {
+		_, err := s.keymanager.ImportKeys(user, keys...)
 		return err
 	})
 }
