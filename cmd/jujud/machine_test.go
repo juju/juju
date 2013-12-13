@@ -601,7 +601,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		select {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(testing.ShortWait):
 			keys, err := ssh.ListKeys(ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
