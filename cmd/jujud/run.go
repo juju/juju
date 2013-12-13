@@ -78,26 +78,23 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	unitDir := filepath.Join(AgentDir, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
-	fileInfo, err := os.Stat(unitDir)
+	_, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("unit %q not found on this machine", c.unit)
 	} else if err != nil {
 		return err
 	}
-	if !fileInfo.IsDir() {
-		return fmt.Errorf("%q is not a directory", unitDir)
-	}
 
 	socketPath := filepath.Join(unitDir, uniter.RunListenerFile)
 	// make sure the socket exists
-	client, err := rpc.Dial("unix", socketPath)
+	client, err := rpc.Dial(uniter.RunListenerNetType, socketPath)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
 	var result cmd.RemoteResponse
-	err = client.Call("Runner.RunCommands", c.commands, &result)
+	err = client.Call(uniter.JujuRunEndpoint, c.commands, &result)
 	if err != nil {
 		return err
 	}
