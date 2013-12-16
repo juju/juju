@@ -36,6 +36,10 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		message:  "no target",
 		args:     []string{"sudo reboot"},
 		errMatch: "You must specify a target, either through --all, --machine, --service or --unit",
+	}, {
+		message:  "too many args",
+		args:     []string{"--all", "sudo reboot", "oops"},
+		errMatch: `unrecognized args: \["oops"\]`,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		runCmd := &RunCommand{}
