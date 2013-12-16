@@ -33,7 +33,7 @@ type Try struct {
 // the error return (see the Result method). The first time it is called,
 // oldErr will be nil; subsequently oldErr will be the error previously
 // returned by combineErrors. If combineErrors is nil, the last
-// encountered encountered is chosen.
+// encountered error is chosen.
 func NewTry(maxParallel int, combineErrors func(err0, err1 error) error) *Try {
 	if combineErrors == nil {
 		combineErrors = chooseLastError
