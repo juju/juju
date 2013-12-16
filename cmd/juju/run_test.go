@@ -10,18 +10,37 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type RunSuite struct {
-	testbase.LoggingSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&RunSuite{})
 
-func (*RunSuite) TestArgParsing(c *gc.C) {
-
-	c.Fail()
+func (*RunSuite) TestTargetArgParsing(c *gc.C) {
+	for i, test := range []struct {
+		message  string
+		args     []string
+		all      bool
+		machines []string
+		units    []string
+		services []string
+		commands string
+		errMatch string
+	}{{
+		message:  "no args",
+		errMatch: "no commands specified",
+	}, {
+		message:  "no target",
+		args:     []string{"sudo reboot"},
+		errMatch: "You must specify a target, either through --all, --machine, --service or --unit",
+	}} {
+		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		runCmd := &RunCommand{}
+		testing.TestInit(c, runCmd, test.args, test.errMatch)
+	}
 }
 
 type mockRunAPI struct {
