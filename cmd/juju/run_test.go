@@ -114,6 +114,38 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}
 }
 
+func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
+	for i, test := range []struct {
+		message  string
+		args     []string
+		errMatch string
+		timeout  time.Duration
+	}{{
+		message: "default time",
+		args:    []string{"--all", "sudo reboot"},
+		timeout: 5 * time.Minute,
+	}, {
+		message:  "invalid time",
+		args:     []string{"--timeout=foo", "--all", "sudo reboot"},
+		errMatch: `invalid value "foo" for flag --timeout: time: invalid duration foo`,
+	}, {
+		message: "two hours",
+		args:    []string{"--timeout=2h", "--all", "sudo reboot"},
+		timeout: 2 * time.Hour,
+	}, {
+		message: "3 minutes 30 seconds",
+		args:    []string{"--timeout=3m30s", "--all", "sudo reboot"},
+		timeout: (3 * time.Minute) + (30 * time.Second),
+	}} {
+		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		runCmd := &RunCommand{}
+		testing.TestInit(c, runCmd, test.args, test.errMatch)
+		if test.errMatch == "" {
+			c.Check(runCmd.timeout, gc.Equals, test.timeout)
+		}
+	}
+}
+
 type mockRunAPI struct {
 	stdout string
 	stderr string
