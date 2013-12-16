@@ -6,6 +6,7 @@ package parallel_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	gc "launchpad.net/gocheck"
 	"sync"
 	"time"
@@ -15,12 +16,18 @@ import (
 	"launchpad.net/juju-core/utils/parallel"
 )
 
+type result string
+
+func (r result) Close() error {
+	return nil
+}
+
 type trySuite struct{}
 
 var _ = gc.Suite(&trySuite{})
 
-func tryFunc(delay time.Duration, val interface{}, err error) func(<-chan struct{}) (interface{}, error) {
-	return func(<-chan struct{}) (interface{}, error) {
+func tryFunc(delay time.Duration, val io.Closer, err error) func(<-chan struct{}) (io.Closer, error) {
+	return func(<-chan struct{}) (io.Closer, error) {
 		time.Sleep(delay)
 		return val, err
 	}
@@ -28,10 +35,10 @@ func tryFunc(delay time.Duration, val interface{}, err error) func(<-chan struct
 
 func (*trySuite) TestOneSuccess(c *gc.C) {
 	try := parallel.NewTry(0, nil)
-	try.Start(tryFunc(0, "hello", nil))
+	try.Start(tryFunc(0, result("hello"), nil))
 	val, err := try.Result()
 	c.Assert(err, gc.IsNil)
-	c.Assert(val, gc.Equals, "hello")
+	c.Assert(val, gc.Equals, result("hello"))
 }
 
 func (*trySuite) TestOneFailure(c *gc.C) {
@@ -61,7 +68,7 @@ func (*trySuite) TestStartReturnsErrorAfterClose(c *gc.C) {
 	err := try.Start(tryFunc(0, nil, expectErr))
 	c.Assert(err, gc.IsNil)
 	try.Close()
-	err = try.Start(tryFunc(0, "goodbye", nil))
+	err = try.Start(tryFunc(0, result("goodbye"), nil))
 	c.Assert(err, gc.Equals, parallel.ErrClosed)
 	// Wait for the first try to deliver its result
 	time.Sleep(testing.ShortWait)
@@ -72,11 +79,11 @@ func (*trySuite) TestStartReturnsErrorAfterClose(c *gc.C) {
 
 func (*trySuite) TestOutOfOrderResults(c *gc.C) {
 	try := parallel.NewTry(0, nil)
-	try.Start(tryFunc(50*time.Millisecond, "first", nil))
-	try.Start(tryFunc(10*time.Millisecond, "second", nil))
+	try.Start(tryFunc(50*time.Millisecond, result("first"), nil))
+	try.Start(tryFunc(10*time.Millisecond, result("second"), nil))
 	r, err := try.Result()
 	c.Assert(err, gc.IsNil)
-	c.Assert(r, gc.Equals, "second")
+	c.Assert(r, gc.Equals, result("second"))
 }
 
 func (*trySuite) TestMaxParallel(c *gc.C) {
@@ -88,7 +95,7 @@ func (*trySuite) TestMaxParallel(c *gc.C) {
 	)
 
 	for i := 0; i < 10; i++ {
-		try.Start(func(<-chan struct{}) (interface{}, error) {
+		try.Start(func(<-chan struct{}) (io.Closer, error) {
 			mu.Lock()
 			if count++; count > max {
 				max = count
@@ -99,12 +106,12 @@ func (*trySuite) TestMaxParallel(c *gc.C) {
 			mu.Lock()
 			count--
 			mu.Unlock()
-			return "hello", nil
+			return result("hello"), nil
 		})
 	}
 	r, err := try.Result()
 	c.Assert(err, gc.IsNil)
-	c.Assert(r, gc.Equals, "hello")
+	c.Assert(r, gc.Equals, result("hello"))
 	mu.Lock()
 	defer mu.Unlock()
 	c.Assert(max, gc.Equals, 3)
@@ -114,11 +121,11 @@ func (*trySuite) TestAllConcurrent(c *gc.C) {
 	try := parallel.NewTry(0, nil)
 	started := make(chan chan struct{})
 	for i := 0; i < 10; i++ {
-		try.Start(func(<-chan struct{}) (interface{}, error) {
+		try.Start(func(<-chan struct{}) (io.Closer, error) {
 			reply := make(chan struct{})
 			started <- reply
 			<-reply
-			return "hello", nil
+			return result("hello"), nil
 		})
 	}
 	timeout := time.After(testing.LongWait)
@@ -148,7 +155,7 @@ func (*trySuite) TestErrorImportance(c *gc.C) {
 	errors := []impError{3, 2, 4, 0, 5, 5, 3}
 	for _, err := range errors {
 		err := err
-		try.Start(func(<-chan struct{}) (interface{}, error) {
+		try.Start(func(<-chan struct{}) (io.Closer, error) {
 			return nil, err
 		})
 	}
@@ -161,15 +168,15 @@ func (*trySuite) TestErrorImportance(c *gc.C) {
 func (*trySuite) TestTriesAreStopped(c *gc.C) {
 	try := parallel.NewTry(0, nil)
 	stopped := make(chan struct{})
-	try.Start(func(stop <-chan struct{}) (interface{}, error) {
+	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 		<-stop
 		stopped <- struct{}{}
-		return nil, nil
+		return nil, parallel.ErrStopped
 	})
-	try.Start(tryFunc(0, "hello", nil))
+	try.Start(tryFunc(0, result("hello"), nil))
 	val, err := try.Result()
 	c.Assert(err, gc.IsNil)
-	c.Assert(val, gc.Equals, "hello")
+	c.Assert(val, gc.Equals, result("hello"))
 
 	select {
 	case <-stopped:
@@ -187,12 +194,55 @@ func (*trySuite) TestCloseTwice(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+type closeResult struct {
+	closed chan struct{}
+}
+
+func (r *closeResult) Close() error {
+	close(r.closed)
+	return nil
+}
+
+func (*trySuite) TestExtraResultsAreClosed(c *gc.C) {
+	try := parallel.NewTry(0, nil)
+	begin := make([]chan struct{}, 4)
+	results := make([]*closeResult, len(begin))
+	for i := range begin {
+		begin[i] = make(chan struct{})
+		results[i] = &closeResult{make(chan struct{})}
+		i := i
+		try.Start(func(<-chan struct{}) (io.Closer, error) {
+			<-begin[i]
+			return results[i], nil
+		})
+	}
+	begin[0] <- struct{}{}
+	val, err := try.Result()
+	c.Assert(err, gc.IsNil)
+	c.Assert(val, gc.Equals, results[0])
+
+	timeout := time.After(testing.ShortWait)
+	for i, r := range results[1:] {
+		begin[i+1] <- struct{}{}
+		select {
+		case <-r.closed:
+		case <-timeout:
+			c.Fatalf("timed out waiting for close")
+		}
+	}
+	select {
+	case <-results[0].closed:
+		c.Fatalf("result was inappropriately closed")
+	case <-time.After(testing.ShortWait):
+	}
+}
+
 func (*trySuite) TestEverything(c *gc.C) {
 	try := parallel.NewTry(5, impErrorCompare)
 	tries := []struct {
 		startAt time.Duration
 		wait    time.Duration
-		val     interface{}
+		val     result
 		err     error
 	}{{
 		wait: 30 * time.Millisecond,
@@ -200,11 +250,11 @@ func (*trySuite) TestEverything(c *gc.C) {
 	}, {
 		startAt: 10 * time.Millisecond,
 		wait:    20 * time.Millisecond,
-		val:     "result 1",
+		val:     result("result 1"),
 	}, {
 		startAt: 20 * time.Millisecond,
 		wait:    10 * time.Millisecond,
-		val:     "result 2",
+		val:     result("result 2"),
 	}, {
 		startAt: 20 * time.Millisecond,
 		wait:    5 * time.Second,
@@ -221,7 +271,7 @@ func (*trySuite) TestEverything(c *gc.C) {
 		}()
 	}
 	val, err := try.Result()
-	if val != "result 1" && val != "result 2" {
+	if val != result("result 1") && val != result("result 2") {
 		c.Errorf(`expected "result 1" or "result 2" got %#v`, val)
 	}
 	c.Assert(err, gc.IsNil)

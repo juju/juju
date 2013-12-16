@@ -2,6 +2,7 @@ package parallel
 
 import (
 	"errors"
+	"io"
 	"launchpad.net/tomb"
 	"sync"
 )
@@ -20,7 +21,7 @@ type Try struct {
 	result        chan result
 	moreImportant func(err0, err1 error) bool
 	maxParallel   int
-	endResult     interface{}
+	endResult     io.Closer
 }
 
 // NewTry returns an object that runs functions concurrently until one
@@ -63,11 +64,11 @@ func neverMoreImportant(err0, err1 error) bool {
 }
 
 type result struct {
-	val interface{}
+	val io.Closer
 	err error
 }
 
-func (t *Try) loop() (interface{}, error) {
+func (t *Try) loop() (io.Closer, error) {
 	var err error
 	closed := false
 	nrunning := 0
@@ -122,13 +123,23 @@ func (t *Try) tryProc(try func()) {
 // The function should listen on the stop channel and return if
 // it receives a value, though this is advisory only - the Try does not wait
 // for all started functions to return before completing.
-func (t *Try) Start(try func(stop <-chan struct{}) (interface{}, error)) error {
+//
+// If the function returns a nil error but some earlier try was successful,
+// its returned value will be closed.
+func (t *Try) Start(try func(stop <-chan struct{}) (io.Closer, error)) error {
+	// TODO(rog) If we end up using this for large numbers
+	// of tries, perhaps we might consider making
+	// this block until the function can be actually started
+	// to limit memory usage by waiting goroutines.
 	dying := t.tomb.Dying()
 	f := func() {
 		val, err := try(dying)
 		select {
 		case t.result <- result{val, err}:
 		case <-dying:
+			if err == nil {
+				val.Close()
+			}
 		}
 	}
 	select {
@@ -171,7 +182,7 @@ func (t *Try) Wait() error {
 // If no function succeeded, the most important error, as determined by
 // moreImportant, is returned. If there were no errors, ErrStopped is
 // returned.
-func (t *Try) Result() (interface{}, error) {
+func (t *Try) Result() (io.Closer, error) {
 	err := t.tomb.Wait()
 	return t.endResult, err
 }
