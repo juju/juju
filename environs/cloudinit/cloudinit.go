@@ -140,6 +140,11 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 
 const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 
+// NonceFile is written by cloud-init as the last thing it does.
+// The file will contain the machine's nonce. The filename is
+// relative to the Juju data-dir.
+const NonceFile = "nonce.txt"
+
 // ConfigureBasic updates the provided cloudinit.Config with
 // basic configuration to initialise an OS image, such that it can
 // be connected to via SSH, and log to a standard location.
@@ -155,6 +160,7 @@ const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
+	c.AddFile(path.Join(cfg.DataDir, NonceFile), cfg.MachineNonce, 0644)
 	return nil
 }
 

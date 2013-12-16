@@ -241,6 +241,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
 		"ssh_authorized_keys": []interface{}{"my-keys"},
+		"runcmd": []interface{}{
+			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
+		},
 	})
 
 	// check that a new instance will be started with a machine agent

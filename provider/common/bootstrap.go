@@ -6,9 +6,12 @@ package common
 import (
 	"fmt"
 	"io"
-	"net"
+	"juju-core/ssh-options/utils/ssh"
 	"os"
 	"os/signal"
+	"path"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")
@@ -111,23 +115,23 @@ func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instan
 }
 
 // refreshingInstance is one that refreshes the
-// underlying Instance before each call to DNSName.
+// underlying Instance before each call to Addresses.
 type refreshingInstance struct {
 	instance.Instance
 	env     environs.Environ
 	refresh bool
 }
 
-func (i *refreshingInstance) DNSName() (string, error) {
+func (i *refreshingInstance) Addresses() ([]instance.Address, error) {
 	if i.refresh {
 		instances, err := i.env.Instances([]instance.Id{i.Instance.Id()})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		i.Instance = instances[0]
 	}
 	i.refresh = true
-	return i.Instance.DNSName()
+	return i.Instance.Addresses()
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
@@ -137,10 +141,28 @@ func (i *refreshingInstance) DNSName() (string, error) {
 var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	var t tomb.Tomb
 	ctx.SetInterruptHandler(func() { t.Killf("interrupted") })
+	// Each attempt to connect to an address must verify the machine is the
+	// bootstrap machine by checking its nonce file exists and contains the
+	// nonce in the MachineConfig. This also blocks sshinit from proceeding
+	// until cloud-init has completed, which is necessary to ensure apt
+	// invocations don't trample each other.
+	nonceFile := utils.ShQuote(path.Join(machineConfig.DataDir, cloudinit.NonceFile))
+	checkNonceCommand := fmt.Sprintf(`
+	noncefile=%s
+	if [ ! -e "$noncefile" ]; then
+		echo "$noncefile does not exist" >&2
+		exit 1
+	fi
+	content=$(cat $noncefile)
+	if [ "$content" != %s ]; then
+		echo "$noncefile contents do not match machine nonce" >&2
+		exit 1
+	fi
+	`, nonceFile, utils.ShQuote(machineConfig.MachineNonce))
 	// TODO: jam 2013-12-04 bug #1257649
 	// It would be nice if users had some controll over their bootstrap
 	// timeout, since it is unlikely to be a perfect match for all clouds.
-	dnsName, err := waitSSH(ctx, inst, &t, DefaultBootstrapSSHTimeout())
+	addr, err := waitSSH(ctx, checkNonceCommand, inst, &t, DefaultBootstrapSSHTimeout())
 	if err != nil {
 		return err
 	}
@@ -154,7 +176,7 @@ var FinishBootstrap = func(ctx *BootstrapContext, inst instance.Instance, machin
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
-	return sshinit.Configure("ubuntu@"+dnsName, cloudcfg)
+	return sshinit.Configure("ubuntu@"+addr, cloudcfg)
 }
 
 // SSHTimeoutOpts lists the amount of time we will wait for various parts of
@@ -165,8 +187,11 @@ type SSHTimeoutOpts struct {
 	// a state server.
 	Timeout time.Duration
 
-	// DNSNameDelay is the amount of time between refreshing the DNS name
-	DNSNameDelay time.Duration
+	// ConnectDelay is the amount of time between attempts to connect to an address.
+	ConnectDelay time.Duration
+
+	// AddressesDelay is the amount of time between refreshing the addresses.
+	AddressesDelay time.Duration
 }
 
 // DefaultBootstrapSSHTimeout is the time we'll wait for SSH to come up on the bootstrap node
@@ -174,74 +199,139 @@ func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
 	return SSHTimeoutOpts{
 		Timeout: 10 * time.Minute,
 
+		ConnectDelay: 5 * time.Second,
+
 		// Not too frequent, as we refresh addresses from the provider each time.
-		DNSNameDelay: 10 * time.Second,
+		AddressesDelay: 10 * time.Second,
 	}
 }
 
-type dnsNamer interface {
-	// DNSName returns the DNS name for the instance.
+type addresser interface {
+	// Addresses returns the DNS name for the instance.
 	// If the name is not yet allocated, it will return
-	// an ErrNoDNSName error.
-	DNSName() (string, error)
+	// an ErrNoAddresses error.
+	Addresses() ([]instance.Address, error)
 }
 
-// waitSSH waits for the instance to be assigned a DNS
-// entry, then waits until we can connect to it via SSH.
-func waitSSH(ctx *BootstrapContext, inst dnsNamer, t *tomb.Tomb, timeout SSHTimeoutOpts) (dnsName string, err error) {
+// connectSSH is called to connect to the specified host and
+// execute the "checkHostScript" bash script on it.
+var connectSSH = func(host, checkHostScript string) error {
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash", "-c", utils.ShQuote(checkHostScript)})
+	output, err := cmd.CombinedOutput()
+	if err != nil && len(output) > 0 {
+		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
+	}
+	return err
+}
+
+// waitSSH waits for the instance to be assigned a routable
+// address, then waits until we can connect to it via SSH.
+//
+// waitSSH attempts on all addresses returned by the instance
+// in parallel; the first succeeding one wins. We ensure that
+// private addresses are for the correct machine by checking
+// the presence of a file on the machine that contains the
+// machine's nonce. The "checkHostScript" is a bash script
+// that performs this file check.
+func waitSSH(ctx *BootstrapContext, checkHostScript string, inst addresser, t *tomb.Tomb, timeout SSHTimeoutOpts) (addr string, err error) {
 	defer t.Done()
 	globalTimeout := time.After(timeout.Timeout)
-	pollDNS := time.NewTimer(0)
-	fmt.Fprintln(ctx.Stderr, "Waiting for DNS name")
-	var dialResultChan chan error
-	var lastErr error
-	for {
-		if dnsName != "" && dialResultChan == nil {
-			addr := dnsName + ":22"
-			fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s\n", addr)
-			dialResultChan = make(chan error, 1)
-			go func() {
-				c, err := net.Dial("tcp", addr)
-				if err == nil {
-					c.Close()
-				}
-				dialResultChan <- err
-			}()
+	pollAddresses := time.NewTimer(0)
+
+	type checkHostResult struct {
+		addr instance.Address
+		err  error
+	}
+	checkHost := func(addr instance.Address, ch chan checkHostResult) {
+		err := connectSSH(addr.Value, checkHostScript)
+		if err != nil {
+			time.Sleep(timeout.ConnectDelay)
 		}
-		select {
-		case <-pollDNS.C:
-			pollDNS.Reset(timeout.DNSNameDelay)
-			newDNSName, err := inst.DNSName()
-			if err != nil && err != instance.ErrNoDNSName {
-				return "", t.Killf("getting DNS name: %v", err)
-			} else if err != nil {
-				lastErr = err
-			} else if newDNSName != dnsName {
-				dnsName = newDNSName
-				dialResultChan = nil
+		ch <- checkHostResult{addr, err}
+	}
+
+	// store the last error so we can report it on global timeout
+	var lastErr error
+	// set of addresses most recently returned by the provider.
+	var addresses []instance.Address
+	// map of dns-names to result channels actively being tested
+	active := make(map[instance.Address]chan checkHostResult)
+
+	// Constants for reflect.SelectCases below.
+	const (
+		casePollAddresses = iota
+		caseGlobalTimeout
+		caseTombDying
+	)
+
+	fmt.Fprintln(ctx.Stderr, "Waiting for address")
+	for {
+		cases := []reflect.SelectCase{
+			casePollAddresses: {Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pollAddresses.C)},
+			caseGlobalTimeout: {Dir: reflect.SelectRecv, Chan: reflect.ValueOf(globalTimeout)},
+			caseTombDying:     {Dir: reflect.SelectRecv, Chan: reflect.ValueOf(t.Dying())},
+		}
+		for addr, checkHostResultChan := range active {
+			if checkHostResultChan == nil {
+				tcpaddr := addr.Value + ":22"
+				fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s\n", tcpaddr)
+				checkHostResultChan = make(chan checkHostResult, 1)
+				active[addr] = checkHostResultChan
+				go checkHost(addr, checkHostResultChan)
 			}
-		case lastErr = <-dialResultChan:
-			if lastErr == nil {
-				return dnsName, nil
+			cases = append(cases, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(checkHostResultChan),
+			})
+		}
+		i, v, _ := reflect.Select(cases)
+		switch i {
+		case casePollAddresses:
+			pollAddresses.Reset(timeout.AddressesDelay)
+			newAddresses, err := inst.Addresses()
+			if err != nil {
+				return "", t.Killf("getting addresses: %v", err)
+			} else {
+				addresses = newAddresses
+				for _, addr := range addresses {
+					if _, ok := active[addr]; !ok {
+						active[addr] = nil
+					}
+				}
 			}
-			logger.Debugf("connection failed: %v", lastErr)
-			dialResultChan = nil // retry
-		case <-globalTimeout:
+		case caseGlobalTimeout:
 			format := "waited for %v "
 			args := []interface{}{timeout.Timeout}
-			if dnsName == "" {
-				format += "without getting a DNS name"
+			if len(addresses) == 0 {
+				format += "without getting any addresses"
 			} else {
-				format += "without being able to connect to %q"
-				args = append(args, dnsName)
+				format += "without being able to connect"
 			}
 			if lastErr != nil {
 				format += ": %v"
 				args = append(args, lastErr)
 			}
 			return "", t.Killf(format, args...)
-		case <-t.Dying():
+		case caseTombDying:
 			return "", t.Err()
+		default:
+			result := v.Interface().(checkHostResult)
+			if result.err == nil {
+				return result.addr.Value, nil
+			}
+			logger.Debugf("connection failed: %v", result.err)
+			lastErr = result.err
+			var found bool
+			for _, addr := range addresses {
+				if result.addr == addr {
+					active[addr] = nil // retry
+					found = true
+					break
+				}
+			}
+			if !found {
+				delete(active, result.addr)
+			}
 		}
 	}
 }

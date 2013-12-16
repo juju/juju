@@ -41,6 +41,9 @@ type cleaner interface {
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(common.ConnectSSH, func(host, checkHostScript string) error {
+		return fmt.Errorf("mock connection failure to %s", host)
+	})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -219,47 +222,48 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 }
 
-type neverDNSName struct {
+type neverAddresses struct {
 }
 
-func (neverDNSName) DNSName() (string, error) {
-	return "", instance.ErrNoDNSName
+func (neverAddresses) Addresses() ([]instance.Address, error) {
+	return nil, nil
 }
 
 var testSSHTimeout = common.SSHTimeoutOpts{
-	Timeout:      10 * time.Millisecond,
-	DNSNameDelay: 1 * time.Millisecond,
+	Timeout:        10 * time.Millisecond,
+	ConnectDelay:   1 * time.Millisecond,
+	AddressesDelay: 1 * time.Millisecond,
 }
 
-func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDNSName(c *gc.C) {
+func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 	ctx := &common.BootstrapContext{}
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
-	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting a DNS name: DNS name not allocated")
-	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
+	_, err := common.WaitSSH(ctx, "/bin/true", neverAddresses{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting any addresses")
+	c.Check(buf.String(), gc.Matches, "Waiting for address\n")
 }
 
-func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDNSName(c *gc.C) {
+func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	ctx := &common.BootstrapContext{}
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
 	go func() {
 		<-time.After(2 * time.Millisecond)
-		t.Killf("stopping WaitSSH during DNSName")
+		t.Killf("stopping WaitSSH during Addresses")
 	}()
-	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during DNSName")
-	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
+	_, err := common.WaitSSH(ctx, "/bin/true", neverAddresses{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Addresses")
+	c.Check(buf.String(), gc.Matches, "Waiting for address\n")
 }
 
-type brokenDNSName struct {
+type brokenAddresses struct {
 }
 
-func (brokenDNSName) DNSName() (string, error) {
-	return "", fmt.Errorf("DNSName will never work")
+func (brokenAddresses) Addresses() ([]instance.Address, error) {
+	return nil, fmt.Errorf("Addresses will never work")
 }
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
@@ -267,17 +271,17 @@ func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
-	_, err := common.WaitSSH(ctx, brokenDNSName{}, &t, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "getting DNS name: DNSName will never work")
-	c.Check(buf.String(), gc.Equals, "Waiting for DNS name\n")
+	_, err := common.WaitSSH(ctx, "/bin/true", brokenAddresses{}, &t, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "getting addresses: Addresses will never work")
+	c.Check(buf.String(), gc.Equals, "Waiting for address\n")
 }
 
 type neverOpensPort struct {
 	name string
 }
 
-func (n *neverOpensPort) DNSName() (string, error) {
-	return n.name, nil
+func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
+	return []instance.Address{instance.NewAddress(n.name)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -286,11 +290,11 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	ctx.Stderr = buf
 	var t tomb.Tomb
 	// 0.x.y.z addresses are always invalid
-	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	_, err := common.WaitSSH(ctx, "/bin/true", &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect to "0.1.2.3": dial tcp 0.1.2.3:22: invalid argument`)
+		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.3`)
 	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\n"+
+		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
 
@@ -300,14 +304,14 @@ type killOnDial struct {
 	returned bool
 }
 
-func (k *killOnDial) DNSName() (string, error) {
-	// kill the tomb the second time DNSName is called
+func (k *killOnDial) Addresses() ([]instance.Address, error) {
+	// kill the tomb the second time Addresses is called
 	if !k.returned {
 		k.returned = true
 	} else {
 		k.tomb.Killf("stopping WaitSSH during Dial")
 	}
-	return k.name, nil
+	return []instance.Address{instance.NewAddress(k.name)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -317,39 +321,42 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 	var t tomb.Tomb
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
-	_, err := common.WaitSSH(ctx, &killOnDial{name: "0.1.2.3", tomb: &t}, &t, timeout)
+	_, err := common.WaitSSH(ctx, "", &killOnDial{name: "0.1.2.3", tomb: &t}, &t, timeout)
 	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Dial")
 	// Exact timing is imprecise but it should have tried a few times before being killed
 	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\n"+
+		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
 
-type dnsNameChanges struct {
+type addressesChanges struct {
 	names []string
 }
 
-func (d *dnsNameChanges) DNSName() (string, error) {
+func (d *addressesChanges) Addresses() ([]instance.Address, error) {
 	name := d.names[0]
 	if len(d.names) > 1 {
 		d.names = d.names[1:]
 	}
 	if name == "" {
-		return "", instance.ErrNoDNSName
+		return nil, nil
 	}
-	return name, nil
+	return []instance.Address{instance.NewAddress(name)}, nil
 }
 
-func (s *BootstrapSuite) TestWaitSSHRefreshDNSName(c *gc.C) {
+func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	ctx := &common.BootstrapContext{}
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
-	_, err := common.WaitSSH(ctx, &dnsNameChanges{[]string{"", "0.1.2.3", "0.1.2.3", "", "0.1.2.4"}}, &t, testSSHTimeout)
+	_, err := common.WaitSSH(ctx, "", &addressesChanges{[]string{"", "0.1.2.3", "0.1.2.3", "", "0.1.2.4"}}, &t, testSSHTimeout)
+	// Not necessarily the last one in the list, due to scheduling.
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect to "0.1.2.4": dial tcp 0.1.2.4:22: invalid argument`)
+		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.[34]`)
 	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\n"+
-			"(Attempting to connect to 0.1.2.3:22\n)+"+
-			"(Attempting to connect to 0.1.2.4:22\n)+")
+		"Waiting for address\n"+
+			"(.|\n)*(Attempting to connect to 0.1.2.3:22\n)+(.|\n)*")
+	c.Check(buf.String(), gc.Matches,
+		"Waiting for address\n"+
+			"(.|\n)*(Attempting to connect to 0.1.2.4:22\n)+(.|\n)*")
 }
