@@ -282,24 +282,48 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
-	*nova.ServerDetail
-	e        *environ
-	instType *instances.InstanceType
-	arch     *string
+	serverDetail   *nova.ServerDetail
+	serverDetailMu sync.Mutex
+	e              *environ
+	instType       *instances.InstanceType
+	arch           *string
 }
 
 func (inst *openstackInstance) String() string {
-	return inst.ServerDetail.Id
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*openstackInstance)(nil)
 
+func (inst *openstackInstance) Refresh() error {
+	inst.serverDetailMu.Lock()
+	defer inst.serverDetailMu.Unlock()
+	server, err := inst.e.nova().GetServer(string(inst.idUnlocked()))
+	if err != nil {
+		return err
+	}
+	inst.serverDetail = server
+	return nil
+}
+
+func (inst *openstackInstance) getServerDetail() *nova.ServerDetail {
+	inst.serverDetailMu.Lock()
+	defer inst.serverDetailMu.Unlock()
+	return inst.serverDetail
+}
+
 func (inst *openstackInstance) Id() instance.Id {
-	return instance.Id(inst.ServerDetail.Id)
+	inst.serverDetailMu.Lock()
+	defer inst.serverDetailMu.Unlock()
+	return inst.idUnlocked()
+}
+
+func (inst *openstackInstance) idUnlocked() instance.Id {
+	return instance.Id(inst.serverDetail.Id)
 }
 
 func (inst *openstackInstance) Status() string {
-	return inst.ServerDetail.Status
+	return inst.getServerDetail().Status
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
@@ -326,7 +350,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 // getAddress returns the existing server information on addresses,
 // but fetches the details over the api again if no addresses exist.
 func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
-	addrs := inst.ServerDetail.Addresses
+	addrs := inst.getServerDetail().Addresses
 	if len(addrs) == 0 {
 		server, err := inst.e.nova().GetServer(string(inst.Id()))
 		if err != nil {
@@ -726,7 +750,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	inst := &openstackInstance{
 		e:            e,
-		ServerDetail: detail,
+		serverDetail: detail,
 		arch:         &spec.Image.Arch,
 		instType:     &spec.InstanceType,
 	}
@@ -787,7 +811,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 			switch server.Status {
 			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-				out[id] = &openstackInstance{e: e, ServerDetail: &server}
+				out[id] = &openstackInstance{e: e, serverDetail: &server}
 				continue
 			}
 		}
@@ -836,7 +860,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 			insts = append(insts, &openstackInstance{
 				e:            e,
-				ServerDetail: &s,
+				serverDetail: &s,
 			})
 		}
 	}

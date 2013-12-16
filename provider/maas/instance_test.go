@@ -21,7 +21,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	resourceURI, _ := obj.GetField("resource_uri")
-	instance := maasInstance{&obj, s.makeEnviron()}
+	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
@@ -29,7 +29,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 func (s *instanceTest) TestString(c *gc.C) {
 	jsonValue := `{"hostname": "thethingintheplace", "system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := &maasInstance{&obj, s.makeEnviron()}
+	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 	hostname, err := instance.DNSName()
 	c.Assert(err, gc.IsNil)
 	expected := hostname + ":" + string(instance.Id())
@@ -40,7 +40,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	// For good measure, test what happens if we don't have a hostname.
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := &maasInstance{&obj, s.makeEnviron()}
+	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 	_, err := instance.DNSName()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
@@ -51,9 +51,9 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	s.testMAASObject.TestServer.ChangeNode("system_id", "test2", "test2")
-	instance := maasInstance{&obj, s.makeEnviron()}
+	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
-	err := instance.refreshInstance()
+	err := instance.Refresh()
 
 	c.Check(err, gc.IsNil)
 	testField, err := (*instance.maasObject).GetField("test2")
@@ -64,7 +64,7 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 func (s *instanceTest) TestDNSName(c *gc.C) {
 	jsonValue := `{"hostname": "DNS name", "system_id": "system_id"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := maasInstance{&obj, s.makeEnviron()}
+	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	dnsName, err := instance.DNSName()
 
@@ -85,7 +85,7 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	expected := []instance.Address{
 		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
@@ -107,7 +107,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 		"system_id": "system_id"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	addr, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
@@ -123,7 +123,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		"ip_addresses": "incompatible"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -136,7 +136,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		"ip_addresses": [42]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)

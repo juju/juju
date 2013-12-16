@@ -222,7 +222,15 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 }
 
+type neverRefreshes struct {
+}
+
+func (neverRefreshes) Refresh() error {
+	return nil
+}
+
 type neverAddresses struct {
+	neverRefreshes
 }
 
 func (neverAddresses) Addresses() ([]instance.Address, error) {
@@ -260,6 +268,7 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 }
 
 type brokenAddresses struct {
+	neverRefreshes
 }
 
 func (brokenAddresses) Addresses() ([]instance.Address, error) {
@@ -277,11 +286,12 @@ func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
 }
 
 type neverOpensPort struct {
-	name string
+	neverRefreshes
+	addr string
 }
 
 func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
-	return []instance.Address{instance.NewAddress(n.name)}, nil
+	return []instance.Address{instance.NewAddress(n.addr)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -290,7 +300,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	ctx.Stderr = buf
 	var t tomb.Tomb
 	// 0.x.y.z addresses are always invalid
-	_, err := common.WaitSSH(ctx, "/bin/true", &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	_, err := common.WaitSSH(ctx, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
 		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.3`)
 	c.Check(buf.String(), gc.Matches,
@@ -299,6 +309,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 }
 
 type killOnDial struct {
+	neverRefreshes
 	name     string
 	tomb     *tomb.Tomb
 	returned bool
@@ -329,19 +340,23 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
 
-type addressesChanges struct {
-	names []string
+type addressesChange struct {
+	addrs [][]string
 }
 
-func (d *addressesChanges) Addresses() ([]instance.Address, error) {
-	name := d.names[0]
-	if len(d.names) > 1 {
-		d.names = d.names[1:]
+func (ac *addressesChange) Refresh() error {
+	if len(ac.addrs) > 1 {
+		ac.addrs = ac.addrs[1:]
 	}
-	if name == "" {
-		return nil, nil
+	return nil
+}
+
+func (ac *addressesChange) Addresses() ([]instance.Address, error) {
+	var addrs []instance.Address
+	for _, addr := range ac.addrs[0] {
+		addrs = append(addrs, instance.NewAddress(addr))
 	}
-	return []instance.Address{instance.NewAddress(name)}, nil
+	return addrs, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
@@ -349,7 +364,14 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	buf := &bytes.Buffer{}
 	ctx.Stderr = buf
 	var t tomb.Tomb
-	_, err := common.WaitSSH(ctx, "", &addressesChanges{[]string{"", "0.1.2.3", "0.1.2.3", "", "0.1.2.4"}}, &t, testSSHTimeout)
+	_, err := common.WaitSSH(ctx, "", &addressesChange{addrs: [][]string{
+		nil,
+		nil,
+		[]string{"0.1.2.3"},
+		[]string{"0.1.2.3"},
+		nil,
+		[]string{"0.1.2.4"},
+	}}, &t, testSSHTimeout)
 	// Not necessarily the last one in the list, due to scheduling.
 	c.Check(err, gc.ErrorMatches,
 		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.[34]`)

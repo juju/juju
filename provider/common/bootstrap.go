@@ -82,7 +82,6 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
-	inst = &refreshingInstance{Instance: inst, env: env}
 	return FinishBootstrap(&ctx, inst, machineConfig)
 }
 
@@ -112,26 +111,6 @@ func handleBootstrapError(err error, ctx *BootstrapContext, inst instance.Instan
 		}
 	}
 	ctx.SetInterruptHandler(nil)
-}
-
-// refreshingInstance is one that refreshes the
-// underlying Instance before each call to Addresses.
-type refreshingInstance struct {
-	instance.Instance
-	env     environs.Environ
-	refresh bool
-}
-
-func (i *refreshingInstance) Addresses() ([]instance.Address, error) {
-	if i.refresh {
-		instances, err := i.env.Instances([]instance.Id{i.Instance.Id()})
-		if err != nil {
-			return nil, err
-		}
-		i.Instance = instances[0]
-	}
-	i.refresh = true
-	return i.Instance.Addresses()
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
@@ -207,9 +186,12 @@ func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
 }
 
 type addresser interface {
-	// Addresses returns the DNS name for the instance.
-	// If the name is not yet allocated, it will return
-	// an ErrNoAddresses error.
+	// Refresh refreshes the addresses for the instance.
+	Refresh() error
+
+	// Addresses returns the addresses for the instance.
+	// To ensure that the results are up to date, call
+	// Refresh first.
 	Addresses() ([]instance.Address, error)
 }
 
@@ -288,6 +270,9 @@ func waitSSH(ctx *BootstrapContext, checkHostScript string, inst addresser, t *t
 		switch i {
 		case casePollAddresses:
 			pollAddresses.Reset(timeout.AddressesDelay)
+			if err := inst.Refresh(); err != nil {
+				return "", t.Killf("refreshing addresses: %v", err)
+			}
 			newAddresses, err := inst.Addresses()
 			if err != nil {
 				return "", t.Killf("getting addresses: %v", err)
