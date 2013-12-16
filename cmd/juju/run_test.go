@@ -61,6 +61,45 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"The following run targets are not valid:\n" +
 			"  \"foo\" is not a valid machine id\n" +
 			"  \"machine-2\" is not a valid machine id",
+	}, {
+		message:  "all and defined services",
+		args:     []string{"--all", "--service=wordpress, mysql", "sudo reboot"},
+		errMatch: `You cannot specify --all and individual services`,
+	}, {
+		message:  "command to services wordpress and mysql",
+		args:     []string{"--service=wordpress, mysql", "sudo reboot"},
+		commands: "sudo reboot",
+		services: []string{"wordpress", "mysql"},
+	}, {
+		message: "bad service names",
+		args:    []string{"--service", "foo,2,foo/0", "sudo reboot"},
+		errMatch: "" +
+			"The following run targets are not valid:\n" +
+			"  \"2\" is not a valid service name\n" +
+			"  \"foo/0\" is not a valid service name",
+	}, {
+		message:  "all and defined units",
+		args:     []string{"--all", "--unit=wordpress/0, mysql/1", "sudo reboot"},
+		errMatch: `You cannot specify --all and individual units`,
+	}, {
+		message:  "command to valid units",
+		args:     []string{"--unit=wordpress/0,wordpress/1,mysql/0", "sudo reboot"},
+		commands: "sudo reboot",
+		units:    []string{"wordpress/0", "wordpress/1", "mysql/0"},
+	}, {
+		message: "bad unit names",
+		args:    []string{"--unit", "foo,2,foo/0", "sudo reboot"},
+		errMatch: "" +
+			"The following run targets are not valid:\n" +
+			"  \"foo\" is not a valid unit name\n" +
+			"  \"2\" is not a valid unit name",
+	}, {
+		message:  "command to mixed valid targets",
+		args:     []string{"--machine=0", "--unit=wordpress/0,wordpress/1", "--service=mysql", "sudo reboot"},
+		commands: "sudo reboot",
+		machines: []string{"0"},
+		services: []string{"mysql"},
+		units:    []string{"wordpress/0", "wordpress/1"},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		runCmd := &RunCommand{}
