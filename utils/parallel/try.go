@@ -19,7 +19,7 @@ type Try struct {
 	limiter       chan struct{}
 	start         chan func()
 	result        chan result
-	moreImportant func(err0, err1 error) bool
+	combineErrors func(err0, err1 error) error
 	maxParallel   int
 	endResult     io.Closer
 }
@@ -29,16 +29,17 @@ type Try struct {
 // error is available from the Result method. If maxParallel is
 // positive, it limits the nunber of concurrently running functions.
 //
-// The function moreImportant(err0, err1) returns whether err0 is
-// considered more important than err1, and is used to determine the
-// error return (see the Result method). It may be nil, in which case
-// the first error always wins.
-func NewTry(maxParallel int, moreImportant func(err0, err1 error) bool) *Try {
-	if moreImportant == nil {
-		moreImportant = neverMoreImportant
+// The function combineErrors(oldErr, newErr) is called to determine
+// the error return (see the Result method). The first time it is called,
+// oldErr will be nil; subsequently oldErr will be the error previously
+// returned by combineErrors. If combineErrors is nil, the last
+// encountered encountered is chosen.
+func NewTry(maxParallel int, combineErrors func(err0, err1 error) error) *Try {
+	if combineErrors == nil {
+		combineErrors = chooseLastError
 	}
 	t := &Try{
-		moreImportant: moreImportant,
+		combineErrors: combineErrors,
 		maxParallel:   maxParallel,
 		close:         make(chan struct{}, 1),
 		result:        make(chan result),
@@ -59,8 +60,8 @@ func NewTry(maxParallel int, moreImportant func(err0, err1 error) bool) *Try {
 	return t
 }
 
-func neverMoreImportant(err0, err1 error) bool {
-	return false
+func chooseLastError(err0, err1 error) error {
+	return err1
 }
 
 type result struct {
@@ -76,14 +77,12 @@ func (t *Try) loop() (io.Closer, error) {
 		select {
 		case f := <-t.start:
 			nrunning++
-			go t.tryProc(f)
+			go f()
 		case r := <-t.result:
 			if r.err == nil {
 				return r.val, r.err
 			}
-			if err == nil || t.moreImportant(r.err, err) {
-				err = r.err
-			}
+			err = t.combineErrors(err, r.err)
 			nrunning--
 			if closed && nrunning == 0 {
 				return nil, err
@@ -102,38 +101,37 @@ func (t *Try) loop() (io.Closer, error) {
 	}
 }
 
-func (t *Try) tryProc(try func()) {
-	if t.limiter == nil {
-		try()
-		return
-	}
-	select {
-	case <-t.limiter:
-	case <-t.tomb.Dying():
-		return
-	}
-	try()
-	t.limiter <- struct{}{}
-}
-
-// Start starts running the given function and returns immediately. It
-// returns ErrClosed if the Try has been closed, and ErrStopped if the try
-// is finishing.
+// Start requests the given function to be started, waiting until there
+// are less than maxParallel functions running if necessary. It returns
+// an error if the function has not been started (ErrClosed if the Try
+// has been closed, and ErrStopped if the try is finishing).
 //
-// The function should listen on the stop channel and return if
-// it receives a value, though this is advisory only - the Try does not wait
-// for all started functions to return before completing.
+// The function should listen on the stop channel and return if it
+// receives a value, though this is advisory only - the Try does not
+// wait for all started functions to return before completing.
 //
-// If the function returns a nil error but some earlier try was successful,
-// its returned value will be closed.
+// If the function returns a nil error but some earlier try was
+// successful (that is, the returned value is being discarded),
+// its returned value will be closed by calling its Close method.
 func (t *Try) Start(try func(stop <-chan struct{}) (io.Closer, error)) error {
-	// TODO(rog) If we end up using this for large numbers
-	// of tries, perhaps we might consider making
-	// this block until the function can be actually started
-	// to limit memory usage by waiting goroutines.
+	if t.limiter != nil {
+		// Wait for availability slot.
+		select {
+		case <-t.limiter:
+		case <-t.tomb.Dying():
+			return ErrStopped
+		case <-t.close:
+			return ErrClosed
+		}
+	}
 	dying := t.tomb.Dying()
 	f := func() {
 		val, err := try(dying)
+		if t.limiter != nil {
+			// Signal availability slot is now free.
+			t.limiter <- struct{}{}
+		}
+		// Deliver result.
 		select {
 		case t.result <- result{val, err}:
 		case <-dying:
@@ -156,16 +154,18 @@ func (t *Try) Start(try func(stop <-chan struct{}) (io.Closer, error)) error {
 // if Start is called, and the Try will terminate when all
 // outstanding functions have completed (or earlier
 // if one succeeds)
-func (c *Try) Close() {
-	c.closeMutex.Lock()
-	defer c.closeMutex.Unlock()
+func (t *Try) Close() {
+	t.closeMutex.Lock()
+	defer t.closeMutex.Unlock()
 	select {
-	case <-c.close:
+	case <-t.close:
 	default:
-		close(c.close)
+		close(t.close)
 	}
 }
 
+// Dead returns a channel that is closed when the
+// Try completes.
 func (t *Try) Dead() <-chan struct{} {
 	return t.tomb.Dead()
 }
@@ -179,9 +179,9 @@ func (t *Try) Wait() error {
 // Result waits for the Try to complete and returns the result of the
 // first successful function started by Start.
 //
-// If no function succeeded, the most important error, as determined by
-// moreImportant, is returned. If there were no errors, ErrStopped is
-// returned.
+// If no function succeeded, the last error returned by
+// combineErrors is returned. If there were no errors or
+// combineErrors returned nil, ErrStopped is returned.
 func (t *Try) Result() (io.Closer, error) {
 	err := t.tomb.Wait()
 	return t.endResult, err

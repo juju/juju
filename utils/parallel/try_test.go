@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	gc "launchpad.net/gocheck"
+	"sort"
 	"sync"
 	"time"
 
@@ -117,6 +118,85 @@ func (*trySuite) TestMaxParallel(c *gc.C) {
 	c.Assert(max, gc.Equals, 3)
 }
 
+func (*trySuite) TestStartBlocksForMaxParallel(c *gc.C) {
+	try := parallel.NewTry(3, nil)
+
+	started := make(chan struct{})
+	begin := make(chan struct{})
+	go func() {
+		for i := 0; i < 6; i++ {
+			err := try.Start(func(<-chan struct{}) (io.Closer, error) {
+				<-begin
+				return nil, fmt.Errorf("an error")
+			})
+			started <- struct{}{}
+			if i < 5 {
+				c.Check(err, gc.IsNil)
+			} else {
+				c.Check(err, gc.Equals, parallel.ErrClosed)
+			}
+		}
+		close(started)
+	}()
+	// Check we can start the first three.
+	timeout := time.After(testing.LongWait)
+	for i := 0; i < 3; i++ {
+		select {
+		case <-started:
+		case <-timeout:
+			c.Fatalf("timed out")
+		}
+	}
+	// Check we block when going above maxParallel.
+	timeout = time.After(testing.ShortWait)
+	select {
+	case <-started:
+		c.Fatalf("Start did not block")
+	case <-timeout:
+	}
+
+	// Unblock two attempts.
+	begin <- struct{}{}
+	begin <- struct{}{}
+
+	// Check we can start another two.
+	timeout = time.After(testing.LongWait)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-started:
+		case <-timeout:
+			c.Fatalf("timed out")
+		}
+	}
+
+	// Check we block again when going above maxParallel.
+	timeout = time.After(testing.ShortWait)
+	select {
+	case <-started:
+		c.Fatalf("Start did not block")
+	case <-timeout:
+	}
+
+	// Close the Try - the last request should be discarded,
+	// unblocking last remaining Start request.
+	try.Close()
+
+	timeout = time.After(testing.LongWait)
+	select {
+	case <-started:
+	case <-timeout:
+		c.Fatalf("Start did not unblock after Close")
+	}
+
+	// Ensure all checks are completed
+	select {
+	case _, ok := <-started:
+		c.Assert(ok, gc.Equals, false)
+	case <-timeout:
+		c.Fatalf("Start goroutine did not finish")
+	}
+}
+
 func (*trySuite) TestAllConcurrent(c *gc.C) {
 	try := parallel.NewTry(0, nil)
 	started := make(chan chan struct{})
@@ -139,20 +219,37 @@ func (*trySuite) TestAllConcurrent(c *gc.C) {
 	}
 }
 
-type impError int
+type gradedError int
 
-func (e impError) Error() string {
+func (e gradedError) Error() string {
 	return fmt.Sprintf("error with importance %d", e)
 }
 
-func impErrorCompare(err0, err1 error) bool {
-	return err0.(impError) > err1.(impError)
+func gradedErrorCombine(err0, err1 error) error {
+	if err0 == nil || err0.(gradedError) < err1.(gradedError) {
+		return err1
+	}
+	return err0
 }
 
-func (*trySuite) TestErrorImportance(c *gc.C) {
+type multiError struct {
+	errs []int
+}
+
+func (e *multiError) Error() string {
+	return fmt.Sprintf("%v", e.errs)
+}
+
+func (*trySuite) TestErrorCombine(c *gc.C) {
 	// Use maxParallel=1 to guarantee that all errors are processed sequentially.
-	try := parallel.NewTry(1, impErrorCompare)
-	errors := []impError{3, 2, 4, 0, 5, 5, 3}
+	try := parallel.NewTry(1, func(err0, err1 error) error {
+		if err0 == nil {
+			err0 = &multiError{}
+		}
+		err0.(*multiError).errs = append(err0.(*multiError).errs, int(err1.(gradedError)))
+		return err0
+	})
+	errors := []gradedError{3, 2, 4, 0, 5, 5, 3}
 	for _, err := range errors {
 		err := err
 		try.Start(func(<-chan struct{}) (io.Closer, error) {
@@ -162,7 +259,9 @@ func (*trySuite) TestErrorImportance(c *gc.C) {
 	try.Close()
 	val, err := try.Result()
 	c.Assert(val, gc.IsNil)
-	c.Assert(err, gc.Equals, impError(5))
+	grades := err.(*multiError).errs
+	sort.Ints(grades)
+	c.Assert(grades, gc.DeepEquals, []int{0, 2, 3, 3, 4, 5, 5})
 }
 
 func (*trySuite) TestTriesAreStopped(c *gc.C) {
@@ -238,7 +337,7 @@ func (*trySuite) TestExtraResultsAreClosed(c *gc.C) {
 }
 
 func (*trySuite) TestEverything(c *gc.C) {
-	try := parallel.NewTry(5, impErrorCompare)
+	try := parallel.NewTry(5, gradedErrorCombine)
 	tries := []struct {
 		startAt time.Duration
 		wait    time.Duration
@@ -246,7 +345,7 @@ func (*trySuite) TestEverything(c *gc.C) {
 		err     error
 	}{{
 		wait: 30 * time.Millisecond,
-		err:  impError(3),
+		err:  gradedError(3),
 	}, {
 		startAt: 10 * time.Millisecond,
 		wait:    20 * time.Millisecond,
@@ -261,7 +360,7 @@ func (*trySuite) TestEverything(c *gc.C) {
 		val:     "delayed result",
 	}, {
 		startAt: 5 * time.Millisecond,
-		err:     impError(4),
+		err:     gradedError(4),
 	}}
 	for _, t := range tries {
 		t := t
