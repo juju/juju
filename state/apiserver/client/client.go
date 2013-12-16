@@ -858,3 +858,7 @@ func destroyErr(desc string, ids, errs []string) error {
 	msg = fmt.Sprintf(msg, desc)
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
+
+func (c *Client) RunOnAllMachines(args params.SetEnvironAgentVersion) error {
+	return fmt.Errorf("not implemented")
+}

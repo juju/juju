@@ -4,7 +4,11 @@
 package api
 
 import (
+	"fmt"
+	"time"
+
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -348,4 +352,27 @@ func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
+}
+
+type RunResult struct {
+	cmd.RemoteResponse
+	MachineId string
+	UnitId    string
+	err       error
+}
+
+func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]RunResult, error) {
+	return nil, fmt.Errorf("TODO")
+}
+
+type RunParams struct {
+	Commands string
+	Timeout  time.Duration
+	Machines []string
+	Services []string
+	Units    []string
+}
+
+func (c *Client) Run(params RunParams) ([]RunResult, error) {
+	return nil, fmt.Errorf("TODO")
 }
