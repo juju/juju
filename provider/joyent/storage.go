@@ -7,11 +7,14 @@ import (
 	"io"
 	"sync"
 	"fmt"
+	"bytes"
 
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
 
 	"launchpad.net/gojoyent/manta"
+	"launchpad.net/gojoyent/client"
+	"launchpad.net/gojoyent/jpc"
 )
 
 type environStorage struct {
@@ -22,13 +25,33 @@ type environStorage struct {
 	manta			*manta.Client
 }
 
+type byteCloser struct {
+	io.Reader
+}
+
+func (byteCloser) Close() error {
+	return nil
+}
+
 var _ storage.Storage = (*environStorage)(nil)
 
+func getCredentials(ecfg *environConfig) *jpc.Credentials {
+	auth := jpc.Auth{User: ecfg.mantaUser(), KeyFile: ecfg.keyFile(), Algorithm: ecfg.algorithm()}
+
+	return &jpc.Credentials{
+		UserAuthentication: auth,
+		MantaKeyId:         ecfg.mantaKeyId(),
+		MantaEndpoint:      jpc.Endpoint{URL: ecfg.mantaUrl()},
+	}
+}
+
 func newStorage(ecfg *environConfig) (storage.Storage, error) {
+	client := client.NewClient(ecfg.mantaUrl(), "", getCredentials(ecfg), nil)
+
 	return &environStorage{
 		ecfg:			ecfg,
 		containerName: 	ecfg.controlDir(),
-		manta:        	manta.New(nil)}, nil
+		manta:        	manta.New(client)}, nil
 }
 
 // makeContainer makes the environment's control container, the
@@ -64,14 +87,16 @@ func (s *environStorage) List(prefix string) ([]string, error) {
 }
 
 func (s *environStorage) URL(name string) (string, error) {
+	//return something that a random wget can retrieve the object at, without any credentials
 	return "", errNotImplemented
 }
 
 func (s *environStorage) Get(name string) (io.ReadCloser, error) {
-	r, err := s.manta.GetObject(s.containerName, name)
+	b, err := s.manta.GetObject(s.containerName, name)
 	if err != nil {
 		return nil, err
 	}
+	r := byteCloser{bytes.NewReader(b)}
 	return r, nil
 }
 

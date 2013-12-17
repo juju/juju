@@ -22,16 +22,21 @@ const boilerplateConfig = `joyent:
   # sdc-user: <secret>
   # Can be set via env variables, or specified here
   # sdc-key-id: <secret>
-  # region defaults to us-west-1, override if required
-  # sdc-region: us-west-1
+  # url defaults to us-west-1 DC, override if required
+  # sdc-url: https://us-west-1.api.joyentcloud.com
 
   # Manta config
   # Can be set via env variables, or specified here
   # manta-user: <secret>
   # Can be set via env variables, or specified here
   # manta-key-id: <secret>
-  # region defaults to us-east, override if required
-  # manta-region: us-east
+  # url defaults to us-east DC, override if required
+  # manta-url: https://us-east.manta.joyent.com
+
+  # Auth config
+  # key-file: <secret>
+  # algorithm defaults to rsa-sha256, override if required
+  # algorithm: rsa-sha256
 `
 
 const (
@@ -53,16 +58,20 @@ var environmentVariables = map[string] string{
 var configFields = schema.Fields{
 	"sdc-user":           		schema.String(),
 	"sdc-key-id":           	schema.String(),
-	"sdc-region":               schema.String(),
+	"sdc-url":	                schema.String(),
 	"manta-user":           	schema.String(),
 	"manta-key-id":           	schema.String(),
-	"manta-region":             schema.String(),
+	"manta-url":                schema.String(),
+	"key-file":					schema.String(),
+	"algorithm":				schema.String(),
 	"control-dir":				schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
-	"sdc-region":				"us-west-1",
-	"manta-region":				"us-east",
+	"sdc-url":					"https://us-west-1.api.joyentcloud.com",
+	"manta-url":				"https://us-east.manta.joyent.com",
+	"key-file":					"~/.ssh/id_rsa",
+	"algorithm":				"rsa-sha256",
 }
 
 var configSecretFields = []string{
@@ -70,11 +79,12 @@ var configSecretFields = []string{
 	"sdc-key-id",
 	"manta-user",
 	"manta-key-id",
+	"key-file",
 }
 
 var configImmutableFields = []string{
-	"sdc-region",
-	"manta-region",
+	"sdc-url",
+	"manta-url",
 }
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
@@ -86,7 +96,7 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
 	}
 
 	// Read env variables
@@ -165,8 +175,8 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (ecfg *environConfig) sdcRegion() string {
-	return ecfg.attrs["sdc-region"].(string)
+func (ecfg *environConfig) sdcUrl() string {
+	return ecfg.attrs["sdc-url"].(string)
 }
 
 func (ecfg *environConfig) sdcUser() string {
@@ -177,8 +187,8 @@ func (ecfg *environConfig) sdcKeyId() string {
 	return ecfg.attrs["sdc-key-id"].(string)
 }
 
-func (ecfg *environConfig) mantaRegion() string {
-	return ecfg.attrs["manta-region"].(string)
+func (ecfg *environConfig) mantaUrl() string {
+	return ecfg.attrs["manta-url"].(string)
 }
 
 func (ecfg *environConfig) mantaUser() string {
@@ -187,6 +197,14 @@ func (ecfg *environConfig) mantaUser() string {
 
 func (ecfg *environConfig) mantaKeyId() string {
 	return ecfg.attrs["manta-key-id"].(string)
+}
+
+func (ecfg *environConfig) keyFile() string {
+	return ecfg.attrs["key-file"].(string)
+}
+
+func (ecfg *environConfig) algorithm() string {
+	return ecfg.attrs["algorithm"].(string)
 }
 
 func (c *environConfig) controlDir() string {

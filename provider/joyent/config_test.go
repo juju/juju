@@ -25,10 +25,12 @@ func validAttrs() testing.Attrs {
 		"type":                     	"joyent",
 		"sdc-user":						"dstroppa",
 		"sdc-key-id":    				"12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"sdc-region": 					"us-west-1",
+		"sdc-url": 						"https://us-west-1.api.joyentcloud.com",
 		"manta-user":					"dstroppa",
 		"manta-key-id":    				"12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"manta-region": 				"us-east",
+		"manta-url": 					"https://us-east.manta.joyent.com",
+		"key-file":						"~/.ssh/id_rsa",
+		"algorithm":					"rsa-sha256",
 		"control-dir":					"juju-test",
 	})
 }
@@ -70,16 +72,16 @@ var newConfigTests = []struct {
 	insert: testing.Attrs{"sdc-key-id": ""},
 	err:    "sdc-key-id: must not be empty",
 }, {
-	info:   "sdc-region is inserted if missing",
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	info:   "sdc-url is inserted if missing",
+	expect: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
 }, {
-	info:   "sdc-region cannot be empty",
-	insert: testing.Attrs{"sdc-region": ""},
-	err:    "sdc-region: must not be empty",
+	info:   "sdc-url cannot be empty",
+	insert: testing.Attrs{"sdc-url": ""},
+	err:    "sdc-url: must not be empty",
 }, {
-	info:   "sdc-region is untouched if present",
-	insert: testing.Attrs{"sdc-region": "us-west-1"},
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	info:   "sdc-url is untouched if present",
+	insert: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
+	expect: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
@@ -97,16 +99,30 @@ var newConfigTests = []struct {
 	insert: testing.Attrs{"manta-key-id": ""},
 	err:    "manta-key-id: must not be empty",
 }, {
-	info:   "manta-region is inserted if missing",
-	expect: testing.Attrs{"manta-region": "us-east"},
+	info:   "manta-url is inserted if missing",
+	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
 }, {
-	info:   "manta-region cannot be empty",
-	insert: testing.Attrs{"manta-region": ""},
-	err:    "manta-region: must not be empty",
+	info:   "manta-url cannot be empty",
+	insert: testing.Attrs{"manta-url": ""},
+	err:    "manta-url: must not be empty",
 }, {
-	info:   "manta-region is untouched if present",
-	insert: testing.Attrs{"manta-region": "us-east"},
-	expect: testing.Attrs{"manta-region": "us-east"},
+	info:   "manta-url is untouched if present",
+	insert: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+}, {
+	info:   "key-file is inserted if missing",
+	expect: testing.Attrs{"key-file": "~/.ssh/id_rsa"},
+}, {
+	info:   "key-file cannot be empty",
+	insert: testing.Attrs{"key-file": ""},
+	err:    "key-file: must not be empty",
+}, {
+	info:   "algorithm is inserted if missing",
+	expect: testing.Attrs{"algorithm": "rsa-sha256"},
+}, {
+	info:   "algorithm cannot be empty",
+	insert: testing.Attrs{"algorithm": ""},
+	err:    "algorithm: must not be empty",
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
@@ -189,9 +205,9 @@ var changeConfigTests = []struct {
 	insert: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
-	info:   "can change sdc-region",
-	insert: testing.Attrs{"sdc-region": "us-west-1"},
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	info:   "can change sdc-url",
+	insert: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
+	expect: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
 }, {
 	info:   "can change manta-user",
 	insert: testing.Attrs{"manta-user": "manta_user"},
@@ -201,9 +217,17 @@ var changeConfigTests = []struct {
 	insert: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
-	info:   "can change manta-region",
-	insert: testing.Attrs{"manta-region": "us-east"},
-	expect: testing.Attrs{"manta-region": "us-east"},
+	info:   "can change manta-url",
+	insert: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+}, {
+	info:   "can change key-file",
+	insert: testing.Attrs{"key-file": "/path/to/key"},
+	expect: testing.Attrs{"key-file": "/path/to/key"},
+}, {
+	info:   "can change algorithm",
+	insert: testing.Attrs{"algorithm": "rsa-sha512"},
+	expect: testing.Attrs{"algorithm": "rsa-sha512"},
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
