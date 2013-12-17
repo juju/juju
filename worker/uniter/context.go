@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -13,9 +14,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
@@ -207,8 +210,16 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 	return err
 }
 
+// RunCommands executes the commands in an environment which allows it to to
+// call back into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*cmd.RemoteResponse, error) {
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	result, err := runCommands(commands, charmDir, env)
+	return result, ctx.finalizeContext("run commands", err)
+}
+
 // RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute jujuc tools.
+// into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
@@ -251,6 +262,38 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		}
 	}
 	return err
+}
+
+func runCommands(commands, charmDir string, env []string) (*cmd.RemoteResponse, error) {
+	ps := exec.Command("/bin/bash", "-s")
+	ps.Env = env
+	ps.Dir = charmDir
+	ps.Stdin = bytes.NewBufferString(commands)
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	ps.Stdout = stdout
+	ps.Stderr = stderr
+
+	err := ps.Start()
+	if err == nil {
+		err = ps.Wait()
+	}
+	result := &cmd.RemoteResponse{
+		Stdout: stdout.Bytes(),
+		Stderr: stderr.Bytes(),
+	}
+	if ee, ok := err.(*exec.ExitError); ok && err != nil {
+		status := ee.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Exited() {
+			// A non-zero return code isn't considered an error here.
+			result.Code = status.ExitStatus()
+			err = nil
+		}
+		logger.Infof("run result: %v", ee)
+	}
+	return result, err
 }
 
 type hookLogger struct {
