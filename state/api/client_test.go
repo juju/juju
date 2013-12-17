@@ -4,9 +4,16 @@
 package api_test
 
 import (
+	"fmt"
+	"net/http"
+
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type clientSuite struct {
@@ -24,4 +31,49 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
+}
+
+func (s *clientSuite) TestUploadCharm(c *gc.C) {
+	charmArchive := testing.Charms.Bundle(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	client := s.APIState.Client()
+
+	_, err := client.UploadCharm(nil, nil)
+	c.Assert(err, gc.ErrorMatches, "expected charm URL, got nil")
+
+	// Upload an archive with its original revision.
+	savedURL, err := client.UploadCharm(curl, charmArchive)
+	c.Assert(err, gc.IsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.String())
+
+	// Upload a charm directory with changed revision.
+	charmDir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
+	charmDir.SetDiskRevision(42)
+	savedURL, err = client.UploadCharm(curl, charmDir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(savedURL.Revision, gc.Equals, 42)
+
+	// Upload a charm directory again, revision should be bumped.
+	savedURL, err = client.UploadCharm(curl, charmDir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+
+	// Finally, try the NotImplementedError by mocking the server
+	// address to a handler that returns 405 Method Not Allowed for
+	// POST.
+	http.HandleFunc("/charms", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	go func() {
+		err = http.ListenAndServe(":8900", nil)
+		c.Assert(err, gc.IsNil)
+	}()
+
+	api.SetClientAPIAddress(client, "http://localhost:8900")
+	_, err = client.UploadCharm(curl, charmArchive)
+	c.Assert(err, jc.Satisfies, api.IsNotImplemented)
 }

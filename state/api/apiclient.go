@@ -32,6 +32,13 @@ type State struct {
 	// broken is a channel that gets closed when the connection is
 	// broken.
 	broken chan struct{}
+
+	// tag and password hold the cached login credentials.
+	tag      string
+	password string
+	// address holds the cached API server address we used to login,
+	// with a https:// prefix.
+	address string
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -123,8 +130,11 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
-		client: client,
-		conn:   conn,
+		client:   client,
+		conn:     conn,
+		address:  "https://" + cfg.Location.Host,
+		tag:      info.Tag,
+		password: info.Password,
 	}
 	if info.Tag != "" || info.Password != "" {
 		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {
