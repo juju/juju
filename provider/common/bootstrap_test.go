@@ -302,7 +302,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	// 0.x.y.z addresses are always invalid
 	_, err := common.WaitSSH(ctx, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, &t, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.3`)
+		`waited for 10ms without being able to connect(: mock connection failure to 0.1.2.3)?`)
 	c.Check(buf.String(), gc.Matches,
 		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")

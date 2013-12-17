@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")
@@ -195,6 +195,56 @@ type addresser interface {
 	Addresses() ([]instance.Address, error)
 }
 
+type hostChecker struct {
+	addr instance.Address
+
+	// checkDelay is the amount of time to wait between retries
+	checkDelay time.Duration
+
+	// checkHostScript is executed on the host via SSH.
+	// hostChecker.loop will return once the script
+	// runs without error.
+	checkHostScript string
+
+	// closeRetry is closed when the hostChecker
+	// should stop retrying.
+	closeRetry chan struct{}
+}
+
+// Close implements io.Closer, as required by parallel.Try.
+func (*hostChecker) Close() error {
+	return nil
+}
+
+func (hc *hostChecker) loop(closed <-chan struct{}) (io.Closer, error) {
+	done := make(chan error, 1)
+	var lastErr error
+	for {
+		go func() {
+			done <- connectSSH(hc.addr.Value, hc.checkHostScript)
+		}()
+		select {
+		case <-closed:
+			if lastErr == nil {
+				lastErr = parallel.ErrClosed
+			}
+			return nil, lastErr
+		case <-hc.closeRetry:
+			hc.closeRetry = nil
+		case lastErr = <-done:
+			if lastErr == nil {
+				return hc, nil
+			} else if hc.closeRetry == nil {
+				if lastErr == nil {
+					lastErr = fmt.Errorf("stop retrying")
+				}
+				return nil, lastErr
+			}
+		}
+		time.Sleep(hc.checkDelay)
+	}
+}
+
 // connectSSH is called to connect to the specified host and
 // execute the "checkHostScript" bash script on it.
 var connectSSH = func(host, checkHostScript string) error {
@@ -220,103 +270,77 @@ func waitSSH(ctx *BootstrapContext, checkHostScript string, inst addresser, t *t
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
-	type checkHostResult struct {
-		addr instance.Address
-		err  error
-	}
-	checkHost := func(addr instance.Address, ch chan checkHostResult) {
-		err := connectSSH(addr.Value, checkHostScript)
-		if err != nil {
-			time.Sleep(timeout.ConnectDelay)
-		}
-		ch <- checkHostResult{addr, err}
-	}
+	// map of adresses to channels for addresses actively being tested.
+	// the goroutine testing the address will continue to attempt
+	// connecting to the address until it succeeds, the Try is closed,
+	// or the corresponding channel in this map is closed.
+	active := make(map[instance.Address]chan struct{})
 
-	// store the last error so we can report it on global timeout
-	var lastErr error
-	// set of addresses most recently returned by the provider.
-	var addresses []instance.Address
-	// map of dns-names to result channels actively being tested
-	active := make(map[instance.Address]chan checkHostResult)
-
-	// Constants for reflect.SelectCases below.
-	const (
-		casePollAddresses = iota
-		caseGlobalTimeout
-		caseTombDying
-	)
+	// try each address in parallel
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
 
 	fmt.Fprintln(ctx.Stderr, "Waiting for address")
 	for {
-		cases := []reflect.SelectCase{
-			casePollAddresses: {Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pollAddresses.C)},
-			caseGlobalTimeout: {Dir: reflect.SelectRecv, Chan: reflect.ValueOf(globalTimeout)},
-			caseTombDying:     {Dir: reflect.SelectRecv, Chan: reflect.ValueOf(t.Dying())},
-		}
-		for addr, checkHostResultChan := range active {
-			if checkHostResultChan == nil {
-				tcpaddr := addr.Value + ":22"
-				fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s\n", tcpaddr)
-				checkHostResultChan = make(chan checkHostResult, 1)
-				active[addr] = checkHostResultChan
-				go checkHost(addr, checkHostResultChan)
-			}
-			cases = append(cases, reflect.SelectCase{
-				Dir:  reflect.SelectRecv,
-				Chan: reflect.ValueOf(checkHostResultChan),
-			})
-		}
-		i, v, _ := reflect.Select(cases)
-		switch i {
-		case casePollAddresses:
+		select {
+		case <-pollAddresses.C:
 			pollAddresses.Reset(timeout.AddressesDelay)
 			if err := inst.Refresh(); err != nil {
 				return "", t.Killf("refreshing addresses: %v", err)
 			}
-			newAddresses, err := inst.Addresses()
+			addresses, err := inst.Addresses()
 			if err != nil {
 				return "", t.Killf("getting addresses: %v", err)
-			} else {
-				addresses = newAddresses
-				for _, addr := range addresses {
-					if _, ok := active[addr]; !ok {
-						active[addr] = nil
+			}
+			oldActive := active
+			active = make(map[instance.Address]chan struct{})
+			for _, addr := range addresses {
+				if ch, ok := oldActive[addr]; ok {
+					active[addr] = ch
+				} else {
+					fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22\n", addr.Value)
+					hc := &hostChecker{
+						addr:            addr,
+						checkDelay:      timeout.ConnectDelay,
+						checkHostScript: checkHostScript,
+						closeRetry:      make(chan struct{}),
 					}
+					active[addr] = hc.closeRetry
+					try.Start(hc.loop)
 				}
 			}
-		case caseGlobalTimeout:
+			for addr, closeRetry := range oldActive {
+				if _, ok := active[addr]; !ok {
+					close(closeRetry)
+				}
+			}
+		case <-globalTimeout:
+			try.Kill()
+			// Note that once killed, the Try does not
+			// wait for the tasks to complete. If not
+			// functions ever returned, before we timed
+			// out, the error will be ErrStopped.
+			lastErr := try.Wait()
 			format := "waited for %v "
 			args := []interface{}{timeout.Timeout}
-			if len(addresses) == 0 {
+			if len(active) == 0 {
 				format += "without getting any addresses"
 			} else {
 				format += "without being able to connect"
 			}
-			if lastErr != nil {
+			if lastErr != nil && lastErr != parallel.ErrStopped {
 				format += ": %v"
 				args = append(args, lastErr)
 			}
-			return "", t.Killf(format, args...)
-		case caseTombDying:
+			return "", fmt.Errorf(format, args...)
+		case <-t.Dying():
 			return "", t.Err()
-		default:
-			result := v.Interface().(checkHostResult)
-			if result.err == nil {
-				return result.addr.Value, nil
+		case <-try.Dead():
+			result, err := try.Result()
+			if err != nil {
+				return "", err
 			}
-			logger.Debugf("connection failed: %v", result.err)
-			lastErr = result.err
-			var found bool
-			for _, addr := range addresses {
-				if result.addr == addr {
-					active[addr] = nil // retry
-					found = true
-					break
-				}
-			}
-			if !found {
-				delete(active, result.addr)
-			}
+			return result.(*hostChecker).addr.Value, nil
 		}
 	}
 }
