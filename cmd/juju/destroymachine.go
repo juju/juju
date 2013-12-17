@@ -37,7 +37,7 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 		Args:    "<machine> ...",
 		Purpose: "destroy machines",
 		Doc:     destroyMachineDoc,
-		Aliases: []string{"terminate-machine"},
+		Aliases: []string{"remove-machine", "terminate-machine"},
 	}
 }
 
