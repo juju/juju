@@ -39,8 +39,6 @@ type State struct {
 	// address holds the cached API server address we used to login,
 	// with a https:// prefix.
 	address string
-	// caCert is the cached value of the CA certificate used to login.
-	caCert []byte
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -137,7 +135,6 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		address:  "https://" + cfg.Location.Host,
 		tag:      info.Tag,
 		password: info.Password,
-		caCert:   info.CACert,
 	}
 	if info.Tag != "" || info.Password != "" {
 		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {

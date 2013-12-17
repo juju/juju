@@ -427,11 +427,16 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	req.Header.Set("Content-Type", "application/zip")
 
 	// Send the request.
-	client, err := utils.GetHTTPClientFromCert(c.st.caCert)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create HTTP client: %v", err)
-	}
-	resp, err := client.Do(req)
+
+	// BUG(dimitern) 2013-12-17 bug #1261780
+	// Due to issues with go 1.1.2, fixed later, we cannot use a
+	// regular TLS client with the CACert here, because we get "x509:
+	// cannot validate certificate for 127.0.0.1 because it doesn't
+	// contain any IP SANs". Once we use a later go version, this
+	// should be changed to connect to the API server with a regular
+	// HTTP+TLS enabled client, using the CACert (possily cached, like
+	// the tag and password) passed in api.Open()'s info argument.
+	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("cannot upload charm: %v", err)
 	}
