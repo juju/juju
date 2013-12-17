@@ -4,9 +4,16 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -348,4 +355,111 @@ func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
+}
+
+// NotImplementedError signifies a certain functionality is not
+// implemented.
+type NotImplementedError struct {
+	code    string
+	message string
+}
+
+// Error returns the error as a string.
+func (e *NotImplementedError) Error() string {
+	return e.message
+}
+
+// ErrorCode implements rpc.ErrorCoder.
+func (e *NotImplementedError) ErrorCode() string {
+	return e.code
+}
+
+// IsNotImplemented returns true when err is a NotImplementedError.
+func IsNotImplemented(err error) bool {
+	_, ok := err.(*NotImplementedError)
+	return ok
+}
+
+// AddLocalCharm prepares the given charm with a local: schema in its
+// URL, and uploads it via the API server, returning the assigned
+// charm URL. If the API server does not support charm uploads, a
+// NotImplementedError is returned.
+func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	if curl == nil {
+		return nil, fmt.Errorf("expected charm URL, got nil")
+	}
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
+	}
+	// Package the charm for uploading.
+	var archive *os.File
+	switch ch := ch.(type) {
+	case *charm.Dir:
+		var err error
+		if archive, err = ioutil.TempFile("", "charm"); err != nil {
+			return nil, fmt.Errorf("cannot create temp file: %v", err)
+		}
+		defer os.Remove(archive.Name())
+		defer archive.Close()
+		if err := ch.BundleTo(archive); err != nil {
+			return nil, fmt.Errorf("cannot repackage charm: %v", err)
+		}
+		if _, err := archive.Seek(0, 0); err != nil {
+			return nil, fmt.Errorf("cannot rewind packaged charm: %v", err)
+		}
+	case *charm.Bundle:
+		var err error
+		if archive, err = os.Open(ch.Path); err != nil {
+			return nil, fmt.Errorf("cannot read charm archive: %v", err)
+		}
+		defer archive.Close()
+	default:
+		return nil, fmt.Errorf("unknown charm type %T", ch)
+	}
+
+	// Prepare the upload request.
+	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
+	req, err := http.NewRequest("POST", url, archive)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create upload request: %v", err)
+	}
+	req.SetBasicAuth(c.st.tag, c.st.password)
+	req.Header.Set("Content-Type", "application/zip")
+
+	// Send the request.
+
+	// BUG(dimitern) 2013-12-17 bug #1261780
+	// Due to issues with go 1.1.2, fixed later, we cannot use a
+	// regular TLS client with the CACert here, because we get "x509:
+	// cannot validate certificate for 127.0.0.1 because it doesn't
+	// contain any IP SANs". Once we use a later go version, this
+	// should be changed to connect to the API server with a regular
+	// HTTP+TLS enabled client, using the CACert (possily cached, like
+	// the tag and password) passed in api.Open()'s info argument.
+	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot upload charm: %v", err)
+	}
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		// API server is 1.16 or older, so charm upload
+		// is not supported; notify the client.
+		return nil, &NotImplementedError{
+			message: "charm upload is not supported by the API server",
+		}
+	}
+
+	// Now parse the response & return.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read charm upload response: %v", err)
+	}
+	defer resp.Body.Close()
+	var jsonResponse params.CharmsResponse
+	if err := json.Unmarshal(body, &jsonResponse); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
+	}
+	if jsonResponse.Error != "" {
+		return nil, fmt.Errorf("error uploading charm: %v", jsonResponse.Error)
+	}
+	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
