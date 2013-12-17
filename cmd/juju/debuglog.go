@@ -13,6 +13,7 @@ import (
 )
 
 type DebugLogCommand struct {
+	cmd.CommandBase
 	// The debug log command simply invokes juju ssh with the required arguments.
 	sshCmd cmd.Command
 	lines  linesValue
