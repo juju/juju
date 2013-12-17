@@ -682,7 +682,7 @@ func (*rpcSuite) TestBadCall(c *gc.C) {
 	)
 	testBadCall(c, client, clientNotifier, serverNotifier,
 		rpc.Request{"SimpleMethods", "xx", "No"},
-		`no such request "No" on SimpleMethods`,
+		"no such request - method SimpleMethods.No is not implemented",
 		false,
 	)
 	testBadCall(c, client, clientNotifier, serverNotifier,

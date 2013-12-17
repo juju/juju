@@ -121,8 +121,8 @@ func (*reflectSuite) TestMethodCaller(c *gc.C) {
 	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
 
 	m, err = v.MethodCaller("SimpleMethods", "bar")
-	c.Assert(err, gc.ErrorMatches, `no such request "bar" on SimpleMethods`)
-	c.Assert(err, jc.Satisfies, rpc.IsNoSuchRequest)
+	c.Assert(err, gc.ErrorMatches, "no such request - method SimpleMethods.bar is not implemented")
+	c.Assert(err, jc.Satisfies, rpc.IsCallNotImplemented)
 	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
 
 	m, err = v.MethodCaller("SimpleMethods", "Call1r1e")

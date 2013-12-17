@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -78,5 +79,5 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 
 	api.SetServerRoot(client, "http://localhost:8900")
 	_, err = client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, jc.Satisfies, api.IsNotImplemented)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
 }

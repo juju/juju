@@ -358,9 +358,8 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 }
 
 // NotImplementedError signifies a certain functionality is not
-// implemented.
+// implemented. It satisfies a IsCodeNotImplemented() check.
 type NotImplementedError struct {
-	code    string
 	message string
 }
 
@@ -371,13 +370,7 @@ func (e *NotImplementedError) Error() string {
 
 // ErrorCode implements rpc.ErrorCoder.
 func (e *NotImplementedError) ErrorCode() string {
-	return e.code
-}
-
-// IsNotImplemented returns true when err is a NotImplementedError.
-func IsNotImplemented(err error) bool {
-	_, ok := err.(*NotImplementedError)
-	return ok
+	return params.CodeNotImplemented
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
