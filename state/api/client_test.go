@@ -33,30 +33,33 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 }
 
-func (s *clientSuite) TestUploadCharm(c *gc.C) {
+func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	charmArchive := testing.Charms.Bundle(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	client := s.APIState.Client()
 
-	_, err := client.UploadCharm(nil, nil)
+	// Test the sanity checks first.
+	_, err := client.AddLocalCharm(nil, nil)
 	c.Assert(err, gc.ErrorMatches, "expected charm URL, got nil")
+	_, err = client.AddLocalCharm(charm.MustParseURL("cs:quantal/wordpress-1"), nil)
+	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "cs:quantal/wordpress-1"`)
 
 	// Upload an archive with its original revision.
-	savedURL, err := client.UploadCharm(curl, charmArchive)
+	savedURL, err := client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, gc.IsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
 	charmDir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
 	charmDir.SetDiskRevision(42)
-	savedURL, err = client.UploadCharm(curl, charmDir)
+	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
-	savedURL, err = client.UploadCharm(curl, charmDir)
+	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 
@@ -74,6 +77,6 @@ func (s *clientSuite) TestUploadCharm(c *gc.C) {
 	}()
 
 	api.SetClientAPIAddress(client, "http://localhost:8900")
-	_, err = client.UploadCharm(curl, charmArchive)
+	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.Satisfies, api.IsNotImplemented)
 }

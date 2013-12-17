@@ -360,6 +360,7 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 // NotImplementedError signifies a certain functionality is not
 // implemented.
 type NotImplementedError struct {
+	code    string
 	message string
 }
 
@@ -368,18 +369,27 @@ func (e *NotImplementedError) Error() string {
 	return e.message
 }
 
+// ErrorCode implements rpc.ErrorCoder.
+func (e *NotImplementedError) ErrorCode() string {
+	return e.code
+}
+
 // IsNotImplemented returns true when err is a NotImplementedError.
 func IsNotImplemented(err error) bool {
 	_, ok := err.(*NotImplementedError)
 	return ok
 }
 
-// UploadCharm prepares the given charm and uploads it via the API
-// server, returning the assigned charm URL. If the API server does
-// not support charm uploads, a NotImplementedError is returned.
-func (c *Client) UploadCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
+// AddLocalCharm prepares the given charm with a local: schema in its
+// URL, and uploads it via the API server, returning the assigned
+// charm URL. If the API server does not support charm uploads, a
+// NotImplementedError is returned.
+func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
 	if curl == nil {
 		return nil, fmt.Errorf("expected charm URL, got nil")
+	}
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
 	// Package the charm for uploading.
 	var archive *os.File
@@ -417,14 +427,20 @@ func (c *Client) UploadCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error
 	req.Header.Set("Content-Type", "application/zip")
 
 	// Send the request.
-	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	client, err := utils.GetHTTPClientFromCert(c.st.caCert)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create HTTP client: %v", err)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("cannot upload charm: %v", err)
 	}
 	if resp.StatusCode == http.StatusMethodNotAllowed {
 		// API server is 1.16 or older, so charm upload
 		// is not supported; notify the client.
-		return nil, &NotImplementedError{"charm upload is not supported by the API server"}
+		return nil, &NotImplementedError{
+			message: "charm upload is not supported by the API server",
+		}
 	}
 
 	// Now parse the response & return.
