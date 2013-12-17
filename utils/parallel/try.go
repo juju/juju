@@ -1,10 +1,14 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package parallel
 
 import (
 	"errors"
 	"io"
-	"launchpad.net/tomb"
 	"sync"
+
+	"launchpad.net/tomb"
 )
 
 var (
@@ -12,6 +16,8 @@ var (
 	ErrClosed  = errors.New("try was closed")
 )
 
+// Try represents an attempt made concurrently
+// by a number of goroutines.
 type Try struct {
 	tomb          tomb.Tomb
 	closeMutex    sync.Mutex
@@ -27,7 +33,7 @@ type Try struct {
 // NewTry returns an object that runs functions concurrently until one
 // succeeds. The result of the first function that returns without an
 // error is available from the Result method. If maxParallel is
-// positive, it limits the nunber of concurrently running functions.
+// positive, it limits the number of concurrently running functions.
 //
 // The function combineErrors(oldErr, newErr) is called to determine
 // the error return (see the Result method). The first time it is called,
@@ -71,7 +77,7 @@ type result struct {
 
 func (t *Try) loop() (io.Closer, error) {
 	var err error
-	closed := false
+	close := t.close
 	nrunning := 0
 	for {
 		select {
@@ -84,7 +90,7 @@ func (t *Try) loop() (io.Closer, error) {
 			}
 			err = t.combineErrors(err, r.err)
 			nrunning--
-			if closed && nrunning == 0 {
+			if close == nil && nrunning == 0 {
 				return nil, err
 			}
 		case <-t.tomb.Dying():
@@ -92,8 +98,8 @@ func (t *Try) loop() (io.Closer, error) {
 				return nil, ErrStopped
 			}
 			return nil, err
-		case <-t.close:
-			closed = true
+		case <-close:
+			close = nil
 			if nrunning == 0 {
 				return nil, err
 			}

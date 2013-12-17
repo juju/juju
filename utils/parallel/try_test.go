@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	gc "launchpad.net/gocheck"
 	"sort"
 	"sync"
 	"time"
+
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
