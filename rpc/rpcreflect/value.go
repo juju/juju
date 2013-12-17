@@ -16,6 +16,9 @@ type CallNotImplementedError struct {
 }
 
 func (e *CallNotImplementedError) Error() string {
+	if e.Method == "" {
+		return fmt.Sprintf("unknown object type %q", e.RootMethod)
+	}
 	return fmt.Sprintf("no such request - method %s.%s is not implemented", e.RootMethod, e.Method)
 }
 
@@ -76,13 +79,15 @@ func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller,
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)
 	if err != nil {
-		return MethodCaller{}, fmt.Errorf("unknown object type %q", rootMethodName)
+		return MethodCaller{}, &CallNotImplementedError{
+			RootMethod: rootMethodName,
+		}
 	}
 	caller.objMethod, err = caller.rootMethod.ObjType.Method(objMethodName)
 	if err != nil {
 		return MethodCaller{}, &CallNotImplementedError{
-			Method:     objMethodName,
 			RootMethod: rootMethodName,
+			Method:     objMethodName,
 		}
 	}
 	caller.ParamsType = caller.objMethod.Params

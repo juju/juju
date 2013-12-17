@@ -464,6 +464,12 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	}
 	caller, err := rootValue.MethodCaller(hdr.Request.Type, hdr.Request.Action)
 	if err != nil {
+		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
+			err = &serverError{
+				Message: err.Error(),
+				Code:    CodeNotImplemented,
+			}
+		}
 		return boundRequest{}, err
 	}
 	return boundRequest{
@@ -502,7 +508,12 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 	}
 }
 
-func IsCallNotImplemented(err error) bool {
-	_, ok := err.(*rpcreflect.CallNotImplementedError)
-	return ok
+type serverError RequestError
+
+func (e *serverError) Error() string {
+	return e.Message
+}
+
+func (e *serverError) ErrorCode() string {
+	return e.Code
 }
