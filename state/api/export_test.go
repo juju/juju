@@ -3,8 +3,8 @@
 
 package api
 
-// SetAPIAddress allows changing the internal API server address that
-// UploadCharm uses in order to test NotImplementedError.
-func SetClientAPIAddress(c *Client, address string) {
-	c.st.address = address
+// SetServerRoot allows changing the URL to the internal API server
+// that AddLocalCharm uses in order to test NotImplementedError.
+func SetServerRoot(c *Client, root string) {
+	c.st.serverRoot = root
 }

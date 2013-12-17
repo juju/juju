@@ -76,7 +76,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}()
 
-	api.SetClientAPIAddress(client, "http://localhost:8900")
+	api.SetServerRoot(client, "http://localhost:8900")
 	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.Satisfies, api.IsNotImplemented)
 }
