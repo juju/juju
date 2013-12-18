@@ -14,8 +14,11 @@ import (
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
-// TODO: Seems like a layering violation for the API server and CLI to want to
-// import worker/provisioner code
+// TODO: jam 2013-12-28 https://bugs.launchpad.net/juju-core/+bug/1262186
+// It is a layering violation for the API server and CLI to import
+// worker/provisioner code. We should instead split out the provisioning
+// functionality into a separate module (possibly under environs) and have both
+// worker and API server (and CLI) import it from there.
 
 func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools, error) {
 	agentVersion, ok := env.Config().AgentVersion()
