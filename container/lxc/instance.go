@@ -31,6 +31,10 @@ func (lxc *lxcInstance) Status() string {
 	return string(state)
 }
 
+func (*lxcInstance) Refresh() error {
+	return nil
+}
+
 func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
 	return nil, errors.NewNotImplementedError("lxcInstance.Addresses")
 }
