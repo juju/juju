@@ -26,7 +26,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -237,7 +236,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	// The deployer actually removes the unit just after
 	// removing its deployment, so we need to poll here
 	// until it actually happens.
-	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		err := u0.Refresh()
 		if err == nil && attempt.HasNext() {
 			continue
@@ -349,7 +348,7 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
 	dummy.SetInstanceAddresses(insts[0], addrs)
 
-	for a := testing.LongAttempt.Start(); a.Next(); {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
 			c.Logf("final machine addresses: %#v", m.Addresses())
 			c.Fatalf("timed out waiting for machine to get address")
@@ -371,7 +370,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 	c.Assert(err, gc.IsNil)
 	w := m.Watch()
 	defer w.Stop()
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case <-timeout:
@@ -398,8 +397,8 @@ func (s *MachineSuite) TestUpgrade(c *gc.C) {
 }
 
 var fastDialOpts = api.DialOpts{
-	Timeout:    testing.LongWait,
-	RetryDelay: testing.ShortWait,
+	Timeout:    coretesting.LongWait,
+	RetryDelay: coretesting.ShortWait,
 }
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
@@ -451,7 +450,7 @@ func (s *MachineSuite) assertJobWithAPI(
 	case agentAPI := <-agentAPIs:
 		c.Assert(agentAPI, gc.NotNil)
 		test(conf, agentAPI)
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("API not opened")
 	}
 
@@ -484,7 +483,7 @@ func (s *MachineSuite) assertJobWithState(
 	case agentState := <-agentStates:
 		c.Assert(agentState, gc.NotNil)
 		test(conf, agentState)
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("state not opened")
 	}
 
@@ -526,12 +525,12 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
 		agentState.StartSync()
-		timeout := time.After(testing.LongWait)
+		timeout := time.After(coretesting.LongWait)
 		for done := false; !done; {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not cleaned up")
-			case <-time.After(testing.ShortWait):
+			case <-time.After(coretesting.ShortWait):
 				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
@@ -560,12 +559,12 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
 		agentState.StartSync()
-		timeout := time.After(testing.LongWait)
+		timeout := time.After(coretesting.LongWait)
 		for {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not created")
-			case <-time.After(testing.ShortWait):
+			case <-time.After(coretesting.ShortWait):
 				s.State.StartSync()
 			case <-w.Changes():
 				units, err := service.AllUnits()
@@ -595,13 +594,13 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 
 	// Wait for ssh keys file to be updated.
 	s.State.StartSync()
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(coretesting.LongWait)
 	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
-		case <-time.After(testing.ShortWait):
+		case <-time.After(coretesting.ShortWait):
 			keys, err := ssh.ListKeys(ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
