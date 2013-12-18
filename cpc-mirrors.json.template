@@ -63,8 +63,12 @@
         "path": "streams/v1/com.ubuntu.juju:released:tools.json",
         "clouds": [
           {
-            "endpoint": "https://core.windows.net/",
-            "region": "West Europe"
+            "endpoint": "https://core.chinacloudapi.cn/",
+            "region": "China East"
+          },
+          {
+            "endpoint": "https://core.chinacloudapi.cn/",
+            "region": "China North"
           },
           {
             "endpoint": "https://core.windows.net/",
@@ -72,15 +76,23 @@
           },
           {
             "endpoint": "https://core.windows.net/",
-            "region": "East US 2"
-          },
-          {
-            "endpoint": "https://core.windows.net/",
             "region": "Southeast Asia"
           },
           {
             "endpoint": "https://core.windows.net/",
+            "region": "North Europe"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "West Europe"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
             "region": "East US"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "East US 2"
           },
           {
             "endpoint": "https://core.windows.net/",
@@ -89,18 +101,6 @@
           {
             "endpoint": "https://core.windows.net/",
             "region": "West US"
-          },
-          {
-            "endpoint": "https://core.windows.net/",
-            "region": "North Europe"
-          },
-          {
-            "endpoint": "https://core.chinacloudapi.cn/",
-            "region": "China East"
-          },
-          {
-            "endpoint": "https://core.chinacloudapi.cn/",
-            "region": "China North"
           }
         ]
       }
