@@ -91,8 +91,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 
 	initctl stop juju-db
 	rm -r /var/lib/juju /var/log/juju
-	tar -C juju-backup/root -c -f - . | tar -C / -xp -f -
-	ls -lR ~
+	tar -C / -xvp -f juju-backup/root.tar
 	mongorestore --drop --dbpath /var/lib/juju/db juju-backup/dump
 	initctl start juju-db
 
