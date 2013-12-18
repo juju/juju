@@ -25,6 +25,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // BootstrapStateURLFile is used to communicate to the first bootstrap node
@@ -118,6 +119,11 @@ type MachineConfig struct {
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
+
+	// SystemPrivateSSHKey is created at bootstrap time and recorded on every
+	// node that has an API server. At this stage, that is any machine where
+	// StateServer (member above) is set to true.
+	SystemPrivateSSHKey string
 }
 
 func base64yaml(m *config.Config) string {
@@ -253,6 +259,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	cfg.MaybeAddCloudArchiveCloudTools(c)
 
 	if cfg.StateServer {
+		identityFile := ssh.SystemIdentityFilename(cfg.DataDir)
+		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		// Disable the default mongodb installed by the mongodb-server package.
 		// Only do this if the file doesn't exist already, so users can run
 		// their own mongodb server if they wish to.
@@ -589,6 +597,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.APIPort == 0 {
 			return fmt.Errorf("missing API port")
+		}
+		if cfg.SystemPrivateSSHKey == "" {
+			return fmt.Errorf("missing system ssh identity")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

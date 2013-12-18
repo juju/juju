@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/localstorage"
 )
@@ -120,9 +121,14 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return err
 	}
 
+	privateKey, err := common.GenerateSystemSSHKey(args.Environ)
+	if err != nil {
+		return err
+	}
+
 	// Finally, provision the machine agent.
 	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, bootstrap.StateFile)
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL)
+	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	if args.DataDir != "" {
 		mcfg.DataDir = args.DataDir
 	}
