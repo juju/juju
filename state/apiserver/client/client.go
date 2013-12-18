@@ -6,6 +6,8 @@ package client
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
 	"strings"
 
 	"launchpad.net/loggo"
@@ -857,4 +859,84 @@ func destroyErr(desc string, ids, errs []string) error {
 	}
 	msg = fmt.Sprintf(msg, desc)
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+}
+
+// AddCharm adds the given fully-defined charm URL to the environment,
+// if it does not exists yet. Local charms are not supported, only
+// charm store URLs. See also AddLocalCharm() in the client-side API.
+func (c *Client) AddCharm(args params.CharmURL) error {
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return err
+	}
+	if charmURL.Schema == "local" {
+		return fmt.Errorf("charm URLs with local: schema are not supported")
+	}
+	if charmURL.Revision < 0 {
+		return fmt.Errorf("charm URL must include revision")
+	}
+
+	// First check the charm is not already in state.
+	if _, err := c.api.state.Charm(charmURL); err == nil {
+		return nil
+	}
+
+	// Get the charm and its information from the store.
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	storeRepo := config.AuthorizeCharmRepo(CharmStore, envConfig)
+	store, ok := storeRepo.(interface {
+		Get(*charm.URL) (charm.Charm, error)
+		Info(*charm.URL) (*charm.InfoResponse, error)
+	})
+	if !ok {
+		return fmt.Errorf("unexpected charm store interface: missing Get and/or Info")
+	}
+	downloadedCharm, err := store.Get(charmURL)
+	if err != nil {
+		return fmt.Errorf("cannot download charm %q: %v", charmURL.String(), err)
+	}
+	charmInfo, err := store.Info(charmURL)
+	if err != nil {
+		return fmt.Errorf("cannot get charm info: %v", err)
+	}
+
+	// Open it, so we can get its file size.
+	archive, err := os.Open(downloadedCharm.(*charm.Bundle).Path)
+	if err != nil {
+		return fmt.Errorf("cannot read downloaded charm: %v", err)
+	}
+	defer archive.Close()
+	size, err := archive.Seek(0, 2)
+	if err != nil {
+		return fmt.Errorf("cannot get charm archive size: %v", err)
+	}
+	if _, err := archive.Seek(0, 0); err != nil {
+		return fmt.Errorf("cannot rewind the charm archive: %v", err)
+	}
+
+	// Get the environment storage and upload the charm.
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return fmt.Errorf("cannot access environment: %v", err)
+	}
+	storage := env.Storage()
+	name := charm.Quote(charmURL.String())
+	if err := storage.Put(name, archive, size); err != nil || size < 1 {
+		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
+	}
+	storageURL, err := storage.URL(name)
+	if err != nil {
+		return fmt.Errorf("cannot get storage URL for charm: %v", err)
+	}
+	bundleURL, err := url.Parse(storageURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse storage URL: %v", err)
+	}
+
+	// Finally, add the charm to state.
+	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, charmInfo.Sha256)
+	return err
 }

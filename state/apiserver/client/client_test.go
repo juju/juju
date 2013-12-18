@@ -5,6 +5,7 @@ package client_test
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 
 	gc "launchpad.net/gocheck"
@@ -1721,7 +1722,7 @@ func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeployAndServiceSetCharm(c *gc.C) {
+func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
@@ -1755,4 +1756,68 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployAndServiceSetCharm(c *gc.C
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+
+	curl, _ = addCharm(c, store, "riak")
+	err = s.APIState.Client().AddCharm(curl)
+
+	// check that the store's auth attributes were set
+	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+}
+
+func (s *clientSuite) TestAddCharm(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	// First test the sanity checks.
+	err := client.AddCharm(nil)
+	c.Assert(err, gc.ErrorMatches, "expected charm URL, got nil")
+	err = client.AddCharm(&charm.URL{Name: "nonsense"})
+	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":/nonsense-0"`)
+	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
+	c.Assert(err, gc.ErrorMatches, "charm URLs with local: schema are not supported")
+	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
+	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
+
+	// Add a charm, without uploading it to storage, to
+	// check that AddCharm does not try to do it.
+	charmDir := coretesting.Charms.Dir("dummy")
+	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
+	curl := charm.MustParseURL("cs:quantal/" + ident)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
+	c.Assert(err, gc.IsNil)
+	sch, err := s.State.AddCharm(charmDir, curl, bundleURL, ident+"-sha256")
+
+	name := charm.Quote(sch.URL().String())
+	storage := s.Conn.Environ.Storage()
+	_, err = storage.Get(name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// AddCharm should see the charm in state and not upload it.
+	err = client.AddCharm(sch.URL())
+	c.Assert(err, gc.IsNil)
+	_, err = storage.Get(name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Now try adding another charm completely.
+	curl, _ = addCharm(c, store, "wordpress")
+	err = client.AddCharm(curl)
+	c.Assert(err, gc.IsNil)
+
+	// Verify it's in state.
+	sch, err = s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+
+	name = charm.Quote(curl.String())
+	storageURL, err := storage.URL(name)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(sch.BundleURL().String(), gc.Equals, storageURL)
+	c.Assert(sch.BundleSha256(), gc.Equals, "mock-sha256")
+	// Sha256 is the only thing we ask the store in addition to the
+	// charm archive itself.
+
+	// Verify it's added to storage.
+	_, err = storage.Get(name)
+	c.Assert(err, gc.IsNil)
 }
