@@ -57,5 +57,6 @@ bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
 EXIT_STATUS=$?
+set -eux
 euca-terminate-instances $instance_id
 exit $EXIT_STATUS
