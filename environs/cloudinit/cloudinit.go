@@ -160,7 +160,18 @@ const NonceFile = "nonce.txt"
 func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
-	c.AddFile(path.Join(cfg.DataDir, NonceFile), cfg.MachineNonce, 0644)
+	// Create a file in a well-defined location containing the machine's
+	// nonce. The presence and contents of this file will be verified
+	// during bootstrap.
+	//
+	// Note: this must be the last runcmd we do in ConfigureBasic, as
+	// the presence of the nonce file is used to gate the remainder
+	// of synchronous bootstrap.
+	noncefile := shquote(path.Join(cfg.DataDir, NonceFile))
+	c.AddScripts(
+		fmt.Sprintf("install -D -m %o /dev/null %s", 0644, noncefile),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(cfg.MachineNonce), noncefile),
+	)
 	return nil
 }
 
