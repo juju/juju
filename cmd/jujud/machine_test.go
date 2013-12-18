@@ -202,8 +202,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// check that unassigned units don't trigger any deployments.
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	u0, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	u1, err := svc.AddUnit()
@@ -294,8 +293,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	// Add one unit to a service; it should get allocated a machine
 	// and then its ports should be opened.
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("test-service", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "test-service", charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 	units, err := s.Conn.AddUnits(svc, 1, "")
@@ -338,8 +336,7 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("test-service", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "test-service", charm)
 	units, err := s.Conn.AddUnits(svc, 1, "")
 	c.Assert(err, gc.IsNil)
 
@@ -510,8 +507,7 @@ func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
-		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-		c.Assert(err, gc.IsNil)
+		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 		unit, err := service.AddUnit()
 		c.Assert(err, gc.IsNil)
 		err = service.Destroy()
@@ -550,9 +546,8 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
-		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-		c.Assert(err, gc.IsNil)
-		err = service.SetMinUnits(1)
+		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		err := service.SetMinUnits(1)
 		c.Assert(err, gc.IsNil)
 		w := service.Watch()
 		defer w.Stop()
