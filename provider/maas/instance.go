@@ -14,9 +14,10 @@ import (
 )
 
 type maasInstance struct {
-	maasObject   *gomaasapi.MAASObject
-	maasObjectMu sync.Mutex
-	environ      *maasEnviron
+	environ *maasEnviron
+
+	mu         sync.Mutex
+	maasObject *gomaasapi.MAASObject
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
@@ -31,14 +32,12 @@ func (mi *maasInstance) String() string {
 }
 
 func (mi *maasInstance) Id() instance.Id {
-	mi.maasObjectMu.Lock()
-	defer mi.maasObjectMu.Unlock()
-	return mi.idUnlocked()
+	return maasObjectId(mi.getMaasObject())
 }
 
-func (mi *maasInstance) idUnlocked() instance.Id {
+func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	// Use the node's 'resource_uri' value.
-	return instance.Id(mi.maasObject.URI().String())
+	return instance.Id(maasObject.URI().String())
 }
 
 func (mi *maasInstance) Status() string {
@@ -53,9 +52,9 @@ func (mi *maasInstance) Status() string {
 // Refresh refreshes the instance with the most up-to-date information
 // from the MAAS server.
 func (mi *maasInstance) Refresh() error {
-	mi.maasObjectMu.Lock()
-	defer mi.maasObjectMu.Unlock()
-	insts, err := mi.environ.Instances([]instance.Id{mi.idUnlocked()})
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+	insts, err := mi.environ.Instances([]instance.Id{maasObjectId(mi.maasObject)})
 	if err != nil {
 		return err
 	}
@@ -64,8 +63,8 @@ func (mi *maasInstance) Refresh() error {
 }
 
 func (mi *maasInstance) getMaasObject() *gomaasapi.MAASObject {
-	mi.maasObjectMu.Lock()
-	defer mi.maasObjectMu.Unlock()
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
 	return mi.maasObject
 }
 
