@@ -1,0 +1,14 @@
+The idea of having a system SSH key is to support a number of real and
+potential use-cases.
+
+A system key is generated when the environment is bootstrapped, and uploaded
+as part of the clout-init machine creation process. The public key part is
+added to the authorized keys list.
+
+This means that we need to generate an identity file and the authorized key
+line prior to creating the new machine.
+
+If subsequent state server machines are created, they also need to have the
+system identity file on them. Actually, it is most likely the API server jobs
+that we really care about.
+
