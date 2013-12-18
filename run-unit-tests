@@ -46,6 +46,7 @@ echo
 set -x
 ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
+ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 wget -q $JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/artifact/$tarfile
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
