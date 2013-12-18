@@ -13,8 +13,8 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
@@ -114,7 +114,7 @@ func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 		err = apiclient.DestroyMachines(c.MachineIds...)
 	}
 	// Juju 1.16.3 and older did not have DestroyMachines as an API command.
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("DestroyMachines not supported by the API server, " +
 			"falling back to <=1.16.3 compatibility")
 		return c.run1dot16()

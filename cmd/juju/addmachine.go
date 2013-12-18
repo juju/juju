@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -167,7 +166,7 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	var machineId string
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("AddMachines not supported by the API server, " +
 			"falling back to 1.16 compatibility mode (direct DB access)")
 		machineId, err = c.addMachine1dot16()

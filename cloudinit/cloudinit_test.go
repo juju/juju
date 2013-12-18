@@ -10,11 +10,15 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/testing/testbase"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
 
 // TODO integration tests, but how?
 
-type S struct{}
+type S struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(S{})
 
@@ -106,18 +110,24 @@ var ctests = []struct {
 	},
 	{
 		"SSHAuthorizedKeys",
-		"ssh_authorized_keys:\n- key1\n- key2\n",
+		fmt.Sprintf(
+			"ssh_authorized_keys:\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
+			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key),
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHAuthorizedKeys("key1")
-			cfg.AddSSHAuthorizedKeys("key2")
+			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyOne.Key + " Juju:user@host")
+			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyTwo.Key + " another@host")
 		},
 	},
 	{
 		"SSHAuthorizedKeys",
-		"ssh_authorized_keys:\n- key1\n- key2\n- key3\n",
+		fmt.Sprintf(
+			"ssh_authorized_keys:\n- %s\n  Juju:sshkey\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
+			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key),
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHAuthorizedKeys("#command\nkey1")
-			cfg.AddSSHAuthorizedKeys("key2\n# comment\n\nkey3\n")
+			cfg.AddSSHAuthorizedKeys("#command\n" + sshtesting.ValidKeyOne.Key)
+			cfg.AddSSHAuthorizedKeys(
+				sshtesting.ValidKeyTwo.Key + " user@host\n# comment\n\n" +
+					sshtesting.ValidKeyThree.Key + " another@host")
 			cfg.AddSSHAuthorizedKeys("")
 		},
 	},

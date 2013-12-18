@@ -15,6 +15,8 @@ import (
 	"launchpad.net/juju-core/rpc/rpcreflect"
 )
 
+const CodeNotImplemented = "not implemented"
+
 var logger = loggo.GetLogger("juju.rpc")
 
 // A Codec implements reading and writing of messages in an RPC
@@ -462,6 +464,12 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	}
 	caller, err := rootValue.MethodCaller(hdr.Request.Type, hdr.Request.Action)
 	if err != nil {
+		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
+			err = &serverError{
+				Message: err.Error(),
+				Code:    CodeNotImplemented,
+			}
+		}
 		return boundRequest{}, err
 	}
 	return boundRequest{
@@ -498,4 +506,14 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 	if err != nil {
 		logger.Errorf("error writing response: %v", err)
 	}
+}
+
+type serverError RequestError
+
+func (e *serverError) Error() string {
+	return e.Message
+}
+
+func (e *serverError) ErrorCode() string {
+	return e.Code
 }

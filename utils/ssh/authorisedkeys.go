@@ -30,6 +30,10 @@ const (
 	authKeysFile = "authorized_keys"
 )
 
+// KeyFingerprint returns the fingerprint and comment for the specified key, using
+// the OS dependent function keyFingerprint.
+var KeyFingerprint = keyFingerprint
+
 func readAuthorisedKeys() ([]string, error) {
 	sshKeyFile := utils.NormalizePath(filepath.Join(authKeysDir, authKeysFile))
 	keyData, err := ioutil.ReadFile(sshKeyFile)
@@ -41,7 +45,7 @@ func readAuthorisedKeys() ([]string, error) {
 	}
 	var keys []string
 	for _, key := range strings.Split(string(keyData), "\n") {
-		if len(strings.Trim(key, " ")) == 0 {
+		if len(strings.Trim(key, " \r")) == 0 {
 			continue
 		}
 		keys = append(keys, key)
@@ -56,8 +60,28 @@ func writeAuthorisedKeys(keys []string) error {
 		return fmt.Errorf("cannot create ssh key directory: %v", err)
 	}
 	keyData := strings.Join(keys, "\n") + "\n"
+
+	// Get perms to use on auth keys file
 	sshKeyFile := filepath.Join(keyDir, authKeysFile)
-	return ioutil.WriteFile(sshKeyFile, []byte(keyData), 0644)
+	perms := os.FileMode(0644)
+	info, err := os.Stat(sshKeyFile)
+	if err == nil {
+		perms = info.Mode().Perm()
+	}
+	// Write the data to a temp file
+	tempDir, err := ioutil.TempDir(keyDir, "")
+	if err != nil {
+		return err
+	}
+	tempFile := filepath.Join(tempDir, "newkeyfile")
+	defer os.RemoveAll(tempDir)
+	err = ioutil.WriteFile(tempFile, []byte(keyData), perms)
+	if err != nil {
+		return err
+	}
+
+	// Rename temp file to the final location
+	return os.Rename(tempFile, sshKeyFile)
 }
 
 // We need a mutex because updates to the authorised keys file are done by
@@ -150,6 +174,36 @@ func DeleteKeys(keyIds ...string) error {
 	return writeAuthorisedKeys(keysToWrite)
 }
 
+// ReplaceKeys writes the specified ssh keys to the authorized_keys file,
+// replacing any that are already there.
+// Returns an error if there is an issue with *any* of the supplied keys.
+func ReplaceKeys(newKeys ...string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	existingKeyData, err := readAuthorisedKeys()
+	if err != nil {
+		return err
+	}
+	var existingNonKeyLines []string
+	for _, line := range existingKeyData {
+		_, _, err := keyFingerprint(line)
+		if err != nil {
+			existingNonKeyLines = append(existingNonKeyLines, line)
+		}
+	}
+	for _, newKey := range newKeys {
+		_, comment, err := keyFingerprint(newKey)
+		if err != nil {
+			return err
+		}
+		if comment == "" {
+			return fmt.Errorf("cannot add ssh key without comment")
+		}
+	}
+	return writeAuthorisedKeys(append(existingNonKeyLines, newKeys...))
+}
+
 // ListKeys returns either the full keys or key comments from the authorized ssh keys file.
 func ListKeys(mode ListMode) ([]string, error) {
 	mutex.Lock()
@@ -176,4 +230,28 @@ func ListKeys(mode ListMode) ([]string, error) {
 		}
 	}
 	return keys, nil
+}
+
+// Any ssh key added to the authorised keys list by Juju will have this prefix.
+// This allows Juju to know which keys have been added externally and any such keys
+// will always be retained by Juju when updating the authorised keys file.
+const JujuCommentPrefix = "Juju:"
+
+func EnsureJujuComment(key string) string {
+	_, comment, err := keyFingerprint(key)
+	// Just return an invalid key as is.
+	if err != nil {
+		logger.Warningf("invalid Juju ssh key %s: %v", key, err)
+		return key
+	}
+	if comment == "" {
+		return key + " " + JujuCommentPrefix + "sshkey"
+	} else {
+		// Add the Juju prefix to the comment if necessary.
+		if !strings.HasPrefix(comment, JujuCommentPrefix) {
+			commentIndex := strings.LastIndex(key, comment)
+			return key[:commentIndex] + JujuCommentPrefix + comment
+		}
+	}
+	return key
 }

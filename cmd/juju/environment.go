@@ -11,7 +11,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
@@ -82,7 +82,7 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	attrs, err := client.EnvironmentGet()
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("EnvironmentGet not supported by the API server, " +
 			"falling back to 1.16 compatibility mode (direct DB access)")
 		attrs, err = c.environmentGet1dot16()
@@ -192,7 +192,7 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	err = client.EnvironmentSet(c.values)
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("EnvironmentSet not supported by the API server, " +
 			"falling back to 1.16 compatibility mode (direct DB access)")
 		err = c.run1dot16()

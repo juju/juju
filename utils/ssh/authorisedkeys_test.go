@@ -4,9 +4,6 @@
 package ssh_test
 
 import (
-	"io/ioutil"
-	"os"
-	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -34,10 +31,7 @@ func (s *AuthorisedKeysKeysSuite) SetUpTest(c *gc.C) {
 }
 
 func writeAuthKeysFile(c *gc.C, keys []string) {
-	err := os.MkdirAll(coretesting.HomePath(".ssh"), 0755)
-	c.Assert(err, gc.IsNil)
-	authKeysFile := coretesting.HomePath(".ssh", "authorized_keys")
-	err = ioutil.WriteFile(authKeysFile, []byte(strings.Join(keys, "\n")), 0644)
+	err := ssh.WriteAuthorisedKeys(keys)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -175,4 +169,44 @@ func (s *AuthorisedKeysKeysSuite) TestDeleteLastKeyForbidden(c *gc.C) {
 	writeAuthKeysFile(c, keys)
 	err := ssh.DeleteKeys("user@host", sshtesting.ValidKeyTwo.Fingerprint)
 	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
+}
+
+func (s *AuthorisedKeysKeysSuite) TestReplaceKeys(c *gc.C) {
+	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
+	anotherKey := sshtesting.ValidKeyTwo.Key
+	writeAuthKeysFile(c, []string{firstKey, anotherKey})
+
+	replaceKey := sshtesting.ValidKeyThree.Key + " anotheruser@host"
+	err := ssh.ReplaceKeys(replaceKey)
+	c.Assert(err, gc.IsNil)
+	actual, err := ssh.ListKeys(ssh.FullKeys)
+	c.Assert(err, gc.IsNil)
+	c.Assert(actual, gc.DeepEquals, []string{replaceKey})
+}
+
+func (s *AuthorisedKeysKeysSuite) TestReplaceKeepsUnrecognised(c *gc.C) {
+	writeAuthKeysFile(c, []string{sshtesting.ValidKeyOne.Key, "invalid-key"})
+	anotherKey := sshtesting.ValidKeyTwo.Key + " anotheruser@host"
+	err := ssh.ReplaceKeys(anotherKey)
+	c.Assert(err, gc.IsNil)
+	actual, err := ssh.ReadAuthorisedKeys()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actual, gc.DeepEquals, []string{"invalid-key", anotherKey})
+}
+
+func (s *AuthorisedKeysKeysSuite) TestEnsureJujuComment(c *gc.C) {
+	sshKey := sshtesting.ValidKeyOne.Key
+	for _, test := range []struct {
+		key      string
+		expected string
+	}{
+		{"invalid-key", "invalid-key"},
+		{sshKey, sshKey + " Juju:sshkey"},
+		{sshKey + " user@host", sshKey + " Juju:user@host"},
+		{sshKey + " Juju:user@host", sshKey + " Juju:user@host"},
+		{sshKey + " " + sshKey[3:5], sshKey + " Juju:" + sshKey[3:5]},
+	} {
+		actual := ssh.EnsureJujuComment(test.key)
+		c.Assert(actual, gc.Equals, test.expected)
+	}
 }

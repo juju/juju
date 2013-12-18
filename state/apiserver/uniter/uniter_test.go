@@ -75,7 +75,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:       s.wordpressUnit.Tag(),
 		LoggedIn:  true,
-		Manager:   false,
 		UnitAgent: true,
 		Entity:    s.wordpressUnit,
 	}
