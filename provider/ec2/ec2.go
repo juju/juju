@@ -95,32 +95,33 @@ func (inst *ec2Instance) Status() string {
 // Refresh implements instance.Refresh(), requerying the
 // Instance details over the ec2 api
 func (inst *ec2Instance) Refresh() error {
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-	return inst.refresh()
+	_, err := inst.refresh()
+	return err
 }
 
 // refresh requeries Instance details over the ec2 api.
-// inst.mu must be held by the caller.
-func (inst *ec2Instance) refresh() error {
-	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
+	id := inst.Id()
+	insts, err := inst.e.Instances([]instance.Id{id})
 	if err != nil {
-		return err
+		return nil, err
 	}
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	inst.Instance = insts[0].(*ec2Instance).Instance
-	return nil
+	return inst.Instance, nil
 }
 
 // Addresses implements instance.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-	if inst.Instance.DNSName == "" {
+	instInstance := inst.getInstance()
+	if instInstance.DNSName == "" {
 		// Fetch the instance information again, in case
 		// the DNS information has become available.
-		err := inst.refresh()
+		var err error
+		instInstance, err = inst.refresh()
 		if err != nil {
 			return nil, err
 		}
@@ -128,22 +129,22 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 	var addresses []instance.Address
 	possibleAddresses := []instance.Address{
 		{
-			Value:        inst.Instance.DNSName,
+			Value:        instInstance.DNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateDNSName,
+			Value:        instInstance.PrivateDNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
 		{
-			Value:        inst.Instance.IPAddress,
+			Value:        instInstance.IPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateIPAddress,
+			Value:        instInstance.PrivateIPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
