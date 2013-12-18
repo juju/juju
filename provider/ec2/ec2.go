@@ -73,17 +73,23 @@ type ec2Instance struct {
 }
 
 func (inst *ec2Instance) String() string {
-	return inst.InstanceId
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*ec2Instance)(nil)
 
+func (inst *ec2Instance) getInstance() *ec2.Instance {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.Instance
+}
+
 func (inst *ec2Instance) Id() instance.Id {
-	return instance.Id(inst.InstanceId)
+	return instance.Id(inst.getInstance().InstanceId)
 }
 
 func (inst *ec2Instance) Status() string {
-	return inst.State.Name
+	return inst.getInstance().State.Name
 }
 
 // Refresh implements instance.Refresh(), requerying the
