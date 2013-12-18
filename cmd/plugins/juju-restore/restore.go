@@ -172,7 +172,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 }
 
 func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, error) {
-	log.Infof("re-bootstrapping environment")
+	logger.Infof("re-bootstrapping environment")
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
 	cfg, err := cfg.Apply(map[string]interface{}{
