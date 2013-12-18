@@ -160,4 +160,7 @@ type RunClient interface {
 	Run(params api.RunParams) ([]api.RunResult, error)
 }
 
-var getAPIClient = juju.NewAPIClientFromName
+// Here we need the signature to be correct for the interface.
+var getAPIClient = func(name string) (RunClient, err) {
+	return juju.NewAPIClientFromName
+}

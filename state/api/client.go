@@ -358,7 +358,7 @@ type RunResult struct {
 	cmd.RemoteResponse
 	MachineId string
 	UnitId    string
-	err       error
+	Error     error
 }
 
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]RunResult, error) {

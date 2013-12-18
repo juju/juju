@@ -146,21 +146,57 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}
 }
 
+func (s *RunSuite) TestAllMachines(c *gc.C) {
+	mock = &mockRunAPI{}
+	s.PatchValue(&getAPIClient, func(name string) (RunClient, error) {
+		return mock, nil
+	})
+
+}
+
 type mockRunAPI struct {
 	stdout string
 	stderr string
 	code   int
 	// machines, services, units
+	machines map[string]bool
+	responses map[string]api.RunResult
 }
 
 var _ RunClient = (*mockRunAPI)(nil)
+
+func (m *mockRunAPI) setMachinesAlive(ids ...string)  {
+	if m.machines == nil {
+		m.machines = make(map[string]bool)
+	}
+	for _, id := range ids {
+		m.machines[id] = true
+	}
+}
+
+func (m *mockRunAPI) setResponse(id string, result api.RunResult) {
+	if m.responses == nil {
+		m.responses = make(map[string]api.RunResult)
+	}
+	m.responses[id] = result
+}
 
 func (*mockRunAPI) Close() error {
 	return nil
 }
 
-func (*mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]api.RunResult, error) {
-	return nil, fmt.Errorf("todo")
+func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]api.RunResult, error) {
+	var result []api.RunResult
+	for machine := range m.machines {
+		response, found := r.responses[machine]
+		if !found {
+			// Consider this a timeout
+			response = api.RunResult{MachineId: machine, Error: fmt.Errorf("command timed out")}
+		}
+		result = append(result, respose)
+	}
+
+	return result, nil
 }
 func (*mockRunAPI) Run(params api.RunParams) ([]api.RunResult, error) {
 	return nil, fmt.Errorf("todo")
