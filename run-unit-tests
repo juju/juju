@@ -19,7 +19,7 @@ else:
 print filename
 EOT
 )
-RUN_OUTPUT=$(euca-run-instances -k id_rsa -t m1.small $AMI_IMAGE)
+RUN_OUTPUT=$(euca-run-instances -k id_rsa -t m1.large $AMI_IMAGE)
 if [ $? -ne 0 ]; then
   exit 1
 fi
