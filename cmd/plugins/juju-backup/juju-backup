@@ -58,7 +58,7 @@ remote_cmd() {
 	copy_files() {
 		# Make an archive within the main archive so that we
 		# can easily preserve file ownership and other metadata.
-		tar -cf root.tar "$@" 2>&1 | grep -v 'Removing leading'
+		tar -cf root.tar "$@" 2>&1 | (grep -v 'Removing leading'; true)
 	}
 	# Make copies of:
 	#   - Upstart configuration files for juju-db, machine agent, but not any unit agents.
@@ -101,7 +101,7 @@ echo Connecting to machine 0
 juju ssh 0 "sudo -n bash -c $QUOTED_SCRIPT" && {
 	# The backup has succeeded; copy backup tarball locally.
 	NOW=$(date '+%Y%m%d-%H%M')
-	FILENAME=juju-backup-$NOW.tar.gz
+	FILENAME=juju-backup-$NOW.tgz
 	echo "Copying tarball to `pwd`/$FILENAME ..."
-	juju scp 0:~/juju-backup.tar.gz ./$FILENAME
+	juju scp 0:~/juju-backup.tgz ./$FILENAME
 }

@@ -92,6 +92,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	initctl stop juju-db
 	rm -r /var/lib/juju /var/log/juju
 	tar -C / -xvp -f juju-backup/root.tar
+	mkdir -p /var/lib/juju/db
 	mongorestore --drop --dbpath /var/lib/juju/db juju-backup/dump
 	initctl start juju-db
 
@@ -99,14 +100,14 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u admin -p {{.AdminSecret | shquote}} localhost:37017/admin --eval "$1"
 	}
 	# wait for mongo to come up after starting the juju-db upstart service.
-	for i in 0 1 2 3 5 6 7
+	for i in $(seq 1 60)
 	do
 		mongoEval ' ' && break
-		sleep 1
+		sleep 2
 	done
 	mongoEval '
-		db.machines.update({_id: 0}, {$set: {instanceid: {{.NewInstanceId}} } })
-		db.instanceData.update({_id: 0}, {$set: {instanceid: {{.NewInstanceId}} } })
+		db.machines.update({_id: 0}, {$set: {instanceid: '{{.NewInstanceId | printf "%q" | shquote}}' } })
+		db.instanceData.update({_id: 0}, {$set: {instanceid: '{{.NewInstanceId | printf "%q"| shquote}}' } })
 	'
 	initctl start jujud-machine-0
 `)
@@ -171,6 +172,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 }
 
 func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, error) {
+	log.Infof("re-bootstrapping environment")
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
 	cfg, err := cfg.Apply(map[string]interface{}{
