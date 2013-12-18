@@ -6,7 +6,6 @@ package common
 import (
 	"fmt"
 	"io"
-	"juju-core/ssh-options/utils/ssh"
 	"os"
 	"os/signal"
 	"path"
@@ -27,6 +26,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")
