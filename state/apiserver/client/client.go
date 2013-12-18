@@ -924,7 +924,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 	storage := env.Storage()
 	name := charm.Quote(charmURL.String())
-	if err := storage.Put(name, archive, size); err != nil || size < 1 {
+	if err := storage.Put(name, archive, size); err != nil {
 		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
 	storageURL, err := storage.URL(name)
