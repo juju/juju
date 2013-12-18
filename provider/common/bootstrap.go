@@ -226,9 +226,9 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 		}()
 		select {
 		case <-hc.closed:
-			return nil, lastErr
+			return hc, lastErr
 		case <-dying:
-			return nil, lastErr
+			return hc, lastErr
 		case lastErr = <-done:
 			if lastErr == nil {
 				return hc, nil
