@@ -189,10 +189,7 @@ func recordMachineInState1dot16(
 	}
 	stateParams := state.AddMachineParams{
 		Series:                  machineParams.Series,
-		Constraints:             machineParams.Constraints, // not used
 		Jobs:                    stateJobs,
-		ParentId:                machineParams.ParentId,      //not used
-		ContainerType:           machineParams.ContainerType, // not used
 		InstanceId:              machineParams.InstanceId,
 		HardwareCharacteristics: machineParams.HardwareCharacteristics,
 		Nonce: machineParams.Nonce,
