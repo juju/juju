@@ -258,6 +258,30 @@ func Validate(cfg, old *Config) error {
 			}
 		}
 	}
+
+	// The tools url has changed so see if the old one is still in use.
+	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := cfg.ToolsURL()
+		var msg string
+		if newToolsSpecified {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
+					"the new tools URL attribute %q has also been used.\n"+
+					"The attribute %q should be removed from your configuration.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
+		} else {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated.\n"+
+					"The location to find tools is now specified using the %q attribute.\n"+
+					"Your configuration should be updated to set %q as follows\n%v: %v.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
+			cfg.m["tools-metadata-url"] = oldToolsURL
+		}
+		logger.Warningf(msg)
+	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// we still want it in the config for upgrades.
+	cfg.m["tools-url"], _ = cfg.ToolsURL()
 	return nil
 }
 
