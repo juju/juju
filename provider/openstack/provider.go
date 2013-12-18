@@ -282,11 +282,12 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
-	serverDetail   *nova.ServerDetail
-	serverDetailMu sync.Mutex
-	e              *environ
-	instType       *instances.InstanceType
-	arch           *string
+	e        *environ
+	instType *instances.InstanceType
+	arch     *string
+
+	mu           sync.Mutex
+	serverDetail *nova.ServerDetail
 }
 
 func (inst *openstackInstance) String() string {
@@ -296,9 +297,9 @@ func (inst *openstackInstance) String() string {
 var _ instance.Instance = (*openstackInstance)(nil)
 
 func (inst *openstackInstance) Refresh() error {
-	inst.serverDetailMu.Lock()
-	defer inst.serverDetailMu.Unlock()
-	server, err := inst.e.nova().GetServer(string(inst.idUnlocked()))
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	server, err := inst.e.nova().GetServer(inst.serverDetail.Id)
 	if err != nil {
 		return err
 	}
@@ -307,19 +308,13 @@ func (inst *openstackInstance) Refresh() error {
 }
 
 func (inst *openstackInstance) getServerDetail() *nova.ServerDetail {
-	inst.serverDetailMu.Lock()
-	defer inst.serverDetailMu.Unlock()
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	return inst.serverDetail
 }
 
 func (inst *openstackInstance) Id() instance.Id {
-	inst.serverDetailMu.Lock()
-	defer inst.serverDetailMu.Unlock()
-	return inst.idUnlocked()
-}
-
-func (inst *openstackInstance) idUnlocked() instance.Id {
-	return instance.Id(inst.serverDetail.Id)
+	return instance.Id(inst.getServerDetail().Id)
 }
 
 func (inst *openstackInstance) Status() string {

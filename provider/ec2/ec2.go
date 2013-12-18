@@ -67,8 +67,9 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
+
+	mu sync.Mutex
 	*ec2.Instance
-	instanceMu sync.Mutex
 }
 
 func (inst *ec2Instance) String() string {
@@ -88,8 +89,14 @@ func (inst *ec2Instance) Status() string {
 // Refresh implements instance.Refresh(), requerying the
 // Instance details over the ec2 api
 func (inst *ec2Instance) Refresh() error {
-	inst.instanceMu.Lock()
-	defer inst.instanceMu.Unlock()
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.refresh()
+}
+
+// refresh requeries Instance details over the ec2 api.
+// inst.mu must be held by the caller.
+func (inst *ec2Instance) refresh() error {
 	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
 	if err != nil {
 		return err
@@ -102,12 +109,12 @@ func (inst *ec2Instance) Refresh() error {
 // details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
-	inst.instanceMu.Lock()
-	defer inst.instanceMu.Unlock()
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	if inst.Instance.DNSName == "" {
 		// Fetch the instance information again, in case
 		// the DNS information has become available.
-		err := inst.Refresh()
+		err := inst.refresh()
 		if err != nil {
 			return nil, err
 		}

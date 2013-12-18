@@ -218,6 +218,9 @@ func (*hostChecker) Close() error {
 }
 
 func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
+	// The value of connectSSH is taken outside the goroutine that may outlive
+	// hostChecker.loop, or we evoke the wrath of the race detector.
+	connectSSH := connectSSH
 	done := make(chan error, 1)
 	var lastErr error
 	for {
@@ -234,8 +237,63 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 				return hc, nil
 			}
 		}
-		time.Sleep(hc.checkDelay)
+		select {
+		case <-hc.closed:
+		case <-dying:
+		case <-time.After(hc.checkDelay):
+		}
 	}
+}
+
+type parallelHostChecker struct {
+	*parallel.Try
+
+	stderr io.Writer
+
+	// active is a map of adresses to channels for addresses actively
+	// being tested. The goroutine testing the address will continue
+	// to attempt connecting to the address until it succeeds, the Try
+	// is killed, or the corresponding channel in this map is closed.
+	active map[instance.Address]chan struct{}
+
+	// checkDelay is how long each hostChecker waits between attempts.
+	checkDelay time.Duration
+
+	// checkHostScript is the script to run on each host to check that
+	// it is the host we expect.
+	checkHostScript string
+}
+
+func (p *parallelHostChecker) UpdateAddresses(addrs []instance.Address) {
+	for _, addr := range addrs {
+		if _, ok := p.active[addr]; ok {
+			continue
+		}
+		fmt.Fprintf(p.stderr, "Attempting to connect to %s:22\n", addr.Value)
+		closed := make(chan struct{})
+		hc := &hostChecker{
+			addr:            addr,
+			checkDelay:      p.checkDelay,
+			checkHostScript: p.checkHostScript,
+			closed:          closed,
+		}
+		p.active[addr] = closed
+		p.Start(hc.loop)
+	}
+}
+
+// Close prevents additional functions from being added to
+// the Try, and tells each active hostChecker to exit.
+func (p *parallelHostChecker) Close() error {
+	// We signal each checker to stop and wait for them
+	// each to complete; this allows us to get the error,
+	// as opposed to when using try.Kill which does not
+	// wait for the functions to complete.
+	p.Try.Close()
+	for _, ch := range p.active {
+		close(ch)
+	}
+	return nil
 }
 
 // connectSSH is called to connect to the specified host and
@@ -263,15 +321,17 @@ func waitSSH(ctx *BootstrapContext, checkHostScript string, inst addresser, t *t
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
-	// map of adresses to channels for addresses actively being tested.
-	// the goroutine testing the address will continue to attempt
-	// connecting to the address until it succeeds, the Try is killed,
-	// or the corresponding channel in this map is closed.
-	active := make(map[instance.Address]chan struct{})
-
-	// try each address in parallel
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
+	// checker checks each address in a loop, in parallel,
+	// until one succeeds, the global timeout is reached,
+	// or the tomb is killed.
+	checker := parallelHostChecker{
+		Try:             parallel.NewTry(0, nil),
+		stderr:          ctx.Stderr,
+		active:          make(map[instance.Address]chan struct{}),
+		checkDelay:      timeout.ConnectDelay,
+		checkHostScript: checkHostScript,
+	}
+	defer checker.Kill()
 
 	fmt.Fprintln(ctx.Stderr, "Waiting for address")
 	for {
@@ -285,34 +345,13 @@ func waitSSH(ctx *BootstrapContext, checkHostScript string, inst addresser, t *t
 			if err != nil {
 				return "", t.Killf("getting addresses: %v", err)
 			}
-			for _, addr := range addresses {
-				if _, ok := active[addr]; ok {
-					continue
-				}
-				fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22\n", addr.Value)
-				closed := make(chan struct{})
-				hc := &hostChecker{
-					addr:            addr,
-					checkDelay:      timeout.ConnectDelay,
-					checkHostScript: checkHostScript,
-					closed:          closed,
-				}
-				active[addr] = closed
-				try.Start(hc.loop)
-			}
+			checker.UpdateAddresses(addresses)
 		case <-globalTimeout:
-			// We signal each checker to stop and wait for them
-			// each to complete; this allows us to get the error,
-			// as opposed to when using try.Kill which does not
-			// wait for the functions to complete.
-			try.Close()
-			for _, ch := range active {
-				close(ch)
-			}
-			lastErr := try.Wait()
+			checker.Close()
+			lastErr := checker.Wait()
 			format := "waited for %v "
 			args := []interface{}{timeout.Timeout}
-			if len(active) == 0 {
+			if len(checker.active) == 0 {
 				format += "without getting any addresses"
 			} else {
 				format += "without being able to connect"
@@ -324,8 +363,8 @@ func waitSSH(ctx *BootstrapContext, checkHostScript string, inst addresser, t *t
 			return "", fmt.Errorf(format, args...)
 		case <-t.Dying():
 			return "", t.Err()
-		case <-try.Dead():
-			result, err := try.Result()
+		case <-checker.Dead():
+			result, err := checker.Result()
 			if err != nil {
 				return "", err
 			}
