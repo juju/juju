@@ -357,26 +357,10 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
 
-// NotImplementedError signifies a certain functionality is not
-// implemented. It satisfies a IsCodeNotImplemented() check.
-type NotImplementedError struct {
-	message string
-}
-
-// Error returns the error as a string.
-func (e *NotImplementedError) Error() string {
-	return e.message
-}
-
-// ErrorCode implements rpc.ErrorCoder.
-func (e *NotImplementedError) ErrorCode() string {
-	return params.CodeNotImplemented
-}
-
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
-// charm URL. If the API server does not support charm uploads, a
-// NotImplementedError is returned.
+// charm URL. If the API server does not support charm uploads, an
+// error satisfying params.IsCodeNotImplemented() is returned.
 func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
 	if curl == nil {
 		return nil, fmt.Errorf("expected charm URL, got nil")
@@ -436,8 +420,9 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if resp.StatusCode == http.StatusMethodNotAllowed {
 		// API server is 1.16 or older, so charm upload
 		// is not supported; notify the client.
-		return nil, &NotImplementedError{
-			message: "charm upload is not supported by the API server",
+		return nil, &params.Error{
+			Message: "charm upload is not supported by the API server",
+			Code:    params.CodeNotImplemented,
 		}
 	}
 
