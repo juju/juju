@@ -44,6 +44,7 @@ while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
 done
 echo
 set -x
+set +e
 ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
@@ -57,6 +58,6 @@ bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
 EXIT_STATUS=$?
-set -eux
+set -e
 euca-terminate-instances $instance_id
 exit $EXIT_STATUS
