@@ -872,8 +872,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	if charmURL.Schema == "local" {
-		return fmt.Errorf("charm URLs with local: schema are not supported")
+	if charmURL.Schema != "cs" {
+		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
 	}
 	if charmURL.Revision < 0 {
 		return fmt.Errorf("charm URL must include revision")
@@ -896,7 +896,11 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 
 	// Open it and calculate the SHA256 hash.
-	archive, err := os.Open(downloadedCharm.(*charm.Bundle).Path)
+	downloadedBundle, ok := downloadedCharm.(*charm.Bundle)
+	if !ok {
+		return fmt.Errorf("expected a charm archive, got %T", downloadedCharm)
+	}
+	archive, err := os.Open(downloadedBundle.Path)
 	if err != nil {
 		return fmt.Errorf("cannot read downloaded charm: %v", err)
 	}
