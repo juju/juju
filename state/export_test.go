@@ -131,6 +131,12 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testing.Charms.Dir(name))
 }
 
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
+	service, err := st.AddService(name, "user-admin", ch)
+	c.Assert(err, gc.IsNil)
+	return service
+}
+
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
@@ -220,4 +226,8 @@ func GetUserPasswordSaltAndHash(u *User) (string, string) {
 
 func StateServerMachineIds(st *State) ([]string, error) {
 	return st.stateServerMachineIds()
+}
+
+func CheckUserExists(st *State, name string) (bool, error) {
+	return st.checkUserExists(name)
 }

@@ -45,9 +45,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
-		Client:       false,
 	}
 	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)

@@ -140,6 +140,87 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 }
 
+func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
+	// First test the sanity checks.
+	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
+	c.Assert(curl, gc.IsNil)
+	curl, err = s.State.PrepareLocalCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with local schema, got .*")
+	c.Assert(curl, gc.IsNil)
+
+	// No charm in state, so the call should respect given revision.
+	testCurl := charm.MustParseURL("local:quantal/missing-123")
+	curl, err = s.State.PrepareLocalCharmUpload(testCurl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl, gc.DeepEquals, testCurl)
+
+	// Find it directly and verify only the charm URL and
+	// PendingUpload are set.
+	doc := state.CharmDoc{}
+	err = s.charms.FindId(curl).One(&doc)
+	c.Assert(err, gc.IsNil)
+	c.Logf("%#v", doc)
+	c.Assert(doc.URL, gc.DeepEquals, curl)
+	c.Assert(doc.PendingUpload, jc.IsTrue)
+	c.Assert(doc.Meta, gc.IsNil)
+	c.Assert(doc.Config, gc.IsNil)
+	c.Assert(doc.BundleURL, gc.IsNil)
+	c.Assert(doc.BundleSha256, gc.Equals, "")
+
+	// Make sure we can't find it with st.Charm().
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Try adding it again with the same revision and ensure it gets bumped.
+	curl, err = s.State.PrepareLocalCharmUpload(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl.Revision, gc.Equals, 124)
+
+	// Also ensure the revision cannot decrease.
+	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(42))
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl.Revision, gc.Equals, 125)
+
+	// Check the given revision is respected.
+	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(1234))
+	c.Assert(err, gc.IsNil)
+	c.Assert(curl.Revision, gc.Equals, 1234)
+}
+
+func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
+	ch := testing.Charms.Dir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+
+	// First test with already uploaded and a missing charms.
+	sch, err := s.State.UpdateUploadedCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", curl))
+	c.Assert(sch, gc.IsNil)
+	missingCurl := charm.MustParseURL("local:quantal/missing-1")
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(sch, gc.IsNil)
+
+	// Now try with an uploaded charm.
+	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
+	c.Assert(err, gc.IsNil)
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
+	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+}
+
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -205,6 +286,33 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(m, gc.HasLen, 2)
 	check(m[0], "0", "quantal", oneJob)
 	check(m[1], "1", "blahblah", allJobs)
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that machines cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -554,19 +662,19 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", charm)
+	_, err := s.State.AddService("haha/borken", "user-admin", charm)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddService("umadbro", nil)
+	_, err = s.State.AddService("umadbro", "user-admin", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", charm)
+	wordpress, err := s.State.AddService("wordpress", "user-admin", charm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", charm)
+	mysql, err := s.State.AddService("mysql", "user-admin", charm)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -585,10 +693,55 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
 }
 
+func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "s0", charm)
+	// Check that services cannot be added if the environment is initially Dying.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("s1", "user-admin", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "s0", charm)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// Check that services cannot be added if the environment is initially
+	// Alive but set to Dying immediately before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(env.Destroy(), gc.IsNil)
+	}).Check()
+	_, err = s.State.AddService("s1", "user-admin", charm)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
+}
+
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 	_, err := s.State.Service("bummer")
 	c.Assert(err, gc.ErrorMatches, `service "bummer" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "admin", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
+}
+
+func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "machine-3", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3")
+}
+
+func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "user-notAuser", charm)
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": user notAuser doesn't exist")
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {
@@ -598,13 +751,13 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.State.AddService("wordpress", charm)
+	_, err = s.State.AddService("wordpress", "user-admin", charm)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddService("mysql", charm)
+	_, err = s.State.AddService("mysql", "user-admin", charm)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
@@ -770,17 +923,12 @@ var inferEndpointsTests = []struct {
 }
 
 func (s *StateSuite) TestInferEndpoints(c *gc.C) {
-	_, err := s.State.AddService("ms", s.AddTestingCharm(c, "mysql-alternative"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("wp", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("lg", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
+	s.AddTestingService(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "lg", s.AddTestingCharm(c, "logging"))
 	riak := s.AddTestingCharm(c, "riak")
-	_, err = s.State.AddService("rk1", riak)
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("rk2", riak)
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "rk1", riak)
+	s.AddTestingService(c, "rk2", riak)
 
 	for i, t := range inferEndpointsTests {
 		c.Logf("test %d", i)
@@ -838,20 +986,17 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	// Alive service...
 	dummyCharm := s.AddTestingCharm(c, "dummy")
-	alive, err := s.State.AddService("service0", dummyCharm)
-	c.Assert(err, gc.IsNil)
+	alive := s.AddTestingService(c, "service0", dummyCharm)
 
 	// Dying service...
-	dying, err := s.State.AddService("service1", dummyCharm)
-	c.Assert(err, gc.IsNil)
+	dying := s.AddTestingService(c, "service1", dummyCharm)
 	keepDying, err := dying.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = dying.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	// Dead service (actually, gone, Dead == removed in this case).
-	gone, err := s.State.AddService("service2", dummyCharm)
-	c.Assert(err, gc.IsNil)
+	gone := s.AddTestingService(c, "service2", dummyCharm)
 	err = gone.Destroy()
 	c.Assert(err, gc.IsNil)
 
@@ -880,8 +1025,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a service: reported.
-	service, err := s.State.AddService("service", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "service", s.AddTestingCharm(c, "dummy"))
 	wc.AssertChange("service")
 	wc.AssertNoChange()
 
@@ -1366,8 +1510,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(charm1, gc.DeepEquals, charm2)
 
-	wordpress1, err := s.State.AddService("wordpress", charm1)
-	c.Assert(err, gc.IsNil)
+	wordpress1 := s.AddTestingService(c, "wordpress", charm1)
 	wordpress2, err := s.State.Service("wordpress")
 	c.Assert(err, gc.IsNil)
 	c.Assert(wordpress1, gc.DeepEquals, wordpress2)
@@ -1378,7 +1521,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit1, gc.DeepEquals, unit2)
 
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
@@ -1611,10 +1754,12 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-var findEntityTests = []struct {
+type findEntityTest struct {
 	tag string
 	err string
-}{{
+}
+
+var findEntityTests = []findEntityTest{{
 	tag: "",
 	err: `"" is not a valid tag`,
 }, {
@@ -1651,8 +1796,8 @@ var findEntityTests = []struct {
 	tag: "service-foo/bar",
 	err: `"service-foo/bar" is not a valid service tag`,
 }, {
-	tag: "environment-foo",
-	err: `environment "foo" not found`,
+	tag: "environment-9f484882-2f18-4fd2-967d-db9663db7bea",
+	err: `environment "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 }, {
 	tag: "machine-1234",
 	err: `machine 1234 not found`,
@@ -1673,7 +1818,13 @@ var findEntityTests = []struct {
 }, {
 	tag: "user-arble",
 }, {
+	// TODO(axw) 2013-12-04 #1257587
+	// remove backwards compatibility for environment-tag; see state.go
+	tag: "environment-notauuid",
+	//err: `"environment-notauuid" is not a valid environment tag`,
+}, {
 	tag: "environment-testenv",
+	//err: `"environment-testenv" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -1688,19 +1839,25 @@ var entityTypes = map[string]interface{}{
 func (s *StateSuite) TestFindEntity(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	_, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
+
+	// environment tag is dynamically generated
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	findEntityTests = append([]findEntityTest{}, findEntityTests...)
+	findEntityTests = append(findEntityTests, findEntityTest{
+		tag: "environment-" + env.UUID(),
+	})
 
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)
@@ -1712,7 +1869,14 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			kind, err := names.TagKind(test.tag)
 			c.Assert(err, gc.IsNil)
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
-			c.Assert(e.Tag(), gc.Equals, test.tag)
+			if kind == "environment" {
+				// TODO(axw) 2013-12-04 #1257587
+				// We *should* only be able to get the entity with its tag, but
+				// for backwards-compatibility we accept any non-UUID tag.
+				c.Assert(e.Tag(), gc.Equals, env.Tag())
+			} else {
+				c.Assert(e.Tag(), gc.Equals, test.tag)
+			}
 		}
 	}
 }
@@ -1725,7 +1889,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		"foo-",
 		"---",
 		"foo-bar",
-		"environment-foo",
 		"unit-foo",
 	}
 	for _, name := range bad {
@@ -1745,8 +1908,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Parse a service entity name.
-	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
 	coll, id, err = state.ParseTag(s.State, svc.Tag())
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
@@ -1767,6 +1929,14 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
 	c.Assert(err, gc.IsNil)
+
+	// Parse an environment entity name.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	coll, id, err = state.ParseTag(s.State, env.Tag())
+	c.Assert(coll, gc.Equals, "environments")
+	c.Assert(id, gc.Equals, env.UUID())
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -1777,15 +1947,13 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
 	relM, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
+	s.AddTestingService(c, "varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, gc.IsNil)
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
 	c.Assert(err, gc.IsNil)
@@ -1831,12 +1999,10 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.
-	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
+	_, err := riak.Endpoint("ring")
 	c.Assert(err, gc.IsNil)
-	_, err = riak.Endpoint("ring")
-	c.Assert(err, gc.IsNil)
-	allHooks, err := s.State.AddService("all-hooks", s.AddTestingCharm(c, "all-hooks"))
-	c.Assert(err, gc.IsNil)
+	allHooks := s.AddTestingService(c, "all-hooks", s.AddTestingCharm(c, "all-hooks"))
 	_, err = allHooks.Endpoint("self")
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
@@ -1863,11 +2029,9 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set up services for later use.
-	wordpress, err := s.State.AddService(
+	wordpress := s.AddTestingService(c,
 		"wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpressName := wordpress.Name()
 
 	// Add service units for later use.
@@ -2009,7 +2173,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -2059,7 +2223,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)

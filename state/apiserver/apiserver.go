@@ -138,8 +138,11 @@ func (srv *Server) run(lis net.Listener) {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("/charms", &charmsHandler{state: srv.state})
 	// The error from http.Serve is not interesting.
-	http.Serve(lis, handler)
+	http.Serve(lis, mux)
 }
 
 // Addr returns the address that the server is listening on.

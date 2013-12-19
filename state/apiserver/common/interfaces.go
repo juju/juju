@@ -34,6 +34,10 @@ type Authorizer interface {
 	// a machine running the environment manager job.
 	AuthEnvironManager() bool
 
+	// AuthStateManager returns whether the authenticated entity is
+	// a machine running the state manager job.
+	AuthStateManager() bool
+
 	// AuthClient returns whether the authenticated entity
 	// is a client user.
 	AuthClient() bool

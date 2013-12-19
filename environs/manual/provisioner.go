@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -105,7 +104,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 
 	// Inform Juju that the machine exists.
 	machineId, err = recordMachineInState(client, *machineParams)
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("InjectMachines not supported by the API server, " +
 			"falling back to 1.16 compatibility mode (direct DB access)")
 		stateConn, err = juju.NewConnFromName(args.EnvName)
