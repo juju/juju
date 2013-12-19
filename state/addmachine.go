@@ -169,7 +169,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate) (MachineTemplate, e
 
 	if p.InstanceId != "" {
 		if p.Nonce == "" {
-			return MachineTemplate{}, fmt.Errorf("cannot inject a machine without a nonce")
+			return MachineTemplate{}, fmt.Errorf("cannot add a machine with an instance id and no nonce")
 		}
 	} else if p.Nonce != "" {
 		return MachineTemplate{}, fmt.Errorf("cannot specify a nonce without an instance id")

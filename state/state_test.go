@@ -372,7 +372,7 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
 
 	_, err = s.State.AddOneMachine(instIdTemplate)
-	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot inject a machine without a nonce")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
@@ -423,7 +423,7 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 	err = injectMachine("quantal", "", state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot specify a nonce without an instance id")
 	err = injectMachine("quantal", "i-minvalid", "", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot inject a machine without a nonce")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 	err = injectMachine("quantal", state.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }

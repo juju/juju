@@ -1583,51 +1583,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
 }
 
-func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
-	hc instance.HardwareCharacteristics, addr []instance.Address) {
-
-	machine, err := s.BackingState.Machine(id)
-	c.Assert(err, gc.IsNil)
-	machineInstanceId, err := machine.InstanceId()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
-	c.Assert(machineInstanceId, gc.Equals, instance.Id(instanceId))
-	machineHardware, err := machine.HardwareCharacteristics()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machineHardware.String(), gc.Equals, hc.String())
-	c.Assert(machine.Addresses(), gc.DeepEquals, addr)
-}
-
-func (s *clientSuite) assertClientAddMachinesDefaultSeries(c *gc.C, series string) {
-	apiParams := make([]params.AddMachineParams, 3)
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
-	for i := 0; i < 3; i++ {
-		apiParams[i] = params.AddMachineParams{
-			Series:     series,
-			Jobs:       []params.MachineJob{params.JobHostUnits},
-			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
-			Nonce:      "foo",
-			HardwareCharacteristics: hc,
-			Addrs: addrs,
-		}
-	}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 3)
-	seriesToCheck := series
-	if seriesToCheck == "" {
-		seriesToCheck = config.DefaultSeries
-	}
-	for i, machineResult := range machines {
-		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, seriesToCheck, apiParams[i].Constraints.String())
-		instanceId := fmt.Sprintf("1234-%d", i)
-		s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
-	}
-}
-
-func (s *clientSuite) TestClientInjectMachinesSomeErrors(c *gc.C) {
+func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
 	hc := instance.MustParseHardware("mem=4G")
@@ -1648,7 +1604,7 @@ func (s *clientSuite) TestClientInjectMachinesSomeErrors(c *gc.C) {
 	for i, machineResult := range machines {
 		if i == 2 {
 			c.Assert(machineResult.Error, gc.NotNil)
-			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot inject a machine without a nonce")
+			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
 			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
@@ -1656,6 +1612,37 @@ func (s *clientSuite) TestClientInjectMachinesSomeErrors(c *gc.C) {
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
 		}
 	}
+}
+
+func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
+	hc instance.HardwareCharacteristics, addr []instance.Address) {
+
+	machine, err := s.BackingState.Machine(id)
+	c.Assert(err, gc.IsNil)
+	machineInstanceId, err := machine.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
+	c.Assert(machineInstanceId, gc.Equals, instance.Id(instanceId))
+	machineHardware, err := machine.HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineHardware.String(), gc.Equals, hc.String())
+	c.Assert(machine.Addresses(), gc.DeepEquals, addr)
+}
+
+func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
+	results := new(params.AddMachinesResults)
+	// We need to use Call directly because the client interface
+	// no longer refers to InjectMachine.
+	args := params.AddMachines{
+		MachineParams: []params.AddMachineParams{{
+			Jobs:       []params.MachineJob{params.JobHostUnits},
+			InstanceId: "i-foo",
+			Nonce:      "nonce",
+		}},
+	}
+	err := s.APIState.Call("Client", "", "AddMachines", args, &results)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Machines, gc.HasLen, 1)
 }
 
 func (s *clientSuite) TestMachineConfig(c *gc.C) {

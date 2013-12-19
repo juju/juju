@@ -151,6 +151,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, machine.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
 
 	// Create active units (in relation scope, with subordinates).
 	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)

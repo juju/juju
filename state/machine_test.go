@@ -101,6 +101,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})
 	c.Assert(err, gc.ErrorMatches, `machine 0 is hosting containers "0/lxc/0"`)
