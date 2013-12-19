@@ -250,14 +250,15 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    serviceName,
-		Charm:          ch,
-		NumUnits:       numUnits,
-		ConfigSettings: settings,
-		Constraints:    c.Constraints,
-		ToMachineSpec:  c.ToMachineSpec,
-	})
+	_, err = juju.DeployService(conn.State,
+		juju.DeployServiceParams{
+			ServiceName:    serviceName,
+			Charm:          ch,
+			NumUnits:       numUnits,
+			ConfigSettings: settings,
+			Constraints:    c.Constraints,
+			ToMachineSpec:  c.ToMachineSpec,
+		})
 	return err
 }
 

@@ -224,8 +224,8 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 
 var CharmStore charm.Repository = charm.Store
 
-// ServiceDeploy fetches the charm from the charm store and deploys it. Local
-// charms are not supported.
+// ServiceDeploy fetches the charm from the charm store and deploys it.
+// It assumes
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
@@ -235,46 +235,25 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return fmt.Errorf("charm url must include revision")
 	}
 
-	// Remove this and the related code when 1.16 compatibility is
-	// dropped.
-	need1dot16Compatibility := false
-
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
 	if jujuerrors.IsNotFoundError(err) {
-		// Charm was not uploaded before, so we can assume we need to
-		// enforce 1.16 compatibility, including no support for local
-		// charms.
+		// Remove this while if block when 1.16 compatibility is dropped.
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 		}
-		need1dot16Compatibility = true
+		err = c.AddCharm(params.CharmURL{args.CharmUrl})
+		if err != nil {
+			return err
+		}
+		ch, err = c.api.state.Charm(curl)
+		if err != nil {
+			return err
+		}
 	} else if err != nil {
 		return err
 	}
 
-	// TODO(dimitern) 2013-12-19 bug #1216830
-	// Once we sort out the 1.16 compatibility, we can
-	// stop creating a connection here and move the code from
-	// conn.DeployService here.
-	conn, err := juju.NewConnFromState(c.api.state)
-	if err != nil {
-		return err
-	}
-
-	if need1dot16Compatibility {
-		conf, err := c.api.state.EnvironConfig()
-		if err != nil {
-			return err
-		}
-		// authorize the store client if possible
-		store := config.AuthorizeCharmRepo(CharmStore, conf)
-
-		ch, err = conn.PutCharm(curl, store, false)
-		if err != nil {
-			return err
-		}
-	}
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
@@ -285,14 +264,16 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    args.ServiceName,
-		Charm:          ch,
-		NumUnits:       args.NumUnits,
-		ConfigSettings: settings,
-		Constraints:    args.Constraints,
-		ToMachineSpec:  args.ToMachineSpec,
-	})
+
+	_, err = juju.DeployService(c.api.state,
+		juju.DeployServiceParams{
+			ServiceName:    args.ServiceName,
+			Charm:          ch,
+			NumUnits:       args.NumUnits,
+			ConfigSettings: settings,
+			Constraints:    args.Constraints,
+			ToMachineSpec:  args.ToMachineSpec,
+		})
 	return err
 }
 
@@ -439,15 +420,7 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 }
 
 // addServiceUnits adds a given number of units to a service.
-// TODO(jam): 2013-08-26 https://pad.lv/1216830
-// The functionality on conn.AddUnits should get pulled up into
-// state/apiserver/client, but currently we still have conn.DeployService that
-// depends on it. When that changes, clean up this function.
 func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
-	conn, err := juju.NewConnFromState(state)
-	if err != nil {
-		return nil, err
-	}
 	service, err := state.Service(args.ServiceName)
 	if err != nil {
 		return nil, err
@@ -458,7 +431,7 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
 		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
 	}
-	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
+	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.

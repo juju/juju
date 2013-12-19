@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -95,7 +96,7 @@ func (s *FirewallerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *FirewallerSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *state.Machine) {
-	units, err := s.Conn.AddUnits(svc, 1, "")
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	u := units[0]
 	id, err := u.AssignedMachineId()
