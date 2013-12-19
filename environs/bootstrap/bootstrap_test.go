@@ -252,7 +252,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil

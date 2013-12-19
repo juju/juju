@@ -81,7 +81,7 @@ func (env *environ) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *environ) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	return common.Bootstrap(ctx, env, cons)
 }
 

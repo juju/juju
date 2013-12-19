@@ -470,7 +470,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.

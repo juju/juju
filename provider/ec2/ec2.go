@@ -305,7 +305,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	return common.Bootstrap(ctx, e, cons)
 }
 

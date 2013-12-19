@@ -231,7 +231,7 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) (err error) {
+func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {

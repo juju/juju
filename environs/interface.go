@@ -4,6 +4,9 @@
 package environs
 
 import (
+	"io"
+	"os"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
@@ -71,7 +74,7 @@ type BootstrapStorager interface {
 	// EnableBootstrapStorage enables bootstrap storage, returning an
 	// error if enablement failed. If nil is returned, then calling
 	// this again will have no effect and will return nil.
-	EnableBootstrapStorage(*BootstrapContext) error
+	EnableBootstrapStorage(BootstrapContext) error
 }
 
 // ConfigGetter implements access to an environments configuration.
@@ -136,7 +139,7 @@ type Environ interface {
 	// Bootstrap is responsible for selecting the appropriate tools,
 	// and setting the agent-version configuration attribute prior to
 	// bootstrapping the environment.
-	Bootstrap(ctx *BootstrapContext, cons constraints.Value) error
+	Bootstrap(ctx BootstrapContext, cons constraints.Value) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -191,4 +194,25 @@ type Environ interface {
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
+}
+
+// BootstrapContext is an interface that is passed to
+// Environ.Bootstrap, providing it a means of obtaining
+// information about and manipulating the context in which
+// it is being invoked.
+type BootstrapContext interface {
+	Stdin() io.Reader
+	Stdout() io.Writer
+	Stderr() io.Writer
+
+	// InterruptNotify starts watching for interrupt signals
+	// on behalf of the caller, sending them to the supplied
+	// channel.
+	InterruptNotify(sig chan<- os.Signal)
+
+	// StopInterruptNotify undoes the effects of a previous
+	// call to InterruptNotify with the same channel. After
+	// StopInterruptNotify returns, no more signals will be
+	// delivered to the channel.
+	StopInterruptNotify(chan<- os.Signal)
 }

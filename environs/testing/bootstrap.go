@@ -4,9 +4,12 @@
 package testing
 
 import (
+	"io"
+
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
@@ -21,18 +24,29 @@ var logger = loggo.GetLogger("juju.environs.testing")
 // do not attempt to SSH to non-existent machines. The result is a function
 // that restores finishBootstrap.
 func DisableFinishBootstrap() func() {
-	f := func(*environs.BootstrapContext, instance.Instance, *cloudinit.MachineConfig) error {
+	f := func(environs.BootstrapContext, instance.Instance, *cloudinit.MachineConfig) error {
 		logger.Warningf("provider/common.FinishBootstrap is disabled")
 		return nil
 	}
 	return testbase.PatchValue(&common.FinishBootstrap, f)
 }
 
-func NewBootstrapContext(c *gc.C) *environs.BootstrapContext {
-	cmdctx := coretesting.Context(c)
-	ctx := environs.NewBootstrapContext()
-	ctx.Stdin = cmdctx.Stdin
-	ctx.Stdout = cmdctx.Stdout
-	ctx.Stderr = cmdctx.Stderr
-	return ctx
+type BootstrapContext struct {
+	*cmd.Context
+}
+
+func (c BootstrapContext) Stdin() io.Reader {
+	return c.Context.Stdin
+}
+
+func (c BootstrapContext) Stdout() io.Writer {
+	return c.Context.Stdout
+}
+
+func (c BootstrapContext) Stderr() io.Writer {
+	return c.Context.Stderr
+}
+
+func NewBootstrapContext(c *gc.C) BootstrapContext {
+	return BootstrapContext{coretesting.Context(c)}
 }

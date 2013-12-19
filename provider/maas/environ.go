@@ -77,7 +77,7 @@ func (env *maasEnviron) Name() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx *environs.BootstrapContext, cons constraints.Value) error {
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	return common.Bootstrap(ctx, env, cons)
 }
 

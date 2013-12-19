@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -77,6 +78,22 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+type bootstrapContext struct {
+	*cmd.Context
+}
+
+func (c bootstrapContext) Stdin() io.Reader {
+	return c.Context.Stdin
+}
+
+func (c bootstrapContext) Stdout() io.Writer {
+	return c.Context.Stdout
+}
+
+func (c bootstrapContext) Stderr() io.Writer {
+	return c.Context.Stderr
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -89,10 +106,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	bootstrapContext := environs.NewBootstrapContext()
-	bootstrapContext.Stdin = ctx.Stdin
-	bootstrapContext.Stdout = ctx.Stdout
-	bootstrapContext.Stderr = ctx.Stderr
+	bootstrapContext := bootstrapContext{ctx}
 	// If the environment has a special bootstrap Storage, use it wherever
 	// we'd otherwise use environ.Storage.
 	if bs, ok := environ.(environs.BootstrapStorager); ok {

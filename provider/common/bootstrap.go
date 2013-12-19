@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"launchpad.net/loggo"
@@ -26,13 +27,16 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx *environs.BootstrapContext, env environs.Environ, cons constraints.Value) (err error) {
+func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constraints.Value) (err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
+	bootstrapContext := &bootstrapContext{ctx, nil}
+	defer bootstrapContext.setInterruptHandler(nil)
+
 	var inst instance.Instance
-	defer func() { handleBootstrapError(err, ctx, inst, env) }()
+	defer func() { handleBootstrapError(err, bootstrapContext, inst, env) }()
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
@@ -48,12 +52,12 @@ func Bootstrap(ctx *environs.BootstrapContext, env environs.Environ, cons constr
 		return err
 	}
 
-	fmt.Fprintln(ctx.Stderr, "Launching instance")
+	fmt.Fprintln(ctx.Stderr(), "Launching instance")
 	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	fmt.Fprintf(ctx.Stderr, " - %s\n", inst.Id())
+	fmt.Fprintf(ctx.Stderr(), " - %s\n", inst.Id())
 
 	var characteristics []instance.HardwareCharacteristics
 	if hw != nil {
@@ -68,19 +72,49 @@ func Bootstrap(ctx *environs.BootstrapContext, env environs.Environ, cons constr
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
-	return FinishBootstrap(ctx, inst, machineConfig)
+	return FinishBootstrap(bootstrapContext, inst, machineConfig)
+}
+
+type bootstrapContext struct {
+	environs.BootstrapContext
+	ch chan os.Signal
+}
+
+func (c *bootstrapContext) setInterruptHandler(f func()) {
+	oldch := c.ch
+	if f != nil {
+		c.ch = make(chan os.Signal, 1)
+		c.InterruptNotify(c.ch)
+		go func(ch <-chan os.Signal) {
+			for {
+				if _, ok := <-ch; ok {
+					f()
+				} else {
+					break
+				}
+			}
+		}(c.ch)
+	} else {
+		c.ch = nil
+	}
+	if oldch != nil {
+		c.StopInterruptNotify(oldch)
+		close(oldch)
+	}
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
-func handleBootstrapError(err error, ctx *environs.BootstrapContext, inst instance.Instance, env environs.Environ) {
+func handleBootstrapError(err error, ctx *bootstrapContext, inst instance.Instance, env environs.Environ) {
 	if err == nil {
 		return
 	}
-	ctx.SetInterruptHandler(func() {
-		fmt.Fprintln(ctx.Stderr, "Cleaning up failed bootstrap")
+
+	ctx.setInterruptHandler(func() {
+		fmt.Fprintln(ctx.Stderr(), "Cleaning up failed bootstrap")
 	})
+
 	if inst != nil {
-		fmt.Fprintln(ctx.Stderr, "Stopping instance...")
+		fmt.Fprintln(ctx.Stderr(), "Stopping instance...")
 		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
 		} else {
@@ -95,16 +129,16 @@ func handleBootstrapError(err error, ctx *environs.BootstrapContext, inst instan
 			logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
 		}
 	}
-	ctx.SetInterruptHandler(nil)
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
 // to the instance via SSH and carrying out the cloud-config.
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
-var FinishBootstrap = func(ctx *environs.BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+var FinishBootstrap = func(ctx_ environs.BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	var t tomb.Tomb
-	ctx.SetInterruptHandler(func() { t.Killf("interrupted") })
+	ctx := ctx_.(*bootstrapContext)
+	ctx.setInterruptHandler(func() { t.Killf("interrupted") })
 	dnsName, err := waitSSH(ctx, inst, &t)
 	if err != nil {
 		return err
@@ -114,7 +148,7 @@ var FinishBootstrap = func(ctx *environs.BootstrapContext, inst instance.Instanc
 	// SIGINT is sent to the foreground process attached to
 	// the terminal, which will be the ssh subprocess at that
 	// point.
-	ctx.SetInterruptHandler(func() {})
+	ctx.setInterruptHandler(func() {})
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
@@ -122,45 +156,45 @@ var FinishBootstrap = func(ctx *environs.BootstrapContext, inst instance.Instanc
 	return sshinit.Configure(sshinit.ConfigureParams{
 		Host:   "ubuntu@" + dnsName,
 		Config: cloudcfg,
-		Stdin:  ctx.Stdin,
-		Stdout: ctx.Stdout,
-		Stderr: ctx.Stderr,
+		Stdin:  ctx.Stdin(),
+		Stdout: ctx.Stdout(),
+		Stderr: ctx.Stderr(),
 	})
 }
 
 // waitSSH waits for the instance to be assigned a DNS
 // entry, then waits until we can connect to it via SSH.
-func waitSSH(ctx *environs.BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
+func waitSSH(ctx environs.BootstrapContext, inst instance.Instance, t *tomb.Tomb) (dnsName string, err error) {
 	defer t.Done()
 
 	// Wait for a DNS name.
-	fmt.Fprint(ctx.Stderr, "Waiting for DNS name")
+	fmt.Fprint(ctx.Stderr(), "Waiting for DNS name")
 	for {
-		fmt.Fprintf(ctx.Stderr, ".")
+		fmt.Fprintf(ctx.Stderr(), ".")
 		dnsName, err = inst.DNSName()
 		if err == nil {
 			break
 		} else if err != instance.ErrNoDNSName {
-			fmt.Fprintln(ctx.Stderr)
+			fmt.Fprintln(ctx.Stderr())
 			return "", t.Killf("getting DNS name: %v", err)
 		}
 		select {
 		case <-time.After(1 * time.Second):
 		case <-t.Dying():
-			fmt.Fprintln(ctx.Stderr)
+			fmt.Fprintln(ctx.Stderr())
 			return "", t.Err()
 		}
 	}
-	fmt.Fprintf(ctx.Stderr, "\n - %v\n", dnsName)
+	fmt.Fprintf(ctx.Stderr(), "\n - %v\n", dnsName)
 
 	// Wait until we can open a connection to port 22.
-	fmt.Fprintf(ctx.Stderr, "Attempting to connect to %s:22", dnsName)
+	fmt.Fprintf(ctx.Stderr(), "Attempting to connect to %s:22", dnsName)
 	for {
-		fmt.Fprintf(ctx.Stderr, ".")
+		fmt.Fprintf(ctx.Stderr(), ".")
 		conn, err := net.DialTimeout("tcp", dnsName+":22", 5*time.Second)
 		if err == nil {
 			conn.Close()
-			fmt.Fprintln(ctx.Stderr)
+			fmt.Fprintln(ctx.Stderr())
 			return dnsName, nil
 		} else {
 			logger.Debugf("connection failed: %v", err)
