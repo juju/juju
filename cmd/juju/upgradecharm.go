@@ -167,7 +167,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	addedURL, err := addCharmViaAPI(client, newURL, repo)
+	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo)
 	if err != nil {
 		return err
 	}
