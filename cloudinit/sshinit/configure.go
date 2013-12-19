@@ -75,17 +75,6 @@ func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 	// but added here to avoid relying on that to be
 	// invariant.
 	script := []string{"#!/bin/bash", "set -e"}
-	// Wait for cloud-init to complete. pkill will return non-zero
-	// if there are no matching processes.
-	script = append(script, `
-    if pkill -0 cloud-init; then
-        printf "Waiting for cloud-init to finish"
-        while pkill -0 cloud-init; do
-            printf "."
-            sleep 2s
-        done
-        printf "\n"
-    fi`)
 	// We must initialise progress reporting before entering
 	// the subshell and redirecting stderr.
 	script = append(script, cloudinit.InitProgressCmd())

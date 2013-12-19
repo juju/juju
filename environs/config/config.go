@@ -177,6 +177,24 @@ func (c *Config) fillInStringDefault(attr string) {
 	}
 }
 
+// processDeprecatedAttributes ensures that the config is set up so that it works
+// correctly when used with older versions of Juju which require that deprecated
+// attribute values still be used.
+func (cfg *Config) processDeprecatedAttributes() {
+	// The tools url has changed so ensure that both old and new values are in the config so that
+	// upgrades work. "tools-url" is the old attribute name.
+	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := cfg.ToolsURL()
+		// Ensure the new attribute name "tools-metadata-url" is set.
+		if !newToolsSpecified {
+			cfg.m["tools-metadata-url"] = oldToolsURL
+		}
+	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// we still want it in the config for upgrades.
+	cfg.m["tools-url"], _ = cfg.ToolsURL()
+}
+
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -258,6 +276,8 @@ func Validate(cfg, old *Config) error {
 			}
 		}
 	}
+
+	cfg.processDeprecatedAttributes()
 	return nil
 }
 

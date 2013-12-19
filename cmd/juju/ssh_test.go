@@ -106,12 +106,10 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
-	srv, err := s.State.AddService("mysql", dummy)
-	c.Assert(err, gc.IsNil)
+	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
 
-	srv, err = s.State.AddService("mongodb", dummy)
-	c.Assert(err, gc.IsNil)
+	srv = s.AddTestingService(c, "mongodb", dummy)
 	s.addUnit(srv, m[1], c)
 	s.addUnit(srv, m[2], c)
 

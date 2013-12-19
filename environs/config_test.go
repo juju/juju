@@ -90,6 +90,46 @@ func (*suite) TestInvalidEnv(c *gc.C) {
 	}
 }
 
+func (*suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
+	// This tests that a config that has a deprecated field doesn't
+	// generate a Warning if we don't actually ask for that environment.
+	// However, we can only really trigger that when we have a deprecated
+	// field. If support for the field is removed entirely, another
+	// mechanism will need to be used
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
+	content := `
+environments:
+    valid:
+        type: dummy
+        state-server: false
+    deprecated:
+        type: dummy
+        state-server: false
+        tools-url: aknowndeprecatedfield
+`
+	tw := &loggo.TestWriter{}
+	// we only capture Warning or above
+	c.Assert(loggo.RegisterWriter("invalid-env-tester", tw, loggo.WARNING), gc.IsNil)
+	defer loggo.RemoveWriter("invalid-env-tester")
+
+	envs, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
+	names := envs.Names()
+	sort.Strings(names)
+	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
+	// There should be no warning in the log
+	c.Check(tw.Log, gc.HasLen, 0)
+	// Now we actually grab the 'valid' entry
+	_, err = envs.Config("valid")
+	c.Check(err, gc.IsNil)
+	// And still we have no warnings
+	c.Check(tw.Log, gc.HasLen, 0)
+	// Only once we grab the deprecated one do we see any warnings
+	_, err = envs.Config("deprecated")
+	c.Check(err, gc.IsNil)
+	c.Check(tw.Log, gc.HasLen, 1)
+}
+
 func (*suite) TestNoHomeBeforeConfig(c *gc.C) {
 	// Test that we don't actually need HOME set until we call envs.Config()
 	// Because of this, we intentionally do *not* call testing.MakeFakeHomeNoEnvironments()
@@ -281,128 +321,43 @@ func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) func() {
 	}
 }
 
-func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
+func (s *ConfigDeprecationSuite) checkDeprecationWarning(c *gc.C, attrs testing.Attrs, expectedMsg string) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	content := `
 environments:
     deprecated:
         type: dummy
         state-server: false
-`
-	for _, attr := range []string{
-		"tools-url",
-	} {
-		restore := s.setupLogger(c)
-		defer restore()
-
-		envs, err := environs.ReadEnvironsBytes([]byte(content))
-		c.Check(err, gc.IsNil)
-		environs.UpdateEnvironAttrs(envs, "deprecated", testing.Attrs{
-			attr: "aknowndeprecatedfield",
-		})
-		_, err = envs.Config("deprecated")
-		c.Check(err, gc.IsNil)
-		c.Assert(s.writer.Log, gc.HasLen, 1)
-		stripped := strings.Replace(s.writer.Log[0].Message, "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(aknowndeprecatedfield\) is deprecated.*`, attr)
-		c.Assert(stripped, gc.Matches, expected)
-	}
-}
-
-type configTest struct {
-	about string
-	attrs map[string]interface{}
-}
-
-var toolsURLTests = []configTest{
-	{
-		about: "No tools urls used",
-		attrs: testing.Attrs{},
-	}, {
-		about: "Deprecated tools metadata URL used",
-		attrs: testing.Attrs{
-			"tools-url": "tools-metadata-url-value",
-		},
-	}, {
-		about: "Deprecated tools metadata URL ignored",
-		attrs: testing.Attrs{
-			"tools-metadata-url": "tools-metadata-url-value",
-			"tools-url":          "ignore-me",
-		},
-	},
-}
-
-func (s *ConfigDeprecationSuite) TestToolsURLDeprecation(c *gc.C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
-	content := `
-environments:
-    deprecated:
-        type: dummy
-        state-server: false
-`
-	for i, test := range toolsURLTests {
-		c.Logf("test %d. %s", i, test.about)
-
-		envs, err := environs.ReadEnvironsBytes([]byte(content))
-		c.Check(err, gc.IsNil)
-		environs.UpdateEnvironAttrs(envs, "deprecated", test.attrs)
-		cfg, err := envs.Config("deprecated")
-		c.Check(err, gc.IsNil)
-		toolsURL, urlPresent := cfg.ToolsURL()
-		oldToolsURL, oldURLPresent := cfg.AllAttrs()["tools-url"]
-		oldToolsURLAttrValue, oldURLAttrPresent := test.attrs["tools-url"]
-		expectedToolsURLValue := test.attrs["tools-metadata-url"]
-		if expectedToolsURLValue == nil {
-			expectedToolsURLValue = oldToolsURLAttrValue
-		}
-		if expectedToolsURLValue != nil && expectedToolsURLValue != "" {
-			c.Assert(expectedToolsURLValue, gc.Equals, "tools-metadata-url-value")
-			c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
-			c.Assert(urlPresent, jc.IsTrue)
-			c.Assert(oldToolsURL, gc.Equals, expectedToolsURLValue)
-			c.Assert(oldURLPresent, jc.IsTrue)
-		} else {
-			c.Assert(urlPresent, jc.IsFalse)
-			c.Assert(oldURLAttrPresent, jc.IsFalse)
-			c.Assert(oldToolsURL, gc.Equals, "")
-		}
-	}
-}
-
-func (s *ConfigDeprecationSuite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
-	// This tests that a config that has a deprecated field doesn't
-	// generate a Warning if we don't actually ask for that environment.
-	// However, we can only really trigger that when we have a deprecated
-	// field. If support for the field is removed entirely, another
-	// mechanism will need to be used
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
-	content := `
-environments:
-    valid:
-        type: dummy
-        state-server: false
-    deprecated:
-        type: dummy
-        state-server: false
-        tools-url: aknowndeprecatedfield
 `
 	restore := s.setupLogger(c)
 	defer restore()
 
 	envs, err := environs.ReadEnvironsBytes([]byte(content))
 	c.Check(err, gc.IsNil)
-	names := envs.Names()
-	sort.Strings(names)
-	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
-	// There should be no warning in the log
-	c.Check(s.writer.Log, gc.HasLen, 0)
-	// Now we actually grab the 'valid' entry
-	_, err = envs.Config("valid")
-	c.Check(err, gc.IsNil)
-	// And still we have no warnings
-	c.Check(s.writer.Log, gc.HasLen, 0)
-	// Only once we grab the deprecated one do we see any warnings
+	environs.UpdateEnvironAttrs(envs, "deprecated", attrs)
 	_, err = envs.Config("deprecated")
 	c.Check(err, gc.IsNil)
-	c.Check(s.writer.Log, gc.HasLen, 1)
+	c.Assert(s.writer.Log, gc.HasLen, 1)
+	stripped := strings.Replace(s.writer.Log[0].Message, "\n", "", -1)
+	c.Assert(stripped, gc.Matches, expectedMsg)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		"tools-url": "aknowndeprecatedfield",
+	}
+	expected := fmt.Sprintf(`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated\.` +
+		`The location to find tools is now specified using the "tools-metadata-url" attribute.*`)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		"tools-url":          "aknowndeprecatedfield",
+		"tools-metadata-url": "newvalue",
+	}
+	expected := fmt.Sprintf(
+		`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated and will be ignored since` +
+			`the new tools URL attribute "tools-metadata-url".*`)
+	s.checkDeprecationWarning(c, attrs, expected)
 }

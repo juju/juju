@@ -463,7 +463,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := conn.State.AddService("dummy", sch)
+	svc, err := conn.State.AddService("dummy", "user-admin", sch)
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(conn.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)

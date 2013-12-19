@@ -393,7 +393,7 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := s.conn.State.AddService("testriak", sch)
+	svc, err := s.conn.State.AddService("testriak", "user-admin", sch)
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(s.conn.State, svc, 2, "")
 	c.Assert(err, gc.IsNil)

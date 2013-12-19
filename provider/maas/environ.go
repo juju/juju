@@ -238,7 +238,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
-		inst = &maasInstance{&node, environ}
+		inst = &maasInstance{maasObject: &node, environ: environ}
 		machineConfig.Tools = tools
 	}
 	defer func() {
