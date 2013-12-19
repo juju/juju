@@ -653,15 +653,14 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	defer restore()
 	for url, expect := range map[string]string{
 		// TODO(fwereade) make these errors consistent one day.
-		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
-		"cs:precise/wordpress":           "charm url must include revision",
-		"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
-		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
+		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
+		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"cs:precise/wordpress":        "charm url must include revision",
+		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceDeploy(
-			url, "service", 1, "", constraints.Value{},
+			url, "service", 1, "", constraints.Value{}, "",
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 		_, err = s.State.Service("service")
@@ -677,7 +676,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", mem4g,
+		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, gc.IsNil)
 	service, err := s.State.Service("service")
@@ -710,7 +709,7 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "logging")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", 0, "", constraints.Value{},
+		curl.String(), "service-name", 0, "", constraints.Value{}, "",
 	)
 	service, err := s.State.Service("service-name")
 	c.Assert(err, gc.IsNil)
@@ -733,7 +732,7 @@ func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{},
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 	service, err := s.State.Service("service-name")
@@ -750,17 +749,46 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{},
+		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, machine.Id(),
+	)
+	c.Assert(err, gc.IsNil)
+
+	service, err := s.State.Service("service-name")
+	c.Assert(err, gc.IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(force, gc.Equals, false)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	c.Assert(units, gc.HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mid, gc.Equals, machine.Id())
+}
+
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
-		"service", 1, "", constraints.Value{},
+		"service", 1, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 }
@@ -982,7 +1010,7 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", constraints.Value{},
+		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 	addCharm(c, store, "wordpress")
@@ -1005,7 +1033,7 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", constraints.Value{},
+		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 	addCharm(c, store, "wordpress")
@@ -1716,7 +1744,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 
 	curl, _ := addCharm(c, store, "dummy")
 	err = s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", constraints.Value{},
+		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 
