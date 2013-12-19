@@ -4,6 +4,8 @@
 package main
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -82,7 +84,9 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.\n")
+	output := strings.Split(coretesting.Stdout(ctx), "\n")
+	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
+	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
