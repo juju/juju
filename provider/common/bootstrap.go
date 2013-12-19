@@ -87,6 +87,9 @@ func Bootstrap(env environs.Environ, cons constraints.Value) (err error) {
 	return FinishBootstrap(&ctx, inst, machineConfig)
 }
 
+// GenerateSystemSSHKey creates a new key for the system identity. The
+// authorized_keys in the environment config is updated to include the public
+// key for the generated key.
 func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	logger.Debugf("generate a system ssh key")
 	// Create a new system ssh key and add that to the authorized keys.

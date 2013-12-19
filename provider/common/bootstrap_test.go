@@ -193,11 +193,15 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		checkURL = mcfg.StateInfoURL
 		return &mockInstance{id: checkInstanceId}, &checkHardware, nil
 	}
-
+	var mocksConfig = minimalConfig(c)
 	var getConfigCalled int
 	getConfig := func() *config.Config {
 		getConfigCalled++
-		return minimalConfig(c)
+		return mocksConfig
+	}
+	setConfig := func(c *config.Config) error {
+		mocksConfig = c
+		return nil
 	}
 
 	restore := envtesting.DisableFinishBootstrap()
@@ -207,7 +211,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		storage:       stor,
 		startInstance: startInstance,
 		config:        getConfig,
+		setConfig:     setConfig,
 	}
+	originalAuthKeys := env.Config().AuthorizedKeys()
 	err := common.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -217,6 +223,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		StateInstances:  []instance.Id{instance.Id(checkInstanceId)},
 		Characteristics: []instance.HardwareCharacteristics{checkHardware},
 	})
+	authKeys := env.Config().AuthorizedKeys()
+	c.Assert(authKeys, gc.Not(gc.Equals), originalAuthKeys)
+	c.Assert(authKeys, jc.HasSuffix, "juju-system-key\n")
 }
 
 type neverDNSName struct {
