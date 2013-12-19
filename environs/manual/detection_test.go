@@ -32,9 +32,22 @@ func (s *detectionSuite) TestDetectSeries(c *gc.C) {
 }
 
 func (s *detectionSuite) TestDetectionError(c *gc.C) {
-	defer installFakeSSH(c, detectionScript, "oh noes", 33)()
-	_, _, err := DetectSeriesAndHardwareCharacteristics("whatever")
+	scriptResponse := strings.Join([]string{
+		"edgy",
+		"armv4",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+	// if the script fails for whatever reason, then checkProvisioned
+	// will return an error. stderr will be included in the error message.
+	defer installFakeSSH(c, detectionScript, []string{scriptResponse, "oh noes"}, 33)()
+	hc, _, err := DetectSeriesAndHardwareCharacteristics("hostname")
 	c.Assert(err, gc.ErrorMatches, "exit status 33 \\(oh noes\\)")
+	// if the script doesn't fail, stderr is simply ignored.
+	defer installFakeSSH(c, detectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
+	hc, _, err = DetectSeriesAndHardwareCharacteristics("hostname")
+	c.Assert(err, gc.IsNil)
+	c.Assert(hc.String(), gc.Equals, "arch=arm cpu-cores=1 mem=4M")
 }
 
 func (s *detectionSuite) TestDetectHardwareCharacteristics(c *gc.C) {
