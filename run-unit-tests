@@ -1,7 +1,8 @@
 #!/bin/bash
 set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-AMI_IMAGE=$1
+INSTANCE_TYPE=$1
+AMI_IMAGE=$2
 tarfile=$(python <<EOT
 import json
 import sys
@@ -19,7 +20,7 @@ else:
 print filename
 EOT
 )
-RUN_OUTPUT=$(euca-run-instances -k id_rsa -t m1.large $AMI_IMAGE)
+RUN_OUTPUT=$(euca-run-instances -k id_rsa -t $INSTANCE_TYPE $AMI_IMAGE)
 if [ $? -ne 0 ]; then
   exit 1
 fi
