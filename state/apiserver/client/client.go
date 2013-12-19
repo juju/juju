@@ -4,8 +4,11 @@
 package client
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -861,9 +864,9 @@ func destroyErr(desc string, ids, errs []string) error {
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
-// AddCharm adds the given fully-defined charm URL to the environment,
-// if it does not exists yet. Local charms are not supported, only
-// charm store URLs. See also AddLocalCharm() in the client-side API.
+// AddCharm adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm().
 func (c *Client) AddCharm(args params.CharmURL) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
@@ -886,35 +889,26 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	storeRepo := config.AuthorizeCharmRepo(CharmStore, envConfig)
-	store, ok := storeRepo.(interface {
-		Get(*charm.URL) (charm.Charm, error)
-		Info(*charm.URL) (*charm.InfoResponse, error)
-	})
-	if !ok {
-		return fmt.Errorf("unexpected charm store interface: missing Get and/or Info")
-	}
+	store := config.AuthorizeCharmRepo(CharmStore, envConfig)
 	downloadedCharm, err := store.Get(charmURL)
 	if err != nil {
 		return fmt.Errorf("cannot download charm %q: %v", charmURL.String(), err)
 	}
-	charmInfo, err := store.Info(charmURL)
-	if err != nil {
-		return fmt.Errorf("cannot get charm info: %v", err)
-	}
 
-	// Open it, so we can get its file size.
+	// Open it and calculate the SHA256 hash.
 	archive, err := os.Open(downloadedCharm.(*charm.Bundle).Path)
 	if err != nil {
 		return fmt.Errorf("cannot read downloaded charm: %v", err)
 	}
 	defer archive.Close()
-	size, err := archive.Seek(0, 2)
+	hash := sha256.New()
+	size, err := io.Copy(hash, archive)
 	if err != nil {
-		return fmt.Errorf("cannot get charm archive size: %v", err)
+		return fmt.Errorf("cannot calculate SHA256 hash of charm: %v", err)
 	}
+	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 	if _, err := archive.Seek(0, 0); err != nil {
-		return fmt.Errorf("cannot rewind the charm archive: %v", err)
+		return fmt.Errorf("cannot rewind charm archive: %v", err)
 	}
 
 	// Get the environment storage and upload the charm.
@@ -924,7 +918,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 	storage := env.Storage()
 	name := charm.Quote(charmURL.String())
-	if err := storage.Put(name, archive, size); err != nil {
+	err = storage.Put(name, archive, size)
+	if err != nil {
 		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
 	storageURL, err := storage.URL(name)
@@ -937,6 +932,6 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 
 	// Finally, add the charm to state.
-	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, charmInfo.Sha256)
+	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
 	return err
 }

@@ -190,16 +190,3 @@ func (s *MockCharmStore) Latest(charmURL *charm.URL) (int, error) {
 	}
 	return rev, nil
 }
-
-// Info implements charm.CharmStore.Info.
-func (s *MockCharmStore) Info(charmURL *charm.URL) (*charm.InfoResponse, error) {
-	base, rev := s.interpret(charmURL)
-	if _, found := s.charms[base][rev]; !found {
-		return nil, fmt.Errorf("charm not found in mock store: %s", charmURL)
-	}
-	return &charm.InfoResponse{
-		Revision: rev,
-		Sha256:   "mock-sha256",
-		Digest:   "fake",
-	}, nil
-}

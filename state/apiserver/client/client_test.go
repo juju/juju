@@ -1770,9 +1770,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(nil)
-	c.Assert(err, gc.ErrorMatches, "expected charm URL, got nil")
-	err = client.AddCharm(&charm.URL{Name: "nonsense"})
+	err := client.AddCharm(&charm.URL{Name: "nonsense"})
 	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":/nonsense-0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
 	c.Assert(err, gc.ErrorMatches, "charm URLs with local: schema are not supported")
@@ -1813,9 +1811,9 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(sch.BundleURL().String(), gc.Equals, storageURL)
-	c.Assert(sch.BundleSha256(), gc.Equals, "mock-sha256")
-	// Sha256 is the only thing we ask the store in addition to the
-	// charm archive itself.
+	// We don't care about the exact value of the hash here, just that
+	// it's set.
+	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
 
 	// Verify it's added to storage.
 	_, err = storage.Get(name)
