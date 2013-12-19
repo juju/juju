@@ -39,6 +39,12 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.SeriesPath = filepath.Join(repoPath, "precise")
 	err = os.Mkdir(s.SeriesPath, 0777)
 	c.Assert(err, gc.IsNil)
+	// Create a symlink "quantal" -> "precise", because most charms
+	// and machines are written with hard-coded "quantal" series,
+	// hence they interact badly with a local repository that assumes
+	// only "precise" charms are available.
+	err = os.Symlink(s.SeriesPath, filepath.Join(repoPath, "quantal"))
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *RepoSuite) TearDownTest(c *gc.C) {

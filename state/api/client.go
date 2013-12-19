@@ -170,13 +170,14 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		NumUnits:    numUnits,
-		ConfigYAML:  configYAML,
-		Constraints: cons,
+		ServiceName:   serviceName,
+		CharmUrl:      charmUrl,
+		NumUnits:      numUnits,
+		ConfigYAML:    configYAML,
+		Constraints:   cons,
+		ToMachineSpec: toMachineSpec,
 	}
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
@@ -196,6 +197,18 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 		Force:       force,
 	}
 	return c.st.Call("Client", "", "ServiceSetCharm", args, nil)
+}
+
+// ServiceGetCharmURL returns the charm URL the given service is
+// running at present.
+func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
+	result := new(params.StringResult)
+	args := params.ServiceGet{ServiceName: serviceName}
+	err := c.st.Call("Client", "", "ServiceGetCharmURL", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	return charm.ParseURL(result.Result)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -347,14 +360,19 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
 
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment() error {
+	return c.st.Call("Client", "", "DestroyEnvironment", nil, nil)
+}
+
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL. If the API server does not support charm uploads, an
 // error satisfying params.IsCodeNotImplemented() is returned.
 func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
-	if curl == nil {
-		return nil, fmt.Errorf("expected charm URL, got nil")
-	}
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}

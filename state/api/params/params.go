@@ -175,7 +175,8 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet call.
+// ServiceGet holds parameters for making the ServiceGet or
+// ServiceGetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }

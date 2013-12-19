@@ -83,6 +83,49 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
+	c.Assert(s.machine.Id(), gc.Equals, "0")
+	manual, err := s.machine.IsManual()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manual, jc.IsFalse)
+	newcfg, err := cfg.Apply(map[string]interface{}{"type": "null"})
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(newcfg, cfg)
+	c.Assert(err, gc.IsNil)
+	manual, err = s.machine.IsManual()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manual, jc.IsTrue)
+}
+
+func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
+	tests := []struct {
+		instanceId instance.Id
+		nonce      string
+		isManual   bool
+	}{
+		{instanceId: "x", nonce: "y", isManual: false},
+		{instanceId: "manual:", nonce: "y", isManual: false},
+		{instanceId: "x", nonce: "manual:", isManual: true},
+		{instanceId: "x", nonce: "manual:y", isManual: true},
+		{instanceId: "x", nonce: "manual", isManual: false},
+	}
+	for _, test := range tests {
+		params := state.AddMachineParams{
+			Series:     "quantal",
+			Jobs:       []state.MachineJob{state.JobHostUnits},
+			InstanceId: test.instanceId,
+			Nonce:      test.nonce,
+		}
+		m, err := s.State.InjectMachine(&params)
+		c.Assert(err, gc.IsNil)
+		isManual, err := m.IsManual()
+		c.Assert(isManual, gc.Equals, test.isManual)
+	}
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)

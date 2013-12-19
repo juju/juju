@@ -18,6 +18,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -295,7 +296,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	svc := s.AddTestingService(c, "test-service", charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
-	units, err := s.Conn.AddUnits(svc, 1, "")
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 
@@ -336,7 +337,7 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
-	units, err := s.Conn.AddUnits(svc, 1, "")
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 
 	m, instId := s.waitProvisioned(c, units[0])

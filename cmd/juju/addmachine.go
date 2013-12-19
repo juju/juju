@@ -181,7 +181,11 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	} else {
 		// Currently, only one machine is added, but in future there may be several added in one call.
 		machineInfo := results[0]
-		machineId, err = machineInfo.Machine, machineInfo.Error
+		var machineErr *params.Error
+		machineId, machineErr = machineInfo.Machine, machineInfo.Error
+		if machineErr != nil {
+			err = machineErr
+		}
 	}
 	if err != nil {
 		return err
