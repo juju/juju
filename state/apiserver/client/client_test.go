@@ -1773,7 +1773,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	err := client.AddCharm(&charm.URL{Name: "nonsense"})
 	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":/nonsense-0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
-	c.Assert(err, gc.ErrorMatches, "charm URLs with local: schema are not supported")
+	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
 	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
 
