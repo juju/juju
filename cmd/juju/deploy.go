@@ -143,7 +143,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	repo = config.AuthorizeCharmRepo(repo, conf)
 
-	curl, err = addCharmViaAPI(client, curl, repo)
+	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
 		return err
 	}
@@ -263,8 +263,9 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 }
 
 // addCharmViaAPI calls the appropriate client API calls to add the
-// given charm URL to state.
-func addCharmViaAPI(client *api.Client, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
+// given charm URL to state. Also displays the charm URL of the added
+// charm on stdout.
+func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
 	if curl.Revision < 0 {
 		latest, err := repo.Latest(curl)
 		if err != nil {
@@ -291,5 +292,7 @@ func addCharmViaAPI(client *api.Client, curl *charm.URL, repo charm.Repository) 
 	default:
 		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
+	report := fmt.Sprintf("Added charm %q to the environment.\n", curl)
+	ctx.Stdout.Write([]byte(report))
 	return curl, nil
 }
