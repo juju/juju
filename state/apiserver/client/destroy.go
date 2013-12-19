@@ -36,6 +36,8 @@ func (c *Client) DestroyEnvironment() error {
 
 	// Set the environment to Dying, to lock out new machines and services.
 	// Environment.Destroy() also schedules a cleanup for existing services.
+	// Afterwards, refresh the machines in case any were added between the
+	// first check and the Environment.Destroy().
 	env, err := c.api.state.Environment()
 	if err != nil {
 		return err
@@ -43,15 +45,8 @@ func (c *Client) DestroyEnvironment() error {
 	if err = env.Destroy(); err != nil {
 		return err
 	}
-
-	// Refresh machines and make sure once again that there are no
-	// manually provisioned non-manager machines. This caters for
-	// the race between the first check and the Environment.Destroy().
 	machines, err = c.api.state.AllMachines()
 	if err != nil {
-		return err
-	}
-	if err := checkManualMachines(machines); err != nil {
 		return err
 	}
 
@@ -64,6 +59,13 @@ func (c *Client) DestroyEnvironment() error {
 		return err
 	}
 
+	// Make sure once again that there are no manually provisioned
+	// non-manager machines. This caters for the race between the
+	// first check and the Environment.Destroy().
+	if err := checkManualMachines(machines); err != nil {
+		return err
+	}
+
 	// Return to the caller. If it's the CLI, it will finish up
 	// by calling the provider's Destroy method, which will
 	// destroy the state servers, any straggler instances, and
@@ -71,17 +73,25 @@ func (c *Client) DestroyEnvironment() error {
 	return nil
 }
 
-// destroyInstances directly destroys all non-manager machine instances.
+// destroyInstances directly destroys all non-manager,
+// non-manual machine instances.
 func destroyInstances(st *state.State, machines []*state.Machine) error {
 	var ids []instance.Id
 	for _, m := range machines {
 		if m.IsManager() {
 			continue
 		}
-		id, err := m.InstanceId()
-		if err == nil {
-			ids = append(ids, id)
+		manual, err := m.IsManual()
+		if manual {
+			continue
+		} else if err != nil {
+			return err
 		}
+		id, err := m.InstanceId()
+		if err != nil {
+			continue
+		}
+		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
 		return nil
@@ -106,8 +116,9 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 		return nil
 	case environs.ErrPartialInstances:
 		var nonNilInstances []instance.Instance
-		for _, inst := range instances {
+		for i, inst := range instances {
 			if inst == nil {
+				logger.Warningf("unknown instance ID: %v", ids[i])
 				continue
 			}
 			nonNilInstances = append(nonNilInstances, inst)
@@ -124,7 +135,14 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 func checkManualMachines(machines []*state.Machine) error {
 	var ids []string
 	for _, m := range machines {
-		if isManuallyProvisioned(m) && !m.IsManager() {
+		if m.IsManager() {
+			continue
+		}
+		manual, err := m.IsManual()
+		if err != nil {
+			return err
+		}
+		if manual {
 			ids = append(ids, m.Id())
 		}
 	}
@@ -132,15 +150,4 @@ func checkManualMachines(machines []*state.Machine) error {
 		return fmt.Errorf("manually provisioned machines must first be destroyed with `juju destroy-machine %s`", strings.Join(ids, " "))
 	}
 	return nil
-}
-
-// isManuallyProvisioned returns true iff the the machine was
-// manually provisioned.
-func isManuallyProvisioned(m *state.Machine) bool {
-	iid, err := m.InstanceId()
-	if err != nil {
-		return false
-	}
-	// Due to an import loop in tests, we cannot import manual.
-	return strings.HasPrefix(string(iid), "manual:")
 }

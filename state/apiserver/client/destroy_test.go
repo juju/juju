@@ -27,11 +27,11 @@ var _ = gc.Suite(&destroyEnvironmentSuite{})
 func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 	m0, err := s.State.AddMachine("precise", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, gc.IsNil)
-	err = m0.SetProvisioned(instance.Id("manual:0"), "fake_nonce", nil)
+	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = m1.SetProvisioned(instance.Id("manual:1"), "fake_nonce", nil)
+	err = m1.SetProvisioned(instance.Id("manual:1"), "manual:1:fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	return m0, m1
 }
