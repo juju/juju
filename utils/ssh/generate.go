@@ -14,8 +14,15 @@ import (
 	"code.google.com/p/go.crypto/ssh"
 )
 
+// KeyBits is used to determine the number of bits to use for the RSA keys
+// created using the GenerateKey function.
 var KeyBits = 2048
 
+// GenerateKey makes a 2048 bit RSA no-passphrase SSH capable key.  The bit
+// size is actually controlled by the KeyBits var. The private key returned is
+// encoded to ASCII using the PKCS1 encoding.  The public key is suitable to
+// be added into an authorized_keys file, and has the comment passed in as the
+// comment part of the key.
 func GenerateKey(comment string) (private, public string, err error) {
 	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
 	if err != nil {
