@@ -132,7 +132,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(JujuClientDevel, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
-                env, 'bootstrap', ('--constraints', 'mem=2G'), False)
+                env, 'bootstrap', ('--constraints', 'mem=4G'), False)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -141,7 +141,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(JujuClientDevel, 'juju') as mock:
                 client.bootstrap(env)
             mock.assert_called_with(
-                env, 'bootstrap', ('--constraints', 'mem=2G'), True)
+                env, 'bootstrap', ('--constraints', 'mem=4G'), True)
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')

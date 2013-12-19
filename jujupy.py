@@ -83,7 +83,7 @@ class JujuClientDevel:
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
-        self.juju(environment, 'bootstrap', ('--constraints', 'mem=2G'),
+        self.juju(environment, 'bootstrap', ('--constraints', 'mem=4G'),
                   environment.needs_sudo())
 
     def destroy_environment(self, environment):
