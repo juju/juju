@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/ssh"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
@@ -25,7 +26,6 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
 )
 
 // BootstrapStateURLFile is used to communicate to the first bootstrap node
@@ -259,7 +259,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	cfg.MaybeAddCloudArchiveCloudTools(c)
 
 	if cfg.StateServer {
-		identityFile := ssh.SystemIdentityFilename(cfg.DataDir)
+		identityFile := cfg.dataFile(ssh.SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		// Disable the default mongodb installed by the mongodb-server package.
 		// Only do this if the file doesn't exist already, so users can run

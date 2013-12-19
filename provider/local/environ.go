@@ -470,7 +470,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	agentTools := possibleTools[0]
 	logger.Debugf("tools: %#v", agentTools)
 	// save the system identity file
-	if err := ssh.WriteSystemIdentity(dataDir, privateKey); err != nil {
+	if err := ssh.WriteSystemIdentity(filepath.Join(dataDir, ssh.SystemIdentity), privateKey); err != nil {
 		return fmt.Errorf("failed to write system identity: %v", err)
 	}
 	// brutally abuse our knowledge of storage to directly open the file
