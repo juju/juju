@@ -225,23 +225,42 @@ func (s *MgoSuite) TearDownSuite(c *gc.C) {
 	utils.FastInsecureHash = false
 }
 
-// Dial returns a new connection to the shared MongoDB server.
-func (inst *MgoInstance) Dial() *mgo.Session {
+// MustDial returns a new connection to the MongoDB server, and panics on
+// errors.
+func (inst *MgoInstance) MustDial() *mgo.Session {
+	s, err := inst.dial(false)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+// Dial returns a new connection to the MongoDB server.
+func (inst *MgoInstance) Dial() (*mgo.Session, error) {
 	return inst.dial(false)
 }
 
 // DialDirect returns a new direct connection to the shared MongoDB server. This
 // must be used if you're connecting to a replicaset that hasn't been initiated
 // yet.
-func (inst *MgoInstance) DialDirect() *mgo.Session {
+func (inst *MgoInstance) DialDirect() (*mgo.Session, error) {
 	return inst.dial(true)
 }
 
-func (inst *MgoInstance) dial(direct bool) *mgo.Session {
+// MustDialDirect works like DialDirect, but panics on errors.
+func (inst *MgoInstance) MustDialDirect() *mgo.Session {
+	session, err := inst.dial(true)
+	if err != nil {
+		panic(err)
+	}
+	return session
+}
+
+func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
@@ -256,20 +275,18 @@ func (inst *MgoInstance) dial(direct bool) *mgo.Session {
 		},
 		Timeout: mgoDialTimeout,
 	})
-	if err != nil {
-		panic(err)
-	}
-	return session
+	return session, err
 }
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
-	s.Session = MgoServer.Dial()
+	s.Session = MgoServer.MustDial()
 }
 
-// Reset deletes all content from the shared MongoDB server.
+// Reset deletes all content from the MongoDB server and panics if it encounters
+// errors.
 func (inst *MgoInstance) Reset() {
-	session := inst.Dial()
+	session := inst.MustDial()
 	defer session.Close()
 
 	dbnames, ok := resetAdminPasswordAndFetchDBNames(session)
