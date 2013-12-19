@@ -357,6 +357,14 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
 
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment() error {
+	return c.st.Call("Client", "", "DestroyEnvironment", nil, nil)
+}
+
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL. If the API server does not support charm uploads, an
