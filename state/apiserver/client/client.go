@@ -225,7 +225,9 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 var CharmStore charm.Repository = charm.Store
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.
-// It assumes
+// AddCharm or AddLocalCharm should be called to add the charm
+// before calling ServiceDeploy, although for backward compatibility
+// this is not necessary until 1.16 support is removed.
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
@@ -238,7 +240,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
 	if jujuerrors.IsNotFoundError(err) {
-		// Remove this while if block when 1.16 compatibility is dropped.
+		// Remove this whole if block when 1.16 compatibility is dropped.
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 		}
