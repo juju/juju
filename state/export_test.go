@@ -131,6 +131,12 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testing.Charms.Dir(name))
 }
 
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
+	service, err := st.AddService(name, "user-admin", ch)
+	c.Assert(err, gc.IsNil)
+	return service
+}
+
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
@@ -223,3 +229,7 @@ func StateServerMachineIds(st *State) ([]string, error) {
 }
 
 var NewAddress = newAddress
+
+func CheckUserExists(st *State, name string) (bool, error) {
+	return st.checkUserExists(name)
+}

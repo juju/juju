@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
@@ -130,7 +131,20 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 }
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is no longer alive")
+	}
+	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
+		enverr := env.Refresh()
+		if (enverr == nil && env.Life() != Alive) || errors.IsNotFoundError(enverr) {
+			return nil, fmt.Errorf("environment is no longer alive")
+		} else if enverr != nil {
+			err = enverr
+		}
 		return nil, err
 	}
 	return newMachine(st, mdoc), nil

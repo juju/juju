@@ -58,18 +58,20 @@ type stepper interface {
 }
 
 type context struct {
-	st      *state.State
-	conn    *juju.Conn
-	charms  map[string]*state.Charm
-	pingers map[string]*presence.Pinger
+	st          *state.State
+	statusSuite *StatusSuite
+	conn        *juju.Conn
+	charms      map[string]*state.Charm
+	pingers     map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
 	return &context{
-		st:      s.State,
-		conn:    s.Conn,
-		charms:  make(map[string]*state.Charm),
-		pingers: make(map[string]*presence.Pinger),
+		st:          s.State,
+		statusSuite: s,
+		conn:        s.Conn,
+		charms:      make(map[string]*state.Charm),
+		pingers:     make(map[string]*presence.Pinger),
 	}
 }
 
@@ -1336,8 +1338,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	_, err := ctx.st.AddService(as.name, ch)
-	c.Assert(err, gc.IsNil)
+	ctx.statusSuite.AddTestingService(c, as.name, ch)
 }
 
 type setServiceExposed struct {

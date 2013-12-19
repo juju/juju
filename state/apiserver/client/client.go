@@ -4,14 +4,20 @@
 package client
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"net/url"
+	"os"
 	"strings"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -234,7 +240,15 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, CharmStore, false)
+
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// authorize the store client if possible
+	store := config.AuthorizeCharmRepo(CharmStore, conf)
+
+	ch, err := conn.PutCharm(curl, store, false)
 	if err != nil {
 		return err
 	}
@@ -312,7 +326,15 @@ func serviceSetCharm(state *state.State, service *state.Service, url string, for
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, CharmStore, false)
+
+	conf, err := state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// authorize the store client if possible
+	store := config.AuthorizeCharmRepo(CharmStore, conf)
+
+	ch, err := conn.PutCharm(curl, store, false)
 	if err != nil {
 		return err
 	}
@@ -812,7 +834,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig)
+	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.
@@ -830,4 +852,80 @@ func destroyErr(desc string, ids, errs []string) error {
 	}
 	msg = fmt.Sprintf(msg, desc)
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+}
+
+// AddCharm adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm().
+func (c *Client) AddCharm(args params.CharmURL) error {
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return err
+	}
+	if charmURL.Schema != "cs" {
+		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
+	}
+	if charmURL.Revision < 0 {
+		return fmt.Errorf("charm URL must include revision")
+	}
+
+	// First check the charm is not already in state.
+	if _, err := c.api.state.Charm(charmURL); err == nil {
+		return nil
+	}
+
+	// Get the charm and its information from the store.
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	store := config.AuthorizeCharmRepo(CharmStore, envConfig)
+	downloadedCharm, err := store.Get(charmURL)
+	if err != nil {
+		return fmt.Errorf("cannot download charm %q: %v", charmURL.String(), err)
+	}
+
+	// Open it and calculate the SHA256 hash.
+	downloadedBundle, ok := downloadedCharm.(*charm.Bundle)
+	if !ok {
+		return fmt.Errorf("expected a charm archive, got %T", downloadedCharm)
+	}
+	archive, err := os.Open(downloadedBundle.Path)
+	if err != nil {
+		return fmt.Errorf("cannot read downloaded charm: %v", err)
+	}
+	defer archive.Close()
+	hash := sha256.New()
+	size, err := io.Copy(hash, archive)
+	if err != nil {
+		return fmt.Errorf("cannot calculate SHA256 hash of charm: %v", err)
+	}
+	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
+	if _, err := archive.Seek(0, 0); err != nil {
+		return fmt.Errorf("cannot rewind charm archive: %v", err)
+	}
+
+	// Get the environment storage and upload the charm.
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return fmt.Errorf("cannot access environment: %v", err)
+	}
+	storage := env.Storage()
+	name := charm.Quote(charmURL.String())
+	err = storage.Put(name, archive, size)
+	if err != nil {
+		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
+	}
+	storageURL, err := storage.URL(name)
+	if err != nil {
+		return fmt.Errorf("cannot get storage URL for charm: %v", err)
+	}
+	bundleURL, err := url.Parse(storageURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse storage URL: %v", err)
+	}
+
+	// Finally, add the charm to state.
+	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	return err
 }

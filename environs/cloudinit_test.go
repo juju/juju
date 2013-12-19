@@ -124,7 +124,6 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
-	delete(oldAttrs, "secret")
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := mcfg.StateServerCert
 	srvKeyPEM := mcfg.StateServerKey
@@ -215,7 +214,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			"output": map[interface{}]interface{}{
 				"all": "| tee -a /var/log/cloud-init-output.log",
 			},
-			"runcmd":              []interface{}{"script1", "script2"},
+			"runcmd": []interface{}{
+				"script1", "script2",
+				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
+			},
 			"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
 		})
 	} else {

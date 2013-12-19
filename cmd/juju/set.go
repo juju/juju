@@ -12,7 +12,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // SetCommand updates the configuration of a service.
@@ -105,7 +105,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	err = api.ServiceSet(c.ServiceName, c.SettingsStrings)
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("NewServiceSetForClientAPI not supported by the API server, " +
 			"falling back to 1.16 compatibility mode (direct DB access)")
 		err = c.serviceSet1dot16()

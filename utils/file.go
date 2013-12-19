@@ -5,6 +5,7 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -46,4 +47,19 @@ func UniqueDirectory(path, name string) (string, error) {
 			return "", err
 		}
 	}
+}
+
+// CopyFile writes the contents of the given source file to dest.
+func CopyFile(dest, source string) error {
+	df, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	f, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(df, f)
+	return err
 }

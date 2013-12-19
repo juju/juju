@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"net/http"
 	"path/filepath"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -15,8 +14,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
-
-func Test(t *stdtesting.T) { gc.TestingT(t) }
 
 type CmdSuite struct{}
 

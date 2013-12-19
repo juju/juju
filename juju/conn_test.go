@@ -134,19 +134,31 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 
-	// Verify we have no secret in the environ config
-	cfg, err = st.EnvironConfig()
+	// Verify we have secrets in the environ config already.
+	statecfg, err := st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.UnknownAttrs()["secret"], gc.IsNil)
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
+
+	// Remove the secret from state, and then make sure it gets
+	// pushed back again.
+	attrs = statecfg.AllAttrs()
+	delete(attrs, "secret")
+	newcfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	err = st.SetEnvironConfig(newcfg, statecfg)
+	c.Assert(err, gc.IsNil)
+	statecfg, err = st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.IsNil)
 
 	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 
-	cfg, err = conn.State.EnvironConfig()
+	statecfg, err = conn.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.UnknownAttrs()["secret"], gc.Equals, "pork")
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
 	err = conn.State.SetAdminMongoPassword("")
@@ -381,7 +393,7 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := s.conn.State.AddService("testriak", sch)
+	svc, err := s.conn.State.AddService("testriak", "user-admin", sch)
 	c.Assert(err, gc.IsNil)
 	units, err := s.conn.AddUnits(svc, 2, "")
 	c.Assert(err, gc.IsNil)

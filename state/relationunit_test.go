@@ -40,8 +40,7 @@ func assertNotInScope(c *gc.C, ru *state.RelationUnit) {
 }
 
 func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
-	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 	u0, err := riak.AddUnit()
 	c.Assert(err, gc.IsNil)
 	riakEP, err := riak.Endpoint("ring")
@@ -204,10 +203,8 @@ func (s *RelationUnitSuite) TestContainerSettings(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
-	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	rsvc, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	psvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	rsvc := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -658,8 +655,7 @@ type PeerRelation struct {
 }
 
 func NewPeerRelation(c *gc.C, st *state.State) *PeerRelation {
-	svc, err := st.AddService("riak", state.AddTestingCharm(c, st, "riak"))
-	c.Assert(err, gc.IsNil)
+	svc := state.AddTestingService(c, st, "riak", state.AddTestingCharm(c, st, "riak"))
 	ep, err := svc.Endpoint("ring")
 	c.Assert(err, gc.IsNil)
 	rel, err := st.EndpointsRelation(ep)
@@ -680,15 +676,13 @@ type ProReqRelation struct {
 }
 
 func NewProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
-	psvc, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	psvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	var rsvc *state.Service
 	if scope == charm.ScopeGlobal {
-		rsvc, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+		rsvc = s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
-		rsvc, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+		rsvc = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{"mysql", rsvc.Name()})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -763,8 +757,7 @@ var _ = gc.Suite(&WatchScopeSuite{})
 
 func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// Create a service and get a peer relation.
-	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, gc.IsNil)
 	rels, err := riak.Relations()
@@ -889,12 +882,10 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 
 func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Create a pair of services and a relation between them.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
@@ -1021,12 +1012,10 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 
 func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Create a pair of services and a relation between them.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("juju-info")
 	c.Assert(err, gc.IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(mysqlEP, loggingEP)
