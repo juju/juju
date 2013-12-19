@@ -167,10 +167,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// We're ignoring need1dot16Compatibility result here, because
-	// we already checked earlier (if ServiceGetCharmURL is not supported,
-	// then AddCharm/AddLocalCharm won't be supported as well).
-	_, addedURL, _, err := addCharmViaAPI(client, newURL, repo)
+	addedURL, err := addCharmViaAPI(client, newURL, repo)
 	if err != nil {
 		return err
 	}
