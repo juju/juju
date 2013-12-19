@@ -503,3 +503,9 @@ type RelationUnitsWatchResult struct {
 type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
+
+// CharmsResponse is the server response to a charm upload request.
+type CharmsResponse struct {
+	Error    string `json:",omitempty"`
+	CharmURL string `json:",omitempty"`
+}

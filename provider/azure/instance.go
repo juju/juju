@@ -36,6 +36,13 @@ func (azInstance *azureInstance) Status() string {
 
 var AZURE_DOMAIN_NAME = "cloudapp.net"
 
+// Refresh is specified in the Instance interface.
+func (azInstance *azureInstance) Refresh() error {
+	// TODO(axw) 2013-12-16 #1261324
+	// Cache Addresses/netInfo, refresh here.
+	return nil
+}
+
 // Addresses is specified in the Instance interface.
 func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 	addrs := []instance.Address{}

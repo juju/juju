@@ -165,8 +165,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 
 func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// A machine with an assigned unit must not advance lifecycle.
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(s.machine)
@@ -208,8 +207,7 @@ func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
@@ -221,8 +219,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
@@ -497,14 +494,10 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 
 	dummy := s.AddTestingCharm(c, "dummy")
 	logging := s.AddTestingCharm(c, "logging")
-	s0, err := s.State.AddService("s0", dummy)
-	c.Assert(err, gc.IsNil)
-	s1, err := s.State.AddService("s1", dummy)
-	c.Assert(err, gc.IsNil)
-	s2, err := s.State.AddService("s2", dummy)
-	c.Assert(err, gc.IsNil)
-	s3, err := s.State.AddService("s3", logging)
-	c.Assert(err, gc.IsNil)
+	s0 := s.AddTestingService(c, "s0", dummy)
+	s1 := s.AddTestingService(c, "s1", dummy)
+	s2 := s.AddTestingService(c, "s2", dummy)
+	s3 := s.AddTestingService(c, "s3", logging)
 
 	units := make([][]*state.Unit, 4)
 	for i, svc := range []*state.Service{s0, s1, s2} {
@@ -568,8 +561,7 @@ func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machin
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Clean(), gc.Equals, true)
 
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(m)
@@ -665,8 +657,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
@@ -695,8 +686,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; no change.
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -774,8 +764,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign a unit (to a separate instance); change detected.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(s.machine.Id())
@@ -801,8 +790,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; change detected.
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)

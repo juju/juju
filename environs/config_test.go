@@ -4,9 +4,11 @@
 package environs_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
@@ -299,4 +301,63 @@ func (*suite) TestBootstrapConfig(c *gc.C) {
 	expect["admin-secret"] = ""
 	expect["ca-private-key"] = ""
 	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
+}
+
+type ConfigDeprecationSuite struct {
+	suite
+	writer *loggo.TestWriter
+}
+
+var _ = gc.Suite(&ConfigDeprecationSuite{})
+
+func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) func() {
+	var err error
+	s.writer = &loggo.TestWriter{}
+	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
+	c.Assert(err, gc.IsNil)
+	return func() {
+		_, _, err := loggo.RemoveWriter("test")
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *ConfigDeprecationSuite) checkDeprecationWarning(c *gc.C, attrs testing.Attrs, expectedMsg string) {
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
+	content := `
+environments:
+    deprecated:
+        type: dummy
+        state-server: false
+`
+	restore := s.setupLogger(c)
+	defer restore()
+
+	envs, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
+	environs.UpdateEnvironAttrs(envs, "deprecated", attrs)
+	_, err = envs.Config("deprecated")
+	c.Check(err, gc.IsNil)
+	c.Assert(s.writer.Log, gc.HasLen, 1)
+	stripped := strings.Replace(s.writer.Log[0].Message, "\n", "", -1)
+	c.Assert(stripped, gc.Matches, expectedMsg)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		"tools-url": "aknowndeprecatedfield",
+	}
+	expected := fmt.Sprintf(`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated\.` +
+		`The location to find tools is now specified using the "tools-metadata-url" attribute.*`)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		"tools-url":          "aknowndeprecatedfield",
+		"tools-metadata-url": "newvalue",
+	}
+	expected := fmt.Sprintf(
+		`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated and will be ignored since` +
+			`the new tools URL attribute "tools-metadata-url".*`)
+	s.checkDeprecationWarning(c, attrs, expected)
 }

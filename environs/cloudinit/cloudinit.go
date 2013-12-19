@@ -140,6 +140,11 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 
 const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 
+// NonceFile is written by cloud-init as the last thing it does.
+// The file will contain the machine's nonce. The filename is
+// relative to the Juju data-dir.
+const NonceFile = "nonce.txt"
+
 // ConfigureBasic updates the provided cloudinit.Config with
 // basic configuration to initialise an OS image, such that it can
 // be connected to via SSH, and log to a standard location.
@@ -155,6 +160,18 @@ const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
+	// Create a file in a well-defined location containing the machine's
+	// nonce. The presence and contents of this file will be verified
+	// during bootstrap.
+	//
+	// Note: this must be the last runcmd we do in ConfigureBasic, as
+	// the presence of the nonce file is used to gate the remainder
+	// of synchronous bootstrap.
+	noncefile := shquote(path.Join(cfg.DataDir, NonceFile))
+	c.AddScripts(
+		fmt.Sprintf("install -D -m %o /dev/null %s", 0644, noncefile),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(cfg.MachineNonce), noncefile),
+	)
 	return nil
 }
 
@@ -238,6 +255,14 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
+	c.AddScripts(
+		// We specifically make the symlink here to the machine's current
+		// tools, not to the specific version tool directory (from
+		// cfg.jujuTools()), as we want the jujud that is linked to in
+		// /usr/local/bin to also upgrade when the machine agent upgrades its
+		// tools and changes the tools directory that it is using.
+		fmt.Sprintf("ln -s %s/tools/%s/jujud /usr/local/bin/juju-run", cfg.DataDir, machineTag),
+	)
 
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,

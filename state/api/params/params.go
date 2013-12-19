@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
@@ -289,6 +290,18 @@ type Delta struct {
 	Removed bool
 	// Entity holds data about the entity that has changed.
 	Entity EntityInfo
+}
+
+// ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
+type ListSSHKeys struct {
+	Entities
+	Mode ssh.ListMode
+}
+
+// ModifySSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
+type ModifyUserSSHKeys struct {
+	User string
+	Keys []string
 }
 
 // MarshalJSON implements json.Marshaler.

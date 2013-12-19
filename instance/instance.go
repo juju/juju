@@ -35,6 +35,9 @@ type Instance interface {
 	// Status returns the provider-specific status for the instance.
 	Status() string
 
+	// Refresh refreshes local knowledge of the instance from the provider.
+	Refresh() error
+
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance. This will supercede DNSName
 	// which can be implemented by selecting a preferred address.

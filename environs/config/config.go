@@ -15,6 +15,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
@@ -176,6 +177,24 @@ func (c *Config) fillInStringDefault(attr string) {
 	}
 }
 
+// processDeprecatedAttributes ensures that the config is set up so that it works
+// correctly when used with older versions of Juju which require that deprecated
+// attribute values still be used.
+func (cfg *Config) processDeprecatedAttributes() {
+	// The tools url has changed so ensure that both old and new values are in the config so that
+	// upgrades work. "tools-url" is the old attribute name.
+	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := cfg.ToolsURL()
+		// Ensure the new attribute name "tools-metadata-url" is set.
+		if !newToolsSpecified {
+			cfg.m["tools-metadata-url"] = oldToolsURL
+		}
+	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// we still want it in the config for upgrades.
+	cfg.m["tools-url"], _ = cfg.ToolsURL()
+}
+
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -237,7 +256,7 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// Ensure that the auth token is a set of key=value pairs.
-	authToken := cfg.CharmStoreAuth()
+	authToken, _ := cfg.CharmStoreAuth()
 	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
 	if !validAuthToken.MatchString(authToken) {
 		return fmt.Errorf("charm store auth token needs to be a set"+
@@ -258,29 +277,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// The tools url has changed so see if the old one is still in use.
-	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
-		_, newToolsSpecified := cfg.ToolsURL()
-		var msg string
-		if newToolsSpecified {
-			msg = fmt.Sprintf(
-				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
-					"the new tools URL attribute %q has also been used.\n"+
-					"The attribute %q should be removed from your configuration.",
-				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
-		} else {
-			msg = fmt.Sprintf(
-				"Config attribute %q (%v) is deprecated.\n"+
-					"The location to find tools is now specified using the %q attribute.\n"+
-					"Your configuration should be updated to set %q as follows\n%v: %v.",
-				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
-			cfg.m["tools-metadata-url"] = oldToolsURL
-		}
-		logger.Warningf(msg)
-	}
-	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
-	// we still want it in the config for upgrades.
-	cfg.m["tools-url"], _ = cfg.ToolsURL()
+	cfg.processDeprecatedAttributes()
 	return nil
 }
 
@@ -488,8 +485,9 @@ func (c *Config) LoggingConfig() string {
 }
 
 // Auth token sent to charm store
-func (c *Config) CharmStoreAuth() string {
-	return c.asString("charm-store-auth")
+func (c *Config) CharmStoreAuth() (string, bool) {
+	auth := c.asString("charm-store-auth")
+	return auth, auth != ""
 }
 
 // ProvisionerSafeMode reports whether the provisioner should not
@@ -690,4 +688,20 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	}
 	var noHostnames []string
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
+}
+
+type Authorizer interface {
+	WithAuthAttrs(string) charm.Repository
+}
+
+// AuthorizeCharmRepo returns a repository with authentication added
+// from the specified configuration.
+func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+	// If a charm store auth token is set, pass it on to the charm store
+	if auth, authSet := cfg.CharmStoreAuth(); authSet {
+		if CS, isCS := repo.(Authorizer); isCS {
+			repo = CS.WithAuthAttrs(auth)
+		}
+	}
+	return repo
 }

@@ -5,6 +5,7 @@ package maas
 
 import (
 	"fmt"
+	"sync"
 
 	"launchpad.net/gomaasapi"
 
@@ -13,8 +14,10 @@ import (
 )
 
 type maasInstance struct {
+	environ *maasEnviron
+
+	mu         sync.Mutex
 	maasObject *gomaasapi.MAASObject
-	environ    *maasEnviron
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
@@ -29,8 +32,12 @@ func (mi *maasInstance) String() string {
 }
 
 func (mi *maasInstance) Id() instance.Id {
+	return maasObjectId(mi.getMaasObject())
+}
+
+func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	// Use the node's 'resource_uri' value.
-	return instance.Id(mi.maasObject.URI().String())
+	return instance.Id(maasObject.URI().String())
 }
 
 func (mi *maasInstance) Status() string {
@@ -42,15 +49,23 @@ func (mi *maasInstance) Status() string {
 	return ""
 }
 
-// refreshInstance refreshes the instance with the most up-to-date information
+// Refresh refreshes the instance with the most up-to-date information
 // from the MAAS server.
-func (mi *maasInstance) refreshInstance() error {
-	insts, err := mi.environ.Instances([]instance.Id{mi.Id()})
+func (mi *maasInstance) Refresh() error {
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+	insts, err := mi.environ.Instances([]instance.Id{maasObjectId(mi.maasObject)})
 	if err != nil {
 		return err
 	}
 	mi.maasObject = insts[0].(*maasInstance).maasObject
 	return nil
+}
+
+func (mi *maasInstance) getMaasObject() *gomaasapi.MAASObject {
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+	return mi.maasObject
 }
 
 func (mi *maasInstance) Addresses() ([]instance.Address, error) {
@@ -76,7 +91,7 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
 	// we have to do this the hard way, since maasObject doesn't have this built-in yet
-	addressArray := mi.maasObject.GetMap()["ip_addresses"]
+	addressArray := mi.getMaasObject().GetMap()["ip_addresses"]
 	if addressArray.IsNil() {
 		// Older MAAS versions do not return ip_addresses.
 		return nil, nil
@@ -98,7 +113,7 @@ func (mi *maasInstance) ipAddresses() ([]string, error) {
 
 func (mi *maasInstance) DNSName() (string, error) {
 	// A MAAS instance has its DNS name immediately.
-	return mi.maasObject.GetField("hostname")
+	return mi.getMaasObject().GetField("hostname")
 }
 
 func (mi *maasInstance) WaitDNSName() (string, error) {

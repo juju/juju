@@ -59,11 +59,9 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
-	s.service1, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -91,7 +89,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          names.MachineTag(s.machine1.Id()),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
 	}
 

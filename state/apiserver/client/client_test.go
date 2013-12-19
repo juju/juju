@@ -40,8 +40,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	// Test the exported settings parsing in a compatible way.
-	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	service, err := s.State.Service("dummy")
 	c.Assert(err, gc.IsNil)
 	ch, _, err := service.Charm()
@@ -69,10 +68,9 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSet(c *gc.C) {
-	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "foobar",
 		"username": "user name",
 	})
@@ -98,10 +96,9 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServerUnset(c *gc.C) {
-	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "foobar",
 		"username": "user name",
 	})
@@ -123,10 +120,9 @@ func (s *clientSuite) TestClientServerUnset(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
-	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
+	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
@@ -180,8 +176,7 @@ var clientAddServiceUnitsTests = []struct {
 }
 
 func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
-	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	for i, t := range clientAddServiceUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
 		serviceName := t.service
@@ -290,8 +285,7 @@ var clientAnnotationsTests = []struct {
 
 func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	// Set up entities.
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -376,8 +370,7 @@ func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
 	svcs := make([]*state.Service, len(serviceNames))
 	var err error
 	for i, name := range serviceNames {
-		svcs[i], err = s.State.AddService(name, charm)
-		c.Assert(err, gc.IsNil)
+		svcs[i] = s.AddTestingService(c, name, charm)
 		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
 	}
 	err = svcs[1].SetExposed()
@@ -427,13 +420,12 @@ func (s *clientSuite) TestClientServiceUnexpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	for i, t := range serviceUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		svc, err := s.State.AddService("dummy-service", charm)
-		c.Assert(err, gc.IsNil)
+		svc := s.AddTestingService(c, "dummy-service", charm)
 		if t.initial {
 			svc.SetExposed()
 		}
 		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
-		err = s.APIState.Client().ServiceUnexpose(t.service)
+		err := s.APIState.Client().ServiceUnexpose(t.service)
 		if t.err == "" {
 			c.Assert(err, gc.IsNil)
 			svc.Refresh()
@@ -468,11 +460,10 @@ var serviceDestroyTests = []struct {
 }
 
 func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
-	_, err := s.State.AddService("dummy-service", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
 	for i, t := range serviceDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = s.APIState.Client().ServiceDestroy(t.service)
+		err := s.APIState.Client().ServiceDestroy(t.service)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -514,8 +505,7 @@ func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.
 	c.Assert(err, gc.IsNil)
 
 	sch := s.AddTestingCharm(c, "wordpress")
-	wordpress, err := s.State.AddService("wordpress", sch)
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", sch)
 	u, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m0)
@@ -561,8 +551,7 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 }
 
 func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	units := make([]*state.Unit, 5)
 	for i := range units {
 		unit, err := wordpress.AddUnit()
@@ -573,7 +562,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	}
 
 	// Destroy 2 of them; check they become Dying.
-	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
+	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
 	c.Assert(err, gc.IsNil)
 	assertLife(c, units[0], state.Dying)
 	assertLife(c, units[1], state.Dying)
@@ -602,12 +591,10 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 }
 
 func (s *clientSuite) TestDestroySubordinateUnits(c *gc.C) {
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -812,8 +799,7 @@ func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
 func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
@@ -833,8 +819,7 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set minimum units for the service.
 	minUnits := 2
@@ -842,7 +827,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
 		ServiceName: "dummy",
 		MinUnits:    &minUnits,
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the minimum number of units has been set.
@@ -851,8 +836,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set a negative minimum number of units for the service.
 	minUnits := -1
@@ -860,7 +844,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
 		ServiceName: "dummy",
 		MinUnits:    &minUnits,
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot set minimum units for service "dummy": cannot set a negative minimum number of units`)
 
@@ -870,15 +854,14 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetSettingsStrings(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the service.
 	args := params.ServiceUpdate{
 		ServiceName:     "dummy",
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -889,15 +872,14 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsStrings(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetSettingsYAML(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the service.
 	args := params.ServiceUpdate{
 		ServiceName:  "dummy",
 		SettingsYAML: "dummy:\n  title: y-title\n  username: y-user",
 	}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -908,8 +890,7 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsYAML(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
@@ -976,12 +957,11 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateNoParams(c *gc.C) {
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Calling ServiceUpdate with no parameters set is a no-op.
 	args := params.ServiceUpdate{ServiceName: "wordpress"}
-	err = s.APIState.Client().ServiceUpdate(args)
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1054,7 +1034,7 @@ func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
 func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
-	s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
@@ -1200,10 +1180,9 @@ func (s *clientSuite) TestNoRelation(c *gc.C) {
 
 func (s *clientSuite) TestAttemptDestroyingNonExistentRelation(c *gc.C) {
 	s.setUpScenario(c)
-	_, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 	endpoints := []string{"riak", "wordpress"}
-	err = s.APIState.Client().DestroyRelation(endpoints...)
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
@@ -1216,11 +1195,10 @@ func (s *clientSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *gc.C) {
 
 func (s *clientSuite) TestAttemptDestroyingPeerRelation(c *gc.C) {
 	s.setUpScenario(c)
-	_, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 
 	endpoints := []string{"riak:ring"}
-	err = s.APIState.Client().DestroyRelation(endpoints...)
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
 }
 
@@ -1273,8 +1251,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientSetServiceConstraints(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
@@ -1289,8 +1266,7 @@ func (s *clientSuite) TestClientSetServiceConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientGetServiceConstraints(c *gc.C) {
-	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
@@ -1719,4 +1695,40 @@ func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
 	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
+}
+
+func (s *clientSuite) TestClientAuthorizeStoreOnDeployAndServiceSetCharm(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	oldConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	attrs := coretesting.Attrs(oldConfig.AllAttrs())
+	attrs = attrs.Merge(coretesting.Attrs{"charm-store-auth": "token=value"})
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironConfig(cfg, oldConfig)
+	c.Assert(err, gc.IsNil)
+
+	curl, _ := addCharm(c, store, "dummy")
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", constraints.Value{},
+	)
+	c.Assert(err, gc.IsNil)
+
+	// check that the store's auth attributes were set
+	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+
+	store.AuthAttrs = ""
+
+	curl, _ = addCharm(c, store, "wordpress")
+	err = s.APIState.Client().ServiceSetCharm(
+		"service", curl.String(), false,
+	)
+
+	// check that the store's auth attributes were set
+	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
 }
