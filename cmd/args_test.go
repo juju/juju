@@ -47,13 +47,16 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 		arg      string
 		expected []string
 	}{{
-		message: "empty",
+		message:  "empty",
+		expected: []string{""},
 	}, {
-		message: "just whitespace",
-		arg:     "   ",
+		message:  "just whitespace",
+		arg:      "   ",
+		expected: []string{"   "},
 	}, {
-		message: "whitespace and comma",
-		arg:     "  ,  ",
+		message:  "whitespace and comma",
+		arg:      "  ,  ",
+		expected: []string{"  ", "  "},
 	}, {
 		message:  "single value",
 		arg:      "foo",
@@ -61,11 +64,11 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 	}, {
 		message:  "single value with comma",
 		arg:      "foo,",
-		expected: []string{"foo"},
+		expected: []string{"foo", ""},
 	}, {
 		message:  "single value with whitespace",
 		arg:      " foo ",
-		expected: []string{"foo"},
+		expected: []string{" foo "},
 	}, {
 		message:  "multiple values",
 		arg:      "foo,bar,baz",
@@ -73,7 +76,7 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 	}, {
 		message:  "multiple values with spaces",
 		arg:      "foo, bar, baz",
-		expected: []string{"foo", "bar", "baz"},
+		expected: []string{"foo", " bar", " baz"},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		var result []string
