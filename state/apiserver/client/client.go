@@ -339,6 +339,22 @@ func serviceSetCharm(state *state.State, service *state.Service, url string, for
 	if err != nil {
 		return err
 	}
+	sch, err := state.Charm(curl)
+	if jujuerrors.IsNotFoundError(err) {
+		// Charms should be added before trying to use them, with
+		// AddCharm or AddLocalCharm API calls. When they're not,
+		// we're reverting to 1.16 compatibility mode.
+		return serviceSetCharm1dot16(state, service, curl, force)
+	}
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(sch, force)
+}
+
+// serviceSetCharm1dot16 sets the charm for the given service in 1.16
+// compatibility mode. Remove this when support for 1.16 is dropped.
+func serviceSetCharm1dot16(state *state.State, service *state.Service, curl *charm.URL, force bool) error {
 	if curl.Schema != "cs" {
 		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 	}

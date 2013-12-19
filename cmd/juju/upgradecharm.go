@@ -34,13 +34,13 @@ revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision flag.
 
 If the charm came from a local repository, its path will be assumed to be
-$JUJU_REPOSITORY unless overridden by --repository. If there is no newer
-revision of a local charm directory, the local directory's revision will be
-automatically incremented to create a newer charm.
+$JUJU_REPOSITORY unless overridden by --repository.
 
 The local repository behaviour is tuned specifically to the workflow of a charm
 author working on a single client machine; use of local repositories from
-multiple clients is not supported and may lead to confusing behaviour.
+multiple clients is not supported and may lead to confusing behaviour. Each
+local charm gets uploaded with the revision specified in the charm, if possible,
+otherwise it gets a unique revision (highest in state + 1).
 
 The --switch flag allows you to replace the charm with an entirely different
 one. The new charm's URL and revision are inferred as they would be when running
@@ -51,7 +51,7 @@ information with which to determine compatibility; the operation will succeed,
 regardless of potential havoc, so long as the following conditions hold:
 
 - The new charm must declare all relations that the service is currently
-participating in. 
+participating in.
 - All config settings shared by the old and new charms must
 have the same types.
 
@@ -63,7 +63,7 @@ would specify revision number 5 of the wordpress charm.
 
 Use of the --force flag is not generally recommended; units upgraded while in an
 error state will not have upgrade-charm hooks executed, and may cause unexpected
-behavior. 
+behavior.
 `
 
 func (c *UpgradeCharmCommand) Info() *cmd.Info {
@@ -172,7 +172,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	return client.UpgradeCharm(c.ServiceName, addedURL)
+	return client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force)
 }
 
 // run1dot16 perfoms the charm upgrade using a 1.16 compatible code

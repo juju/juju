@@ -209,6 +209,18 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 	return c.st.Call("Client", "", "ServiceSetCharm", args, nil)
 }
 
+// ServiceGetCharmURL returns the charm URL the given service is
+// running at present.
+func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
+	result := new(params.StringResult)
+	args := params.ServiceGet{ServiceName: serviceName}
+	err := c.st.Call("Client", "", "ServiceGetCharmURL", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	return charm.ParseURL(result.Result)
+}
+
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
 	args := params.AddServiceUnits{
@@ -447,20 +459,4 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 func (c *Client) AddCharm(curl *charm.URL) error {
 	args := params.CharmURL{URL: curl.String()}
 	return c.st.Call("Client", "", "AddCharm", args, nil)
-}
-
-// ServiceGetCharmURL returns the charm URL the given service is
-// running at present.
-func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
-	result := new(params.StringResult)
-	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.st.Call("Client", "", "ServiceGetCharmURL", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	return charm.ParseURL(result.Result)
-}
-
-func (c *Client) UpgradeCharm(serviceName string, newCharmURL *charm.URL) error {
-	return nil
 }
