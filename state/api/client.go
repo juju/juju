@@ -180,13 +180,14 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		NumUnits:    numUnits,
-		ConfigYAML:  configYAML,
-		Constraints: cons,
+		ServiceName:   serviceName,
+		CharmUrl:      charmUrl,
+		NumUnits:      numUnits,
+		ConfigYAML:    configYAML,
+		Constraints:   cons,
+		ToMachineSpec: toMachineSpec,
 	}
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
@@ -362,9 +363,6 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 // charm URL. If the API server does not support charm uploads, an
 // error satisfying params.IsCodeNotImplemented() is returned.
 func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
-	if curl == nil {
-		return nil, fmt.Errorf("expected charm URL, got nil")
-	}
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}

@@ -16,6 +16,8 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 type DeployCommand struct {
@@ -110,13 +112,42 @@ func (c *DeployCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-func (c *DeployCommand) Run(ctx *cmd.Context) error {
+// environmentGet1dot16 runs matches client.EnvironmentGet using a direct DB
+// connection to maintain compatibility with an API server running 1.16 or
+// older (when EnvironmentGet was not available). This fallback can be removed
+// when we no longer maintain 1.16 compatibility.
+func (c *DeployCommand) environmentGet1dot16() (map[string]interface{}, error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Get the existing environment config from the state.
+	config, err := conn.State.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	attrs := config.AllAttrs()
+	return attrs, nil
+}
+
+func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	conf, err := conn.State.EnvironConfig()
+	defer client.Close()
+	attrs, err := client.EnvironmentGet()
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("EnvironmentGet not supported by the API server, " +
+			"faling back to 1.16 compatibility mode (direct DB access)")
+		attrs, err = c.environmentGet1dot16()
+	}
+	if err != nil {
+		return err
+	}
+	conf, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return err
 	}
@@ -131,15 +162,61 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	repo = config.AuthorizeCharmRepo(repo, conf)
 
-	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
-	// here, but it's the original behaviour and not convenient to change.
-	// PutCharm will always be required in some form for local charms; and we
-	// will need an EnsureStoreCharm method somewhere that gets the state.Charm
-	// for use in the following checks.
-	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
+	var ch charm.Charm
+
+	// Remove these two and the related code when 1.16 compatibility
+	// is dropped.
+	var conn *juju.Conn
+	need1dot16Compatibility := false
+
+	switch curl.Schema {
+	case "local":
+		ch, err = repo.Get(curl)
+		if err != nil {
+			return err
+		}
+		stateCurl, err := client.AddLocalCharm(curl, ch)
+		if params.IsCodeNotImplemented(err) {
+			need1dot16Compatibility = true
+			break
+		}
+		if err != nil {
+			return err
+		}
+		curl = stateCurl
+	case "cs":
+		err = client.AddCharm(curl)
+		if params.IsCodeNotImplemented(err) {
+			need1dot16Compatibility = true
+			break
+		}
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
+	if need1dot16Compatibility {
+		// AddCharm or AddLocalCharm were not implemented, revert to
+		// 1.16 compatible mode using PutCharm, and we'll need to
+		// create a connection for it and DeployService below.
+		conn, err = juju.NewConnFromName(c.EnvName)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		sch, err := conn.PutCharm(curl, repo, c.BumpRevision)
+		if err != nil {
+			return err
+		}
+		ch = sch
+	} else {
+		// Not in compatibility mode, report --upgrade as deprecated.
+		if c.BumpRevision {
+			ctx.Stdout.Write([]byte("--upgrade (or -u) is deprecated and ignored. Charms are always deployed with an unique revision.\n"))
+		}
+	}
+
 	numUnits := c.NumUnits
 	if ch.Meta().Subordinate {
 		if !constraints.IsEmpty(&c.Constraints) {
@@ -155,24 +232,43 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if serviceName == "" {
 		serviceName = ch.Meta().Name
 	}
+	// Remove this when 1.16 compatibility is dropped
 	var settings charm.Settings
+
+	var configYAML []byte
 	if c.Config.Path != "" {
-		configYAML, err := c.Config.Read(ctx)
+		configYAML, err = c.Config.Read(ctx)
 		if err != nil {
 			return err
 		}
-		settings, err = ch.Config().ParseSettingsYAML(configYAML, serviceName)
-		if err != nil {
-			return err
+		if need1dot16Compatibility {
+			// We only need these if we're calling conn.DeployService.
+			settings, err = ch.Config().ParseSettingsYAML(configYAML, serviceName)
+			if err != nil {
+				return err
+			}
 		}
 	}
-	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    serviceName,
-		Charm:          ch,
-		NumUnits:       numUnits,
-		ConfigSettings: settings,
-		Constraints:    c.Constraints,
-		ToMachineSpec:  c.ToMachineSpec,
-	})
+	if !need1dot16Compatibility {
+		err = client.ServiceDeploy(
+			curl.String(),
+			serviceName,
+			numUnits,
+			string(configYAML),
+			c.Constraints,
+			c.ToMachineSpec,
+		)
+	} else {
+		sch := ch.(*state.Charm)
+		// 1.16 compatibility mode.
+		_, err = conn.DeployService(juju.DeployServiceParams{
+			ServiceName:    serviceName,
+			Charm:          sch,
+			NumUnits:       numUnits,
+			ConfigSettings: settings,
+			Constraints:    c.Constraints,
+			ToMachineSpec:  c.ToMachineSpec,
+		})
+	}
 	return err
 }
