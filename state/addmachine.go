@@ -71,7 +71,7 @@ type MachineTemplate struct {
 func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
 	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add a new container: %v", err)
+		return nil, fmt.Errorf("cannot add a new machine: %v", err)
 	}
 	return st.addMachine(mdoc, ops)
 }
@@ -81,7 +81,7 @@ func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemp
 func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) (*Machine, error) {
 	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add a new container: %v", err)
+		return nil, fmt.Errorf("cannot add a new machine: %v", err)
 	}
 	return st.addMachine(mdoc, ops)
 }

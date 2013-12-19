@@ -1580,7 +1580,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	c.Assert(machines[2].Error, gc.NotNil)
 	c.Check(machines[2].Error, gc.ErrorMatches, "parent machine specified without container type")
 	c.Assert(machines[2].Error, gc.NotNil)
-	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host kvm containers")
+	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host kvm containers")
 }
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {

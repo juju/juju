@@ -102,7 +102,7 @@ func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	err = runAddMachine(c, "lxc:0")
-	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
 }
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {

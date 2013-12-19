@@ -333,7 +333,7 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, "0", instance.LXC)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
 	s.assertMachineContainers(c, host, nil)
 }
 
@@ -348,7 +348,7 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, "0", instance.LXC)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
 	s.assertMachineContainers(c, host, nil)
 }
 
@@ -363,13 +363,13 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	_, err := s.State.AddMachineInsideMachine(instIdTemplate, "0", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
 	_, err = s.State.AddMachineInsideNewMachine(instIdTemplate, normalTemplate, instance.LXC)
-	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
 	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, instIdTemplate, instance.LXC)
-	c.Check(err, gc.ErrorMatches, "cannot add a new container: cannot specify instance id for a new container")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
 	_, err = s.State.AddOneMachine(instIdTemplate)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
@@ -388,13 +388,13 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
 	_, err = s.State.AddMachineInsideNewMachine(noSeriesTemplate, normalTemplate, instance.LXC)
-	c.Check(err, gc.ErrorMatches, "cannot add a new container: no series specified")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
 	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, noSeriesTemplate, instance.LXC)
-	c.Check(err, gc.ErrorMatches, "cannot add a new container: no series specified")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
 	_, err = s.State.AddMachineInsideMachine(noSeriesTemplate, "0", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "cannot add a new container: no series specified")
+	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 }
 
 func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
@@ -403,9 +403,9 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	_, err := s.State.AddMachineInsideMachine(template, "10", instance.LXC)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 10 not found")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 10 not found")
 	_, err = s.State.AddMachineInsideMachine(template, "10", "")
-	c.Assert(err, gc.ErrorMatches, "cannot add a new container: no container type specified")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no container type specified")
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
