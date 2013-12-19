@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	jujuerrors "launchpad.net/juju-core/errors"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -230,27 +231,49 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
-	if curl.Schema != "cs" {
-		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
-	}
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
+
+	// Remove this and the related code when 1.16 compatibility is
+	// dropped.
+	need1dot16Compatibility := false
+
+	// Try to find the charm URL in state first.
+	ch, err := c.api.state.Charm(curl)
+	if jujuerrors.IsNotFoundError(err) {
+		// Charm was not uploaded before, so we can assume we need to
+		// enforce 1.16 compatibility, including no support for local
+		// charms.
+		if curl.Schema != "cs" {
+			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+		}
+		need1dot16Compatibility = true
+	} else if err != nil {
+		return err
+	}
+
+	// TODO(dimitern) 2013-12-19 bug #1216830
+	// Once we sort out the 1.16 compatibility, we can
+	// stop creating a connection here and move the code from
+	// conn.DeployService here.
 	conn, err := juju.NewConnFromState(c.api.state)
 	if err != nil {
 		return err
 	}
 
-	conf, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	// authorize the store client if possible
-	store := config.AuthorizeCharmRepo(CharmStore, conf)
+	if need1dot16Compatibility {
+		conf, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return err
+		}
+		// authorize the store client if possible
+		store := config.AuthorizeCharmRepo(CharmStore, conf)
 
-	ch, err := conn.PutCharm(curl, store, false)
-	if err != nil {
-		return err
+		ch, err = conn.PutCharm(curl, store, false)
+		if err != nil {
+			return err
+		}
 	}
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
