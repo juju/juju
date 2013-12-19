@@ -7,5 +7,6 @@ var (
 	GetDNSNames      = getDNSNames
 	GetStateInfo     = getStateInfo
 	ComposeAddresses = composeAddresses
+	ConnectSSH       = &connectSSH
 	WaitSSH          = waitSSH
 )

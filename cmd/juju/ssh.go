@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -186,7 +186,7 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
 		if !useStateConn {
 			addr, err = c.apiClient.PublicAddress(target)
-			if rpc.IsNoSuchRequest(err) {
+			if params.IsCodeNotImplemented(err) {
 				logger.Infof("API server does not support Client.PublicAddress falling back to 1.16 compatibility mode (direct DB access)")
 				useStateConn = true
 			}

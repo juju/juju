@@ -4,9 +4,6 @@
 package ssh_test
 
 import (
-	"io/ioutil"
-	"os"
-	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -34,10 +31,7 @@ func (s *AuthorisedKeysKeysSuite) SetUpTest(c *gc.C) {
 }
 
 func writeAuthKeysFile(c *gc.C, keys []string) {
-	err := os.MkdirAll(coretesting.HomePath(".ssh"), 0755)
-	c.Assert(err, gc.IsNil)
-	authKeysFile := coretesting.HomePath(".ssh", "authorized_keys")
-	err = ioutil.WriteFile(authKeysFile, []byte(strings.Join(keys, "\n")), 0644)
+	err := ssh.WriteAuthorisedKeys(keys)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -188,6 +182,16 @@ func (s *AuthorisedKeysKeysSuite) TestReplaceKeys(c *gc.C) {
 	actual, err := ssh.ListKeys(ssh.FullKeys)
 	c.Assert(err, gc.IsNil)
 	c.Assert(actual, gc.DeepEquals, []string{replaceKey})
+}
+
+func (s *AuthorisedKeysKeysSuite) TestReplaceKeepsUnrecognised(c *gc.C) {
+	writeAuthKeysFile(c, []string{sshtesting.ValidKeyOne.Key, "invalid-key"})
+	anotherKey := sshtesting.ValidKeyTwo.Key + " anotheruser@host"
+	err := ssh.ReplaceKeys(anotherKey)
+	c.Assert(err, gc.IsNil)
+	actual, err := ssh.ReadAuthorisedKeys()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actual, gc.DeepEquals, []string{"invalid-key", anotherKey})
 }
 
 func (s *AuthorisedKeysKeysSuite) TestEnsureJujuComment(c *gc.C) {

@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // UnsetCommand sets configuration values of a service back
@@ -87,7 +87,7 @@ func (c *UnsetCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 	err = apiclient.ServiceUnset(c.ServiceName, c.Options)
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("ServiceUnset not supported by the API server, " +
 			"falling back to 1.16 compatibility mode (direct DB access)")
 		err = c.run1dot16()
