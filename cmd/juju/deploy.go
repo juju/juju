@@ -27,7 +27,7 @@ type DeployCommand struct {
 	ServiceName  string
 	Config       cmd.FileVar
 	Constraints  constraints.Value
-	BumpRevision bool
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
@@ -84,7 +84,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
-	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
+	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
@@ -171,6 +171,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	switch curl.Schema {
 	case "local":
+		if curl.Revision < 0 {
+			latest, err := repo.Latest(curl)
+			if err != nil {
+				return err
+			}
+			curl = curl.WithRevision(latest)
+		}
 		ch, err = repo.Get(curl)
 		if err != nil {
 			return err
@@ -213,7 +220,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	} else {
 		// Not in compatibility mode, report --upgrade as deprecated.
 		if c.BumpRevision {
-			ctx.Stdout.Write([]byte("--upgrade (or -u) is deprecated and ignored. Charms are always deployed with an unique revision.\n"))
+			ctx.Stdout.Write([]byte("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.\n"))
 		}
 	}
 

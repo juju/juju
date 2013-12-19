@@ -771,6 +771,32 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, machine.Id(),
+	)
+	c.Assert(err, gc.IsNil)
+
+	service, err := s.State.Service("service-name")
+	c.Assert(err, gc.IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(force, gc.Equals, false)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	c.Assert(units, gc.HasLen, 1)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mid, gc.Equals, machine.Id())
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
