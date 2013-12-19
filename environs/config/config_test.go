@@ -81,6 +81,23 @@ var configTests = []configTest{
 			"tools-metadata-url": "tools-metadata-url-value",
 		},
 	}, {
+		about:       "Deprecated tools metadata URL used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":      "my-type",
+			"name":      "my-name",
+			"tools-url": "tools-metadata-url-value",
+		},
+	}, {
+		about:       "Deprecated tools metadata URL ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"tools-metadata-url": "tools-metadata-url-value",
+			"tools-url":          "ignore-me",
+		},
+	}, {
 		about:       "Explicit series",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -834,12 +851,23 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
-	url, urlPresent = cfg.ToolsURL()
-	if v, _ := test.attrs["tools-metadata-url"].(string); v != "" {
-		c.Assert(url, gc.Equals, v)
+	toolsURL, urlPresent := cfg.ToolsURL()
+	oldToolsURL, oldURLPresent := cfg.AllAttrs()["tools-url"]
+	oldToolsURLAttrValue, oldURLAttrPresent := test.attrs["tools-url"]
+	expectedToolsURLValue := test.attrs["tools-metadata-url"]
+	if expectedToolsURLValue == nil {
+		expectedToolsURLValue = oldToolsURLAttrValue
+	}
+	if expectedToolsURLValue != nil && expectedToolsURLValue != "" {
+		c.Assert(expectedToolsURLValue, gc.Equals, "tools-metadata-url-value")
+		c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
 		c.Assert(urlPresent, jc.IsTrue)
+		c.Assert(oldToolsURL, gc.Equals, expectedToolsURLValue)
+		c.Assert(oldURLPresent, jc.IsTrue)
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
+		c.Assert(oldURLAttrPresent, jc.IsFalse)
+		c.Assert(oldToolsURL, gc.Equals, "")
 	}
 }
 

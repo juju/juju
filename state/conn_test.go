@@ -55,6 +55,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
+	cs.State.AddUser("admin", "pass")
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
@@ -65,6 +66,10 @@ func (cs *ConnSuite) TearDownTest(c *gc.C) {
 
 func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
+}
+
+func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	return state.AddTestingService(c, s.State, name, ch)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

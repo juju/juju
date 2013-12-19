@@ -22,8 +22,7 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a service with some units.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
 		unit, err := mysql.AddUnit()
@@ -35,7 +34,7 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 
 	// Destroy the service and check the units are unaffected, but a cleanup
 	// has been scheduled.
-	err = mysql.Destroy()
+	err := mysql.Destroy()
 	c.Assert(err, gc.IsNil)
 	for _, unit := range units {
 		err := unit.Refresh()
@@ -59,8 +58,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a service with some units.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
 		unit, err := mysql.AddUnit()
