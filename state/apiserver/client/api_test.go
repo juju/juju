@@ -139,7 +139,7 @@ func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
 var scenarioStatus = &api.Status{
-	Machines: map[string]api.MachineInfo{
+	Machines: map[string]api.MachineStatus{
 		"0": {
 			InstanceId: "i-machine-0",
 		},

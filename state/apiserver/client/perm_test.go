@@ -210,7 +210,7 @@ func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), 
 }
 
 func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	status, err := st.Client().Status()
+	status, err := st.Client().Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
