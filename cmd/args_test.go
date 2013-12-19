@@ -5,7 +5,9 @@ package cmd_test
 
 import (
 	"fmt"
+	"io/ioutil"
 
+	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -17,6 +19,39 @@ type ArgsSuite struct {
 }
 
 var _ = gc.Suite(&ArgsSuite{})
+
+func (*ArgsSuite) TestFlagsUsage(c *gc.C) {
+	for i, test := range []struct {
+		message       string
+		defaultValue  []string
+		args          []string
+		expectedValue []string
+	}{{
+		message: "nil default and no arg",
+	}, {
+		message:       "default value and not set by args",
+		defaultValue:  []string{"foo", "bar"},
+		expectedValue: []string{"foo", "bar"},
+	}, {
+		message:       "no value set by args",
+		args:          []string{"--value", "foo,bar"},
+		expectedValue: []string{"foo", "bar"},
+	}, {
+		message:       "default value and set by args",
+		defaultValue:  []string{"omg"},
+		args:          []string{"--value", "foo,bar"},
+		expectedValue: []string{"foo", "bar"},
+	}} {
+		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
+		f.SetOutput(ioutil.Discard)
+		var value []string
+		f.Var(cmd.NewStringsValue(test.defaultValue, &value), "value", "help")
+		err := f.Parse(false, test.args)
+		c.Check(err, gc.IsNil)
+		c.Check(value, gc.DeepEquals, test.expectedValue)
+	}
+}
 
 func (*ArgsSuite) TestNewStringsValue(c *gc.C) {
 	for i, test := range []struct {
