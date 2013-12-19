@@ -441,3 +441,12 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	}
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
+
+// AddCharm adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm() in the
+// client-side API.
+func (c *Client) AddCharm(curl *charm.URL) error {
+	args := params.CharmURL{URL: curl.String()}
+	return c.st.Call("Client", "", "AddCharm", args, nil)
+}
