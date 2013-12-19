@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -162,47 +163,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	repo = config.AuthorizeCharmRepo(repo, conf)
 
-	var ch charm.Charm
-
-	// Remove these two and the related code when 1.16 compatibility
+	// Remove conn and the related code when 1.16 compatibility
 	// is dropped.
 	var conn *juju.Conn
-	need1dot16Compatibility := false
-
-	switch curl.Schema {
-	case "local":
-		if curl.Revision < 0 {
-			latest, err := repo.Latest(curl)
-			if err != nil {
-				return err
-			}
-			curl = curl.WithRevision(latest)
-		}
-		ch, err = repo.Get(curl)
-		if err != nil {
-			return err
-		}
-		stateCurl, err := client.AddLocalCharm(curl, ch)
-		if params.IsCodeNotImplemented(err) {
-			need1dot16Compatibility = true
-			break
-		}
-		if err != nil {
-			return err
-		}
-		curl = stateCurl
-	case "cs":
-		err = client.AddCharm(curl)
-		if params.IsCodeNotImplemented(err) {
-			need1dot16Compatibility = true
-			break
-		}
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
+	ch, curl, need1dot16Compatibility, err := addCharmViaAPI(client, curl, repo)
+	if err != nil {
+		return err
 	}
+
 	if need1dot16Compatibility {
 		// AddCharm or AddLocalCharm were not implemented, revert to
 		// 1.16 compatible mode using PutCharm, and we'll need to
@@ -278,4 +246,52 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 	return err
+}
+
+// addCharmViaAPI calls the appropriate API call to add the given
+// charm URL to state. If curl has a "local:" schema, repo is
+// required.  For charm store charm URLs ("cs:") repo is ignored. The
+// boolean result is set to true if the API server does not support
+// AddCharm or AddLocalCharm calls.
+func addCharmViaAPI(client *api.Client, curl *charm.URL, repo charm.Repository) (charm.Charm, *charm.URL, bool, error) {
+
+	var ch charm.Charm
+	var err error
+	need1dot16Compatibility := false
+
+	switch curl.Schema {
+	case "local":
+		if curl.Revision < 0 {
+			latest, err := repo.Latest(curl)
+			if err != nil {
+				return nil, nil, false, err
+			}
+			curl = curl.WithRevision(latest)
+		}
+		ch, err = repo.Get(curl)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		stateCurl, err := client.AddLocalCharm(curl, ch)
+		if params.IsCodeNotImplemented(err) {
+			need1dot16Compatibility = true
+			break
+		}
+		if err != nil {
+			return nil, nil, false, err
+		}
+		curl = stateCurl
+	case "cs":
+		err = client.AddCharm(curl)
+		if params.IsCodeNotImplemented(err) {
+			need1dot16Compatibility = true
+			break
+		}
+		if err != nil {
+			return nil, nil, false, err
+		}
+	default:
+		return nil, nil, false, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
+	}
+	return ch, curl, need1dot16Compatibility, nil
 }

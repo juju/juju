@@ -190,3 +190,10 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 		"value":       asFloat,
 	})
 }
+
+func (s *getSuite) TestServiceGetCharmURL(c *gc.C) {
+	s.setUpScenario(c)
+	charmURL, err := s.APIState.Client().ServiceGetCharmURL("wordpress")
+	c.Assert(err, gc.IsNil)
+	c.Assert(charmURL.String(), gc.Equals, "local:quantal/wordpress-3")
+}

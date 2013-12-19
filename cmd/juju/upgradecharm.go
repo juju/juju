@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
@@ -103,6 +104,84 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	oldURL, err := client.ServiceGetCharmURL(c.ServiceName)
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("ServiceGetCharmURL is not implemented by the API server, switching to 1.16 compatibility mode (direct DB connection).")
+		return c.run1dot16(ctx)
+	}
+	if err != nil {
+		return err
+	}
+
+	attrs, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	conf, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return err
+	}
+
+	var newURL *charm.URL
+	if c.SwitchURL != "" {
+		// A new charm URL was explicitly specified.
+		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		if err != nil {
+			return err
+		}
+	} else {
+		// No new URL specified, but revision might have been.
+		newURL = oldURL.WithRevision(c.Revision)
+	}
+	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
+	if err != nil {
+		return err
+	}
+
+	repo = config.AuthorizeCharmRepo(repo, conf)
+
+	// If no explicit revision was set with either SwitchURL
+	// or Revision flags, discover the latest.
+	explicitRevision := true
+	if newURL.Revision == -1 {
+		explicitRevision = false
+		latest, err := repo.Latest(newURL)
+		if err != nil {
+			return err
+		}
+		newURL = newURL.WithRevision(latest)
+	}
+	if *newURL == *oldURL {
+		if explicitRevision {
+			return fmt.Errorf("already running specified charm %q", newURL)
+		} else if newURL.Schema == "cs" {
+			// No point in trying to upgrade a charm store charm when
+			// we just determined that's the latest revision
+			// available.
+			return fmt.Errorf("already running latest charm %q", newURL)
+		}
+	}
+
+	// We're ignoring need1dot16Compatibility result here, because
+	// we already checked earlier (if ServiceGetCharmURL is not supported,
+	// then AddCharm/AddLocalCharm won't be supported as well).
+	_, addedURL, _, err := addCharmViaAPI(client, newURL, repo)
+	if err != nil {
+		return err
+	}
+
+	return client.UpgradeCharm(c.ServiceName, addedURL)
+}
+
+// run1dot16 perfoms the charm upgrade using a 1.16 compatible code
+// path, with a direct state connection. Remove once the support for
+// 1.16 is dropped.
+func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
