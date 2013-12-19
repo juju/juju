@@ -106,16 +106,17 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		sleep 2
 	done
 	mongoEval '
-		db.machines.update({_id: 0}, {$set: {instanceid: '{{.NewInstanceId | printf "%q" | shquote}}' } })
-		db.instanceData.update({_id: 0}, {$set: {instanceid: '{{.NewInstanceId | printf "%q"| shquote}}' } })
+		db = db.getSiblingDB("juju")
+		db.machines.update({_id: "0"}, {$set: {instanceid: '{{.NewInstanceId | printf "%q" | shquote}}' } })
+		db.instanceData.update({_id: "0"}, {$set: {instanceid: '{{.NewInstanceId | printf "%q"| shquote}}' } })
 	'
-#	initctl start jujud-machine-0
+	initctl start jujud-machine-0
 `)
 
 func updateBootstrapMachineScript(instanceId instance.Id, adminSecret string) string {
 	return execTemplate(updateBootstrapMachineTemplate, struct {
 		NewInstanceId instance.Id
-		AdminSecret string
+		AdminSecret   string
 	}{instanceId, adminSecret})
 }
 
@@ -161,8 +162,10 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	logger.Infof("opening state")
 	st, err := state.Open(&state.Info{
-		Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
-		CACert: caCert,
+		Addrs:    []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
+		CACert:   caCert,
+		Tag:      "",
+		Password: env.Config().AdminSecret(),
 	}, state.DefaultDialOpts())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
@@ -317,19 +320,7 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 	if addr == "" {
 		return fmt.Errorf("no appropriate public address found")
 	}
-	args := []string{
-		"-l", "ubuntu",
-		"-T",
-		"-o", "StrictHostKeyChecking no",
-		"-o", "PasswordAuthentication no",
-		addr,
-		sshArg,
-	}
-	c := exec.Command("ssh", args...)
-	if data, err := c.CombinedOutput(); err != nil {
-		return fmt.Errorf("ssh command failed: %v (%q)", err, data)
-	}
-	return nil
+	return ssh(addr, sshArg)
 }
 
 func ssh(addr string, script string) error {
@@ -352,7 +343,14 @@ func ssh(addr string, script string) error {
 }
 
 func scp(file, host, destFile string) error {
-	cmd := exec.Command("scp", "-B", "-q", file, "ubuntu@"+host+":"+destFile)
+	cmd := exec.Command(
+		"scp",
+		"-B",
+		"-q",
+		"-o", "StrictHostKeyChecking no",
+		"-o", "PasswordAuthentication no",
+		file,
+		"ubuntu@"+host+":"+destFile)
 	logger.Infof("copying backup file to bootstrap host")
 	logger.Debugf("scp command: %s %q", cmd.Path, cmd.Args)
 	out, err := cmd.CombinedOutput()
@@ -374,7 +372,7 @@ func mustParseTemplate(templ string) *template.Template {
 
 func execTemplate(tmpl *template.Template, data interface{}) string {
 	var buf bytes.Buffer
-	err := updateBootstrapMachineTemplate.Execute(&buf, data)
+	err := tmpl.Execute(&buf, data)
 	if err != nil {
 		panic(fmt.Errorf("template error: %v", err))
 	}
