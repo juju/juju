@@ -289,7 +289,7 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	}
 	// Set the charm for the given service.
 	if args.CharmUrl != "" {
-		if err = serviceSetCharm(c.api.state, service, args.CharmUrl, args.ForceCharmUrl); err != nil {
+		if err = c.serviceSetCharm(service, args.CharmUrl, args.ForceCharmUrl); err != nil {
 			return err
 		}
 	}
@@ -317,17 +317,17 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 }
 
 // serviceSetCharm sets the charm for the given service.
-func serviceSetCharm(state *state.State, service *state.Service, url string, force bool) error {
+func (c *Client) serviceSetCharm(service *state.Service, url string, force bool) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return err
 	}
-	sch, err := state.Charm(curl)
+	sch, err := c.api.state.Charm(curl)
 	if jujuerrors.IsNotFoundError(err) {
 		// Charms should be added before trying to use them, with
 		// AddCharm or AddLocalCharm API calls. When they're not,
 		// we're reverting to 1.16 compatibility mode.
-		return serviceSetCharm1dot16(state, service, curl, force)
+		return c.serviceSetCharm1dot16(service, curl, force)
 	}
 	if err != nil {
 		return err
@@ -337,26 +337,18 @@ func serviceSetCharm(state *state.State, service *state.Service, url string, for
 
 // serviceSetCharm1dot16 sets the charm for the given service in 1.16
 // compatibility mode. Remove this when support for 1.16 is dropped.
-func serviceSetCharm1dot16(state *state.State, service *state.Service, curl *charm.URL, force bool) error {
+func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, force bool) error {
 	if curl.Schema != "cs" {
 		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 	}
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	conn, err := juju.NewConnFromState(state)
+	err := c.AddCharm(params.CharmURL{curl.String()})
 	if err != nil {
 		return err
 	}
-
-	conf, err := state.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	// authorize the store client if possible
-	store := config.AuthorizeCharmRepo(CharmStore, conf)
-
-	ch, err := conn.PutCharm(curl, store, false)
+	ch, err := c.api.state.Charm(curl)
 	if err != nil {
 		return err
 	}
@@ -418,7 +410,7 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return err
 	}
-	return serviceSetCharm(c.api.state, service, args.CharmUrl, args.Force)
+	return c.serviceSetCharm(service, args.CharmUrl, args.Force)
 }
 
 // addServiceUnits adds a given number of units to a service.
