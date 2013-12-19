@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 const getConstraintsDoc = `
@@ -113,7 +113,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	var cons constraints.Value
 	if c.ServiceName == "" {
 		cons, err = apiclient.GetEnvironmentConstraints()
-		if rpc.IsNoSuchRequest(err) {
+		if params.IsCodeNotImplemented(err) {
 			logger.Infof("GetEnvironmentConstraints not supported by the API server, " +
 				"falling back to 1.16 compatibility mode (direct DB access)")
 			cons, err = c.getEnvironConstraints1dot16()
@@ -180,7 +180,7 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	defer apiclient.Close()
 	if c.ServiceName == "" {
 		err = apiclient.SetEnvironmentConstraints(c.Constraints)
-		if rpc.IsNoSuchRequest(err) {
+		if params.IsCodeNotImplemented(err) {
 			logger.Infof("SetEnvironmentConstraints not supported by the API server, " +
 				"falling back to 1.16 compatibility mode (direct DB access)")
 			err = c.setEnvironConstraints1dot16()

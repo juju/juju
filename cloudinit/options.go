@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // SetAttr sets an arbitrary attribute in the cloudinit config.
@@ -287,7 +288,11 @@ func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
 		if line == "" || line[0] == '#' {
 			continue
 		}
-		akeys = append(akeys, line)
+		// Ensure the key has a comment prepended with "Juju:" so we
+		// can distinguish between Juju managed keys and those added
+		// externally.
+		jujuKey := ssh.EnsureJujuComment(line)
+		akeys = append(akeys, jujuKey)
 	}
 	cfg.attrs["ssh_authorized_keys"] = akeys
 }
@@ -311,7 +316,7 @@ func (cfg *Config) AddFile(filename, data string, mode uint) {
 	// of escape sequences differs between shells, namely bash and
 	// dash. Instead, we use printf (or we could use /bin/echo).
 	cfg.AddScripts(
-		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
+		fmt.Sprintf("install -D -m %o /dev/null %s", mode, p),
 		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
 	)
 }

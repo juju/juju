@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -206,9 +207,10 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
-		c.Logf("test %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.GetHookContext(c, uuid.String(), t.relid, t.remote)
+		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
+		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote)
 		var charmDir, outPath string
+		var hookExists bool
 		if t.spec.perm == 0 {
 			charmDir = c.MkDir()
 		} else {
@@ -216,12 +218,15 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			spec.name = "something-happened"
 			c.Logf("makeCharm %#v", spec)
 			charmDir, outPath = makeCharm(c, spec)
+			hookExists = true
 		}
 		toolsDir := c.MkDir()
 		t0 := time.Now()
 		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
-		if t.err == "" {
+		if t.err == "" && hookExists {
 			c.Assert(err, gc.IsNil)
+		} else if !hookExists {
+			c.Assert(uniter.IsMissingHookError(err), jc.IsTrue)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -255,7 +260,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.GetHookContext(c, uuid.String(), -1, "")
+	ctx := s.getHookContext(c, uuid.String(), -1, "")
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -346,8 +351,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "riak")
 	var err error
-	s.svc, err = s.State.AddService("u", ch)
-	c.Assert(err, gc.IsNil)
+	s.svc = s.AddTestingService(c, "u", ch)
 	rels, err := s.svc.Relations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(rels, gc.HasLen, 1)
@@ -546,7 +550,7 @@ func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
 	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.GetHookContext(c, uuid.String(), relId, remoteName)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName)
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
@@ -638,8 +642,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	sch := s.AddTestingCharm(c, "wordpress")
-	s.service, err = s.State.AddService("u", sch)
-	c.Assert(err, gc.IsNil)
+	s.service = s.AddTestingService(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
 	password, err := utils.RandomPassword()
@@ -671,8 +674,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
-	_, err := s.State.AddService(name, s.relch)
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, name, s.relch)
 	eps, err := s.State.InferEndpoints([]string{"u", name})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -691,7 +693,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(apiRelUnit, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *gc.C, uuid string, relid int,
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
@@ -717,4 +719,58 @@ func convertMap(settingsMap map[string]interface{}) params.RelationSettings {
 		result[k] = v.(string)
 	}
 	return result
+}
+
+type RunCommandSuite struct {
+	HookContextSuite
+}
+
+var _ = gc.Suite(&RunCommandSuite{})
+
+func (s *RunCommandSuite) getHookContext(c *gc.C) *uniter.HookContext {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "")
+}
+
+func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
+	context := s.getHookContext(c)
+	charmDir := c.MkDir()
+	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	executionEnvironment := map[string]string{}
+	for _, value := range strings.Split(string(result.Stdout), "\n") {
+		bits := strings.SplitN(value, "=", 2)
+		if len(bits) == 2 {
+			executionEnvironment[bits[0]] = bits[1]
+		}
+	}
+	expected := map[string]string{
+		"APT_LISTCHANGES_FRONTEND": "none",
+		"DEBIAN_FRONTEND":          "noninteractive",
+		"CHARM_DIR":                charmDir,
+		"JUJU_CONTEXT_ID":          "TestCtx",
+		"JUJU_AGENT_SOCKET":        "/path/to/socket",
+		"JUJU_UNIT_NAME":           "u/0",
+	}
+	for key, value := range expected {
+		c.Check(executionEnvironment[key], gc.Equals, value)
+	}
+}
+
+func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
+	context := s.getHookContext(c)
+	charmDir := c.MkDir()
+	commands := `
+echo this is standard out
+echo this is standard err >&2
+exit 42
+`
+	result, err := context.RunCommands(commands, charmDir, "/path/to/tools", "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(result.Code, gc.Equals, 42)
+	c.Assert(string(result.Stdout), gc.Equals, "this is standard out\n")
+	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
 }

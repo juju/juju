@@ -284,6 +284,13 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return sch
 }
 
+func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	c.Assert(s.State, gc.NotNil)
+	service, err := s.State.AddService(name, "user-admin", ch)
+	c.Assert(err, gc.IsNil)
+	return service
+}
+
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

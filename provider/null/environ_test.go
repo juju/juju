@@ -103,13 +103,12 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 	var sshScript = `
 #!/bin/bash --norc
-if [ "$*" = "hostname -- bash" ]; then
+if echo "$*" | grep -q -v sudo; then
     # We're executing bash inside ssh. Wait
     # for input to be written before exiting.
     head -n 1 > /dev/null
+    echo JUJU-RC: $RC
 fi
-exec 0<&- # close stdin
-echo JUJU-RC: $RC
 `[1:]
 	bin := c.MkDir()
 	ssh := filepath.Join(bin, "ssh")

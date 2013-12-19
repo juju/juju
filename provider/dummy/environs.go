@@ -901,6 +901,10 @@ func (inst *dummyInstance) DNSName() (string, error) {
 	return string(inst.id) + ".dns", nil
 }
 
+func (*dummyInstance) Refresh() error {
+	return nil
+}
+
 func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()

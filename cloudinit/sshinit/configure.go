@@ -113,6 +113,12 @@ func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 	return strings.Join(script, "\n"), nil
 }
 
+// The options specified are to prevent any kind of prompting.
+//  * --assume-yes answers yes to any yes/no question in apt-get;
+//  * the --force-confold option is passed to dpkg, and tells dpkg
+//    to always keep old configuration files in the face of change.
+const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
+
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
@@ -120,7 +126,7 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	if len(cfg.AptSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing add-apt-repository"))
-		cmds = append(cmds, "apt-get -y install python-software-properties")
+		cmds = append(cmds, aptget+"install python-software-properties")
 	}
 	for _, src := range cfg.AptSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
@@ -136,16 +142,21 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, "apt-get -y update")
+		cmds = append(cmds, aptget+"update")
 	}
 	if cfg.AptUpgrade() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
-		cmds = append(cmds, "apt-get -y upgrade")
+		cmds = append(cmds, aptget+"upgrade")
 	}
 	for _, pkg := range cfg.Packages() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
-		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
+		cmd := fmt.Sprintf(aptget+"install %s", utils.ShQuote(pkg))
 		cmds = append(cmds, cmd)
+	}
+	if len(cmds) > 0 {
+		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
+		// from prompting, always taking default values instead.
+		cmds = append([]string{"export DEBIAN_FRONTEND=noninteractive"}, cmds...)
 	}
 	return cmds, nil
 }

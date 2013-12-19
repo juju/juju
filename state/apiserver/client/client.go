@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -234,7 +235,15 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, CharmStore, false)
+
+	conf, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// authorize the store client if possible
+	store := config.AuthorizeCharmRepo(CharmStore, conf)
+
+	ch, err := conn.PutCharm(curl, store, false)
 	if err != nil {
 		return err
 	}
@@ -312,7 +321,15 @@ func serviceSetCharm(state *state.State, service *state.Service, url string, for
 	if err != nil {
 		return err
 	}
-	ch, err := conn.PutCharm(curl, CharmStore, false)
+
+	conf, err := state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	// authorize the store client if possible
+	store := config.AuthorizeCharmRepo(CharmStore, conf)
+
+	ch, err := conn.PutCharm(curl, store, false)
 	if err != nil {
 		return err
 	}
@@ -822,7 +839,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		return err
 	}
 	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig)
+	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.
