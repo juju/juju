@@ -109,7 +109,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		db.machines.update({_id: 0}, {$set: {instanceid: '{{.NewInstanceId | printf "%q" | shquote}}' } })
 		db.instanceData.update({_id: 0}, {$set: {instanceid: '{{.NewInstanceId | printf "%q"| shquote}}' } })
 	'
-	initctl start jujud-machine-0
+#	initctl start jujud-machine-0
 `)
 
 func updateBootstrapMachineScript(instanceId instance.Id, adminSecret string) string {
@@ -140,24 +140,26 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
+	logger.Infof("restoring bootstrap machine")
 	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile)
 	if err != nil {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
+	logger.Infof("restored bootstrap machine")
 	// Update the environ state to point to the new instance.
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{newInstId},
 	}); err != nil {
 		return fmt.Errorf("cannot update environ bootstrap state storage: %v", err)
 	}
-
 	// Construct our own state info rather than using juju.NewConn so
-	// that we can avoid storage eventual consistency issues
+	// that we can avoid storage eventual-consistency issues
 	// (and it's faster too).
 	caCert, ok := cfg.CACert()
 	if !ok {
 		return fmt.Errorf("configuration has no CA certificate")
 	}
+	logger.Infof("opening state")
 	st, err := state.Open(&state.Info{
 		Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 		CACert: caCert,
@@ -165,6 +167,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}
+	logger.Infof("updating all machines")
 	if err := updateAllMachines(st, machine0Addr); err != nil {
 		return fmt.Errorf("cannot update machines: %v", err)
 	}
@@ -338,10 +341,13 @@ func ssh(addr string, script string) error {
 		addr,
 		"sudo -n bash -c " + utils.ShQuote(script),
 	}
-	c := exec.Command("ssh", args...)
-	if data, err := c.CombinedOutput(); err != nil {
+	cmd := exec.Command("ssh", args...)
+	logger.Debugf("ssh command: %s %q", cmd.Path, cmd.Args)
+	data, err := cmd.CombinedOutput()
+	if err != nil {
 		return fmt.Errorf("ssh command failed: %v (%q)", err, data)
 	}
+	logger.Infof("ssh command succeeded: %q", data)
 	return nil
 }
 
