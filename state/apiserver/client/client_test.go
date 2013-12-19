@@ -831,11 +831,10 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
-		"cs:precise/wordpress":           "charm url must include revision",
-		"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
-		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
+		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
+		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"cs:precise/wordpress":        "charm url must include revision",
+		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
 		c.Logf("test %s", charmUrl)
 		args := params.ServiceUpdate{
@@ -1066,11 +1065,10 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
-		"cs:precise/wordpress":           "charm url must include revision",
-		"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
-		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
+		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
+		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"cs:precise/wordpress":        "charm url must include revision",
+		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceSetCharm(
