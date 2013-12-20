@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -22,21 +23,58 @@ type Client struct {
 	st *State
 }
 
-// MachineInfo holds information about a machine.
-type MachineInfo struct {
-	InstanceId string // blank if not set.
+// MachineStatus holds status info about a machine.
+type MachineStatus struct {
+	Err            error
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	DNSName        string
+	InstanceId     instance.Id
+	InstanceState  string
+	Life           string
+	Series         string
+	Id             string
+	Containers     map[string]MachineStatus
+	Hardware       string
+}
+
+// ServiceStatus holds status info about a service.
+type ServiceStatus struct {
+	Err           error
+	Charm         string
+	Exposed       bool
+	Life          string
+	Relations     map[string][]string
+	SubordinateTo []string
+	Units         map[string]UnitStatus
+}
+
+// UnitStatus holds status info about a unit.
+type UnitStatus struct {
+	Err            error
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	Life           string
+	Machine        string
+	OpenedPorts    []string
+	PublicAddress  string
+	Subordinates   map[string]UnitStatus
 }
 
 // Status holds information about the status of a juju environment.
 type Status struct {
-	Machines map[string]MachineInfo
-	// TODO the rest
+	EnvironmentName string
+	Machines        map[string]MachineStatus
+	Services        map[string]ServiceStatus
 }
 
 // Status returns the status of the juju environment.
-func (c *Client) Status() (*Status, error) {
+func (c *Client) Status(patterns []string) (*Status, error) {
 	var s Status
-	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
+	p := params.StatusParams{Patterns: patterns}
+	if err := c.st.Call("Client", "", "Status", p, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
