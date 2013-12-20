@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
@@ -24,7 +25,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	if authKeys := cfg.AuthorizedKeys(); authKeys == "" {
+	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
 		// Config will act differently (it's pretty crazy that, AFAICT, the
 		// authorized-keys are optional config settings... but it's impossible
