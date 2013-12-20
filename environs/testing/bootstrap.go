@@ -6,7 +6,6 @@ package testing
 import (
 	"io"
 
-	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
@@ -14,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -31,22 +29,22 @@ func DisableFinishBootstrap() func() {
 	return testbase.PatchValue(&common.FinishBootstrap, f)
 }
 
-type BootstrapContext struct {
+type bootstrapContext struct {
 	*cmd.Context
 }
 
-func (c BootstrapContext) Stdin() io.Reader {
+func (c bootstrapContext) Stdin() io.Reader {
 	return c.Context.Stdin
 }
 
-func (c BootstrapContext) Stdout() io.Writer {
+func (c bootstrapContext) Stdout() io.Writer {
 	return c.Context.Stdout
 }
 
-func (c BootstrapContext) Stderr() io.Writer {
+func (c bootstrapContext) Stderr() io.Writer {
 	return c.Context.Stderr
 }
 
-func NewBootstrapContext(c *gc.C) BootstrapContext {
-	return BootstrapContext{coretesting.Context(c)}
+func NewBootstrapContext(ctx *cmd.Context) environs.BootstrapContext {
+	return bootstrapContext{ctx}
 }

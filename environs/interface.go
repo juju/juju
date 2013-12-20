@@ -197,7 +197,7 @@ type Environ interface {
 }
 
 // BootstrapContext is an interface that is passed to
-// Environ.Bootstrap, providing it a means of obtaining
+// Environ.Bootstrap, providing a means of obtaining
 // information about and manipulating the context in which
 // it is being invoked.
 type BootstrapContext interface {

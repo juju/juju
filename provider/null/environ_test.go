@@ -17,6 +17,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -117,7 +118,7 @@ fi
 	s.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
 
 	s.PatchEnvironment("RC", "99") // simulate ssh failure
-	ctx := envtesting.NewBootstrapContext(c)
+	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
 	err = s.env.EnableBootstrapStorage(ctx)
 	c.Assert(err, gc.ErrorMatches, "exit code 99")
 	c.Assert(s.env.Storage(), gc.Not(gc.FitsTypeOf), new(sshstorage.SSHStorage))

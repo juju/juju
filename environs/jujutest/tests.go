@@ -78,6 +78,10 @@ func (t *Tests) TearDownTest(c *gc.C) {
 	t.LoggingSuite.TearDownTest(c)
 }
 
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	return envtesting.NewBootstrapContext(coretesting.Context(c))
+}
+
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e.Storage())
@@ -134,7 +138,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	envtesting.UploadFakeTools(c, e.Storage())
 	err := common.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(envtesting.NewBootstrapContext(c), e, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
@@ -162,7 +166,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = common.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(envtesting.NewBootstrapContext(c), e3, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	err = common.EnsureNotBootstrapped(e3)
