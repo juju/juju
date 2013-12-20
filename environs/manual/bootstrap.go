@@ -31,6 +31,7 @@ type BootstrapArgs struct {
 	DataDir       string
 	Environ       LocalStorageEnviron
 	PossibleTools tools.List
+	Context       environs.BootstrapContext
 
 	// If series and hardware characteristics
 	// are known ahead of time, they can be
@@ -140,5 +141,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(args.Host, mcfg)
+	return provisionMachineAgent(args.Host, mcfg, args.Context.Stdin(), args.Context.Stdout(), args.Context.Stderr())
 }
