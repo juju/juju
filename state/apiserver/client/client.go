@@ -6,7 +6,6 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -18,8 +17,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	coreerrors "launchpad.net/juju-core/errors"
-	jujuerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -219,7 +217,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
-	if jujuerrors.IsNotFoundError(err) {
+	if errors.IsNotFoundError(err) {
 		// Remove this whole if block when 1.16 compatibility is dropped.
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
@@ -303,7 +301,7 @@ func (c *Client) serviceSetCharm(service *state.Service, url string, force bool)
 		return err
 	}
 	sch, err := c.api.state.Charm(curl)
-	if jujuerrors.IsNotFoundError(err) {
+	if errors.IsNotFoundError(err) {
 		// Charms should be added before trying to use them, with
 		// AddCharm or AddLocalCharm API calls. When they're not,
 		// we're reverting to 1.16 compatibility mode.
@@ -400,10 +398,10 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 		return nil, err
 	}
 	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
+		return nil, fmt.Errorf("must add at least one unit")
 	}
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
@@ -427,7 +425,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	for _, name := range args.UnitNames {
 		unit, err := c.api.state.Unit(name)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != state.Alive:
@@ -647,7 +645,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	for _, id := range args.MachineNames {
 		machine, err := c.api.state.Machine(id)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case args.Force:
