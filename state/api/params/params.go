@@ -80,8 +80,8 @@ type AddMachineParams struct {
 	// new machine. If it is non-empty, the new machine
 	// will be implemented by a container. If it is specified
 	// but ParentId is empty, a new top level machine will
-	// be created to hold the container with the same
-	// series, constraints and jobs as the new container.
+	// be created to hold the container with given series,
+	// constraints and jobs.
 	ContainerType instance.ContainerType
 
 	// If InstanceId is non-empty, it will be associated with
