@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/environs/replicaset"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -371,4 +372,78 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, cons constraints.Value) [
 			Status: params.StatusPending,
 		}),
 	}
+}
+
+// EnsureAvailability adds state server machines as necessary to make
+// the number of live state servers equal to numStateServers. The given
+// constraints will be attached to any new machines.
+//
+// TODO(rog):
+// If any current state servers are down, they will be
+// removed from the current set of state servers
+// (although the machines themselves will remain).
+func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value) error {
+	if numStateServers%2 != 1 || numStateServers <= 0 {
+		return fmt.Errorf("number of state servers must be odd and greater than zero")
+	}
+	if numStateServers > replicaset.MaxPeers {
+		return fmt.Errorf("state server count is too large (allowed %d)", MaxPeers)
+	}
+	machineIds, err := st.stateServerMachineIds()
+	if err != nil {
+		return err
+	}
+	if len(machineIds) == numStateServers {
+		// TODO check for machines that are down.
+		return nil
+	}
+	if len(machineIds) > numStateServers {
+		return fmt.Errorf("cannot reduce state server count")
+	}
+	envCons, err := st.EnvironConstraints()
+	if err != nil {
+		return err
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	cons = cons.WithFallbacks(envCons)
+	var ops []txn.Op
+	var newIds []string
+	for i := len(machineIds); i < numStateServers; i++ {
+		mdoc := &machineDoc{
+			Series: cfg.DefaultSeries(),
+			Jobs: []MachineJob{
+				JobHostUnits,
+				JobManageState,
+				JobManageEnviron,
+			},
+		}
+		mdoc, addOps, err := st.addMachineOps(machineTemplate{
+			Series: cfg.DefaultSeries(),
+			Jobs: []MachineJob{
+				JobHostUnits,
+				JobManageState,
+				JobManageEnviron,
+			},
+			Constraints: cons,
+		})
+		if err != nil {
+			return err
+		}
+		ops = append(ops, addOps...)
+		newIds = append(newIds, mdoc.Id)
+	}
+	ops = append(ops, txn.Op{
+		C:      st.stateServers.Name,
+		Id:     environGlobalKey,
+		Assert: D{{"stateservers", D{{"$size", len(machineIds)}}}},
+		Update: D{{"$addToSet", D{{"stateservers", D{{"$each", newIds}}}}}},
+	})
+	err = st.runTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("failed to create new state server machines: %v", err)
+	}
+	return nil
 }
