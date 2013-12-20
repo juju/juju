@@ -232,7 +232,7 @@ func restoreBootstrapMachine(conn *juju.APIConn, backupFile string) (newInstId i
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
 	}
-	status, err := conn.State.Client().Status()
+	status, err := conn.State.Client().Status(nil)
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get environment status: %v", err)
 	}
