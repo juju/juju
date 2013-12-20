@@ -210,3 +210,21 @@ func (s *AuthorisedKeysKeysSuite) TestEnsureJujuComment(c *gc.C) {
 		c.Assert(actual, gc.Equals, test.expected)
 	}
 }
+
+func (s *AuthorisedKeysKeysSuite) TestSplitAuthorisedKeys(c *gc.C) {
+	sshKey := sshtesting.ValidKeyOne.Key
+	for _, test := range []struct {
+		keyData  string
+		expected []string
+	}{
+		{"", nil},
+		{sshKey, []string{sshKey}},
+		{sshKey + "\n", []string{sshKey}},
+		{sshKey + "\n\n", []string{sshKey}},
+		{sshKey + "\n#comment\n", []string{sshKey}},
+		{sshKey + "\ninvalid\n", []string{sshKey, "invalid"}},
+	} {
+		actual := ssh.SplitAuthorisedKeys(test.keyData)
+		c.Assert(actual, gc.DeepEquals, test.expected)
+	}
+}

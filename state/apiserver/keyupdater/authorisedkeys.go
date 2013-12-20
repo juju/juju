@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // KeyUpdater defines the methods on the keyupdater API end point.
@@ -100,8 +101,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 	var keys []string
 	config, configErr := api.state.EnvironConfig()
 	if configErr == nil {
-		keysString := config.AuthorizedKeys()
-		keys = strings.Split(keysString, "\n")
+		keys = ssh.SplitAuthorisedKeys(config.AuthorizedKeys())
 	}
 
 	canRead, err := api.getCanRead()
