@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
@@ -109,6 +110,16 @@ func (ctx *Context) AbsPath(path string) string {
 		return path
 	}
 	return filepath.Join(ctx.Dir, path)
+}
+
+// InterruptNotify partially satisfies environs/bootstrap.BootstrapContext
+func (ctx *Context) InterruptNotify(c chan<- os.Signal) {
+	signal.Notify(c, os.Interrupt)
+}
+
+// StopInterruptNotify partially satisfies environs/bootstrap.BootstrapContext
+func (ctx *Context) StopInterruptNotify(c chan<- os.Signal) {
+	signal.Stop(c)
 }
 
 // Info holds some of the usage documentation of a Command.

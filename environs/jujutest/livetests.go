@@ -140,7 +140,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.Env.Storage())
 	err := common.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(t.Env, cons)
+	err = bootstrap.Bootstrap(bootstrapContext(c), t.Env, cons)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -924,7 +924,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	conn, err := juju.NewConn(env)
