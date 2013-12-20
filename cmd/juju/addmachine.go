@@ -147,11 +147,14 @@ func (c *AddMachineCommand) addMachine1dot16() (string, error) {
 	return m.String(), err
 }
 
-func (c *AddMachineCommand) Run(_ *cmd.Context) error {
+func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	if c.SSHHost != "" {
 		args := manual.ProvisionMachineArgs{
 			Host:    c.SSHHost,
 			EnvName: c.EnvName,
+			Stdin:   ctx.Stdin,
+			Stdout:  ctx.Stdout,
+			Stderr:  ctx.Stderr,
 		}
 		_, err := manual.ProvisionMachine(args)
 		return err

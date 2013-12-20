@@ -53,6 +53,11 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	ctx := coretesting.Context(c)
+	return envtesting.NewBootstrapContext(ctx)
+}
+
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined)
 	s.setDummyStorage(c, env)
@@ -64,20 +69,20 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 		env.cfg = cfg
 	}
 
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", coretesting.CACert)
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
 	uploadTools(c, env)
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -90,7 +95,7 @@ func uploadTools(c *gc.C, env environs.Environ) {
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.constraints, gc.DeepEquals, constraints.Value{})
@@ -100,7 +105,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	s.setDummyStorage(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := bootstrap.Bootstrap(env, cons)
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.constraints, gc.DeepEquals, cons)
@@ -163,7 +168,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		if test.Arch != "" {
 			cons = constraints.MustParse("arch=" + test.Arch)
 		}
-		err = bootstrap.Bootstrap(env, cons)
+		err = bootstrap.Bootstrap(bootstrapContext(c), env, cons)
 		if test.Err != nil {
 			c.Check(err, gc.ErrorMatches, ".*"+test.Err.Error())
 			continue
@@ -186,7 +191,7 @@ func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
 	c.Assert(err, gc.IsNil)
@@ -252,7 +257,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value) error {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil

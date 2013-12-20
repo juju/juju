@@ -84,8 +84,8 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 	var keyInfo []string
 	cfg, configErr := api.state.EnvironConfig()
 	if configErr == nil {
-		keysString := cfg.AuthorizedKeys()
-		keyInfo = parseKeys(keysString, arg.Mode)
+		keys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+		keyInfo = parseKeys(keys, arg.Mode)
 	}
 
 	canRead, err := api.getCanRead()
@@ -116,12 +116,8 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 	return params.StringsResults{results}, nil
 }
 
-func parseKeys(text string, mode ssh.ListMode) (keyInfo []string) {
-	keys := strings.Split(text, "\n")
+func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 	for _, key := range keys {
-		if len(key) == 0 {
-			continue
-		}
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			keyInfo = append(keyInfo, fmt.Sprintf("Invalid key: %v", key))
@@ -162,8 +158,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints *s
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	keysString := cfg.AuthorizedKeys()
-	keys = strings.Split(keysString, "\n")
+	keys = ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 	for _, key := range keys {
 		fingerprint, _, err := ssh.KeyFingerprint(key)
 		if err != nil {
@@ -310,8 +305,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
-	keysString := cfg.AuthorizedKeys()
-	existingSSHKeys := strings.Split(keysString, "\n")
+	existingSSHKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 
 	// Build up a map of keys indexed by fingerprint, and fingerprints indexed by comment
 	// so we can easily get the key represented by each keyId, which may be either a fingerprint
