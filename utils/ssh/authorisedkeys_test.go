@@ -222,6 +222,7 @@ func (s *AuthorisedKeysKeysSuite) TestSplitAuthorisedKeys(c *gc.C) {
 		{sshKey + "\n", []string{sshKey}},
 		{sshKey + "\n\n", []string{sshKey}},
 		{sshKey + "\n#comment\n", []string{sshKey}},
+		{sshKey + "\n #comment\n", []string{sshKey}},
 		{sshKey + "\ninvalid\n", []string{sshKey, "invalid"}},
 	} {
 		actual := ssh.SplitAuthorisedKeys(test.keyData)

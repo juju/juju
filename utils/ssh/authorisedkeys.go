@@ -39,7 +39,8 @@ var KeyFingerprint = keyFingerprint
 func SplitAuthorisedKeys(keyData string) []string {
 	var keys []string
 	for _, key := range strings.Split(string(keyData), "\n") {
-		if len(strings.Trim(key, " \r")) == 0 {
+		key = strings.Trim(key, " \r")
+		if len(key) == 0 {
 			continue
 		}
 		if key[0] == '#' {
