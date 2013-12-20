@@ -79,7 +79,7 @@ func (c *restoreCommand) Init(args []string) error {
 		return fmt.Errorf("no backup file specified")
 	}
 	c.backupFile = args[0]
-	return nil
+	return cmd.CheckEmpty(args[1:])
 }
 
 var updateBootstrapMachineTemplate = mustParseTemplate(`
