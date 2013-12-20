@@ -45,7 +45,7 @@ func (s *mgoSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *mgoSuite) TestResetWhenUnauthorized(c *gc.C) {
-	session := testing.MgoServer.Dial()
+	session := testing.MgoServer.MustDial()
 	defer session.Close()
 	err := session.DB("admin").AddUser("admin", "foo", false)
 	if err != nil && err.Error() != "need to login" {
@@ -57,7 +57,7 @@ func (s *mgoSuite) TestResetWhenUnauthorized(c *gc.C) {
 func (s *mgoSuite) TestStartAndClean(c *gc.C) {
 	c.Assert(testing.MgoServer.Addr(), gc.Not(gc.Equals), "")
 
-	session := testing.MgoServer.Dial()
+	session := testing.MgoServer.MustDial()
 	defer session.Close()
 	menu := session.DB("food").C("menu")
 	err := menu.Insert(

@@ -110,7 +110,6 @@ func (inst *MgoInstance) run() error {
 		"--sslOnNormalPorts",
 		"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
 		"--sslPEMKeyPassword", "ignored",
-		"--bind_ip", "localhost",
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
