@@ -40,7 +40,7 @@ class until_timeout:
         return datetime.now()
 
     def next(self):
-        if self.now() - self.start  >= timedelta(0, self.timeout):
+        if self.now() - self.start >= timedelta(0, self.timeout):
             raise StopIteration
         return None
 
@@ -83,7 +83,11 @@ class JujuClientDevel:
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
-        self.juju(environment, 'bootstrap', ('--constraints', 'mem=4G'),
+        if environment.hpcloud:
+            constraints = 'mem=4G'
+        else:
+            constraints = 'mem=2G'
+        self.juju(environment, 'bootstrap', ('--constraints', constraints),
                   environment.needs_sudo())
 
     def destroy_environment(self, environment):
@@ -169,8 +173,11 @@ class Environment:
         self.config = config
         if self.config is not None:
             self.local = bool(self.config.get('type') == 'local')
+            self.hpcloud = bool(
+                'hpcloudsvc' in self.config.get('auth-url', ''))
         else:
             self.local = False
+            self.hpcloud = False
 
     @classmethod
     def from_config(cls, name):

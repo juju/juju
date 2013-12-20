@@ -126,13 +126,21 @@ class TestJujuClientDevel(TestCase):
         full = client._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 
+    def test_bootstrap_hpcloud(self):
+        env = Environment('hp', '')
+        with patch.object(env, 'hpcloud', lambda: True):
+            with patch.object(JujuClientDevel, 'juju') as mock:
+                JujuClientDevel(None, None).bootstrap(env)
+            mock.assert_called_with(
+                env, 'bootstrap', ('--constraints', 'mem=4G'), False)
+
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
         with patch.object(env, 'needs_sudo', lambda: False):
             with patch.object(JujuClientDevel, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
-                env, 'bootstrap', ('--constraints', 'mem=4G'), False)
+                env, 'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -141,7 +149,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(JujuClientDevel, 'juju') as mock:
                 client.bootstrap(env)
             mock.assert_called_with(
-                env, 'bootstrap', ('--constraints', 'mem=4G'), True)
+                env, 'bootstrap', ('--constraints', 'mem=2G'), True)
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
@@ -403,6 +411,12 @@ class TestEnvironment(TestCase):
         self.assertFalse(env.local, 'Does not respect config type.')
         env = Environment('local', '', {'type': 'local'})
         self.assertTrue(env.local, 'Does not respect config type.')
+
+    def test_hpcloud_from_config(self):
+        env = Environment('cloud', '', {'auth-url': 'before.keystone.after'})
+        self.assertFalse(env.hpcloud, 'Does not respect config type.')
+        env = Environment('hp', '', {'auth-url': 'before.hpcloudsvc.after/'})
+        self.assertTrue(env.hpcloud, 'Does not respect config type.')
 
     def test_from_config(self):
         home = tempfile.mkdtemp()
