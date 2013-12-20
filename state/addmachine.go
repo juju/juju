@@ -115,6 +115,12 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer utils.ErrorContextf(&err, "cannot add a new machine")
 	var ms []*Machine
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is no longer alive")
+	}
 	var ops []txn.Op
 	for _, template := range templates {
 		mdoc, addOps, err := st.addMachineOps(template)
@@ -124,8 +130,9 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
+	ops = append(ops, env.assertAliveOp())
 	if err := st.runTransaction(ops); err != nil {
-		return nil, err
+		return nil, onAbort(err, fmt.Errorf("environment is no longer alive"))
 	}
 	return ms, nil
 }
