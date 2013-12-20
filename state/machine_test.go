@@ -113,13 +113,12 @@ func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 		{instanceId: "x", nonce: "manual", isManual: false},
 	}
 	for _, test := range tests {
-		params := state.AddMachineParams{
+		m, err := s.State.AddOneMachine(state.MachineTemplate{
 			Series:     "quantal",
 			Jobs:       []state.MachineJob{state.JobHostUnits},
 			InstanceId: test.instanceId,
 			Nonce:      test.nonce,
-		}
-		m, err := s.State.InjectMachine(&params)
+		})
 		c.Assert(err, gc.IsNil)
 		isManual, err := m.IsManual()
 		c.Assert(isManual, gc.Equals, test.isManual)
