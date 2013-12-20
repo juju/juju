@@ -1,7 +1,8 @@
 #!/bin/bash
 
 usage() {
-    echo "usage: $0 dcs-file 'name-email'"
+    echo "usage: $0 <PURPOSE> dcs-file 'name-email'"
+    echo "  PURPOSE: stable or devel which selects the archive."
     echo "  dsc-file: The path to source package DSC file."
     echo "  name-email: The 'name <email>' string used in the changelog."
     exit 1
@@ -27,14 +28,22 @@ backport_packages() {
 }
 
 
-PPA="ppa:juju-packaging/devel "
 RELEASES="precise quantal raring saucy"
 SUFFIX="~juju1"
 
-test $# -ge 3 || usage
+test $# -ne 3 && usage
 
-DSC=$1
-DEBEMAIL=$2
+PURPOSE=$1
+if [[ $PURPOSE == "stable" ]]; then
+    PPA="ppa:juju-packaging/stable"
+elif [[ $PURPOSE == "devel" ]]; then
+    PPA="ppa:juju-packaging/devel"
+else
+    usage
+fi
+
+DSC=$2
+DEBEMAIL=$3
 
 check_deps
 backport_packages
