@@ -15,6 +15,9 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 var NoEnvironmentError = errors.New("no environment specified")
@@ -24,6 +27,7 @@ type DestroyEnvironmentCommand struct {
 	cmd.CommandBase
 	envName   string
 	assumeYes bool
+	force     bool
 }
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
@@ -37,6 +41,7 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
+	f.BoolVar(&c.force, "force", false, "Forcefully destroy the environment, directly through the environment provider")
 }
 
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
@@ -62,11 +67,20 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 			return errors.New("Environment destruction aborted")
 		}
 	}
-
-	// TODO(axw) 2013-08-30 bug 1218688
-	// destroy manually provisioned machines, or otherwise
-	// block destroy-environment until all manually provisioned
-	// machines have been manually "destroyed".
+	// If --force is supplied, then don't attempt to use the API.
+	// This is necessary to destroy broken environments, where the
+	// API server is inaccessible or faulty.
+	if !c.force {
+		conn, err := juju.NewAPIConn(environ, api.DefaultDialOpts())
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		err = conn.State.Client().DestroyEnvironment()
+		if err != nil && !params.IsCodeNotImplemented(err) {
+			return fmt.Errorf("destroying environment: %v", err)
+		}
+	}
 	return environs.Destroy(environ, store)
 }
 

@@ -69,7 +69,8 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		return nil, err
 	}
 
-	// The tools url has changed so see if the old one is still in use.
+	// If deprecated config attributes are used, log warnings so the user can know
+	// that they need to be fixed.
 	if oldToolsURL := attrs["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
 		_, newToolsSpecified := attrs["tools-metadata-url"]
 		var msg string
@@ -85,14 +86,8 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 					"The location to find tools is now specified using the %q attribute.\n"+
 					"Your configuration should be updated to set %q as follows\n%v: %v.",
 				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
-			attrs["tools-metadata-url"] = oldToolsURL
 		}
 		logger.Warningf(msg)
-	}
-	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
-	// we still want it in the config for upgrades.
-	if newToolsURL, ok := attrs["tools-metadata-url"]; ok {
-		attrs["tools-url"] = newToolsURL
 	}
 
 	cfg, err := config.New(config.UseDefaults, attrs)

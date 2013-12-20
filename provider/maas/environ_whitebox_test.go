@@ -285,7 +285,7 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	input := `{"system_id": "` + systemId + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{&node, suite.makeEnviron()}
+	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
 }
 
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
@@ -316,7 +316,7 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	testInstance := &maasInstance{&node, suite.makeEnviron()}
+	testInstance := &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
 	err := bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})

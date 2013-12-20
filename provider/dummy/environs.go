@@ -786,8 +786,10 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		if inst == nil {
 			err = environs.ErrPartialInstances
 			notFound++
+			insts = append(insts, nil)
+		} else {
+			insts = append(insts, inst)
 		}
-		insts = append(insts, inst)
 	}
 	if notFound == len(ids) {
 		return nil, environs.ErrNoInstances
@@ -898,6 +900,10 @@ func SetInstanceAddresses(inst instance.Instance, addrs []instance.Address) {
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
 	return string(inst.id) + ".dns", nil
+}
+
+func (*dummyInstance) Refresh() error {
+	return nil
 }
 
 func (inst *dummyInstance) Addresses() ([]instance.Address, error) {

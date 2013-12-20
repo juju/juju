@@ -89,6 +89,8 @@ var cloudinitTests = []cloudinitTest{
 		setEnvConfig: true,
 		expectScripts: `
 echo ENABLE_MONGODB="no" > /etc/default/mongodb
+install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
+printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 set -xe
 mkdir -p /var/lib/juju
@@ -102,7 +104,7 @@ grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum m
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+install -D -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '.*' > '/etc/rsyslog.d/25-juju.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
@@ -111,9 +113,9 @@ printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
 ln -s /var/lib/juju/tools/machine-0/jujud /usr/local/bin/juju-run
-install -m 600 /dev/null '/var/lib/juju/system-identity'
+install -D -m 600 /dev/null '/var/lib/juju/system-identity'
 printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
-install -m 600 /dev/null '/var/lib/juju/server\.pem'
+install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
 printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
 chmod 0700 /var/lib/juju/db
@@ -203,6 +205,8 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			SyslogPort: 514,
 		},
 		expectScripts: `
+install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
+printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 set -xe
 mkdir -p /var/lib/juju
@@ -216,7 +220,7 @@ grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mis
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
 printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+install -D -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
