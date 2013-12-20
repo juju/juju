@@ -110,7 +110,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
-	testing.MgoRestart()
+	testing.MgoServer.Restart()
 	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
