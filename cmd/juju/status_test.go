@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -58,20 +59,19 @@ type stepper interface {
 }
 
 type context struct {
-	st          *state.State
-	statusSuite *StatusSuite
-	conn        *juju.Conn
-	charms      map[string]*state.Charm
-	pingers     map[string]*presence.Pinger
+	st      *state.State
+	conn    *juju.Conn
+	charms  map[string]*state.Charm
+	pingers map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
+	st := s.Conn.Environ.(testing.GetStater).GetStateInAPIServer()
 	return &context{
-		st:          s.State,
-		statusSuite: s,
-		conn:        s.Conn,
-		charms:      make(map[string]*state.Charm),
-		pingers:     make(map[string]*presence.Pinger),
+		st:      st,
+		conn:    s.Conn,
+		charms:  make(map[string]*state.Charm),
+		pingers: make(map[string]*presence.Pinger),
 	}
 }
 
@@ -89,6 +89,24 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		c.Logf("%#v", s)
 		s.step(c, ctx)
 	}
+}
+
+type aliver interface {
+	AgentAlive() (bool, error)
+	SetAgentAlive() (*presence.Pinger, error)
+	WaitAgentAlive(time.Duration) error
+}
+
+func (ctx *context) setAgentAlive(c *gc.C, a aliver) *presence.Pinger {
+	pinger, err := a.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	ctx.st.StartSync()
+	err = a.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	agentAlive, err := a.AgentAlive()
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
+	return pinger
 }
 
 // shortcuts for expected output.
@@ -1290,14 +1308,7 @@ type startAliveMachine struct {
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
 	c.Assert(err, gc.IsNil)
-	pinger, err := m.SetAgentAlive()
-	c.Assert(err, gc.IsNil)
-	ctx.st.StartSync()
-	err = m.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	agentAlive, err := m.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	pinger := ctx.setAgentAlive(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
@@ -1341,7 +1352,8 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	ctx.statusSuite.AddTestingService(c, as.name, ch)
+	_, err := ctx.st.AddService(as.name, "user-admin", ch)
+	c.Assert(err, gc.IsNil)
 }
 
 type setServiceExposed struct {
@@ -1384,14 +1396,7 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
 	c.Assert(err, gc.IsNil)
-	pinger, err := u.SetAgentAlive()
-	c.Assert(err, gc.IsNil)
-	ctx.st.StartSync()
-	err = u.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	agentAlive, err := u.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	pinger := ctx.setAgentAlive(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
@@ -1409,15 +1414,7 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	us, err := s.AllUnits()
 	c.Assert(err, gc.IsNil)
 	for _, u := range us {
-		pinger, err := u.SetAgentAlive()
-		c.Assert(err, gc.IsNil)
-		ctx.st.StartSync()
-		err = u.WaitAgentAlive(coretesting.LongWait)
-		c.Assert(err, gc.IsNil)
-		agentAlive, err := u.AgentAlive()
-		c.Assert(err, gc.IsNil)
-		c.Assert(agentAlive, gc.Equals, true)
-		ctx.pingers[u.Name()] = pinger
+		ctx.pingers[u.Name()] = ctx.setAgentAlive(c, u)
 	}
 }
 

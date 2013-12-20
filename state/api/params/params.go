@@ -540,3 +540,8 @@ type DeployerConnectionValues struct {
 	APIAddresses   []string
 	SyslogPort     int
 }
+
+// StatusParams holds parameters for the Status call.
+type StatusParams struct {
+	Patterns []string
+}
