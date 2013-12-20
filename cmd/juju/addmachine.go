@@ -127,14 +127,20 @@ func (c *AddMachineCommand) addMachine1dot16() (string, error) {
 		}
 		series = conf.DefaultSeries()
 	}
-	params := state.AddMachineParams{
-		ParentId:      c.MachineId,
-		ContainerType: c.ContainerType,
-		Series:        series,
-		Constraints:   c.Constraints,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series:      series,
+		Constraints: c.Constraints,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	m, err := conn.State.AddMachineWithConstraints(&params)
+	var m *state.Machine
+	switch {
+	case c.ContainerType == "":
+		m, err = conn.State.AddOneMachine(template)
+	case c.MachineId != "":
+		m, err = conn.State.AddMachineInsideMachine(template, c.MachineId, c.ContainerType)
+	default:
+		m, err = conn.State.AddMachineInsideNewMachine(template, template, c.ContainerType)
+	}
 	if err != nil {
 		return "", err
 	}

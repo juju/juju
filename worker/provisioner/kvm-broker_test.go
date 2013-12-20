@@ -230,13 +230,11 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
-	params := state.AddMachineParams{
-		ParentId:      s.machineId,
-		ContainerType: instance.KVM,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, s.machineId, instance.KVM)
 	c.Assert(err, gc.IsNil)
 	return container
 }

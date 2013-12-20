@@ -252,7 +252,7 @@ func (neverAddresses) Addresses() ([]instance.Address, error) {
 }
 
 var testSSHTimeout = common.SSHTimeoutOpts{
-	Timeout:        10 * time.Millisecond,
+	Timeout:        coretesting.ShortWait,
 	ConnectDelay:   1 * time.Millisecond,
 	AddressesDelay: 1 * time.Millisecond,
 }
@@ -260,7 +260,7 @@ var testSSHTimeout = common.SSHTimeoutOpts{
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 	ctx, stderr := bootstrapContext(c)
 	_, err := common.WaitSSH(ctx, nil, "/bin/true", neverAddresses{}, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting any addresses")
+	c.Check(err, gc.ErrorMatches, `waited for `+testSSHTimeout.Timeout.String()+` without getting any addresses`)
 	c.Check(stderr.String(), gc.Matches, "Waiting for address\n")
 }
 
@@ -305,7 +305,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	// 0.x.y.z addresses are always invalid
 	_, err := common.WaitSSH(ctx, nil, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.3`)
+		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.3`)
 	c.Check(stderr.String(), gc.Matches,
 		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
@@ -372,7 +372,7 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	}}, testSSHTimeout)
 	// Not necessarily the last one in the list, due to scheduling.
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.[34]`)
+		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.[34]`)
 	c.Check(stderr.String(), gc.Matches,
 		"Waiting for address\n"+
 			"(.|\n)*(Attempting to connect to 0.1.2.3:22\n)+(.|\n)*")

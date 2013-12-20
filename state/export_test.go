@@ -228,6 +228,8 @@ func StateServerMachineIds(st *State) ([]string, error) {
 	return st.stateServerMachineIds()
 }
 
+var NewAddress = newAddress
+
 func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }

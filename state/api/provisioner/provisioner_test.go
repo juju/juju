@@ -202,19 +202,19 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
-	args := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=12", "mem=8G"),
 	}
-	consMachine, err := s.State.AddMachineWithConstraints(&args)
+	consMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	apiMachine, err := s.provisioner.Machine(consMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	cons, err := apiMachine.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, args.Constraints)
+	c.Assert(cons, gc.DeepEquals, template.Constraints)
 
 	// Now try machine 0.
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
@@ -229,13 +229,11 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Add one LXC container.
-	args := state.AddMachineParams{
-		Series:        "quantal",
-		ParentId:      s.machine.Id(),
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-		ContainerType: instance.LXC,
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&args)
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	w, err := apiMachine.WatchContainers(instance.LXC)
@@ -253,14 +251,12 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a KVM container and make sure it's not detected.
-	args.ContainerType = instance.KVM
-	container, err = s.State.AddMachineWithConstraints(&args)
+	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.KVM)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Add another LXC container and make sure it's detected.
-	args.ContainerType = instance.LXC
-	container, err = s.State.AddMachineWithConstraints(&args)
+	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(container.Id())
 
@@ -312,13 +308,11 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertChange("2")
 
 	// Add a container and make sure it's not detected.
-	args := state.AddMachineParams{
-		Series:        "quantal",
-		ParentId:      s.machine.Id(),
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-		ContainerType: instance.LXC,
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err = s.State.AddMachineWithConstraints(&args)
+	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

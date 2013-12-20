@@ -73,7 +73,7 @@ const initialMachinePassword = "machine-password-1234567890"
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
-	m, err := s.State.InjectMachine(&state.AddMachineParams{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		InstanceId: "ardbeg-0",
 		Nonce:      state.BootstrapNonce,
