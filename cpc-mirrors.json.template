@@ -63,6 +63,14 @@
         "path": "streams/v1/com.ubuntu.juju:released:tools.json",
         "clouds": [
           {
+            "endpoint": "https://core.windows.net/",
+            "region": "Japan East"
+          },
+          {
+            "endpoint": "https://core.windows.net/",
+            "region": "Japan West"
+          },
+          {
             "endpoint": "https://core.chinacloudapi.cn/",
             "region": "China East"
           },
