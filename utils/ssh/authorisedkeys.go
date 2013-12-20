@@ -34,6 +34,23 @@ const (
 // the OS dependent function keyFingerprint.
 var KeyFingerprint = keyFingerprint
 
+// SplitAuthorisedKeys extracts a key slice from the specified key data,
+// by splitting the key data into lines and ignoring comments and blank lines.
+func SplitAuthorisedKeys(keyData string) []string {
+	var keys []string
+	for _, key := range strings.Split(string(keyData), "\n") {
+		key = strings.Trim(key, " \r")
+		if len(key) == 0 {
+			continue
+		}
+		if key[0] == '#' {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 func readAuthorisedKeys() ([]string, error) {
 	sshKeyFile := utils.NormalizePath(filepath.Join(authKeysDir, authKeysFile))
 	keyData, err := ioutil.ReadFile(sshKeyFile)
@@ -109,7 +126,10 @@ func AddKeys(newKeys ...string) error {
 		for _, key := range existingKeys {
 			existingFingerprint, existingComment, err := keyFingerprint(key)
 			if err != nil {
-				logger.Warningf("invalid existing ssh key %q: %v", key, err)
+				// Only log a warning if the unrecognised key line is not a comment.
+				if key[0] != '#' {
+					logger.Warningf("invalid existing ssh key %q: %v", key, err)
+				}
 				continue
 			}
 			if existingFingerprint == fingerprint {
@@ -216,7 +236,10 @@ func ListKeys(mode ListMode) ([]string, error) {
 	for _, key := range keyData {
 		fingerprint, comment, err := keyFingerprint(key)
 		if err != nil {
-			logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
+			// Only log a warning if the unrecognised key line is not a comment.
+			if key[0] != '#' {
+				logger.Warningf("ignoring invalid ssh key %q: %v", key, err)
+			}
 			continue
 		}
 		if mode == FullKeys {

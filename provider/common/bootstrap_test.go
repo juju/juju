@@ -6,11 +6,11 @@ package common_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"time"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -41,6 +41,9 @@ type cleaner interface {
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(common.ConnectSSH, func(host, checkHostScript string) error {
+		return fmt.Errorf("mock connection failure to %s", host)
+	})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -72,13 +75,23 @@ func configGetter(c *gc.C) configFunc {
 	return func() *config.Config { return cfg }
 }
 
+// bootstrapContext creates a BootstrapContext which
+// writes stderr to the bytes.Buffer returned.
+func bootstrapContext(c *gc.C) (ctx environs.BootstrapContext, stderr *bytes.Buffer) {
+	cmdContext := coretesting.Context(c)
+	stderr = &bytes.Buffer{}
+	cmdContext.Stderr = stderr
+	return envtesting.NewBootstrapContext(cmdContext), stderr
+}
+
 func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
 	brokenStorage := &mockStorage{
 		Storage: newStorage(s, c),
 		putErr:  fmt.Errorf("noes!"),
 	}
 	env := &mockEnviron{storage: brokenStorage}
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx, _ := bootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot create initial state file: noes!")
 }
 
@@ -104,7 +117,8 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	err = common.Bootstrap(env, checkCons)
+	ctx, _ := bootstrapContext(c)
+	err = common.Bootstrap(ctx, env, checkCons)
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
@@ -134,7 +148,8 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx, _ := bootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
@@ -170,7 +185,8 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx, _ := bootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
@@ -208,7 +224,8 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		startInstance: startInstance,
 		config:        getConfig,
 	}
-	err := common.Bootstrap(env, constraints.Value{})
+	ctx, _ := bootstrapContext(c)
+	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	savedState, err := bootstrap.LoadStateFromURL(checkURL)
@@ -219,108 +236,147 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	})
 }
 
-type neverDNSName struct {
+type neverRefreshes struct {
 }
 
-func (neverDNSName) DNSName() (string, error) {
-	return "", instance.ErrNoDNSName
+func (neverRefreshes) Refresh() error {
+	return nil
+}
+
+type neverAddresses struct {
+	neverRefreshes
+}
+
+func (neverAddresses) Addresses() ([]instance.Address, error) {
+	return nil, nil
 }
 
 var testSSHTimeout = common.SSHTimeoutOpts{
-	Timeout:      10 * time.Millisecond,
-	DNSNameDelay: 1 * time.Millisecond,
+	Timeout:        10 * time.Millisecond,
+	ConnectDelay:   1 * time.Millisecond,
+	AddressesDelay: 1 * time.Millisecond,
 }
 
-func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDNSName(c *gc.C) {
-	ctx := &common.BootstrapContext{}
-	buf := &bytes.Buffer{}
-	ctx.Stderr = buf
-	var t tomb.Tomb
-	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting a DNS name: DNS name not allocated")
-	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
+func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
+	ctx, stderr := bootstrapContext(c)
+	_, err := common.WaitSSH(ctx, nil, "/bin/true", neverAddresses{}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "waited for 10ms without getting any addresses")
+	c.Check(stderr.String(), gc.Matches, "Waiting for address\n")
 }
 
-func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDNSName(c *gc.C) {
-	ctx := &common.BootstrapContext{}
-	buf := &bytes.Buffer{}
-	ctx.Stderr = buf
-	var t tomb.Tomb
+func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
+	ctx, stderr := bootstrapContext(c)
+	interrupted := make(chan os.Signal, 1)
 	go func() {
 		<-time.After(2 * time.Millisecond)
-		t.Killf("stopping WaitSSH during DNSName")
+		interrupted <- os.Interrupt
 	}()
-	_, err := common.WaitSSH(ctx, neverDNSName{}, &t, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during DNSName")
-	c.Check(buf.String(), gc.Matches, "Waiting for DNS name\n")
+	_, err := common.WaitSSH(ctx, interrupted, "/bin/true", neverAddresses{}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "interrupted")
+	c.Check(stderr.String(), gc.Matches, "Waiting for address\n")
 }
 
-type brokenDNSName struct {
+type brokenAddresses struct {
+	neverRefreshes
 }
 
-func (brokenDNSName) DNSName() (string, error) {
-	return "", fmt.Errorf("DNSName will never work")
+func (brokenAddresses) Addresses() ([]instance.Address, error) {
+	return nil, fmt.Errorf("Addresses will never work")
 }
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
-	ctx := &common.BootstrapContext{}
-	buf := &bytes.Buffer{}
-	ctx.Stderr = buf
-	var t tomb.Tomb
-	_, err := common.WaitSSH(ctx, brokenDNSName{}, &t, testSSHTimeout)
-	c.Check(err, gc.ErrorMatches, "getting DNS name: DNSName will never work")
-	c.Check(buf.String(), gc.Equals, "Waiting for DNS name\n")
+	ctx, stderr := bootstrapContext(c)
+	_, err := common.WaitSSH(ctx, nil, "/bin/true", brokenAddresses{}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, "getting addresses: Addresses will never work")
+	c.Check(stderr.String(), gc.Equals, "Waiting for address\n")
 }
 
 type neverOpensPort struct {
-	name string
+	neverRefreshes
+	addr string
 }
 
-func (n *neverOpensPort) DNSName() (string, error) {
-	return n.name, nil
+func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
+	return []instance.Address{instance.NewAddress(n.addr)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
-	ctx := &common.BootstrapContext{}
-	buf := &bytes.Buffer{}
-	ctx.Stderr = buf
-	var t tomb.Tomb
+	ctx, stderr := bootstrapContext(c)
 	// 0.x.y.z addresses are always invalid
-	_, err := common.WaitSSH(ctx, &neverOpensPort{"0.1.2.3"}, &t, testSSHTimeout)
+	_, err := common.WaitSSH(ctx, nil, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
-		`waited for 10ms without being able to connect to "0.1.2.3": dial tcp 0.1.2.3:22: invalid argument`)
-	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\n"+
+		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.3`)
+	c.Check(stderr.String(), gc.Matches,
+		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
 
-type killOnDial struct {
-	name     string
-	tomb     *tomb.Tomb
-	returned bool
+type interruptOnDial struct {
+	neverRefreshes
+	name        string
+	interrupted chan os.Signal
+	returned    bool
 }
 
-func (k *killOnDial) DNSName() (string, error) {
-	// kill the tomb the second time DNSName is called
-	if !k.returned {
-		k.returned = true
+func (i *interruptOnDial) Addresses() ([]instance.Address, error) {
+	// kill the tomb the second time Addresses is called
+	if !i.returned {
+		i.returned = true
 	} else {
-		k.tomb.Killf("stopping WaitSSH during Dial")
+		i.interrupted <- os.Interrupt
 	}
-	return k.name, nil
+	return []instance.Address{instance.NewAddress(i.name)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
-	ctx := &common.BootstrapContext{}
-	buf := &bytes.Buffer{}
-	ctx.Stderr = buf
-	var t tomb.Tomb
+	ctx, stderr := bootstrapContext(c)
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
-	_, err := common.WaitSSH(ctx, &killOnDial{name: "0.1.2.3", tomb: &t}, &t, timeout)
-	c.Check(err, gc.ErrorMatches, "stopping WaitSSH during Dial")
+	interrupted := make(chan os.Signal, 1)
+	_, err := common.WaitSSH(ctx, interrupted, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, timeout)
+	c.Check(err, gc.ErrorMatches, "interrupted")
 	// Exact timing is imprecise but it should have tried a few times before being killed
-	c.Check(buf.String(), gc.Matches,
-		"Waiting for DNS name\n"+
+	c.Check(stderr.String(), gc.Matches,
+		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
+}
+
+type addressesChange struct {
+	addrs [][]string
+}
+
+func (ac *addressesChange) Refresh() error {
+	if len(ac.addrs) > 1 {
+		ac.addrs = ac.addrs[1:]
+	}
+	return nil
+}
+
+func (ac *addressesChange) Addresses() ([]instance.Address, error) {
+	var addrs []instance.Address
+	for _, addr := range ac.addrs[0] {
+		addrs = append(addrs, instance.NewAddress(addr))
+	}
+	return addrs, nil
+}
+
+func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
+	ctx, stderr := bootstrapContext(c)
+	_, err := common.WaitSSH(ctx, nil, "", &addressesChange{addrs: [][]string{
+		nil,
+		nil,
+		[]string{"0.1.2.3"},
+		[]string{"0.1.2.3"},
+		nil,
+		[]string{"0.1.2.4"},
+	}}, testSSHTimeout)
+	// Not necessarily the last one in the list, due to scheduling.
+	c.Check(err, gc.ErrorMatches,
+		`waited for 10ms without being able to connect: mock connection failure to 0.1.2.[34]`)
+	c.Check(stderr.String(), gc.Matches,
+		"Waiting for address\n"+
+			"(.|\n)*(Attempting to connect to 0.1.2.3:22\n)+(.|\n)*")
+	c.Check(stderr.String(), gc.Matches,
+		"Waiting for address\n"+
+			"(.|\n)*(Attempting to connect to 0.1.2.4:22\n)+(.|\n)*")
 }

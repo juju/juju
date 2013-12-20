@@ -26,8 +26,7 @@ var _ = gc.Suite(&UnsetSuite{})
 func (s *UnsetSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("dummy-service", ch)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
 	setupConfigFile(c, s.dir)

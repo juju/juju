@@ -141,17 +141,16 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
-		svc, err := s.State.AddService(fmt.Sprintf("test%d", i), ch)
-		c.Assert(err, gc.IsNil)
+		svc := s.AddTestingService(c, fmt.Sprintf("test%d", i), ch)
 
 		var constraintsv constraints.Value
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
-			err = svc.SetConstraints(constraintsv)
+			err := svc.SetConstraints(constraintsv)
 			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
-			err = svc.UpdateConfigSettings(t.config)
+			err := svc.UpdateConfigSettings(t.config)
 			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect
@@ -177,10 +176,9 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
 
 	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("test-service", ch)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "test-service", ch)
 
-	err = svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
+	err := svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, gc.IsNil)
 	got, err := s.APIState.Client().ServiceGet(svc.Name())
 	c.Assert(err, gc.IsNil)
@@ -189,4 +187,11 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 		"type":        "int",
 		"value":       asFloat,
 	})
+}
+
+func (s *getSuite) TestServiceGetCharmURL(c *gc.C) {
+	s.setUpScenario(c)
+	charmURL, err := s.APIState.Client().ServiceGetCharmURL("wordpress")
+	c.Assert(err, gc.IsNil)
+	c.Assert(charmURL.String(), gc.Equals, "local:quantal/wordpress-3")
 }

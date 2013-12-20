@@ -6,7 +6,7 @@ package sshinit
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 
 	"launchpad.net/loggo"
@@ -18,24 +18,42 @@ import (
 
 var logger = loggo.GetLogger("juju.cloudinit.sshinit")
 
+type ConfigureParams struct {
+	// Host is the host to configure, in the format [user@]hostname.
+	Host string
+
+	// Config is the cloudinit config to carry out.
+	Config *cloudinit.Config
+
+	// Stdin is required to respond to sudo prompts,
+	// and must be a terminal (except in tests)
+	Stdin io.Reader
+
+	// Stdout is required to present sudo prompts to the user.
+	Stdout io.Writer
+
+	// Stderr is required to present bootstrap progress to the user.
+	Stderr io.Writer
+}
+
 // Configure connects to the specified host over SSH,
 // and executes a script that carries out cloud-config.
-func Configure(host string, cfg *cloudinit.Config) error {
-	logger.Infof("Provisioning machine agent on %s", host)
-	script, err := generateScript(cfg)
+func Configure(params ConfigureParams) error {
+	logger.Infof("Provisioning machine agent on %s", params.Host)
+	script, err := generateScript(params.Config)
 	if err != nil {
 		return err
 	}
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
 	cmd := ssh.Command(
-		host,
+		params.Host,
 		[]string{"sudo", fmt.Sprintf("bash -c '%s'", script)},
 		ssh.AllocateTTY,
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	cmd.Stdout = params.Stdout
+	cmd.Stderr = params.Stderr
+	cmd.Stdin = params.Stdin
 	return cmd.Run()
 }
 
@@ -75,17 +93,6 @@ func generateScript(cloudcfg *cloudinit.Config) (string, error) {
 	// but added here to avoid relying on that to be
 	// invariant.
 	script := []string{"#!/bin/bash", "set -e"}
-	// Wait for cloud-init to complete. pkill will return non-zero
-	// if there are no matching processes.
-	script = append(script, `
-    if pkill -0 cloud-init; then
-        printf "Waiting for cloud-init to finish"
-        while pkill -0 cloud-init; do
-            printf "."
-            sleep 2s
-        done
-        printf "\n"
-    fi`)
 	// We must initialise progress reporting before entering
 	// the subshell and redirecting stderr.
 	script = append(script, cloudinit.InitProgressCmd())

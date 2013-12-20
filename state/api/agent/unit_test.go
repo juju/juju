@@ -25,9 +25,9 @@ type unitSuite struct {
 }
 
 func (s *unitSuite) SetUpTest(c *gc.C) {
+	var err error
 	s.JujuConnSuite.SetUpTest(c)
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.unit, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()

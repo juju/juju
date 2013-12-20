@@ -198,7 +198,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 
 	envtesting.MustUploadFakeTools(environ.Storage())
-	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), gc.IsNil)
+	ctx := envtesting.NewBootstrapContext(testing.Context(c))
+	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
@@ -281,6 +282,13 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)
 	return sch
+}
+
+func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	c.Assert(s.State, gc.NotNil)
+	service, err := s.State.AddService(name, "user-admin", ch)
+	c.Assert(err, gc.IsNil)
+	return service
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
