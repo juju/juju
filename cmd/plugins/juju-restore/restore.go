@@ -6,8 +6,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"text/template"
 
 	"launchpad.net/gnuflag"
@@ -219,7 +221,7 @@ func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, 
 	// error-prone) or we could provide a --no-check flag to make
 	// it go ahead anyway without the check.
 
-	if err := bootstrap.Bootstrap(env, cons); err != nil {
+	if err := bootstrap.Bootstrap(bootstrapContext{}, env, cons); err != nil {
 		return nil, fmt.Errorf("cannot bootstrap new instance: %v", err)
 	}
 	return env, nil
@@ -377,4 +379,26 @@ func execTemplate(tmpl *template.Template, data interface{}) string {
 		panic(fmt.Errorf("template error: %v", err))
 	}
 	return buf.String()
+}
+
+type bootstrapContext struct{}
+
+func (bootstrapContext) Stdin() io.Reader {
+	return os.Stdin
+}
+
+func (bootstrapContext) Stdout() io.Writer {
+	return os.Stdout
+}
+
+func (bootstrapContext) Stderr() io.Writer {
+	return os.Stderr
+}
+
+func (bootstrapContext) InterruptNotify(c chan<- os.Signal) {
+	signal.Notify(c, os.Interrupt)
+}
+
+func (bootstrapContext) StopInterruptNotify(c chan<- os.Signal) {
+	signal.Stop(c)
 }
