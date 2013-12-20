@@ -201,12 +201,11 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	params := &state.AddMachineParams{
-		Series:        "precise",
-		ContainerType: instance.LXC,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "precise",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(params)
+	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", container.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)
