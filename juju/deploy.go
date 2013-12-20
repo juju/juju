@@ -112,17 +112,14 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 			var m *state.Machine
 			// If a container is to be used, create it.
 			if containerType != "" {
-				params := state.AddMachineParams{
-					Series:        unit.Series(),
-					ParentId:      mid,
-					ContainerType: containerType,
-					Jobs:          []state.MachineJob{state.JobHostUnits},
+				// Create the new machine marked as dirty so that
+				// nothing else will grab it before we assign the unit to it.
+				template := state.MachineTemplate{
+					Series: unit.Series(),
+					Jobs:   []state.MachineJob{state.JobHostUnits},
+					Dirty:  true,
 				}
-				// BUG this new machine might be grabbed as clean by
-				// another unit deploy before we manage to assign the
-				// unit to it.
-				// See https://bugs.launchpad.net/juju-core/+bug/1252799
-				m, err = st.AddMachineWithConstraints(&params)
+				m, err = st.AddMachineInsideMachine(template, mid, containerType)
 			} else {
 				m, err = st.Machine(mid)
 			}
