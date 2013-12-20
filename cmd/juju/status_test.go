@@ -67,6 +67,9 @@ type context struct {
 
 func (s *StatusSuite) newContext() *context {
 	st := s.Conn.Environ.(testing.GetStater).GetStateInAPIServer()
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
 	return &context{
 		st:      st,
 		conn:    s.Conn,
