@@ -36,13 +36,13 @@ func UserHomeDir(userName string) (homeDir string, err error) {
 	} else {
 		u, err = user.Lookup(userName)
 		if err != nil {
-			return "", fmt.Errorf("invalid user %s: %v", userName, err)
+			return "", err
 		}
 	}
 	return u.HomeDir, nil
 }
 
-var userHomePathRegexp = regexp.MustCompile("(~(?P<user>[^/]*))/(?P<path>.*)")
+var userHomePathRegexp = regexp.MustCompile("(~(?P<user>[^/]*))(?P<path>.*)")
 
 // NormalizePath expands a path containing ~ to its absolute form,
 // and removes any .. or . path elements.
@@ -53,7 +53,7 @@ func NormalizePath(dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		dir = userHomePathRegexp.ReplaceAllString(dir, fmt.Sprintf("%s/$path", userHomeDir))
+		dir = userHomePathRegexp.ReplaceAllString(dir, fmt.Sprintf("%s$path", userHomeDir))
 	}
 	return filepath.Clean(dir), nil
 }

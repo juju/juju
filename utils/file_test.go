@@ -48,14 +48,20 @@ func (*fileSuite) TestNormalizePath(c *gc.C) {
 		path:     "~/foo//../bar",
 		expected: "/home/test-user/bar",
 	}, {
+		path:     "~",
+		expected: "/home/test-user",
+	}, {
+		path:     "~" + currentUser.Username,
+		expected: currentUser.HomeDir,
+	}, {
 		path:     "~" + currentUser.Username + "/foo",
 		expected: currentUser.HomeDir + "/foo",
 	}, {
 		path:     "~" + currentUser.Username + "/foo//../bar",
 		expected: currentUser.HomeDir + "/bar",
 	}, {
-		path: "~bob/foo",
-		err:  "invalid user bob: user: unknown user bob",
+		path: "~foobar/path",
+		err:  "user: unknown user foobar",
 	}} {
 		actual, err := utils.NormalizePath(test.path)
 		if test.err != "" {
