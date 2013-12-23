@@ -90,6 +90,9 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		return machineId, err
 	}
 
+	// TODO(axw) create the "ubuntu" user and initialise passwordless sudo.
+	// The authenticationworker will later update ~ubuntu/.ssh/authorized_keys.
+
 	// Finally, provision the machine agent.
 	err = provisionMachineAgent(args.Host, mcfg)
 	if err != nil {
@@ -100,12 +103,16 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	return machineId, nil
 }
 
-func hostWithoutUser(host string) string {
-	hostWithoutUser := host
-	if at := strings.Index(hostWithoutUser, "@"); at != -1 {
-		hostWithoutUser = hostWithoutUser[at+1:]
+func splitUserHost(host string) (string, string) {
+	if at := strings.Index(host, "@"); at != -1 {
+		return host[:at], host[at+1:]
 	}
-	return hostWithoutUser
+	return "", host
+}
+
+func hostWithoutUser(host string) string {
+	_, host = splitUserHost(host)
+	return host
 }
 
 func recordMachineInState(

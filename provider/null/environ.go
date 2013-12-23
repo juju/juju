@@ -50,6 +50,8 @@ type nullEnviron struct {
 	cfgmutex              sync.Mutex
 	bootstrapStorage      *sshstorage.SSHStorage
 	bootstrapStorageMutex sync.Mutex
+	ubuntuUserInit        bool
+	ubuntuUserInitMutex   sync.Mutex
 }
 
 var _ environs.BootstrapStorager = (*nullEnviron)(nil)
@@ -85,9 +87,30 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
+func (e *nullEnviron) ensureBootstrapUbuntuUser() error {
+	e.ubuntuUserInitMutex.Lock()
+	defer e.ubuntuUserInitMutex.Unlock()
+	if e.ubuntuUserInit {
+		return nil
+	}
+	cfg := e.envConfig()
+	err := manual.InitUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys())
+	if err != nil {
+		logger.Errorf("initializing ubuntu user: %v", err)
+		return err
+	}
+	logger.Infof("initialized ubuntu user")
+	e.ubuntuUserInit = true
+	return nil
+}
+
 func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
+	if err := e.ensureBootstrapUbuntuUser(); err != nil {
+		return err
+	}
 	envConfig := e.envConfig()
-	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
+	host := envConfig.bootstrapHost()
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics("ubuntu@" + host)
 	if err != nil {
 		return err
 	}
@@ -96,7 +119,7 @@ func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	return manual.Bootstrap(manual.BootstrapArgs{
-		Host:                    e.envConfig().sshHost(),
+		Host:                    host,
 		DataDir:                 dataDir,
 		Environ:                 e,
 		PossibleTools:           selectedTools,
@@ -150,10 +173,13 @@ func (e *nullEnviron) EnableBootstrapStorage() error {
 	if e.bootstrapStorage != nil {
 		return nil
 	}
+	if err := e.ensureBootstrapUbuntuUser(); err != nil {
+		return err
+	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	bootstrapStorage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	bootstrapStorage, err := sshstorage.NewSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
 	if err != nil {
 		return err
 	}
