@@ -145,7 +145,10 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
 		return nil, fmt.Errorf("unsupported container type: %q", localConfig.container())
 	}
-	dir := utils.NormalizePath(localConfig.rootDir())
+	dir, err := utils.NormalizePath(localConfig.rootDir())
+	if err != nil {
+		return nil, err
+	}
 	if dir == "." {
 		dir = config.JujuHomePath(cfg.Name())
 	}
