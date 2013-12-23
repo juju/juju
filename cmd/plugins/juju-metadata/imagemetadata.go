@@ -163,7 +163,10 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
 	dest := filepath.Join(c.Dir, "images", "streams", "v1")
-	dir := utils.NormalizePath(c.Dir)
+	dir, err := utils.NormalizePath(c.Dir)
+	if err != nil {
+		return err
+	}
 	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir, dir, c.privateStorage))
 	return nil
 }
