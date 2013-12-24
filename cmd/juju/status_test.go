@@ -192,11 +192,11 @@ var (
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"charm":   "local:quantal/dummy-1",
+		"charm":   "cs:quantal/dummy-1",
 		"exposed": false,
 	}
 	exposedService = M{
-		"charm":   "local:quantal/dummy-1",
+		"charm":   "cs:quantal/dummy-1",
 		"exposed": true,
 	}
 )
@@ -430,7 +430,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -444,7 +444,7 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -500,7 +500,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -514,7 +514,7 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -539,7 +539,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -563,7 +563,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -589,7 +589,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -613,7 +613,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -640,7 +640,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -652,7 +652,7 @@ var statusTests = []testCase{
 						},
 					},
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -688,7 +688,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"life":    "dying",
 						"units": M{
@@ -760,7 +760,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"project": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"project/0": M{
@@ -774,7 +774,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -787,7 +787,7 @@ var statusTests = []testCase{
 						},
 					},
 					"varnish": M{
-						"charm":   "local:quantal/varnish-1",
+						"charm":   "cs:quantal/varnish-1",
 						"exposed": true,
 						"units": M{
 							"varnish/0": M{
@@ -800,7 +800,7 @@ var statusTests = []testCase{
 						},
 					},
 					"private": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"private/0": M{
@@ -853,7 +853,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"riak": M{
-						"charm":   "local:quantal/riak-7",
+						"charm":   "cs:quantal/riak-7",
 						"exposed": true,
 						"units": M{
 							"riak/0": M{
@@ -929,7 +929,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -948,7 +948,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -968,7 +968,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:quantal/logging-1",
+						"charm":   "cs:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -992,7 +992,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1011,7 +1011,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -1031,7 +1031,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:quantal/logging-1",
+						"charm":   "cs:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -1054,7 +1054,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1073,7 +1073,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:quantal/logging-1",
+						"charm":   "cs:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -1129,7 +1129,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1148,7 +1148,7 @@ var statusTests = []testCase{
 						},
 					},
 					"monitoring": M{
-						"charm":   "local:quantal/monitoring-0",
+						"charm":   "cs:quantal/monitoring-0",
 						"exposed": true,
 						"relations": M{
 							"monitoring-port": L{"wordpress"},
@@ -1196,7 +1196,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -1224,7 +1224,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/1": M{
@@ -1336,7 +1336,7 @@ type addCharm struct {
 func (ac addCharm) step(c *gc.C, ctx *context) {
 	ch := coretesting.Charms.Dir(ac.name)
 	name, rev := ch.Meta().Name, ch.Revision()
-	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", name, rev))
+	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
 	c.Assert(err, gc.IsNil)
 	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))

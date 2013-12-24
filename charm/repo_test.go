@@ -4,177 +4,23 @@
 package charm_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	env_config "launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	charmtesting "launchpad.net/juju-core/charm/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-type MockStore struct {
-	mux            *http.ServeMux
-	lis            net.Listener
-	bundleBytes    []byte
-	bundleSha256   string
-	downloads      []*charm.URL
-	authorizations []string
-}
-
-func NewMockStore(c *gc.C) *MockStore {
-	s := &MockStore{}
-	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "dummy"))
-	c.Assert(err, gc.IsNil)
-	s.bundleBytes = bytes
-	h := sha256.New()
-	h.Write(bytes)
-	s.bundleSha256 = hex.EncodeToString(h.Sum(nil))
-	s.mux = http.NewServeMux()
-	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeInfo(w, r)
-	})
-	s.mux.HandleFunc("/charm-event", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeEvent(w, r)
-	})
-	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeCharm(w, r)
-	})
-	lis, err := net.Listen("tcp", "127.0.0.1:4444")
-	c.Assert(err, gc.IsNil)
-	s.lis = lis
-	go http.Serve(s.lis, s)
-	return s
-}
-
-func (s *MockStore) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
-}
-
-func (s *MockStore) ServeInfo(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	response := map[string]*charm.InfoResponse{}
-	for _, url := range r.Form["charms"] {
-		cr := &charm.InfoResponse{}
-		response[url] = cr
-		charmURL := charm.MustParseURL(url)
-		switch charmURL.Name {
-		case "borken":
-			cr.Errors = append(cr.Errors, "badness")
-		case "unwise":
-			cr.Warnings = append(cr.Warnings, "foolishness")
-			fallthrough
-		case "good":
-			if charmURL.Revision == -1 {
-				cr.Revision = 23
-			} else {
-				cr.Revision = charmURL.Revision
-			}
-			cr.Sha256 = s.bundleSha256
-		case "better":
-			if charmURL.Revision == -1 {
-				cr.Revision = 24
-			} else {
-				cr.Revision = charmURL.Revision
-			}
-			cr.Sha256 = s.bundleSha256
-		case "best":
-			if charmURL.Revision == -1 {
-				cr.Revision = 25
-			} else {
-				cr.Revision = charmURL.Revision
-			}
-			cr.Sha256 = s.bundleSha256
-		default:
-			cr.Errors = append(cr.Errors, "entry not found")
-		}
-	}
-	data, err := json.Marshal(response)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(data)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (s *MockStore) ServeEvent(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	response := map[string]*charm.EventResponse{}
-	for _, url := range r.Form["charms"] {
-		digest := ""
-		if i := strings.Index(url, "@"); i >= 0 {
-			digest = url[i+1:]
-			url = url[:i]
-		}
-		er := &charm.EventResponse{}
-		response[url] = er
-		if digest != "" && digest != "the-digest" {
-			er.Kind = "not-found"
-			er.Errors = []string{"entry not found"}
-			continue
-		}
-		charmURL := charm.MustParseURL(url)
-		switch charmURL.Name {
-		case "borken":
-			er.Kind = "publish-error"
-			er.Errors = append(er.Errors, "badness")
-		case "unwise":
-			er.Warnings = append(er.Warnings, "foolishness")
-			fallthrough
-		case "good":
-			er.Kind = "published"
-			er.Revision = 23
-			er.Digest = "the-digest"
-		default:
-			er.Kind = "not-found"
-			er.Errors = []string{"entry not found"}
-		}
-	}
-	data, err := json.Marshal(response)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(data)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
-	charmURL := charm.MustParseURL("cs:" + r.URL.Path[len("/charm/"):])
-	s.downloads = append(s.downloads, charmURL)
-
-	if auth := r.Header.Get("Authorization"); auth != "" {
-		s.authorizations = append(s.authorizations, auth)
-	}
-
-	w.Header().Set("Connection", "close")
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.Itoa(len(s.bundleBytes)))
-	_, err := w.Write(s.bundleBytes)
-	if err != nil {
-		panic(err)
-	}
-}
-
 type StoreSuite struct {
 	testbase.LoggingSuite
-	server      *MockStore
+	server      *charmtesting.MockStore
 	store       *charm.CharmStore
 	oldCacheDir string
 }
@@ -183,7 +29,12 @@ var _ = gc.Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.server = NewMockStore(c)
+	s.server = charmtesting.NewMockStore(c, map[string]int {
+		"cs:series/good": 23,
+		"cs:series/unwise": 23,
+		"cs:series/better": 24,
+		"cs:series/best": 25,
+	})
 	s.oldCacheDir = charm.CacheDir
 }
 
@@ -191,15 +42,15 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	charm.CacheDir = c.MkDir()
 	s.store = charm.NewStore("http://127.0.0.1:4444")
-	s.server.downloads = nil
-	s.server.authorizations = nil
+	s.server.Downloads = nil
+	s.server.Authorizations = nil
 }
 
 // Uses the TearDownTest from testbase.LoggingSuite
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
 	charm.CacheDir = s.oldCacheDir
-	s.server.lis.Close()
+	s.server.Lis.Close()
 	s.LoggingSuite.TearDownSuite(c)
 }
 
@@ -247,11 +98,11 @@ func (s *StoreSuite) TestLatest(c *gc.C) {
 }
 
 func (s *StoreSuite) assertCached(c *gc.C, charmURL *charm.URL) {
-	s.server.downloads = nil
+	s.server.Downloads = nil
 	ch, err := s.store.Get(charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch, gc.NotNil)
-	c.Assert(s.server.downloads, gc.IsNil)
+	c.Assert(s.server.Downloads, gc.IsNil)
 }
 
 func (s *StoreSuite) TestGetCacheImplicitRevision(c *gc.C) {
@@ -261,7 +112,7 @@ func (s *StoreSuite) TestGetCacheImplicitRevision(c *gc.C) {
 	ch, err := s.store.Get(charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch, gc.NotNil)
-	c.Assert(s.server.downloads, gc.DeepEquals, []*charm.URL{revCharmURL})
+	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{revCharmURL})
 	s.assertCached(c, charmURL)
 	s.assertCached(c, revCharmURL)
 }
@@ -272,7 +123,7 @@ func (s *StoreSuite) TestGetCacheExplicitRevision(c *gc.C) {
 	ch, err := s.store.Get(charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch, gc.NotNil)
-	c.Assert(s.server.downloads, gc.DeepEquals, []*charm.URL{charmURL})
+	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{charmURL})
 	s.assertCached(c, charmURL)
 }
 
@@ -287,7 +138,7 @@ func (s *StoreSuite) TestGetBadCache(c *gc.C) {
 	ch, err := s.store.Get(charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch, gc.NotNil)
-	c.Assert(s.server.downloads, gc.DeepEquals, []*charm.URL{revCharmURL})
+	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{revCharmURL})
 	s.assertCached(c, charmURL)
 	s.assertCached(c, revCharmURL)
 }
@@ -383,8 +234,8 @@ func (s *StoreSuite) TestAuthorization(c *gc.C) {
 
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(s.server.authorizations, gc.HasLen, 1)
-	c.Assert(s.server.authorizations[0], gc.Equals, "charmstore token=value")
+	c.Assert(s.server.Authorizations, gc.HasLen, 1)
+	c.Assert(s.server.Authorizations[0], gc.Equals, "charmstore token=value")
 }
 
 func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
@@ -396,7 +247,7 @@ func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
 	_, err := store.Get(charmURL)
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.server.authorizations, gc.HasLen, 0)
+	c.Assert(s.server.Authorizations, gc.HasLen, 0)
 }
 
 func (s *StoreSuite) TestEventWarning(c *gc.C) {
