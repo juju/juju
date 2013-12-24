@@ -45,7 +45,7 @@ type EventResponse struct {
 // Repository respresents a collection of charms.
 type Repository interface {
 	Get(curl *URL) (Charm, error)
-	Infos(curls []*URL) ([]*InfoResponse, error)
+	Info(curls ...*URL) ([]*InfoResponse, error)
 	Latest(curl *URL) (int, error)
 }
 
@@ -91,17 +91,16 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 	return http.DefaultClient.Do(req)
 }
 
-// Info returns details for a charm in the charm store.
-func (s *CharmStore) Info(curl *URL) (*InfoResponse, error) {
-	responses, err := s.Infos([]*URL{curl})
+func (s *CharmStore) oneInfo(curl *URL) (*InfoResponse, error) {
+	responses, err := s.Info(curl)
 	if err != nil {
 		return nil, err
 	}
 	return responses[0], nil
 }
 
-// Infos returns details for all the specified charms in the charm store.
-func (s *CharmStore) Infos(curls []*URL) ([]*InfoResponse, error) {
+// Info returns details for all the specified charms in the charm store.
+func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	baseURL := s.BaseURL + "/charm-info?"
 	var charmSnippets = make([]string, len(curls))
 	for i, curl := range curls {
@@ -173,7 +172,7 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 
 // revision returns the revision and SHA256 digest of the charm referenced by curl.
 func (s *CharmStore) revision(curl *URL) (revision int, digest string, err error) {
-	info, err := s.Info(curl)
+	info, err := s.oneInfo(curl)
 	if err != nil {
 		return 0, "", err
 	}
@@ -402,8 +401,8 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	return nil, charmNotFound(curl, r.Path)
 }
 
-// Infos implements charm.Repository.Infos.
-func (s *LocalRepository) Infos(curls []*URL) ([]*InfoResponse, error) {
+// Info implements charm.Repository.Info.
+func (s *LocalRepository) Info(curls ...*URL) ([]*InfoResponse, error) {
 	result := make([]*InfoResponse, len(curls))
 	for i, curl := range curls {
 		latest, err := s.Get(curl)
@@ -414,7 +413,7 @@ func (s *LocalRepository) Infos(curls []*URL) ([]*InfoResponse, error) {
 		// Only the revision is currently filled in.
 		// We don't know the digest or sha256 and these
 		// are not used from here anyway.
-		result[i].Revision = latest.Revision()
+		result[i] = &InfoResponse{Revision: latest.Revision()}
 	}
 	return result, nil
 }

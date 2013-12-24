@@ -85,7 +85,7 @@ func processRevisionInformation(context *statusContext, statusResult *api.Status
 		// And now the units for the service.
 		for unitName, u := range status.Units {
 			unitVersion := serviceVersion.unitVersions[unitName]
-			if unitVersion.revision <= 0 {
+			if unitVersion.revision <= 0 && serviceVersion.err != nil && serviceVersion.revision > 0 {
 				u.RevisionStatus = "unknown"
 				status.Units[unitName] = u
 				continue
@@ -104,12 +104,14 @@ func retrieveRevisionInformation(context *statusContext) {
 	// Look up their latest versions from the relevant repos and record that.
 	// First organise the charms into the repo from whence they came.
 	repoCharms := make(map[charm.Repository][]*charm.URL)
-	for baseURL, charmRevisionInfo := range context.repoRevisions {
+	for _, charmRevisionInfo := range context.repoRevisions {
 		curl := charmRevisionInfo.curl
 		repo, err := charm.InferRepository(curl, "")
 		if err != nil {
-			charmRevisionInfo.err = err
-			context.repoRevisions[baseURL] = charmRevisionInfo
+			// We'll get an error for local repos since we don't yet
+			// support passing in a path to the local repo. This may
+			// change if the need arises but would require an extra
+			// parameter to the status command.
 			continue
 		}
 		repoCharms[repo] = append(repoCharms[repo], curl)
@@ -118,7 +120,7 @@ func retrieveRevisionInformation(context *statusContext) {
 	// For each repo, do a bulk call to get the revision info
 	// for all the charms from that repo.
 	for repo, curls := range repoCharms {
-		infos, err := repo.Infos(curls)
+		infos, err := repo.Info(curls...)
 		if err != nil {
 			// We won't let a problem finding the revision info kill
 			// the entire status command.

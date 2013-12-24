@@ -295,20 +295,12 @@ func (s *StoreSuite) TestGetBadCache(c *gc.C) {
 // The following tests cover the low-level CharmStore-specific API.
 
 func (s *StoreSuite) TestInfo(c *gc.C) {
-	charmURL := charm.MustParseURL("cs:series/good")
-	info, err := s.store.Info(charmURL)
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.Errors, gc.IsNil)
-	c.Assert(info.Revision, gc.Equals, 23)
-}
-
-func (s *StoreSuite) TestInfos(c *gc.C) {
 	charmURLs := []*charm.URL{
 		charm.MustParseURL("cs:series/good"),
 		charm.MustParseURL("cs:series/better"),
 		charm.MustParseURL("cs:series/best"),
 	}
-	infos, err := s.store.Infos(charmURLs)
+	infos, err := s.store.Info(charmURLs...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(infos, gc.HasLen, 3)
 	expected := []int{23, 24, 25}
@@ -329,14 +321,16 @@ func (s *StoreSuite) TestInfoError(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/borken")
 	info, err := s.store.Info(charmURL)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.Errors, gc.DeepEquals, []string{"badness"})
+	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info[0].Errors, gc.DeepEquals, []string{"badness"})
 }
 
 func (s *StoreSuite) TestInfoWarning(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/unwise")
 	info, err := s.store.Info(charmURL)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.Warnings, gc.DeepEquals, []string{"foolishness"})
+	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info[0].Warnings, gc.DeepEquals, []string{"foolishness"})
 }
 
 func (s *StoreSuite) TestEvent(c *gc.C) {
@@ -556,6 +550,17 @@ func (s *LocalRepoSuite) TestBundle(c *gc.C) {
 	ch, err := s.repo.Get(charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Revision(), gc.Equals, 1)
+}
+
+func (s *LocalRepoSuite) TestInfo(c *gc.C) {
+	charmURL := charm.MustParseURL("local:quantal/upgrade")
+	s.addDir("upgrade1")
+	s.addDir("upgrade2")
+
+	info, err := s.repo.Info(charmURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info[0].Revision, gc.Equals, 2)
 }
 
 func (s *LocalRepoSuite) TestLogsErrors(c *gc.C) {
