@@ -41,13 +41,14 @@ type MachineStatus struct {
 
 // ServiceStatus holds status info about a service.
 type ServiceStatus struct {
-	Err           error
-	Charm         string
-	Exposed       bool
-	Life          string
-	Relations     map[string][]string
-	SubordinateTo []string
-	Units         map[string]UnitStatus
+	Err            error
+	Charm          string
+	Exposed        bool
+	Life           string
+	Relations      map[string][]string
+	RevisionStatus string
+	SubordinateTo  []string
+	Units          map[string]UnitStatus
 }
 
 // UnitStatus holds status info about a unit.
@@ -60,6 +61,7 @@ type UnitStatus struct {
 	Machine        string
 	OpenedPorts    []string
 	PublicAddress  string
+	RevisionStatus string
 	Subordinates   map[string]UnitStatus
 }
 

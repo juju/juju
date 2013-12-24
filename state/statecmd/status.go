@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -20,6 +22,8 @@ import (
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 )
+
+var logger = loggo.GetLogger("juju.state.statecmd")
 
 func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 	var context statusContext
@@ -48,11 +52,108 @@ func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 		// XXX: return both err and result as both may be useful?
 		err = nil
 	}
-	return &api.Status{
+
+	// Gather the core status information prior to post processing below.
+	result := &api.Status{
 		EnvironmentName: conn.Environ.Name(),
 		Machines:        context.processMachines(),
 		Services:        context.processServices(),
-	}, nil
+	}
+	processRevisionInformation(&context, result)
+	return result, nil
+}
+
+func processRevisionInformation(context *statusContext, statusResult *api.Status) {
+	// Look up the revision information for all the deployee charms.
+	retrieveRevisionInformation(context)
+
+	// For each service, compare the latest charm version with what the service has
+	// and annotate the status.
+	for serviceName, status := range statusResult.Services {
+		serviceVersion := context.serviceRevisions[serviceName]
+		repoCharmRevision := context.repoRevisions[serviceVersion.curl.String()]
+		if repoCharmRevision.err != nil {
+			status.RevisionStatus = fmt.Sprintf("unknown: %v", repoCharmRevision.err)
+			statusResult.Services[serviceName] = status
+			continue
+		}
+		// Only report if service revision is out of date.
+		if repoCharmRevision.revision > serviceVersion.revision {
+			status.RevisionStatus = fmt.Sprintf("out of date (available: %d)", repoCharmRevision.revision)
+		}
+		statusResult.Services[serviceName] = status
+		// And now the units for the service.
+		for unitName, u := range status.Units {
+			unitVersion := serviceVersion.unitVersions[unitName]
+			if unitVersion.revision <= 0 {
+				u.RevisionStatus = "unknown"
+				status.Units[unitName] = u
+				continue
+			}
+			// Only report if unit revision is different to service revision and is out of date.
+			if unitVersion.revision != serviceVersion.revision && repoCharmRevision.revision > unitVersion.revision {
+				u.RevisionStatus = fmt.Sprintf("out of date (available: %d)", repoCharmRevision.revision)
+			}
+			status.Units[unitName] = u
+		}
+	}
+}
+
+func retrieveRevisionInformation(context *statusContext) {
+	// We have recorded all the charms in use by the services (above).
+	// Look up their latest versions from the relevant repos and record that.
+	// First organise the charms into the repo from whence they came.
+	repoCharms := make(map[charm.Repository][]*charm.URL)
+	for baseURL, charmRevisionInfo := range context.repoRevisions {
+		curl := charmRevisionInfo.curl
+		repo, err := charm.InferRepository(curl, "")
+		if err != nil {
+			charmRevisionInfo.err = err
+			context.repoRevisions[baseURL] = charmRevisionInfo
+			continue
+		}
+		repoCharms[repo] = append(repoCharms[repo], curl)
+	}
+
+	// For each repo, do a bulk call to get the revision info
+	// for all the charms from that repo.
+	for repo, curls := range repoCharms {
+		infos, err := repo.Infos(curls)
+		if err != nil {
+			// We won't let a problem finding the revision info kill
+			// the entire status command.
+			logger.Errorf("finding charm revision info: %v", err)
+			break
+		}
+		// Record the results.
+		for i, info := range infos {
+			curl := curls[i]
+			baseURL := curl.WithRevision(-1).String()
+			charmRevisionInfo := context.repoRevisions[baseURL]
+			if len(info.Errors) > 0 {
+				// Just report the first error if there are issues.
+				charmRevisionInfo.err = fmt.Errorf("%v", info.Errors[0])
+				context.repoRevisions[baseURL] = charmRevisionInfo
+				continue
+			}
+			charmRevisionInfo.revision = info.Revision
+			context.repoRevisions[baseURL] = charmRevisionInfo
+		}
+	}
+}
+
+// charmRevision is used to hold the revision number for a charm and any error occurring
+// when attempting to find out the revision.
+type charmRevision struct {
+	curl     *charm.URL
+	revision int
+	err      error
+}
+
+// serviceRevision is used to hold the revision number for a service and its principal units.
+type serviceRevision struct {
+	charmRevision
+	unitVersions map[string]charmRevision
 }
 
 type statusContext struct {
@@ -60,6 +161,10 @@ type statusContext struct {
 	machines  map[string][]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
+	// repoRevisions holds the charm revisions found on the charm store or local repo.
+	repoRevisions map[string]charmRevision
+	// serviceRevisions holds the charm revisions for the deployed services.
+	serviceRevisions map[string]serviceRevision
 }
 
 type unitMatcher struct {
@@ -325,6 +430,9 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 }
 
 func (context *statusContext) processServices() map[string]api.ServiceStatus {
+	context.repoRevisions = make(map[string]charmRevision)
+	context.serviceRevisions = make(map[string]serviceRevision)
+
 	servicesMap := make(map[string]api.ServiceStatus)
 	for _, s := range context.services {
 		servicesMap[s.Name()] = context.processService(s)
@@ -335,6 +443,16 @@ func (context *statusContext) processServices() map[string]api.ServiceStatus {
 func (context *statusContext) processService(service *state.Service) (status api.ServiceStatus) {
 	url, _ := service.CharmURL()
 	status.Charm = url.String()
+
+	// Record the basic charm information so it can be bulk processed later to
+	// get the available revision numbers from the repo.
+	baseCharm := url.WithRevision(-1)
+	context.serviceRevisions[service.Name()] = serviceRevision{
+		charmRevision: charmRevision{curl: baseCharm, revision: url.Revision},
+		unitVersions:  make(map[string]charmRevision),
+	}
+	context.repoRevisions[baseCharm.String()] = charmRevision{curl: baseCharm}
+
 	status.Exposed = service.IsExposed()
 	status.Life = processLife(service)
 	var err error
@@ -344,20 +462,20 @@ func (context *statusContext) processService(service *state.Service) (status api
 		return
 	}
 	if service.IsPrincipal() {
-		status.Units = context.processUnits(context.units[service.Name()])
+		status.Units = context.processUnits(service.Name(), context.units[service.Name()])
 	}
 	return status
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit) map[string]api.UnitStatus {
+func (context *statusContext) processUnits(serviceName string, units map[string]*state.Unit) map[string]api.UnitStatus {
 	unitsMap := make(map[string]api.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit)
+		unitsMap[unit.Name()] = context.processUnit(serviceName, unit)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit) (status api.UnitStatus) {
+func (context *statusContext) processUnit(serviceName string, unit *state.Unit) (status api.UnitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
 	for _, port := range unit.OpenedPorts() {
 		status.OpenedPorts = append(status.OpenedPorts, port.String())
@@ -376,9 +494,14 @@ func (context *statusContext) processUnit(unit *state.Unit) (status api.UnitStat
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				status.Subordinates[name] = context.processUnit(subUnit)
+				status.Subordinates[name] = context.processUnit(serviceName, subUnit)
 			}
 		}
+	}
+	// Record the charm version for this unit.
+	url, ok := unit.CharmURL()
+	if ok {
+		context.serviceRevisions[serviceName].unitVersions[unit.Name()] = charmRevision{revision: url.Revision}
 	}
 	return
 }

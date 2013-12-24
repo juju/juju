@@ -82,6 +82,20 @@ func (s *MockStore) ServeInfo(w http.ResponseWriter, r *http.Request) {
 				cr.Revision = charmURL.Revision
 			}
 			cr.Sha256 = s.bundleSha256
+		case "better":
+			if charmURL.Revision == -1 {
+				cr.Revision = 24
+			} else {
+				cr.Revision = charmURL.Revision
+			}
+			cr.Sha256 = s.bundleSha256
+		case "best":
+			if charmURL.Revision == -1 {
+				cr.Revision = 25
+			} else {
+				cr.Revision = charmURL.Revision
+			}
+			cr.Sha256 = s.bundleSha256
 		default:
 			cr.Errors = append(cr.Errors, "entry not found")
 		}
@@ -286,6 +300,22 @@ func (s *StoreSuite) TestInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Errors, gc.IsNil)
 	c.Assert(info.Revision, gc.Equals, 23)
+}
+
+func (s *StoreSuite) TestInfos(c *gc.C) {
+	charmURLs := []*charm.URL{
+		charm.MustParseURL("cs:series/good"),
+		charm.MustParseURL("cs:series/better"),
+		charm.MustParseURL("cs:series/best"),
+	}
+	infos, err := s.store.Infos(charmURLs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(infos, gc.HasLen, 3)
+	expected := []int{23, 24, 25}
+	for i, info := range infos {
+		c.Assert(info.Errors, gc.IsNil)
+		c.Assert(info.Revision, gc.Equals, expected[i])
+	}
 }
 
 func (s *StoreSuite) TestInfoNotFound(c *gc.C) {
