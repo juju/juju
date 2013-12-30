@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-func (env *environ) StartInstance(
+func (env *joyentEnviron) StartInstance(
 	cons constraints.Value, possibleTools tools.List, machineConf *cloudinit.MachineConfig,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
@@ -22,7 +22,7 @@ func (env *environ) StartInstance(
 	return nil, nil, errNotImplemented
 }
 
-func (env *environ) AllInstances() ([]instance.Instance, error) {
+func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
@@ -30,7 +30,7 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 	return nil, errNotImplemented
 }
 
-func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
@@ -41,7 +41,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return nil, errNotImplemented
 }
 
-func (env *environ) StopInstances(instances []instance.Instance) error {
+func (env *joyentEnviron) StopInstances(instances []instance.Instance) error {
 	_ = env.getSnapshot()
 	return errNotImplemented
 }

@@ -45,7 +45,7 @@ func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env := &environ{name: cfg.Name()}
+	env := &joyentEnviron{name: cfg.Name()}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
 	}

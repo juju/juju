@@ -1,14 +1,13 @@
 // Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package joyent_test
+package joyent
 
 import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/joyent"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -22,31 +21,31 @@ func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
 
 func validAttrs() testing.Attrs {
 	return testing.FakeConfig().Merge(testing.Attrs{
-		"type":                     	"joyent",
-		"sdc-user":						"dstroppa",
-		"sdc-key-id":    				"12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"sdc-url": 						"https://us-west-1.api.joyentcloud.com",
-		"manta-user":					"dstroppa",
-		"manta-key-id":    				"12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"manta-url": 					"https://us-east.manta.joyent.com",
-		"key-file":						"~/.ssh/id_rsa",
-		"algorithm":					"rsa-sha256",
-		"control-dir":					"juju-test",
+		"type":         "joyent",
+		"sdc-user":     "dstroppa",
+		"sdc-key-id":   "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
+		"sdc-url":      "https://us-west-1.api.joyentcloud.com",
+		"manta-user":   "dstroppa",
+		"manta-key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
+		"manta-url":    "https://us-east.manta.joyent.com",
+		"key-file":     "~/.ssh/id_rsa",
+		"algorithm":    "rsa-sha256",
+		"control-dir":  "juju-test",
 	})
 }
 
 type ConfigSuite struct {
 	testbase.LoggingSuite
-	originalValues		map[string] testbase.Restorer
+	originalValues map[string]testbase.Restorer
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.PatchEnvironment(joyent.SdcAccount, "tester")
-	s.PatchEnvironment(joyent.SdcKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
-	s.PatchEnvironment(joyent.MantaUser, "tester")
-	s.PatchEnvironment(joyent.MantaKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
+	s.PatchEnvironment(SdcAccount, "tester")
+	s.PatchEnvironment(SdcKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
+	s.PatchEnvironment(MantaUser, "tester")
+	s.PatchEnvironment(MantaKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
 }
 
 var newConfigTests = []struct {
@@ -153,7 +152,7 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := joyent.Provider.Validate(testConfig, nil)
+		validatedConfig, err := Provider.Validate(testConfig, nil)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
@@ -173,7 +172,7 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := joyent.Provider.Validate(knownGoodConfig, testConfig)
+		validatedConfig, err := Provider.Validate(knownGoodConfig, testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
@@ -221,14 +220,6 @@ var changeConfigTests = []struct {
 	insert: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
 	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
 }, {
-	info:   "can change key-file",
-	insert: testing.Attrs{"key-file": "/path/to/key"},
-	expect: testing.Attrs{"key-file": "/path/to/key"},
-}, {
-	info:   "can change algorithm",
-	insert: testing.Attrs{"algorithm": "rsa-sha512"},
-	expect: testing.Attrs{"algorithm": "rsa-sha512"},
-}, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
 	expect: testing.Attrs{"unknown": "ignoti"},
@@ -240,7 +231,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := joyent.Provider.Validate(testConfig, baseConfig)
+		validatedConfig, err := Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
@@ -310,7 +301,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := joyent.Provider.Prepare(testConfig)
+		preparedConfig, err := Provider.Prepare(testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()

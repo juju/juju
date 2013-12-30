@@ -40,38 +40,39 @@ const boilerplateConfig = `joyent:
 `
 
 const (
-	SdcAccount        	= "SDC_ACCOUNT"
-	SdcKeyId          	= "SDC_KEY_ID"
-	SdcUrl				= "SDC_URL"
-	MantaUser         	= "MANTA_USER"
-	MantaKeyId        	= "MANTA_KEY_ID"
-	MantaUrl			= "MANTA_URL"
+	SdcAccount = "SDC_ACCOUNT"
+	SdcKeyId   = "SDC_KEY_ID"
+	SdcUrl     = "SDC_URL"
+	MantaUser  = "MANTA_USER"
+	MantaKeyId = "MANTA_KEY_ID"
+	MantaUrl   = "MANTA_URL"
+	Home       = "HOME"
 )
 
-var environmentVariables = map[string] string{
-	"sdc-user": 		SdcAccount,
-	"sdc-key-id": 		SdcKeyId,
-	"manta-user": 		MantaUser,
-	"manta-key-id": 	MantaKeyId,
+var environmentVariables = map[string]string{
+	"sdc-user":     SdcAccount,
+	"sdc-key-id":   SdcKeyId,
+	"manta-user":   MantaUser,
+	"manta-key-id": MantaKeyId,
+	"key-file":     Home,
 }
 
 var configFields = schema.Fields{
-	"sdc-user":           		schema.String(),
-	"sdc-key-id":           	schema.String(),
-	"sdc-url":	                schema.String(),
-	"manta-user":           	schema.String(),
-	"manta-key-id":           	schema.String(),
-	"manta-url":                schema.String(),
-	"key-file":					schema.String(),
-	"algorithm":				schema.String(),
-	"control-dir":				schema.String(),
+	"sdc-user":     schema.String(),
+	"sdc-key-id":   schema.String(),
+	"sdc-url":      schema.String(),
+	"manta-user":   schema.String(),
+	"manta-key-id": schema.String(),
+	"manta-url":    schema.String(),
+	"key-file":     schema.String(),
+	"algorithm":    schema.String(),
+	"control-dir":  schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
-	"sdc-url":					"https://us-west-1.api.joyentcloud.com",
-	"manta-url":				"https://us-east.manta.joyent.com",
-	"key-file":					"~/.ssh/id_rsa",
-	"algorithm":				"rsa-sha256",
+	"sdc-url":   "https://us-west-1.api.joyentcloud.com",
+	"manta-url": "https://us-east.manta.joyent.com",
+	"algorithm": "rsa-sha256",
 }
 
 var configSecretFields = []string{
@@ -85,6 +86,8 @@ var configSecretFields = []string{
 var configImmutableFields = []string{
 	"sdc-url",
 	"manta-url",
+	"key-file",
+	"algorithm",
 }
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
@@ -99,8 +102,13 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
 	}
 
+	if _, ok := attrs["key-file"]; !ok {
+		localEnvVariableHome := os.Getenv(environmentVariables["key-file"])
+		attrs["key-file"] = fmt.Sprintf("%s/.ssh/id_rsa", localEnvVariableHome)
+	}
+
 	// Read env variables
-	for _,field := range configSecretFields {
+	for _, field := range configSecretFields {
 		// If field is not set, get it from env variables
 		if attrs[field] == "" {
 			localEnvVariable := os.Getenv(environmentVariables[field])

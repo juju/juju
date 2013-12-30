@@ -1,14 +1,18 @@
 // Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package joyent_test
+package joyent
 
 import (
+	"fmt"
+	"os"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -44,16 +48,20 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-/*const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
-
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *JoyentSuite) makeEnviron() *maasEnviron {
+// makeEnviron creates a functional Joyent environ for a test.
+func (suite *providerSuite) makeEnviron() *joyentEnviron {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-	"name":            "test env",
-	"type":            "maas",
-	"maas-oauth":      "a:b:c",
-	"maas-server":     suite.testMAASObject.TestServer.URL,
-	"maas-agent-name": exampleAgentName,
+		"name":         "joyent test environment",
+		"type":         "joyent",
+		"sdc-user":     "dstroppa",
+		"sdc-key-id":   "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
+		"sdc-url":      "https://us-west-1.api.joyentcloud.com",
+		"manta-user":   "dstroppa",
+		"manta-key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
+		"manta-url":    "https://us-east.manta.joyent.com",
+		"key-file":     fmt.Sprintf("%s/.ssh/id_rsa", os.Getenv("HOME")),
+		"algorithm":    "rsa-sha256",
+		"control-dir":  "juju-test",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
@@ -64,4 +72,4 @@ func (suite *JoyentSuite) makeEnviron() *maasEnviron {
 		panic(err)
 	}
 	return env
-}  */
+}

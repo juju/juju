@@ -23,7 +23,7 @@ import (
 // must be implemented ) and environ_firewall.go (which can be safely
 // ignored until you've got an environment bootstrapping successfully).
 
-type environ struct {
+type joyentEnviron struct {
 	name string
 	// All mutating operations should lock the mutex. Non-mutating operations
 	// should read all fields (other than name, which is immutable) from a
@@ -35,17 +35,28 @@ type environ struct {
 	storage storage.Storage
 }
 
-var _ environs.Environ = (*environ)(nil)
+var _ environs.Environ = (*joyentEnviron)(nil)
 
-func (env *environ) Name() string {
+func NewEnviron(cfg *config.Config) (*joyentEnviron, error) {
+	env := new(joyentEnviron)
+	err := env.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	env.name = cfg.Name()
+	env.storage = NewStorage(env)
+	return env, nil
+}
+
+func (env *joyentEnviron) Name() string {
 	return env.name
 }
 
-func (*environ) Provider() environs.EnvironProvider {
+func (*joyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
-func (env *environ) SetConfig(cfg *config.Config) error {
+func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	ecfg, err := validateConfig(cfg, env.ecfg)
@@ -61,7 +72,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (env *environ) getSnapshot() *environ {
+func (env *joyentEnviron) getSnapshot() *joyentEnviron {
 	env.lock.Lock()
 	clone := *env
 	env.lock.Unlock()
@@ -69,26 +80,26 @@ func (env *environ) getSnapshot() *environ {
 	return &clone
 }
 
-func (env *environ) Config() *config.Config {
+func (env *joyentEnviron) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
-func (env *environ) Storage() storage.Storage {
+func (env *joyentEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *environ) PublicStorage() storage.StorageReader {
+func (env *joyentEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *environ) Bootstrap(cons constraints.Value) error {
+func (env *joyentEnviron) Bootstrap(cons constraints.Value) error {
 	return common.Bootstrap(env, cons)
 }
 
-func (env *environ) StateInfo() (*state.Info, *api.Info, error) {
+func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 
-func (env *environ) Destroy() error {
+func (env *joyentEnviron) Destroy() error {
 	return common.Destroy(env)
 }
