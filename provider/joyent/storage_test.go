@@ -4,7 +4,6 @@
 package joyent
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -13,10 +12,6 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
-	//"launchpad.net/gojoyent/manta"
-
-	//"launchpad.net/juju-core/environs/storage"
-	//"launchpad.net/juju-core/errors"
 	jc "launchpad.net/juju-core/testing/checkers"
 
 	"launchpad.net/gojoyent/errors"
@@ -134,33 +129,12 @@ func (s *storageSuite) TestRemoveAll(c *gc.C) {
 func (s *storageSuite) TestURL(c *gc.C) {
 	mantaStorage := s.assertStorage(storageName, c)
 
-	// Use a realistic service endpoint for this test, so that we can see
-	// that we're really getting the expected kind of URL.
-	//setStorageEndpoint(mantaStorage, gwacl.GetEndpoint("West US"))
 	URL, err := mantaStorage.URL(fileName)
 	c.Assert(err, gc.IsNil)
 	parsedURL, err := url.Parse(URL)
 	c.Assert(err, gc.IsNil)
-	//c.Check(parsedURL.Host, gc.Matches, fmt.Sprintf("%s.blob.core.windows.net", account))
-	//c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/%s", container, fileName))
-	values, err := url.ParseQuery(parsedURL.RawQuery)
-	c.Assert(err, gc.IsNil)
-	signature := values.Get("sig")
-	// The query string contains a non-empty signature.
-	c.Check(signature, gc.Not(gc.HasLen), 0)
-	// The signature is base64-encoded.
-	_, err = base64.StdEncoding.DecodeString(signature)
-	c.Assert(err, gc.IsNil)
-	// If Key is empty, query string does not contain a signature.
-	mantaStorage = s.assertStorage(storageName, c)
-
-	URL, err = mantaStorage.URL(fileName)
-	c.Assert(err, gc.IsNil)
-	parsedURL, err = url.Parse(URL)
-	c.Assert(err, gc.IsNil)
-	values, err = url.ParseQuery(parsedURL.RawQuery)
-	c.Assert(err, gc.IsNil)
-	c.Check(values.Get("sig"), gc.HasLen, 0)
+	c.Check(parsedURL.Host, gc.Matches, mantaStorage.ecfg.mantaUrl()[strings.LastIndex(mantaStorage.ecfg.mantaUrl(), "/") + 1:])
+	c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/stor/%s/%s", mantaStorage.ecfg.mantaUser(), mantaStorage.containerName, fileName))
 }
 
 func (s *storageSuite) TestCreateContainer(c *gc.C) {
