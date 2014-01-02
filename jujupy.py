@@ -221,7 +221,13 @@ class Environment:
 
     def wait_for_version(self, version):
         for ignored in until_timeout(300):
-            versions = self.get_status().get_agent_versions()
+            try:
+                versions = self.get_status().get_agent_versions()
+            except CalledProcessError as e:
+                if "Unable to connect to environment" not in str(e):
+                    raise
+                print "'Unable to connect to environment' intercepted."
+                continue
             if versions.keys() == [version]:
                 break
             print format_listing(versions, version, self.environment)
