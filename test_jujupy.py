@@ -4,6 +4,7 @@ from datetime import timedelta
 import os
 import shutil
 from StringIO import StringIO
+import subprocess
 import tempfile
 from textwrap import dedent
 from unittest import TestCase
@@ -171,12 +172,24 @@ class TestJujuClientDevel(TestCase):
 
     def test_get_juju_output(self):
         env = Environment('foo', '')
-        asdf = lambda x: 'asdf'
+        asdf = lambda x, stderr: 'asdf'
         client = JujuClientDevel(None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output(env, 'bar')
         self.assertEqual('asdf', result)
-        mock.assert_called_with(('juju', '--show-log', 'bar', '-e', 'foo'))
+        self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
+                         mock.call_args[0])
+
+    def test_get_juju_output_stderr(self):
+        def raise_without_stderr(args, stderr):
+            stderr.write('Hello!')
+            raise subprocess.CalledProcessError('a', 'b')
+        env = Environment('foo', '')
+        client = JujuClientDevel(None, None)
+        with self.assertRaises(subprocess.CalledProcessError) as exc:
+            with patch('subprocess.check_output', raise_without_stderr):
+                result = client.get_juju_output(env, 'bar')
+        self.assertEqual(exc.exception.stderr, 'Hello!')
 
     def test_get_status(self):
         def output_iterator():
