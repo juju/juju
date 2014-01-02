@@ -38,6 +38,7 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
 	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
+	c.Assert(dummy.IsUploaded(), jc.IsTrue)
 	meta := dummy.Meta()
 	c.Assert(meta.Name, gc.Equals, "dummy")
 	config := dummy.Config()

@@ -60,7 +60,7 @@ func (s *SSHCommonSuite) TearDownTest(c *gc.C) {
 
 const (
 	commonArgs = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	sshArgs    = `-l ubuntu -t ` + commonArgs
+	sshArgs    = commonArgs + `-t `
 )
 
 var sshTests = []struct {
@@ -69,30 +69,30 @@ var sshTests = []struct {
 }{
 	{
 		[]string{"ssh", "0"},
-		sshArgs + "dummyenv-0.dns\n",
+		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
 	// juju ssh 0 'uname -a'
 	{
 		[]string{"ssh", "0", "uname -a"},
-		sshArgs + "dummyenv-0.dns uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
 	},
 	// juju ssh 0 -- uname -a
 	{
 		[]string{"ssh", "0", "--", "uname", "-a"},
-		sshArgs + "dummyenv-0.dns -- uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
 	},
 	// juju ssh 0 uname -a
 	{
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "dummyenv-0.dns uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
 	},
 	{
 		[]string{"ssh", "mysql/0"},
-		sshArgs + "dummyenv-0.dns\n",
+		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
 	{
 		[]string{"ssh", "mongodb/1"},
-		sshArgs + "dummyenv-2.dns\n",
+		sshArgs + "ubuntu@dummyenv-2.dns\n",
 	},
 }
 
@@ -106,12 +106,10 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
-	srv, err := s.State.AddService("mysql", dummy)
-	c.Assert(err, gc.IsNil)
+	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
 
-	srv, err = s.State.AddService("mongodb", dummy)
-	c.Assert(err, gc.IsNil)
+	srv = s.AddTestingService(c, "mongodb", dummy)
 	s.addUnit(srv, m[1], c)
 	s.addUnit(srv, m[2], c)
 

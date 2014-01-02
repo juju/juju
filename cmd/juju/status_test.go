@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -65,8 +66,12 @@ type context struct {
 }
 
 func (s *StatusSuite) newContext() *context {
+	st := s.Conn.Environ.(testing.GetStater).GetStateInAPIServer()
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
 	return &context{
-		st:      s.State,
+		st:      st,
 		conn:    s.Conn,
 		charms:  make(map[string]*state.Charm),
 		pingers: make(map[string]*presence.Pinger),
@@ -87,6 +92,24 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		c.Logf("%#v", s)
 		s.step(c, ctx)
 	}
+}
+
+type aliver interface {
+	AgentAlive() (bool, error)
+	SetAgentAlive() (*presence.Pinger, error)
+	WaitAgentAlive(time.Duration) error
+}
+
+func (ctx *context) setAgentAlive(c *gc.C, a aliver) *presence.Pinger {
+	pinger, err := a.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	ctx.st.StartSync()
+	err = a.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	agentAlive, err := a.AgentAlive()
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
+	return pinger
 }
 
 // shortcuts for expected output.
@@ -1225,12 +1248,11 @@ type addMachine struct {
 }
 
 func (am addMachine) step(c *gc.C, ctx *context) {
-	params := &state.AddMachineParams{
+	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
-	}
-	m, err := ctx.st.AddMachineWithConstraints(params)
+	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
@@ -1242,13 +1264,11 @@ type addContainer struct {
 }
 
 func (ac addContainer) step(c *gc.C, ctx *context) {
-	params := &state.AddMachineParams{
-		ParentId:      ac.parentId,
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{ac.job},
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{ac.job},
 	}
-	m, err := ctx.st.AddMachineWithConstraints(params)
+	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
@@ -1288,14 +1308,7 @@ type startAliveMachine struct {
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
 	c.Assert(err, gc.IsNil)
-	pinger, err := m.SetAgentAlive()
-	c.Assert(err, gc.IsNil)
-	ctx.st.StartSync()
-	err = m.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	agentAlive, err := m.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	pinger := ctx.setAgentAlive(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
@@ -1339,7 +1352,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	_, err := ctx.st.AddService(as.name, ch)
+	_, err := ctx.st.AddService(as.name, "user-admin", ch)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1383,14 +1396,7 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
 	c.Assert(err, gc.IsNil)
-	pinger, err := u.SetAgentAlive()
-	c.Assert(err, gc.IsNil)
-	ctx.st.StartSync()
-	err = u.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	agentAlive, err := u.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	pinger := ctx.setAgentAlive(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
@@ -1408,15 +1414,7 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	us, err := s.AllUnits()
 	c.Assert(err, gc.IsNil)
 	for _, u := range us {
-		pinger, err := u.SetAgentAlive()
-		c.Assert(err, gc.IsNil)
-		ctx.st.StartSync()
-		err = u.WaitAgentAlive(coretesting.LongWait)
-		c.Assert(err, gc.IsNil)
-		agentAlive, err := u.AgentAlive()
-		c.Assert(err, gc.IsNil)
-		c.Assert(agentAlive, gc.Equals, true)
-		ctx.pingers[u.Name()] = pinger
+		ctx.pingers[u.Name()] = ctx.setAgentAlive(c, u)
 	}
 }
 

@@ -83,7 +83,6 @@ type machineDoc struct {
 	Principals    []string
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
-	TxnRevno      int64        `bson:"txn-revno"`
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
@@ -147,7 +146,6 @@ type instanceData struct {
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
-	TxnRevno   int64       `bson:"txn-revno"`
 }
 
 // TODO(wallyworld): move this method to a service.
@@ -204,6 +202,26 @@ func (m *Machine) IsManager() bool {
 		}
 	}
 	return false
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, error) {
+	// Apart from the bootstrap machine, manually provisioned
+	// machines have a nonce prefixed with "manual:". This is
+	// unique to manual provisioning.
+	if strings.HasPrefix(m.doc.Nonce, "manual:") {
+		return true, nil
+	}
+	// The bootstrap machine uses BootstrapNonce, so in that
+	// case we need to check if its provider type is "null".
+	if m.doc.Id == "0" {
+		cfg, err := m.st.EnvironConfig()
+		if err != nil {
+			return false, err
+		}
+		return cfg.Type() == "null", nil
+	}
+	return false, nil
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -617,6 +635,12 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
+//
+// When provisioning an instance, a nonce should be created and passed
+// when starting it, before adding the machine to the state. This means
+// that if the provisioner crashes (or its connection to the state is
+// lost) after starting the instance, we can be sure that only a single
+// instance will be able to act for that machine.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 
@@ -700,11 +724,7 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 
 // SetAddresses records any addresses related to the machine
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
-	var stateAddresses []address
-	for _, address := range addresses {
-		stateAddresses = append(stateAddresses, NewAddress(address))
-	}
-
+	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,

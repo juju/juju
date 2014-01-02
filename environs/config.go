@@ -68,6 +68,28 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	if err := validateEnvironmentKind(attrs); err != nil {
 		return nil, err
 	}
+
+	// If deprecated config attributes are used, log warnings so the user can know
+	// that they need to be fixed.
+	if oldToolsURL := attrs["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := attrs["tools-metadata-url"]
+		var msg string
+		if newToolsSpecified {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
+					"the new tools URL attribute %q has also been used.\n"+
+					"The attribute %q should be removed from your configuration.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
+		} else {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated.\n"+
+					"The location to find tools is now specified using the %q attribute.\n"+
+					"Your configuration should be updated to set %q as follows\n%v: %v.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
+		}
+		logger.Warningf(msg)
+	}
+
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, err
@@ -198,27 +220,17 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 	return environsFilepath, nil
 }
 
-// BootstrapConfig returns a copy of the supplied configuration with
-// secret attributes removed. If the resulting config is not suitable
-// for bootstrapping an environment, an error is returned.
+// BootstrapConfig returns a copy of the supplied configuration with the
+// admin-secret and ca-private-key attributes removed. If the resulting
+// config is not suitable for bootstrapping an environment, an error is
+// returned.
 func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	p, err := Provider(cfg.Type())
-	if err != nil {
-		return nil, err
-	}
-	secrets, err := p.SecretAttrs(cfg)
-	if err != nil {
-		return nil, err
-	}
 	m := cfg.AllAttrs()
-	for k := range secrets {
-		delete(m, k)
-	}
-
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
 	delete(m, "ca-private-key")
-	if cfg, err = config.New(config.NoDefaults, m); err != nil {
+	cfg, err := config.New(config.NoDefaults, m)
+	if err != nil {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

@@ -282,24 +282,43 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
-	*nova.ServerDetail
 	e        *environ
 	instType *instances.InstanceType
 	arch     *string
+
+	mu           sync.Mutex
+	serverDetail *nova.ServerDetail
 }
 
 func (inst *openstackInstance) String() string {
-	return inst.ServerDetail.Id
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*openstackInstance)(nil)
 
+func (inst *openstackInstance) Refresh() error {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	server, err := inst.e.nova().GetServer(inst.serverDetail.Id)
+	if err != nil {
+		return err
+	}
+	inst.serverDetail = server
+	return nil
+}
+
+func (inst *openstackInstance) getServerDetail() *nova.ServerDetail {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.serverDetail
+}
+
 func (inst *openstackInstance) Id() instance.Id {
-	return instance.Id(inst.ServerDetail.Id)
+	return instance.Id(inst.getServerDetail().Id)
 }
 
 func (inst *openstackInstance) Status() string {
-	return inst.ServerDetail.Status
+	return inst.getServerDetail().Status
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
@@ -326,7 +345,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 // getAddress returns the existing server information on addresses,
 // but fetches the details over the api again if no addresses exist.
 func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
-	addrs := inst.ServerDetail.Addresses
+	addrs := inst.getServerDetail().Addresses
 	if len(addrs) == 0 {
 		server, err := inst.e.nova().GetServer(string(inst.Id()))
 		if err != nil {
@@ -470,7 +489,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -478,7 +497,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(e, cons)
+	return common.Bootstrap(ctx, e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -726,7 +745,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	inst := &openstackInstance{
 		e:            e,
-		ServerDetail: detail,
+		serverDetail: detail,
 		arch:         &spec.Image.Arch,
 		instType:     &spec.InstanceType,
 	}
@@ -787,7 +806,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 			switch server.Status {
 			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-				out[id] = &openstackInstance{e: e, ServerDetail: &server}
+				out[id] = &openstackInstance{e: e, serverDetail: &server}
 				continue
 			}
 		}
@@ -836,7 +855,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 			insts = append(insts, &openstackInstance{
 				e:            e,
-				ServerDetail: &s,
+				serverDetail: &s,
 			})
 		}
 	}
@@ -866,7 +885,7 @@ func (e *environ) machineFullName(machineId string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-.*", e.Name()))
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Name()))
 	return filter
 }
 

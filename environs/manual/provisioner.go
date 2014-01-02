@@ -6,11 +6,14 @@ package manual
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 
 	"launchpad.net/loggo"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -42,6 +45,16 @@ type ProvisionMachineArgs struct {
 	// Tools to install on the machine. If nil, tools will be automatically
 	// chosen using environs/tools FindInstanceTools.
 	Tools *tools.Tools
+
+	// Stdin is required to respond to sudo prompts,
+	// and must be a terminal (except in tests)
+	Stdin io.Reader
+
+	// Stdout is required to present sudo prompts to the user.
+	Stdout io.Writer
+
+	// Stderr is required to present machine provisioning progress to the user.
+	Stderr io.Writer
 }
 
 // ErrProvisioned is returned by ProvisionMachine if the target
@@ -89,7 +102,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Finally, provision the machine agent.
-	err = ProvisionMachineAgent(args.Host, mcfg)
+	err = provisionMachineAgent(args.Host, mcfg, args.Stdin, args.Stdout, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}
@@ -158,7 +171,7 @@ func recordMachineInState(
 		Addrs:                   addrs,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 	}
-	results, err := client.InjectMachines([]params.AddMachineParams{machineParams})
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", "", "", err
 	}
@@ -201,4 +214,21 @@ func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dat
 		return nil, err
 	}
 	return mcfg, nil
+}
+
+func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stdin io.Reader, stdout, stderr io.Writer) error {
+	cloudcfg := coreCloudinit.New()
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+		return err
+	}
+	// Explicitly disabling apt_upgrade so as not to trample
+	// the target machine's existing configuration.
+	cloudcfg.SetAptUpgrade(false)
+	return sshinit.Configure(sshinit.ConfigureParams{
+		Host:   host,
+		Config: cloudcfg,
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+	})
 }

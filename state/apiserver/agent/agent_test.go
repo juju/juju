@@ -41,12 +41,11 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.container, err = s.State.AddMachineWithConstraints(&state.AddMachineParams{
-		ParentId:      s.machine1.Id(),
-		Series:        "quantal",
-		ContainerType: instance.LXC,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	})
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -54,7 +53,6 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine1.Tag(),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
 	}
 

@@ -678,16 +678,19 @@ func (*rpcSuite) TestBadCall(c *gc.C) {
 	testBadCall(c, client, clientNotifier, serverNotifier,
 		rpc.Request{"BadSomething", "a0", "No"},
 		`unknown object type "BadSomething"`,
+		rpc.CodeNotImplemented,
 		false,
 	)
 	testBadCall(c, client, clientNotifier, serverNotifier,
 		rpc.Request{"SimpleMethods", "xx", "No"},
-		`no such request "No" on SimpleMethods`,
+		"no such request - method SimpleMethods.No is not implemented",
+		rpc.CodeNotImplemented,
 		false,
 	)
 	testBadCall(c, client, clientNotifier, serverNotifier,
 		rpc.Request{"SimpleMethods", "xx", "Call0r0"},
 		`unknown SimpleMethods id`,
+		"",
 		true,
 	)
 }
@@ -698,12 +701,17 @@ func testBadCall(
 	clientNotifier, serverNotifier *notifier,
 	req rpc.Request,
 	expectedErr string,
+	expectedErrCode string,
 	requestKnown bool,
 ) {
 	clientNotifier.reset()
 	serverNotifier.reset()
 	err := client.Call(req, nil, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("request error: "+expectedErr))
+	msg := expectedErr
+	if expectedErrCode != "" {
+		msg += " (" + expectedErrCode + ")"
+	}
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("request error: "+msg))
 
 	// Test that there was a notification for the client request.
 	c.Assert(clientNotifier.clientRequests, gc.HasLen, 1)
@@ -724,6 +732,7 @@ func testBadCall(
 		hdr: rpc.Header{
 			RequestId: requestId,
 			Error:     expectedErr,
+			ErrorCode: expectedErrCode,
 		},
 	})
 
@@ -753,6 +762,7 @@ func testBadCall(
 		hdr: rpc.Header{
 			RequestId: requestId,
 			Error:     expectedErr,
+			ErrorCode: expectedErrCode,
 		},
 		req:  req,
 		body: struct{}{},
@@ -856,11 +866,11 @@ func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	var s stringVal
 	err := client.Call(rpc.Request{"NewlyAvailable", "", "NewMethod"}, nil, &s)
-	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "NewlyAvailable"`)
+	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "NewlyAvailable" \(not implemented\)`)
 	err = client.Call(rpc.Request{"ChangeAPIMethods", "", "ChangeAPI"}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	err = client.Call(rpc.Request{"ChangeAPIMethods", "", "ChangeAPI"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "ChangeAPIMethods"`)
+	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "ChangeAPIMethods" \(not implemented\)`)
 	err = client.Call(rpc.Request{"NewlyAvailable", "", "NewMethod"}, nil, &s)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s, gc.Equals, stringVal{"new method result"})

@@ -50,7 +50,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 	configPath := f.Name()
 	{
 		defer f.Close()
-		fmt.Fprintf(f, "mongo-url: %s\n", testing.MgoAddr)
+		fmt.Fprintf(f, "mongo-url: %s\n", testing.MgoServer.Addr())
 	}
 	// Delete charm that does not exist, not found error.
 	config := &DeleteCharmCommand{}
@@ -61,7 +61,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 	// Publish that charm now
 	url := charm.MustParseURL("cs:unreleased/foo")
 	{
-		s, err := store.Open(testing.MgoAddr)
+		s, err := store.Open(testing.MgoServer.Addr())
 		defer s.Close()
 		c.Assert(err, gc.IsNil)
 		pub, err := s.CharmPublisher([]*charm.URL{url}, "such-digest-much-unique")
@@ -76,7 +76,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 	c.Assert(config.Config, gc.NotNil)
 	// Confirm that the charm is gone
 	{
-		s, err := store.Open(testing.MgoAddr)
+		s, err := store.Open(testing.MgoServer.Addr())
 		defer s.Close()
 		c.Assert(err, gc.IsNil)
 		_, err = s.CharmInfo(url)

@@ -77,8 +77,8 @@ func (env *maasEnviron) Name() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
-	return common.Bootstrap(env, cons)
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	return common.Bootstrap(ctx, env, cons)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -238,7 +238,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
-		inst = &maasInstance{&node, environ}
+		inst = &maasInstance{maasObject: &node, environ: environ}
 		machineConfig.Tools = tools
 	}
 	defer func() {

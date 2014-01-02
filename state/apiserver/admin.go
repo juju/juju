@@ -70,20 +70,9 @@ func (a *srvAdmin) Login(c params.Creds) error {
 		// This can only happen if Login is called concurrently.
 		return errAlreadyLoggedIn
 	}
-	entity0, err := a.root.srv.state.FindEntity(c.AuthTag)
-	if err != nil && !errors.IsNotFoundError(err) {
+	entity, err := checkCreds(a.root.srv.state, c)
+	if err != nil {
 		return err
-	}
-	// We return the same error when an entity
-	// does not exist as for a bad password, so that
-	// we don't allow unauthenticated users to find information
-	// about existing entities.
-	entity, ok := entity0.(taggedAuthenticator)
-	if !ok {
-		return common.ErrBadCreds
-	}
-	if err != nil || !entity.PasswordValid(c.Password) {
-		return common.ErrBadCreds
 	}
 	if a.loginCallback != nil {
 		a.loginCallback(entity.Tag())
@@ -97,6 +86,25 @@ func (a *srvAdmin) Login(c params.Creds) error {
 
 	a.root.rpcConn.Serve(newRoot, serverError)
 	return nil
+}
+
+func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
+	entity0, err := st.FindEntity(c.AuthTag)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
+	}
+	// We return the same error when an entity
+	// does not exist as for a bad password, so that
+	// we don't allow unauthenticated users to find information
+	// about existing entities.
+	entity, ok := entity0.(taggedAuthenticator)
+	if !ok {
+		return nil, common.ErrBadCreds
+	}
+	if err != nil || !entity.PasswordValid(c.Password) {
+		return nil, common.ErrBadCreds
+	}
+	return entity, nil
 }
 
 // machinePinger wraps a presence.Pinger.

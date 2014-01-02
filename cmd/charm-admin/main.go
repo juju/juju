@@ -11,7 +11,7 @@ import (
 
 func main() {
 	admcmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "store-admin",
+		Name: "charm-admin",
 		Log:  &cmd.Log{},
 	})
 

@@ -67,64 +67,84 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
+
+	mu sync.Mutex
 	*ec2.Instance
 }
 
 func (inst *ec2Instance) String() string {
-	return inst.InstanceId
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*ec2Instance)(nil)
 
+func (inst *ec2Instance) getInstance() *ec2.Instance {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.Instance
+}
+
 func (inst *ec2Instance) Id() instance.Id {
-	return instance.Id(inst.InstanceId)
+	return instance.Id(inst.getInstance().InstanceId)
 }
 
 func (inst *ec2Instance) Status() string {
-	return inst.State.Name
+	return inst.getInstance().State.Name
 }
 
-// refreshInstance requeries the Instance details over the ec2 api
-func (inst *ec2Instance) refreshInstance() error {
-	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+// Refresh implements instance.Refresh(), requerying the
+// Instance details over the ec2 api
+func (inst *ec2Instance) Refresh() error {
+	_, err := inst.refresh()
+	return err
+}
+
+// refresh requeries Instance details over the ec2 api.
+func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
+	id := inst.Id()
+	insts, err := inst.e.Instances([]instance.Id{id})
 	if err != nil {
-		return err
+		return nil, err
 	}
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	inst.Instance = insts[0].(*ec2Instance).Instance
-	return nil
+	return inst.Instance, nil
 }
 
 // Addresses implements instance.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
-	var addresses []instance.Address
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
-	if inst.Instance.DNSName == "" {
+	instInstance := inst.getInstance()
+	if instInstance.DNSName == "" {
 		// Fetch the instance information again, in case
 		// the DNS information has become available.
-		err := inst.refreshInstance()
+		var err error
+		instInstance, err = inst.refresh()
 		if err != nil {
 			return nil, err
 		}
 	}
+	var addresses []instance.Address
 	possibleAddresses := []instance.Address{
 		{
-			Value:        inst.Instance.DNSName,
+			Value:        instInstance.DNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateDNSName,
+			Value:        instInstance.PrivateDNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
 		{
-			Value:        inst.Instance.IPAddress,
+			Value:        instInstance.IPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateIPAddress,
+			Value:        instInstance.PrivateIPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
@@ -305,8 +325,8 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
-	return common.Bootstrap(e, cons)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	return common.Bootstrap(ctx, e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {

@@ -6,16 +6,16 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // SSHCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -82,9 +82,13 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host}
-	args = append(args, c.Args...)
-	cmd := exec.Command("ssh", args...)
+	args := c.Args
+	if len(args) > 0 && args[0] == "--" {
+		// utils/ssh adds "--"; we will continue to accept
+		// it from the CLI for backwards compatibility.
+		args = args[1:]
+	}
+	cmd := ssh.Command("ubuntu@"+host, args, ssh.NoPasswordAuthentication, ssh.AllocateTTY)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
@@ -182,7 +186,7 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
 		if !useStateConn {
 			addr, err = c.apiClient.PublicAddress(target)
-			if rpc.IsNoSuchRequest(err) {
+			if params.IsCodeNotImplemented(err) {
 				logger.Infof("API server does not support Client.PublicAddress falling back to 1.16 compatibility mode (direct DB access)")
 				useStateConn = true
 			}

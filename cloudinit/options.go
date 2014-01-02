@@ -5,9 +5,9 @@ package cloudinit
 
 import (
 	"fmt"
-	"strings"
 
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // SetAttr sets an arbitrary attribute in the cloudinit config.
@@ -29,6 +29,13 @@ func (cfg *Config) SetUser(user string) {
 // on first boot.
 func (cfg *Config) SetAptUpgrade(yes bool) {
 	cfg.set("apt_upgrade", yes, yes)
+}
+
+// AptUpgrade returns the value set by SetAptUpgrade, or
+// false if no call to SetAptUpgrade has been made.
+func (cfg *Config) AptUpgrade() bool {
+	update, _ := cfg.attrs["apt_upgrade"].(bool)
+	return update
 }
 
 // SetUpdate sets whether cloud-init runs "apt-get update"
@@ -233,6 +240,20 @@ func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 	cfg.attrs["output"] = out
 }
 
+// Output returns the output destination passed to SetOutput for
+// the specified output kind.
+func (cfg *Config) Output(kind OutputKind) (stdout, stderr string) {
+	if out, ok := cfg.attrs["output"].(map[string]interface{}); ok {
+		switch out := out[string(kind)].(type) {
+		case string:
+			stdout = out
+		case []string:
+			stdout, stderr = out[0], out[1]
+		}
+	}
+	return stdout, stderr
+}
+
 // AddSSHKey adds a pre-generated ssh key to the
 // server keyring. Keys that are added like this will be
 // written to /etc/ssh and new random keys will not
@@ -259,14 +280,15 @@ func (cfg *Config) SetDisableRoot(disable bool) {
 // ssh authorized_keys format (see ssh(8) for details)
 // that will be added to ~/.ssh/authorized_keys for the
 // configured user (see SetUser).
-func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
+func (cfg *Config) AddSSHAuthorizedKeys(keyData string) {
 	akeys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
-	lines := strings.Split(keys, "\n")
-	for _, line := range lines {
-		if line == "" || line[0] == '#' {
-			continue
-		}
-		akeys = append(akeys, line)
+	keys := ssh.SplitAuthorisedKeys(keyData)
+	for _, key := range keys {
+		// Ensure the key has a comment prepended with "Juju:" so we
+		// can distinguish between Juju managed keys and those added
+		// externally.
+		jujuKey := ssh.EnsureJujuComment(key)
+		akeys = append(akeys, jujuKey)
 	}
 	cfg.attrs["ssh_authorized_keys"] = akeys
 }
@@ -290,7 +312,7 @@ func (cfg *Config) AddFile(filename, data string, mode uint) {
 	// of escape sequences differs between shells, namely bash and
 	// dash. Instead, we use printf (or we could use /bin/echo).
 	cfg.AddScripts(
-		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
+		fmt.Sprintf("install -D -m %o /dev/null %s", mode, p),
 		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
 	)
 }

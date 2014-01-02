@@ -736,7 +736,7 @@ func (u *Unit) WatchSubordinateUnits() StringsWatcher {
 		}
 		return u.doc.Subordinates, nil
 	}
-	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.Name, u.doc.TxnRevno)
+	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.Name)
 }
 
 // WatchPrincipalUnits returns a StringsWatcher tracking the machine's principal
@@ -750,10 +750,10 @@ func (m *Machine) WatchPrincipalUnits() StringsWatcher {
 		}
 		return m.doc.Principals, nil
 	}
-	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id, m.doc.TxnRevno)
+	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id)
 }
 
-func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), coll, id string, revno int64) StringsWatcher {
+func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), coll, id string) StringsWatcher {
 	w := &unitsWatcher{
 		commonWatcher: commonWatcher{st: st},
 		tag:           tag,
@@ -765,7 +765,7 @@ func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), c
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		w.tomb.Kill(w.loop(coll, id, revno))
+		w.tomb.Kill(w.loop(coll, id))
 	}()
 	return w
 }
@@ -873,7 +873,11 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	return changes, nil
 }
 
-func (w *unitsWatcher) loop(coll, id string, revno int64) error {
+func (w *unitsWatcher) loop(coll, id string) error {
+	revno, err := getTxnRevno(w.st.db.C(coll), id)
+	if err != nil {
+		return err
+	}
 	w.st.watcher.Watch(coll, id, revno, w.in)
 	defer func() {
 		w.st.watcher.Unwatch(coll, id, w.in)
@@ -1070,6 +1074,11 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
 }
 
+// Watch returns a watcher for observing changes to an environment.
+func (e *Environment) Watch() NotifyWatcher {
+	return newEntityWatcher(e.st, e.st.environments, e.doc.UUID)
+}
+
 // WatchForEnvironConfigChanges return a NotifyWatcher waiting for the Environ
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
@@ -1109,18 +1118,30 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *entityWatcher) loop(coll *mgo.Collection, key string) (err error) {
+// getTxnRevo returns the transaction revision number of the
+// given key in the given collection. It is useful to enable
+// a watcher.Watcher to be primed with the correct revision
+// id.
+func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
 	doc := &struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
 	fields := D{{"txn-revno", 1}}
 	if err := coll.FindId(key).Select(fields).One(doc); err == mgo.ErrNotFound {
-		doc.TxnRevno = -1
+		return -1, nil
 	} else if err != nil {
+		return 0, err
+	}
+	return doc.TxnRevno, nil
+}
+
+func (w *entityWatcher) loop(coll *mgo.Collection, key string) error {
+	txnRevno, err := getTxnRevno(coll, key)
+	if err != nil {
 		return err
 	}
 	in := make(chan watcher.Change)
-	w.st.watcher.Watch(coll.Name, key, doc.TxnRevno, in)
+	w.st.watcher.Watch(coll.Name, key, txnRevno, in)
 	defer w.st.watcher.Unwatch(coll.Name, key, in)
 	out := w.out
 	for {
@@ -1248,14 +1269,18 @@ func (w *machineUnitsWatcher) merge(pending []string, unit string) (new []string
 	return pending, nil
 }
 
-func (w *machineUnitsWatcher) loop() (err error) {
+func (w *machineUnitsWatcher) loop() error {
 	defer func() {
 		for unit := range w.known {
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
 		}
 	}()
+	revno, err := getTxnRevno(w.st.machines, w.machine.doc.Id)
+	if err != nil {
+		return err
+	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, w.machine.doc.TxnRevno, machineCh)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, revno, machineCh)
 	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
 	changes, err := w.updateMachine([]string(nil))
 	if err != nil {

@@ -6,6 +6,7 @@ package main
 import (
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -17,19 +18,24 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/addressupdater"
+	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
@@ -68,7 +74,7 @@ const initialMachinePassword = "machine-password-1234567890"
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
-	m, err := s.State.InjectMachine(&state.AddMachineParams{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		InstanceId: "ardbeg-0",
 		Nonce:      state.BootstrapNonce,
@@ -197,8 +203,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// check that unassigned units don't trigger any deployments.
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	u0, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	u1, err := svc.AddUnit()
@@ -232,7 +237,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	// The deployer actually removes the unit just after
 	// removing its deployment, so we need to poll here
 	// until it actually happens.
-	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		err := u0.Refresh()
 		if err == nil && attempt.HasNext() {
 			continue
@@ -289,11 +294,10 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	// Add one unit to a service; it should get allocated a machine
 	// and then its ports should be opened.
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("test-service", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "test-service", charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
-	units, err := s.Conn.AddUnits(svc, 1, "")
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 
@@ -333,9 +337,8 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("test-service", charm)
-	c.Assert(err, gc.IsNil)
-	units, err := s.Conn.AddUnits(svc, 1, "")
+	svc := s.AddTestingService(c, "test-service", charm)
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 
 	m, instId := s.waitProvisioned(c, units[0])
@@ -344,7 +347,7 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
 	dummy.SetInstanceAddresses(insts[0], addrs)
 
-	for a := testing.LongAttempt.Start(); a.Next(); {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
 			c.Logf("final machine addresses: %#v", m.Addresses())
 			c.Fatalf("timed out waiting for machine to get address")
@@ -366,7 +369,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 	c.Assert(err, gc.IsNil)
 	w := m.Watch()
 	defer w.Stop()
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case <-timeout:
@@ -393,8 +396,8 @@ func (s *MachineSuite) TestUpgrade(c *gc.C) {
 }
 
 var fastDialOpts = api.DialOpts{
-	Timeout:    testing.LongWait,
-	RetryDelay: testing.ShortWait,
+	Timeout:    coretesting.LongWait,
+	RetryDelay: coretesting.ShortWait,
 }
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
@@ -446,7 +449,7 @@ func (s *MachineSuite) assertJobWithAPI(
 	case agentAPI := <-agentAPIs:
 		c.Assert(agentAPI, gc.NotNil)
 		test(conf, agentAPI)
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("API not opened")
 	}
 
@@ -479,7 +482,7 @@ func (s *MachineSuite) assertJobWithState(
 	case agentState := <-agentStates:
 		c.Assert(agentState, gc.NotNil)
 		test(conf, agentState)
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("state not opened")
 	}
 
@@ -505,8 +508,7 @@ func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
-		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-		c.Assert(err, gc.IsNil)
+		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 		unit, err := service.AddUnit()
 		c.Assert(err, gc.IsNil)
 		err = service.Destroy()
@@ -521,12 +523,12 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
 		agentState.StartSync()
-		timeout := time.After(testing.LongWait)
+		timeout := time.After(coretesting.LongWait)
 		for done := false; !done; {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not cleaned up")
-			case <-time.After(testing.ShortWait):
+			case <-time.After(coretesting.ShortWait):
 				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
@@ -545,9 +547,8 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
-		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-		c.Assert(err, gc.IsNil)
-		err = service.SetMinUnits(1)
+		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		err := service.SetMinUnits(1)
 		c.Assert(err, gc.IsNil)
 		w := service.Watch()
 		defer w.Stop()
@@ -555,12 +556,12 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
 		agentState.StartSync()
-		timeout := time.After(testing.LongWait)
+		timeout := time.After(coretesting.LongWait)
 		for {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not created")
-			case <-time.After(testing.ShortWait):
+			case <-time.After(coretesting.ShortWait):
 				s.State.StartSync()
 			case <-w.Changes():
 				units, err := service.AllUnits()
@@ -571,6 +572,42 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 			}
 		}
 	})
+}
+
+func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
+	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
+	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+	s.PatchValue(&authenticationworker.SSHUser, "")
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Update the keys in the environment.
+	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
+	err := statetesting.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": sshKey})
+	c.Assert(err, gc.IsNil)
+
+	// Wait for ssh keys file to be updated.
+	s.State.StartSync()
+	timeout := time.After(coretesting.LongWait)
+	sshKeyWithCommentPrefix := sshtesting.ValidKeyOne.Key + " Juju:user@host"
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for authorised ssh keys to change")
+		case <-time.After(coretesting.ShortWait):
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+			c.Assert(err, gc.IsNil)
+			keysStr := strings.Join(keys, "\n")
+			if sshKeyWithCommentPrefix != keysStr {
+				continue
+			}
+			return
+		}
+	}
 }
 
 // opRecvTimeout waits for any of the given kinds of operation to

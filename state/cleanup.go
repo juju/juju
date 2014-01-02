@@ -55,6 +55,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupSettings(doc.Prefix)
 		case "units":
 			err = st.cleanupUnits(doc.Prefix)
+		case "services":
+			err = st.cleanupServices()
 		case "machine":
 			err = st.cleanupMachine(doc.Prefix)
 		default:
@@ -90,6 +92,26 @@ func (st *State) cleanupSettings(prefix string) error {
 		if _, err := st.settings.RemoveAll(sel); err != nil {
 			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
 		}
+	}
+	return nil
+}
+
+// cleanupServices sets all services to Dying, if they are not already Dying
+// or Dead. It's expected to be used when an environment is destroyed.
+func (st *State) cleanupServices() error {
+	// This won't miss services, because a Dying environment cannot have
+	// services added to it. But we do have to remove the services themselves
+	// via individual transactions, because they could be in any state at all.
+	service := &Service{st: st}
+	sel := D{{"life", Alive}}
+	iter := st.services.Find(sel).Iter()
+	for iter.Next(&service.doc) {
+		if err := service.Destroy(); err != nil {
+			return err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("cannot read service document: %v", err)
 	}
 	return nil
 }
@@ -151,14 +173,15 @@ func (st *State) cleanupMachine(machineId string) error {
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	if err := machine.EnsureDead(); err != nil {
-		return err
-	}
-	return machine.Remove()
+	return machine.EnsureDead()
+
+	// Note that we do *not* remove the machine entirely: we leave it for the
+	// provisioner to clean up, so that we don't end up with an unreferenced
+	// instance that would otherwise be ignored when in provisioner-safe-mode.
 }
 
 // cleanupContainers recursively calls cleanupMachine on the supplied
-// machine's containers.
+// machine's containers, and removes them from state entirely.
 func (st *State) cleanupContainers(machine *Machine) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFoundError(err) {
@@ -168,6 +191,15 @@ func (st *State) cleanupContainers(machine *Machine) error {
 	}
 	for _, containerId := range containerIds {
 		if err := st.cleanupMachine(containerId); err != nil {
+			return err
+		}
+		container, err := st.Machine(containerId)
+		if errors.IsNotFoundError(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := container.Remove(); err != nil {
 			return err
 		}
 	}

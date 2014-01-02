@@ -14,7 +14,6 @@ import (
 var requiredPackages = []string{
 	"uvtool-libvirt",
 	"uvtool",
-	"kvm",
 }
 
 type containerInitialiser struct{}
