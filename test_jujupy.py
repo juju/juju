@@ -456,6 +456,33 @@ class TestEnvironment(TestCase):
                     Exception, 'Some versions did not update'):
                 env.wait_for_version('1.17.2')
 
+    def test_wait_for_version_handles_connection_error(self):
+        err = subprocess.CalledProcessError(1, 'foo')
+        err.stderr = 'Unable to connect to environment'
+        status = dedent("""\
+                machines:
+                  "0":
+                    agent-version: 1.17.2
+                services:
+                  jenkins:
+                    units:
+                      jenkins/0:
+                        agent-version: 1.17.2
+            """)
+        actions = [err, status]
+
+        def output_fake(*args):
+            action = actions.pop(0)
+            if isinstance(action, Exception):
+                raise action
+            else:
+                return action
+
+        env = Environment('local', JujuClientDevelFake(None, None))
+        output_real = 'test_jujupy.JujuClientDevelFake.get_juju_output'
+        with patch(output_real, output_fake):
+            env.wait_for_version('1.17.2')
+
     def test_local_from_config(self):
         env = Environment('local', '', {'type': 'openstack'})
         self.assertFalse(env.local, 'Does not respect config type.')
