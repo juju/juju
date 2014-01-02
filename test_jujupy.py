@@ -419,6 +419,23 @@ class TestEnvironment(TestCase):
                     'Timed out waiting for agents to start in local'):
                 env.wait_for_started()
 
+    def test_wait_for_version(self):
+        def output_iterator():
+            yield
+            yield dedent("""\
+                machines:
+                  "0":
+                    agent-version: 1.17.2
+                services:
+                  jenkins:
+                    units:
+                      jenkins/0:
+                        agent-version: 1.17.2
+            """)
+        JujuClientDevelFake.set_output(output_iterator())
+        env = Environment('local', JujuClientDevelFake(None, None))
+        env.wait_for_version('1.17.2')
+
     def test_local_from_config(self):
         env = Environment('local', '', {'type': 'openstack'})
         self.assertFalse(env.local, 'Does not respect config type.')
