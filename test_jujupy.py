@@ -436,6 +436,26 @@ class TestEnvironment(TestCase):
         env = Environment('local', JujuClientDevelFake(None, None))
         env.wait_for_version('1.17.2')
 
+    def test_wait_for_version_timeout(self):
+        def output_iterator():
+            yield
+            yield dedent("""\
+                machines:
+                  "0":
+                    agent-version: 1.17.2
+                services:
+                  jenkins:
+                    units:
+                      jenkins/0:
+                        agent-version: 1.17.1
+            """)
+        JujuClientDevelFake.set_output(output_iterator())
+        env = Environment('local', JujuClientDevelFake)
+        with patch('jujupy.until_timeout', lambda x: range(0)):
+            with self.assertRaisesRegexp(
+                    Exception, 'Some versions did not update'):
+                env.wait_for_version('1.17.2')
+
     def test_local_from_config(self):
         env = Environment('local', '', {'type': 'openstack'})
         self.assertFalse(env.local, 'Does not respect config type.')
