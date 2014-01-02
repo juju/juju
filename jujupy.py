@@ -9,6 +9,7 @@ import httplib
 import socket
 import subprocess
 import sys
+import tempfile
 from time import sleep
 import urllib2
 
@@ -97,7 +98,13 @@ class JujuClientDevel:
 
     def get_juju_output(self, environment, command):
         args = self._full_args(environment, command, False, ())
-        return subprocess.check_output(args)
+        with tempfile.TemporaryFile() as stderr:
+            try:
+                return subprocess.check_output(args, stderr=stderr)
+            except subprocess.CalledProcessError as e:
+                stderr.seek(0)
+                e.stderr = stderr.read()
+                raise
 
     def get_status(self, environment):
         """Get the current status as a dict."""
@@ -221,7 +228,14 @@ class Environment:
 
     def wait_for_version(self, version):
         for ignored in until_timeout(300):
-            versions = self.get_status().get_agent_versions()
+            try:
+                versions = self.get_status().get_agent_versions()
+            except subprocess.CalledProcessError as e:
+                if 'Unable to connect to environment' not in e.stderr:
+                    raise
+                else:
+                    print 'Supressing "Unable to connect to environment"'
+                    continue
             if versions.keys() == [version]:
                 break
             print format_listing(versions, version, self.environment)
