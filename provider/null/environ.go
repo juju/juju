@@ -48,7 +48,7 @@ var logger = loggo.GetLogger("juju.provider.null")
 type nullEnviron struct {
 	cfg                   *environConfig
 	cfgmutex              sync.Mutex
-	bootstrapStorage      *sshstorage.SSHStorage
+	bootstrapStorage      storage.Storage
 	bootstrapStorageMutex sync.Mutex
 	ubuntuUserInit        bool
 	ubuntuUserInitMutex   sync.Mutex
@@ -87,6 +87,8 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
+var initUbuntuUser = manual.InitUbuntuUser
+
 func (e *nullEnviron) ensureBootstrapUbuntuUser() error {
 	e.ubuntuUserInitMutex.Lock()
 	defer e.ubuntuUserInitMutex.Unlock()
@@ -94,7 +96,7 @@ func (e *nullEnviron) ensureBootstrapUbuntuUser() error {
 		return nil
 	}
 	cfg := e.envConfig()
-	err := manual.InitUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys())
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -110,7 +112,7 @@ func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
 	}
 	envConfig := e.envConfig()
 	host := envConfig.bootstrapHost()
-	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics("ubuntu@" + host)
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		return err
 	}
@@ -166,6 +168,10 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	return instances, err
 }
 
+var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+	return sshstorage.NewSSHStorage(sshHost, storageDir, storageTmpdir)
+}
+
 // Implements environs.BootstrapStorager.
 func (e *nullEnviron) EnableBootstrapStorage() error {
 	e.bootstrapStorageMutex.Lock()
@@ -179,7 +185,7 @@ func (e *nullEnviron) EnableBootstrapStorage() error {
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	bootstrapStorage, err := sshstorage.NewSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
+	bootstrapStorage, err := newSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
 	if err != nil {
 		return err
 	}

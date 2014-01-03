@@ -54,8 +54,8 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	restoreEnv := testbase.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
 	s.AddSuiteCleanup(func(*gc.C) { restoreEnv() })
 
-	// Create a "sudo" command which just executes its args.
-	err = os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo"))
+	// Create a "sudo" command which shifts away the "-n" and executes the remaining args.
+	err = ioutil.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nshift; exec \"$@\""), 0755)
 	c.Assert(err, gc.IsNil)
 	restoreSshCommand := testbase.PatchValue(&sshCommand, sshCommandTesting)
 	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })

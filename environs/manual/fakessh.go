@@ -94,13 +94,18 @@ type fakeSSH struct {
 	// exit code for the machine agent provisioning script.
 	ProvisionAgentExitCode int
 
+	// InitUbuntuUser should be set to true if the fakeSSH script
+	// should respond to an attempt to initialise the ubuntu user.
+	InitUbuntuUser bool
+
 	// there are conditions other than error in the above
 	// that might cause provisioning to not go ahead, such
 	// as tools being missing.
 	SkipProvisionAgent bool
 
 	// detection will be skipped if the series/hardware were
-	// detected ahead of time.
+	// detected ahead of time. This should always be set to
+	// true when testing Bootstrap.
 	SkipDetection bool
 }
 
@@ -119,5 +124,8 @@ func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
 	}
 	add("", nil, 0) // checkProvisioned
+	if r.InitUbuntuUser {
+		add("", nil, 0)
+	}
 	return restore
 }

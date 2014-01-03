@@ -4,11 +4,8 @@
 package manual
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -16,8 +13,6 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
 )
 
@@ -65,9 +60,11 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	if args.HardwareCharacteristics == nil {
 		return errors.New("hardware characteristics argument is empty")
 	}
+	if len(args.PossibleTools) == 0 {
+		return errors.New("possible tools is empty")
+	}
 
-	sshHost := "ubuntu@" + args.Host
-	provisioned, err := checkProvisioned(sshHost)
+	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
 		return fmt.Errorf("failed to check provisioned status: %v", err)
 	}
@@ -132,56 +129,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(sshHost, mcfg)
+	return provisionMachineAgent(args.Host, mcfg)
 }
-
-// InitUbuntuUser adds the ubuntu user if it doesn't
-// already exist, and updates its ~/.ssh/authorized_keys.
-//
-// authorizedKeys may be empty, in which case the file
-// will be created and left empty.
-func InitUbuntuUser(host, login, authorizedKeys string) error {
-	logger.Infof("initialising %q, user %q", host, login)
-
-	// To avoid unnecessary prompting for the specified login,
-	// initUbuntuUser will first attempt to ssh to the machine
-	// as "ubuntu" with password authentication disabled, and
-	// ensure that it can use sudo without a password.
-	//
-	// Note that we explicitly do not allocate a PTY, so we
-	// get a failure if sudo prompts.
-	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "true"}, ssh.NoPasswordAuthentication)
-	if cmd.Run() == nil {
-		return nil
-	}
-
-	// Failed to login as ubuntu (or passwordless sudo is not enabled).
-	// Use specified login, and execute the initUbuntuScript below.
-	if login != "" {
-		host = login + "@" + host
-	}
-	logger.Infof("authorized_keys: %s", authorizedKeys)
-	script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(authorizedKeys))
-	cmd = ssh.Command(host, []string{"sudo", "bash", "-c", script}, ssh.AllocateTTY)
-	var stderr bytes.Buffer
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout // for sudo prompt
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() != 0 {
-			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-	return nil
-}
-
-const initUbuntuScript = `
-set -e
-install -m 0600 /dev/null /etc/sudoers.d/90-juju-ubuntu
-echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-juju-ubuntu
-su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
-export authorized_keys=%s
-if [ ! -z "$authorized_keys" ]; then
-    su ubuntu -c 'printf "%%s\n" "$authorized_keys" >> ~/.ssh/authorized_keys'
-fi`

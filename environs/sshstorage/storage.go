@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"path"
 	"sort"
@@ -82,9 +81,7 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 		utils.ShQuote(tmpdir),
 	)
 
-	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout // for sudo prompts/output
+	cmd := sshCommand(host, true, fmt.Sprintf("sudo -n bash -c %s", utils.ShQuote(script)))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
