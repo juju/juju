@@ -35,6 +35,7 @@ import (
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/addressupdater"
+	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
@@ -73,7 +74,7 @@ const initialMachinePassword = "machine-password-1234567890"
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
-	m, err := s.State.InjectMachine(&state.AddMachineParams{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		InstanceId: "ardbeg-0",
 		Nonce:      state.BootstrapNonce,
@@ -576,6 +577,7 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -597,7 +599,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(ssh.FullKeys)
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
 			if sshKeyWithCommentPrefix != keysStr {

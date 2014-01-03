@@ -47,6 +47,10 @@ type workerSuite struct {
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// Default ssh user is currently "ubuntu".
+	c.Assert(authenticationworker.SSHUser, gc.Equals, "ubuntu")
+	// Set the ssh user to empty (the current user) as required by the test infrastructure.
+	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	// Replace the default dummy key in the test environment with a valid one.
 	// This will be added to the ssh authorised keys when the agent starts.
@@ -56,7 +60,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	// Set up an existing key (which is not in the environment) in the ssh authorised_keys file.
 	s.existingKeys = []string{sshtesting.ValidKeyTwo.Key + " existinguser@host"}
-	err := ssh.AddKeys(s.existingKeys...)
+	err := ssh.AddKeys(authenticationworker.SSHUser, s.existingKeys...)
 	c.Assert(err, gc.IsNil)
 
 	var apiRoot *api.State
@@ -98,7 +102,7 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authoirsed ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(ssh.FullKeys)
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
 			expectedStr := strings.Join(expected, "\n")

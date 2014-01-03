@@ -26,10 +26,11 @@ type LocalStorageEnviron interface {
 }
 
 type BootstrapArgs struct {
-	Host                    string
-	DataDir                 string
-	Environ                 LocalStorageEnviron
-	PossibleTools           tools.List
+	Host          string
+	DataDir       string
+	Environ       LocalStorageEnviron
+	PossibleTools tools.List
+	Context       environs.BootstrapContext
 	Series                  string
 	HardwareCharacteristics *instance.HardwareCharacteristics
 }
@@ -129,5 +130,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(args.Host, mcfg)
+	return provisionMachineAgent(args.Host, mcfg, args.Context.Stdin(), args.Context.Stdout(), args.Context.Stderr())
 }

@@ -12,8 +12,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -115,21 +117,21 @@ func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 		return initUbuntuResult
 	})
 
+	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
 	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(), gc.Equals, initUbuntuResult)
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, initUbuntuResult)
 	initUbuntuResult = nil
-	c.Assert(s.env.EnableBootstrapStorage(), gc.Equals, newSSHStorageResult.err)
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, newSSHStorageResult.err)
 	// after the user is initialised once successfully,
 	// another attempt will not be made.
 	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(), gc.Equals, newSSHStorageResult.err)
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, newSSHStorageResult.err)
 
 	// after the bootstrap storage is initialised once successfully,
 	// another attempt will not be made.
 	backup := newSSHStorageResult.err
 	newSSHStorageResult.err = nil
-	c.Assert(s.env.EnableBootstrapStorage(), gc.IsNil)
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
 	newSSHStorageResult.err = backup
-	c.Assert(s.env.EnableBootstrapStorage(), gc.IsNil)
-
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
 }

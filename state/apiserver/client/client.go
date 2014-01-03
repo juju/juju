@@ -6,7 +6,6 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -18,8 +17,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	jujuerrors "launchpad.net/juju-core/errors"
-	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -68,26 +66,6 @@ func (r *API) Client(id string) (*Client, error) {
 		return nil, common.ErrBadId
 	}
 	return r.client, nil
-}
-
-func (c *Client) Status() (api.Status, error) {
-	ms, err := c.api.state.AllMachines()
-	if err != nil {
-		return api.Status{}, err
-	}
-	status := api.Status{
-		Machines: make(map[string]api.MachineInfo),
-	}
-	for _, m := range ms {
-		instId, err := m.InstanceId()
-		if err != nil && !state.IsNotProvisionedError(err) {
-			return api.Status{}, err
-		}
-		status.Machines[m.Id()] = api.MachineInfo{
-			InstanceId: string(instId),
-		}
-	}
-	return status, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -239,7 +217,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
-	if jujuerrors.IsNotFoundError(err) {
+	if errors.IsNotFoundError(err) {
 		// Remove this whole if block when 1.16 compatibility is dropped.
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
@@ -323,7 +301,7 @@ func (c *Client) serviceSetCharm(service *state.Service, url string, force bool)
 		return err
 	}
 	sch, err := c.api.state.Charm(curl)
-	if jujuerrors.IsNotFoundError(err) {
+	if errors.IsNotFoundError(err) {
 		// Charms should be added before trying to use them, with
 		// AddCharm or AddLocalCharm API calls. When they're not,
 		// we're reverting to 1.16 compatibility mode.
@@ -420,10 +398,10 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 		return nil, err
 	}
 	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
+		return nil, fmt.Errorf("must add at least one unit")
 	}
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
@@ -447,7 +425,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	for _, name := range args.UnitNames {
 		unit, err := c.api.state.Unit(name)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != state.Alive:
@@ -540,32 +518,6 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
-func createAddMachineParameters(machineParams params.AddMachineParams,
-	defaultSeries string) (*state.AddMachineParams, error) {
-
-	stateMachineParams := &state.AddMachineParams{
-		Series:        machineParams.Series,
-		Constraints:   machineParams.Constraints,
-		ParentId:      machineParams.ParentId,
-		ContainerType: machineParams.ContainerType,
-		InstanceId:    machineParams.InstanceId,
-		Nonce:         machineParams.Nonce,
-		HardwareCharacteristics: machineParams.HardwareCharacteristics,
-	}
-	if stateMachineParams.Series == "" {
-		stateMachineParams.Series = defaultSeries
-	}
-	// Convert params.MachineJob to state.MachineJob
-	stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
-	var jobError error
-	for j, job := range machineParams.Jobs {
-		if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
-			return nil, jobError
-		}
-	}
-	return stateMachineParams, nil
-}
-
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
@@ -579,16 +531,11 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	}
 	defaultSeries = conf.DefaultSeries()
 
-	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
-		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
+	for i, p := range args.MachineParams {
+		m, err := c.addOneMachine(p, defaultSeries)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
-			results.Machines[i].Machine = machine.String()
+			results.Machines[i].Machine = m.Id()
 		}
 	}
 	return results, nil
@@ -596,36 +543,57 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	results := params.AddMachinesResults{
-		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	return c.AddMachines(args)
+}
+
+func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) (*state.Machine, error) {
+	if p.Series == "" {
+		p.Series = defaultSeries
+	}
+	if p.ContainerType != "" {
+		// Guard against dubious client by making sure that
+		// the following attributes can only be set when we're
+		// not making a new container.
+		p.InstanceId = ""
+		p.Nonce = ""
+		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
+		p.Addrs = nil
+	} else if p.ParentId != "" {
+		return nil, fmt.Errorf("parent machine specified without container type")
 	}
 
-	var defaultSeries string
-	conf, err := c.api.state.EnvironConfig()
+	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
-	defaultSeries = conf.DefaultSeries()
+	template := state.MachineTemplate{
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
+		HardwareCharacteristics: p.HardwareCharacteristics,
+		Addresses:               p.Addrs,
+	}
+	if p.ContainerType == "" {
+		return c.api.state.AddOneMachine(template)
+	}
+	if p.ParentId != "" {
+		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+	}
+	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
+}
 
-	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+	newJobs := make([]state.MachineJob, len(jobs))
+	for i, job := range jobs {
+		newJob, err := state.MachineJobFromParams(job)
 		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			continue
+			return nil, err
 		}
-		machine, err := c.api.state.InjectMachine(stateMachineParams)
-		results.Machines[i].Error = common.ServerError(err)
-		if err == nil {
-			results.Machines[i].Machine = machine.String()
-			if err = machine.SetAddresses(machineParams.Addrs); err != nil {
-				results.Machines[i].Error = common.ServerError(err)
-				logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
-				machine.EnsureDead()
-				machine.Remove()
-			}
-		}
+		newJobs[i] = newJob
 	}
-	return results, nil
+	return newJobs, nil
 }
 
 // MachineConfig returns information from the environment config that is
@@ -677,7 +645,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	for _, id := range args.MachineNames {
 		machine, err := c.api.state.Machine(id)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case args.Force:

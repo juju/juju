@@ -40,6 +40,15 @@ func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
 	return cmd
 }
 
+func newSSHStorage(host, storageDir, tmpDir string) (*SSHStorage, error) {
+	params := NewSSHStorageParams{
+		Host:       host,
+		StorageDir: storageDir,
+		TmpDir:     tmpDir,
+	}
+	return NewSSHStorage(params)
+}
+
 // flockBin is the path to the original "flock" binary.
 var flockBin string
 
@@ -68,7 +77,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 
 func (s *storageSuite) makeStorage(c *gc.C) (storage *SSHStorage, storageDir string) {
 	storageDir = c.MkDir()
-	storage, err := NewSSHStorage("example.com", storageDir, storageDir+"-tmp")
+	storage, err := newSSHStorage("example.com", storageDir, storageDir+"-tmp")
 	c.Assert(err, gc.IsNil)
 	c.Assert(storage, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { storage.Close() })
@@ -89,12 +98,12 @@ func createFiles(c *gc.C, storageDir string, names ...string) {
 	}
 }
 
-func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
+func (s *storageSuite) TestnewSSHStorage(c *gc.C) {
 	storageDir := c.MkDir()
-	// Run this block twice to ensure NewSSHStorage can reuse
+	// Run this block twice to ensure newSSHStorage can reuse
 	// an existing storage location.
 	for i := 0; i < 2; i++ {
-		stor, err := NewSSHStorage("example.com", storageDir, storageDir+"-tmp")
+		stor, err := newSSHStorage("example.com", storageDir, storageDir+"-tmp")
 		c.Assert(err, gc.IsNil)
 		c.Assert(stor, gc.NotNil)
 		c.Assert(stor.Close(), gc.IsNil)
@@ -106,7 +115,7 @@ func (s *storageSuite) TestNewSSHStorage(c *gc.C) {
 	storageDir = c.MkDir()
 	err = os.Chmod(storageDir, 0555)
 	c.Assert(err, gc.IsNil)
-	_, err = NewSSHStorage("example.com", filepath.Join(storageDir, "subdir"), storageDir+"-tmp")
+	_, err = newSSHStorage("example.com", filepath.Join(storageDir, "subdir"), storageDir+"-tmp")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot change owner and permissions of(.|\n)*")
 }
 
@@ -177,13 +186,13 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 	}
 	s.PatchValue(&sshCommand, badSshCommand)
 
-	stor, err := NewSSHStorage("example.com", c.MkDir(), c.MkDir())
+	stor, err := newSSHStorage("example.com", c.MkDir(), c.MkDir())
 	c.Assert(err, gc.IsNil)
 	defer stor.Close()
 	err = stor.Put("whatever", bytes.NewBuffer(nil), 0)
 	c.Assert(err, gc.ErrorMatches, `failed to write input: write \|1: broken pipe \(output: "blah blah\\nmore"\)`)
 
-	_, err = NewSSHStorage("example.com", c.MkDir(), c.MkDir())
+	_, err = newSSHStorage("example.com", c.MkDir(), c.MkDir())
 	c.Assert(err, gc.ErrorMatches, `failed to locate "JUJU-RC: " \(output: "Hey it's JUJU-RC: , but not at the beginning of the line\\nmore"\)`)
 }
 
@@ -292,7 +301,7 @@ func (s *storageSuite) TestCreateFailsIfFlockNotAvailable(c *gc.C) {
 	//
 	// flock exits with exit code 1 if it can't acquire the
 	// lock immediately in non-blocking mode (which the tests force).
-	_, err := NewSSHStorage("example.com", storageDir, storageDir+"-tmp")
+	_, err := newSSHStorage("example.com", storageDir, storageDir+"-tmp")
 	c.Assert(err, gc.ErrorMatches, "exit code 1")
 }
 
@@ -338,13 +347,13 @@ func (s *storageSuite) TestPutLarge(c *gc.C) {
 
 func (s *storageSuite) TestStorageDirBlank(c *gc.C) {
 	tmpdir := c.MkDir()
-	_, err := NewSSHStorage("example.com", "", tmpdir)
+	_, err := newSSHStorage("example.com", "", tmpdir)
 	c.Assert(err, gc.ErrorMatches, "storagedir must be specified and non-empty")
 }
 
 func (s *storageSuite) TestTmpDirBlank(c *gc.C) {
 	storageDir := c.MkDir()
-	_, err := NewSSHStorage("example.com", storageDir, "")
+	_, err := newSSHStorage("example.com", storageDir, "")
 	c.Assert(err, gc.ErrorMatches, "tmpdir must be specified and non-empty")
 }
 
@@ -354,7 +363,7 @@ func (s *storageSuite) TestTmpDirExists(c *gc.C) {
 	storageDir := c.MkDir()
 	tmpdirs := []string{storageDir, filepath.Join(storageDir, "subdir")}
 	for _, tmpdir := range tmpdirs {
-		stor, err := NewSSHStorage("example.com", storageDir, tmpdir)
+		stor, err := newSSHStorage("example.com", storageDir, tmpdir)
 		defer stor.Close()
 		c.Assert(err, gc.IsNil)
 		err = stor.Put("test-write", bytes.NewReader(nil), 0)
@@ -363,13 +372,13 @@ func (s *storageSuite) TestTmpDirExists(c *gc.C) {
 }
 
 func (s *storageSuite) TestTmpDirPermissions(c *gc.C) {
-	// NewSSHStorage will fail if it can't create or change the
+	// newSSHStorage will fail if it can't create or change the
 	// permissions of the temporary directory.
 	storageDir := c.MkDir()
 	tmpdir := c.MkDir()
 	os.Chmod(tmpdir, 0400)
 	defer os.Chmod(tmpdir, 0755)
-	_, err := NewSSHStorage("example.com", storageDir, filepath.Join(tmpdir, "subdir2"))
+	_, err := newSSHStorage("example.com", storageDir, filepath.Join(tmpdir, "subdir2"))
 	c.Assert(err, gc.ErrorMatches, ".*install: cannot create directory.*Permission denied.*")
 }
 
@@ -379,6 +388,6 @@ func (s *storageSuite) TestPathCharacters(c *gc.C) {
 	tmpdir := filepath.Join(storageDirBase, `"`)
 	c.Assert(os.Mkdir(storageDir, 0755), gc.IsNil)
 	c.Assert(os.Mkdir(tmpdir, 0755), gc.IsNil)
-	_, err := NewSSHStorage("example.com", storageDir, tmpdir)
+	_, err := newSSHStorage("example.com", storageDir, tmpdir)
 	c.Assert(err, gc.IsNil)
 }

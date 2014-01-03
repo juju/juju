@@ -106,7 +106,7 @@ func (e *nullEnviron) ensureBootstrapUbuntuUser() error {
 	return nil
 }
 
-func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
+func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	if err := e.ensureBootstrapUbuntuUser(); err != nil {
 		return err
 	}
@@ -121,6 +121,7 @@ func (e *nullEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	return manual.Bootstrap(manual.BootstrapArgs{
+		Context:                 ctx,
 		Host:                    host,
 		DataDir:                 dataDir,
 		Environ:                 e,
@@ -169,11 +170,15 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
-	return sshstorage.NewSSHStorage(sshHost, storageDir, storageTmpdir)
+	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
+		Host:       sshHost,
+		StorageDir: storageDir,
+		TmpDir:     storageTmpdir,
+	})
 }
 
 // Implements environs.BootstrapStorager.
-func (e *nullEnviron) EnableBootstrapStorage() error {
+func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
 	e.bootstrapStorageMutex.Lock()
 	defer e.bootstrapStorageMutex.Unlock()
 	if e.bootstrapStorage != nil {

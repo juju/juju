@@ -18,6 +18,10 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
+// The user name used to ssh into Juju nodes.
+// Override for testing.
+var SSHUser = "ubuntu"
+
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 
 type keyupdaterWorker struct {
@@ -51,7 +55,7 @@ func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 	kw.jujuKeys = set.NewStrings(jujuKeys...)
 
 	// Read the keys currently in ~/.ssh/authorised_keys.
-	sshKeys, err := ssh.ListKeys(ssh.FullKeys)
+	sshKeys, err := ssh.ListKeys(SSHUser, ssh.FullKeys)
 	if err != nil {
 		return nil, log.LoggedErrorf(logger, "reading ssh authorized keys for %q: %v", kw.tag, err)
 	}
@@ -85,7 +89,7 @@ func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
 		jujuKeys[i] = ssh.EnsureJujuComment(key)
 	}
 	allKeys = append(allKeys, jujuKeys...)
-	return ssh.ReplaceKeys(allKeys...)
+	return ssh.ReplaceKeys(SSHUser, allKeys...)
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.

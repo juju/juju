@@ -100,13 +100,11 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 	curl := s.setupService(c)
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	params := &state.AddMachineParams{
-		ParentId:      machine.Id(),
-		Series:        "precise",
-		ContainerType: instance.LXC,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "precise",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(params)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", container.Id())

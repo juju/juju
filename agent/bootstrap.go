@@ -119,7 +119,7 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	m, err := st.InjectMachine(&state.AddMachineParams{
+	m, err := st.AddOneMachine(state.MachineTemplate{
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,
