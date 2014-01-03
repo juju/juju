@@ -244,7 +244,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 		machineTag := names.MachineTag(id)
 		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
-		case params.IsCodeNotFound(err):
+		case params.IsCodeNotFoundOrCodeUnauthorized(err):
 			logger.Debugf("machine %q not found in state", id)
 			delete(task.machines, id)
 		case err == nil:
@@ -318,8 +318,10 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	for _, m := range task.machines {
 		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
-		} else if !params.IsCodeNotProvisioned(err) && !params.IsCodeNotFound(err) {
-			return nil, err
+		} else if !params.IsCodeNotProvisioned(err) {
+			if !params.IsCodeNotFoundOrCodeUnauthorized(err) {
+				return nil, err
+			}
 		}
 	}
 	// Now remove all those instances that we are stopping already as we
