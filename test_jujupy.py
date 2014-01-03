@@ -418,19 +418,23 @@ class TestEnvironment(TestCase):
                     'Timed out waiting for agents to start in local'):
                 env.wait_for_started()
 
+    @staticmethod
+    def make_status_yaml(key, machine_value, unit_value):
+        return dedent("""\
+            machines:
+              "0":
+                {0}: {1}
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    {0}: {2}
+        """.format(key, machine_value, unit_value))
+
     def test_wait_for_version(self):
         def output_iterator():
             yield
-            yield dedent("""\
-                machines:
-                  "0":
-                    agent-version: 1.17.2
-                services:
-                  jenkins:
-                    units:
-                      jenkins/0:
-                        agent-version: 1.17.2
-            """)
+            yield self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         JujuClientDevelFake.set_output(output_iterator())
         env = Environment('local', JujuClientDevelFake(None, None))
         env.wait_for_version('1.17.2')
