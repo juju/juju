@@ -30,7 +30,7 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
-func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
+func sshCommandTesting(host string, command string) *exec.Cmd {
 	cmd := exec.Command("bash", "-c", command)
 	uid := fmt.Sprint(os.Getuid())
 	gid := fmt.Sprint(os.Getgid())
@@ -167,7 +167,7 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 	//  3: second "install"
 	//  4: touch
 	var invocations int
-	badSshCommand := func(host string, tty bool, command string) *exec.Cmd {
+	badSshCommand := func(host string, command string) *exec.Cmd {
 		invocations++
 		switch invocations {
 		case 1, 3:

@@ -89,14 +89,14 @@ func (e *nullEnviron) Name() string {
 
 var initUbuntuUser = manual.InitUbuntuUser
 
-func (e *nullEnviron) ensureBootstrapUbuntuUser() error {
+func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
 	e.ubuntuUserInitMutex.Lock()
 	defer e.ubuntuUserInitMutex.Unlock()
 	if e.ubuntuUserInit {
 		return nil
 	}
 	cfg := e.envConfig()
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys())
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -107,7 +107,7 @@ func (e *nullEnviron) ensureBootstrapUbuntuUser() error {
 }
 
 func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	if err := e.ensureBootstrapUbuntuUser(); err != nil {
+	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
 		return err
 	}
 	envConfig := e.envConfig()
@@ -184,7 +184,7 @@ func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) erro
 	if e.bootstrapStorage != nil {
 		return nil
 	}
-	if err := e.ensureBootstrapUbuntuUser(); err != nil {
+	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
 		return err
 	}
 	cfg := e.envConfig()

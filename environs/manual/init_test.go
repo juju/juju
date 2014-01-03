@@ -139,18 +139,18 @@ func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
 	defer installFakeSSH(c, "", "", 0)() // successful creation of ubuntu user
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
-	err := InitUbuntuUser("testhost", "testuser", "")
+	err := InitUbuntuUser("testhost", "testuser", "", nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserExisting(c *gc.C) {
 	defer installFakeSSH(c, "", nil, 0)()
-	InitUbuntuUser("testhost", "testuser", "")
+	InitUbuntuUser("testhost", "testuser", "", nil, nil)
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserError(c *gc.C) {
 	defer installFakeSSH(c, "", []string{"", "failed to create ubuntu user"}, 123)()
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
-	err := InitUbuntuUser("testhost", "testuser", "")
+	err := InitUbuntuUser("testhost", "testuser", "", nil, nil)
 	c.Assert(err, gc.ErrorMatches, "exit status 123 \\(failed to create ubuntu user\\)")
 }

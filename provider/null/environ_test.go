@@ -5,6 +5,7 @@ package null
 
 import (
 	"errors"
+	"io"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -113,7 +114,7 @@ func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 	})
 
 	var initUbuntuResult error
-	s.PatchValue(&initUbuntuUser, func(host, user, authorizedKeys string) error {
+	s.PatchValue(&initUbuntuUser, func(host, user, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
 		return initUbuntuResult
 	})
 

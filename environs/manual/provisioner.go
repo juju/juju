@@ -87,7 +87,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// ubuntu user's authorized_keys.
 	user, host := splitUserHost(args.Host)
 	authorizedKeys, err := config.ReadAuthorizedKeys("")
-	if err := InitUbuntuUser(host, user, authorizedKeys); err != nil {
+	if err := InitUbuntuUser(host, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
@@ -112,7 +112,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Finally, provision the machine agent.
-	err = provisionMachineAgent(host, mcfg, args.Stdin, args.Stdout, args.Stderr)
+	err = provisionMachineAgent(host, mcfg, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}
@@ -224,7 +224,7 @@ func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dat
 	return mcfg, nil
 }
 
-func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stdin io.Reader, stdout, stderr io.Writer) error {
+func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
@@ -233,10 +233,8 @@ func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stdin io.
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
 	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" +host,
+		Host:   "ubuntu@" + host,
 		Config: cloudcfg,
-		Stdin:  stdin,
-		Stdout: stdout,
 		Stderr: stderr,
 	})
 }

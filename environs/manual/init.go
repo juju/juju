@@ -6,7 +6,7 @@ package manual
 import (
 	"bytes"
 	"fmt"
-	"os"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,7 +27,7 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 // exist on the host machine.
 func checkProvisioned(host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
-	cmd := ssh.Command("ubuntu@"+host, []string{"bash", "-c", utils.ShQuote(checkProvisionedScript)})
+	cmd := ssh.Command("ubuntu@"+host, []string{"bash", "-c", utils.ShQuote(checkProvisionedScript)}, ssh.NoPasswordAuthentication)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -52,7 +52,7 @@ func checkProvisioned(host string) (bool, error) {
 // by connecting to the machine and executing a bash script.
 func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
-	cmd := ssh.Command("ubuntu@"+host, []string{"bash"})
+	cmd := ssh.Command("ubuntu@"+host, []string{"bash"}, ssh.NoPasswordAuthentication)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -147,7 +147,10 @@ cat /proc/cpuinfo`
 //
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
-func InitUbuntuUser(host, login, authorizedKeys string) error {
+//
+// stdin and stdout will be used for remote sudo prompts,
+// if the ubuntu user must be created/updated.
+func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
 	// To avoid unnecessary prompting for the specified login,
@@ -170,9 +173,8 @@ func InitUbuntuUser(host, login, authorizedKeys string) error {
 	script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(authorizedKeys))
 	cmd = ssh.Command(host, []string{"sudo", "bash -c " + utils.ShQuote(script)}, ssh.AllocateTTY)
 	var stderr bytes.Buffer
-	// TODO(axw) pass stdio handles in
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout // for sudo prompt
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout // for sudo prompt
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {

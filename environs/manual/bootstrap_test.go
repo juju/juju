@@ -81,7 +81,7 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 		HardwareCharacteristics: &instance.HardwareCharacteristics{
 			Arch: &arch,
 		},
-		Context:       envtesting.NewBootstrapContext(coretesting.Context(c)),
+		Context: envtesting.NewBootstrapContext(coretesting.Context(c)),
 	}
 }
 
