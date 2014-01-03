@@ -57,7 +57,7 @@ cd \$GOPATH/src/launchpad.net/juju-core
 # Trusty seems to require an initial update.
 sudo apt-get update
 sudo apt-get install -y build-essential
-if [ "$TRUSTY_PATCH" = "trusty" ];
+if [ "$TRUSTY_PATCH" = "trusty" ]; then
   patch Makefile << IEOT
 --- Makefile	2014-01-02 20:01:22.000000000 +0000
 +++ Makefile.new	2014-01-02 22:01:30.249833999 +0000
