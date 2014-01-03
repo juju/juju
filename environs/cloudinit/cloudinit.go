@@ -261,7 +261,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// cfg.jujuTools()), as we want the jujud that is linked to in
 		// /usr/local/bin to also upgrade when the machine agent upgrades its
 		// tools and changes the tools directory that it is using.
-		fmt.Sprintf("ln -s %s/tools/%s/jujud /usr/local/bin/juju-run", cfg.DataDir, machineTag),
+		fmt.Sprintf("ln -f -s %s/tools/%s/jujud /usr/local/bin/juju-run", cfg.DataDir, machineTag),
 	)
 
 	// Add the cloud archive cloud-tools pocket to apt sources
