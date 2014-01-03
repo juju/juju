@@ -88,13 +88,11 @@ class TestJujuClientDevel(TestCase):
             yield ' 5.6 \n'
 
         JujuClientDevelFake.set_output(juju_cmd_iterator())
-        with patch(
-                'subprocess.check_output', side_effect=lambda x: ' 5.6 \n'
-                ) as vsn:
+        effect = lambda x: ' 5.6 \n'
+        with patch('subprocess.check_output', side_effect=effect) as vsn:
             version = JujuClientDevelFake.get_version()
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
-
 
     def test_by_version(self):
         def juju_cmd_iterator():
@@ -103,8 +101,9 @@ class TestJujuClientDevel(TestCase):
             yield '1.16.1'
             yield '1.15'
 
-        context = patch.object(JujuClientDevel, 'get_version',
-                side_effect=juju_cmd_iterator().next)
+        context = patch.object(
+            JujuClientDevel, 'get_version',
+            side_effect=juju_cmd_iterator().next)
         with context:
             self.assertIs(JujuClientDevel,
                           type(JujuClientDevel.by_version()))
@@ -188,12 +187,12 @@ class TestJujuClientDevel(TestCase):
         client = JujuClientDevel(None, None)
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.check_output', raise_without_stderr):
-                result = client.get_juju_output(env, 'bar')
+                client.get_juju_output(env, 'bar')
         self.assertEqual(exc.exception.stderr, 'Hello!')
 
     def test_get_status(self):
         def output_iterator():
-            args = yield
+            yield
             yield dedent("""\
                 - a
                 - b
@@ -359,8 +358,8 @@ class TestStatus(TestCase):
             'services': {
                 'jenkins': {
                     'units': {
-                        'jenkins/0':
-                            {'agent-version': '1.6.1'},
+                        'jenkins/0': {
+                            'agent-version': '1.6.1'},
                         'jenkins/1': {},
                     },
                 }
@@ -471,7 +470,7 @@ class TestEnvironment(TestCase):
             """)
         actions = [err, status]
 
-        def output_fake(*args):
+        def get_juju_output_fake(*args):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -480,7 +479,7 @@ class TestEnvironment(TestCase):
 
         env = Environment('local', JujuClientDevelFake(None, None))
         output_real = 'test_jujupy.JujuClientDevelFake.get_juju_output'
-        with patch(output_real, output_fake):
+        with patch(output_real, get_juju_output_fake):
             env.wait_for_version('1.17.2')
 
     def test_local_from_config(self):
