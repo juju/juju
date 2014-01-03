@@ -3,6 +3,7 @@ set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 INSTANCE_TYPE=$1
 AMI_IMAGE=$2
+TRUSTY_PATCH=${3-""}
 tarfile=$(python <<EOT
 import json
 import sys
@@ -53,7 +54,24 @@ wget -q $JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/artifact/$tarfi
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
 cd \$GOPATH/src/launchpad.net/juju-core
+# Trusty seems to require an initial update.
+sudo apt-get update
 sudo apt-get install -y build-essential
+if [ "$TRUSTY_PATCH" = "trusty" ]; then
+  patch Makefile <<"IEOT"
+--- Makefile	2014-01-02 20:01:22.000000000 +0000
++++ Makefile.new	2014-01-02 22:01:30.249833999 +0000
+@@ -67,7 +67,7 @@
+ # PPA includes the required mongodb-server binaries. However, neither
+ # PPA works on Saucy just yet.
+ install-dependencies:
+-ifneq (\$(shell lsb_release -cs),saucy)
++ifneq (\$(shell lsb_release -cs),trusty)
+ 	@echo Adding juju PPAs for golang and mongodb-server
+ 	@sudo apt-add-repository --yes ppa:juju/golang
+ 	@sudo apt-add-repository --yes ppa:juju/stable
+IEOT
+fi
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
