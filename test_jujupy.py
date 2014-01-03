@@ -379,45 +379,6 @@ def fast_timeout(count):
 
 class TestEnvironment(TestCase):
 
-    def test_wait_for_started(self):
-        def output_iterator():
-            yield
-            yield dedent("""\
-                machines:
-                  "0":
-                    agent-state: started
-                services:
-                  jenkins:
-                    units:
-                      jenkins/0:
-                        agent-state: started
-            """)
-        JujuClientDevelFake.set_output(output_iterator())
-        env = Environment('local', JujuClientDevelFake(None, None))
-        env.wait_for_started()
-
-    def test_wait_for_started_timeout(self):
-        def output_iterator():
-            yield
-            while True:
-                yield dedent("""\
-                    machines:
-                      "0":
-                        agent-state: pending
-                    services:
-                      jenkins:
-                        units:
-                          jenkins/0:
-                            agent-state: started
-                """)
-        JujuClientDevelFake.set_output(output_iterator())
-        env = Environment('local', JujuClientDevelFake)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
-            with self.assertRaisesRegexp(
-                    Exception,
-                    'Timed out waiting for agents to start in local'):
-                env.wait_for_started()
-
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
@@ -430,6 +391,28 @@ class TestEnvironment(TestCase):
                   jenkins/0:
                     {0}: {2}
         """.format(key, machine_value, unit_value))
+
+    def test_wait_for_started(self):
+        def output_iterator():
+            yield
+            yield self.make_status_yaml('agent-state', 'started', 'started')
+        JujuClientDevelFake.set_output(output_iterator())
+        env = Environment('local', JujuClientDevelFake(None, None))
+        env.wait_for_started()
+
+    def test_wait_for_started_timeout(self):
+        def output_iterator():
+            yield
+            while True:
+                yield self.make_status_yaml(
+                    'agent-state', 'pending', 'started')
+        JujuClientDevelFake.set_output(output_iterator())
+        env = Environment('local', JujuClientDevelFake)
+        with patch('jujupy.until_timeout', lambda x: range(0)):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Timed out waiting for agents to start in local'):
+                env.wait_for_started()
 
     def test_wait_for_version(self):
         def output_iterator():
