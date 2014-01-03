@@ -442,16 +442,7 @@ class TestEnvironment(TestCase):
     def test_wait_for_version_timeout(self):
         def output_iterator():
             yield
-            yield dedent("""\
-                machines:
-                  "0":
-                    agent-version: 1.17.2
-                services:
-                  jenkins:
-                    units:
-                      jenkins/0:
-                        agent-version: 1.17.1
-            """)
+            yield self.make_status_yaml('agent-version', '1.17.2', '1.17.1')
         JujuClientDevelFake.set_output(output_iterator())
         env = Environment('local', JujuClientDevelFake)
         with patch('jujupy.until_timeout', lambda x: range(0)):
@@ -462,16 +453,7 @@ class TestEnvironment(TestCase):
     def test_wait_for_version_handles_connection_error(self):
         err = subprocess.CalledProcessError(1, 'foo')
         err.stderr = 'Unable to connect to environment'
-        status = dedent("""\
-                machines:
-                  "0":
-                    agent-version: 1.17.2
-                services:
-                  jenkins:
-                    units:
-                      jenkins/0:
-                        agent-version: 1.17.2
-            """)
+        status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
         def get_juju_output_fake(*args):
@@ -490,16 +472,7 @@ class TestEnvironment(TestCase):
 
     def test_wait_for_version_raises_non_connection_error(self):
         err = Exception('foo')
-        status = dedent("""\
-                machines:
-                  "0":
-                    agent-version: 1.17.2
-                services:
-                  jenkins:
-                    units:
-                      jenkins/0:
-                        agent-version: 1.17.2
-            """)
+        status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
         def get_juju_output_fake(*args):
