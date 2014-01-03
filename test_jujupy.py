@@ -479,8 +479,10 @@ class TestEnvironment(TestCase):
 
         env = Environment('local', JujuClientDevelFake(None, None))
         output_real = 'test_jujupy.JujuClientDevelFake.get_juju_output'
-        with patch(output_real, get_juju_output_fake):
-            env.wait_for_version('1.17.2')
+        devnull = open(os.devnull, 'w')
+        with patch('sys.stdout', devnull):
+            with patch(output_real, get_juju_output_fake):
+                env.wait_for_version('1.17.2')
 
     def test_local_from_config(self):
         env = Environment('local', '', {'type': 'openstack'})
