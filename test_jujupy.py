@@ -484,6 +484,35 @@ class TestEnvironment(TestCase):
             with patch(output_real, get_juju_output_fake):
                 env.wait_for_version('1.17.2')
 
+    def test_wait_for_version_raises_non_connection_error(self):
+        err = Exception('foo')
+        status = dedent("""\
+                machines:
+                  "0":
+                    agent-version: 1.17.2
+                services:
+                  jenkins:
+                    units:
+                      jenkins/0:
+                        agent-version: 1.17.2
+            """)
+        actions = [err, status]
+
+        def get_juju_output_fake(*args):
+            action = actions.pop(0)
+            if isinstance(action, Exception):
+                raise action
+            else:
+                return action
+
+        env = Environment('local', JujuClientDevelFake(None, None))
+        output_real = 'test_jujupy.JujuClientDevelFake.get_juju_output'
+        devnull = open(os.devnull, 'w')
+        with patch('sys.stdout', devnull):
+            with patch(output_real, get_juju_output_fake):
+                with self.assertRaisesRegexp(Exception, 'foo'):
+                    env.wait_for_version('1.17.2')
+
     def test_local_from_config(self):
         env = Environment('local', '', {'type': 'openstack'})
         self.assertFalse(env.local, 'Does not respect config type.')
