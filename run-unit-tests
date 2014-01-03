@@ -3,7 +3,7 @@ set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 INSTANCE_TYPE=$1
 AMI_IMAGE=$2
-TRUSTY_PATCH=$3
+TRUSTY_PATCH=${3-""}
 tarfile=$(python <<EOT
 import json
 import sys
