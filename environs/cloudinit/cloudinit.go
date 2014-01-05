@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/ssh"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
@@ -33,6 +32,9 @@ import (
 // hardware characteristics). It is a transient file, only used as the node
 // is bootstrapping.
 const BootstrapStateURLFile = "/tmp/provider-state-url"
+
+// SystemIdentity is the name of the file where the environment SSH key is kept.
+const SystemIdentity = "system-identity"
 
 // fileSchemePrefix is the prefix for file:// URLs.
 const fileSchemePrefix = "file://"
@@ -276,7 +278,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	cfg.MaybeAddCloudArchiveCloudTools(c)
 
 	if cfg.StateServer {
-		identityFile := cfg.dataFile(ssh.SystemIdentity)
+		identityFile := cfg.dataFile(SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		// Disable the default mongodb installed by the mongodb-server package.
 		// Only do this if the file doesn't exist already, so users can run

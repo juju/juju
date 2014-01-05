@@ -7,7 +7,7 @@ potential use-cases.
      address on the server
    * allows juju-run commands to be run on remote machiens
 
-Juju already creates a private key to connect to the mongo database. It was an
+Juju already creates a private key for serving the mongo database. It was an
 option to also use this key, but in the end, having different keys for
 different purposes just seems like a more robust idea.
 

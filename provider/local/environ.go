@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/ssh"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -470,9 +469,12 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possible
 	agentTools := possibleTools[0]
 	logger.Debugf("tools: %#v", agentTools)
 	// save the system identity file
-	if err := ssh.WriteSystemIdentity(filepath.Join(dataDir, ssh.SystemIdentity), privateKey); err != nil {
+	systemIdentityFilename := filepath.Join(dataDir, cloudinit.SystemIdentity)
+	logger.Debugf("writing system identity to %s", systemIdentityFilename)
+	if err := ioutil.WriteFile(systemIdentityFilename, []byte(privateKey), 0600); err != nil {
 		return fmt.Errorf("failed to write system identity: %v", err)
 	}
+
 	// brutally abuse our knowledge of storage to directly open the file
 	toolsUrl, err := url.Parse(agentTools.URL)
 	if err != nil {
