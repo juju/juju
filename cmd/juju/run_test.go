@@ -63,11 +63,11 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"machine-2\" is not a valid machine id",
 	}, {
 		message:  "all and defined services",
-		args:     []string{"--all", "--service=wordpress, mysql", "sudo reboot"},
+		args:     []string{"--all", "--service=wordpress,mysql", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual services`,
 	}, {
 		message:  "command to services wordpress and mysql",
-		args:     []string{"--service=wordpress, mysql", "sudo reboot"},
+		args:     []string{"--service=wordpress,mysql", "sudo reboot"},
 		commands: "sudo reboot",
 		services: []string{"wordpress", "mysql"},
 	}, {
@@ -79,7 +79,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"foo/0\" is not a valid service name",
 	}, {
 		message:  "all and defined units",
-		args:     []string{"--all", "--unit=wordpress/0, mysql/1", "sudo reboot"},
+		args:     []string{"--all", "--unit=wordpress/0,mysql/1", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual units`,
 	}, {
 		message:  "command to valid units",
@@ -147,7 +147,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 }
 
 func (s *RunSuite) TestAllMachines(c *gc.C) {
-	mock = &mockRunAPI{}
+	mock := &mockRunAPI{}
 	s.PatchValue(&getAPIClient, func(name string) (RunClient, error) {
 		return mock, nil
 	})
@@ -159,13 +159,13 @@ type mockRunAPI struct {
 	stderr string
 	code   int
 	// machines, services, units
-	machines map[string]bool
+	machines  map[string]bool
 	responses map[string]api.RunResult
 }
 
 var _ RunClient = (*mockRunAPI)(nil)
 
-func (m *mockRunAPI) setMachinesAlive(ids ...string)  {
+func (m *mockRunAPI) setMachinesAlive(ids ...string) {
 	if m.machines == nil {
 		m.machines = make(map[string]bool)
 	}
@@ -188,12 +188,12 @@ func (*mockRunAPI) Close() error {
 func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]api.RunResult, error) {
 	var result []api.RunResult
 	for machine := range m.machines {
-		response, found := r.responses[machine]
+		response, found := m.responses[machine]
 		if !found {
 			// Consider this a timeout
 			response = api.RunResult{MachineId: machine, Error: fmt.Errorf("command timed out")}
 		}
-		result = append(result, respose)
+		result = append(result, response)
 	}
 
 	return result, nil
