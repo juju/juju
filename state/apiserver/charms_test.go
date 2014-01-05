@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -217,7 +218,7 @@ func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expCode int, 
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	c.Assert(err, gc.IsNil)
-	var jsonResponse apiserver.CharmsResponse
+	var jsonResponse params.CharmsResponse
 	err = json.Unmarshal(body, &jsonResponse)
 	c.Assert(err, gc.IsNil)
 	if expError != "" {

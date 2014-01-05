@@ -62,9 +62,8 @@ var getTests = []struct {
 
 func (s *GetSuite) TestGetConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, gc.IsNil)
-	err = svc.UpdateConfigSettings(charm.Settings{"title": "Nearly There"})
+	svc := s.AddTestingService(c, "dummy-service", sch)
+	err := svc.UpdateConfigSettings(charm.Settings{"title": "Nearly There"})
 	c.Assert(err, gc.IsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)

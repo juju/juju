@@ -4,13 +4,19 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
 	"time"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -19,21 +25,58 @@ type Client struct {
 	st *State
 }
 
-// MachineInfo holds information about a machine.
-type MachineInfo struct {
-	InstanceId string // blank if not set.
+// MachineStatus holds status info about a machine.
+type MachineStatus struct {
+	Err            error
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	DNSName        string
+	InstanceId     instance.Id
+	InstanceState  string
+	Life           string
+	Series         string
+	Id             string
+	Containers     map[string]MachineStatus
+	Hardware       string
+}
+
+// ServiceStatus holds status info about a service.
+type ServiceStatus struct {
+	Err           error
+	Charm         string
+	Exposed       bool
+	Life          string
+	Relations     map[string][]string
+	SubordinateTo []string
+	Units         map[string]UnitStatus
+}
+
+// UnitStatus holds status info about a unit.
+type UnitStatus struct {
+	Err            error
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	Life           string
+	Machine        string
+	OpenedPorts    []string
+	PublicAddress  string
+	Subordinates   map[string]UnitStatus
 }
 
 // Status holds information about the status of a juju environment.
 type Status struct {
-	Machines map[string]MachineInfo
-	// TODO the rest
+	EnvironmentName string
+	Machines        map[string]MachineStatus
+	Services        map[string]ServiceStatus
 }
 
 // Status returns the status of the juju environment.
-func (c *Client) Status() (*Status, error) {
+func (c *Client) Status(patterns []string) (*Status, error) {
 	var s Status
-	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
+	p := params.StatusParams{Patterns: patterns}
+	if err := c.st.Call("Client", "", "Status", p, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -127,16 +170,6 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 	return results.Machines, err
 }
 
-// InjectMachines injects new machines with the supplied parameters.
-func (c *Client) InjectMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	args := params.AddMachines{
-		MachineParams: machineParams,
-	}
-	results := new(params.AddMachinesResults)
-	err := c.st.Call("Client", "", "InjectMachines", args, results)
-	return results.Machines, err
-}
-
 // MachineConfig returns information from the environment config that are
 // needed for machine cloud-init.
 func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
@@ -177,13 +210,14 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		NumUnits:    numUnits,
-		ConfigYAML:  configYAML,
-		Constraints: cons,
+		ServiceName:   serviceName,
+		CharmUrl:      charmUrl,
+		NumUnits:      numUnits,
+		ConfigYAML:    configYAML,
+		Constraints:   cons,
+		ToMachineSpec: toMachineSpec,
 	}
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
@@ -203,6 +237,18 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 		Force:       force,
 	}
 	return c.st.Call("Client", "", "ServiceSetCharm", args, nil)
+}
+
+// ServiceGetCharmURL returns the charm URL the given service is
+// running at present.
+func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
+	result := new(params.StringResult)
+	args := params.ServiceGet{ServiceName: serviceName}
+	err := c.st.Call("Client", "", "ServiceGetCharmURL", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	return charm.ParseURL(result.Result)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -375,4 +421,103 @@ type RunParams struct {
 
 func (c *Client) Run(params RunParams) ([]RunResult, error) {
 	return nil, fmt.Errorf("TODO")
+}
+
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment() error {
+	return c.st.Call("Client", "", "DestroyEnvironment", nil, nil)
+}
+
+// AddLocalCharm prepares the given charm with a local: schema in its
+// URL, and uploads it via the API server, returning the assigned
+// charm URL. If the API server does not support charm uploads, an
+// error satisfying params.IsCodeNotImplemented() is returned.
+func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
+	}
+	// Package the charm for uploading.
+	var archive *os.File
+	switch ch := ch.(type) {
+	case *charm.Dir:
+		var err error
+		if archive, err = ioutil.TempFile("", "charm"); err != nil {
+			return nil, fmt.Errorf("cannot create temp file: %v", err)
+		}
+		defer os.Remove(archive.Name())
+		defer archive.Close()
+		if err := ch.BundleTo(archive); err != nil {
+			return nil, fmt.Errorf("cannot repackage charm: %v", err)
+		}
+		if _, err := archive.Seek(0, 0); err != nil {
+			return nil, fmt.Errorf("cannot rewind packaged charm: %v", err)
+		}
+	case *charm.Bundle:
+		var err error
+		if archive, err = os.Open(ch.Path); err != nil {
+			return nil, fmt.Errorf("cannot read charm archive: %v", err)
+		}
+		defer archive.Close()
+	default:
+		return nil, fmt.Errorf("unknown charm type %T", ch)
+	}
+
+	// Prepare the upload request.
+	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
+	req, err := http.NewRequest("POST", url, archive)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create upload request: %v", err)
+	}
+	req.SetBasicAuth(c.st.tag, c.st.password)
+	req.Header.Set("Content-Type", "application/zip")
+
+	// Send the request.
+
+	// BUG(dimitern) 2013-12-17 bug #1261780
+	// Due to issues with go 1.1.2, fixed later, we cannot use a
+	// regular TLS client with the CACert here, because we get "x509:
+	// cannot validate certificate for 127.0.0.1 because it doesn't
+	// contain any IP SANs". Once we use a later go version, this
+	// should be changed to connect to the API server with a regular
+	// HTTP+TLS enabled client, using the CACert (possily cached, like
+	// the tag and password) passed in api.Open()'s info argument.
+	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot upload charm: %v", err)
+	}
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		// API server is 1.16 or older, so charm upload
+		// is not supported; notify the client.
+		return nil, &params.Error{
+			Message: "charm upload is not supported by the API server",
+			Code:    params.CodeNotImplemented,
+		}
+	}
+
+	// Now parse the response & return.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read charm upload response: %v", err)
+	}
+	defer resp.Body.Close()
+	var jsonResponse params.CharmsResponse
+	if err := json.Unmarshal(body, &jsonResponse); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
+	}
+	if jsonResponse.Error != "" {
+		return nil, fmt.Errorf("error uploading charm: %v", jsonResponse.Error)
+	}
+	return charm.MustParseURL(jsonResponse.CharmURL), nil
+}
+
+// AddCharm adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm() in the
+// client-side API.
+func (c *Client) AddCharm(curl *charm.URL) error {
+	args := params.CharmURL{URL: curl.String()}
+	return c.st.Call("Client", "", "AddCharm", args, nil)
 }

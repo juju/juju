@@ -210,7 +210,7 @@ func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), 
 }
 
 func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	status, err := st.Client().Status()
+	status, err := st.Client().Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
@@ -314,7 +314,7 @@ func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), e
 }
 
 func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{})
+	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
 	}

@@ -613,8 +613,12 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
+	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || kind != names.UserTagKind {
+		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	}
 	// Sanity checks.
 	if !names.IsService(name) {
 		return nil, fmt.Errorf("invalid name")
@@ -633,6 +637,11 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	} else if env.Life() != Alive {
 		return nil, fmt.Errorf("environment is no longer alive")
 	}
+	if userExists, err := st.checkUserExists(ownerId); err != nil {
+		return nil, err
+	} else if !userExists {
+		return nil, fmt.Errorf("user %v doesn't exist", ownerId)
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -642,6 +651,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
+		OwnerTag:      ownerTag,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
@@ -649,11 +659,17 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
+			C:      st.users.Name,
+			Id:     ownerId,
+			Assert: txn.DocExists,
+		},
+		{
 			C:      st.settingsrefs.Name,
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		}, {
+		},
+		{
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
@@ -666,9 +682,6 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	ops = append(ops, peerOps...)
 
-	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that either the
-	// service already exists, or the environment is being destroyed.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		err := env.Refresh()
 		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
@@ -676,6 +689,13 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		} else if err != nil {
 			return nil, err
 		}
+
+		if userExists, ueErr := st.checkUserExists(ownerId); ueErr != nil {
+			return nil, ueErr
+		} else if !userExists {
+			return nil, fmt.Errorf("unknown user %q", ownerId)
+		}
+
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err

@@ -5,7 +5,9 @@ package cmd_test
 
 import (
 	"fmt"
+	"io/ioutil"
 
+	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -17,6 +19,39 @@ type ArgsSuite struct {
 }
 
 var _ = gc.Suite(&ArgsSuite{})
+
+func (*ArgsSuite) TestFlagsUsage(c *gc.C) {
+	for i, test := range []struct {
+		message       string
+		defaultValue  []string
+		args          []string
+		expectedValue []string
+	}{{
+		message: "nil default and no arg",
+	}, {
+		message:       "default value and not set by args",
+		defaultValue:  []string{"foo", "bar"},
+		expectedValue: []string{"foo", "bar"},
+	}, {
+		message:       "no value set by args",
+		args:          []string{"--value", "foo,bar"},
+		expectedValue: []string{"foo", "bar"},
+	}, {
+		message:       "default value and set by args",
+		defaultValue:  []string{"omg"},
+		args:          []string{"--value", "foo,bar"},
+		expectedValue: []string{"foo", "bar"},
+	}} {
+		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
+		f.SetOutput(ioutil.Discard)
+		var value []string
+		f.Var(cmd.NewStringsValue(test.defaultValue, &value), "value", "help")
+		err := f.Parse(false, test.args)
+		c.Check(err, gc.IsNil)
+		c.Check(value, gc.DeepEquals, test.expectedValue)
+	}
+}
 
 func (*ArgsSuite) TestNewStringsValue(c *gc.C) {
 	for i, test := range []struct {
@@ -47,13 +82,16 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 		arg      string
 		expected []string
 	}{{
-		message: "empty",
+		message:  "empty",
+		expected: []string{""},
 	}, {
-		message: "just whitespace",
-		arg:     "   ",
+		message:  "just whitespace",
+		arg:      "   ",
+		expected: []string{"   "},
 	}, {
-		message: "whitespace and comma",
-		arg:     "  ,  ",
+		message:  "whitespace and comma",
+		arg:      "  ,  ",
+		expected: []string{"  ", "  "},
 	}, {
 		message:  "single value",
 		arg:      "foo",
@@ -61,11 +99,11 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 	}, {
 		message:  "single value with comma",
 		arg:      "foo,",
-		expected: []string{"foo"},
+		expected: []string{"foo", ""},
 	}, {
 		message:  "single value with whitespace",
 		arg:      " foo ",
-		expected: []string{"foo"},
+		expected: []string{" foo "},
 	}, {
 		message:  "multiple values",
 		arg:      "foo,bar,baz",
@@ -73,7 +111,7 @@ func (*ArgsSuite) TestSet(c *gc.C) {
 	}, {
 		message:  "multiple values with spaces",
 		arg:      "foo, bar, baz",
-		expected: []string{"foo", "bar", "baz"},
+		expected: []string{"foo", " bar", " baz"},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		var result []string

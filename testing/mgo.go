@@ -28,26 +28,47 @@ import (
 )
 
 var (
-	// MgoAddr holds the address of the shared MongoDB server set up by
-	// MgoTestPackage.
-	MgoAddr string
-
-	// MgoPort holds the port used by the shared MongoDB server.
-	MgoPort int
-
-	// mgoServer holds the running MongoDB command.
-	mgoServer *exec.Cmd
-
-	// mgoExited receives a value when the mongodb server exits.
-	mgoExited <-chan struct{}
-
-	// mgoDir holds the directory that MongoDB is running in.
-	mgoDir string
+	// MgoServer is a shared mongo server used by tests.
+	MgoServer = &MgoInstance{ssl: true}
 )
+
+type MgoInstance struct {
+	// addr holds the address of the MongoDB server
+	addr string
+
+	// MgoPort holds the port of the MongoDB server.
+	port int
+
+	// server holds the running MongoDB command.
+	server *exec.Cmd
+
+	// exited receives a value when the mongodb server exits.
+	exited <-chan struct{}
+
+	// dir holds the directory that MongoDB is running in.
+	dir string
+
+	// ssl determines whether the MongoDB server will use TLS
+	ssl bool
+
+	// Params is a list of additional parameters that will be passed to
+	// the mongod application
+	Params []string
+}
+
+// Addr returns the address of the MongoDB server.
+func (m *MgoInstance) Addr() string {
+	return m.addr
+}
+
+// Port returns the port of the MongoDB server.
+func (m *MgoInstance) Port() int {
+	return m.port
+}
 
 // We specify a timeout to mgo.Dial, to prevent
 // mongod failures hanging the tests.
-const mgoDialTimeout = 5 * time.Second
+const mgoDialTimeout = 15 * time.Second
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
 // server at the end of every test and supplies a connection to the shared
@@ -56,8 +77,8 @@ type MgoSuite struct {
 	Session *mgo.Session
 }
 
-// startMgoServer starts a MongoDB server in a temporary directory.
-func startMgoServer() error {
+// Start starts a MongoDB server in a temporary directory.
+func (inst *MgoInstance) Start(ssl bool) error {
 	dbdir, err := ioutil.TempDir("", "test-mgo")
 	if err != nil {
 		return err
@@ -67,39 +88,44 @@ func startMgoServer() error {
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
-	MgoPort = FindTCPPort()
-	MgoAddr = fmt.Sprintf("localhost:%d", MgoPort)
-	mgoDir = dbdir
-	if err := runMgoServer(); err != nil {
-		MgoAddr = ""
-		MgoPort = 0
-		os.RemoveAll(mgoDir)
-		mgoDir = ""
-		return err
+	inst.port = FindTCPPort()
+	inst.addr = fmt.Sprintf("localhost:%d", inst.port)
+	inst.dir = dbdir
+	inst.ssl = ssl
+	if err := inst.run(); err != nil {
+		inst.addr = ""
+		inst.port = 0
+		os.RemoveAll(inst.dir)
+		inst.dir = ""
 	}
-	return nil
+	return err
 }
 
-// runMgoServer runs the MongoDB server at the
+// run runs the MongoDB server at the
 // address and directory already configured.
-func runMgoServer() error {
-	if mgoServer != nil {
+func (inst *MgoInstance) run() error {
+	if inst.server != nil {
 		panic("mongo server is already running")
 	}
-	mgoport := strconv.Itoa(MgoPort)
+	mgoport := strconv.Itoa(inst.port)
 	mgoargs := []string{
 		"--auth",
-		"--dbpath", mgoDir,
-		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", filepath.Join(mgoDir, "server.pem"),
-		"--sslPEMKeyPassword", "ignored",
-		"--bind_ip", "localhost",
+		"--dbpath", inst.dir,
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
 		"--nounixsocket",
+	}
+	if inst.ssl {
+		mgoargs = append(mgoargs,
+			"--sslOnNormalPorts",
+			"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
+			"--sslPEMKeyPassword", "ignored")
+	}
+	if inst.Params != nil {
+		mgoargs = append(mgoargs, inst.Params...)
 	}
 	server := exec.Command("mongod", mgoargs...)
 	out, err := server.StdoutPipe()
@@ -121,34 +147,35 @@ func runMgoServer() error {
 		}
 		close(exited)
 	}()
-	mgoExited = exited
+	inst.exited = exited
 	if err := server.Start(); err != nil {
 		return err
 	}
-	mgoServer = server
+	inst.server = server
+
 	return nil
 }
 
-func mgoKill() {
-	mgoServer.Process.Kill()
-	<-mgoExited
-	mgoServer = nil
-	mgoExited = nil
+func (inst *MgoInstance) kill() {
+	inst.server.Process.Kill()
+	<-inst.exited
+	inst.server = nil
+	inst.exited = nil
 }
 
-func destroyMgoServer() {
-	if mgoServer != nil {
-		mgoKill()
-		os.RemoveAll(mgoDir)
-		MgoAddr, mgoDir = "", ""
+func (inst *MgoInstance) Destroy() {
+	if inst.server != nil {
+		inst.kill()
+		os.RemoveAll(inst.dir)
+		inst.addr, inst.dir = "", ""
 	}
 }
 
-// MgoRestart restarts the mongo server, useful for
+// Restart restarts the mongo server, useful for
 // testing what happens when a state server goes down.
-func MgoRestart() {
-	mgoKill()
-	if err := startMgoServer(); err != nil {
+func (inst *MgoInstance) Restart() {
+	inst.kill()
+	if err := inst.Start(inst.ssl); err != nil {
 		panic(err)
 	}
 }
@@ -156,15 +183,19 @@ func MgoRestart() {
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
-	if err := startMgoServer(); err != nil {
+	MgoTestPackageSsl(t, true)
+}
+
+func MgoTestPackageSsl(t *stdtesting.T, ssl bool) {
+	if err := MgoServer.Start(ssl); err != nil {
 		t.Fatal(err)
 	}
-	defer destroyMgoServer()
+	defer MgoServer.Destroy()
 	gc.TestingT(t)
 }
 
 func (s *MgoSuite) SetUpSuite(c *gc.C) {
-	if MgoAddr == "" {
+	if MgoServer.addr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
@@ -204,12 +235,42 @@ func (s *MgoSuite) TearDownSuite(c *gc.C) {
 	utils.FastInsecureHash = false
 }
 
-// MgoDial returns a new connection to the shared MongoDB server.
-func MgoDial() *mgo.Session {
+// MustDial returns a new connection to the MongoDB server, and panics on
+// errors.
+func (inst *MgoInstance) MustDial() *mgo.Session {
+	s, err := inst.dial(false)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+// Dial returns a new connection to the MongoDB server.
+func (inst *MgoInstance) Dial() (*mgo.Session, error) {
+	return inst.dial(false)
+}
+
+// DialDirect returns a new direct connection to the shared MongoDB server. This
+// must be used if you're connecting to a replicaset that hasn't been initiated
+// yet.
+func (inst *MgoInstance) DialDirect() (*mgo.Session, error) {
+	return inst.dial(true)
+}
+
+// MustDialDirect works like DialDirect, but panics on errors.
+func (inst *MgoInstance) MustDialDirect() *mgo.Session {
+	session, err := inst.dial(true)
+	if err != nil {
+		panic(err)
+	}
+	return session
+}
+
+func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
@@ -217,37 +278,36 @@ func MgoDial() *mgo.Session {
 		ServerName: "anything",
 	}
 	session, err := mgo.DialWithInfo(&mgo.DialInfo{
-		Addrs: []string{MgoAddr},
+		Direct: direct,
+		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		},
 		Timeout: mgoDialTimeout,
 	})
-	if err != nil {
-		panic(err)
-	}
-	return session
+	return session, err
 }
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
-	s.Session = MgoDial()
+	s.Session = MgoServer.MustDial()
 }
 
-// MgoReset deletes all content from the shared MongoDB server.
-func MgoReset() {
-	session := MgoDial()
+// Reset deletes all content from the MongoDB server and panics if it encounters
+// errors.
+func (inst *MgoInstance) Reset() {
+	session := inst.MustDial()
 	defer session.Close()
 
 	dbnames, ok := resetAdminPasswordAndFetchDBNames(session)
 	if ok {
-		log.Infof("MgoReset successfully reset admin password")
+		log.Infof("Reset successfully reset admin password")
 	} else {
 		// We restart it to regain access.  This should only
 		// happen when tests fail.
 		log.Noticef("testing: restarting MongoDB server after unauthorized access")
-		destroyMgoServer()
-		if err := startMgoServer(); err != nil {
+		inst.Destroy()
+		if err := inst.Start(inst.ssl); err != nil {
 			panic(err)
 		}
 		return
@@ -266,7 +326,7 @@ func MgoReset() {
 // resetAdminPasswordAndFetchDBNames logs into the database with a
 // plausible password and returns all the database's db names. We need
 // to try several passwords because we don't know what state the mongo
-// server is in when MgoReset is called. If the test has set a custom
+// server is in when Reset is called. If the test has set a custom
 // password, we're out of luck, but if they are using
 // DefaultStatePassword, we can succeed.
 func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
@@ -322,7 +382,7 @@ func isUnauthorized(err error) bool {
 }
 
 func (s *MgoSuite) TearDownTest(c *gc.C) {
-	MgoReset()
+	MgoServer.Reset()
 	s.Session.Close()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()

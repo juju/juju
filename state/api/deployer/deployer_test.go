@@ -46,10 +46,8 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	// Create the needed services and relate them.
-	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	s.service1, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)

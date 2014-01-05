@@ -83,7 +83,6 @@ type machineDoc struct {
 	Principals    []string
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
-	TxnRevno      int64        `bson:"txn-revno"`
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
@@ -147,7 +146,6 @@ type instanceData struct {
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
-	TxnRevno   int64       `bson:"txn-revno"`
 }
 
 // TODO(wallyworld): move this method to a service.
@@ -204,6 +202,26 @@ func (m *Machine) IsManager() bool {
 		}
 	}
 	return false
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, error) {
+	// Apart from the bootstrap machine, manually provisioned
+	// machines have a nonce prefixed with "manual:". This is
+	// unique to manual provisioning.
+	if strings.HasPrefix(m.doc.Nonce, "manual:") {
+		return true, nil
+	}
+	// The bootstrap machine uses BootstrapNonce, so in that
+	// case we need to check if its provider type is "null".
+	if m.doc.Id == "0" {
+		cfg, err := m.st.EnvironConfig()
+		if err != nil {
+			return false, err
+		}
+		return cfg.Type() == "null", nil
+	}
+	return false, nil
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -706,11 +724,7 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 
 // SetAddresses records any addresses related to the machine
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
-	var stateAddresses []address
-	for _, address := range addresses {
-		stateAddresses = append(stateAddresses, NewAddress(address))
-	}
-
+	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,

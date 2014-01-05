@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api/params"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 )
 
@@ -85,7 +85,7 @@ func (c *DebugHooksCommand) getRelationNames1dot16() ([]string, error) {
 
 func (c *DebugHooksCommand) getRelationNames(serviceName string) ([]string, error) {
 	relations, err := c.apiClient.ServiceCharmRelations(serviceName)
-	if rpc.IsNoSuchRequest(err) {
+	if params.IsCodeNotImplemented(err) {
 		logger.Infof("API server does not support Client.ServiceCharmRelations falling back to 1.16 compatibility mode (direct DB access)")
 		return c.getRelationNames1dot16()
 	}

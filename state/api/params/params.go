@@ -64,11 +64,31 @@ type DestroyRelation struct {
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
-	Series                  string
-	ContainerType           instance.ContainerType
-	Constraints             constraints.Value
-	ParentId                string
-	Jobs                    []MachineJob
+	// The following fields hold attributes that will be given to the
+	// new machine when it is created.
+	Series      string
+	Constraints constraints.Value
+	Jobs        []MachineJob
+
+	// If ParentId is non-empty, it specifies the id of the
+	// parent machine within which the new machine will
+	// be created. In that case, ContainerType must also be
+	// set.
+	ParentId string
+
+	// ContainerType optionally gives the container type of the
+	// new machine. If it is non-empty, the new machine
+	// will be implemented by a container. If it is specified
+	// but ParentId is empty, a new top level machine will
+	// be created to hold the container with given series,
+	// constraints and jobs.
+	ContainerType instance.ContainerType
+
+	// If InstanceId is non-empty, it will be associated with
+	// the new machine along with the given nonce,
+	// hardware characteristics and addresses.
+	// All the following fields will be ignored if ContainerType
+	// is set.
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics
@@ -155,7 +175,8 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet call.
+// ServiceGet holds parameters for making the ServiceGet or
+// ServiceGetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
@@ -538,4 +559,9 @@ type DeployerConnectionValues struct {
 	StateAddresses []string
 	APIAddresses   []string
 	SyslogPort     int
+}
+
+// StatusParams holds parameters for the Status call.
+type StatusParams struct {
+	Patterns []string
 }

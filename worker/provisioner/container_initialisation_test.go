@@ -89,13 +89,11 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 	s.setupContainerWorker(c, host.Tag())
 
 	// make a container on the host machine
-	params := state.AddMachineParams{
-		ParentId:      host.Id(),
-		ContainerType: ctype,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
 	c.Assert(err, gc.IsNil)
 
 	// the host machine agent should not attempt to create the container
@@ -134,12 +132,11 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	for _, ctype := range instance.ContainerTypes {
 		// create a machine to host the container.
-		params := state.AddMachineParams{
+		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 			Series:      config.DefaultSeries,
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
-		}
-		m, err := s.BackingState.AddMachineWithConstraints(&params)
+		})
 		c.Assert(err, gc.IsNil)
 		err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 		c.Assert(err, gc.IsNil)
@@ -158,12 +155,11 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
 	// create a machine to host the container.
-	params := state.AddMachineParams{
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      config.DefaultSeries,
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
-	}
-	m, err := s.BackingState.AddMachineWithConstraints(&params)
+	})
 	c.Assert(err, gc.IsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
 	c.Assert(err, gc.IsNil)
