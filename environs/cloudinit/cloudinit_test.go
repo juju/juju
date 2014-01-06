@@ -111,7 +111,6 @@ install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
-ln -f -s /var/lib/juju/tools/machine-0/jujud /usr/local/bin/juju-run
 install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
 printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
@@ -224,7 +223,6 @@ install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
-ln -f -s /var/lib/juju/tools/machine-99/jujud /usr/local/bin/juju-run
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
 cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n

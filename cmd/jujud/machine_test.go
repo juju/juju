@@ -4,6 +4,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -61,6 +62,7 @@ func (s *MachineSuite) TearDownSuite(c *gc.C) {
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+	s.PatchValue(&jujuRun, filepath.Join(c.MkDir(), "juju-run"))
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
@@ -650,4 +652,44 @@ func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
 		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
+}
+
+func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
+	_, err := os.Stat(jujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		// juju-run should have been created
+		_, err := os.Stat(jujuRun)
+		c.Assert(err, gc.IsNil)
+	})
+}
+
+func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
+	err := os.Symlink("/nowhere/special", jujuRun)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(jujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		// juju-run should have been recreated
+		_, err := os.Stat(jujuRun)
+		c.Assert(err, gc.IsNil)
+		link, err := os.Readlink(jujuRun)
+		c.Assert(err, gc.IsNil)
+		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
+	})
+}
+
+func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	err := m.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	a := s.newAgent(c, m)
+	err = runWithTimeout(a)
+	c.Assert(err, gc.IsNil)
+	// juju-run should have been removed on termination
+	_, err = os.Stat(jujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	// data-dir should have been removed on termination
+	_, err = os.Stat(ac.DataDir())
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
