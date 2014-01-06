@@ -81,9 +81,10 @@ var cloudinitTests = []cloudinitTest{
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			Constraints:  envConstraints,
-			DataDir:      environs.DataDir,
-			StateInfoURL: "some-url",
+			Constraints:         envConstraints,
+			DataDir:             environs.DataDir,
+			StateInfoURL:        "some-url",
+			SystemPrivateSSHKey: "private rsa key",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -112,6 +113,8 @@ printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
 ln -s /var/lib/juju/tools/machine-0/jujud /usr/local/bin/juju-run
+install -D -m 600 /dev/null '/var/lib/juju/system-identity'
+printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
 install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
 printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
@@ -159,9 +162,10 @@ start jujud-machine-0
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			Constraints:  envConstraints,
-			DataDir:      environs.DataDir,
-			StateInfoURL: "some-url",
+			Constraints:         envConstraints,
+			DataDir:             environs.DataDir,
+			StateInfoURL:        "some-url",
+			SystemPrivateSSHKey: "private rsa key",
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -320,8 +324,9 @@ wget --no-check-certificate --no-verbose -O \$bin/tools\.tar\.gz 'http://foo\.co
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			DataDir:      environs.DataDir,
-			StateInfoURL: "some-url",
+			DataDir:             environs.DataDir,
+			StateInfoURL:        "some-url",
+			SystemPrivateSSHKey: "private rsa key",
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -721,9 +726,10 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			Addrs:  []string{"host:9999"},
 			CACert: []byte(testing.CACert),
 		},
-		Config:       minimalConfig(c),
-		DataDir:      environs.DataDir,
-		MachineNonce: "FAKE_NONCE",
+		Config:              minimalConfig(c),
+		DataDir:             environs.DataDir,
+		MachineNonce:        "FAKE_NONCE",
+		SystemPrivateSSHKey: "private rsa key",
 	}
 	// check that the base configuration does not give an error
 	ci := coreCloudinit.New()

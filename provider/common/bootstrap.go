@@ -46,7 +46,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL)
+
+	privateKey, err := GenerateSystemSSHKey(env)
+	if err != nil {
+		return err
+	}
+	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 
 	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
@@ -74,6 +79,29 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	return FinishBootstrap(ctx, inst, machineConfig)
+}
+
+// GenerateSystemSSHKey creates a new key for the system identity. The
+// authorized_keys in the environment config is updated to include the public
+// key for the generated key.
+func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
+	logger.Debugf("generate a system ssh key")
+	// Create a new system ssh key and add that to the authorized keys.
+	privateKey, publicKey, err := ssh.GenerateKey("juju-system-key")
+	if err != nil {
+		return "", fmt.Errorf("failed to create system key: %v", err)
+	}
+	authorized_keys := env.Config().AuthorizedKeys() + publicKey
+	newConfig, err := env.Config().Apply(map[string]interface{}{
+		"authorized-keys": authorized_keys,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create new config: %v", err)
+	}
+	if err = env.SetConfig(newConfig); err != nil {
+		return "", fmt.Errorf("failed to set new config: %v", err)
+	}
+	return privateKey, nil
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
