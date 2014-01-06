@@ -20,9 +20,8 @@ import (
 
 type StoreSuite struct {
 	testbase.LoggingSuite
-	server      *charmtesting.MockStore
-	store       *charm.CharmStore
-	oldCacheDir string
+	server *charmtesting.MockStore
+	store  *charm.CharmStore
 }
 
 var _ = gc.Suite(&StoreSuite{})
@@ -35,12 +34,11 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 		"cs:series/better": 24,
 		"cs:series/best":   25,
 	})
-	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	charm.CacheDir = c.MkDir()
+	s.PatchValue(&charm.CacheDir, c.MkDir())
 	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.Downloads = nil
 	s.server.Authorizations = nil
@@ -49,7 +47,6 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 // Uses the TearDownTest from testbase.LoggingSuite
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
-	charm.CacheDir = s.oldCacheDir
 	s.server.Lis.Close()
 	s.LoggingSuite.TearDownSuite(c)
 }
@@ -164,8 +161,10 @@ func (s *StoreSuite) TestInfo(c *gc.C) {
 func (s *StoreSuite) TestInfoNotFound(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/missing")
 	info, err := s.store.Info(charmURL)
-	c.Assert(err, gc.ErrorMatches, `charm not found: cs:series/missing`)
-	c.Assert(info, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info[0].Errors, gc.HasLen, 1)
+	c.Assert(info[0].Errors[0], gc.Matches, `charm not found: cs:series/missing`)
 }
 
 func (s *StoreSuite) TestInfoError(c *gc.C) {

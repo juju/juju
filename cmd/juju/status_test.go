@@ -71,9 +71,10 @@ func (s *StatusSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.server = charmtesting.NewMockStore(c, map[string]int{
 		"cs:quantal/mysql":     23,
-		"cs:quantal/wordpress": 23,
 		"cs:quantal/dummy":     24,
 		"cs:quantal/riak":      25,
+		"cs:quantal/wordpress": 26,
+		"cs:quantal/logging":   27,
 	})
 }
 
@@ -463,7 +464,7 @@ var statusTests = []testCase{
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
-								"charm-version":    "out of date (available: 24)",
+								"charm-version":    "unknown",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"open-ports": L{
@@ -479,9 +480,9 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"charm-version":    "unknown",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
-								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -537,9 +538,9 @@ var statusTests = []testCase{
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
+								"charm-version":    "unknown",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -553,10 +554,10 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"charm-version":    "unknown",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
-								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -580,10 +581,10 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"charm-version":    "unknown",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
-								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -606,9 +607,9 @@ var statusTests = []testCase{
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
+								"charm-version":    "unknown",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -634,10 +635,10 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"charm-version":    "unknown",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
-								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -660,9 +661,9 @@ var statusTests = []testCase{
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
+								"charm-version":    "unknown",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -689,10 +690,10 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
+								"charm-version":    "unknown",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
-								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -703,9 +704,9 @@ var statusTests = []testCase{
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
+								"charm-version":    "unknown",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -742,8 +743,8 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":       "0",
+								"charm-version": "unknown",
 								"agent-state":   "pending",
-								"charm-version": "out of date (available: 24)",
 							},
 						},
 					},
@@ -809,12 +810,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"project": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
+						"charm":         "cs:quantal/wordpress-3",
+						"charm-version": "out of date (available: 26)",
+						"exposed":       true,
 						"units": M{
 							"project/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 							},
 						},
 						"relations": M{
@@ -823,12 +826,14 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": true,
+						"charm":         "cs:quantal/mysql-1",
+						"charm-version": "out of date (available: 23)",
+						"exposed":       true,
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine":       "2",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 							},
 						},
 						"relations": M{
@@ -836,8 +841,9 @@ var statusTests = []testCase{
 						},
 					},
 					"varnish": M{
-						"charm":   "cs:quantal/varnish-1",
-						"exposed": true,
+						"charm":         "cs:quantal/varnish-1",
+						"charm-version": "unknown: charm not found: cs:quantal/varnish",
+						"exposed":       true,
 						"units": M{
 							"varnish/0": M{
 								"machine":     "3",
@@ -849,12 +855,14 @@ var statusTests = []testCase{
 						},
 					},
 					"private": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
+						"charm":         "cs:quantal/wordpress-3",
+						"charm-version": "out of date (available: 26)",
+						"exposed":       true,
 						"units": M{
 							"private/0": M{
-								"machine":     "4",
-								"agent-state": "pending",
+								"machine":       "4",
+								"charm-version": "unknown",
+								"agent-state":   "pending",
 							},
 						},
 						"relations": M{
@@ -908,18 +916,18 @@ var statusTests = []testCase{
 						"units": M{
 							"riak/0": M{
 								"machine":       "1",
+								"charm-version": "unknown",
 								"agent-state":   "started",
-								"charm-version": "out of date (available: 25)",
 							},
 							"riak/1": M{
 								"machine":       "2",
+								"charm-version": "unknown",
 								"agent-state":   "started",
-								"charm-version": "out of date (available: 25)",
 							},
 							"riak/2": M{
 								"machine":       "3",
+								"charm-version": "unknown",
 								"agent-state":   "started",
-								"charm-version": "out of date (available: 25)",
 							},
 						},
 						"relations": M{
@@ -982,12 +990,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
+						"charm":         "cs:quantal/wordpress-3",
+						"charm-version": "out of date (available: 26)",
+						"exposed":       true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state": "started",
@@ -1001,12 +1011,14 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": true,
+						"charm":         "cs:quantal/mysql-1",
+						"charm-version": "out of date (available: 23)",
+						"exposed":       true,
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine":       "2",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
@@ -1021,8 +1033,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":         "cs:quantal/logging-1",
+						"charm-version": "out of date (available: 27)",
+						"exposed":       true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1045,12 +1058,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
+						"charm":         "cs:quantal/wordpress-3",
+						"charm-version": "out of date (available: 26)",
+						"exposed":       true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state": "started",
@@ -1064,12 +1079,14 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": true,
+						"charm":         "cs:quantal/mysql-1",
+						"charm-version": "out of date (available: 23)",
+						"exposed":       true,
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine":       "2",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
@@ -1084,8 +1101,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":         "cs:quantal/logging-1",
+						"charm-version": "out of date (available: 27)",
+						"exposed":       true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1107,12 +1125,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
+						"charm":         "cs:quantal/wordpress-3",
+						"charm-version": "out of date (available: 26)",
+						"exposed":       true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state": "started",
@@ -1126,8 +1146,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":         "cs:quantal/logging-1",
+						"charm-version": "out of date (available: 27)",
+						"exposed":       true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1182,12 +1203,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
+						"charm":         "cs:quantal/wordpress-3",
+						"charm-version": "out of date (available: 26)",
+						"exposed":       true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"charm-version": "unknown",
+								"agent-state":   "started",
 								"subordinates": M{
 									"monitoring/0": M{
 										"agent-state": "started",
@@ -1201,8 +1224,9 @@ var statusTests = []testCase{
 						},
 					},
 					"monitoring": M{
-						"charm":   "cs:quantal/monitoring-0",
-						"exposed": true,
+						"charm":         "cs:quantal/monitoring-0",
+						"charm-version": "unknown: charm not found: cs:quantal/monitoring",
+						"exposed":       true,
 						"relations": M{
 							"monitoring-port": L{"wordpress"},
 						},
@@ -1255,13 +1279,13 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":       "1",
+								"charm-version": "unknown",
 								"agent-state":   "started",
-								"charm-version": "out of date (available: 23)",
 							},
 							"mysql/1": M{
 								"machine":       "1/lxc/0",
+								"charm-version": "unknown",
 								"agent-state":   "started",
-								"charm-version": "out of date (available: 23)",
 							},
 						},
 					},
@@ -1286,8 +1310,8 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/1": M{
 								"machine":       "1/lxc/0",
+								"charm-version": "unknown",
 								"agent-state":   "started",
-								"charm-version": "out of date (available: 23)",
 							},
 						},
 					},

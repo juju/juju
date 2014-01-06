@@ -79,6 +79,15 @@ func processRevisionInformation(context *statusContext, statusResult *api.Status
 			statusResult.Services[serviceName] = status
 			continue
 		}
+		// Should never happen but in case a charm is not found on the charm store we ignore it.
+		if repoCharmRevision.revision == 0 {
+			continue
+		}
+		if serviceVersion.err != nil {
+			status.RevisionStatus = fmt.Sprintf("unknown: %v", serviceVersion.err)
+			statusResult.Services[serviceName] = status
+			continue
+		}
 		// Only report if service revision is out of date.
 		if repoCharmRevision.revision > serviceVersion.revision {
 			status.RevisionStatus = fmt.Sprintf("out of date (available: %d)", repoCharmRevision.revision)
@@ -87,12 +96,12 @@ func processRevisionInformation(context *statusContext, statusResult *api.Status
 		// And now the units for the service.
 		for unitName, u := range status.Units {
 			unitVersion := serviceVersion.unitVersions[unitName]
-			if unitVersion.revision <= 0 && serviceVersion.err != nil && serviceVersion.revision > 0 {
+			if unitVersion.revision <= 0 && serviceVersion.revision > 0 {
 				u.RevisionStatus = "unknown"
 				status.Units[unitName] = u
 				continue
 			}
-			// Only report if unit revision is different to service revision and is out of date.
+			// Only report if unit revision is known, and is different to service revision, and is out of date.
 			if unitVersion.revision != serviceVersion.revision && repoCharmRevision.revision > unitVersion.revision {
 				u.RevisionStatus = fmt.Sprintf("out of date (available: %d)", repoCharmRevision.revision)
 			}

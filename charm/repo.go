@@ -96,7 +96,11 @@ func (s *CharmStore) oneInfo(curl *URL) (*InfoResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return responses[0], nil
+	info := responses[0]
+	if len(info.Errors) == 1 && strings.HasPrefix(info.Errors[0], "charm not found") {
+		return nil, &NotFoundError{fmt.Sprintf("charm not found: %s", curl)}
+	}
+	return info, nil
 }
 
 // Info returns details for all the specified charms in the charm store.
@@ -127,7 +131,7 @@ func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 			return nil, fmt.Errorf("charm: charm store returned response without charm %q", key)
 		}
 		if len(info.Errors) == 1 && info.Errors[0] == "entry not found" {
-			return nil, &NotFoundError{fmt.Sprintf("charm not found: %s", curl)}
+			info.Errors[0] = fmt.Sprintf("charm not found: %s", curl)
 		}
 		result[i] = info
 	}
