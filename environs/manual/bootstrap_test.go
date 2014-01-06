@@ -109,7 +109,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// We *do* check that the machine has no juju* upstart jobs, though.
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0).Restore()
+	defer fakeSSH{
+		Provisioned:        true,
+		SkipDetection:      true,
+		SkipProvisionAgent: true,
+	}.install(c).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
 }

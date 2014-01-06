@@ -50,7 +50,7 @@ type nullEnviron struct {
 	cfgmutex              sync.Mutex
 	bootstrapStorage      storage.Storage
 	bootstrapStorageMutex sync.Mutex
-	ubuntuUserInit        bool
+	ubuntuUserInited      bool
 	ubuntuUserInitMutex   sync.Mutex
 }
 
@@ -92,7 +92,7 @@ var initUbuntuUser = manual.InitUbuntuUser
 func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
 	e.ubuntuUserInitMutex.Lock()
 	defer e.ubuntuUserInitMutex.Unlock()
-	if e.ubuntuUserInit {
+	if e.ubuntuUserInited {
 		return nil
 	}
 	cfg := e.envConfig()
@@ -102,7 +102,7 @@ func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) e
 		return err
 	}
 	logger.Infof("initialized ubuntu user")
-	e.ubuntuUserInit = true
+	e.ubuntuUserInited = true
 	return nil
 }
 

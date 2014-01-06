@@ -87,12 +87,21 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	// Attempting to provision a machine twice should fail. We effect
 	// this by checking for existing juju upstart configurations.
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0)()
-	defer installFakeSSH(c, "", nil, 0)() // InitUbuntuUser
+	defer fakeSSH{
+		Provisioned:        true,
+		InitUbuntuUser:     true,
+		SkipDetection:      true,
+		SkipProvisionAgent: true,
+	}.install(c).Restore()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 255)()
-	defer installFakeSSH(c, "", nil, 0)() // InitUbuntuUser
+	defer fakeSSH{
+		Provisioned:              true,
+		CheckProvisionedExitCode: 255,
+		InitUbuntuUser:           true,
+		SkipDetection:            true,
+		SkipProvisionAgent:       true,
+	}.install(c).Restore()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
 }

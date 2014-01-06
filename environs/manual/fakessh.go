@@ -91,6 +91,13 @@ type fakeSSH struct {
 	Series string
 	Arch   string
 
+	// Provisioned should be set to true if the fakeSSH script
+	// should respond to checkProvisioned with a non-empty result.
+	Provisioned bool
+
+	// exit code for the checkProvisioned script.
+	CheckProvisionedExitCode int
+
 	// exit code for the machine agent provisioning script.
 	ProvisionAgentExitCode int
 
@@ -123,7 +130,11 @@ func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 	if !r.SkipDetection {
 		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
 	}
-	add("", nil, 0) // checkProvisioned
+	var checkProvisionedOutput interface{}
+	if r.Provisioned {
+		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
+	}
+	add("", checkProvisionedOutput, r.CheckProvisionedExitCode)
 	if r.InitUbuntuUser {
 		add("", nil, 0)
 	}
