@@ -69,6 +69,8 @@ func (s *MockStore) ServeInfo(w http.ResponseWriter, r *http.Request) {
 		switch charmURL.Name {
 		case "borken":
 			cr.Errors = append(cr.Errors, "badness")
+		case "terracotta":
+			cr.Errors = append(cr.Errors, "cannot get revision")
 		case "unwise":
 			cr.Warnings = append(cr.Warnings, "foolishness")
 			fallthrough

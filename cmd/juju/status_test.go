@@ -75,6 +75,7 @@ func (s *StatusSuite) SetUpSuite(c *gc.C) {
 		"cs:quantal/riak":      25,
 		"cs:quantal/wordpress": 26,
 		"cs:quantal/logging":   27,
+		"cs:quantal/borken":    28,
 	})
 }
 
@@ -1318,6 +1319,97 @@ var statusTests = []testCase{
 				},
 			},
 		},
+	), test(
+		"charm version reporting",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addMachine{machineId: "3", job: state.JobHostUnits},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", params.StatusStarted, ""},
+
+		// mysql is out of date
+		addCharmWithRevision{addCharm{"mysql"}, 22},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addAliveUnit{"mysql", "1"},
+
+		// wordpress is up to date
+		addCharmWithRevision{addCharm{"wordpress"}, 26},
+		addService{"wordpress", "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addAliveUnit{"wordpress", "2"},
+		addAliveUnit{"wordpress", "2"},
+		// wordpress/0 has a version, wordpress/1 is unknown
+		setUnitRevision{"wordpress/0", 26},
+
+		// terracotta returns an error getting store revision
+		addCharmWithRevision{addCharm{"terracotta"}, 22},
+		addService{"terracotta", "terracotta"},
+		setServiceExposed{"terracotta", true},
+		addAliveUnit{"terracotta", "3"},
+
+		expect{
+			"services and units with correct version status",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+				},
+				"services": M{
+					"terracotta": M{
+						"charm":         "cs:quantal/terracotta-22",
+						"charm-version": "unknown: cannot get revision",
+						"exposed":       true,
+						"units": M{
+							"terracotta/0": M{
+								"machine":     "3",
+								"agent-state": "pending",
+							},
+						},
+						"relations": M{
+							"server-array": L{"terracotta"},
+						},
+					},
+					"mysql": M{
+						"charm":         "cs:quantal/mysql-22",
+						"charm-version": "out of date (available: 23)",
+						"exposed":       true,
+						"units": M{
+							"mysql/0": M{
+								"machine":       "1",
+								"charm-version": "unknown",
+								"agent-state":   "pending",
+							},
+						},
+					},
+					"wordpress": M{
+						"charm":   "cs:quantal/wordpress-26",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "2",
+								"agent-state": "pending",
+							},
+							"wordpress/1": M{
+								"machine":       "2",
+								"charm-version": "unknown",
+								"agent-state":   "pending",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -1415,15 +1507,30 @@ type addCharm struct {
 	name string
 }
 
-func (ac addCharm) step(c *gc.C, ctx *context) {
-	ch := coretesting.Charms.Dir(ac.name)
-	name, rev := ch.Meta().Name, ch.Revision()
+func (ac addCharm) stepWithRevision(c *gc.C, ctx *context, ch *charm.Dir, rev int) {
+	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
 	c.Assert(err, gc.IsNil)
 	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
 	c.Assert(err, gc.IsNil)
 	ctx.charms[ac.name] = dummy
+}
+
+func (ac addCharm) step(c *gc.C, ctx *context) {
+	ch := coretesting.Charms.Dir(ac.name)
+	rev := ch.Revision()
+	ac.stepWithRevision(c, ctx, ch, rev)
+}
+
+type addCharmWithRevision struct {
+	addCharm
+	rev int
+}
+
+func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
+	ch := coretesting.Charms.Dir(ac.name)
+	ac.stepWithRevision(c, ctx, ch, ac.rev)
 }
 
 type addService struct {
@@ -1510,6 +1617,21 @@ func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, gc.IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo, nil)
+	c.Assert(err, gc.IsNil)
+}
+
+type setUnitRevision struct {
+	unitName string
+	rev      int
+}
+
+func (sur setUnitRevision) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(sur.unitName)
+	c.Assert(err, gc.IsNil)
+	s, err := u.Service()
+	c.Assert(err, gc.IsNil)
+	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", s.Name(), sur.rev))
+	err = u.SetCharmURL(curl)
 	c.Assert(err, gc.IsNil)
 }
 
