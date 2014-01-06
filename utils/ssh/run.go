@@ -29,8 +29,11 @@ type ExecParams struct {
 func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err error) {
 	// execute bash accepting commands on stdin
 	logger.Debugf("execute on %s", params.Host)
-	useIdentity := Option{"-i", params.IdentityFile}
-	command := Command(params.Host, []string{"/bin/bash", "-s"}, useIdentity, NoPasswordAuthentication)
+	options := []Option{NoPasswordAuthentication}
+	if params.IdentityFile != "" {
+		options = append(options, Option{"-i", params.IdentityFile})
+	}
+	command := Command(params.Host, []string{"/bin/bash", "-s"}, options...)
 	// start a go routine to do the actual execution
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout

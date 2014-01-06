@@ -40,17 +40,30 @@ func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	s.fakeSSH(c, echoSSH)
 
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
-		IdentityFile: "identity-file",
-		Host:         "hostname",
-		Command:      "sudo apt-get update\nsudo apt-get upgrade",
-		Timeout:      testing.ShortWait,
+		Host:    "hostname",
+		Command: "sudo apt-get update\nsudo apt-get upgrade",
+		Timeout: testing.ShortWait,
 	})
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(response.Code, gc.Equals, 0)
 	c.Assert(string(response.Stdout), gc.Equals, "sudo apt-get update\nsudo apt-get upgrade\n")
 	c.Assert(string(response.Stderr), gc.Equals,
-		"-o StrictHostKeyChecking no -i identity-file -o PasswordAuthentication no hostname -- /bin/bash -s\n")
+		"-o StrictHostKeyChecking no -o PasswordAuthentication no hostname -- /bin/bash -s\n")
+}
+
+func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
+	s.fakeSSH(c, echoSSH)
+
+	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
+		IdentityFile: "identity-file",
+		Host:         "hostname",
+		Timeout:      testing.ShortWait,
+	})
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(response.Stderr), gc.Equals,
+		"-o StrictHostKeyChecking no -o PasswordAuthentication no -i identity-file hostname -- /bin/bash -s\n")
 }
 
 func (s *ExecuteSSHCommandSuite) TestTimoutCaptureOutput(c *gc.C) {
