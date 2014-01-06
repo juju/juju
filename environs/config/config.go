@@ -147,7 +147,7 @@ func (c *Config) fillInDefaults() error {
 	keys := c.asString("authorized-keys")
 	if path != "" || keys == "" {
 		var err error
-		c.m["authorized-keys"], err = readAuthorizedKeys(path)
+		c.m["authorized-keys"], err = ReadAuthorizedKeys(path)
 		if err != nil {
 			return err
 		}

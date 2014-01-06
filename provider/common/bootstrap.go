@@ -185,8 +185,6 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, inst instance.Instance
 	return sshinit.Configure(sshinit.ConfigureParams{
 		Host:   "ubuntu@" + addr,
 		Config: cloudcfg,
-		Stdin:  ctx.Stdin(),
-		Stdout: ctx.Stdout(),
 		Stderr: ctx.Stderr(),
 	})
 }
@@ -332,7 +330,9 @@ func (p *parallelHostChecker) Close() error {
 // connectSSH is called to connect to the specified host and
 // execute the "checkHostScript" bash script on it.
 var connectSSH = func(host, checkHostScript string) error {
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash", "-c", utils.ShQuote(checkHostScript)})
+	cmd := ssh.Command("ubuntu@"+host, []string{
+		"/bin/bash", "-c", utils.ShQuote(checkHostScript),
+	}, ssh.NoPasswordAuthentication)
 	output, err := cmd.CombinedOutput()
 	if err != nil && len(output) > 0 {
 		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
