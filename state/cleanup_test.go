@@ -187,12 +187,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	container, err := s.State.AddMachineWithConstraints(&state.AddMachineParams{
-		Series:        "quantal",
-		ParentId:      machine.Id(),
-		ContainerType: instance.LXC,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	})
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	// Create active units (in relation scope, with subordinates).

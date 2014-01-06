@@ -54,15 +54,17 @@ func checkProvisioned(sshHost string) (bool, error) {
 func DetectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", sshHost)
 	cmd := ssh.Command(sshHost, []string{"bash"})
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 	cmd.Stdin = bytes.NewBufferString(detectionScript)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) != 0 {
-			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(string(out)))
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() != 0 {
+			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
 		}
 		return hc, "", err
 	}
-	lines := strings.Split(string(out), "\n")
+	lines := strings.Split(stdout.String(), "\n")
 	series = strings.TrimSpace(lines[0])
 
 	// Normalise arch.

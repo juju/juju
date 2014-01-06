@@ -127,25 +127,34 @@ func (c *AddMachineCommand) addMachine1dot16() (string, error) {
 		}
 		series = conf.DefaultSeries()
 	}
-	params := state.AddMachineParams{
-		ParentId:      c.MachineId,
-		ContainerType: c.ContainerType,
-		Series:        series,
-		Constraints:   c.Constraints,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series:      series,
+		Constraints: c.Constraints,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	m, err := conn.State.AddMachineWithConstraints(&params)
+	var m *state.Machine
+	switch {
+	case c.ContainerType == "":
+		m, err = conn.State.AddOneMachine(template)
+	case c.MachineId != "":
+		m, err = conn.State.AddMachineInsideMachine(template, c.MachineId, c.ContainerType)
+	default:
+		m, err = conn.State.AddMachineInsideNewMachine(template, template, c.ContainerType)
+	}
 	if err != nil {
 		return "", err
 	}
 	return m.String(), err
 }
 
-func (c *AddMachineCommand) Run(_ *cmd.Context) error {
+func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	if c.SSHHost != "" {
 		args := manual.ProvisionMachineArgs{
 			Host:    c.SSHHost,
 			EnvName: c.EnvName,
+			Stdin:   ctx.Stdin,
+			Stdout:  ctx.Stdout,
+			Stderr:  ctx.Stderr,
 		}
 		_, err := manual.ProvisionMachine(args)
 		return err
@@ -175,7 +184,11 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	} else {
 		// Currently, only one machine is added, but in future there may be several added in one call.
 		machineInfo := results[0]
-		machineId, err = machineInfo.Machine, machineInfo.Error
+		var machineErr *params.Error
+		machineId, machineErr = machineInfo.Machine, machineInfo.Error
+		if machineErr != nil {
+			err = machineErr
+		}
 	}
 	if err != nil {
 		return err

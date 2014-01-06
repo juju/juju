@@ -85,11 +85,11 @@ func SampleConfig() testing.Attrs {
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
 func stateInfo() *state.Info {
-	if testing.MgoAddr == "" {
+	if testing.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	return &state.Info{
-		Addrs:  []string{testing.MgoAddr},
+		Addrs:  []string{testing.MgoServer.Addr()},
 		CACert: []byte(testing.CACert),
 	}
 }
@@ -102,6 +102,7 @@ type GenericOperation struct {
 }
 
 type OpBootstrap struct {
+	Context     environs.BootstrapContext
 	Env         string
 	Constraints constraints.Value
 }
@@ -222,8 +223,8 @@ func Reset() {
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
-	if testing.MgoAddr != "" {
-		testing.MgoReset()
+	if testing.MgoServer.Addr() != "" {
+		testing.MgoServer.Reset()
 	}
 }
 
@@ -242,8 +243,8 @@ func (state *environState) destroy() {
 		}
 		state.apiState = nil
 	}
-	if testing.MgoAddr != "" {
-		testing.MgoReset()
+	if testing.MgoServer.Addr() != "" {
+		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false
 }
@@ -522,7 +523,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
@@ -592,7 +593,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		estate.apiState = st
 	}
 	estate.bootstrapped = true
-	estate.ops <- OpBootstrap{Env: e.name, Constraints: cons}
+	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Constraints: cons}
 	return nil
 }
 
@@ -786,8 +787,10 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		if inst == nil {
 			err = environs.ErrPartialInstances
 			notFound++
+			insts = append(insts, nil)
+		} else {
+			insts = append(insts, inst)
 		}
-		insts = append(insts, inst)
 	}
 	if notFound == len(ids) {
 		return nil, environs.ErrNoInstances

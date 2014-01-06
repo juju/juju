@@ -54,13 +54,10 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	parentId, ok := s.machine.ParentId()
 	c.Assert(parentId, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
-	params := state.AddMachineParams{
-		ParentId:      s.machine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	parentId, ok = container.ParentId()
 	c.Assert(parentId, gc.Equals, s.machine.Id())
@@ -80,13 +77,51 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 	}
 	for _, test := range tests {
-		params := state.AddMachineParams{
-			Series: "quantal",
-			Jobs:   test.jobs,
-		}
-		m, err := s.State.AddMachineWithConstraints(&params)
+		m, err := s.State.AddMachine("quantal", test.jobs...)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.IsManager(), gc.Equals, test.isStateServer)
+	}
+}
+
+func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
+	c.Assert(s.machine.Id(), gc.Equals, "0")
+	manual, err := s.machine.IsManual()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manual, jc.IsFalse)
+	newcfg, err := cfg.Apply(map[string]interface{}{"type": "null"})
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(newcfg, cfg)
+	c.Assert(err, gc.IsNil)
+	manual, err = s.machine.IsManual()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manual, jc.IsTrue)
+}
+
+func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
+	tests := []struct {
+		instanceId instance.Id
+		nonce      string
+		isManual   bool
+	}{
+		{instanceId: "x", nonce: "y", isManual: false},
+		{instanceId: "manual:", nonce: "y", isManual: false},
+		{instanceId: "x", nonce: "manual:", isManual: true},
+		{instanceId: "x", nonce: "manual:y", isManual: true},
+		{instanceId: "x", nonce: "manual", isManual: false},
+	}
+	for _, test := range tests {
+		m, err := s.State.AddOneMachine(state.MachineTemplate{
+			Series:     "quantal",
+			Jobs:       []state.MachineJob{state.JobHostUnits},
+			InstanceId: test.instanceId,
+			Nonce:      test.nonce,
+		})
+		c.Assert(err, gc.IsNil)
+		isManual, err := m.IsManual()
+		c.Assert(isManual, gc.Equals, test.isManual)
 	}
 }
 
@@ -104,13 +139,10 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	// A machine hosting a container must not advance lifecycle.
-	params := state.AddMachineParams{
-		ParentId:      s.machine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	_, err := s.State.AddMachineWithConstraints(&params)
+	_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})
@@ -1184,21 +1216,13 @@ func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
 func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	// Create a machine and add lxc and kvm containers prior to calling SetSupportedContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	addParams := state.AddMachineParams{
-		ParentId:      machine.Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&addParams)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
-	addParams = state.AddMachineParams{
-		ParentId:      machine.Id(),
-		ContainerType: instance.KVM,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	supportedContainer, err := s.State.AddMachineWithConstraints(&addParams)
+	supportedContainer, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.KVM)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
@@ -1224,14 +1248,12 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 	// Create a machine and add all container types prior to calling SupportsNoContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	var containers []*state.Machine
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
 	for _, containerType := range instance.ContainerTypes {
-		addParams := state.AddMachineParams{
-			ParentId:      machine.Id(),
-			ContainerType: containerType,
-			Series:        "quantal",
-			Jobs:          []state.MachineJob{state.JobHostUnits},
-		}
-		container, err := s.State.AddMachineWithConstraints(&addParams)
+		container, err := s.State.AddMachineInsideMachine(template, machine.Id(), containerType)
 		c.Assert(err, gc.IsNil)
 		containers = append(containers, container)
 	}

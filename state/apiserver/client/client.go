@@ -4,8 +4,12 @@
 package client
 
 import (
-	"errors"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"net/url"
+	"os"
 	"strings"
 
 	"launchpad.net/loggo"
@@ -13,7 +17,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -62,26 +66,6 @@ func (r *API) Client(id string) (*Client, error) {
 		return nil, common.ErrBadId
 	}
 	return r.client, nil
-}
-
-func (c *Client) Status() (api.Status, error) {
-	ms, err := c.api.state.AllMachines()
-	if err != nil {
-		return api.Status{}, err
-	}
-	status := api.Status{
-		Machines: make(map[string]api.MachineInfo),
-	}
-	for _, m := range ms {
-		instId, err := m.InstanceId()
-		if err != nil && !state.IsNotProvisionedError(err) {
-			return api.Status{}, err
-		}
-		status.Machines[m.Id()] = api.MachineInfo{
-			InstanceId: string(instId),
-		}
-	}
-	return status, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -218,35 +202,38 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 
 var CharmStore charm.Repository = charm.Store
 
-// ServiceDeploy fetches the charm from the charm store and deploys it. Local
-// charms are not supported.
+// ServiceDeploy fetches the charm from the charm store and deploys it.
+// AddCharm or AddLocalCharm should be called to add the charm
+// before calling ServiceDeploy, although for backward compatibility
+// this is not necessary until 1.16 support is removed.
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
 	}
-	if curl.Schema != "cs" {
-		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
-	}
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	conn, err := juju.NewConnFromState(c.api.state)
-	if err != nil {
+
+	// Try to find the charm URL in state first.
+	ch, err := c.api.state.Charm(curl)
+	if errors.IsNotFoundError(err) {
+		// Remove this whole if block when 1.16 compatibility is dropped.
+		if curl.Schema != "cs" {
+			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+		}
+		err = c.AddCharm(params.CharmURL{args.CharmUrl})
+		if err != nil {
+			return err
+		}
+		ch, err = c.api.state.Charm(curl)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 
-	conf, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	// authorize the store client if possible
-	store := config.AuthorizeCharmRepo(CharmStore, conf)
-
-	ch, err := conn.PutCharm(curl, store, false)
-	if err != nil {
-		return err
-	}
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
@@ -257,14 +244,16 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    args.ServiceName,
-		Charm:          ch,
-		NumUnits:       args.NumUnits,
-		ConfigSettings: settings,
-		Constraints:    args.Constraints,
-		ToMachineSpec:  args.ToMachineSpec,
-	})
+
+	_, err = juju.DeployService(c.api.state,
+		juju.DeployServiceParams{
+			ServiceName:    args.ServiceName,
+			Charm:          ch,
+			NumUnits:       args.NumUnits,
+			ConfigSettings: settings,
+			Constraints:    args.Constraints,
+			ToMachineSpec:  args.ToMachineSpec,
+		})
 	return err
 }
 
@@ -278,7 +267,7 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	}
 	// Set the charm for the given service.
 	if args.CharmUrl != "" {
-		if err = serviceSetCharm(c.api.state, service, args.CharmUrl, args.ForceCharmUrl); err != nil {
+		if err = c.serviceSetCharm(service, args.CharmUrl, args.ForceCharmUrl); err != nil {
 			return err
 		}
 	}
@@ -306,30 +295,38 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 }
 
 // serviceSetCharm sets the charm for the given service.
-func serviceSetCharm(state *state.State, service *state.Service, url string, force bool) error {
+func (c *Client) serviceSetCharm(service *state.Service, url string, force bool) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return err
 	}
+	sch, err := c.api.state.Charm(curl)
+	if errors.IsNotFoundError(err) {
+		// Charms should be added before trying to use them, with
+		// AddCharm or AddLocalCharm API calls. When they're not,
+		// we're reverting to 1.16 compatibility mode.
+		return c.serviceSetCharm1dot16(service, curl, force)
+	}
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(sch, force)
+}
+
+// serviceSetCharm1dot16 sets the charm for the given service in 1.16
+// compatibility mode. Remove this when support for 1.16 is dropped.
+func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, force bool) error {
 	if curl.Schema != "cs" {
 		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 	}
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	conn, err := juju.NewConnFromState(state)
+	err := c.AddCharm(params.CharmURL{curl.String()})
 	if err != nil {
 		return err
 	}
-
-	conf, err := state.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	// authorize the store client if possible
-	store := config.AuthorizeCharmRepo(CharmStore, conf)
-
-	ch, err := conn.PutCharm(curl, store, false)
+	ch, err := c.api.state.Charm(curl)
 	if err != nil {
 		return err
 	}
@@ -391,30 +388,22 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return err
 	}
-	return serviceSetCharm(c.api.state, service, args.CharmUrl, args.Force)
+	return c.serviceSetCharm(service, args.CharmUrl, args.Force)
 }
 
 // addServiceUnits adds a given number of units to a service.
-// TODO(jam): 2013-08-26 https://pad.lv/1216830
-// The functionality on conn.AddUnits should get pulled up into
-// state/apiserver/client, but currently we still have conn.DeployService that
-// depends on it. When that changes, clean up this function.
 func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
-	conn, err := juju.NewConnFromState(state)
-	if err != nil {
-		return nil, err
-	}
 	service, err := state.Service(args.ServiceName)
 	if err != nil {
 		return nil, err
 	}
 	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
+		return nil, fmt.Errorf("must add at least one unit")
 	}
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
-	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
+	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -436,7 +425,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	for _, name := range args.UnitNames {
 		unit, err := c.api.state.Unit(name)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != state.Alive:
@@ -529,32 +518,6 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	return rel.Destroy()
 }
 
-func createAddMachineParameters(machineParams params.AddMachineParams,
-	defaultSeries string) (*state.AddMachineParams, error) {
-
-	stateMachineParams := &state.AddMachineParams{
-		Series:        machineParams.Series,
-		Constraints:   machineParams.Constraints,
-		ParentId:      machineParams.ParentId,
-		ContainerType: machineParams.ContainerType,
-		InstanceId:    machineParams.InstanceId,
-		Nonce:         machineParams.Nonce,
-		HardwareCharacteristics: machineParams.HardwareCharacteristics,
-	}
-	if stateMachineParams.Series == "" {
-		stateMachineParams.Series = defaultSeries
-	}
-	// Convert params.MachineJob to state.MachineJob
-	stateMachineParams.Jobs = make([]state.MachineJob, len(machineParams.Jobs))
-	var jobError error
-	for j, job := range machineParams.Jobs {
-		if stateMachineParams.Jobs[j], jobError = state.MachineJobFromParams(job); jobError != nil {
-			return nil, jobError
-		}
-	}
-	return stateMachineParams, nil
-}
-
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
@@ -568,16 +531,11 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	}
 	defaultSeries = conf.DefaultSeries()
 
-	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
-		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := c.api.state.AddMachineWithConstraints(stateMachineParams)
+	for i, p := range args.MachineParams {
+		m, err := c.addOneMachine(p, defaultSeries)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
-			results.Machines[i].Machine = machine.String()
+			results.Machines[i].Machine = m.Id()
 		}
 	}
 	return results, nil
@@ -585,36 +543,57 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	results := params.AddMachinesResults{
-		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	return c.AddMachines(args)
+}
+
+func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) (*state.Machine, error) {
+	if p.Series == "" {
+		p.Series = defaultSeries
+	}
+	if p.ContainerType != "" {
+		// Guard against dubious client by making sure that
+		// the following attributes can only be set when we're
+		// not making a new container.
+		p.InstanceId = ""
+		p.Nonce = ""
+		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
+		p.Addrs = nil
+	} else if p.ParentId != "" {
+		return nil, fmt.Errorf("parent machine specified without container type")
 	}
 
-	var defaultSeries string
-	conf, err := c.api.state.EnvironConfig()
+	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
-	defaultSeries = conf.DefaultSeries()
+	template := state.MachineTemplate{
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
+		HardwareCharacteristics: p.HardwareCharacteristics,
+		Addresses:               p.Addrs,
+	}
+	if p.ContainerType == "" {
+		return c.api.state.AddOneMachine(template)
+	}
+	if p.ParentId != "" {
+		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+	}
+	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
+}
 
-	for i, machineParams := range args.MachineParams {
-		stateMachineParams, err := createAddMachineParameters(machineParams, defaultSeries)
+func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+	newJobs := make([]state.MachineJob, len(jobs))
+	for i, job := range jobs {
+		newJob, err := state.MachineJobFromParams(job)
 		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
-			continue
+			return nil, err
 		}
-		machine, err := c.api.state.InjectMachine(stateMachineParams)
-		results.Machines[i].Error = common.ServerError(err)
-		if err == nil {
-			results.Machines[i].Machine = machine.String()
-			if err = machine.SetAddresses(machineParams.Addrs); err != nil {
-				results.Machines[i].Error = common.ServerError(err)
-				logger.Errorf("injecting into state failed, removing machine %v: %v", machine, err)
-				machine.EnsureDead()
-				machine.Remove()
-			}
-		}
+		newJobs[i] = newJob
 	}
-	return results, nil
+	return newJobs, nil
 }
 
 // MachineConfig returns information from the environment config that is
@@ -629,7 +608,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	for _, id := range args.MachineNames {
 		machine, err := c.api.state.Machine(id)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case args.Force:
@@ -820,4 +799,80 @@ func destroyErr(desc string, ids, errs []string) error {
 	}
 	msg = fmt.Sprintf(msg, desc)
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+}
+
+// AddCharm adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm().
+func (c *Client) AddCharm(args params.CharmURL) error {
+	charmURL, err := charm.ParseURL(args.URL)
+	if err != nil {
+		return err
+	}
+	if charmURL.Schema != "cs" {
+		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
+	}
+	if charmURL.Revision < 0 {
+		return fmt.Errorf("charm URL must include revision")
+	}
+
+	// First check the charm is not already in state.
+	if _, err := c.api.state.Charm(charmURL); err == nil {
+		return nil
+	}
+
+	// Get the charm and its information from the store.
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	store := config.AuthorizeCharmRepo(CharmStore, envConfig)
+	downloadedCharm, err := store.Get(charmURL)
+	if err != nil {
+		return fmt.Errorf("cannot download charm %q: %v", charmURL.String(), err)
+	}
+
+	// Open it and calculate the SHA256 hash.
+	downloadedBundle, ok := downloadedCharm.(*charm.Bundle)
+	if !ok {
+		return fmt.Errorf("expected a charm archive, got %T", downloadedCharm)
+	}
+	archive, err := os.Open(downloadedBundle.Path)
+	if err != nil {
+		return fmt.Errorf("cannot read downloaded charm: %v", err)
+	}
+	defer archive.Close()
+	hash := sha256.New()
+	size, err := io.Copy(hash, archive)
+	if err != nil {
+		return fmt.Errorf("cannot calculate SHA256 hash of charm: %v", err)
+	}
+	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
+	if _, err := archive.Seek(0, 0); err != nil {
+		return fmt.Errorf("cannot rewind charm archive: %v", err)
+	}
+
+	// Get the environment storage and upload the charm.
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return fmt.Errorf("cannot access environment: %v", err)
+	}
+	storage := env.Storage()
+	name := charm.Quote(charmURL.String())
+	err = storage.Put(name, archive, size)
+	if err != nil {
+		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
+	}
+	storageURL, err := storage.URL(name)
+	if err != nil {
+		return fmt.Errorf("cannot get storage URL for charm: %v", err)
+	}
+	bundleURL, err := url.Parse(storageURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse storage URL: %v", err)
+	}
+
+	// Finally, add the charm to state.
+	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	return err
 }
