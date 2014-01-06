@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-
 type MockStore struct {
 	mux            *http.ServeMux
 	Lis            net.Listener
@@ -28,7 +27,7 @@ type MockStore struct {
 	Downloads      []*charm.URL
 	Authorizations []string
 
-	charms         map[string]int
+	charms map[string]int
 }
 
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
@@ -41,14 +40,14 @@ func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
 	s.bundleSha256 = hex.EncodeToString(h.Sum(nil))
 	s.mux = http.NewServeMux()
 	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
-			s.ServeInfo(w, r)
-		})
+		s.ServeInfo(w, r)
+	})
 	s.mux.HandleFunc("/charm-event", func(w http.ResponseWriter, r *http.Request) {
-			s.ServeEvent(w, r)
-		})
+		s.ServeEvent(w, r)
+	})
 	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
-			s.ServeCharm(w, r)
-		})
+		s.ServeCharm(w, r)
+	})
 	lis, err := net.Listen("tcp", "127.0.0.1:4444")
 	c.Assert(err, gc.IsNil)
 	s.Lis = lis

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/charm"
+	charmtesting "launchpad.net/juju-core/charm/testing"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
@@ -37,6 +38,7 @@ func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 
 type StatusSuite struct {
 	testing.JujuConnSuite
+	server *charmtesting.MockStore
 }
 
 var _ = gc.Suite(&StatusSuite{})
@@ -63,6 +65,29 @@ type context struct {
 	conn    *juju.Conn
 	charms  map[string]*state.Charm
 	pingers map[string]*presence.Pinger
+}
+
+func (s *StatusSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.server = charmtesting.NewMockStore(c, map[string]int{
+		"cs:quantal/mysql":     23,
+		"cs:quantal/wordpress": 23,
+		"cs:quantal/dummy":     24,
+		"cs:quantal/riak":      25,
+	})
+}
+
+func (s *StatusSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&charm.CacheDir, c.MkDir())
+	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: "http://127.0.0.1:4444"})
+	s.server.Downloads = nil
+	s.server.Authorizations = nil
+}
+
+func (s *StatusSuite) TearDownSuite(c *gc.C) {
+	s.server.Lis.Close()
+	s.JujuConnSuite.TearDownSuite(c)
 }
 
 func (s *StatusSuite) newContext() *context {
@@ -192,12 +217,14 @@ var (
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"charm":   "cs:quantal/dummy-1",
-		"exposed": false,
+		"charm":         "cs:quantal/dummy-1",
+		"charm-version": "out of date (available: 24)",
+		"exposed":       false,
 	}
 	exposedService = M{
-		"charm":   "cs:quantal/dummy-1",
-		"exposed": true,
+		"charm":         "cs:quantal/dummy-1",
+		"charm-version": "out of date (available: 24)",
+		"exposed":       true,
 	}
 )
 
@@ -430,11 +457,13 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": true,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       true,
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
+								"charm-version":    "out of date (available: 24)",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"open-ports": L{
@@ -444,13 +473,15 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       false,
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -500,13 +531,15 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": true,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       true,
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -514,14 +547,16 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       false,
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -539,14 +574,16 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       false,
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -563,13 +600,15 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": true,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       true,
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -589,14 +628,16 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       false,
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
@@ -613,13 +654,15 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": true,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       true,
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -640,25 +683,29 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       false,
 						"units": M{
 							"dummy-service/0": M{
 								"machine":          "1",
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+								"charm-version":    "out of date (available: 24)",
 							},
 						},
 					},
 					"exposed-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": true,
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       true,
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"charm-version":    "out of date (available: 24)",
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -688,13 +735,15 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
-						"life":    "dying",
+						"charm":         "cs:quantal/dummy-1",
+						"charm-version": "out of date (available: 24)",
+						"exposed":       false,
+						"life":          "dying",
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "0",
-								"agent-state": "pending",
+								"machine":       "0",
+								"agent-state":   "pending",
+								"charm-version": "out of date (available: 24)",
 							},
 						},
 					},
@@ -853,20 +902,24 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"riak": M{
-						"charm":   "cs:quantal/riak-7",
-						"exposed": true,
+						"charm":         "cs:quantal/riak-7",
+						"charm-version": "out of date (available: 25)",
+						"exposed":       true,
 						"units": M{
 							"riak/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"agent-state":   "started",
+								"charm-version": "out of date (available: 25)",
 							},
 							"riak/1": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine":       "2",
+								"agent-state":   "started",
+								"charm-version": "out of date (available: 25)",
 							},
 							"riak/2": M{
-								"machine":     "3",
-								"agent-state": "started",
+								"machine":       "3",
+								"agent-state":   "started",
+								"charm-version": "out of date (available: 25)",
 							},
 						},
 						"relations": M{
@@ -1196,16 +1249,19 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": true,
+						"charm":         "cs:quantal/mysql-1",
+						"charm-version": "out of date (available: 23)",
+						"exposed":       true,
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":       "1",
+								"agent-state":   "started",
+								"charm-version": "out of date (available: 23)",
 							},
 							"mysql/1": M{
-								"machine":     "1/lxc/0",
-								"agent-state": "started",
+								"machine":       "1/lxc/0",
+								"agent-state":   "started",
+								"charm-version": "out of date (available: 23)",
 							},
 						},
 					},
@@ -1224,12 +1280,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": true,
+						"charm":         "cs:quantal/mysql-1",
+						"charm-version": "out of date (available: 23)",
+						"exposed":       true,
 						"units": M{
 							"mysql/1": M{
-								"machine":     "1/lxc/0",
-								"agent-state": "started",
+								"machine":       "1/lxc/0",
+								"agent-state":   "started",
+								"charm-version": "out of date (available: 23)",
 							},
 						},
 					},

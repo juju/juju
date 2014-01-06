@@ -59,12 +59,14 @@ func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 		Machines:        context.processMachines(),
 		Services:        context.processServices(),
 	}
+	// Compare the deployed charm revisions with what's available in
+	// the store and record any out of date charms.
 	processRevisionInformation(&context, result)
 	return result, nil
 }
 
 func processRevisionInformation(context *statusContext, statusResult *api.Status) {
-	// Look up the revision information for all the deployee charms.
+	// Look up the revision information for all the deployed charms.
 	retrieveRevisionInformation(context)
 
 	// For each service, compare the latest charm version with what the service has
@@ -100,8 +102,8 @@ func processRevisionInformation(context *statusContext, statusResult *api.Status
 }
 
 func retrieveRevisionInformation(context *statusContext) {
-	// We have recorded all the charms in use by the services (above).
-	// Look up their latest versions from the relevant repos and record that.
+	// We have previously recorded all the charms in use by the deployed services.
+	// Now, look up their latest versions from the relevant repos and record that.
 	// First organise the charms into the repo from whence they came.
 	repoCharms := make(map[charm.Repository][]*charm.URL)
 	for _, charmRevisionInfo := range context.repoRevisions {

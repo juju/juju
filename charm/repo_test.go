@@ -12,9 +12,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	charmtesting "launchpad.net/juju-core/charm/testing"
 	env_config "launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
-	charmtesting "launchpad.net/juju-core/charm/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -29,11 +29,11 @@ var _ = gc.Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.server = charmtesting.NewMockStore(c, map[string]int {
-		"cs:series/good": 23,
+	s.server = charmtesting.NewMockStore(c, map[string]int{
+		"cs:series/good":   23,
 		"cs:series/unwise": 23,
 		"cs:series/better": 24,
-		"cs:series/best": 25,
+		"cs:series/best":   25,
 	})
 	s.oldCacheDir = charm.CacheDir
 }
