@@ -119,6 +119,7 @@ func (s *provisionerSuite) TestCreateMachineConfig(c *gc.C) {
 
 	// Now check what we would've configured it with.
 	client := s.APIConn.State.Client()
+	// TODO: See if we can do something sane with finishMachineConfig here
 	mcfg, err := createMachineConfig(client, machineId, series, arch, state.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcfg, gc.NotNil)
