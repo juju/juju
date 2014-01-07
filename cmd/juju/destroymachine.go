@@ -11,8 +11,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
