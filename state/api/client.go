@@ -407,6 +407,10 @@ type RunResult struct {
 	Error     error
 }
 
+type RunResults struct {
+	Results []RunResult
+}
+
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]RunResult, error) {
 	return nil, fmt.Errorf("TODO")
 }

@@ -28,6 +28,9 @@ type ExecParams struct {
 // is also returned in the remote response.
 func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err error) {
 	// execute bash accepting commands on stdin
+	if params.Host == "" {
+		return result, fmt.Errorf("missing host address")
+	}
 	logger.Debugf("execute on %s", params.Host)
 	options := []Option{NoPasswordAuthentication}
 	if params.IdentityFile != "" {
