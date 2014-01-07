@@ -197,14 +197,19 @@ func recordMachineInState1dot16(
 	if err != nil {
 		return "", err
 	}
-	stateParams := state.AddMachineParams{
-		Series:                  machineParams.Series,
-		Jobs:                    stateJobs,
-		InstanceId:              machineParams.InstanceId,
+	//if p.Series == "" {
+	//	p.Series = defaultSeries
+	//}
+	template := state.MachineTemplate{
+		Series:      machineParams.Series,
+		Constraints: machineParams.Constraints,
+		InstanceId:  machineParams.InstanceId,
+		Jobs:        stateJobs,
+		Nonce:       machineParams.Nonce,
 		HardwareCharacteristics: machineParams.HardwareCharacteristics,
-		Nonce: machineParams.Nonce,
+		Addresses:               machineParams.Addrs,
 	}
-	machine, err := stateConn.State.AddMachine(&stateParams)
+	machine, err := stateConn.State.AddOneMachine(template)
 	if err != nil {
 		return "", err
 	}
