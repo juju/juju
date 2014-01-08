@@ -54,6 +54,9 @@ type Member struct {
 	// This value is optional; it defaults to 1.
 	Priority *float64 `bson:"priority,omitempty"`
 
+	// Tags holds the tags associated with the member.
+	Tags map[string]string
+
 	// SlaveDelay describes the number of seconds behind the master that this
 	// replica set member should lag rounded up to the nearest second.
 	// This value is optional; it defaults to 0.
@@ -235,6 +238,9 @@ func CurrentStatus(session *mgo.Session) ([]Status, error) {
 // Status holds the status of a replica set member returned from
 // CurrentStatus.
 type Status struct {
+	// Id holds the replica set id of the member that the status is describing.
+	Id int `bson:"_id"`
+
 	// Address holds address of the member that the status is describing.
 	// http://goo.gl/5KgCid
 	Address string `bson:"name"`

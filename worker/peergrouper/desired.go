@@ -5,10 +5,12 @@ import (
 	"net"
 	"sort"
 
-	"launchpad.net/juju-core/replicaset"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
+	"launchpad.net/loggo"
 )
+
+var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type peerGroupInfo struct {
 	machines  []*machine
@@ -63,6 +65,8 @@ func min(i, j int) int {
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	changed := false
 	members, extra := info.membersMap()
+	logger.Infof("got members: %#v", members)
+	logger.Infof("extra: %#v", extra)
 	// We may find extra peer group members if the machines
 	// have been removed or their state server status removed.
 	// This should only happen if they had been set to non-voting
@@ -90,12 +94,11 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	var toRemoveVote, toAddVote, toKeep []*machine
 	for _, m := range info.machines {
 		member := members[m]
-		isVoting := member != nil && member.Votes != nil && *member.Votes > 0
+		isVoting := member != nil && (member.Votes == nil || *member.Votes > 0)
 		m.voting = isVoting
 		switch {
 		case m.candidate && isVoting:
 			toKeep = append(toKeep, m)
-			// No need to do anything.
 		case m.candidate && !isVoting:
 			if status, ok := statuses[m]; ok && isReady(status) {
 				toAddVote = append(toAddVote, m)
@@ -184,8 +187,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 }
 
 func isReady(status replicaset.Status) bool {
-	return status.State == replicaset.PrimaryState ||
-		status.State == replicaset.SecondaryState
+	return status.Healthy && (status.State == replicaset.PrimaryState ||
+		status.State == replicaset.SecondaryState)
 }
 
 func setMemberVoting(member *replicaset.Member, voting bool) {
@@ -227,7 +230,7 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 	return members, extra
 }
 
-func (info *peerGroupInfo) statusesMap(members map[*machine] *replicaset.Member) map[*machine]replicaset.Status {
+func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.Status {
 	statuses := make(map[*machine]replicaset.Status)
 	for _, status := range info.statuses {
 		for m, member := range members {
