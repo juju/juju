@@ -19,9 +19,10 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
+// MockStore provides a mock charm store implementation useful when testing.
 type MockStore struct {
 	mux            *http.ServeMux
-	Lis            net.Listener
+	listener       net.Listener
 	bundleBytes    []byte
 	bundleSha256   string
 	Downloads      []*charm.URL
@@ -30,6 +31,7 @@ type MockStore struct {
 	charms map[string]int
 }
 
+// NewMockStore creates a mock charm store containing the specified charms.
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
 	s := &MockStore{charms: charms}
 	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "dummy"))
@@ -39,27 +41,32 @@ func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
 	h.Write(bytes)
 	s.bundleSha256 = hex.EncodeToString(h.Sum(nil))
 	s.mux = http.NewServeMux()
-	s.mux.HandleFunc("/charm-info", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeInfo(w, r)
-	})
-	s.mux.HandleFunc("/charm-event", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeEvent(w, r)
-	})
-	s.mux.HandleFunc("/charm/", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeCharm(w, r)
-	})
-	lis, err := net.Listen("tcp", "127.0.0.1:4444")
+	s.mux.HandleFunc("/charm-info", s.serveInfo)
+	s.mux.HandleFunc("/charm-event", s.serveEvent)
+	s.mux.HandleFunc("/charm/", s.serveCharm)
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
-	s.Lis = lis
-	go http.Serve(s.Lis, s)
+	s.listener = lis
+	go http.Serve(s.listener, s)
 	return s
 }
 
+// Close closes the mock store's socket.
+func (s *MockStore) Close() {
+	s.listener.Close()
+}
+
+// Address returns the URL used to make requests to the mock store.
+func (s *MockStore) Address() string {
+	return "http://" + s.listener.Addr().String()
+}
+
+// ServeHTTP implements http.ServeHTTP
 func (s *MockStore) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *MockStore) ServeInfo(w http.ResponseWriter, r *http.Request) {
+func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
@@ -98,7 +105,7 @@ func (s *MockStore) ServeInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *MockStore) ServeEvent(w http.ResponseWriter, r *http.Request) {
+func (s *MockStore) serveEvent(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*charm.EventResponse{}
 	for _, url := range r.Form["charms"] {
@@ -144,7 +151,7 @@ func (s *MockStore) ServeEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
+func (s *MockStore) serveCharm(w http.ResponseWriter, r *http.Request) {
 	charmURL := charm.MustParseURL("cs:" + r.URL.Path[len("/charm/"):])
 	s.Downloads = append(s.Downloads, charmURL)
 

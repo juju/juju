@@ -32,6 +32,16 @@ func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.mysql = s.AddTestingService(c, "mysql", s.charm)
 }
 
+func (s *ServiceSuite) TestRevisionStatus(c *gc.C) {
+	c.Assert(s.mysql.RevisionStatus(), gc.Equals, "")
+	err := s.mysql.SetRevisionStatus("foo")
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.mysql.RevisionStatus(), gc.Equals, "foo")
+	fromDb, err := s.State.Service("mysql")
+	c.Assert(err, gc.IsNil)
+	c.Assert(fromDb.RevisionStatus(), gc.Equals, "foo")
+}
+
 func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	ch, force, err := s.mysql.Charm()
 	c.Assert(err, gc.IsNil)
