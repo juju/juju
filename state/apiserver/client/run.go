@@ -25,14 +25,17 @@ import (
 func remoteParamsForMachine(machine *state.Machine, command string, timeout time.Duration) *RemoteExec {
 	// magic boolean parameters are bad :-(
 	address := instance.SelectInternalAddress(machine.Addresses(), false)
-	return &RemoteExec{
+	execParams := &RemoteExec{
 		ExecParams: ssh.ExecParams{
-			Host:    address,
 			Command: command,
 			Timeout: timeout,
 		},
 		MachineId: machine.Id(),
 	}
+	if address != "" {
+		execParams.Host = fmt.Sprintf("ubuntu@%s", address)
+	}
+	return execParams
 }
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
@@ -71,8 +74,8 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
-func (c *Client) Run(params api.RunParams) (results api.RunResults, err error) {
-	units, err := getAllUnitNames(c.api.state, params.Units, params.Services)
+func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
+	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
 		return results, err
 	}
@@ -80,8 +83,8 @@ func (c *Client) Run(params api.RunParams) (results api.RunResults, err error) {
 	// If we have both a unit and a machine request, we run it twice,
 	// once for the unit inside the exec context using juju-run, and
 	// the other outside the context just using bash.
-	var execParams []*RemoteExec
-	var quotedCommand = utils.ShQuote(params.Commands)
+	var params []*RemoteExec
+	var quotedCommands = utils.ShQuote(run.Commands)
 	for _, unit := range units {
 		// We know that the unit is both a principal unit, and that it has an
 		// assigned machine.
@@ -90,20 +93,20 @@ func (c *Client) Run(params api.RunParams) (results api.RunResults, err error) {
 		if err != nil {
 			return results, err
 		}
-		command := fmt.Sprintf("juju-run %s %s", unit.Name(), quotedCommand)
-		execParam := remoteParamsForMachine(machine, command, params.Timeout)
+		command := fmt.Sprintf("juju-run %s %s", unit.Name(), quotedCommands)
+		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		execParam.UnitId = unit.Name()
-		execParams = append(execParams, execParam)
+		params = append(params, execParam)
 	}
-	for _, machineId := range params.Machines {
+	for _, machineId := range run.Machines {
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {
 			return results, err
 		}
-		execParam := remoteParamsForMachine(machine, params.Commands, params.Timeout)
-		execParams = append(execParams, execParam)
+		execParam := remoteParamsForMachine(machine, run.Commands, run.Timeout)
+		params = append(params, execParam)
 	}
-	return ParallelExecute(c.api.agentConfig.DataDir(), execParams), nil
+	return ParallelExecute(c.api.agentConfig.DataDir(), params), nil
 }
 
 func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
@@ -125,28 +128,32 @@ type RemoteExec struct {
 }
 
 func ParallelExecute(dataDir string, params []*RemoteExec) api.RunResults {
+	logger.Debugf("exec %#v", params)
 	var outstanding sync.WaitGroup
 	var lock sync.Mutex
 	var result []api.RunResult
 	identity := filepath.Join(dataDir, cloudinit.SystemIdentity)
 	for _, param := range params {
 		outstanding.Add(1)
+		logger.Debugf("exec on %s: %#v", param.MachineId, *param)
 		param.IdentityFile = identity
-		go func() {
+		go func(param *RemoteExec) {
 			response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
-
+			logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
 			execResponse := api.RunResult{
 				RemoteResponse: response,
 				MachineId:      param.MachineId,
 				UnitId:         param.UnitId,
-				Error:          err,
+			}
+			if err != nil {
+				execResponse.Error = fmt.Sprint(err)
 			}
 
 			lock.Lock()
 			defer lock.Unlock()
 			result = append(result, execResponse)
 			outstanding.Done()
-		}()
+		}(param)
 	}
 
 	outstanding.Wait()

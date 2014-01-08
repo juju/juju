@@ -4,3 +4,4 @@
 package client
 
 var ParseSettingsCompatible = parseSettingsCompatible
+var RemoteParamsForMachine = remoteParamsForMachine

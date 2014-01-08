@@ -20,6 +20,7 @@ import (
 // RunCommand is responsible for running arbitrary commands on remote machines.
 type RunCommand struct {
 	cmd.EnvCommandBase
+	out      cmd.Output
 	all      bool
 	timeout  time.Duration
 	machines []string
@@ -67,6 +68,7 @@ func (c *RunCommand) Info() *cmd.Info {
 
 func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.all, "all", false, "run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "how long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "one or more machine ids")
@@ -120,6 +122,34 @@ func (c *RunCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+func ConvertRunResults(runResults []api.RunResult) interface{} {
+	var results = make([]interface{}, 0)
+
+	for _, result := range runResults {
+		// We always want to have a string for stdout, but only show stderr,
+		// code and error if they are there.
+		values := make(map[string]interface{})
+		values["MachineId"] = result.MachineId
+		if result.UnitId != "" {
+			values["UnitId"] = result.UnitId
+
+		}
+		values["Stdout"] = string(result.Stdout)
+		if len(result.Stderr) > 0 {
+			values["Stderr"] = string(result.Stderr)
+		}
+		if result.Code != 0 {
+			values["ReturnCode"] = result.Code
+		}
+		if result.Error != "" {
+			values["Error"] = result.Error
+		}
+		results = append(results, values)
+	}
+
+	return results
+}
+
 func (c *RunCommand) Run(ctx *cmd.Context) error {
 	client, err := getAPIClient(c.EnvName)
 	if err != nil {
@@ -145,9 +175,23 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// Write results
-	fmt.Fprintf(ctx.Stdout, "TODO: write out the results\n")
-	_ = runResults
+	// If we are just dealing with one result, AND we are using the smart
+	// format, then pretend we were running it locally.
+	if len(runResults) == 1 && c.out.Name() == "smart" {
+		result := runResults[0]
+		ctx.Stdout.Write(result.Stdout)
+		ctx.Stderr.Write(result.Stderr)
+		if result.Error != "" {
+			// Convert the error string back into an error object.
+			return fmt.Errorf("%s", result.Error)
+		}
+		if result.Code != 0 {
+			return cmd.NewRcPassthroughError(result.Code)
+		}
+		return nil
+	}
+
+	c.out.Write(ctx, ConvertRunResults(runResults))
 	return nil
 }
 

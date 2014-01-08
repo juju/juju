@@ -404,7 +404,7 @@ type RunResult struct {
 	cmd.RemoteResponse
 	MachineId string
 	UnitId    string
-	Error     error
+	Error     string
 }
 
 type RunResults struct {
@@ -412,7 +412,10 @@ type RunResults struct {
 }
 
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]RunResult, error) {
-	return nil, fmt.Errorf("TODO")
+	var results RunResults
+	args := RunParams{Commands: commands, Timeout: timeout}
+	err := c.st.Call("Client", "", "RunOnAllMachines", args, &results)
+	return results.Results, err
 }
 
 type RunParams struct {
@@ -424,7 +427,9 @@ type RunParams struct {
 }
 
 func (c *Client) Run(params RunParams) ([]RunResult, error) {
-	return nil, fmt.Errorf("TODO")
+	var results RunResults
+	err := c.st.Call("Client", "", "Run", params, &results)
+	return results.Results, err
 }
 
 // DestroyEnvironment puts the environment into a "dying" state,
