@@ -17,7 +17,8 @@ import (
 )
 
 // CharmSuite provides infrastructure to set up and perform tests associated
-// with charm versioning. A mock charm store is created using some hard wired charms.
+// with charm versioning. A mock charm store is created using some known charms
+// used for testing.
 type CharmSuite struct {
 	jujutesting.JujuConnSuite
 
@@ -40,14 +41,14 @@ func (s *CharmSuite) SetUpSuite(c *gc.C) {
 func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&charm.CacheDir, c.MkDir())
-	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: "http://127.0.0.1:4444"})
+	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.server.Address()})
 	s.server.Downloads = nil
 	s.server.Authorizations = nil
 	s.charms = make(map[string]*state.Charm)
 }
 
 func (s *CharmSuite) TearDownSuite(c *gc.C) {
-	s.server.Lis.Close()
+	s.server.Close()
 	s.JujuConnSuite.TearDownSuite(c)
 }
 
@@ -116,6 +117,8 @@ func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddMachine(c, "1", state.JobHostUnits)
 	s.AddMachine(c, "2", state.JobHostUnits)
+	s.AddMachine(c, "3", state.JobHostUnits)
+
 	// mysql is out of date
 	s.AddCharmWithRevision(c, "mysql", 22)
 	s.AddService(c, "mysql", "mysql")
@@ -128,4 +131,9 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddUnit(c, "wordpress", "2")
 	// wordpress/0 has a version, wordpress/1 is unknown
 	s.SetUnitRevision(c, "wordpress/0", 26)
+
+	// varnish is a charm that does not have a version in the mock store.
+	s.AddCharmWithRevision(c, "varnish", 5)
+	s.AddService(c, "varnish", "varnish")
+	s.AddUnit(c, "varnish", "3")
 }
