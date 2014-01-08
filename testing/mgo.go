@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	stdtesting "testing"
+	stdlog "log"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -74,6 +75,8 @@ type MgoSuite struct {
 	Session *mgo.Session
 }
 
+var serverKey = "not very secret"
+
 // Start starts a MongoDB server in a temporary directory.
 func (inst *MgoInstance) Start() error {
 	dbdir, err := ioutil.TempDir("", "test-mgo")
@@ -84,6 +87,11 @@ func (inst *MgoInstance) Start() error {
 	err = ioutil.WriteFile(pemPath, []byte(ServerCert+ServerKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
+	}
+	keyFilePath := filepath.Join(dbdir, "keyfile")
+	err = ioutil.WriteFile(keyFilePath, []byte(serverKey), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write key file: %v", err)
 	}
 	inst.port = FindTCPPort()
 	inst.addr = fmt.Sprintf("localhost:%d", inst.port)
@@ -105,10 +113,12 @@ func (inst *MgoInstance) run() error {
 	}
 	mgoport := strconv.Itoa(inst.port)
 	mgoargs := []string{
+		"--bind_ip", "127.0.0.1",
 		"--auth",
 		"--dbpath", inst.dir,
 		"--sslOnNormalPorts",
 		"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
+		"--keyFile", filepath.Join(inst.dir, "keyfile"),
 		"--sslPEMKeyPassword", "ignored",
 		"--port", mgoport,
 		"--nssize", "1",
@@ -128,7 +138,7 @@ func (inst *MgoInstance) run() error {
 	server.Stderr = server.Stdout
 	exited := make(chan struct{})
 	go func() {
-		lines := readLines(out, 20)
+		lines := readLines(fmt.Sprintf("mongod:%v", mgoport), out, 20)
 		err := server.Wait()
 		exitErr, _ := err.(*exec.ExitError)
 		if err == nil || exitErr != nil && exitErr.Exited() {
@@ -194,13 +204,14 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 
 // readLines reads lines from the given reader and returns
 // the last n non-empty lines, ignoring empty lines.
-func readLines(r io.Reader, n int) []string {
+func readLines(prefix string, r io.Reader, n int) []string {
 	br := bufio.NewReader(r)
 	lines := make([]string, n)
 	i := 0
 	for {
 		line, err := br.ReadString('\n')
 		if line = strings.TrimRight(line, "\n"); line != "" {
+			stdlog.Printf("%s: %s", prefix, line)
 			lines[i%n] = line
 			i++
 		}
@@ -227,54 +238,56 @@ func (s *MgoSuite) TearDownSuite(c *gc.C) {
 // MustDial returns a new connection to the MongoDB server, and panics on
 // errors.
 func (inst *MgoInstance) MustDial() *mgo.Session {
-	s, err := inst.dial(false)
-	if err != nil {
-		panic(err)
-	}
-	return s
-}
-
-// Dial returns a new connection to the MongoDB server.
-func (inst *MgoInstance) Dial() (*mgo.Session, error) {
-	return inst.dial(false)
-}
-
-// DialDirect returns a new direct connection to the shared MongoDB server. This
-// must be used if you're connecting to a replicaset that hasn't been initiated
-// yet.
-func (inst *MgoInstance) DialDirect() (*mgo.Session, error) {
-	return inst.dial(true)
-}
-
-// MustDialDirect works like DialDirect, but panics on errors.
-func (inst *MgoInstance) MustDialDirect() *mgo.Session {
-	session, err := inst.dial(true)
+	session, err := inst.Dial()
 	if err != nil {
 		panic(err)
 	}
 	return session
 }
 
-func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
+// MustDialDirect works like DialDirect, but panics on errors.
+func (inst *MgoInstance) MustDialDirect() *mgo.Session {
+	session, err := inst.DialDirect()
+	if err != nil {
+		panic(err)
+	}
+	return session
+}
+
+// Dial returns a new connection to the MongoDB server.
+func (inst *MgoInstance) Dial() (*mgo.Session, error) {
+	return mgo.DialWithInfo(inst.DialInfo())
+}
+
+// DialDirect returns a new direct connection to the shared MongoDB server. This
+// must be used if you're connecting to a replicaset that hasn't been initiated
+// yet.
+func (inst *MgoInstance) DialDirect() (*mgo.Session, error) {
+	info := inst.DialInfo()
+	info.Direct = true
+	return mgo.DialWithInfo(info)
+}
+
+// DialInfo returns information suitable for dialling
+// the mongo instance.
+func (inst *MgoInstance) DialInfo() *mgo.DialInfo {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
-		return nil, err
+		panic(fmt.Errorf("cannot parse CACert: %v", err))
 	}
 	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
 		RootCAs:    pool,
 		ServerName: "anything",
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
-		Direct: direct,
+	return &mgo.DialInfo{
 		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		},
 		Timeout: mgoDialTimeout,
-	})
-	return session, err
+	}
 }
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
