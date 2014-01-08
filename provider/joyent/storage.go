@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
@@ -104,7 +105,8 @@ func (s *joyentStorage) List(prefix string) ([]string, error) {
 
 func (s *joyentStorage) URL(name string) (string, error) {
 	//return something that a random wget can retrieve the object at, without any credentials
-	return fmt.Sprintf("%s/%s/stor/%s/%s", s.ecfg.mantaUrl(), s.ecfg.mantaUser(), s.containerName, name), nil
+	path := fmt.Sprintf("/%s/stor/%s/%s", s.ecfg.mantaUser(), s.containerName, name)
+	return s.manta.SignURL(path, time.Now().Add(time.Minute * 5))
 }
 
 func (s *joyentStorage) Get(name string) (io.ReadCloser, error) {
