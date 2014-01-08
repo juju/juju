@@ -21,13 +21,13 @@ import (
 // details.
 func Initiate(session *mgo.Session, address, name string) error {
 	session.SetMode(mgo.Monotonic, true)
-	cfg := replicaConfig{Name: name, Version: 1, Members: []Member{Member{Address: address}}}
+	cfg := Config{Name: name, Version: 1, Members: []Member{Member{Id: 1, Address: address}}}
 	return session.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 }
 
 // Member holds configuration information for a replica set member.
 //
-// See http://docs.mongodb.org/v2.4/reference/replica-configuration/#local.system.replset.members
+// See http://docs.mongodb.org/manual/reference/replica-configuration/
 // for more details
 type Member struct {
 	// Id is a unique id for a member in a set.
@@ -54,6 +54,10 @@ type Member struct {
 	// This value is optional; it defaults to 1.
 	Priority *float64 `bson:"priority,omitempty"`
 
+	// Tags store additional information about a replica member, often used for
+	// customizing read preferences and write concern.
+	Tags map[string]string `bson:"tags,omitempty"`
+
 	// SlaveDelay describes the number of seconds behind the master that this
 	// replica set member should lag rounded up to the nearest second.
 	// This value is optional; it defaults to 0.
@@ -67,15 +71,15 @@ type Member struct {
 // Add adds the given members to the session's replica set.  Duplicates of
 // existing replicas will be ignored.
 //
-// Members will have their Ids set automatically.
+// Members will have their Ids set automatically if they are not already > 0
 func Add(session *mgo.Session, members ...Member) error {
-	config, err := getConfig(session)
+	config, err := CurrentConfig(session)
 	if err != nil {
 		return err
 	}
 
 	config.Version++
-	max := -1
+	max := 0
 	for _, member := range config.Members {
 		if member.Id > max {
 			max = member.Id
@@ -90,8 +94,11 @@ outerLoop:
 				continue outerLoop
 			}
 		}
-		max++
-		newMember.Id = max
+		// let the caller specify an id if they want, treat zero as unspecified
+		if newMember.Id < 1 {
+			max++
+			newMember.Id = max
+		}
 		config.Members = append(config.Members, newMember)
 	}
 	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
@@ -100,7 +107,7 @@ outerLoop:
 // Remove removes members with the given addresses from the replica set. It is
 // not an error to remove addresses of non-existent replica set members.
 func Remove(session *mgo.Session, addrs ...string) error {
-	config, err := getConfig(session)
+	config, err := CurrentConfig(session)
 	if err != nil {
 		return err
 	}
@@ -124,9 +131,9 @@ func Remove(session *mgo.Session, addrs ...string) error {
 }
 
 // Set changes the current set of replica set members.  Members will have their
-// ids set automatically.
+// ids set automatically if their ids are not already > 0.
 func Set(session *mgo.Session, members []Member) error {
-	config, err := getConfig(session)
+	config, err := CurrentConfig(session)
 	if err != nil {
 		return err
 	}
@@ -136,7 +143,7 @@ func Set(session *mgo.Session, members []Member) error {
 	// Assign ids to members that did not previously exist, starting above the
 	// value of the highest id that already existed
 	ids := map[string]int{}
-	max := -1
+	max := 0
 	for _, m := range config.Members {
 		ids[m.Address] = m.Id
 		if m.Id > max {
@@ -147,7 +154,7 @@ func Set(session *mgo.Session, members []Member) error {
 	for x, m := range members {
 		if id, ok := ids[m.Address]; ok {
 			m.Id = id
-		} else {
+		} else if m.Id < 1 {
 			max++
 			m.Id = max
 		}
@@ -193,18 +200,18 @@ func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
 	return results, nil
 }
 
-// CurrentMembers returns the current members of the replica set, keyed by
-// member address.
+// CurrentMembers returns the current members of the replica set.
 func CurrentMembers(session *mgo.Session) ([]Member, error) {
-	cfg, err := getConfig(session)
+	cfg, err := CurrentConfig(session)
 	if err != nil {
 		return nil, err
 	}
 	return cfg.Members, nil
 }
 
-func getConfig(session *mgo.Session) (*replicaConfig, error) {
-	cfg := &replicaConfig{}
+// CurrentConfig returns the Config for the given session's replica set.
+func CurrentConfig(session *mgo.Session) (*Config, error) {
+	cfg := &Config{}
 	err := session.DB("local").C("system.replset").Find(nil).One(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting replset config : %s", err.Error())
@@ -212,37 +219,41 @@ func getConfig(session *mgo.Session) (*replicaConfig, error) {
 	return cfg, nil
 }
 
-// replicaConfig is the document stored in mongodb that defines the servers in
-// the replica set
-type replicaConfig struct {
+// Config is the document stored in mongodb that defines the servers in the
+// replica set
+type Config struct {
 	Name    string   `bson:"_id"`
 	Version int      `bson:"version"`
 	Members []Member `bson:"members"`
 }
 
-// CurrentStatus returns the status of each member, keyed by member address.
-func CurrentStatus(session *mgo.Session) ([]Status, error) {
-	type statuslist struct {
-		Members []Status `bson:"members"`
-	}
-	list := &statuslist{}
-	err := session.Run("replSetGetStatus", list)
+// CurrentStatus returns the status of the replica set for the given session.
+func CurrentStatus(session *mgo.Session) (*Status, error) {
+	status := &Status{}
+	err := session.Run("replSetGetStatus", status)
 	if err != nil {
 		return nil, fmt.Errorf("Error from replSetGetStatus: %v", err)
 	}
-	return list.Members, nil
+	return status, nil
+}
+
+// Status holds data about the status of members of the replica set returned
+// from replSetGetStatus
+//
+// See http://docs.mongodb.org/manual/reference/command/replSetGetStatus/#dbcmd.replSetGetStatus
+type Status struct {
+	Name    string         `bson:"set"`
+	Members []MemberStatus `bson:"members"`
 }
 
 // Status holds the status of a replica set member returned from
 // replSetGetStatus.
-type Status struct {
+type MemberStatus struct {
 	// Address holds address of the member that the status is describing.
-	// http://goo.gl/5KgCid
 	Address string `bson:"name"`
 
 	// Self holds whether this is the status for the member that
 	// the session is connected to.
-	// http://goo.gl/cgj16R
 	Self bool `bson:"self"`
 
 	// ErrMsg holds the most recent error or status message received
@@ -254,20 +265,19 @@ type Status struct {
 	Healthy bool `bson:"health"`
 
 	// State describes the current state of the member.
-	State MemberState `bson:"myState"`
+	State MemberState `bson:"state"`
 
 	// Uptime describes how long the member has been online.
 	Uptime time.Duration `bson:"uptime"`
 
-	// Ping describes the length of time a round-trip packet
-	// takes to travel between the remote member and the local
-	// instance.  It is zero for the member that the session
-	// is connected to.
+	// Ping describes the length of time a round-trip packet takes to travel
+	// between the remote member and the local instance.  It is zero for the
+	// member that the session is connected to.
 	Ping time.Duration `bson:"pingMS"`
 }
 
 // MemberState represents the state of a replica set member.
-// See http://goo.gl/8unEn5.
+// See http://docs.mongodb.org/manual/reference/replica-states/
 type MemberState int
 
 const (

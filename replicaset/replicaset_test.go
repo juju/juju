@@ -72,7 +72,8 @@ func dialAndTestInitiate(c *gc.C) {
 	err := Initiate(session, root.Addr(), name)
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers := []Member{Member{Address: root.Addr()}}
+	// Ids start at 1 for us, so we can differentiate between set and unset
+	expectedMembers := []Member{Member{Id: 1, Address: root.Addr()}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
@@ -112,26 +113,26 @@ func (s *MongoSuite) TearDownSuite(c *gc.C) {
 	root.Destroy()
 }
 
-/*
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
 
-	expectedStatus := []Status{
+	expectedStatus := []MemberStatus{
 		{
 			Address: root.Addr(),
 			Self:    true,
 			ErrMsg:  "",
 			Healthy: true,
-			State:   StartupState,
+			State:   PrimaryState,
 		},
 	}
 
 	status, err := CurrentStatus(session)
-	expectedStatus[0].Uptime = status[0].Uptime
-	expectedStatus[0].Ping = status[0].Ping
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, expectedStatus)
+
+	expectedStatus[0].Uptime = status.Members[0].Uptime
+	expectedStatus[0].Ping = status.Members[0].Ping
+	c.Assert(status.Members, gc.DeepEquals, expectedStatus)
 
 	members := make([]Member, 0, 5)
 
@@ -148,21 +149,38 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		instances = append(instances, inst)
 		defer inst.Destroy()
 		defer Remove(session, inst.Addr())
-		members = append(members, Member{Address: inst.Addr(), Id: x + 1})
+
+		tags := map[string]string{"key1": "val1"}
+
+		members = append(members, Member{Address: inst.Addr(), Tags: tags})
 	}
 
 	err = Add(session, members...)
 	c.Assert(err, gc.IsNil)
 
-	mems, err := CurrentMembers(session)
+	expectedMembers := make([]Member, len(members))
+	for x, m := range members {
+		// Ids should start at 1 (for the root) and go up
+		m.Id = x + 1
+		expectedMembers[x] = m
+	}
+
+	cfg, err := CurrentConfig(session)
 	c.Assert(err, gc.IsNil)
-	c.Assert(mems, gc.DeepEquals, members)
+	c.Assert(cfg.Name, gc.Equals, name)
+
+	// 2 since we already changed it once
+	c.Assert(cfg.Version, gc.Equals, 2)
+
+	mems := cfg.Members
+
+	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
 	// Now remove the last two Members
 	err = Remove(session, members[3].Address, members[4].Address)
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers := members[0:3]
+	expectedMembers = expectedMembers[0:3]
 
 	mems, err = CurrentMembers(session)
 	c.Assert(err, gc.IsNil)
@@ -170,10 +188,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	// now let's mix it up and set the new members to a mix of the previous
 	// plus the new arbiter
-	mems = []Member{members[3], members[2], members[0], members[4]}
-
-	// reset this guy's ID to make sure it gets set corrcetly
-	mems[3].Id = 0
+	mems = []Member{members[3], mems[2], mems[0], members[4]}
 
 	err = Set(session, mems)
 	c.Assert(err, gc.IsNil)
@@ -190,22 +205,22 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	}
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers = []Member{members[3], members[2], members[0], members[4]}
+	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
 
 	// any new members will get an id of max(other_ids...)+1
-	expectedMembers[0].Id = 3
-	expectedMembers[3].Id = 4
+	expectedMembers[0].Id = 4
+	expectedMembers[3].Id = 5
 
 	mems, err = CurrentMembers(session)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 }
-*/
+
 func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
 
-	exp := IsMasterResults{
+	expected := IsMasterResults{
 		// The following fields hold information about the specific mongodb node.
 		IsMaster:  true,
 		Secondary: false,
@@ -224,36 +239,89 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
 	res.LocalTime = time.Time{}
-	c.Check(*res, gc.DeepEquals, exp)
+	c.Check(*res, gc.DeepEquals, expected)
 }
 
-/*
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
 
-	exp := IsMasterResults{
-		// The following fields hold information about the specific mongodb node.
-		IsMaster:  true,
-		Secondary: false,
-		Arbiter:   false,
-		Address:   root.Addr(),
-		LocalTime: time.Time{},
+	inst1, err := newServer()
+	c.Assert(err, gc.IsNil)
+	defer inst1.Destroy()
+	defer Remove(session, inst1.Addr())
 
-		// The following fields hold information about the replica set.
-		ReplicaSetName: name,
-		Addresses:      []string{root.Addr()},
-		Arbiters:       nil,
-		PrimaryAddress: root.Addr(),
+	inst2, err := newServer()
+	c.Assert(err, gc.IsNil)
+	defer inst2.Destroy()
+	defer Remove(session, inst2.Addr())
+
+	err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
+	c.Assert(err, gc.IsNil)
+
+	expected := Status{
+		Name: name,
+		Members: []MemberStatus{
+			MemberStatus{
+				Address: root.Addr(),
+				Self:    true,
+				ErrMsg:  "",
+				Healthy: true,
+				State:   PrimaryState,
+			},
+			MemberStatus{
+				Address: inst1.Addr(),
+				Self:    false,
+				ErrMsg:  "",
+				Healthy: true,
+				State:   SecondaryState,
+			},
+			MemberStatus{
+				Address: inst2.Addr(),
+				Self:    false,
+				ErrMsg:  "",
+				Healthy: true,
+				State:   SecondaryState,
+			},
+		},
 	}
 
-	res, err := IsMaster(session)
-	c.Assert(err, gc.IsNil)
-	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
-	res.LocalTime = time.Time{}
-	c.Check(*res, gc.DeepEquals, exp)
+	deadline := time.Now().Add(time.Second * 60)
+	var res *Status
+	for {
+		var err error
+		res, err = CurrentStatus(session)
+
+		if err != nil && time.Now().After(deadline) {
+			c.Errorf("Couldn't get status before timeout, got err: %v", err)
+			return
+		}
+
+		if res.Members[0].State == PrimaryState &&
+			res.Members[1].State == SecondaryState &&
+			res.Members[2].State == SecondaryState {
+			break
+		}
+		if time.Now().After(deadline) {
+			c.Errorf("Servers did not get into final state before timeout.  Status: %#v", res)
+			return
+		}
+		session.Refresh()
+	}
+
+	for x, _ := range res.Members {
+		// non-empty uptime and ping
+		c.Check(res.Members[x].Uptime, gc.Not(gc.Equals), 0)
+
+		// ping is always going to be zero since we're on localhost
+		// so we can't really test it right now
+
+		// now overwrite Uptime so it won't throw off DeepEquals
+		res.Members[x].Uptime = 0
+	}
+	c.Check(*res, gc.DeepEquals, expected)
 }
-*/
+
 func closeEnough(expected, obtained time.Time) bool {
 	t := obtained.Sub(expected)
 	return (-500*time.Millisecond) < t && t < (500*time.Millisecond)
