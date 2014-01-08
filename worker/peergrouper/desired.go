@@ -26,29 +26,29 @@ type machine struct {
 	voting bool
 }
 
-// getPeerGroupInfo collates current session information about the
-// mongo peer group with information from state machines.
-func getPeerGroupInfo(st *state.State, ms []*state.Machine) (*peerGroupInfo, error) {
-	session := st.MongoSession()
-	info := &peerGroupInfo{}
-	var err error
-	info.statuses, err = replicaset.CurrentStatus(session)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set status: %v", err)
-	}
-	info.members, err = replicaset.CurrentMembers(session)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set members: %v", err)
-	}
-	for _, m := range ms {
-		info.machines = append(info.machines, &machine{
-			id:        m.Id(),
-			candidate: m.IsCandidate(),
-			addresses: m.Addresses(),
-		})
-	}
-	return info, nil
-}
+//// getPeerGroupInfo collates current session information about the
+//// mongo peer group with information from state machines.
+//func getPeerGroupInfo(st *state.State, ms []*state.Machine) (*peerGroupInfo, error) {
+//	session := st.MongoSession()
+//	info := &peerGroupInfo{}
+//	var err error
+//	info.statuses, err = replicaset.CurrentStatus(session)
+//	if err != nil {
+//		return nil, fmt.Errorf("cannot get replica set status: %v", err)
+//	}
+//	info.members, err = replicaset.CurrentMembers(session)
+//	if err != nil {
+//		return nil, fmt.Errorf("cannot get replica set members: %v", err)
+//	}
+//	for _, m := range ms {
+//		info.machines = append(info.machines, &machine{
+//			id:        m.Id(),
+//			candidate: m.IsCandidate(),
+//			addresses: m.Addresses(),
+//		})
+//	}
+//	return info, nil
+//}
 
 func min(i, j int) int {
 	if i < j {
@@ -162,7 +162,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	}
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range info.machines {
-		addr := instance.SelectInternalAddress(m.addresses)
+		addr := instance.SelectInternalAddress(m.addresses, false)
 		if addr == "" {
 			continue
 		}
@@ -181,6 +181,11 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 		memberSet = append(memberSet, *member)
 	}
 	return memberSet, nil
+}
+
+func isReady(status replicaset.Status) bool {
+	return status.State == replicaset.PrimaryState ||
+		status.State == replicaset.SecondaryState
 }
 
 func setMemberVoting(member *replicaset.Member, voting bool) {
