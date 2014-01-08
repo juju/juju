@@ -31,19 +31,20 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in state/api/params.
 type serviceDoc struct {
-	Name          string `bson:"_id"`
-	Series        string
-	Subordinate   bool
-	CharmURL      *charm.URL
-	ForceCharm    bool
-	Life          Life
-	UnitSeq       int
-	UnitCount     int
-	RelationCount int
-	Exposed       bool
-	MinUnits      int
-	OwnerTag      string
-	TxnRevno      int64 `bson:"txn-revno"`
+	Name           string `bson:"_id"`
+	Series         string
+	Subordinate    bool
+	CharmURL       *charm.URL
+	ForceCharm     bool
+	RevisionStatus string
+	Life           Life
+	UnitSeq        int
+	UnitCount      int
+	RelationCount  int
+	Exposed        bool
+	MinUnits       int
+	OwnerTag       string
+	TxnRevno       int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -506,6 +507,28 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		}
 	}
 	return ErrExcessiveContention
+}
+
+// RevisionStatus returns the service revision status, indicating
+// if the service's charm is out of date or not.
+func (s *Service) RevisionStatus() string {
+	return s.doc.RevisionStatus
+}
+
+// SetRevisionStatus updates the service's revision status.
+func (s *Service) SetRevisionStatus(status string) (err error) {
+	ops := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: txn.DocExists,
+		Update: D{{"$set", D{{"revisionstatus", status}}}},
+	}}
+	if err := s.st.runTransaction(ops); err != nil {
+		return fmt.Errorf(
+			"cannot set revision status for service %q to %v: %v", s, status, onAbort(err, errors.NotFoundf("service")))
+	}
+	s.doc.RevisionStatus = status
+	return nil
 }
 
 // String returns the service name.

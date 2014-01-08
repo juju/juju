@@ -5,6 +5,7 @@ package api
 
 import (
 	"launchpad.net/juju-core/state/api/agent"
+	"launchpad.net/juju-core/state/api/charmversionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/logger"
@@ -79,4 +80,9 @@ func (st *State) Logger() *logger.State {
 // KeyUpdater returns access to the KeyUpdater API
 func (st *State) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
+}
+
+// CharmVersionUpdater returns access to the CharmVersionUpdater API
+func (st *State) CharmVersionUpdater() *charmversionupdater.State {
+	return charmversionupdater.NewState(st)
 }
