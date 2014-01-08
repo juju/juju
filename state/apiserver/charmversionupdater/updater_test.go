@@ -61,15 +61,16 @@ func (s *charmVersionSuite) TestUpdateVersions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	svc, err := s.State.Service("wordpress")
-	c.Assert(err, gc.IsNil)
-	c.Assert(svc.RevisionStatus(), gc.Equals, "")
-	svc, err = s.State.Service("mysql")
+	svc, err := s.State.Service("mysql")
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.RevisionStatus(), gc.Equals, "out of date (available: 23)")
 	u, err := s.State.Unit("mysql/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.RevisionStatus(), gc.Equals, "unknown")
+
+	svc, err = s.State.Service("wordpress")
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.RevisionStatus(), gc.Equals, "")
 	u, err = s.State.Unit("wordpress/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.RevisionStatus(), gc.Equals, "")
@@ -77,7 +78,16 @@ func (s *charmVersionSuite) TestUpdateVersions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.RevisionStatus(), gc.Equals, "unknown")
 
+	svc, err = s.State.Service("varnish")
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.RevisionStatus(), gc.Equals, "unknown: charm not found: cs:quantal/varnish")
+	u, err = s.State.Unit("varnish/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.RevisionStatus(), gc.Equals, "")
+
 	// Update mysql version and run update again.
+	svc, err = s.State.Service("mysql")
+	c.Assert(err, gc.IsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
 	err = svc.SetCharm(ch, true)
 	c.Assert(err, gc.IsNil)
@@ -86,12 +96,14 @@ func (s *charmVersionSuite) TestUpdateVersions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	// mysql is now up to date, wordpress has not changed.
+	// mysql is now up to date, wordpress, varnish have not changed.
 	svc, err = s.State.Service("mysql")
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.RevisionStatus(), gc.Equals, "")
 	svc, err = s.State.Service("wordpress")
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.RevisionStatus(), gc.Equals, "")
-
+	svc, err = s.State.Service("varnish")
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.RevisionStatus(), gc.Equals, "unknown: charm not found: cs:quantal/varnish")
 }
