@@ -27,8 +27,9 @@ type SyncToolsCommand struct {
 	minorVersion int
 	dryRun       bool
 	dev          bool
+	public       bool
 	source       string
-	destination  string
+	localDir     string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -56,8 +57,9 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
+	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
-	f.StringVar(&c.destination, "destination", "", "local destination directory")
+	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
 	// location, rather than only copying from us-east-1
@@ -87,8 +89,8 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	target := environ.Storage()
-	if c.destination != "" {
-		target, err = filestorage.NewFileStorageWriter(c.destination, filestorage.UseDefaultTmpDir)
+	if c.localDir != "" {
+		target, err = filestorage.NewFileStorageWriter(c.localDir, filestorage.UseDefaultTmpDir)
 		if err != nil {
 			return err
 		}
@@ -102,6 +104,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 		MinorVersion: c.minorVersion,
 		DryRun:       c.dryRun,
 		Dev:          c.dev,
+		Public:       c.public,
 		Source:       c.source,
 	}
 	return syncTools(sctx)

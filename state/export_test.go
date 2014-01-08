@@ -131,6 +131,12 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testing.Charms.Dir(name))
 }
 
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
+	service, err := st.AddService(name, "user-admin", ch)
+	c.Assert(err, gc.IsNil)
+	return service
+}
+
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
@@ -158,10 +164,41 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 
 var MachineIdLessThan = machineIdLessThan
 
+var JobNames = jobNames
+
 // SCHEMACHANGE
 // This method is used to reset a deprecated machine attriute.
 func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
+}
+
+//SCHEMACHANGE
+// This method is used to reset the ownertag attribute
+func SetServiceOwnerTag(s *Service, ownerTag string) {
+	s.doc.OwnerTag = ownerTag
+}
+
+//SCHEMACHANGE
+// Get the owner directly
+func GetServiceOwnerTag(s *Service) string {
+	return s.doc.OwnerTag
+}
+
+func SetPasswordHash(e Authenticator, passwordHash string) error {
+	type hasSetPasswordHash interface {
+		setPasswordHash(string) error
+	}
+	return e.(hasSetPasswordHash).setPasswordHash(passwordHash)
+}
+
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func GetPasswordHash(e Authenticator) string {
+	type hasGetPasswordHash interface {
+		getPasswordHash() string
+	}
+	return e.(hasGetPasswordHash).getPasswordHash()
 }
 
 func init() {
@@ -180,4 +217,19 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 
 func ParseTag(st *State, tag string) (string, string, error) {
 	return st.parseTag(tag)
+}
+
+// Return the PasswordSalt that goes along with the PasswordHash
+func GetUserPasswordSaltAndHash(u *User) (string, string) {
+	return u.doc.PasswordSalt, u.doc.PasswordHash
+}
+
+func StateServerMachineIds(st *State) ([]string, error) {
+	return st.stateServerMachineIds()
+}
+
+var NewAddress = newAddress
+
+func CheckUserExists(st *State, name string) (bool, error) {
+	return st.checkUserExists(name)
 }

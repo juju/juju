@@ -4,13 +4,15 @@
 package environs
 
 import (
+	"io"
+	"os"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -59,9 +61,6 @@ type EnvironProvider interface {
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() storage.StorageReader
 }
 
 // BootstrapStorager is an interface through which an Environ may be
@@ -75,7 +74,7 @@ type BootstrapStorager interface {
 	// EnableBootstrapStorage enables bootstrap storage, returning an
 	// error if enablement failed. If nil is returned, then calling
 	// this again will have no effect and will return nil.
-	EnableBootstrapStorage() error
+	EnableBootstrapStorage(BootstrapContext) error
 }
 
 // ConfigGetter implements access to an environments configuration.
@@ -136,7 +135,11 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value, possibleTools tools.List) error
+	//
+	// Bootstrap is responsible for selecting the appropriate tools,
+	// and setting the agent-version configuration attribute prior to
+	// bootstrapping the environment.
+	Bootstrap(ctx BootstrapContext, cons constraints.Value) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -152,7 +155,7 @@ type Environ interface {
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage and PublicStorage.
+	// values previously obtained from Storage.
 	SetConfig(cfg *config.Config) error
 
 	// Instances returns a slice of instances corresponding to the
@@ -191,4 +194,25 @@ type Environ interface {
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
+}
+
+// BootstrapContext is an interface that is passed to
+// Environ.Bootstrap, providing a means of obtaining
+// information about and manipulating the context in which
+// it is being invoked.
+type BootstrapContext interface {
+	Stdin() io.Reader
+	Stdout() io.Writer
+	Stderr() io.Writer
+
+	// InterruptNotify starts watching for interrupt signals
+	// on behalf of the caller, sending them to the supplied
+	// channel.
+	InterruptNotify(sig chan<- os.Signal)
+
+	// StopInterruptNotify undoes the effects of a previous
+	// call to InterruptNotify with the same channel. After
+	// StopInterruptNotify returns, no more signals will be
+	// delivered to the channel.
+	StopInterruptNotify(chan<- os.Signal)
 }

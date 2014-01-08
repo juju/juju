@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	gc "launchpad.net/gocheck"
@@ -19,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -166,4 +168,33 @@ func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
 	// Temporary directory should not have been moved.
 	_, err = os.Stat(s.dir + ".tmp")
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
+	homeDir := osenv.Home()
+	tempDir, err := ioutil.TempDir(homeDir, "")
+	c.Assert(err, gc.IsNil)
+	defer os.RemoveAll(tempDir)
+	dirName := strings.Replace(tempDir, homeDir, "", -1)
+	reader, err := filestorage.NewFileStorageReader(filepath.Join("~", dirName))
+	c.Assert(err, gc.IsNil)
+	url, err := reader.URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "file://"+filepath.Join(homeDir, dirName))
+}
+
+func (s *filestorageSuite) TestRelativePath(c *gc.C) {
+	dir := c.MkDir()
+	err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), os.ModePerm)
+	c.Assert(err, gc.IsNil)
+	cwd, err := os.Getwd()
+	c.Assert(err, gc.IsNil)
+	err = os.Chdir(filepath.Join(dir, "a", "b", "c"))
+	c.Assert(err, gc.IsNil)
+	defer os.Chdir(cwd)
+	reader, err := filestorage.NewFileStorageReader("../..")
+	c.Assert(err, gc.IsNil)
+	url, err := reader.URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "file://"+dir+"/a")
 }

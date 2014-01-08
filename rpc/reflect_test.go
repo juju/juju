@@ -117,10 +117,12 @@ func (*reflectSuite) TestMethodCaller(c *gc.C) {
 
 	m, err := v.MethodCaller("foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `unknown object type "foo"`)
+	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
 
 	m, err = v.MethodCaller("SimpleMethods", "bar")
-	c.Assert(err, gc.ErrorMatches, `no such request "bar" on SimpleMethods`)
+	c.Assert(err, gc.ErrorMatches, "no such request - method SimpleMethods.bar is not implemented")
+	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
 
 	m, err = v.MethodCaller("SimpleMethods", "Call1r1e")

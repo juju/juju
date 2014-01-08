@@ -46,7 +46,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests.
 	s.machines = nil
-	for i := 0; i < 3; i++ {
+	// Note that the specific machine ids allocated are assumed
+	// to be numerically consecutive from zero.
+	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	for i := 0; i < 2; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -55,9 +58,8 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		LoggedIn:     true,
-		Manager:      true,
-		MachineAgent: false,
+		LoggedIn:       true,
+		EnvironManager: true,
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -77,14 +79,14 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = false
-	anAuthorizer.Manager = true
+	anAuthorizer.EnvironManager = true
 	// Works with an environment manager, which is not a machine agent.
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
 	// But fails with neither a machine agent or an environment manager.
-	anAuthorizer.Manager = false
+	anAuthorizer.EnvironManager = false
 	aProvisioner, err = provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -94,9 +96,9 @@ func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser
 func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{
-			{Tag: s.machines[0].Tag(), Password: "xxx0"},
-			{Tag: s.machines[1].Tag(), Password: "xxx1"},
-			{Tag: s.machines[2].Tag(), Password: "xxx2"},
+			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
+			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
+			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
 			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
 			{Tag: "service-bar", Password: "abc"},
@@ -120,9 +122,22 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 		c.Logf("trying %q password", machine.Tag())
 		err = machine.Refresh()
 		c.Assert(err, gc.IsNil)
-		changed := machine.PasswordValid(fmt.Sprintf("xxx%d", i))
+		changed := machine.PasswordValid(fmt.Sprintf("xxx%d-1234567890123457890", i))
 		c.Assert(changed, jc.IsTrue)
 	}
+}
+
+func (s *provisionerSuite) TestShortSetPasswords(c *gc.C) {
+	args := params.PasswordChanges{
+		Changes: []params.PasswordChange{
+			{Tag: s.machines[1].Tag(), Password: "xxx1"},
+		},
+	}
+	results, err := s.provisioner.SetPasswords(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"password is only 4 bytes long, and is not a valid Agent password")
 }
 
 func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
@@ -138,7 +153,7 @@ func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
-	anAuthorizer.Manager = false
+	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
@@ -149,15 +164,13 @@ func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create some containers to work on.
-	constraints := state.AddMachineParams{
-		ParentId:      s.machines[0].Id(),
-		ContainerType: instance.LXC,
-		Series:        "quantal",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
-		container, err := s.State.AddMachineWithConstraints(&constraints)
+		container, err := s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
 		c.Check(err, gc.IsNil)
 		containers = append(containers, container)
 	}
@@ -395,6 +408,43 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
+func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.WatchContainers{Params: []params.WatchContainer{
+		{MachineTag: s.machines[0].Tag()},
+		{MachineTag: s.machines[1].Tag()},
+		{MachineTag: "machine-42"},
+		{MachineTag: "unit-foo-0"},
+		{MachineTag: "service-bar"},
+	}}
+	result, err := s.provisioner.WatchAllContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "2", Changes: []string{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	m0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, m0Watcher)
+	m1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, m1Watcher)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0.AssertNoChange()
+	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1.AssertNoChange()
+}
+
 func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -428,7 +478,7 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
-	anAuthorizer.Manager = false
+	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, gc.IsNil)
@@ -501,12 +551,12 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
-	machineParams := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=123", "mem=8G"),
 	}
-	consMachine, err := s.State.AddMachineWithConstraints(&machineParams)
+	consMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -524,7 +574,7 @@ func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ConstraintsResults{
 		Results: []params.ConstraintsResult{
 			{Constraints: machine0Constraints},
-			{Constraints: machineParams.Constraints},
+			{Constraints: template.Constraints},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -631,7 +681,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	// Make sure WatchEnvironMachines fails with a machine agent login.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
-	anAuthorizer.Manager = false
+	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 
@@ -652,12 +702,13 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	result, err := s.provisioner.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: addrs,
 	})
 }
 
@@ -675,10 +726,19 @@ func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
 	c.Check(results.Results, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+	results, err := s.provisioner.ContainerConfig()
+	c.Check(err, gc.IsNil)
+	c.Check(results.ProviderType, gc.Equals, "dummy")
+	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+	c.Check(results.SyslogPort, gc.Equals, 2345)
+}
+
 func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"
-	anAuthorizer.Manager = false
+	anAuthorizer.EnvironManager = false
 	anAuthorizer.MachineAgent = true
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
@@ -711,4 +771,88 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 	agentTools := results.Results[0].Tools
 	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
 	c.Check(agentTools.Version, gc.DeepEquals, cur)
+}
+
+func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
+			{
+				MachineTag:     "machine-0",
+				ContainerTypes: []instance.ContainerType{instance.LXC},
+			},
+			{
+				MachineTag:     "machine-1",
+				ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+			},
+		},
+	}
+	results, err := s.provisioner.SetSupportedContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	for _, result := range results.Results {
+		c.Assert(result.Error, gc.IsNil)
+	}
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC})
+	m1, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	containers, ok = m1.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
+	// Login as a machine agent for machine 0.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.EnvironManager = false
+	anAuthorizer.Tag = s.machines[0].Tag()
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+	c.Assert(aProvisioner, gc.NotNil)
+
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{{
+			MachineTag:     "machine-0",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		}, {
+			MachineTag:     "machine-1",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		}, {
+			MachineTag:     "machine-42",
+			ContainerTypes: []instance.ContainerType{instance.LXC},
+		},
+		},
+	}
+	// Only machine 0 can have it's containers updated.
+	results, err := aProvisioner.SetSupportedContainers(args)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
+			{
+				MachineTag: "machine-0",
+			},
+		},
+	}
+	results, err := s.provisioner.SetSupportedContainers(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	containers, ok := m0.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }

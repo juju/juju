@@ -8,12 +8,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/version"
@@ -38,6 +40,10 @@ const (
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
+
+	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// listening on.
+	DefaultSyslogPort int = 514
 )
 
 // Config holds an immutable environment configuration.
@@ -78,8 +84,8 @@ const (
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" and "development", of types string
-// and bool respectively.
+// recognised are "agent-version" (string) and "development" (bool) as
+// well as charm-store-auth (string containing comma-separated key=value pairs).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -141,7 +147,7 @@ func (c *Config) fillInDefaults() error {
 	keys := c.asString("authorized-keys")
 	if path != "" || keys == "" {
 		var err error
-		c.m["authorized-keys"], err = readAuthorizedKeys(path)
+		c.m["authorized-keys"], err = ReadAuthorizedKeys(path)
 		if err != nil {
 			return err
 		}
@@ -169,6 +175,24 @@ func (c *Config) fillInStringDefault(attr string) {
 	if c.asString(attr) == "" {
 		c.m[attr] = defaults[attr]
 	}
+}
+
+// processDeprecatedAttributes ensures that the config is set up so that it works
+// correctly when used with older versions of Juju which require that deprecated
+// attribute values still be used.
+func (cfg *Config) processDeprecatedAttributes() {
+	// The tools url has changed so ensure that both old and new values are in the config so that
+	// upgrades work. "tools-url" is the old attribute name.
+	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := cfg.ToolsURL()
+		// Ensure the new attribute name "tools-metadata-url" is set.
+		if !newToolsSpecified {
+			cfg.m["tools-metadata-url"] = oldToolsURL
+		}
+	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// we still want it in the config for upgrades.
+	cfg.m["tools-url"], _ = cfg.ToolsURL()
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -231,6 +255,14 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	// Ensure that the auth token is a set of key=value pairs.
+	authToken, _ := cfg.CharmStoreAuth()
+	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
+	if !validAuthToken.MatchString(authToken) {
+		return fmt.Errorf("charm store auth token needs to be a set"+
+			" of key-value pairs, not %q", authToken)
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -244,6 +276,8 @@ func Validate(cfg, old *Config) error {
 			}
 		}
 	}
+
+	cfg.processDeprecatedAttributes()
 	return nil
 }
 
@@ -358,6 +392,11 @@ func (c *Config) APIPort() int {
 	return c.mustInt("api-port")
 }
 
+// SyslogPort returns the syslog port for the environment.
+func (c *Config) SyslogPort() int {
+	return c.mustInt("syslog-port")
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -414,7 +453,7 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 // ToolsURL returns the URL that locates the tools tarballs and metadata,
 // and whether it has been set.
 func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.m["tools-url"]; ok && url != "" {
+	if url, ok := c.m["tools-metadata-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -443,6 +482,19 @@ func (c *Config) SSLHostnameVerification() bool {
 // LoggingConfig returns the configuration string for the loggers.
 func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
+}
+
+// Auth token sent to charm store
+func (c *Config) CharmStoreAuth() (string, bool) {
+	auth := c.asString("charm-store-auth")
+	return auth, auth != ""
+}
+
+// ProvisionerSafeMode reports whether the provisioner should not
+// destroy machines it does not know about.
+func (c *Config) ProvisionerSafeMode() bool {
+	v, _ := c.m["provisioner-safe-mode"].(bool)
+	return v
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -479,7 +531,7 @@ var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
 	"default-series":            schema.String(),
-	"tools-url":                 schema.String(),
+	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
@@ -494,7 +546,13 @@ var fields = schema.Fields{
 	"ssl-hostname-verification": schema.Bool(),
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
+	"syslog-port":               schema.ForceInt(),
 	"logging-config":            schema.String(),
+	"charm-store-auth":          schema.String(),
+	"provisioner-safe-mode":     schema.Bool(),
+
+	// Deprecated fields, retain for backwards compatibility.
+	"tools-url": schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -506,13 +564,17 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":        schema.Omit,
-	"ca-cert":              schema.Omit,
-	"authorized-keys":      schema.Omit,
-	"authorized-keys-path": schema.Omit,
-	"ca-cert-path":         schema.Omit,
-	"ca-private-key-path":  schema.Omit,
-	"logging-config":       schema.Omit,
+	"agent-version":         schema.Omit,
+	"ca-cert":               schema.Omit,
+	"authorized-keys":       schema.Omit,
+	"authorized-keys-path":  schema.Omit,
+	"ca-cert-path":          schema.Omit,
+	"ca-private-key-path":   schema.Omit,
+	"logging-config":        schema.Omit,
+	"provisioner-safe-mode": schema.Omit,
+
+	// Deprecated fields, retain for backwards compatibility.
+	"tools-url": "",
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -522,12 +584,15 @@ var alwaysOptional = schema.Defaults{
 	"admin-secret":       "", // TODO(rog) omit
 	"ca-private-key":     "", // TODO(rog) omit
 	"image-metadata-url": "", // TODO(rog) omit
-	"tools-url":          "", // TODO(rog) omit
+	"tools-metadata-url": "", // TODO(rog) omit
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
-	"state-port": DefaultStatePort,
-	"api-port":   DefaultAPIPort,
+	"state-port":  DefaultStatePort,
+	"api-port":    DefaultAPIPort,
+	"syslog-port": DefaultSyslogPort,
+	// Authentication string sent with requests to the charm store
+	"charm-store-auth": "",
 }
 
 func allowEmpty(attr string) bool {
@@ -544,6 +609,7 @@ func allDefaults() schema.Defaults {
 		"ssl-hostname-verification": true,
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
+		"syslog-port":               DefaultSyslogPort,
 	}
 	for attr, val := range alwaysOptional {
 		d[attr] = val
@@ -576,6 +642,7 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
+	"syslog-port",
 }
 
 var (
@@ -621,4 +688,20 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	}
 	var noHostnames []string
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
+}
+
+type Authorizer interface {
+	WithAuthAttrs(string) charm.Repository
+}
+
+// AuthorizeCharmRepo returns a repository with authentication added
+// from the specified configuration.
+func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+	// If a charm store auth token is set, pass it on to the charm store
+	if auth, authSet := cfg.CharmStoreAuth(); authSet {
+		if CS, isCS := repo.(Authorizer); isCS {
+			repo = CS.WithAuthAttrs(auth)
+		}
+	}
+	return repo
 }

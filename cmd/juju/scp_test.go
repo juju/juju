@@ -39,7 +39,7 @@ var scpTests = []struct {
 	},
 	{
 		[]string{"a", "b", "mysql/0"},
-		commonArgs + "a b mysql/0\n",
+		commonArgs + "a b\n",
 	},
 	{
 		[]string{"mongodb/1:foo", "mongodb/0:"},
@@ -48,7 +48,7 @@ var scpTests = []struct {
 }
 
 func (s *SCPSuite) TestSCPCommand(c *gc.C) {
-	m := s.makeMachines(3, c)
+	m := s.makeMachines(3, c, true)
 	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
@@ -57,12 +57,10 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
-	srv, err := s.State.AddService("mysql", dummy)
-	c.Assert(err, gc.IsNil)
+	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
 
-	srv, err = s.State.AddService("mongodb", dummy)
-	c.Assert(err, gc.IsNil)
+	srv = s.AddTestingService(c, "mongodb", dummy)
 	s.addUnit(srv, m[1], c)
 	s.addUnit(srv, m[2], c)
 

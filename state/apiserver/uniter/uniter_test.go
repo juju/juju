@@ -56,10 +56,8 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.wordpress, err = s.State.AddService("wordpress", s.wpCharm)
-	c.Assert(err, gc.IsNil)
-	s.mysql, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.wordpress = s.AddTestingService(c, "wordpress", s.wpCharm)
+	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.wordpressUnit, err = s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	s.mysqlUnit, err = s.mysql.AddUnit()
@@ -75,7 +73,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:       s.wordpressUnit.Tag(),
 		LoggedIn:  true,
-		Manager:   false,
 		UnitAgent: true,
 		Entity:    s.wordpressUnit,
 	}
@@ -530,8 +527,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 }
 
 func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
-	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
-	c.Assert(err, gc.IsNil)
+	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, gc.IsNil)
@@ -1398,11 +1394,25 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	testing.AddStateServerMachine(c, s.State)
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
 
 	result, err := s.uniter.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: apiAddresses,
+	})
+}
+
+func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
+	tag := s.mysql.Tag()
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: tag},
+	}}
+	result, err := s.uniter.GetOwnerTag(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResult{
+		Result: "user-admin",
 	})
 }

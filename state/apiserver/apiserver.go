@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"code.google.com/p/go.net/websocket"
 	"launchpad.net/loggo"
@@ -78,7 +80,18 @@ func (srv *Server) Wait() error {
 }
 
 type requestNotifier struct {
-	remoteAddr net.Addr
+	connCounter int64
+	identifier  string
+}
+
+var globalCounter int64
+
+func nextCounter() int64 {
+	return atomic.AddInt64(&globalCounter, 1)
+}
+
+func (n *requestNotifier) SetIdentifier(identifier string) {
+	n.identifier = identifier
 }
 
 func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
@@ -86,14 +99,14 @@ func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 		return
 	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	logger.Debugf("<- %s", jsoncodec.DumpRequest(hdr, body))
+	logger.Debugf("<- [%X] %s %s", n.connCounter, n.identifier, jsoncodec.DumpRequest(hdr, body))
 }
 
-func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("<- %s %s[%q].%s", jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.connCounter, n.identifier, timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -125,8 +138,11 @@ func (srv *Server) run(lis net.Listener) {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("/charms", &charmsHandler{state: srv.state})
 	// The error from http.Serve is not interesting.
-	http.Serve(lis, handler)
+	http.Serve(lis, mux)
 }
 
 // Addr returns the address that the server is listening on.
@@ -140,11 +156,14 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 		codec.SetLogging(true)
 	}
 	var notifier rpc.RequestNotifier
+	var loginCallback func(string)
 	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		notifier = requestNotifier{wsConn.RemoteAddr()}
+		reqNotifier := &requestNotifier{nextCounter(), "<unknown>"}
+		loginCallback = reqNotifier.SetIdentifier
+		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	conn.Serve(newStateServer(srv, conn), serverError)
+	conn.Serve(newStateServer(srv, conn, loginCallback), serverError)
 	conn.Start()
 	select {
 	case <-conn.Dead():

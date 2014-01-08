@@ -11,6 +11,9 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
+	"launchpad.net/juju-core/version"
 )
 
 // ErrorResults holds the results of calling a bulk operation which
@@ -57,6 +60,62 @@ type AddRelationResults struct {
 // The endpoints specified are unordered.
 type DestroyRelation struct {
 	Endpoints []string
+}
+
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	// The following fields hold attributes that will be given to the
+	// new machine when it is created.
+	Series      string
+	Constraints constraints.Value
+	Jobs        []MachineJob
+
+	// If ParentId is non-empty, it specifies the id of the
+	// parent machine within which the new machine will
+	// be created. In that case, ContainerType must also be
+	// set.
+	ParentId string
+
+	// ContainerType optionally gives the container type of the
+	// new machine. If it is non-empty, the new machine
+	// will be implemented by a container. If it is specified
+	// but ParentId is empty, a new top level machine will
+	// be created to hold the container with given series,
+	// constraints and jobs.
+	ContainerType instance.ContainerType
+
+	// If InstanceId is non-empty, it will be associated with
+	// the new machine along with the given nonce,
+	// hardware characteristics and addresses.
+	// All the following fields will be ignored if ContainerType
+	// is set.
+	InstanceId              instance.Id
+	Nonce                   string
+	HardwareCharacteristics instance.HardwareCharacteristics
+	Addrs                   []instance.Address
+}
+
+// AddMachines holds the parameters for making the AddMachines call.
+type AddMachines struct {
+	MachineParams []AddMachineParams
+}
+
+// AddMachinesResults holds the results of an AddMachines call.
+type AddMachinesResults struct {
+	Machines []AddMachinesResult
+}
+
+// AddMachinesResults holds the name of a machine added by the
+// state.api.client.AddMachine call for a single machine.
+type AddMachinesResult struct {
+	Machine string
+	Error   *Error
+}
+
+// DestroyMachines holds parameters for the DestroyMachines call.
+type DestroyMachines struct {
+	MachineNames []string
+	Force        bool
 }
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
@@ -108,7 +167,16 @@ type ServiceSetYAML struct {
 	Config      string
 }
 
-// ServiceGet holds parameters for making the ServiceGet call.
+// ServiceUnset holds the parameters for a ServiceUnset
+// command. Options contains the option attribute names
+// to unset.
+type ServiceUnset struct {
+	ServiceName string
+	Options     []string
+}
+
+// ServiceGet holds parameters for making the ServiceGet or
+// ServiceGetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
@@ -121,9 +189,29 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
+// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+type ServiceCharmRelations struct {
+	ServiceName string
+}
+
+// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+type ServiceCharmRelationsResults struct {
+	CharmRelations []string
+}
+
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
+}
+
+// PublicAddress holds parameters for the PublicAddress call.
+type PublicAddress struct {
+	Target string
+}
+
+// PublicAddressResults holds results of the PublicAddress call.
+type PublicAddressResults struct {
+	PublicAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
@@ -190,14 +278,14 @@ type GetServiceConstraints struct {
 	ServiceName string
 }
 
-// GetServiceConstraintsResults holds results of the GetServiceConstraints call.
-type GetServiceConstraintsResults struct {
+// GetConstraintsResults holds results of the GetConstraints call.
+type GetConstraintsResults struct {
 	Constraints constraints.Value
 }
 
-// SetServiceConstraints stores parameters for making the SetServiceConstraints call.
-type SetServiceConstraints struct {
-	ServiceName string
+// SetConstraints stores parameters for making the SetConstraints call.
+type SetConstraints struct {
+	ServiceName string //optional, if empty, environment constraints are set.
 	Constraints constraints.Value
 }
 
@@ -223,6 +311,18 @@ type Delta struct {
 	Removed bool
 	// Entity holds data about the entity that has changed.
 	Entity EntityInfo
+}
+
+// ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
+type ListSSHKeys struct {
+	Entities
+	Mode ssh.ListMode
+}
+
+// ModifySSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
+type ModifyUserSSHKeys struct {
+	User string
+	Keys []string
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -342,6 +442,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
+	OwnerTag    string
 	Life        Life
 	MinUnits    int
 	Constraints constraints.Value
@@ -404,4 +505,63 @@ func (i *AnnotationInfo) EntityId() EntityId {
 		Kind: "annotation",
 		Id:   i.Tag,
 	}
+}
+
+// ContainerConfig contains information from the environment config that is
+// needed for container cloud-init.
+type ContainerConfig struct {
+	ProviderType            string
+	AuthorizedKeys          string
+	SSLHostnameVerification bool
+	SyslogPort              int
+}
+
+type MachineConfigParams struct {
+	MachineId string
+	Series    string
+	Arch      string
+}
+
+// MachineConfig contains information from the environment config that is
+// needed for a machine cloud-init.
+type MachineConfig struct {
+	EnvironAttrs map[string]interface{}
+	Tools        *tools.Tools
+	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
+	StateAddrs []string
+	APIAddrs   []string
+	CACert     []byte
+	Tag        string
+	Password   string
+}
+
+// EnvironmentGetResults contains the result of EnvironmentGet client
+// API call.
+type EnvironmentGetResults struct {
+	Config map[string]interface{}
+}
+
+// EnvironmentSet contains the arguments for EnvironmentSet client API
+// call.
+type EnvironmentSet struct {
+	Config map[string]interface{}
+}
+
+// SetEnvironAgentVersion contains the arguments for
+// SetEnvironAgentVersion client API call.
+type SetEnvironAgentVersion struct {
+	Version version.Number
+}
+
+// DeployerConnectionValues containers the result of deployer.ConnectionInfo
+// API call.
+type DeployerConnectionValues struct {
+	StateAddresses []string
+	APIAddresses   []string
+	SyslogPort     int
+}
+
+// StatusParams holds parameters for the Status call.
+type StatusParams struct {
+	Patterns []string
 }

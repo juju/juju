@@ -9,12 +9,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type bootstrapSuite struct {
@@ -69,11 +71,17 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 	c.Assert(err, gc.IsNil)
 	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, tools.BootstrapToolsParams{})
 	c.Assert(err, gc.IsNil)
+	arch := "amd64"
 	return BootstrapArgs{
 		Host:          hostname,
 		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
 		PossibleTools: toolsList,
+		Series:        "precise",
+		HardwareCharacteristics: &instance.HardwareCharacteristics{
+			Arch: &arch,
+		},
+		Context: envtesting.NewBootstrapContext(coretesting.Context(c)),
 	}
 }
 
@@ -81,11 +89,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 
-	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
+	defer fakeSSH{SkipDetection: true}.install(c).Restore()
 	err := Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
-	bootstrapState, err := common.LoadState(s.env.Storage())
+	bootstrapState, err := bootstrap.LoadState(s.env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(
 		bootstrapState.StateInstances,
@@ -96,12 +104,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Do it all again; this should work, despite the fact that
 	// there's a bootstrap state file. Existence for that is
 	// checked in general bootstrap code (environs/bootstrap).
-	defer fakeSSH{series: s.Conn.Environ.Config().DefaultSeries()}.install(c).Restore()
+	defer fakeSSH{SkipDetection: true}.install(c).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
 	// We *do* check that the machine has no juju* upstart jobs, though.
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0).Restore()
+	defer fakeSSH{
+		Provisioned:        true,
+		SkipDetection:      true,
+		SkipProvisionAgent: true,
+	}.install(c).Restore()
 	err = Bootstrap(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
 }
@@ -109,14 +121,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
-	series := s.Conn.Environ.Config().DefaultSeries()
-	defer fakeSSH{series: series, provisionAgentExitCode: 1}.install(c).Restore()
+	defer fakeSSH{SkipDetection: true, ProvisionAgentExitCode: 1}.install(c).Restore()
 	err := Bootstrap(args)
 	c.Assert(err, gc.NotNil)
 
 	// Since the script failed, the state file should have been
 	// removed from storage.
-	_, err = common.LoadState(s.env.Storage())
+	_, err = bootstrap.LoadState(s.env.Storage())
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -142,12 +153,12 @@ func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	// Empty tools list.
 	args := s.getArgs(c)
 	args.PossibleTools = nil
-	series := s.Conn.Environ.Config().DefaultSeries()
-	defer fakeSSH{series: series, skipProvisionAgent: true}.install(c).Restore()
-	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
+	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
+	c.Assert(Bootstrap(args), gc.ErrorMatches, "possible tools is empty")
 
 	// Non-empty list, but none that match the series/arch.
-	defer fakeSSH{series: "edgy", skipProvisionAgent: true}.install(c).Restore()
 	args = s.getArgs(c)
+	args.Series = "edgy"
+	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 }

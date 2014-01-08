@@ -79,7 +79,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	}
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `image metadata files have been written to.*`)
-	indexpath := filepath.Join(s.dir, "streams", "v1", indexFileName)
+	indexpath := filepath.Join(s.dir, "images", "streams", "v1", indexFileName)
 	data, err := ioutil.ReadFile(indexpath)
 	c.Assert(err, gc.IsNil)
 	content := string(data)
@@ -93,7 +93,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"path": "streams/v1/%s"`, imageFileName))
 
-	imagepath := filepath.Join(s.dir, "streams", "v1", imageFileName)
+	imagepath := filepath.Join(s.dir, "images", "streams", "v1", imageFileName)
 	data, err = ioutil.ReadFile(imagepath)
 	c.Assert(err, gc.IsNil)
 	content = string(data)

@@ -48,8 +48,10 @@ var logger = loggo.GetLogger("juju.provider.null")
 type nullEnviron struct {
 	cfg                   *environConfig
 	cfgmutex              sync.Mutex
-	bootstrapStorage      *sshstorage.SSHStorage
+	bootstrapStorage      storage.Storage
 	bootstrapStorageMutex sync.Mutex
+	ubuntuUserInited      bool
+	ubuntuUserInitMutex   sync.Mutex
 }
 
 var _ environs.BootstrapStorager = (*nullEnviron)(nil)
@@ -85,12 +87,47 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-func (e *nullEnviron) Bootstrap(_ constraints.Value, possibleTools tools.List) error {
+var initUbuntuUser = manual.InitUbuntuUser
+
+func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
+	e.ubuntuUserInitMutex.Lock()
+	defer e.ubuntuUserInitMutex.Unlock()
+	if e.ubuntuUserInited {
+		return nil
+	}
+	cfg := e.envConfig()
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
+	if err != nil {
+		logger.Errorf("initializing ubuntu user: %v", err)
+		return err
+	}
+	logger.Infof("initialized ubuntu user")
+	e.ubuntuUserInited = true
+	return nil
+}
+
+func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
+		return err
+	}
+	envConfig := e.envConfig()
+	host := envConfig.bootstrapHost()
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(host)
+	if err != nil {
+		return err
+	}
+	selectedTools, err := common.EnsureBootstrapTools(e, series, hc.Arch)
+	if err != nil {
+		return err
+	}
 	return manual.Bootstrap(manual.BootstrapArgs{
-		Host:          e.envConfig().sshHost(),
-		DataDir:       dataDir,
-		Environ:       e,
-		PossibleTools: possibleTools,
+		Context:                 ctx,
+		Host:                    host,
+		DataDir:                 dataDir,
+		Environ:                 e,
+		PossibleTools:           selectedTools,
+		Series:                  series,
+		HardwareCharacteristics: &hc,
 	})
 }
 
@@ -132,17 +169,28 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	return instances, err
 }
 
+var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
+		Host:       sshHost,
+		StorageDir: storageDir,
+		TmpDir:     storageTmpdir,
+	})
+}
+
 // Implements environs.BootstrapStorager.
-func (e *nullEnviron) EnableBootstrapStorage() error {
+func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
 	e.bootstrapStorageMutex.Lock()
 	defer e.bootstrapStorageMutex.Unlock()
 	if e.bootstrapStorage != nil {
 		return nil
 	}
+	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
+		return err
+	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	bootstrapStorage, err := sshstorage.NewSSHStorage(cfg.sshHost(), storageDir, storageTmpdir)
+	bootstrapStorage, err := newSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
 	if err != nil {
 		return err
 	}
@@ -178,10 +226,6 @@ func (e *nullEnviron) Storage() storage.Storage {
 		logger.Errorf("missing CA cert or auth-key")
 	}
 	return nil
-}
-
-func (e *nullEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
 }
 
 func (e *nullEnviron) Destroy() error {

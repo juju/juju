@@ -32,6 +32,22 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
+const (
+	// These work fine for linux, but should we need to work with windows
+	// workloads in the future, we'll need to move these into a file that is
+	// compiled conditionally for different targets and use tcp (most likely).
+	RunListenerNetType = "unix"
+	RunListenerFile    = "run.socket"
+)
+
+// A UniterExecutionObserver gets the appropriate methods called when a hook
+// is executed and either succeeds or fails.  Missing hooks don't get reported
+// in this way.
+type UniterExecutionObserver interface {
+	HookCompleted(hookName string)
+	HookFailed(hookName string)
+}
+
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
@@ -57,8 +73,12 @@ type Uniter struct {
 	sf           *StateFile
 	rand         *rand.Rand
 	hookLock     *fslock.Lock
+	runListener  *RunListener
 
 	ranConfigChanged bool
+	// The execution observer is only used in tests at this stage. Should this
+	// need to be extended, perhaps a list of observers would be needed.
+	observer UniterExecutionObserver
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -80,6 +100,7 @@ func (u *Uniter) loop(unitTag string) (err error) {
 	if err = u.init(unitTag); err != nil {
 		return err
 	}
+	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
@@ -155,6 +176,17 @@ func (u *Uniter) init(unitTag string) (err error) {
 	}
 	u.uuid, err = env.UUID()
 	if err != nil {
+		return err
+	}
+
+	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
+	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, RunListenerNetType, runListenerSocketPath)
+	if err != nil {
+		return err
+	}
+	// The socket needs to have permissions 777 in order for other users to use it.
+	if err := os.Chmod(runListenerSocketPath, 0777); err != nil {
 		return err
 	}
 	u.relationers = map[int]*Relationer{}
@@ -274,6 +306,114 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
+func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string) (context *HookContext, err error) {
+
+	apiAddrs, err := u.st.APIAddresses()
+	if err != nil {
+		return nil, err
+	}
+	ownerTag, err := u.service.GetOwnerTag()
+	if err != nil {
+		return nil, err
+	}
+	ctxRelations := map[int]*ContextRelation{}
+	for id, r := range u.relationers {
+		ctxRelations[id] = r.Context()
+	}
+
+	return NewHookContext(u.unit, hctxId, u.uuid, relationId, remoteUnitName,
+		ctxRelations, apiAddrs, ownerTag)
+}
+
+func (u *Uniter) acquireHookLock(message string) (err error) {
+	// We want to make sure we don't block forever when locking, but take the
+	// tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			// no-op to fall through to return.
+		}
+		return nil
+	}
+	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, error) {
+	// Prepare server.
+	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
+		// TODO: switch to long-running server with single context;
+		// use nonce in place of context id.
+		if ctxId != context.id {
+			return nil, fmt.Errorf("expected context id %q, got %q", context.id, ctxId)
+		}
+		return jujuc.NewCommand(context, cmdName)
+	}
+	socketPath := filepath.Join(u.baseDir, "agent.socket")
+	// Use abstract namespace so we don't get stale socket files.
+	socketPath = "@" + socketPath
+	srv, err := jujuc.NewServer(getCmd, socketPath)
+	if err != nil {
+		return nil, "", err
+	}
+	go srv.Run()
+	return srv, socketPath, nil
+}
+
+// RunCommands executes the supplied commands in a hook context.
+func (u *Uniter) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
+	logger.Tracef("run commands: %s", commands)
+	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
+	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return nil, err
+	}
+	defer u.hookLock.Unlock()
+
+	hctx, err := u.getHookContext(hctxId, -1, "")
+	if err != nil {
+		return nil, err
+	}
+	srv, socketPath, err := u.startJujucServer(hctx)
+	if err != nil {
+		return nil, err
+	}
+	defer srv.Close()
+
+	result, err := hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
+	if result != nil {
+		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
+	}
+	return result, err
+}
+
+func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {
+	if r, ok := hctx.HookRelation(); ok {
+		remote, _ := hctx.RemoteUnitName()
+		if remote != "" {
+			remote = " " + remote
+		}
+		hook = hook + remote + " " + r.FakeId()
+	}
+	method(hook)
+}
+
+func (u *Uniter) notifyHookCompleted(hook string, hctx *HookContext) {
+	if u.observer != nil {
+		u.notifyHookInternal(hook, hctx, u.observer.HookCompleted)
+	}
+}
+
+func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
+	if u.observer != nil {
+		u.notifyHookInternal(hook, hctx, u.observer.HookFailed)
+	}
+}
+
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
@@ -291,54 +431,21 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-	// We want to make sure we don't block forever when locking, but take the
-	// tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			// no-op to fall through to return.
-		}
-		return nil
-	}
+
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
-	if err = u.hookLock.LockWithFunc(lockMessage, checkTomb); err != nil {
+	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	ctxRelations := map[int]*ContextRelation{}
-	for id, r := range u.relationers {
-		ctxRelations[id] = r.Context()
-	}
-	apiAddrs, err := u.st.APIAddresses()
+	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit)
 	if err != nil {
 		return err
 	}
-	hctx, err := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
-		ctxRelations, apiAddrs)
+	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
 	}
-
-	// Prepare server.
-	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
-		// TODO: switch to long-running server with single context;
-		// use nonce in place of context id.
-		if ctxId != hctxId {
-			return nil, fmt.Errorf("expected context id %q, got %q", hctxId, ctxId)
-		}
-		return jujuc.NewCommand(hctx, cmdName)
-	}
-	socketPath := filepath.Join(u.baseDir, "agent.socket")
-	// Use abstract namespace so we don't get stale socket files.
-	socketPath = "@" + socketPath
-	srv, err := jujuc.NewServer(getCmd, socketPath)
-	if err != nil {
-		return err
-	}
-	go srv.Run()
 	defer srv.Close()
 
 	// Run the hook.
@@ -346,14 +453,24 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
-	if err := hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath); err != nil {
+	ranHook := true
+	err = hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath)
+	if IsMissingHookError(err) {
+		ranHook = false
+	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
+		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
-	logger.Infof("ran %q hook", hookName)
+	if ranHook {
+		logger.Infof("ran %q hook", hookName)
+		u.notifyHookCompleted(hookName, hctx)
+	} else {
+		logger.Infof("skipped %q hook (missing)", hookName)
+	}
 	return u.commitHook(hi)
 }
 

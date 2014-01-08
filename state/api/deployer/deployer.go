@@ -90,3 +90,10 @@ func (st *State) CACert() ([]byte, error) {
 	}
 	return result.Result, nil
 }
+
+// ConnectionInfo returns all the address information that the deployer task
+// needs in one call.
+func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
+	err = st.caller.Call("Deployer", "", "ConnectionInfo", nil, &result)
+	return result, err
+}

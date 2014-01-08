@@ -6,19 +6,25 @@ package manual
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 
 	"launchpad.net/loggo"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker/provisioner"
 )
 
 const manualInstancePrefix = "manual:"
@@ -33,12 +39,22 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// State is the *state.State object to register the machine with.
-	State *state.State
+	// EnvName is the name of the environment for which the machine will be provisioned.
+	EnvName string
 
 	// Tools to install on the machine. If nil, tools will be automatically
 	// chosen using environs/tools FindInstanceTools.
 	Tools *tools.Tools
+
+	// Stdin is required to respond to sudo prompts,
+	// and must be a terminal (except in tests)
+	Stdin io.Reader
+
+	// Stdout is required to present sudo prompts to the user.
+	Stdout io.Writer
+
+	// Stderr is required to present machine provisioning progress to the user.
+	Stderr io.Writer
 }
 
 // ErrProvisioned is returned by ProvisionMachine if the target
@@ -49,30 +65,74 @@ var ErrProvisioned = errors.New("machine is already provisioned")
 // an SSH connection to the specified host. The host may optionally be preceded
 // with a login username, as in [user@]host.
 //
-// On successful completion, this function will return the state.Machine
+// On successful completion, this function will return the id of the state.Machine
 // that was entered into state.
-func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
+func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
+	client, err := juju.NewAPIClientFromName(args.EnvName)
+	if err != nil {
+		return "", err
+	}
 	defer func() {
-		if m != nil && err != nil {
-			logger.Errorf("provisioning failed, removing machine %v: %v", m, err)
-			m.EnsureDead()
-			m.Remove()
-			m = nil
+		if machineId != "" && err != nil {
+			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
+			client.DestroyMachines(machineId)
+			machineId = ""
 		}
+		client.Close()
 	}()
 
-	var env environs.Environ
-	if conn, err := juju.NewConnFromState(args.State); err != nil {
-		return nil, err
-	} else {
-		env = conn.Environ
+	// Create the "ubuntu" user and initialise passwordless sudo. We populate
+	// the ubuntu user's authorized_keys file with the public keys in the current
+	// user's ~/.ssh directory. The authenticationworker will later update the
+	// ubuntu user's authorized_keys.
+	user, host := splitUserHost(args.Host)
+	authorizedKeys, err := config.ReadAuthorizedKeys("")
+	if err := InitUbuntuUser(host, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
+		return "", err
 	}
 
-	sshHostWithoutUser := args.Host
-	if at := strings.Index(sshHostWithoutUser, "@"); at != -1 {
-		sshHostWithoutUser = sshHostWithoutUser[at+1:]
+	// Generate a unique nonce for the machine.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", err
 	}
-	if ip := net.ParseIP(sshHostWithoutUser); ip != nil {
+	instanceId := instance.Id(manualInstancePrefix + host)
+	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
+
+	// Inform Juju that the machine exists.
+	machineId, series, arch, err := recordMachineInState(client, host, nonce, instanceId)
+	if err != nil {
+		return "", err
+	}
+
+	// Gather the information needed by the machine agent to run the provisioning script.
+	mcfg, err := createMachineConfig(client, machineId, series, arch, nonce, args.DataDir)
+	if err != nil {
+		return machineId, err
+	}
+
+	// Finally, provision the machine agent.
+	err = provisionMachineAgent(host, mcfg, args.Stderr)
+	if err != nil {
+		return machineId, err
+	}
+
+	logger.Infof("Provisioned machine %v", machineId)
+	return machineId, nil
+}
+
+func splitUserHost(host string) (string, string) {
+	if at := strings.Index(host, "@"); at != -1 {
+		return host[:at], host[at+1:]
+	}
+	return "", host
+}
+
+func recordMachineInState(
+	client *api.Client, host, nonce string, instanceId instance.Id) (machineId, series, arch string, err error) {
+
+	// First, gather the parameters needed to inject the existing host into state.
+	if ip := net.ParseIP(host); ip != nil {
 		// Do a reverse-lookup on the IP. The IP may not have
 		// a DNS entry, so just log a warning if this fails.
 		names, err := net.LookupAddr(ip.String())
@@ -80,42 +140,28 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 			logger.Infof("failed to resolve %v: %v", ip, err)
 		} else {
 			logger.Infof("resolved %v to %v", ip, names)
-			sshHostWithoutUser = names[0]
+			host = names[0]
 		}
 	}
-	addrs, err := instance.HostAddresses(sshHostWithoutUser)
+	addrs, err := instance.HostAddresses(host)
 	if err != nil {
-		return nil, err
+		return "", "", "", err
 	}
-	logger.Infof("addresses for %v: %v", sshHostWithoutUser, addrs)
+	logger.Infof("addresses for %v: %v", host, addrs)
 
-	provisioned, err := checkProvisioned(args.Host)
+	provisioned, err := checkProvisioned(host)
 	if err != nil {
 		err = fmt.Errorf("error checking if provisioned: %v", err)
-		return nil, err
+		return "", "", "", err
 	}
 	if provisioned {
-		return nil, ErrProvisioned
+		return "", "", "", ErrProvisioned
 	}
 
-	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
+	hc, series, err := DetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
-		return nil, err
-	}
-
-	tools := args.Tools
-	if tools == nil {
-		tools, err = findInstanceTools(env, series, *hc.Arch)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Generate a unique nonce for the machine.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, err
+		return "", "", "", err
 	}
 
 	// Inject a new machine into state.
@@ -125,82 +171,70 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
-	instanceId := instance.Id(manualInstancePrefix + sshHostWithoutUser)
-	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
-	m, err = injectMachine(injectMachineArgs{
-		st:         args.State,
-		instanceId: instanceId,
-		addrs:      addrs,
-		series:     series,
-		hc:         hc,
-		nonce:      nonce,
-	})
+	machineParams := params.AddMachineParams{
+		Series:                  series,
+		HardwareCharacteristics: hc,
+		InstanceId:              instanceId,
+		Nonce:                   nonce,
+		Addrs:                   addrs,
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
+	}
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	if err != nil {
+		return "", "", "", err
+	}
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return "", "", "", machineInfo.Error
+	}
+	return machineInfo.Machine, series, *hc.Arch, nil
+}
+
+func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
+	configParameters, err := client.MachineConfig(machineId, series, arch)
 	if err != nil {
 		return nil, err
 	}
-	stateInfo, apiInfo, err := setupAuthentication(env, m)
-	if err != nil {
-		return m, err
+	stateInfo := &state.Info{
+		Addrs:    configParameters.StateAddrs,
+		Password: configParameters.Password,
+		Tag:      configParameters.Tag,
+		CACert:   configParameters.CACert,
 	}
-
-	// Finally, provision the machine agent.
-	err = provisionMachineAgent(provisionMachineAgentArgs{
-		host:          args.Host,
-		dataDir:       args.DataDir,
-		environConfig: env.Config(),
-		machineId:     m.Id(),
-		bootstrap:     false,
-		nonce:         nonce,
-		stateInfo:     stateInfo,
-		apiInfo:       apiInfo,
-		tools:         tools,
-	})
-	if err != nil {
-		return m, err
+	apiInfo := &api.Info{
+		Addrs:    configParameters.APIAddrs,
+		Password: configParameters.Password,
+		Tag:      configParameters.Tag,
+		CACert:   configParameters.CACert,
 	}
-
-	logger.Infof("Provisioned machine %v", m)
-	return m, nil
-}
-
-type injectMachineArgs struct {
-	st         *state.State
-	instanceId instance.Id
-	addrs      []instance.Address
-	series     string
-	hc         instance.HardwareCharacteristics
-	nonce      string
-}
-
-// injectMachine injects a machine into state with provisioned status.
-func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
-	defer func() {
-		if m != nil && err != nil {
-			logger.Errorf("injecting into state failed, removing machine %v: %v", m, err)
-			m.EnsureDead()
-			m.Remove()
-		}
-	}()
-	m, err = args.st.InjectMachine(&state.AddMachineParams{
-		Series:                  args.series,
-		InstanceId:              args.instanceId,
-		HardwareCharacteristics: args.hc,
-		Nonce: args.nonce,
-		Jobs:  []state.MachineJob{state.JobHostUnits},
-	})
+	environConfig, err := config.New(config.NoDefaults, configParameters.EnvironAttrs)
 	if err != nil {
 		return nil, err
 	}
-	if err = m.SetAddresses(args.addrs); err != nil {
+	mcfg := environs.NewMachineConfig(machineId, nonce, stateInfo, apiInfo)
+	if dataDir != "" {
+		mcfg.DataDir = dataDir
+	}
+	mcfg.Tools = configParameters.Tools
+	err = environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
+	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return mcfg, nil
 }
 
-func setupAuthentication(env environs.Environ, m *state.Machine) (*state.Info, *api.Info, error) {
-	auth, err := provisioner.NewEnvironAuthenticator(env)
-	if err != nil {
-		return nil, nil, err
+func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
+	cloudcfg := coreCloudinit.New()
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+		return err
 	}
-	return auth.SetupAuthentication(m)
+	// Explicitly disabling apt_upgrade so as not to trample
+	// the target machine's existing configuration.
+	cloudcfg.SetAptUpgrade(false)
+	return sshinit.Configure(sshinit.ConfigureParams{
+		Host:   "ubuntu@" + host,
+		Config: cloudcfg,
+		Stderr: stderr,
+	})
 }

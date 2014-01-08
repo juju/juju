@@ -26,8 +26,7 @@ var _ = gc.Suite(&UnsetSuite{})
 func (s *UnsetSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("dummy-service", ch)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
 	setupConfigFile(c, s.dir)
@@ -65,6 +64,7 @@ func (s *UnsetSuite) TestUnsetOptionMultipleAtOnceSuccess(c *gc.C) {
 }
 
 func (s *UnsetSuite) TestUnsetOptionFail(c *gc.C) {
+	assertUnsetFail(c, s.dir, []string{}, "error: no configuration options specified\n")
 	assertUnsetFail(c, s.dir, []string{"invalid"}, "error: unknown option \"invalid\"\n")
 	assertUnsetFail(c, s.dir, []string{"username=bar"}, "error: unknown option \"username=bar\"\n")
 	assertUnsetFail(c, s.dir, []string{

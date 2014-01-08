@@ -23,7 +23,8 @@ func ParseMetadata(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
 		ValueTemplate: imagemetadata.ImageMetadata{},
 	}
 
-	source := simplestreams.NewURLDataSource("file://"+metadataDir, simplestreams.VerifySSLHostnames)
+	metadataPath := filepath.Join(metadataDir, "images")
+	source := simplestreams.NewURLDataSource("file://"+metadataPath, simplestreams.VerifySSLHostnames)
 
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex
@@ -35,7 +36,7 @@ func ParseMetadata(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
 	imageIndexMetadata := indexRef.Indexes["com.ubuntu.cloud:custom"]
 	c.Assert(imageIndexMetadata, gc.NotNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(metadataDir, imageIndexMetadata.ProductsFilePath))
+	data, err := ioutil.ReadFile(filepath.Join(metadataPath, imageIndexMetadata.ProductsFilePath))
 	c.Assert(err, gc.IsNil)
 
 	url, err := source.URL(imageIndexMetadata.ProductsFilePath)

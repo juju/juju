@@ -105,6 +105,13 @@ var syncToolsCommandTests = []struct {
 		},
 	},
 	{
+		description: "specific public",
+		args:        []string{"-e", "test-target", "--public"},
+		sctx: &sync.SyncContext{
+			Public: true,
+		},
+	},
+	{
 		description: "specify version",
 		args:        []string{"-e", "test-target", "--version", "1.2"},
 		sctx: &sync.SyncContext{
@@ -126,6 +133,7 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 			c.Assert(sctx.MinorVersion, gc.Equals, test.sctx.MinorVersion)
 			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
 			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
+			c.Assert(sctx.Public, gc.Equals, test.sctx.Public)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
 			c.Assert(dummy.IsSameStorage(sctx.Target, targetEnv.Storage()), jc.IsTrue)
 			called = true
@@ -153,7 +161,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)

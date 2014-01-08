@@ -196,10 +196,6 @@ A generic Windows Azure environment looks like this:
     management-certificate-path: /home/me/azure.pem
     # Windows Azure Storage info.
     storage-account-name: juju0useast0
-    # Public Storage info (account name and container name) denoting a public
-    # container holding the juju tools.
-    # public-storage-account-name: jujutools
-    # public-storage-container-name: juju-tools
     # Override OS image selection with a fixed image for all deployments.
     # Most useful for developers.
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB

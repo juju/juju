@@ -74,7 +74,7 @@ func urlJoin(baseURL, relpath string) string {
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
-	client := urlClient
+	client := http.DefaultClient
 	if !h.hostnameVerification {
 		client = utils.GetNonValidatingHTTPClient()
 	}

@@ -10,16 +10,17 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
 )
 
 type UnitSuite struct {
-	testing.GitSuite
+	coretesting.GitSuite
 	agentSuite
 }
 
@@ -35,13 +36,13 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 	s.GitSuite.TearDownTest(c)
 }
 
-const initialUnitPassword = "unit-password"
+const initialUnitPassword = "unit-password-1234567890"
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools) {
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	jujutesting.AddStateServerMachine(c, s.State)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(initialUnitPassword)
@@ -97,7 +98,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		select {
 		case <-timeout:
 			c.Fatalf("no activity detected")
-		case <-time.After(testing.ShortWait):
+		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, gc.IsNil)
 			st, info, data, err := unit.Status()

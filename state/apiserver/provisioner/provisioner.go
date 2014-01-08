@@ -23,7 +23,8 @@ type ProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
-	*common.Addresser
+	*common.StateAddresser
+	*common.APIAddresser
 	*common.ToolsGetter
 
 	st          *state.State
@@ -72,7 +73,8 @@ func NewProvisionerAPI(
 		DeadEnsurer:     common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		Addresser:       common.NewAddresser(st),
+		StateAddresser:  common.NewStateAddresser(st),
+		APIAddresser:    common.NewAPIAddresser(st),
 		ToolsGetter:     common.NewToolsGetter(st, getAuthFunc),
 		st:              st,
 		resources:       resources,
@@ -111,7 +113,12 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if err != nil {
 		return nothing, err
 	}
-	watch := machine.WatchContainers(instance.ContainerType(arg.ContainerType))
+	var watch state.StringsWatcher
+	if arg.ContainerType != "" {
+		watch = machine.WatchContainers(instance.ContainerType(arg.ContainerType))
+	} else {
+		watch = machine.WatchAllContainers()
+	}
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{
@@ -122,7 +129,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	return nothing, watcher.MustErr(watch)
 }
 
-// WatchContainers starts a StringsWatcher to watch all containers deployed to
+// WatchContainers starts a StringsWatcher to watch containers deployed to
 // any machine passed in args.
 func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
@@ -134,6 +141,12 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// WatchAllContainers starts a StringsWatcher to watch all containers deployed to
+// any machine passed in args.
+func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
+	return p.WatchContainers(args)
 }
 
 // WatchForEnvironConfigChanges returns a NotifyWatcher to observe
@@ -179,6 +192,50 @@ func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
 		}
 	}
 	result.Config = allAttrs
+	return result, nil
+}
+
+// SetSupportedContainers updates the list of containers supported by the machines passed in args.
+func (p *ProvisionerAPI) SetSupportedContainers(
+	args params.MachineContainersParams) (params.ErrorResults, error) {
+
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Params)),
+	}
+	for i, arg := range args.Params {
+		canAccess, err := p.getAuthFunc()
+		if err != nil {
+			return result, err
+		}
+		machine, err := p.getMachine(canAccess, arg.MachineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if len(arg.ContainerTypes) == 0 {
+			err = machine.SupportsNoContainers()
+		} else {
+			err = machine.SetSupportedContainers(arg.ContainerTypes)
+		}
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+// ContainerConfig returns information from the environment config that are
+// needed for container cloud-init.
+func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+	result := params.ContainerConfig{}
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	result.ProviderType = config.Type()
+	result.AuthorizedKeys = config.AuthorizedKeys()
+	result.SSLHostnameVerification = config.SSLHostnameVerification()
+	result.SyslogPort = config.SyslogPort()
 	return result, nil
 }
 

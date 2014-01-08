@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -42,9 +43,11 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.
 	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
-	err := s.wordpressUnit.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.wordpressUnit.Tag(), "password")
+	err = s.wordpressUnit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, s.wordpressUnit.Tag(), password)
 
 	// Create the uniter API facade.
 	s.uniter = s.st.Uniter()
@@ -55,8 +58,7 @@ func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	charm := s.AddTestingCharm(c, serviceName)
-	service, err := s.State.AddService(serviceName, charm)
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, serviceName, charm)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(machine)
@@ -73,8 +75,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 }
 
 func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
-	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
-	c.Assert(err, gc.IsNil)
+	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, gc.IsNil)

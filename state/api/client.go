@@ -4,9 +4,18 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // Client represents the client-accessible part of the state.
@@ -14,21 +23,58 @@ type Client struct {
 	st *State
 }
 
-// MachineInfo holds information about a machine.
-type MachineInfo struct {
-	InstanceId string // blank if not set.
+// MachineStatus holds status info about a machine.
+type MachineStatus struct {
+	Err            error
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	DNSName        string
+	InstanceId     instance.Id
+	InstanceState  string
+	Life           string
+	Series         string
+	Id             string
+	Containers     map[string]MachineStatus
+	Hardware       string
+}
+
+// ServiceStatus holds status info about a service.
+type ServiceStatus struct {
+	Err           error
+	Charm         string
+	Exposed       bool
+	Life          string
+	Relations     map[string][]string
+	SubordinateTo []string
+	Units         map[string]UnitStatus
+}
+
+// UnitStatus holds status info about a unit.
+type UnitStatus struct {
+	Err            error
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	Life           string
+	Machine        string
+	OpenedPorts    []string
+	PublicAddress  string
+	Subordinates   map[string]UnitStatus
 }
 
 // Status holds information about the status of a juju environment.
 type Status struct {
-	Machines map[string]MachineInfo
-	// TODO the rest
+	EnvironmentName string
+	Machines        map[string]MachineStatus
+	Services        map[string]ServiceStatus
 }
 
 // Status returns the status of the juju environment.
-func (c *Client) Status() (*Status, error) {
+func (c *Client) Status(patterns []string) (*Status, error) {
 	var s Status
-	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
+	p := params.StatusParams{Patterns: patterns}
+	if err := c.st.Call("Client", "", "Status", p, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -40,7 +86,18 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.st.Call("Client", "", "ServiceSet", p, nil)
+	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
+	// ServiceSet to unset values set to an empty string.
+	return c.st.Call("Client", "", "NewServiceSetForClientAPI", p, nil)
+}
+
+// ServiceUnset resets configuration options on a service.
+func (c *Client) ServiceUnset(service string, options []string) error {
+	p := params.ServiceUnset{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.st.Call("Client", "", "ServiceUnset", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -50,6 +107,15 @@ func (c *Client) Resolved(unit string, retry bool) error {
 		Retry:    retry,
 	}
 	return c.st.Call("Client", "", "Resolved", p, nil)
+}
+
+// PublicAddress returns the public address of the specified
+// machine or unit.
+func (c *Client) PublicAddress(target string) (string, error) {
+	var results params.PublicAddressResults
+	p := params.PublicAddress{Target: target}
+	err := c.st.Call("Client", "", "PublicAddress", p, &results)
+	return results.PublicAddress, err
 }
 
 // ServiceSetYAML sets configuration options on a service
@@ -84,6 +150,48 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 	return c.st.Call("Client", "", "DestroyRelation", params, nil)
 }
 
+// ServiceCharmRelations returns the service's charms relation names.
+func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
+	var results params.ServiceCharmRelationsResults
+	params := params.ServiceCharmRelations{ServiceName: service}
+	err := c.st.Call("Client", "", "ServiceCharmRelations", params, &results)
+	return results.CharmRelations, err
+}
+
+// AddMachines adds new machines with the supplied parameters.
+func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.st.Call("Client", "", "AddMachines", args, results)
+	return results.Machines, err
+}
+
+// MachineConfig returns information from the environment config that are
+// needed for machine cloud-init.
+func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
+	args := params.MachineConfigParams{
+		MachineId: machineId,
+		Series:    series,
+		Arch:      arch,
+	}
+	err = c.st.Call("Client", "", "MachineConfig", args, &result)
+	return result, err
+}
+
+// DestroyMachines removes a given set of machines.
+func (c *Client) DestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
+}
+
+// ForceDestroyMachines removes a given set of machines and all associated units.
+func (c *Client) ForceDestroyMachines(machines ...string) error {
+	params := params.DestroyMachines{Force: true, MachineNames: machines}
+	return c.st.Call("Client", "", "DestroyMachines", params, nil)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
@@ -100,13 +208,14 @@ func (c *Client) ServiceUnexpose(service string) error {
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		NumUnits:    numUnits,
-		ConfigYAML:  configYAML,
-		Constraints: cons,
+		ServiceName:   serviceName,
+		CharmUrl:      charmUrl,
+		NumUnits:      numUnits,
+		ConfigYAML:    configYAML,
+		Constraints:   cons,
+		ToMachineSpec: toMachineSpec,
 	}
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
@@ -128,6 +237,18 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 	return c.st.Call("Client", "", "ServiceSetCharm", args, nil)
 }
 
+// ServiceGetCharmURL returns the charm URL the given service is
+// running at present.
+func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
+	result := new(params.StringResult)
+	args := params.ServiceGet{ServiceName: serviceName}
+	err := c.st.Call("Client", "", "ServiceGetCharmURL", args, &result)
+	if err != nil {
+		return nil, err
+	}
+	return charm.ParseURL(result.Result)
+}
+
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
 	args := params.AddServiceUnits{
@@ -141,7 +262,7 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 }
 
 // DestroyServiceUnits decreases the number of units dedicated to a service.
-func (c *Client) DestroyServiceUnits(unitNames []string) error {
+func (c *Client) DestroyServiceUnits(unitNames ...string) error {
 	params := params.DestroyServiceUnits{unitNames}
 	return c.st.Call("Client", "", "DestroyServiceUnits", params, nil)
 }
@@ -156,18 +277,33 @@ func (c *Client) ServiceDestroy(service string) error {
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetServiceConstraintsResults)
+	results := new(params.GetConstraintsResults)
 	err := c.st.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// GetEnvironmentConstraints returns the constraints for the environment.
+func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.st.Call("Client", "", "GetEnvironmentConstraints", nil, results)
 	return results.Constraints, err
 }
 
 // SetServiceConstraints specifies the constraints for the given service.
 func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetServiceConstraints{
+	params := params.SetConstraints{
 		ServiceName: service,
 		Constraints: constraints,
 	}
 	return c.st.Call("Client", "", "SetServiceConstraints", params, nil)
+}
+
+// SetEnvironmentConstraints specifies the constraints for the environment.
+func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error {
+	params := params.SetConstraints{
+		Constraints: constraints,
+	}
+	return c.st.Call("Client", "", "SetEnvironmentConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -240,4 +376,123 @@ func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 // to its underlying state connection.
 func (c *Client) Close() error {
 	return c.st.Close()
+}
+
+// EnvironmentGet returns all environment settings.
+func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
+	result := params.EnvironmentGetResults{}
+	err := c.st.Call("Client", "", "EnvironmentGet", nil, &result)
+	return result.Config, err
+}
+
+// EnvironmentSet sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentSet(config map[string]interface{}) error {
+	args := params.EnvironmentSet{Config: config}
+	return c.st.Call("Client", "", "EnvironmentSet", args, nil)
+}
+
+// SetEnvironAgentVersion sets the environment agent-version setting
+// to the given value.
+func (c *Client) SetEnvironAgentVersion(version version.Number) error {
+	args := params.SetEnvironAgentVersion{Version: version}
+	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
+}
+
+// DestroyEnvironment puts the environment into a "dying" state,
+// and removes all non-manager machine instances. DestroyEnvironment
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyEnvironment() error {
+	return c.st.Call("Client", "", "DestroyEnvironment", nil, nil)
+}
+
+// AddLocalCharm prepares the given charm with a local: schema in its
+// URL, and uploads it via the API server, returning the assigned
+// charm URL. If the API server does not support charm uploads, an
+// error satisfying params.IsCodeNotImplemented() is returned.
+func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
+	}
+	// Package the charm for uploading.
+	var archive *os.File
+	switch ch := ch.(type) {
+	case *charm.Dir:
+		var err error
+		if archive, err = ioutil.TempFile("", "charm"); err != nil {
+			return nil, fmt.Errorf("cannot create temp file: %v", err)
+		}
+		defer os.Remove(archive.Name())
+		defer archive.Close()
+		if err := ch.BundleTo(archive); err != nil {
+			return nil, fmt.Errorf("cannot repackage charm: %v", err)
+		}
+		if _, err := archive.Seek(0, 0); err != nil {
+			return nil, fmt.Errorf("cannot rewind packaged charm: %v", err)
+		}
+	case *charm.Bundle:
+		var err error
+		if archive, err = os.Open(ch.Path); err != nil {
+			return nil, fmt.Errorf("cannot read charm archive: %v", err)
+		}
+		defer archive.Close()
+	default:
+		return nil, fmt.Errorf("unknown charm type %T", ch)
+	}
+
+	// Prepare the upload request.
+	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
+	req, err := http.NewRequest("POST", url, archive)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create upload request: %v", err)
+	}
+	req.SetBasicAuth(c.st.tag, c.st.password)
+	req.Header.Set("Content-Type", "application/zip")
+
+	// Send the request.
+
+	// BUG(dimitern) 2013-12-17 bug #1261780
+	// Due to issues with go 1.1.2, fixed later, we cannot use a
+	// regular TLS client with the CACert here, because we get "x509:
+	// cannot validate certificate for 127.0.0.1 because it doesn't
+	// contain any IP SANs". Once we use a later go version, this
+	// should be changed to connect to the API server with a regular
+	// HTTP+TLS enabled client, using the CACert (possily cached, like
+	// the tag and password) passed in api.Open()'s info argument.
+	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot upload charm: %v", err)
+	}
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		// API server is 1.16 or older, so charm upload
+		// is not supported; notify the client.
+		return nil, &params.Error{
+			Message: "charm upload is not supported by the API server",
+			Code:    params.CodeNotImplemented,
+		}
+	}
+
+	// Now parse the response & return.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read charm upload response: %v", err)
+	}
+	defer resp.Body.Close()
+	var jsonResponse params.CharmsResponse
+	if err := json.Unmarshal(body, &jsonResponse); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
+	}
+	if jsonResponse.Error != "" {
+		return nil, fmt.Errorf("error uploading charm: %v", jsonResponse.Error)
+	}
+	return charm.MustParseURL(jsonResponse.CharmURL), nil
+}
+
+// AddCharm adds the given charm URL (which must include revision) to
+// the environment, if it does not exist yet. Local charms are not
+// supported, only charm store URLs. See also AddLocalCharm() in the
+// client-side API.
+func (c *Client) AddCharm(curl *charm.URL) error {
+	args := params.CharmURL{URL: curl.String()}
+	return c.st.Call("Client", "", "AddCharm", args, nil)
 }

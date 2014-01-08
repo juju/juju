@@ -67,6 +67,9 @@ func ListWithRetry(stor StorageReader, prefix string, attempt utils.AttemptStrat
 // BaseToolsPath is the container where tools tarballs and metadata are found.
 var BaseToolsPath = "tools"
 
+// BaseImagesPath is the container where images metadata is found.
+var BaseImagesPath = "images"
+
 // A storageSimpleStreamsDataSource retrieves data from a StorageReader.
 type storageSimpleStreamsDataSource struct {
 	basePath   string

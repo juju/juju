@@ -192,7 +192,7 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
 	stor := s.Conn.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.Current)
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools})
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
@@ -239,7 +239,7 @@ func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Confi
 			},
 			StateServerCert: []byte(coretesting.ServerCert),
 			StateServerKey:  []byte(coretesting.ServerKey),
-			StatePort:       coretesting.MgoPort,
+			StatePort:       coretesting.MgoServer.Port(),
 			APIPort:         port,
 		})
 	c.Assert(conf.Write(), gc.IsNil)
@@ -255,13 +255,13 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 }
 
 func (s *agentSuite) proposeVersion(c *gc.C, vers version.Number) {
-	cfg, err := s.State.EnvironConfig()
+	oldcfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{
+	cfg, err := oldcfg.Apply(map[string]interface{}{
 		"agent-version": vers.String(),
 	})
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	err = s.State.SetEnvironConfig(cfg, oldcfg)
 	c.Assert(err, gc.IsNil)
 }
 

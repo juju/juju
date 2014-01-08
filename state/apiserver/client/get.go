@@ -58,3 +58,14 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 	}
 	return results
 }
+
+// ServiceGetCharmURL returns the charm URL the given service is
+// running at present.
+func (c *Client) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error) {
+	service, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return params.StringResult{}, err
+	}
+	charmURL, _ := service.CharmURL()
+	return params.StringResult{Result: charmURL.String()}, nil
+}

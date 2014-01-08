@@ -53,12 +53,11 @@ type environ struct {
 	name string
 
 	// ecfgMutex protects the *Unlocked fields below.
-	ecfgMutex             sync.Mutex
-	ecfgUnlocked          *environConfig
-	ec2Unlocked           *ec2.EC2
-	s3Unlocked            *s3.S3
-	storageUnlocked       storage.Storage
-	publicStorageUnlocked storage.StorageReader // optional.
+	ecfgMutex       sync.Mutex
+	ecfgUnlocked    *environConfig
+	ec2Unlocked     *ec2.EC2
+	s3Unlocked      *s3.S3
+	storageUnlocked storage.Storage
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -68,64 +67,84 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
+
+	mu sync.Mutex
 	*ec2.Instance
 }
 
 func (inst *ec2Instance) String() string {
-	return inst.InstanceId
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*ec2Instance)(nil)
 
+func (inst *ec2Instance) getInstance() *ec2.Instance {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.Instance
+}
+
 func (inst *ec2Instance) Id() instance.Id {
-	return instance.Id(inst.InstanceId)
+	return instance.Id(inst.getInstance().InstanceId)
 }
 
 func (inst *ec2Instance) Status() string {
-	return inst.State.Name
+	return inst.getInstance().State.Name
 }
 
-// refreshInstance requeries the Instance details over the ec2 api
-func (inst *ec2Instance) refreshInstance() error {
-	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+// Refresh implements instance.Refresh(), requerying the
+// Instance details over the ec2 api
+func (inst *ec2Instance) Refresh() error {
+	_, err := inst.refresh()
+	return err
+}
+
+// refresh requeries Instance details over the ec2 api.
+func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
+	id := inst.Id()
+	insts, err := inst.e.Instances([]instance.Id{id})
 	if err != nil {
-		return err
+		return nil, err
 	}
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	inst.Instance = insts[0].(*ec2Instance).Instance
-	return nil
+	return inst.Instance, nil
 }
 
 // Addresses implements instance.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
-	var addresses []instance.Address
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
-	if inst.Instance.DNSName == "" {
+	instInstance := inst.getInstance()
+	if instInstance.DNSName == "" {
 		// Fetch the instance information again, in case
 		// the DNS information has become available.
-		err := inst.refreshInstance()
+		var err error
+		instInstance, err = inst.refresh()
 		if err != nil {
 			return nil, err
 		}
 	}
+	var addresses []instance.Address
 	possibleAddresses := []instance.Address{
 		{
-			Value:        inst.Instance.DNSName,
+			Value:        instInstance.DNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateDNSName,
+			Value:        instInstance.PrivateDNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
 		{
-			Value:        inst.Instance.IPAddress,
+			Value:        instInstance.IPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateIPAddress,
+			Value:        instInstance.PrivateIPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
@@ -251,7 +270,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
-	publicBucketRegion := aws.Regions[ecfg.publicBucketRegion()]
 	e.ec2Unlocked = ec2.New(auth, region)
 	e.s3Unlocked = s3.New(auth, region)
 
@@ -259,13 +277,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	// to reference their existing configuration.
 	e.storageUnlocked = &ec2storage{
 		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
-	}
-	if ecfg.publicBucket() != "" {
-		e.publicStorageUnlocked = &ec2storage{
-			bucket: s3.New(auth, publicBucketRegion).Bucket(ecfg.publicBucket()),
-		}
-	} else {
-		e.publicStorageUnlocked = nil
 	}
 	return nil
 }
@@ -314,17 +325,8 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) PublicStorage() storage.StorageReader {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	if e.publicStorageUnlocked == nil {
-		return environs.EmptyStorage
-	}
-	return e.publicStorageUnlocked
-}
-
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	return common.Bootstrap(e, cons, possibleTools)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	return common.Bootstrap(ctx, e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -1062,15 +1064,15 @@ func fetchMetadata(name string) (value string, err error) {
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), "")}, nil
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+	return sources, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket and public location.
+	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
-		simplestreams.NewURLDataSource(
-			"https://juju-dist.s3.amazonaws.com/tools", simplestreams.VerifySSLHostnames)}
+		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

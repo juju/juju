@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/keymanager"
 )
 
 var logger = loggo.GetLogger("juju")
@@ -32,6 +33,8 @@ type APIConn struct {
 	Environ environs.Environ
 	State   *api.State
 }
+
+var errAborted = fmt.Errorf("aborted")
 
 // NewAPIConn returns a new Conn that uses the
 // given environment. The environment must have already
@@ -53,7 +56,6 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog): implement updateSecrets (see Conn.updateSecrets)
 	return &APIConn{
 		Environ: environ,
 		State:   st,
@@ -63,22 +65,36 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 // Close terminates the connection to the environment and releases
 // any associated resources.
 func (c *APIConn) Close() error {
-	return c.State.Close()
+	return apiClose(c.State)
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for
 // the named environment. If envName is "", the default environment
 // will be used.
 func NewAPIClientFromName(envName string) (*api.Client, error) {
-	store, err := configstore.NewDisk(config.JujuHome())
-	if err != nil {
-		return nil, err
-	}
-	st, err := newAPIFromName(envName, store)
+	st, err := newAPIClient(envName)
 	if err != nil {
 		return nil, err
 	}
 	return st.Client(), nil
+}
+
+// NewKeyManagerClient returns an api.keymanager.Client connected to the API Server for
+// the named environment. If envName is "", the default environment will be used.
+func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
+	st, err := newAPIClient(envName)
+	if err != nil {
+		return nil, err
+	}
+	return keymanager.NewClient(st), nil
+}
+
+func newAPIClient(envName string) (*api.State, error) {
+	store, err := configstore.NewDisk(config.JujuHome())
+	if err != nil {
+		return nil, err
+	}
+	return newAPIFromName(envName, store)
 }
 
 // newAPIFromName implements the bulk of NewAPIClientFromName
@@ -186,12 +202,16 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 		return nil
 	}
 	go func() {
+		logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
 		st, err := apiOpen(&api.Info{
 			Addrs:    endpoint.Addresses,
 			CACert:   []byte(endpoint.CACert),
 			Tag:      "user-" + info.APICredentials().User,
 			Password: info.APICredentials().Password,
 		}, api.DefaultDialOpts())
+		if err != nil {
+			logger.Infof("failed to connect to API addresses: %v, %v", endpoint.Addresses, err)
+		}
 		sendAPIOpenResult(resultc, stop, st, err)
 	}()
 	return resultc
@@ -201,7 +221,9 @@ func sendAPIOpenResult(resultc chan apiOpenResult, stop <-chan struct{}, st *api
 	select {
 	case <-stop:
 		if err != nil {
-			logger.Warningf("disarding stale API open error: %v", err)
+			if err != errAborted {
+				logger.Warningf("discarding stale API open error: %v", err)
+			}
 		} else {
 			apiClose(st)
 		}
@@ -235,7 +257,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 		select {
 		case <-time.After(delay):
 		case <-stop:
-			return nil, fmt.Errorf("aborted")
+			return nil, errAborted
 		}
 		environ, err := environs.New(cfg)
 		if err != nil {

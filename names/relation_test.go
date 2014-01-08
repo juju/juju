@@ -33,6 +33,15 @@ var relationNameTests = []struct {
 	{pattern: "42also-not", valid: false},
 	{pattern: "042", valid: false},
 	{pattern: "0x42", valid: false},
+	{pattern: "foo_42", valid: true},
+	{pattern: "_foo", valid: false},
+	{pattern: "!foo", valid: false},
+	{pattern: "foo_bar-baz_boo", valid: true},
+	{pattern: "foo bar", valid: false},
+	{pattern: "foo-_", valid: false},
+	{pattern: "foo-", valid: false},
+	{pattern: "foo_-a", valid: false},
+	{pattern: "foo_", valid: false},
 }
 
 func (s *relationSuite) TestRelationKeyFormats(c *gc.C) {

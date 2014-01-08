@@ -48,6 +48,7 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.State = TestingInitialize(c, nil)
+	s.State.AddUser("admin", "pass")
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
@@ -81,8 +82,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Status:     params.StatusPending,
 	})
 
-	wordpress, err := s.State.AddService("wordpress", AddTestingCharm(c, s.State, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"))
 	err = wordpress.SetExposed()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.SetMinUnits(3)
@@ -94,6 +94,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
+		OwnerTag:    "user-admin",
 		Life:        params.Life(Alive.String()),
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
@@ -107,11 +108,11 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Annotations: pairs,
 	})
 
-	logging, err := s.State.AddService("logging", AddTestingCharm(c, s.State, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"))
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
+		OwnerTag: "user-admin",
 		Life:     params.Life(Alive.String()),
 		Config:   charm.Settings{},
 	})
@@ -325,8 +326,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "unit is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetPublicAddress("public")
@@ -367,8 +367,7 @@ var allWatcherChangedTests = []struct {
 			StatusInfo: "another failure",
 		}},
 		setUp: func(c *gc.C, st *State) {
-			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetPublicAddress("public")
@@ -411,9 +410,8 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "service is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
-			err = wordpress.SetExposed()
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			err := wordpress.SetExposed()
 			c.Assert(err, gc.IsNil)
 			err = wordpress.SetMinUnits(42)
 			c.Assert(err, gc.IsNil)
@@ -427,6 +425,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				Exposed:  true,
 				CharmURL: "local:quantal/quantal-wordpress-3",
+				OwnerTag: "user-admin",
 				Life:     params.Life(Alive.String()),
 				MinUnits: 42,
 				Config:   charm.Settings{},
@@ -443,8 +442,7 @@ var allWatcherChangedTests = []struct {
 			Config:      charm.Settings{"blog-title": "boring"},
 		}},
 		setUp: func(c *gc.C, st *State) {
-			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
 		},
 		change: watcher.Change{
@@ -455,6 +453,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:        "wordpress",
 				CharmURL:    "local:quantal/quantal-wordpress-3",
+				OwnerTag:    "user-admin",
 				Life:        params.Life(Alive.String()),
 				Constraints: constraints.MustParse("mem=99M"),
 				Config:      charm.Settings{"blog-title": "boring"},
@@ -470,8 +469,7 @@ var allWatcherChangedTests = []struct {
 			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
-			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
 		},
 		change: watcher.Change{
@@ -482,6 +480,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:quantal/quantal-wordpress-3",
+				OwnerTag: "user-admin",
 				Life:     params.Life(Alive.String()),
 				Config:   charm.Settings{"blog-title": "boring"},
 			},
@@ -506,11 +505,9 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "relation is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			_, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 
-			_, err = st.AddService("logging", AddTestingCharm(c, st, "logging"))
-			c.Assert(err, gc.IsNil)
+			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
 			eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
 			c.Assert(err, gc.IsNil)
 			_, err = st.AddRelation(eps...)
@@ -632,8 +629,7 @@ var allWatcherChangedTests = []struct {
 			StatusInfo: "failure",
 		}},
 		setUp: func(c *gc.C, st *State) {
-			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetStatus(params.StatusStarted, "", nil)
@@ -657,8 +653,7 @@ var allWatcherChangedTests = []struct {
 			Status: params.StatusStarted,
 		}},
 		setUp: func(c *gc.C, st *State) {
-			wordpress, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
@@ -765,9 +760,8 @@ var allWatcherChangedTests = []struct {
 			Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
 		}},
 		setUp: func(c *gc.C, st *State) {
-			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
-			err = svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -812,8 +806,7 @@ var allWatcherChangedTests = []struct {
 			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
-			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "foo")
 		},
 		change: watcher.Change{
@@ -839,8 +832,7 @@ var allWatcherChangedTests = []struct {
 				c, st, "wordpress",
 				"config.yaml", dottedConfig,
 				"quantal", 3)
-			svc, err := st.AddService("wordpress", testCharm)
-			c.Assert(err, gc.IsNil)
+			svc := AddTestingService(c, st, "wordpress", testCharm)
 			setServiceConfigAttr(c, svc, "key.dotted", "foo")
 		},
 		change: watcher.Change{
@@ -862,8 +854,7 @@ var allWatcherChangedTests = []struct {
 			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *gc.C, st *State) {
-			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
-			c.Assert(err, gc.IsNil)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "foo")
 		},
 		change: watcher.Change{

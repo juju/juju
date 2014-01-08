@@ -17,6 +17,7 @@ import (
 
 const (
 	ProductMetadataPath = "streams/v1/com.ubuntu.juju:released:tools.json"
+	ToolsContentId      = "com.ubuntu.juju:released:tools"
 )
 
 // MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.
@@ -47,7 +48,7 @@ func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata, updated time.Time)
 	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = "index:1.0"
 	indices.Indexes = map[string]*simplestreams.IndexMetadata{
-		"com.ubuntu.juju:released:tools": &simplestreams.IndexMetadata{
+		ToolsContentId: &simplestreams.IndexMetadata{
 			Updated:          indices.Updated,
 			Format:           "products:1.0",
 			DataType:         "content-download",
@@ -65,6 +66,7 @@ func MarshalToolsMetadataProductsJSON(metadata []*ToolsMetadata, updated time.Ti
 	var cloud simplestreams.CloudMetadata
 	cloud.Updated = updated.Format(time.RFC1123Z)
 	cloud.Format = "products:1.0"
+	cloud.ContentId = ToolsContentId
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
 	itemsversion := updated.Format("20060102") // YYYYMMDD
 	for _, t := range metadata {

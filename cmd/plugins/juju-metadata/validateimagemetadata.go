@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -45,7 +46,9 @@ Examples:
   juju metadata validate-images -s raring
 
  - validate using the current environment settings but with series raring and
- using metadata from local directory
+ using metadata from local directory (the directory is expected to have an
+ "images" subdirectory containing the metadata, and corresponds to the parameter
+ passed to the image metadata generatation command).
 
   juju metadata validate-images -s raring -d <some directory>
 
@@ -145,10 +148,11 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		params.Endpoint = c.endpoint
 	}
 	if c.metadataDir != "" {
-		if _, err := os.Stat(c.metadataDir); err != nil {
+		dir := filepath.Join(c.metadataDir, "images")
+		if _, err := os.Stat(dir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+c.metadataDir, simplestreams.VerifySSLHostnames)}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
 	}
 
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

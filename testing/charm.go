@@ -116,11 +116,17 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 // MockCharmStore implements charm.Repository and is used to isolate tests
 // that would otherwise need to hit the real charm store.
 type MockCharmStore struct {
-	charms map[string]map[int]*charm.Bundle
+	charms    map[string]map[int]*charm.Bundle
+	AuthAttrs string
 }
 
 func NewMockCharmStore() *MockCharmStore {
-	return &MockCharmStore{map[string]map[int]*charm.Bundle{}}
+	return &MockCharmStore{charms: map[string]map[int]*charm.Bundle{}}
+}
+
+func (s *MockCharmStore) WithAuthAttrs(auth string) charm.Repository {
+	s.AuthAttrs = auth
+	return s
 }
 
 // SetCharm adds and removes charms in s. The affected charm is identified by

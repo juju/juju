@@ -23,6 +23,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 const testAuthkey = "jabberwocky"
@@ -420,9 +421,7 @@ func (b *backendSuite) tlsServerAndClient(c *gc.C) (client *http.Client, url, da
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	client = &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: caCerts},
-		},
+		Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
 	}
 	return client, url, dataDir
 }

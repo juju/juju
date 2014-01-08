@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 const getConstraintsDoc = `
@@ -39,8 +38,8 @@ precedence.
 
 Examples:
 
-   set-constraints mem=8G               (all new machines in the environment must have at least 8GB of RAM)
-   set-constraints wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
+   set-constraints mem=8G                         (all new machines in the environment must have at least 8GB of RAM)
+   set-constraints --service wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
 
 See Also:
    juju help constraints
@@ -89,23 +88,38 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
+// getEnvironConstraints1dot16 uses direct DB access to get the Environment
+// constraints against an API server running 1.16 or older (when GetEnvironmentConstraints
+// was not available). This fallback can be removed when we no longer maintain
+// 1.16 compatibility.
+// This only does the GetEnvironmentConstraints portion of Run, since
+// GetServiceConstraints was already implemented.
+func (c *GetConstraintsCommand) getEnvironConstraints1dot16() (constraints.Value, error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	defer conn.Close()
+	return conn.State.EnvironConstraints()
+}
+
+func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 
 	var cons constraints.Value
-	if c.ServiceName != "" {
-		args := params.GetServiceConstraints{
-			ServiceName: c.ServiceName,
+	if c.ServiceName == "" {
+		cons, err = apiclient.GetEnvironmentConstraints()
+		if params.IsCodeNotImplemented(err) {
+			logger.Infof("GetEnvironmentConstraints not supported by the API server, " +
+				"falling back to 1.16 compatibility mode (direct DB access)")
+			cons, err = c.getEnvironConstraints1dot16()
 		}
-		var results params.GetServiceConstraintsResults
-		results, err = statecmd.GetServiceConstraints(conn.State, args)
-		cons = results.Constraints
 	} else {
-		cons, err = conn.State.EnvironConstraints()
+		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
 	if err != nil {
 		return err
@@ -143,18 +157,35 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 	return err
 }
 
-func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
+// setEnvironConstraints1dot16 uses direct DB access to get the Environment
+// constraints against an API server running 1.16 or older (when SetEnvironmentConstraints
+// was not available). This fallback can be removed when we no longer maintain
+// 1.16 compatibility.
+// This only does the SetEnvironmentConstraints portion of Run, since
+// SetServiceConstraints was already implemented.
+func (c *SetConstraintsCommand) setEnvironConstraints1dot16() error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	return conn.State.SetEnvironConstraints(c.Constraints)
+}
+
+func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer apiclient.Close()
 	if c.ServiceName == "" {
-		return conn.State.SetEnvironConstraints(c.Constraints)
+		err = apiclient.SetEnvironmentConstraints(c.Constraints)
+		if params.IsCodeNotImplemented(err) {
+			logger.Infof("SetEnvironmentConstraints not supported by the API server, " +
+				"falling back to 1.16 compatibility mode (direct DB access)")
+			err = c.setEnvironConstraints1dot16()
+		}
+		return err
 	}
-	params := params.SetServiceConstraints{
-		ServiceName: c.ServiceName,
-		Constraints: c.Constraints,
-	}
-	return statecmd.SetServiceConstraints(conn.State, params)
+	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 }

@@ -21,6 +21,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -28,7 +29,6 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -244,31 +244,6 @@ func (*environSuite) TestStorage(c *gc.C) {
 	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
 }
 
-func (*environSuite) TestPublicStorage(c *gc.C) {
-	env := makeEnviron(c)
-	baseStorage := env.PublicStorage()
-	storage, ok := baseStorage.(*azureStorage)
-	c.Assert(storage, gc.NotNil)
-	c.Check(ok, gc.Equals, true)
-	c.Check(storage.storageContext.getContainer(), gc.Equals, env.ecfg.publicStorageContainerName())
-	context, err := storage.getStorageContext()
-	c.Assert(err, gc.IsNil)
-	c.Check(context.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(context.Key, gc.Equals, "")
-	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
-}
-
-func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-container-name"] = ""
-	attrs["public-storage-account-name"] = ""
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	env, err := NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
-	c.Check(env.PublicStorage(), gc.Equals, environs.EmptyStorage)
-}
-
 func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 	env := makeEnviron(c)
 	keysInAzure := gwacl.StorageAccountKeys{Primary: "a-key"}
@@ -388,15 +363,6 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (*environSuite) TestGetPublicStorageContext(c *gc.C) {
-	env := makeEnviron(c)
-	stor, err := env.getPublicStorageContext()
-	c.Assert(err, gc.IsNil)
-	c.Assert(stor, gc.NotNil)
-	c.Check(stor.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(stor.Key, gc.Equals, "")
-}
-
 func (*environSuite) TestSetConfigValidates(c *gc.C) {
 	env := makeEnviron(c)
 	originalCfg := env.ecfg
@@ -490,9 +456,9 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	}})
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -821,9 +787,9 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -842,9 +808,9 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)
@@ -1289,7 +1255,7 @@ func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
-	env.Storage().Put("filename", bytes.NewReader(data), int64(len(data)))
+	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
 
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
@@ -1309,9 +1275,6 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
+	c.Assert(len(sources), gc.Equals, 1)
 	assertSourceContents(c, sources[0], "filename", data)
-	url, err := sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "https://jujutools.blob.core.windows.net/juju-tools/tools/")
 }

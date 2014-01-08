@@ -4,6 +4,8 @@
 package imagemetadata_test
 
 import (
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
@@ -46,12 +48,14 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 
 func (s *ValidateSuite) TestMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
+	metadataPath := filepath.Join(s.metadataDir, "images")
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "raring",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
-		Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
+		Sources: []simplestreams.DataSource{
+			simplestreams.NewURLDataSource("file://"+metadataPath, simplestreams.VerifySSLHostnames)},
 	}
 	imageIds, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
@@ -65,7 +69,8 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 		Series:        "precise",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
-		Sources:       []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
+		Sources: []simplestreams.DataSource{
+			simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
 	}
 	_, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))

@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 var _ = gc.Suite(&unitSuite{})
@@ -24,14 +25,16 @@ type unitSuite struct {
 }
 
 func (s *unitSuite) SetUpTest(c *gc.C) {
+	var err error
 	s.JujuConnSuite.SetUpTest(c)
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.unit, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetPassword("unit-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.SetPassword(password)
 
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), "unit-password")
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 }
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {

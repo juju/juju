@@ -10,11 +10,15 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/testing/testbase"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
 
 // TODO integration tests, but how?
 
-type S struct{}
+type S struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(S{})
 
@@ -106,18 +110,24 @@ var ctests = []struct {
 	},
 	{
 		"SSHAuthorizedKeys",
-		"ssh_authorized_keys:\n- key1\n- key2\n",
+		fmt.Sprintf(
+			"ssh_authorized_keys:\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
+			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key),
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHAuthorizedKeys("key1")
-			cfg.AddSSHAuthorizedKeys("key2")
+			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyOne.Key + " Juju:user@host")
+			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyTwo.Key + " another@host")
 		},
 	},
 	{
 		"SSHAuthorizedKeys",
-		"ssh_authorized_keys:\n- key1\n- key2\n- key3\n",
+		fmt.Sprintf(
+			"ssh_authorized_keys:\n- %s\n  Juju:sshkey\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
+			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key),
 		func(cfg *cloudinit.Config) {
-			cfg.AddSSHAuthorizedKeys("#command\nkey1")
-			cfg.AddSSHAuthorizedKeys("key2\n# comment\n\nkey3\n")
+			cfg.AddSSHAuthorizedKeys("#command\n" + sshtesting.ValidKeyOne.Key)
+			cfg.AddSSHAuthorizedKeys(
+				sshtesting.ValidKeyTwo.Key + " user@host\n# comment\n\n" +
+					sshtesting.ValidKeyThree.Key + " another@host")
 			cfg.AddSSHAuthorizedKeys("")
 		},
 	},
@@ -168,13 +178,6 @@ var ctests = []struct {
 		"apt_sources:\n- source: keyName\n  key: someKey\n",
 		func(cfg *cloudinit.Config) {
 			cfg.AddAptSource("keyName", "someKey")
-		},
-	},
-	{
-		"AptSources",
-		"apt_sources:\n- source: keyName\n  keyid: someKey\n  keyserver: foo.com\n",
-		func(cfg *cloudinit.Config) {
-			cfg.AddAptSourceWithKeyId("keyName", "someKey", "foo.com")
 		},
 	},
 	{
@@ -241,7 +244,7 @@ var ctests = []struct {
 const (
 	header          = "#cloud-config\n"
 	addFileExpected = `runcmd:
-- install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
+- install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
 - printf '%s\n' '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
 `
 )
@@ -274,6 +277,37 @@ func (S) TestPackages(c *gc.C) {
 	cfg.AddPackage("a b c")
 	cfg.AddPackage("d!")
 	c.Assert(cfg.Packages(), gc.DeepEquals, []string{"a b c", "d!"})
+}
+
+func (S) TestSetOutput(c *gc.C) {
+	type test struct {
+		kind   cloudinit.OutputKind
+		stdout string
+		stderr string
+	}
+	tests := []test{{
+		cloudinit.OutAll, "a", "",
+	}, {
+		cloudinit.OutAll, "", "b",
+	}, {
+		cloudinit.OutInit, "a", "b",
+	}, {
+		cloudinit.OutAll, "a", "b",
+	}, {
+		cloudinit.OutAll, "", "",
+	}}
+
+	cfg := cloudinit.New()
+	stdout, stderr := cfg.Output(cloudinit.OutAll)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	for i, t := range tests {
+		c.Logf("test %d: %+v", i, t)
+		cfg.SetOutput(t.kind, t.stdout, t.stderr)
+		stdout, stderr = cfg.Output(t.kind)
+		c.Assert(stdout, gc.Equals, t.stdout)
+		c.Assert(stderr, gc.Equals, t.stderr)
+	}
 }
 
 //#cloud-config

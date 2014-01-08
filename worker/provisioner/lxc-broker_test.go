@@ -13,8 +13,8 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -22,6 +22,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
@@ -30,7 +31,7 @@ import (
 )
 
 type lxcSuite struct {
-	lxc.TestSuite
+	lxctesting.TestSuite
 	events chan mock.Event
 }
 
@@ -64,7 +65,6 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	config := coretesting.EnvironConfig(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -76,7 +76,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:       []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewLxcBroker(config, tools, s.agentConfig)
+	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -184,7 +184,11 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	err = m.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
@@ -227,10 +231,13 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
+func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.MachineTag(s.parentMachineId)
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	return provisioner.NewProvisioner(provisioner.LXC, s.provisioner, agentConfig)
+	tools, err := s.provisioner.Tools(agentConfig.Tag())
+	c.Assert(err, gc.IsNil)
+	broker := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -250,13 +257,11 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
-	params := state.AddMachineParams{
-		ParentId:      s.parentMachineId,
-		ContainerType: instance.LXC,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, s.parentMachineId, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	return container
 }
@@ -272,4 +277,10 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
+}
+
+type fakeAPI struct{}
+
+func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+	return params.ContainerConfig{"fake", "my-keys", true, 2345}, nil
 }

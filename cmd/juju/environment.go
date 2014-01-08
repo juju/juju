@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
@@ -53,31 +54,51 @@ func (c *GetEnvironmentCommand) Init(args []string) (err error) {
 	return
 }
 
-func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
+// environmentGet1dot16 runs matches client.EnvironmentGet using a direct DB
+// connection to maintain compatibility with an API server running 1.16 or
+// older (when EnvironmentGet was not available). This fallback can be removed
+// when we no longer maintain 1.16 compatibility.
+func (c *GetEnvironmentCommand) environmentGet1dot16() (map[string]interface{}, error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer conn.Close()
 
 	// Get the existing environment config from the state.
 	config, err := conn.State.EnvironConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	attrs := config.AllAttrs()
+	return attrs, nil
+}
 
-	// If no key specified, write out the whole lot.
-	if c.key == "" {
-		return c.out.Write(ctx, attrs)
+func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	attrs, err := client.EnvironmentGet()
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("EnvironmentGet not supported by the API server, " +
+			"falling back to 1.16 compatibility mode (direct DB access)")
+		attrs, err = c.environmentGet1dot16()
+	}
+	if err != nil {
+		return err
 	}
 
-	value, found := attrs[c.key]
-	if found {
-		return c.out.Write(ctx, value)
+	if c.key != "" {
+		if value, found := attrs[c.key]; found {
+			return c.out.Write(ctx, value)
+		}
+		return fmt.Errorf("Key %q not found in %q environment.", c.key, attrs["name"])
 	}
-
-	return fmt.Errorf("Key %q not found in %q environment.", c.key, config.Name())
+	// If key is empty, write out the whole lot.
+	return c.out.Write(ctx, attrs)
 }
 
 type attributes map[string]interface{}
@@ -129,7 +150,12 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
+// run1dot16 runs matches client.EnvironmentSet using a direct DB
+// connection to maintain compatibility with an API server running 1.16 or
+// older (when EnvironmentSet was not available). This fallback can be removed
+// when we no longer maintain 1.16 compatibility.
+// This content was copied from SetEnvironmentCommand.Run in 1.16
+func (c *SetEnvironmentCommand) run1dot16() error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -155,5 +181,21 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	// Now try to apply the new validated config.
-	return conn.State.SetEnvironConfig(newProviderConfig)
+	return conn.State.SetEnvironConfig(newProviderConfig, oldConfig)
+}
+
+func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	err = client.EnvironmentSet(c.values)
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("EnvironmentSet not supported by the API server, " +
+			"falling back to 1.16 compatibility mode (direct DB access)")
+		err = c.run1dot16()
+	}
+	return err
 }

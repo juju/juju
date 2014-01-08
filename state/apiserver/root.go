@@ -4,11 +4,19 @@
 package apiserver
 
 import (
+	"errors"
+	"time"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/keymanager"
+	"launchpad.net/juju-core/state/apiserver/keyupdater"
 	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
@@ -24,23 +32,42 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
+// maxPingInterval defines the timeframe until the ping
+// timeout closes the monitored connection.
+// TODO(mue): Idea by Roger: Move to API (e.g. params) so
+// that the pinging there may depend on the interval.
+const maxPingInterval = 3 * time.Minute
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	srv       *Server
-	resources *common.Resources
+	srv         *Server
+	rpcConn     *rpc.Conn
+	resources   *common.Resources
+	pingTimeout *pingTimeout
 
 	entity taggedAuthenticator
 }
 
-func newSrvRoot(srv *Server, entity taggedAuthenticator) *srvRoot {
+// newSrvRoot creates the client's connection representation
+// and starts a ping timeout for the monitoring of this
+// connection.
+func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
-		srv:       srv,
+		srv:       root.srv,
+		rpcConn:   root.rpcConn,
 		resources: common.NewResources(),
 		entity:    entity,
 	}
-	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
+	action := func() {
+		err := r.rpcConn.Close()
+		if err != nil {
+			logger.Errorf("error closing the RPC connection: %v", err)
+		}
+	}
+	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
+	r.pingTimeout = newPingTimeout(action, maxPingInterval)
 	return r
 }
 
@@ -48,6 +75,7 @@ func newSrvRoot(srv *Server, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
+	r.pingTimeout.stop()
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -68,6 +96,16 @@ func (r *srvRoot) requireClient() error {
 		return common.ErrPerm
 	}
 	return nil
+}
+
+// KeyManager returns an object that provides access to the KeyManager API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty.
+func (r *srvRoot) KeyManager(id string) (*keymanager.KeyManagerAPI, error) {
+	if id != "" {
+		return nil, common.ErrBadId
+	}
+	return keymanager.NewKeyManagerAPI(r.srv.state, r.resources, r)
 }
 
 // Machiner returns an object that provides access to the Machiner API
@@ -154,6 +192,16 @@ func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
 	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 }
 
+// KeyUpdater returns an object that provides access to the KeyUpdater API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
+}
+
 // NotifyWatcher returns an object that provides
 // API access to methods on a state.NotifyWatcher.
 // Each client has its own current set of watchers, stored
@@ -228,15 +276,13 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	}, nil
 }
 
-// Pinger returns object with a single "Ping" method that does nothing.
-func (r *srvRoot) Pinger(id string) (srvPinger, error) {
-	return srvPinger{}, nil
+// Pinger returns an object that can be pinged
+// by calling its Ping method. If this method
+// is not called frequently enough, the connection
+// will be dropped.
+func (r *srvRoot) Pinger(id string) (pinger, error) {
+	return r.pingTimeout, nil
 }
-
-type srvPinger struct{}
-
-// Ping is a no-op used by client heartbeat monitor.
-func (r srvPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
@@ -262,6 +308,12 @@ func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
+// AuthStateManager returns whether the authenticated user is a
+// machine with running the ManageState job.
+func (r *srvRoot) AuthStateManager() bool {
+	return isMachineWithJob(r.entity, state.JobManageState)
+}
+
 // AuthClient returns whether the authenticated entity is a client
 // user.
 func (r *srvRoot) AuthClient() bool {
@@ -276,4 +328,69 @@ func (r *srvRoot) GetAuthTag() string {
 // GetAuthEntity returns the authenticated entity.
 func (r *srvRoot) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// pinger describes a type that can be pinged.
+type pinger interface {
+	Ping()
+}
+
+// pingTimeout listens for pings and will call the
+// passed action in case of a timeout. This way broken
+// or inactive connections can be closed.
+type pingTimeout struct {
+	tomb    tomb.Tomb
+	action  func()
+	timeout time.Duration
+	reset   chan struct{}
+}
+
+// newPingTimeout returns a new pingTimeout instance
+// that invokes the given action asynchronously if there
+// is more than the given timeout interval between calls
+// to its Ping method.
+func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
+	pt := &pingTimeout{
+		action:  action,
+		timeout: timeout,
+		reset:   make(chan struct{}),
+	}
+	go func() {
+		defer pt.tomb.Done()
+		pt.tomb.Kill(pt.loop())
+	}()
+	return pt
+}
+
+// Ping is used by the client heartbeat monitor and resets
+// the killer.
+func (pt *pingTimeout) Ping() {
+	select {
+	case <-pt.tomb.Dying():
+	case pt.reset <- struct{}{}:
+	}
+}
+
+// stop terminates the ping timeout.
+func (pt *pingTimeout) stop() error {
+	pt.tomb.Kill(nil)
+	return pt.tomb.Wait()
+}
+
+// loop waits for a reset signal, otherwise it performs
+// the initially passed action.
+func (pt *pingTimeout) loop() error {
+	timer := time.NewTimer(pt.timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case <-pt.tomb.Dying():
+			return nil
+		case <-timer.C:
+			go pt.action()
+			return errors.New("ping timeout")
+		case <-pt.reset:
+			timer.Reset(pt.timeout)
+		}
+	}
 }

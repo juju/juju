@@ -24,9 +24,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -65,6 +63,7 @@ type State struct {
 	cleanups         *mgo.Collection
 	annotations      *mgo.Collection
 	statuses         *mgo.Collection
+	stateServers     *mgo.Collection
 	runner           *txn.Runner
 	transactionHooks chan ([]transactionHook)
 	watcher          *watcher.Watcher
@@ -88,9 +87,14 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	transactionHooks := <-st.transactionHooks
 	st.transactionHooks <- nil
 	if len(transactionHooks) > 0 {
+		// Note that this code should only ever be triggered
+		// during tests. If we see the log messages below
+		// in a production run, something is wrong.
 		defer func() {
 			if transactionHooks[0].After != nil {
+				logger.Infof("transaction 'after' hook start")
 				transactionHooks[0].After()
+				logger.Infof("transaction 'after' hook end")
 			}
 			if <-st.transactionHooks != nil {
 				panic("concurrent use of transaction hooks")
@@ -98,7 +102,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			st.transactionHooks <- transactionHooks[1:]
 		}()
 		if transactionHooks[0].Before != nil {
+			logger.Infof("transaction 'before' hook start")
 			transactionHooks[0].Before()
+			logger.Infof("transaction 'before' hook end")
 		}
 	}
 	return st.runner.Run(ops, "", nil)
@@ -243,18 +249,27 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 
 // SetEnvironConfig replaces the current configuration of the
 // environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg *config.Config) error {
+func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return err
 	}
-	// TODO(niemeyer): This isn't entirely right as the change is done as a
-	// delta that the user didn't ask for. Instead, take a (old, new) config
-	// pair, and apply *known* delta.
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
 	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
-	settings.Update(cfg.AllAttrs())
+	newattrs := cfg.AllAttrs()
+	for k, _ := range old.AllAttrs() {
+		if _, ok := newattrs[k]; !ok {
+			settings.Delete(k)
+		}
+	}
+	settings.Update(newattrs)
 	_, err = settings.Write()
 	return err
 }
@@ -267,226 +282,6 @@ func (st *State) EnvironConstraints() (constraints.Value, error) {
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, environGlobalKey, cons)
-}
-
-// AddMachine adds a new machine configured to run the supplied jobs on the
-// supplied series. The machine's constraints will be taken from the
-// environment constraints.
-func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(&AddMachineParams{Series: series, Jobs: jobs})
-}
-
-// AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
-// supplied series. The machine's constraints and other configuration will be taken from
-// the supplied params struct.
-func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine, err error) {
-	if params.InstanceId != "" {
-		return nil, fmt.Errorf("cannot specify an instance id when adding a new machine")
-	}
-	if params.Nonce != "" {
-		return nil, fmt.Errorf("cannot specify a nonce when adding a new machine")
-	}
-
-	// TODO(wallyworld) - if a container is required, and when the actual machine characteristics
-	// are made available, we need to check the machine constraints to ensure the container can be
-	// created on the specifed machine.
-	// ie it makes no sense asking for a 16G container on a machine with 8G.
-
-	return st.addMachine(params)
-}
-
-// InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured according to the supplied params struct.
-func (st *State) InjectMachine(params *AddMachineParams) (m *Machine, err error) {
-	if params.InstanceId == "" {
-		return nil, fmt.Errorf("cannot inject a machine without an instance id")
-	}
-	if params.Nonce == "" {
-		return nil, fmt.Errorf("cannot inject a machine without a nonce")
-	}
-	return st.addMachine(params)
-}
-
-// containerRefParams specify how a machineContainers document is to be created.
-type containerRefParams struct {
-	hostId      string
-	newHost     bool
-	hostOnly    bool
-	containerId string
-}
-
-func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) (*machineDoc, []txn.Op, error) {
-	if mdoc.Series == "" {
-		return nil, nil, fmt.Errorf("no series specified")
-	}
-	if len(mdoc.Jobs) == 0 {
-		return nil, nil, fmt.Errorf("no jobs specified")
-	}
-	if containerParams.hostId != "" && mdoc.ContainerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
-	}
-	jset := make(map[MachineJob]bool)
-	for _, j := range mdoc.Jobs {
-		if jset[j] {
-			return nil, nil, fmt.Errorf("duplicate job: %s", j)
-		}
-		jset[j] = true
-	}
-	if containerParams.hostId == "" {
-		// we are creating a new machine instance (not a container).
-		seq, err := st.sequence("machine")
-		if err != nil {
-			return nil, nil, err
-		}
-		mdoc.Id = strconv.Itoa(seq)
-		containerParams.hostId = mdoc.Id
-		containerParams.newHost = true
-	}
-	if mdoc.ContainerType != "" {
-		// we are creating a container so set up a namespaced id.
-		seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", containerParams.hostId, mdoc.ContainerType))
-		if err != nil {
-			return nil, nil, err
-		}
-		mdoc.Id = fmt.Sprintf("%s/%s/%d", containerParams.hostId, mdoc.ContainerType, seq)
-		containerParams.containerId = mdoc.Id
-	}
-	mdoc.Life = Alive
-	sdoc := statusDoc{
-		Status: params.StatusPending,
-	}
-	// Machine constraints do not use a container constraint value.
-	// Both provisioning and deployment constraints use the same constraints.Value struct
-	// so here we clear the container value. Provisioning ignores the container value but
-	// clearing it avoids potential confusion.
-	cons.Container = nil
-	ops := []txn.Op{
-		{
-			C:      st.machines.Name,
-			Id:     mdoc.Id,
-			Assert: txn.DocMissing,
-			Insert: *mdoc,
-		},
-		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
-	}
-	if metadata != nil {
-		ops = append(ops, txn.Op{
-			C:      st.instanceData.Name,
-			Id:     mdoc.Id,
-			Assert: txn.DocMissing,
-			Insert: *metadata,
-		})
-	}
-	ops = append(ops, createContainerRefOp(st, containerParams)...)
-	return mdoc, ops, nil
-}
-
-// AddMachineParams encapsulates the parameters used to create a new machine.
-type AddMachineParams struct {
-	Series                  string
-	Constraints             constraints.Value
-	ParentId                string
-	ContainerType           instance.ContainerType
-	InstanceId              instance.Id
-	HardwareCharacteristics instance.HardwareCharacteristics
-	Nonce                   string
-	Jobs                    []MachineJob
-}
-
-// addMachineContainerOps returns txn operations and associated Mongo records used to create a new machine,
-// accounting for the fact that a machine may require a container and may require instance data.
-// This method exists to cater for:
-// 1. InjectMachine, which is used to record in state an instantiated bootstrap node. When adding
-// a machine to state so that it is provisioned normally, the instance id is not known at this point.
-// 2. AssignToNewMachine, which is used to create a new machine on which to deploy a unit.
-func (st *State) addMachineContainerOps(params *AddMachineParams, cons constraints.Value) ([]txn.Op, *instanceData, *containerRefParams, error) {
-	var instData *instanceData
-	if params.InstanceId != "" {
-		instData = &instanceData{
-			InstanceId: params.InstanceId,
-			Arch:       params.HardwareCharacteristics.Arch,
-			Mem:        params.HardwareCharacteristics.Mem,
-			RootDisk:   params.HardwareCharacteristics.RootDisk,
-			CpuCores:   params.HardwareCharacteristics.CpuCores,
-			CpuPower:   params.HardwareCharacteristics.CpuPower,
-			Tags:       params.HardwareCharacteristics.Tags,
-		}
-	}
-	var ops []txn.Op
-	var containerParams = &containerRefParams{hostId: params.ParentId, hostOnly: true}
-	// If we are creating a container, first create the host (parent) machine if necessary.
-	if params.ContainerType != "" {
-		containerParams.hostOnly = false
-		if params.ParentId == "" {
-			// No parent machine is specified so create one.
-			mdoc := &machineDoc{
-				Series: params.Series,
-				Jobs:   params.Jobs,
-				Clean:  true,
-			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, &containerRefParams{})
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			ops = parentOps
-			containerParams.hostId = mdoc.Id
-			containerParams.newHost = true
-		} else {
-			// If a parent machine is specified, make sure it exists.
-			_, err := st.Machine(containerParams.hostId)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		}
-	}
-	return ops, instData, containerParams, nil
-}
-
-// addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
-	msg := "cannot add a new machine"
-	if params.ParentId != "" || params.ContainerType != "" {
-		msg = "cannot add a new container"
-	}
-	defer utils.ErrorContextf(&err, msg)
-
-	cons, err := st.EnvironConstraints()
-	if err != nil {
-		return nil, err
-	}
-	cons = params.Constraints.WithFallbacks(cons)
-
-	ops, instData, containerParams, err := st.addMachineContainerOps(params, cons)
-	if err != nil {
-		return nil, err
-	}
-	mdoc := &machineDoc{
-		Series:        params.Series,
-		ContainerType: string(params.ContainerType),
-		Jobs:          params.Jobs,
-		Clean:         true,
-	}
-	if mdoc.ContainerType == "" {
-		mdoc.InstanceId = params.InstanceId
-		mdoc.Nonce = params.Nonce
-	}
-	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
-	if err != nil {
-		return nil, err
-	}
-	ops = append(ops, machineOps...)
-
-	err = st.runTransaction(ops)
-	if err != nil {
-		return nil, err
-	}
-	// Refresh to pick the txn-revno.
-	m = newMachine(st, mdoc)
-	if err = m.Refresh(); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 var errDead = fmt.Errorf("not found or dead")
@@ -595,16 +390,29 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.ServiceTagKind:
 		return st.Service(id)
 	case names.EnvironTagKind:
-		conf, err := st.EnvironConfig()
+		env, err := st.Environment()
 		if err != nil {
 			return nil, err
 		}
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
-		if id != conf.Name() {
-			return nil, errors.NotFoundf("environment %q", id)
+		if id != env.UUID() {
+			if utils.IsValidUUIDString(id) {
+				return nil, errors.NotFoundf("environment %q", id)
+			}
+			// TODO(axw) 2013-12-04 #1257587
+			// We should not accept environment tags that do not match the
+			// environment's UUID. We accept anything for now, to cater
+			// both for past usage, and for potentially supporting aliases.
+			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
+			conf, err := st.EnvironConfig()
+			if err != nil {
+				logger.Warningf("EnvironConfig failed: %v", err)
+			} else if id != conf.Name() {
+				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+			}
 		}
-		return st.Environment()
+		return env, nil
 	case names.RelationTagKind:
 		return st.KeyRelation(id)
 	}
@@ -629,6 +437,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.users.Name
 	case names.RelationTagKind:
 		coll = st.relations.Name
+	case names.EnvironTagKind:
+		coll = st.environments.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -640,11 +450,12 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
 	cdoc := &charmDoc{
-		URL:          curl,
-		Meta:         ch.Meta(),
-		Config:       ch.Config(),
-		BundleURL:    bundleURL,
-		BundleSha256: bundleSha256,
+		URL:           curl,
+		Meta:          ch.Meta(),
+		Config:        ch.Config(),
+		BundleURL:     bundleURL,
+		BundleSha256:  bundleSha256,
+		PendingUpload: false,
 	}
 	err = st.charms.Insert(cdoc)
 	if err != nil {
@@ -656,7 +467,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // Charm returns the charm with the given URL.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
+	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}}).One(cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -667,6 +478,106 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
 	}
 	return newCharm(st, cdoc)
+}
+
+// PrepareLocalCharmUpload must be called before a charm is uploaded
+// to the provider storage in order to create a charm document in
+// state. It returns a new Charm with no metadata and a unique
+// revision number.
+//
+// The url's schema must be "local" and it must include a revision.
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+
+	for attempt := 0; attempt < 3; attempt++ {
+		// Find the highest revision of that charm in state.
+		var docs []charmDoc
+		err = st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}}).Select(D{{"_id", 1}}).All(&docs)
+		if err != nil {
+			return nil, err
+		}
+		// Find the highest revision.
+		maxRevision := -1
+		for _, doc := range docs {
+			if doc.URL.Revision > maxRevision {
+				maxRevision = doc.URL.Revision
+			}
+		}
+
+		// Respect the local charm's revision first.
+		chosenRevision := curl.Revision
+		if maxRevision >= chosenRevision {
+			// More recent revision exists in state, pick the next.
+			chosenRevision = maxRevision + 1
+		}
+		chosenUrl = curl.WithRevision(chosenRevision)
+
+		uploadedCharm := &charmDoc{
+			URL:           chosenUrl,
+			PendingUpload: true,
+		}
+		ops := []txn.Op{{
+			C:      st.charms.Name,
+			Id:     uploadedCharm.URL,
+			Assert: txn.DocMissing,
+			Insert: uploadedCharm,
+		}}
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		break
+	}
+	if err != nil {
+		return nil, ErrExcessiveContention
+	}
+	return chosenUrl, nil
+}
+
+// UpdateUploadedCharm marks the given charm URL as uploaded and
+// updates the rest of its data, returning it as *state.Charm.
+func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+	doc := &charmDoc{}
+	err := st.charms.FindId(curl).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !doc.PendingUpload {
+		return nil, fmt.Errorf("charm %q already uploaded", curl)
+	}
+
+	updateFields := D{{"$set", D{
+		{"meta", ch.Meta()},
+		{"config", ch.Config()},
+		{"bundleurl", bundleURL},
+		{"bundlesha256", bundleSha256},
+		{"pendingupload", false},
+	}}}
+	stillPending := D{{"pendingupload", true}}
+	ops := []txn.Op{{
+		C:      st.charms.Name,
+		Id:     curl,
+		Assert: stillPending,
+		Update: updateFields,
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return nil, onAbort(err, fmt.Errorf("charm revision already uploaded"))
+	}
+	return st.Charm(curl)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
@@ -702,8 +613,12 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
+	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || kind != names.UserTagKind {
+		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	}
 	// Sanity checks.
 	if !names.IsService(name) {
 		return nil, fmt.Errorf("invalid name")
@@ -716,6 +631,17 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is no longer alive")
+	}
+	if userExists, err := st.checkUserExists(ownerId); err != nil {
+		return nil, err
+	} else if !userExists {
+		return nil, fmt.Errorf("user %v doesn't exist", ownerId)
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -725,17 +651,25 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
+		OwnerTag:      ownerTag,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
+		{
+			C:      st.users.Name,
+			Id:     ownerId,
+			Assert: txn.DocExists,
+		},
 		{
 			C:      st.settingsrefs.Name,
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		}, {
+		},
+		{
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
@@ -748,10 +682,20 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	ops = append(ops, peerOps...)
 
-	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that the service
-	// already exists.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		err := env.Refresh()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
+			return nil, fmt.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, err
+		}
+
+		if userExists, ueErr := st.checkUserExists(ownerId); ueErr != nil {
+			return nil, ueErr
+		} else if !userExists {
+			return nil, fmt.Errorf("unknown user %q", ownerId)
+		}
+
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -1051,63 +995,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 	return newUnit(st, &doc), nil
 }
 
-// DestroyUnits destroys the units with the specified names.
-func (st *State) DestroyUnits(names ...string) (err error) {
-	// TODO(rog) make this a transaction?
-	var errs []string
-	for _, name := range names {
-		unit, err := st.Unit(name)
-		switch {
-		case errors.IsNotFoundError(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("units", names, errs)
-}
-
-// DestroyMachines destroys the machines with the specified ids.
-func (st *State) DestroyMachines(ids ...string) (err error) {
-	var errs []string
-	for _, id := range ids {
-		machine, err := st.Machine(id)
-		switch {
-		case errors.IsNotFoundError(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case machine.Life() != Alive:
-			continue
-		default:
-			err = machine.Destroy()
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("machines", ids, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
-}
-
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
@@ -1181,104 +1068,22 @@ func (st *State) setMongoPassword(name, password string) error {
 	return nil
 }
 
-// cleanupDoc represents a potentially large set of documents that should be
-// removed.
-type cleanupDoc struct {
-	Id     bson.ObjectId `bson:"_id"`
-	Kind   string
-	Prefix string
+type stateServersDoc struct {
+	Id         string `bson:"_id"`
+	MachineIds []string
 }
 
-// newCleanupOp returns a txn.Op that creates a cleanup document with a unique
-// id and the supplied kind and prefix.
-func (st *State) newCleanupOp(kind, prefix string) txn.Op {
-	doc := &cleanupDoc{
-		Id:     bson.NewObjectId(),
-		Kind:   kind,
-		Prefix: prefix,
-	}
-	return txn.Op{
-		C:      st.cleanups.Name,
-		Id:     doc.Id,
-		Insert: doc,
-	}
-}
-
-// NeedsCleanup returns true if documents previously marked for removal exist.
-func (st *State) NeedsCleanup() (bool, error) {
-	count, err := st.cleanups.Count()
+// StateServerMachineIds returns a slice of the ids
+// of all machines that are configured to run a state server.
+// TODO(rog) export this method when the stateServers
+// document is consistently maintained.
+func (st *State) stateServerMachineIds() ([]string, error) {
+	var doc stateServersDoc
+	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
-		return false, err
+		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
-	return count > 0, nil
-}
-
-// Cleanup removes all documents that were previously marked for removal, if
-// any such exist. It should be called periodically by at least one element
-// of the system.
-func (st *State) Cleanup() error {
-	doc := cleanupDoc{}
-	iter := st.cleanups.Find(nil).Iter()
-	for iter.Next(&doc) {
-		var err error
-		switch doc.Kind {
-		case "settings":
-			err = st.cleanupSettings(doc.Prefix)
-		case "units":
-			err = st.cleanupUnits(doc.Prefix)
-		default:
-			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
-		}
-		if err != nil {
-			logger.Warningf("cleanup failed: %v", err)
-			continue
-		}
-		ops := []txn.Op{{
-			C:      st.cleanups.Name,
-			Id:     doc.Id,
-			Remove: true,
-		}}
-		if err := st.runTransaction(ops); err != nil {
-			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read cleanup document: %v", err)
-	}
-	return nil
-}
-
-func (st *State) cleanupSettings(prefix string) error {
-	// Documents marked for cleanup are not otherwise referenced in the
-	// system, and will not be under watch, and are therefore safe to
-	// delete directly.
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}}
-	if count, err := st.settings.Find(sel).Count(); err != nil {
-		return fmt.Errorf("cannot detect cleanup targets: %v", err)
-	} else if count != 0 {
-		if _, err := st.settings.RemoveAll(sel); err != nil {
-			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
-		}
-	}
-	return nil
-}
-
-func (st *State) cleanupUnits(prefix string) error {
-	// This won't miss units, because a Dying service cannot have units added
-	// to it. But we do have to remove the units themselves via individual
-	// transactions, because they could be in any state at all.
-	unit := &Unit{st: st}
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}, {"life", Alive}}
-	iter := st.units.Find(sel).Iter()
-	for iter.Next(&unit.doc) {
-		if err := unit.Destroy(); err != nil {
-			return err
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read unit document: %v", err)
-	}
-	return nil
+	return doc.MachineIds, nil
 }
 
 // ResumeTransactions resumes all pending transactions.

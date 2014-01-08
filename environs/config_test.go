@@ -4,24 +4,32 @@
 package environs_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type suite struct{}
+type suite struct {
+	testbase.LoggingSuite
+}
 
-var _ = gc.Suite(suite{})
+var _ = gc.Suite(&suite{})
 
-func (suite) TearDownTest(c *gc.C) {
+func (s *suite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 var invalidConfigTests = []struct {
@@ -38,7 +46,7 @@ environments:
 	},
 }
 
-func (suite) TestInvalidConfig(c *gc.C) {
+func (*suite) TestInvalidConfig(c *gc.C) {
 	for i, t := range invalidConfigTests {
 		c.Logf("running test %v", i)
 		_, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -70,7 +78,7 @@ environments:
 	},
 }
 
-func (suite) TestInvalidEnv(c *gc.C) {
+func (*suite) TestInvalidEnv(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
@@ -82,7 +90,61 @@ func (suite) TestInvalidEnv(c *gc.C) {
 	}
 }
 
-func (suite) TestNoEnv(c *gc.C) {
+func (*suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
+	// This tests that a config that has a deprecated field doesn't
+	// generate a Warning if we don't actually ask for that environment.
+	// However, we can only really trigger that when we have a deprecated
+	// field. If support for the field is removed entirely, another
+	// mechanism will need to be used
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
+	content := `
+environments:
+    valid:
+        type: dummy
+        state-server: false
+    deprecated:
+        type: dummy
+        state-server: false
+        tools-url: aknowndeprecatedfield
+`
+	tw := &loggo.TestWriter{}
+	// we only capture Warning or above
+	c.Assert(loggo.RegisterWriter("invalid-env-tester", tw, loggo.WARNING), gc.IsNil)
+	defer loggo.RemoveWriter("invalid-env-tester")
+
+	envs, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
+	names := envs.Names()
+	sort.Strings(names)
+	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
+	// There should be no warning in the log
+	c.Check(tw.Log, gc.HasLen, 0)
+	// Now we actually grab the 'valid' entry
+	_, err = envs.Config("valid")
+	c.Check(err, gc.IsNil)
+	// And still we have no warnings
+	c.Check(tw.Log, gc.HasLen, 0)
+	// Only once we grab the deprecated one do we see any warnings
+	_, err = envs.Config("deprecated")
+	c.Check(err, gc.IsNil)
+	c.Check(tw.Log, gc.HasLen, 1)
+}
+
+func (*suite) TestNoHomeBeforeConfig(c *gc.C) {
+	// Test that we don't actually need HOME set until we call envs.Config()
+	// Because of this, we intentionally do *not* call testing.MakeFakeHomeNoEnvironments()
+	content := `
+environments:
+    valid:
+        type: dummy
+    amazon:
+        type: ec2
+`
+	_, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
+}
+
+func (*suite) TestNoEnv(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c).Restore()
 	es, err := environs.ReadEnvirons("")
 	c.Assert(es, gc.IsNil)
@@ -133,7 +195,7 @@ environments:
 	}},
 }
 
-func (suite) TestConfig(c *gc.C) {
+func (*suite) TestConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only", "valid", "one", "two").Restore()
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
@@ -143,7 +205,7 @@ func (suite) TestConfig(c *gc.C) {
 	}
 }
 
-func (suite) TestDefaultConfigFile(c *gc.C) {
+func (*suite) TestDefaultConfigFile(c *gc.C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
 
 	env := `
@@ -165,7 +227,7 @@ environments:
 	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
-func (suite) TestConfigPerm(c *gc.C) {
+func (*suite) TestConfigPerm(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
 
 	path := testing.HomePath(".juju")
@@ -192,7 +254,7 @@ environments:
 
 }
 
-func (suite) TestNamedConfigFile(c *gc.C) {
+func (*suite) TestNamedConfigFile(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 
 	env := `
@@ -219,7 +281,7 @@ func inMap(attrs testing.Attrs, attr string) bool {
 	return ok
 }
 
-func (suite) TestBootstrapConfig(c *gc.C) {
+func (*suite) TestBootstrapConfig(c *gc.C) {
 	defer testing.MakeFakeHomeNoEnvironments(c, "bladaam").Restore()
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"agent-version": "1.2.3",
@@ -236,8 +298,66 @@ func (suite) TestBootstrapConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	expect := cfg.AllAttrs()
-	delete(expect, "secret")
 	expect["admin-secret"] = ""
 	expect["ca-private-key"] = ""
 	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
+}
+
+type ConfigDeprecationSuite struct {
+	suite
+	writer *loggo.TestWriter
+}
+
+var _ = gc.Suite(&ConfigDeprecationSuite{})
+
+func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) func() {
+	var err error
+	s.writer = &loggo.TestWriter{}
+	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
+	c.Assert(err, gc.IsNil)
+	return func() {
+		_, _, err := loggo.RemoveWriter("test")
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *ConfigDeprecationSuite) checkDeprecationWarning(c *gc.C, attrs testing.Attrs, expectedMsg string) {
+	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
+	content := `
+environments:
+    deprecated:
+        type: dummy
+        state-server: false
+`
+	restore := s.setupLogger(c)
+	defer restore()
+
+	envs, err := environs.ReadEnvironsBytes([]byte(content))
+	c.Check(err, gc.IsNil)
+	environs.UpdateEnvironAttrs(envs, "deprecated", attrs)
+	_, err = envs.Config("deprecated")
+	c.Check(err, gc.IsNil)
+	c.Assert(s.writer.Log, gc.HasLen, 1)
+	stripped := strings.Replace(s.writer.Log[0].Message, "\n", "", -1)
+	c.Assert(stripped, gc.Matches, expectedMsg)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		"tools-url": "aknowndeprecatedfield",
+	}
+	expected := fmt.Sprintf(`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated\.` +
+		`The location to find tools is now specified using the "tools-metadata-url" attribute.*`)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		"tools-url":          "aknowndeprecatedfield",
+		"tools-metadata-url": "newvalue",
+	}
+	expected := fmt.Sprintf(
+		`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated and will be ignored since` +
+			`the new tools URL attribute "tools-metadata-url".*`)
+	s.checkDeprecationWarning(c, attrs, expected)
 }
