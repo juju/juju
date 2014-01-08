@@ -191,6 +191,10 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	return envtesting.NewBootstrapContext(coretesting.Context(c))
+}
+
 func (t *localServerSuite) TestPrecheck(c *gc.C) {
 	env := t.Prepare(c)
 	prechecker, ok := env.(environs.Prechecker)
@@ -205,7 +209,7 @@ func (t *localServerSuite) TestPrecheck(c *gc.C) {
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -222,26 +226,33 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
+	// check that the user data is configured to only configure
+	// authorized SSH keys and set the log output; everything
+	// else happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
-
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, gc.IsNil)
 	c.Logf("first instance: UserData: %q", userData)
 	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	CheckPackage(c, userDataMap, "git", true)
-	CheckScripts(c, userDataMap, "jujud bootstrap-state", true)
-	// TODO check for provisioning agent
-	// TODO check for machine agent
+	expectedAuthKeys := strings.TrimSpace(env.Config().AuthorizedKeys())
+	c.Assert(userDataMap, gc.DeepEquals, map[interface{}]interface{}{
+		"output": map[interface{}]interface{}{
+			"all": "| tee -a /var/log/cloud-init-output.log",
+		},
+		"ssh_authorized_keys": []interface{}{expectedAuthKeys},
+		"runcmd": []interface{}{
+			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
+		},
+	})
 
-	// check that a new instance will be started without
-	// zookeeper, with a machine agent, and without a
-	// provisioning agent.
+	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -255,9 +266,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	CheckPackage(c, userDataMap, "zookeeperd", false)
+	CheckPackage(c, userDataMap, "git", true)
+	CheckPackage(c, userDataMap, "mongodb-server", false)
+	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
+	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
 	// TODO check for provisioning agent
-	// TODO check for machine agent
 
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -269,7 +282,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -280,7 +293,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -292,7 +305,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
@@ -408,7 +421,9 @@ func patchEC2ForTesting() func() {
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
+		restoreFinishBootstrap()
 		restoreTimeouts()
 		ec2.UseTestImageData(nil)
 		ec2.UseTestInstanceTypeData(nil)

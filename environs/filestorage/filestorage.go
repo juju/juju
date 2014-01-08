@@ -25,8 +25,14 @@ type fileStorageReader struct {
 
 // NewFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
-func NewFileStorageReader(path string) (storage.StorageReader, error) {
-	p := filepath.Clean(path)
+func NewFileStorageReader(path string) (reader storage.StorageReader, err error) {
+	var p string
+	if p, err = utils.NormalizePath(path); err != nil {
+		return nil, err
+	}
+	if p, err = filepath.Abs(p); err != nil {
+		return nil, err
+	}
 	fi, err := os.Stat(p)
 	if err != nil {
 		return nil, err

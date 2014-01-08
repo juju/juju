@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"errors"
+	"strings"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
@@ -100,6 +101,10 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		}
 		err = conn.readBody(nil, false)
 	case hdr.Error != "":
+		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
+		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
+			hdr.ErrorCode = CodeNotImplemented
+		}
 		// We've got an error response. Give this to the request;
 		// any subsequent requests will get the ReadResponseBody
 		// error if there is one.

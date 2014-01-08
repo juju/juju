@@ -4,6 +4,8 @@
 package log
 
 import (
+	"fmt"
+
 	"launchpad.net/loggo"
 )
 
@@ -40,4 +42,10 @@ func Infof(format string, a ...interface{}) error {
 func Debugf(format string, a ...interface{}) (err error) {
 	logger.Logf(loggo.DEBUG, format, a...)
 	return nil
+}
+
+// Log the error and return an error with the same text.
+func LoggedErrorf(logger loggo.Logger, format string, a ...interface{}) error {
+	logger.Logf(loggo.ERROR, format, a...)
+	return fmt.Errorf(format, a...)
 }

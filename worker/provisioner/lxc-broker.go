@@ -49,7 +49,7 @@ func (broker *lxcBroker) Tools() tools.List {
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+	// TODO: refactor common code out of the container brokers.
 	machineId := machineConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
@@ -74,18 +74,19 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
+		config.SyslogPort,
 	); err != nil {
 		lxcLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, err
 	}
 
-	inst, err := broker.manager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := broker.manager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
 	}
-	lxcLogger.Infof("started lxc container for machineId: %s, %s", machineId, inst.Id())
-	return inst, nil, nil
+	lxcLogger.Infof("started lxc container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
+	return inst, hardware, nil
 }
 
 // StopInstances shuts down the given instances.

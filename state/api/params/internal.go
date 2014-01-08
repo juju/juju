@@ -20,15 +20,15 @@ type Entities struct {
 	Entities []Entity
 }
 
-// AddSupportedContainers holds the arguments for making a AddSupportedContainers
+// MachineContainersParams holds the arguments for making a SetSupportedContainers
 // API call.
-type AddSupportedContainers struct {
-	Params []AddMachineSupportedContainers
+type MachineContainersParams struct {
+	Params []MachineContainers
 }
 
-// AddMachineSupportedContainers holds the arguments for making an AddSupportedContainers call
+// MachineContainers holds the arguments for making an SetSupportedContainers call
 // on a given machine.
-type AddMachineSupportedContainers struct {
+type MachineContainers struct {
 	MachineTag     string
 	ContainerTypes []instance.ContainerType
 }
@@ -502,4 +502,10 @@ type RelationUnitsWatchResult struct {
 // returning a list of RelationUnitsWatchers.
 type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
+}
+
+// CharmsResponse is the server response to a charm upload request.
+type CharmsResponse struct {
+	Error    string `json:",omitempty"`
+	CharmURL string `json:",omitempty"`
 }

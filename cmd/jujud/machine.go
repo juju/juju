@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/addressupdater"
+	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -171,6 +172,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
+	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+		return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+	})
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity); err != nil {
@@ -186,7 +190,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 		case params.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st.Provisioner(), agentConfig), nil
+				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
@@ -214,10 +218,6 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
-	// If no containers are supported, there's no need to go further.
-	if len(supportedContainers) == 0 {
-		return nil
-	}
 	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
 }
 
@@ -234,17 +234,21 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	if machine, err = pr.Machine(tag); err != nil {
 		return fmt.Errorf("%s is not in state: %v", tag, err)
 	}
-	if err := machine.AddSupportedContainers(containers...); err != nil {
-		return fmt.Errorf("adding supported containers to %s: %v", tag, err)
+	if len(containers) == 0 {
+		if err := machine.SupportsNoContainers(); err != nil {
+			return fmt.Errorf("clearing supported containers for %s: %v", tag, err)
+		}
+		return nil
+	}
+	if err := machine.SetSupportedContainers(containers...); err != nil {
+		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	for _, ctype := range containers {
-		watcherName := fmt.Sprintf("%s-watcher", ctype)
-		handler := provisioner.NewContainerSetupHandler(runner, watcherName, ctype, machine, pr, a.Conf.config)
-		runner.StartWorker(watcherName, func() (worker.Worker, error) {
-			return worker.NewStringsWorker(handler), nil
-		})
-	}
+	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+	handler := provisioner.NewContainerSetupHandler(runner, watcherName, containers, machine, pr, a.Conf.config)
+	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+		return worker.NewStringsWorker(handler), nil
+	})
 	return nil
 }
 

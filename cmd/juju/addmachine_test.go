@@ -75,7 +75,8 @@ func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId str
 
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 	for i, ctype := range instance.ContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("%s", ctype))
+		c.Logf("test %d: %s", i, ctype)
+		err := runAddMachine(c, string(ctype))
 		c.Assert(err, gc.IsNil)
 		s._assertAddContainer(c, strconv.Itoa(i), fmt.Sprintf("%d/%s/0", i, ctype), ctype)
 	}
@@ -99,9 +100,9 @@ func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
-	m.AddSupportedContainers([]instance.ContainerType{instance.KVM})
+	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	err = runAddMachine(c, "lxc:0")
-	c.Assert(err, gc.ErrorMatches, "cannot add a new container: machine 0 cannot host lxc containers")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
 }
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {

@@ -42,19 +42,21 @@ func NewMachineConfig(machineID, machineNonce string,
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 // stateInfoURL is the storage URL for the environment's state file.
-func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
+	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	return mcfg
 }
 
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
-	sslHostnameVerification bool) error {
-
+	sslHostnameVerification bool,
+	syslogPort int,
+) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
@@ -65,6 +67,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ProviderType] = providerType
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
+	mcfg.SyslogPort = syslogPort
 	return nil
 }
 
@@ -81,7 +84,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification()); err != nil {
+	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification(), cfg.SyslogPort()); err != nil {
 		return err
 	}
 
@@ -131,9 +134,16 @@ func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) 
 	for _, script := range additionalScripts {
 		cloudcfg.AddRunCmd(script)
 	}
-	err := cloudinit.Configure(cfg, cloudcfg)
-	if err != nil {
-		return nil, err
+	// When bootstrapping, we only want to apt-get update/upgrade
+	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
+	if cfg.StateServer {
+		if err := cloudinit.ConfigureBasic(cfg, cloudcfg); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := cloudinit.Configure(cfg, cloudcfg); err != nil {
+			return nil, err
+		}
 	}
 	data, err := cloudcfg.Render()
 	logger.Tracef("Generated cloud init:\n%s", string(data))

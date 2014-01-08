@@ -111,7 +111,8 @@ var expectedProducts = `{
         }
     },
     "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
-    "format": "products:1.0"
+    "format": "products:1.0",
+    "content_id": "com.ubuntu.juju:released:tools"
 }`
 
 var toolMetadataForTesting = []*tools.ToolsMetadata{

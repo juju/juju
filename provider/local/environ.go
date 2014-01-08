@@ -17,7 +17,7 @@ import (
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/factory"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -29,6 +29,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -43,10 +44,13 @@ import (
 // Using "localhost" because it is, and it makes sense.
 const bootstrapInstanceId instance.Id = "localhost"
 
-// upstartScriptLocation is parameterised purely for testing purposes as we
-// don't really want to be installing and starting scripts as root for
-// testing.
-var upstartScriptLocation = "/etc/init"
+// upstartScriptLocation and syslogConfigDir are parameterised purely for
+// testing purposes as we don't really want to be installing and starting
+// scripts as root for testing.
+var (
+	upstartScriptLocation = "/etc/init"
+	syslogConfigDir       = "/etc/rsyslog.d"
+)
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -83,6 +87,10 @@ func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
 
+func (env *localEnviron) syslogFilename() string {
+	return fmt.Sprintf("25-juju-%s.conf", env.config.namespace())
+}
+
 // PrecheckInstance is specified in the environs.Prechecker interface.
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
@@ -96,7 +104,7 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value) error {
+func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -106,6 +114,10 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
+	privateKey, err := common.GenerateSystemSSHKey(env)
+	if err != nil {
+		return err
+	}
 
 	cert, key, err := env.setupLocalMongoService()
 	if err != nil {
@@ -127,6 +139,10 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
+	if err := env.configureLocalSyslog(); err != nil {
+		return err
+	}
+
 	// Need to write out the agent file for machine-0 before initializing
 	// state, as as part of that process, it will reset the password in the
 	// agent file.
@@ -139,7 +155,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
-	return env.setupLocalMachineAgent(cons, selectedTools)
+	return env.setupLocalMachineAgent(cons, selectedTools, privateKey)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -182,11 +198,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 
-	env.containerManager = lxc.NewContainerManager(
+	env.containerManager, err = factory.NewContainerManager(
+		ecfg.container(),
 		container.ManagerConfig{
 			Name:   env.config.namespace(),
 			LogDir: env.config.logDir(),
 		})
+	if err != nil {
+		return err
+	}
 
 	// Here is the end of normal config setting.
 	if ecfg.bootstrapped() {
@@ -272,18 +292,22 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	series := possibleTools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
 	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = instance.LXC
+	machineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", machineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
 		return nil, nil, err
 	}
-	inst, err := env.containerManager.StartContainer(machineConfig, series, network)
+	// TODO: evaluate the impact of setting the contstraints on the
+	// machineConfig for all machines rather than just state server nodes.
+	// This limiation is why the constraints are assigned directly here.
+	machineConfig.Constraints = cons
+	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
+	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO(thumper): return some hardware characteristics.
-	return inst, nil, nil
+	return inst, hardware, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -370,6 +394,8 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 
+	env.removeLocalSyslog()
+
 	// Remove the rootdir.
 	logger.Infof("removing state dir %s", env.config.rootDir())
 	if err := os.RemoveAll(env.config.rootDir()); err != nil {
@@ -437,11 +463,18 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
-func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List) error {
+func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List, privateKey string) error {
 	dataDir := env.config.rootDir()
 	// unpack the first tools into the agent dir.
 	agentTools := possibleTools[0]
 	logger.Debugf("tools: %#v", agentTools)
+	// save the system identity file
+	systemIdentityFilename := filepath.Join(dataDir, cloudinit.SystemIdentity)
+	logger.Debugf("writing system identity to %s", systemIdentityFilename)
+	if err := ioutil.WriteFile(systemIdentityFilename, []byte(privateKey), 0600); err != nil {
+		return fmt.Errorf("failed to write system identity: %v", err)
+	}
+
 	// brutally abuse our knowledge of storage to directly open the file
 	toolsUrl, err := url.Parse(agentTools.URL)
 	if err != nil {
@@ -503,6 +536,7 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 	caCert, _ := cfg.CACert()
 	agentValues := map[string]string{
 		agent.ProviderType:      env.config.Type(),
+		agent.Namespace:         env.config.namespace(),
 		agent.StorageDir:        env.config.storageDir(),
 		agent.StorageAddr:       env.config.storageAddr(),
 		agent.SharedStorageDir:  env.config.sharedStorageDir(),
@@ -580,4 +614,29 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 		return fmt.Errorf("cannot set addresses on bootstrap instance: %v", err)
 	}
 	return nil
+}
+
+func (env *localEnviron) configureLocalSyslog() error {
+	tag := names.MachineTag("0")
+	syslogConfigRenderer := syslog.NewAccumulateConfig(tag, env.config.SyslogPort(), env.config.namespace())
+	syslogConfigRenderer.ConfigDir = syslogConfigDir
+	syslogConfigRenderer.ConfigFileName = env.syslogFilename()
+	syslogConfigRenderer.LogDir = env.config.logDir()
+	if err := syslogConfigRenderer.Write(); err != nil {
+		return err
+	}
+	if err := syslog.Restart(); err != nil {
+		logger.Warningf("cannot restart syslog daemon: %v", err)
+	}
+	return nil
+}
+
+func (env *localEnviron) removeLocalSyslog() {
+	// Don't fail if we have issues, but warn the user.
+	if err := os.Remove(filepath.Join(syslogConfigDir, env.syslogFilename())); err != nil {
+		logger.Warningf("could not remove local syslog config: %v", err)
+	}
+	if err := syslog.Restart(); err != nil {
+		logger.Warningf("cannot restart syslog daemon: %v", err)
+	}
 }

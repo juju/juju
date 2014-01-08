@@ -91,8 +91,19 @@ type fakeSSH struct {
 	Series string
 	Arch   string
 
+	// Provisioned should be set to true if the fakeSSH script
+	// should respond to checkProvisioned with a non-empty result.
+	Provisioned bool
+
+	// exit code for the checkProvisioned script.
+	CheckProvisionedExitCode int
+
 	// exit code for the machine agent provisioning script.
 	ProvisionAgentExitCode int
+
+	// InitUbuntuUser should be set to true if the fakeSSH script
+	// should respond to an attempt to initialise the ubuntu user.
+	InitUbuntuUser bool
 
 	// there are conditions other than error in the above
 	// that might cause provisioning to not go ahead, such
@@ -100,7 +111,8 @@ type fakeSSH struct {
 	SkipProvisionAgent bool
 
 	// detection will be skipped if the series/hardware were
-	// detected ahead of time.
+	// detected ahead of time. This should always be set to
+	// true when testing Bootstrap.
 	SkipDetection bool
 }
 
@@ -118,6 +130,13 @@ func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 	if !r.SkipDetection {
 		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
 	}
-	add("", nil, 0) // checkProvisioned
+	var checkProvisionedOutput interface{}
+	if r.Provisioned {
+		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
+	}
+	add("", checkProvisionedOutput, r.CheckProvisionedExitCode)
+	if r.InitUbuntuUser {
+		add("", nil, 0)
+	}
 	return restore
 }

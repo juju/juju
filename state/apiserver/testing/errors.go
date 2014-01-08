@@ -25,3 +25,10 @@ func NotProvisionedError(machineId string) *params.Error {
 		Code:    params.CodeNotProvisioned,
 	}
 }
+
+func ServerError(message string) *params.Error {
+	return &params.Error{
+		Message: message,
+		Code:    "",
+	}
+}

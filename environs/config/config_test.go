@@ -5,7 +5,7 @@ package config_test
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 	stdtesting "testing"
 	"time"
 
@@ -52,6 +52,7 @@ var sampleConfig = testing.Attrs{
 	"development":               false,
 	"state-port":                1234,
 	"api-port":                  4321,
+	"syslog-port":               2345,
 	"default-series":            "precise",
 }
 
@@ -302,9 +303,9 @@ var configTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
-			"development":     "true",
+			"development":     "invalid",
 		},
-		err: `development: expected bool, got string\("true"\)`,
+		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
@@ -419,6 +420,31 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
+		about:       "provisioner-safe-mode off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"provisioner-safe-mode": false,
+		},
+	}, {
+		about:       "provisioner-safe-mode on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"provisioner-safe-mode": true,
+		},
+	}, {
+		about:       "provisioner-safe-mode incorrect",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"provisioner-safe-mode": "yes please",
+		},
+		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
+	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -452,6 +478,23 @@ var configTests = []configTest{
 			"api-port": "illegal",
 		},
 		err: `api-port: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit syslog port",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"syslog-port": 3456,
+		},
+	}, {
+		about:       "Invalid syslog port",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"syslog-port": "illegal",
+		},
+		err: `syslog-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
@@ -512,6 +555,20 @@ var configTests = []configTest{
 			"type":                      "ec2",
 		},
 	},
+	authTokenConfigTest("token=value, tokensecret=value", true),
+	authTokenConfigTest("token=value, ", true),
+	authTokenConfigTest("token=value, \ttokensecret=value", true),
+	authTokenConfigTest("", true),
+	authTokenConfigTest("token=value, tokensecret=value, \t", true),
+	authTokenConfigTest("=", false),
+	authTokenConfigTest("tokenvalue", false),
+	authTokenConfigTest("token=value, sometoken=", false),
+	authTokenConfigTest("token==value", false),
+	authTokenConfigTest(" token=value", false),
+	authTokenConfigTest("=value", false),
+	authTokenConfigTest("token=value, =z", false),
+	authTokenConfigTest("token=value =z", false),
+	authTokenConfigTest("\t", false),
 	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -520,6 +577,28 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
+}
+
+// authTokenConfigTest returns a config test that checks
+// that a configuration with the given auth token
+// will pass or fail, depending on the value of ok.
+func authTokenConfigTest(token string, ok bool) configTest {
+	var testName string
+	var err string
+
+	if ok {
+		testName = fmt.Sprintf("Valid auth token test: %q", token)
+	} else {
+		testName = fmt.Sprintf("Invalid auth token test: %q", token)
+		err = fmt.Sprintf("charm store auth token needs to be a set of key-value pairs, not %q", token)
+	}
+
+	return configTest{
+		about:       testName,
+		useDefaults: config.UseDefaults,
+		attrs:       sampleConfig.Merge(testing.Attrs{"charm-store-auth": token}),
+		err:         regexp.QuoteMeta(err),
+	}
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -684,6 +763,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if apiPort, ok := test.attrs["api-port"]; ok {
 		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
 	}
+	if syslogPort, ok := test.attrs["syslog-port"]; ok {
+		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
+	}
 
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
@@ -750,6 +832,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
+	if v, ok := test.attrs["provisioner-safe-mode"]; ok {
+		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
+	}
+
 	if v, ok := test.attrs["logging-config"]; ok {
 		c.Assert(cfg.LoggingConfig(), gc.Equals, v)
 	} else {
@@ -796,9 +884,12 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
 		"development":               false,
+		"provisioner-safe-mode":     false,
 		"state-port":                1234,
 		"api-port":                  4321,
+		"syslog-port":               2345,
 		"default-series":            "precise",
+		"charm-store-auth":          "token=auth",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -869,6 +960,11 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
+	about: "Cannot change the syslog-port",
+	old:   testing.Attrs{"syslog-port": 345},
+	new:   testing.Attrs{"syslog-port": 42},
+	err:   `cannot change syslog-port from 345 to 42`,
+}, {
 	about: "Can change the state-port from explicit-default to implicit-default",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},
 }, {
@@ -888,6 +984,10 @@ var validationTests = []validationTest{{
 	about: "Cannot change the api-port from implicit-default to different value",
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
+}, {
+	about: "Cannot change the syslog-port from implicit-default to different value",
+	new:   testing.Attrs{"syslog-port": 42},
+	err:   `cannot change syslog-port from 514 to 42`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1131,61 +1231,3 @@ var invalidCACert = `
 MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----
 `[1:]
-
-type ConfigDeprecationSuite struct {
-	ConfigSuite
-	writer *testWriter
-}
-
-var _ = gc.Suite(&ConfigDeprecationSuite{})
-
-func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
-	s.ConfigSuite.SetUpTest(c)
-}
-
-func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
-	s.ConfigSuite.TearDownTest(c)
-}
-
-func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) {
-	var err error
-	s.writer = &testWriter{}
-	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *ConfigDeprecationSuite) resetLogger(c *gc.C) {
-	_, _, err := loggo.RemoveWriter("test")
-	c.Assert(err, gc.IsNil)
-}
-
-type testWriter struct {
-	messages []string
-}
-
-func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
-	t.messages = append(t.messages, message)
-}
-
-func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"name":        "testenv",
-		"type":        "openstack",
-		deprecatedKey: value,
-	})
-	_, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
-	for attr, value := range map[string]string{
-		"tools-url": "foo",
-	} {
-		s.setupLogger(c)
-		s.setupEnv(c, attr, value)
-		s.resetLogger(c)
-		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
-		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated.*`, attr, value)
-		c.Assert(stripped, gc.Matches, expected)
-	}
-}

@@ -118,3 +118,9 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
 	c.Assert(force, jc.IsFalse)
 }
+
+func (s *serviceSuite) TestGetOwnerTag(c *gc.C) {
+	tag, err := s.apiService.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, "user-admin")
+}

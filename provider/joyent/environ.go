@@ -92,8 +92,8 @@ func (env *joyentEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *joyentEnviron) Bootstrap(cons constraints.Value) error {
-	return common.Bootstrap(env, cons)
+func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	return common.Bootstrap(ctx, env, cons)
 }
 
 func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {

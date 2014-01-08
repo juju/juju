@@ -32,7 +32,7 @@ type BootstrapState struct {
 	// Characteristics reflect the hardware each state server is running on.
 	// This is used at bootstrap time so the state server knows what hardware it has.
 	// The state *may* be updated later without this information, but by then it's
-	// served it's purpose.
+	// served its purpose.
 	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 
@@ -50,6 +50,11 @@ func CreateStateFile(storage storage.Storage) (string, error) {
 		return "", fmt.Errorf("cannot create initial state file: %v", err)
 	}
 	return storage.URL(StateFile)
+}
+
+// DeleteStateFile deletes the state file on the given storage.
+func DeleteStateFile(storage storage.Storage) error {
+	return storage.Remove(StateFile)
 }
 
 // SaveState writes the given state to the given storage.

@@ -16,6 +16,15 @@ import (
 
 var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
 
+func (st *State) checkUserExists(name string) (bool, error) {
+	var count int
+	var err error
+	if count, err = st.users.FindId(name).Count(); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // AddUser adds a user to the state.
 func (st *State) AddUser(name, password string) (*User, error) {
 	if !validUser.MatchString(name) {

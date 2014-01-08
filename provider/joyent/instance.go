@@ -24,6 +24,10 @@ func (inst *environInstance) Status() string {
 	return "unknown (not implemented)"
 }
 
+func (inst *environInstance) Refresh() error {
+	return nil
+}
+
 func (inst *environInstance) Addresses() ([]instance.Address, error) {
 	_ = inst.env.getSnapshot()
 	return nil, errNotImplemented

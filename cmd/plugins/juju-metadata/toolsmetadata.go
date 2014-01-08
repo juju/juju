@@ -54,7 +54,11 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if c.metadataDir == "" {
 		c.metadataDir = config.JujuHome()
 	}
-	c.metadataDir = utils.NormalizePath(c.metadataDir)
+	var err error
+	c.metadataDir, err = utils.NormalizePath(c.metadataDir)
+	if err != nil {
+		return err
+	}
 
 	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
 	if err != nil {

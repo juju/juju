@@ -49,7 +49,7 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	cfg = env.Config()
@@ -65,8 +65,9 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	c.Assert(conn.Environ, gc.Equals, env)
 	c.Assert(conn.State, gc.NotNil)
 
+	// the secrets will not be updated, as they already exist
 	attrs, err := conn.State.Client().EnvironmentGet()
-	c.Assert(attrs["secret"], gc.Equals, "fnord")
+	c.Assert(attrs["secret"], gc.Equals, "pork")
 
 	c.Assert(conn.Close(), gc.IsNil)
 }
@@ -137,7 +138,6 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		return expectState, nil
 	}
 	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
-	defer testbase.PatchValue(juju.UpdateSecrets, updateSecretsNoop).Restore()
 	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.Equals, expectState)
@@ -186,7 +186,6 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 		return nil, expectErr
 	}
 	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
-	defer testbase.PatchValue(juju.UpdateSecrets, updateSecretsNoop).Restore()
 	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.Equals, expectErr)
 	c.Assert(st, gc.IsNil)
@@ -213,7 +212,6 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 		return cfgOpenedState, nil
 	}
 	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
-	defer testbase.PatchValue(juju.UpdateSecrets, updateSecretsNoop).Restore()
 
 	stateClosed, restoreAPIClose := setAPIClosed()
 	defer restoreAPIClose.Restore()
@@ -278,7 +276,6 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		return cfgOpenedState, nil
 	}
 	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
-	defer testbase.PatchValue(juju.UpdateSecrets, updateSecretsNoop).Restore()
 
 	stateClosed, restoreAPIClose := setAPIClosed()
 	defer restoreAPIClose.Restore()

@@ -12,13 +12,13 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-type detectionSuite struct {
+type initialisationSuite struct {
 	testbase.LoggingSuite
 }
 
-var _ = gc.Suite(&detectionSuite{})
+var _ = gc.Suite(&initialisationSuite{})
 
-func (s *detectionSuite) TestDetectSeries(c *gc.C) {
+func (s *initialisationSuite) TestDetectSeries(c *gc.C) {
 	response := strings.Join([]string{
 		"edgy",
 		"armv4",
@@ -31,13 +31,26 @@ func (s *detectionSuite) TestDetectSeries(c *gc.C) {
 	c.Assert(series, gc.Equals, "edgy")
 }
 
-func (s *detectionSuite) TestDetectionError(c *gc.C) {
-	defer installFakeSSH(c, detectionScript, "oh noes", 33)()
-	_, _, err := DetectSeriesAndHardwareCharacteristics("whatever")
+func (s *initialisationSuite) TestDetectionError(c *gc.C) {
+	scriptResponse := strings.Join([]string{
+		"edgy",
+		"armv4",
+		"MemTotal: 4096 kB",
+		"processor: 0",
+	}, "\n")
+	// if the script fails for whatever reason, then checkProvisioned
+	// will return an error. stderr will be included in the error message.
+	defer installFakeSSH(c, detectionScript, []string{scriptResponse, "oh noes"}, 33)()
+	hc, _, err := DetectSeriesAndHardwareCharacteristics("hostname")
 	c.Assert(err, gc.ErrorMatches, "exit status 33 \\(oh noes\\)")
+	// if the script doesn't fail, stderr is simply ignored.
+	defer installFakeSSH(c, detectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
+	hc, _, err = DetectSeriesAndHardwareCharacteristics("hostname")
+	c.Assert(err, gc.IsNil)
+	c.Assert(hc.String(), gc.Equals, "arch=arm cpu-cores=1 mem=4M")
 }
 
-func (s *detectionSuite) TestDetectHardwareCharacteristics(c *gc.C) {
+func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 	tests := []struct {
 		summary        string
 		scriptResponse []string
@@ -99,7 +112,7 @@ func (s *detectionSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 	}
 }
 
-func (s *detectionSuite) TestCheckProvisioned(c *gc.C) {
+func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	defer installFakeSSH(c, "", "", 0)()
 	provisioned, err := checkProvisioned("example.com")
 	c.Assert(err, gc.IsNil)
@@ -121,4 +134,23 @@ func (s *detectionSuite) TestCheckProvisioned(c *gc.C) {
 	defer installFakeSSH(c, "", []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
 	_, err = checkProvisioned("example.com")
 	c.Assert(err, gc.ErrorMatches, "exit status 255 \\(non-empty-stderr\\)")
+}
+
+func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
+	defer installFakeSSH(c, "", "", 0)() // successful creation of ubuntu user
+	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
+	err := InitUbuntuUser("testhost", "testuser", "", nil, nil)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *initialisationSuite) TestInitUbuntuUserExisting(c *gc.C) {
+	defer installFakeSSH(c, "", nil, 0)()
+	InitUbuntuUser("testhost", "testuser", "", nil, nil)
+}
+
+func (s *initialisationSuite) TestInitUbuntuUserError(c *gc.C) {
+	defer installFakeSSH(c, "", []string{"", "failed to create ubuntu user"}, 123)()
+	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
+	err := InitUbuntuUser("testhost", "testuser", "", nil, nil)
+	c.Assert(err, gc.ErrorMatches, "exit status 123 \\(failed to create ubuntu user\\)")
 }

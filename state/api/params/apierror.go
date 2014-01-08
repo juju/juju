@@ -44,6 +44,7 @@ const (
 	CodeHasAssignedUnits    = "machine has assigned units"
 	CodeNotProvisioned      = "not provisioned"
 	CodeNoAddressSet        = "no address set"
+	CodeNotImplemented      = rpc.CodeNotImplemented
 )
 
 // ErrCode returns the error code associated with
@@ -115,4 +116,8 @@ func IsCodeNotProvisioned(err error) bool {
 
 func IsCodeNoAddressSet(err error) bool {
 	return ErrCode(err) == CodeNoAddressSet
+}
+
+func IsCodeNotImplemented(err error) bool {
+	return ErrCode(err) == CodeNotImplemented
 }

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/keymanager"
 )
 
 var logger = loggo.GetLogger("juju")
@@ -55,39 +56,10 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 	if err != nil {
 		return nil, err
 	}
-	// TODO(axw) remove this once we have synchronous bootstrap.
-	if err := updateSecrets(environ, st); err != nil {
-		apiClose(st)
-		return nil, err
-	}
 	return &APIConn{
 		Environ: environ,
 		State:   st,
 	}, nil
-}
-
-// updateSecrets pushes environment secrets to the API server.
-// NOTE: this is a temporary hack, and will disappear when we
-// have synchronous bootstrap.
-var updateSecrets = func(environ environs.Environ, st *api.State) error {
-	secrets, err := environ.Provider().SecretAttrs(environ.Config())
-	if err != nil {
-		return err
-	}
-	client := st.Client()
-	cfg, err := client.EnvironmentGet()
-	if err != nil {
-		return err
-	}
-	for k, v := range secrets {
-		if _, exists := cfg[k]; exists {
-			// Environment already has secrets. Won't send again.
-			return nil
-		} else {
-			cfg[k] = v
-		}
-	}
-	return client.EnvironmentSet(cfg)
 }
 
 // Close terminates the connection to the environment and releases
@@ -100,15 +72,29 @@ func (c *APIConn) Close() error {
 // the named environment. If envName is "", the default environment
 // will be used.
 func NewAPIClientFromName(envName string) (*api.Client, error) {
-	store, err := configstore.NewDisk(config.JujuHome())
-	if err != nil {
-		return nil, err
-	}
-	st, err := newAPIFromName(envName, store)
+	st, err := newAPIClient(envName)
 	if err != nil {
 		return nil, err
 	}
 	return st.Client(), nil
+}
+
+// NewKeyManagerClient returns an api.keymanager.Client connected to the API Server for
+// the named environment. If envName is "", the default environment will be used.
+func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
+	st, err := newAPIClient(envName)
+	if err != nil {
+		return nil, err
+	}
+	return keymanager.NewClient(st), nil
+}
+
+func newAPIClient(envName string) (*api.State, error) {
+	store, err := configstore.NewDisk(config.JujuHome())
+	if err != nil {
+		return nil, err
+	}
+	return newAPIFromName(envName, store)
 }
 
 // newAPIFromName implements the bulk of NewAPIClientFromName

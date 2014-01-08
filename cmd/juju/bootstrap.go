@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -33,11 +34,10 @@ machine provisioned for the juju state server.  They will also be set as default
 constraints on the environment for all future machines, exactly as if the
 constraints were set with juju set-constraints.
 
-Because bootstrap starts a machine in the cloud environment asynchronously, the
-command will likely return before the state server is fully running.  Time for
-bootstrap to be complete varies across cloud providers from a small number of
-seconds to several minutes.  Most other commands are synchronous and will wait
-until bootstrap is finished to complete.
+Bootstrap initializes the cloud environment synchronously and displays information
+about the current installation steps.  The time for bootstrap to complete varies 
+across cloud providers from a few seconds to several minutes.  Once bootstrap has 
+completed, you can run other juju commands against your environment.
 
 See Also:
    juju help switch
@@ -52,6 +52,7 @@ type BootstrapCommand struct {
 	Constraints constraints.Value
 	UploadTools bool
 	Series      []string
+	Source      string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -67,6 +68,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -74,6 +76,22 @@ func (c *BootstrapCommand) Init(args []string) error {
 		return fmt.Errorf("--series requires --upload-tools")
 	}
 	return cmd.CheckEmpty(args)
+}
+
+type bootstrapContext struct {
+	*cmd.Context
+}
+
+func (c bootstrapContext) Stdin() io.Reader {
+	return c.Context.Stdin
+}
+
+func (c bootstrapContext) Stdout() io.Writer {
+	return c.Context.Stdout
+}
+
+func (c bootstrapContext) Stderr() io.Writer {
+	return c.Context.Stderr
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -88,17 +106,22 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	bootstrapContext := bootstrapContext{ctx}
 	// If the environment has a special bootstrap Storage, use it wherever
 	// we'd otherwise use environ.Storage.
 	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		if err := bs.EnableBootstrapStorage(); err != nil {
+		if err := bs.EnableBootstrapStorage(bootstrapContext); err != nil {
 			return fmt.Errorf("failed to enable bootstrap storage: %v", err)
 		}
 	}
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
-
+	// If --source is specified, override the default tools source.
+	if c.Source != "" {
+		logger.Infof("Setting default tools source: %s", c.Source)
+		sync.DefaultToolsLocation = c.Source
+	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unecessary upload.
@@ -111,7 +134,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(environ, c.Constraints)
+	return bootstrap.Bootstrap(bootstrapContext, environ, c.Constraints)
 }
 
 func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {

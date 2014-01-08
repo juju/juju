@@ -1,21 +1,22 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2012 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package null
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"errors"
+	"io"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
-	"launchpad.net/juju-core/environs/sshstorage"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -99,35 +100,39 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
 }
 
+type dummyStorage struct {
+	storage.Storage
+}
+
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
-	var sshScript = `
-#!/bin/bash --norc
-if [ "$*" = "hostname -- bash" ]; then
-    # We're executing bash inside ssh. Wait
-    # for input to be written before exiting.
-    head -n 1 > /dev/null
-fi
-exec 0<&- # close stdin
-echo JUJU-RC: $RC
-`[1:]
-	bin := c.MkDir()
-	ssh := filepath.Join(bin, "ssh")
-	err := ioutil.WriteFile(ssh, []byte(sshScript), 0755)
-	c.Assert(err, gc.IsNil)
-	s.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
+	var newSSHStorageResult = struct {
+		stor storage.Storage
+		err  error
+	}{dummyStorage{}, errors.New("failed to get SSH storage")}
+	s.PatchValue(&newSSHStorage, func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+		return newSSHStorageResult.stor, newSSHStorageResult.err
+	})
 
-	s.PatchEnvironment("RC", "99") // simulate ssh failure
-	err = s.env.EnableBootstrapStorage()
-	c.Assert(err, gc.ErrorMatches, "exit code 99")
-	c.Assert(s.env.Storage(), gc.Not(gc.FitsTypeOf), new(sshstorage.SSHStorage))
+	var initUbuntuResult error
+	s.PatchValue(&initUbuntuUser, func(host, user, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
+		return initUbuntuResult
+	})
 
-	s.PatchEnvironment("RC", "0")
-	err = s.env.EnableBootstrapStorage()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.env.Storage(), gc.FitsTypeOf, new(sshstorage.SSHStorage))
+	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
+	initUbuntuResult = errors.New("failed to initialise ubuntu user")
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, initUbuntuResult)
+	initUbuntuResult = nil
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, newSSHStorageResult.err)
+	// after the user is initialised once successfully,
+	// another attempt will not be made.
+	initUbuntuResult = errors.New("failed to initialise ubuntu user")
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, newSSHStorageResult.err)
 
-	// Check idempotency
-	err = s.env.EnableBootstrapStorage()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.env.Storage(), gc.FitsTypeOf, new(sshstorage.SSHStorage))
+	// after the bootstrap storage is initialised once successfully,
+	// another attempt will not be made.
+	backup := newSSHStorageResult.err
+	newSSHStorageResult.err = nil
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
+	newSSHStorageResult.err = backup
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
 }

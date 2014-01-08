@@ -1,0 +1,107 @@
+#!/bin/bash
+
+remote_cmd() {	
+	LIBJUJU=/var/lib/juju
+
+	# usage: execute message cmd [arg...]
+	# Execute the given command with the given arguments and exit with an
+	# error on failure. The first argument (message) describes the command.
+	execute() {
+		MSG=$1
+		shift
+		echo -n $MSG.....
+		ERR=$( "$@" 2>&1 ) || {
+			echo FAILED
+			echo '------------------------------------------------------------'
+			echo "Command failed: $*"
+			echo "Error: $ERR"
+			echo '------------------------------------------------------------'
+			exit 1
+		}
+		echo SUCCESS
+	}
+	
+	next_step() {
+		echo
+		echo '**************************************************************'
+		echo $1
+		echo '**************************************************************'
+	}
+
+	cd ~			# Make sure we've started in $HOME
+	next_step 'Preparing to perform backup'
+	if [ -e juju-backup.tgz ]; then
+		echo Older juju backup exists, moving to juju-backup-previous
+		execute 'Removing existing backup archive' rm -rf juju-backup-previous.tgz
+		execute 'Archiving backup' mv juju-backup.tgz juju-backup-previous.tgz
+	fi
+	execute 'Making backup directory' mkdir juju-backup
+	cd juju-backup
+
+	# Mongo requires that a locale is set
+	export LC_ALL=C
+
+	#---------------------------------------------------------------------
+	next_step 'Backing up mongo database'
+	execute 'Stopping mongo' stop juju-db
+	trap "start juju-db" 0		# ensure it starts again on failure
+	execute 'Backing up mongo' mongodump --dbpath $LIBJUJU/db
+	execute 'Backing up environ config' mongoexport \
+		--dbpath $LIBJUJU/db \
+		--db juju \
+		--collection settings \
+		--out environconfig.json
+	execute 'Starting mongo' start juju-db
+	trap - 0
+
+	next_step 'Copying Juju configuration'
+	copy_files() {
+		# Make an archive within the main archive so that we
+		# can easily preserve file ownership and other metadata.
+		tar -cf root.tar "$@" 2>&1 | (grep -v 'Removing leading'; true)
+	}
+	# Make copies of:
+	#   - Upstart configuration files for juju-db, machine agent, but not any unit agents.
+	#   - Agent configuration directories in $LIBJUJU.
+	#   (includes the config, server.pem, tools, but not any unit agents)
+	#   - SSH authorized keys.
+	#   - /etc/rsyslog.d/*juju* config files for the agents (ignore any unit agents)
+	#  - Juju logs for machine 0 and all machines.
+	execute 'Archiving selected files' copy_files \
+		/etc/init/juju-db.conf \
+		/etc/init/jujud-machine-*.conf \
+		$LIBJUJU/agents/machine-* \
+		$LIBJUJU/tools \
+		$LIBJUJU/server.pem \
+		~/.ssh/authorized_keys \
+		/etc/rsyslog.d/*juju.conf \
+		/var/log/juju/all-machines.log \
+		/var/log/juju/machine-0.log \
+
+	#---------------------------------------------------------------------
+	next_step 'Creating tarball'
+	cd ..
+	execute 'Performing tar' tar -czf juju-backup.tgz juju-backup
+	rm -r juju-backup
+	execute 'Changing ownership of backup archive to ubuntu' chown -R ubuntu.ubuntu juju-backup*
+	
+	echo
+	echo Juju backup finished.
+	echo
+}
+
+# Run the backup script on the remote machine.
+REMOTE_SCRIPT="
+	$(declare -f remote_cmd)
+	remote_cmd
+"
+
+QUOTED_SCRIPT="'$(echo "$REMOTE_SCRIPT" | sed "s/'/'\"'\"'/g")'"
+echo Connecting to machine 0
+juju ssh 0 "sudo -n bash -c $QUOTED_SCRIPT" && {
+	# The backup has succeeded; copy backup tarball locally.
+	NOW=$(date '+%Y%m%d-%H%M')
+	FILENAME=juju-backup-$NOW.tgz
+	echo "Copying tarball to `pwd`/$FILENAME ..."
+	juju scp 0:~/juju-backup.tgz ./$FILENAME
+}

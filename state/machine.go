@@ -83,7 +83,6 @@ type machineDoc struct {
 	Principals    []string
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
-	TxnRevno      int64        `bson:"txn-revno"`
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
@@ -147,7 +146,6 @@ type instanceData struct {
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
-	TxnRevno   int64       `bson:"txn-revno"`
 }
 
 // TODO(wallyworld): move this method to a service.
@@ -204,6 +202,26 @@ func (m *Machine) IsManager() bool {
 		}
 	}
 	return false
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, error) {
+	// Apart from the bootstrap machine, manually provisioned
+	// machines have a nonce prefixed with "manual:". This is
+	// unique to manual provisioning.
+	if strings.HasPrefix(m.doc.Nonce, "manual:") {
+		return true, nil
+	}
+	// The bootstrap machine uses BootstrapNonce, so in that
+	// case we need to check if its provider type is "null".
+	if m.doc.Id == "0" {
+		cfg, err := m.st.EnvironConfig()
+		if err != nil {
+			return false, err
+		}
+		return cfg.Type() == "null", nil
+	}
+	return false, nil
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -617,6 +635,12 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
+//
+// When provisioning an instance, a nonce should be created and passed
+// when starting it, before adding the machine to the state. This means
+// that if the provisioner crashes (or its connection to the state is
+// lost) after starting the instance, we can be sure that only a single
+// instance will be able to act for that machine.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 
@@ -700,11 +724,7 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 
 // SetAddresses records any addresses related to the machine
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
-	var stateAddresses []address
-	for _, address := range addresses {
-		stateAddresses = append(stateAddresses, NewAddress(address))
-	}
-
+	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
@@ -823,29 +843,14 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
 
 // SupportsNoContainers records the fact that this machine doesn't support any containers.
 func (m *Machine) SupportsNoContainers() (err error) {
-	ops := []txn.Op{
-		{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: notDeadDoc,
-			Update: D{
-				{"$set", D{
-					{"supportedcontainers", []instance.ContainerType{}},
-					{"supportedcontainersknown", true},
-				}}},
-		},
+	if err = m.updateSupportedContainers([]instance.ContainerType{}); err != nil {
+		return err
 	}
-
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
-	}
-	m.doc.SupportedContainers = []instance.ContainerType{}
-	m.doc.SupportedContainersKnown = true
-	return nil
+	return m.markInvalidContainers()
 }
 
-// AddSupportedContainers updates the list of containers supported by this machine.
-func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (err error) {
+// SetSupportedContainers sets the list of containers supported by this machine.
+func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (err error) {
 	if len(containers) == 0 {
 		return fmt.Errorf("at least one valid container type is required")
 	}
@@ -854,38 +859,72 @@ func (m *Machine) AddSupportedContainers(containers []instance.ContainerType) (e
 			return fmt.Errorf("%q is not a valid container type", container)
 		}
 	}
+	if err = m.updateSupportedContainers(containers); err != nil {
+		return err
+	}
+	return m.markInvalidContainers()
+}
+
+func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
+	for _, supportedContainer := range supportedContainers {
+		if supportedContainer == container {
+			return true
+		}
+	}
+	return false
+}
+
+// updateSupportedContainers sets the supported containers on this host machine.
+func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
 			Update: D{
-				{"$addToSet", D{{"supportedcontainers", D{{"$each", containers}}}}},
-				{"$set", D{{"supportedcontainersknown", true}}},
-			},
+				{"$set", D{
+					{"supportedcontainers", supportedContainers},
+					{"supportedcontainersknown", true},
+				}}},
 		},
 	}
-
 	if err = m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
 	}
-
-	for _, container := range containers {
-		m.addContainerIfMissing(container)
-	}
+	m.doc.SupportedContainers = supportedContainers
 	m.doc.SupportedContainersKnown = true
 	return nil
 }
 
-func (m *Machine) addContainerIfMissing(container instance.ContainerType) {
-	found := false
-	for _, c := range m.doc.SupportedContainers {
-		if c == container {
-			found = true
-			break
+// markInvalidContainers sets the status of any container belonging to this machine
+// as being in error if the container type is not supported.
+func (m *Machine) markInvalidContainers() error {
+	currentContainers, err := m.Containers()
+	if err != nil {
+		return err
+	}
+	for _, containerId := range currentContainers {
+		if !isSupportedContainer(ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
+			container, err := m.st.Machine(containerId)
+			if err != nil {
+				logger.Errorf("loading container %v to mark as invalid: %v", containerId, err)
+				continue
+			}
+			// There should never be a circumstance where an unsupported container is started.
+			// Nonetheless, we check and log an error if such a situation arises.
+			status, _, _, err := container.Status()
+			if err != nil {
+				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
+				continue
+			}
+			if status == params.StatusPending {
+				containerType := ContainerTypeFromId(containerId)
+				container.SetStatus(
+					params.StatusError, "unsupported container", params.StatusData{"type": containerType})
+			} else {
+				logger.Errorf("unsupported container %v has unexpected status %v", containerId, status)
+			}
 		}
 	}
-	if !found {
-		m.doc.SupportedContainers = append(m.doc.SupportedContainers, container)
-	}
+	return nil
 }
