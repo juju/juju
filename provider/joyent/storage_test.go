@@ -133,7 +133,7 @@ func (s *storageSuite) TestURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	parsedURL, err := url.Parse(URL)
 	c.Assert(err, gc.IsNil)
-	c.Check(parsedURL.Host, gc.Matches, mantaStorage.ecfg.mantaUrl()[strings.LastIndex(mantaStorage.ecfg.mantaUrl(), "/") + 1:])
+	c.Check(parsedURL.Host, gc.Matches, mantaStorage.ecfg.mantaUrl()[strings.LastIndex(mantaStorage.ecfg.mantaUrl(), "/")+1:])
 	c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/stor/%s/%s", mantaStorage.ecfg.mantaUser(), mantaStorage.containerName, fileName))
 }
 

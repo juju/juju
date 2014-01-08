@@ -106,7 +106,7 @@ func (s *joyentStorage) List(prefix string) ([]string, error) {
 func (s *joyentStorage) URL(name string) (string, error) {
 	//return something that a random wget can retrieve the object at, without any credentials
 	path := fmt.Sprintf("/%s/stor/%s/%s", s.ecfg.mantaUser(), s.containerName, name)
-	return s.manta.SignURL(path, time.Now().Add(time.Minute * 5))
+	return s.manta.SignURL(path, time.Now().Add(time.Minute*5))
 }
 
 func (s *joyentStorage) Get(name string) (io.ReadCloser, error) {
