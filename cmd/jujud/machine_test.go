@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	charmtesting "launchpad.net/juju-core/state/apiserver/charmversionupdater/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
@@ -650,4 +651,70 @@ func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
 		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
+}
+
+// MachineWithCharmsSuite provides infrastructure for tests which need to
+// work with charms.
+type MachineWithCharmsSuite struct {
+	charmtesting.CharmSuite
+
+	machine *state.Machine
+}
+
+var _ = gc.Suite(&MachineWithCharmsSuite{})
+
+func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
+	s.CharmSuite.SetUpTest(c)
+
+	// Create a state server machine.
+	var err error
+	s.machine, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		InstanceId: "ardbeg-0",
+		Nonce:      state.BootstrapNonce,
+		Jobs:       []state.MachineJob{state.JobManageState},
+	})
+	c.Assert(err, gc.IsNil)
+	err = s.machine.SetPassword(initialMachinePassword)
+	c.Assert(err, gc.IsNil)
+	tag := names.MachineTag(s.machine.Id())
+	err = s.machine.SetMongoPassword(initialMachinePassword)
+	c.Assert(err, gc.IsNil)
+
+	// Set up the agent configuration.
+	stateInfo := s.StateInfo(c)
+	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword)
+}
+
+func (s *MachineWithCharmsSuite) TestManageStateRunsCharmVersionUpdater(c *gc.C) {
+	s.SetupScenario(c)
+
+	// Start the machine agent.
+	a := &MachineAgent{}
+	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
+	err := coretesting.InitCommand(a, args)
+	c.Assert(err, gc.IsNil)
+
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	checkStatus := func() bool {
+		svc, err := s.State.Service("mysql")
+		c.Assert(err, gc.IsNil)
+		unit, err := s.State.Unit("mysql/0")
+		c.Assert(err, gc.IsNil)
+		if svc.RevisionStatus() != "out of date (available: 23)" {
+			return false
+		}
+		return unit.RevisionStatus() == "unknown"
+	}
+	success := false
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if success = checkStatus(); success {
+			break
+		}
+	}
+	c.Assert(success, gc.Equals, true)
 }
