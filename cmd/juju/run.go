@@ -122,6 +122,8 @@ func (c *RunCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// ConvertRunResults takes the results from the api and creates a map
+// suitable for format converstion to YAML or JSON.
 func ConvertRunResults(runResults []api.RunResult) interface{} {
 	var results = make([]interface{}, 0)
 
