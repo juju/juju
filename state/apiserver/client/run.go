@@ -75,6 +75,8 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
+// Run the commands specified on the machines identified through the
+// list of machines, units and services.
 func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
@@ -110,6 +112,7 @@ func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
 	return ParallelExecute(c.api.agentConfig.DataDir(), params), nil
 }
 
+// RunOnAllMachines attempts to run the specified command on all the machines.
 func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
 	machines, err := c.api.state.AllMachines()
 	if err != nil {
@@ -122,6 +125,9 @@ func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
 	return ParallelExecute(c.api.agentConfig.DataDir(), params), nil
 }
 
+// RemoteExec extends the standard ssh.ExecParams by providing the machine and
+// perhaps the unit ids.  These are then returned in the api.RunResult return
+// values.
 type RemoteExec struct {
 	ssh.ExecParams
 	MachineId string
@@ -164,6 +170,8 @@ func ParallelExecute(dataDir string, params []*RemoteExec) api.RunResults {
 	return api.RunResults{result}
 }
 
+// MachineOrder is used to provide the api to sort the results by the machine
+// id.
 type MachineOrder []api.RunResult
 
 func (a MachineOrder) Len() int           { return len(a) }
