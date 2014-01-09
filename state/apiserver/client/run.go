@@ -75,6 +75,8 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
+// Run the commands specified on the machines identified through the
+// list of machines, units and services.
 func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
@@ -110,6 +112,7 @@ func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
 	return ParallelExecute(c.api.agentConfig.DataDir(), params), nil
 }
 
+// RunOnAllMachines attempts to run the specified command on all the machines.
 func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
 	machines, err := c.api.state.AllMachines()
 	if err != nil {
