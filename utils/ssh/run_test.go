@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -62,8 +63,7 @@ func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
 	})
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(response.Stderr), gc.Equals,
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no -i identity-file hostname -- /bin/bash -s\n")
+	c.Assert(string(response.Stderr), jc.Contains, " -i identity-file ")
 }
 
 func (s *ExecuteSSHCommandSuite) TestTimoutCaptureOutput(c *gc.C) {
