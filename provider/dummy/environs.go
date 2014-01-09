@@ -35,6 +35,7 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -586,7 +587,18 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
+		config, err := agent.NewAgentConfig(
+			agent.AgentConfigParams{
+				DataDir:      "/var/lib/juju",
+				Tag:          "machine-0",
+				Password:     "password",
+				CACert:       []byte(testing.CACert),
+				APIAddresses: []string{"localhost:1234"},
+			})
+		if err != nil {
+			panic(err)
+		}
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), config)
 		if err != nil {
 			panic(err)
 		}

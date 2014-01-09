@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -31,10 +32,11 @@ import (
 var logger = loggo.GetLogger("juju.state.apiserver.client")
 
 type API struct {
-	state     *state.State
-	auth      common.Authorizer
-	resources *common.Resources
-	client    *Client
+	state       *state.State
+	auth        common.Authorizer
+	resources   *common.Resources
+	client      *Client
+	agentConfig agent.Config
 }
 
 // Client serves client-specific API methods.
@@ -43,11 +45,12 @@ type Client struct {
 }
 
 // NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, config agent.Config) *API {
 	r := &API{
-		state:     st,
-		auth:      authorizer,
-		resources: resources,
+		state:       st,
+		auth:        authorizer,
+		resources:   resources,
+		agentConfig: config,
 	}
 	r.client = &Client{
 		api: r,
