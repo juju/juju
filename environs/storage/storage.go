@@ -6,7 +6,7 @@ package storage
 import (
 	"fmt"
 	"io"
-	"path/filepath"
+	"path"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/utils"
@@ -91,10 +91,10 @@ func NewStorageSimpleStreamsDataSource(storage StorageReader, basePath string) s
 	return &storageSimpleStreamsDataSource{basePath, storage, false}
 }
 
-func (s *storageSimpleStreamsDataSource) relpath(path string) string {
-	relpath := path
+func (s *storageSimpleStreamsDataSource) relpath(storagePath string) string {
+	relpath := storagePath
 	if s.basePath != "" {
-		relpath = filepath.Join(s.basePath, relpath)
+		relpath = path.Join(s.basePath, relpath)
 	}
 	return relpath
 }
