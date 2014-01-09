@@ -175,7 +175,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || entity.Tag() != names.MachineTag(bootstrapMachineId) {
+	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
 		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 		})
