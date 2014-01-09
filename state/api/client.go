@@ -400,6 +400,8 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
 
+// RunResult contains the result from an individual run call on a machine.
+// UnitId is populated if the command was run inside the unit context.
 type RunResult struct {
 	cmd.RemoteResponse
 	MachineId string
@@ -407,10 +409,14 @@ type RunResult struct {
 	Error     string
 }
 
+// RunResults is used to return the slice of results.  Api server side calls
+// need to return single structure values.
 type RunResults struct {
 	Results []RunResult
 }
 
+// RunOnAllMachines runs the command on all the machines with the specified
+// timeout.
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]RunResult, error) {
 	var results RunResults
 	args := RunParams{Commands: commands, Timeout: timeout}
@@ -418,6 +424,9 @@ func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]Run
 	return results.Results, err
 }
 
+// RunParams is used to provide the parameters to the Run method.
+// Commands and Timeout are expected to have values, and one or more
+// values should be in the Machines, Services, or Units slices.
 type RunParams struct {
 	Commands string
 	Timeout  time.Duration
@@ -426,6 +435,8 @@ type RunParams struct {
 	Units    []string
 }
 
+// Run the Commands specified on the machines identified through the ids
+// provided in the machines, services and units slices.
 func (c *Client) Run(params RunParams) ([]RunResult, error) {
 	var results RunResults
 	err := c.st.Call("Client", "", "Run", params, &results)
