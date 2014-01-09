@@ -9,13 +9,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/charmversionworker"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/state/apiserver/charmversionupdater/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver/charmversionupdater/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/worker/charmversionworker"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -25,14 +25,14 @@ func TestPackage(t *stdtesting.T) {
 type VersionUpdaterSuite struct {
 	testing.CharmSuite
 
-	st *api.State
+	st             *api.State
 	versionUpdater *charmversionworker.VersionUpdateWorker
 }
 
 var _ = gc.Suite(&VersionUpdaterSuite{})
 
 func (s *VersionUpdaterSuite) SetUpSuite(c *gc.C) {
-	c.Assert(*charmversionworker.Interval, gc.Equals, 6 * time.Hour)
+	c.Assert(*charmversionworker.Interval, gc.Equals, 6*time.Hour)
 	s.CharmSuite.SetUpSuite(c)
 }
 
@@ -109,7 +109,7 @@ func (s *VersionUpdaterSuite) TestVersionUpdateRunsPeriodically(c *gc.C) {
 	s.SetupScenario(c)
 
 	// Start the updater and check the initial status.
-	s.runUpdater(c, 5 * time.Millisecond)
+	s.runUpdater(c, 5*time.Millisecond)
 	c.Assert(s.checkServiceRevisionStatus(c, "out of date (available: 23)"), jc.IsTrue)
 
 	// Make some changes

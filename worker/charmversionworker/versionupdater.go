@@ -10,8 +10,8 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/state/api/charmversionupdater"
+	"launchpad.net/juju-core/worker"
 )
 
 // defaultInterval is the standard value for the interval setting.
@@ -43,6 +43,7 @@ func (vuw *VersionUpdateWorker) String() string {
 	return fmt.Sprintf("charm version lookup worker")
 }
 
+// Stop stops the worker.
 func (vuw *VersionUpdateWorker) Stop() error {
 	vuw.tomb.Kill(nil)
 	return vuw.tomb.Wait()
