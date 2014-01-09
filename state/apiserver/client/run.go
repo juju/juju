@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -127,6 +128,8 @@ type RemoteExec struct {
 	UnitId    string
 }
 
+// ParallelExecute executes all of the requests defined in the params,
+// using the system identity stored in the dataDir.
 func ParallelExecute(dataDir string, params []*RemoteExec) api.RunResults {
 	logger.Debugf("exec %#v", params)
 	var outstanding sync.WaitGroup
@@ -157,5 +160,12 @@ func ParallelExecute(dataDir string, params []*RemoteExec) api.RunResults {
 	}
 
 	outstanding.Wait()
+	sort.Sort(MachineOrder(result))
 	return api.RunResults{result}
 }
+
+type MachineOrder []api.RunResult
+
+func (a MachineOrder) Len() int           { return len(a) }
+func (a MachineOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a MachineOrder) Less(i, j int) bool { return a[i].MachineId < a[j].MachineId }
