@@ -26,7 +26,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/worker/provisioner"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -602,44 +602,7 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 // MachineConfig returns information from the environment config that is
 // needed for machine cloud-init (both state servers and host nodes).
 func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
-	result := params.MachineConfig{}
-	environConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return result, err
-	}
-	// The basic information.
-	result.EnvironAttrs = environConfig.AllAttrs()
-
-	// Find the appropriate tools information.
-	env, err := environs.New(environConfig)
-	if err != nil {
-		return result, err
-	}
-	tools, err := findInstanceTools(env, args.Series, args.Arch)
-	if err != nil {
-		return result, err
-	}
-	result.Tools = tools
-
-	// Find the secrets and API endpoints.
-	auth, err := provisioner.NewEnvironAuthenticator(env)
-	if err != nil {
-		return result, err
-	}
-	machine, err := c.api.state.Machine(args.MachineId)
-	if err != nil {
-		return result, err
-	}
-	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
-	if err != nil {
-		return result, err
-	}
-	result.APIAddrs = apiInfo.Addrs
-	result.StateAddrs = stateInfo.Addrs
-	result.CACert = stateInfo.CACert
-	result.Password = stateInfo.Password
-	result.Tag = stateInfo.Tag
-	return result, nil
+	return statecmd.MachineConfig(c.api.state, args)
 }
 
 // DestroyMachines removes a given set of machines.

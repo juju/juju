@@ -37,6 +37,7 @@ func Configure(params ConfigureParams) error {
 	if err != nil {
 		return err
 	}
+	logger.Debugf("running script on %s: %s", params.Host, script)
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
 	cmd := ssh.Command(
