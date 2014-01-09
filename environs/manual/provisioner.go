@@ -108,13 +108,13 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// the ubuntu user's authorized_keys file with the public keys in the current
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
-	user, host := splitUserHost(args.Host)
+	user, hostname := splitUserHost(args.Host)
 	authorizedKeys, err := config.ReadAuthorizedKeys("")
-	if err := InitUbuntuUser(host, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
+	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
-	machineParams, err := gatherMachineParams(args.Host)
+	machineParams, err := gatherMachineParams(hostname)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +158,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Finally, provision the machine agent.
-	err = provisionMachineAgent(host, mcfg, args.Stderr)
+	err = provisionMachineAgent(hostname, mcfg, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}
@@ -225,7 +225,12 @@ func recordMachineInState1dot16(
 	return machine.Id(), nil
 }
 
-func gatherMachineParams(host string) (*params.AddMachineParams, error) {
+// gatherMachineParams collects all the information we know about the machine
+// we are about to provision. It will SSH into that machine as the ubuntu user.
+// The hostname supplied should not include a username.
+// If we can, we will reverse lookup the hostname by its IP address, and use
+// the DNS resolved name, rather than the name that was supplied
+func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 
 	// Generate a unique nonce for the machine.
 	uuid, err := utils.NewUUID()
@@ -233,7 +238,7 @@ func gatherMachineParams(host string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 	// First, gather the parameters needed to inject the existing host into state.
-	if ip := net.ParseIP(host); ip != nil {
+	if ip := net.ParseIP(hostname); ip != nil {
 		// Do a reverse-lookup on the IP. The IP may not have
 		// a DNS entry, so just log a warning if this fails.
 		names, err := net.LookupAddr(ip.String())
@@ -241,16 +246,27 @@ func gatherMachineParams(host string) (*params.AddMachineParams, error) {
 			logger.Infof("failed to resolve %v: %v", ip, err)
 		} else {
 			logger.Infof("resolved %v to %v", ip, names)
-			host = names[0]
+			hostname = names[0]
+			// TODO: jam 2014-01-09 https://bugs.launchpad.net/bugs/1267387
+			// We change what 'hostname' we are using here (rather
+			// than an IP address we use the DNS name). I'm not
+			// sure why that is better, but if we are changing the
+			// host, we should probably be returning the hostname
+			// to the parent function.
+			// Also, we don't seem to try and compare if 'ip' is in
+			// the list of addrs returned from
+			// instance.HostAddresses in case you might get
+			// multiple and one of them is what you are supposed to
+			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(host)
+	addrs, err := instance.HostAddresses(hostname)
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("addresses for %v: %v", host, addrs)
+	logger.Infof("addresses for %v: %v", hostname, addrs)
 
-	provisioned, err := checkProvisioned(host)
+	provisioned, err := checkProvisioned(hostname)
 	if err != nil {
 		err = fmt.Errorf("error checking if provisioned: %v", err)
 		return nil, err
@@ -259,7 +275,7 @@ func gatherMachineParams(host string) (*params.AddMachineParams, error) {
 		return nil, ErrProvisioned
 	}
 
-	hc, series, err := DetectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := DetectSeriesAndHardwareCharacteristics(hostname)
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
 		return nil, err
@@ -271,7 +287,7 @@ func gatherMachineParams(host string) (*params.AddMachineParams, error) {
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
 
-	instanceId := instance.Id(manualInstancePrefix + hostWithoutUser(host))
+	instanceId := instance.Id(manualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	machineParams := &params.AddMachineParams{
 		Series:                  series,
