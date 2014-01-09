@@ -106,7 +106,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
 }
 
-func (s *provisionerSuite) TestCreateMachineConfig(c *gc.C) {
+func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	const series = "precise"
 	const arch = "amd64"
 	defer fakeSSH{
@@ -119,14 +119,16 @@ func (s *provisionerSuite) TestCreateMachineConfig(c *gc.C) {
 
 	// Now check what we would've configured it with.
 	client := s.APIConn.State.Client()
-	mcfg, err := createMachineConfig(client, machineId, series, arch, state.BootstrapNonce, "/var/lib/juju")
+	configParams, err := client.MachineConfig(machineId, series, arch)
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg, gc.NotNil)
-	c.Assert(mcfg.APIInfo, gc.NotNil)
-	c.Assert(mcfg.StateInfo, gc.NotNil)
+	mcfg, err := finishMachineConfig(configParams, machineId, state.BootstrapNonce, "/var/lib/juju")
+	c.Assert(err, gc.IsNil)
+	c.Check(mcfg, gc.NotNil)
+	c.Check(mcfg.APIInfo, gc.NotNil)
+	c.Check(mcfg.StateInfo, gc.NotNil)
 
 	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Assert(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }
