@@ -96,7 +96,15 @@ func (d *GitDir) AddAll() error {
 	if err := filepath.Walk(d.path, walker); err != nil {
 		return err
 	}
-	return d.cmd("add", "-A", ".")
+	err := d.cmd("add", "-A", ".")
+	if err != nil {
+		print(err.Error())
+		if err.Error() == "fatal: pathspec '.' did not match any files" {
+			// ignore error about no files... older versions of git didn't error out
+			return nil
+		}
+	}
+	return err
 }
 
 // Commitf commits a new revision to the repository with the supplied message.
