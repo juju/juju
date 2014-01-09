@@ -54,7 +54,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	ops := []txn.Op{{
 		C:      s.state.environments.Name,
 		Id:     s.env.doc.UUID,
-		Update: D{{"$unset", D{{"life", Dying}}}},
+		Update: D{{"$unset", D{{"life", nil}}}},
 	}}
 	err := s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
