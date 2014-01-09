@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo"
 
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 var (
@@ -30,9 +31,11 @@ func newServer() (*coretesting.MgoInstance, error) {
 	}
 
 	// by dialing right now, we'll wait until it's running
-	deadline := time.Now().Add(time.Second * 5)
-	for {
-		session, err := inst.DialDirect()
+	strategy := utils.AttemptStrategy{Total: time.Second * 5, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
+		var session *mgo.Session
+		session, err = inst.DialDirect()
 		if err != nil {
 			err = fmt.Errorf("Error dialing mongo server %q: %s", inst.Addr(), err.Error())
 		} else {
@@ -43,10 +46,11 @@ func newServer() (*coretesting.MgoInstance, error) {
 			}
 			session.Close()
 		}
-		if err == nil || time.Now().After(deadline) {
-			return inst, err
+		if err == nil || !attempt.HasNext() {
+			break
 		}
 	}
+	return inst, err
 }
 
 type MongoSuite struct{}
@@ -117,23 +121,6 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
 
-	expectedStatus := []MemberStatus{
-		{
-			Address: root.Addr(),
-			Self:    true,
-			ErrMsg:  "",
-			Healthy: true,
-			State:   PrimaryState,
-		},
-	}
-
-	status, err := CurrentStatus(session)
-	c.Assert(err, gc.IsNil)
-
-	expectedStatus[0].Uptime = status.Members[0].Uptime
-	expectedStatus[0].Ping = status.Members[0].Ping
-	c.Assert(status.Members, gc.DeepEquals, expectedStatus)
-
 	members := make([]Member, 0, 5)
 
 	// Add should be idempotent, so re-adding root here shouldn't result in
@@ -150,12 +137,15 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		defer inst.Destroy()
 		defer Remove(session, inst.Addr())
 
-		tags := map[string]string{"key1": "val1"}
+		key := fmt.Sprintf("key%d", x)
+		val := fmt.Sprintf("val%d", x)
+
+		tags := map[string]string{key: val}
 
 		members = append(members, Member{Address: inst.Addr(), Tags: tags})
 	}
 
-	err = Add(session, members...)
+	err := Add(session, members...)
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers := make([]Member, len(members))
@@ -259,40 +249,40 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
 	c.Assert(err, gc.IsNil)
 
-	expected := Status{
+	expected := &Status{
 		Name: name,
-		Members: []MemberStatus{
-			MemberStatus{
-				Address: root.Addr(),
-				Self:    true,
-				ErrMsg:  "",
-				Healthy: true,
-				State:   PrimaryState,
-			},
-			MemberStatus{
-				Address: inst1.Addr(),
-				Self:    false,
-				ErrMsg:  "",
-				Healthy: true,
-				State:   SecondaryState,
-			},
-			MemberStatus{
-				Address: inst2.Addr(),
-				Self:    false,
-				ErrMsg:  "",
-				Healthy: true,
-				State:   SecondaryState,
-			},
-		},
+		Members: []MemberStatus{{
+			Id:      1,
+			Address: root.Addr(),
+			Self:    true,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   PrimaryState,
+		}, {
+			Id:      2,
+			Address: inst1.Addr(),
+			Self:    false,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   SecondaryState,
+		}, {
+			Id:      3,
+			Address: inst2.Addr(),
+			Self:    false,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   SecondaryState,
+		}},
 	}
 
-	deadline := time.Now().Add(time.Second * 60)
+	strategy := utils.AttemptStrategy{Total: time.Second * 60, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
 	var res *Status
-	for {
+	for attempt.Next() {
 		var err error
 		res, err = CurrentStatus(session)
 
-		if err != nil && time.Now().After(deadline) {
+		if err != nil && !attempt.HasNext() {
 			c.Errorf("Couldn't get status before timeout, got err: %v", err)
 			return
 		}
@@ -302,11 +292,10 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 			res.Members[2].State == SecondaryState {
 			break
 		}
-		if time.Now().After(deadline) {
+		if !attempt.HasNext() {
 			c.Errorf("Servers did not get into final state before timeout.  Status: %#v", res)
 			return
 		}
-		session.Refresh()
 	}
 
 	for x, _ := range res.Members {
@@ -319,7 +308,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		// now overwrite Uptime so it won't throw off DeepEquals
 		res.Members[x].Uptime = 0
 	}
-	c.Check(*res, gc.DeepEquals, expected)
+	c.Check(res, gc.DeepEquals, expected)
 }
 
 func closeEnough(expected, obtained time.Time) bool {

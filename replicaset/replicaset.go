@@ -21,7 +21,11 @@ import (
 // details.
 func Initiate(session *mgo.Session, address, name string) error {
 	session.SetMode(mgo.Monotonic, true)
-	cfg := Config{Name: name, Version: 1, Members: []Member{Member{Id: 1, Address: address}}}
+	cfg := Config{
+		Name:    name,
+		Version: 1,
+		Members: []Member{{Id: 1, Address: address}},
+	}
 	return session.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 }
 
@@ -249,6 +253,9 @@ type Status struct {
 // Status holds the status of a replica set member returned from
 // replSetGetStatus.
 type MemberStatus struct {
+	// Id holds the replica set id of the member that the status is describing.
+	Id int `bson:"_id"`
+
 	// Address holds address of the member that the status is describing.
 	Address string `bson:"name"`
 
