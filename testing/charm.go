@@ -195,8 +195,3 @@ func (s *MockCharmStore) Latest(charmURLs ...*charm.URL) ([]charm.CharmRevision,
 	}
 	return result, nil
 }
-
-// Infos implements charm.Repository.Infos.
-func (s *MockCharmStore) Info(charmURLs ...*charm.URL) ([]*charm.InfoResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
