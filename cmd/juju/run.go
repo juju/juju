@@ -4,10 +4,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"launchpad.net/gnuflag"
 
@@ -122,12 +124,31 @@ func (c *RunCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+func encodeBytes(input []byte) (value string, encoding string) {
+	if utf8.Valid(input) {
+		value = string(input)
+		encoding = "utf8"
+	} else {
+		value = base64.StdEncoding.EncodeToString(input)
+		encoding = "base64"
+	}
+	return value, encoding
+}
+
+func storeOutput(values map[string]interface{}, key string, input []byte) {
+	value, encoding := encodeBytes(input)
+	values[key] = value
+	if encoding != "utf8" {
+		values[key+".encoding"] = encoding
+	}
+}
+
 // ConvertRunResults takes the results from the api and creates a map
 // suitable for format converstion to YAML or JSON.
 func ConvertRunResults(runResults []api.RunResult) interface{} {
-	var results = make([]interface{}, 0)
+	var results = make([]interface{}, len(runResults))
 
-	for _, result := range runResults {
+	for i, result := range runResults {
 		// We always want to have a string for stdout, but only show stderr,
 		// code and error if they are there.
 		values := make(map[string]interface{})
@@ -136,9 +157,9 @@ func ConvertRunResults(runResults []api.RunResult) interface{} {
 			values["UnitId"] = result.UnitId
 
 		}
-		values["Stdout"] = string(result.Stdout)
+		storeOutput(values, "Stdout", result.Stdout)
 		if len(result.Stderr) > 0 {
-			values["Stderr"] = string(result.Stderr)
+			storeOutput(values, "Stderr", result.Stderr)
 		}
 		if result.Code != 0 {
 			values["ReturnCode"] = result.Code
@@ -146,7 +167,7 @@ func ConvertRunResults(runResults []api.RunResult) interface{} {
 		if result.Error != "" {
 			values["Error"] = result.Error
 		}
-		results = append(results, values)
+		results[i] = values
 	}
 
 	return results

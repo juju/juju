@@ -188,6 +188,25 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 				"Error":      "error",
 			}},
 	}, {
+		message: "stdout and stderr are base64 encoded if not valid utf8",
+		results: []api.RunResult{
+			api.RunResult{
+				RemoteResponse: cmd.RemoteResponse{
+					Stdout: []byte{0xff},
+					Stderr: []byte{0xfe},
+				},
+				MachineId: "jake",
+			},
+		},
+		expected: []interface{}{
+			map[string]interface{}{
+				"MachineId":       "jake",
+				"Stdout":          "/w==",
+				"Stdout.encoding": "base64",
+				"Stderr":          "/g==",
+				"Stderr.encoding": "base64",
+			}},
+	}, {
 		message: "more than one",
 		results: []api.RunResult{
 			makeRunResult(mockResponse{machineId: "1"}),
