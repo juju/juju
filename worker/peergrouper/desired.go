@@ -5,7 +5,6 @@ import (
 	"net"
 	"sort"
 
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/loggo"
 )
@@ -22,7 +21,7 @@ type peerGroupInfo struct {
 type machine struct {
 	id        string
 	candidate bool
-	addresses []instance.Address
+	host string
 
 	// Set by desiredPeerGroup
 	voting bool
@@ -46,7 +45,7 @@ type machine struct {
 //		info.machines = append(info.machines, &machine{
 //			id:        m.Id(),
 //			candidate: m.IsCandidate(),
-//			addresses: m.Addresses(),
+//			host: instance.SelectInternalAddress(m.Addresses(), false),
 //		})
 //	}
 //	return info, nil
@@ -64,7 +63,7 @@ func min(i, j int) int {
 // group is already correct.
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	changed := false
-	members, extra := info.membersMap()
+	members, extra, maxId := info.membersMap()
 	logger.Infof("got members: %#v", members)
 	logger.Infof("extra: %#v", extra)
 	// We may find extra peer group members if the machines
@@ -84,7 +83,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	// 4) bomb out "run in circles, scream and shout"
 	// 5) do nothing "nothing to see here"
 	for _, member := range extra {
-		if member.Votes != nil && *member.Votes > 0 {
+		if member.Votes == nil || *member.Votes > 0 {
 			return nil, fmt.Errorf("voting non-machine member found in peer group")
 		}
 		changed = true
@@ -102,6 +101,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 		case m.candidate && !isVoting:
 			if status, ok := statuses[m]; ok && isReady(status) {
 				toAddVote = append(toAddVote, m)
+			} else {
+				toKeep = append(toKeep, m)
 			}
 		case !m.candidate && isVoting:
 			toRemoveVote = append(toRemoveVote, m)
@@ -115,6 +116,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	// potentially sort by some other metric in each case.
 	sort.Sort(byId(toRemoveVote))
 	sort.Sort(byId(toAddVote))
+	sort.Sort(byId(toKeep))
 
 	setVoting := func(m *machine, voting bool) {
 		setMemberVoting(members[m], voting)
@@ -151,13 +153,15 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 		}
 	}
 	for _, m := range toKeep {
-		if members[m] == nil {
+		if members[m] == nil && m.host != "" {
 			// This machine was not previously in the members list,
 			// so add it (as non-voting).
+			maxId++
 			member := &replicaset.Member{
 				Tags: map[string]string{
 					"juju-machine-id": m.id,
 				},
+				Id: maxId,
 			}
 			members[m] = member
 			setVoting(m, false)
@@ -165,14 +169,13 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	}
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range info.machines {
-		addr := instance.SelectInternalAddress(m.addresses, false)
-		if addr == "" {
+		if m.host == "" {
 			continue
 		}
 		// TODO ensure that replicset works correctly with IPv6 [host]:port addresses.
-		addr = net.JoinHostPort(addr, fmt.Sprint(info.mongoPort))
-		if addr != members[m].Address {
-			members[m].Address = addr
+		hostPort := net.JoinHostPort(m.host, fmt.Sprint(info.mongoPort))
+		if hostPort != members[m].Address {
+			members[m].Address = hostPort
 			changed = true
 		}
 	}
@@ -209,10 +212,11 @@ func (l byId) Len() int           { return len(l) }
 func (l byId) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l byId) Less(i, j int) bool { return l[i].id < l[j].id }
 
-func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member, extra []replicaset.Member) {
+func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member, extra []replicaset.Member, maxId int) {
+	maxId = -1
 	members = make(map[*machine]*replicaset.Member)
-	for i := range info.members {
-		member := &info.members[i]
+	for _, member := range info.members {
+		member := member
 		var found *machine
 		if mid, ok := member.Tags["juju-machine-id"]; ok {
 			for _, m := range info.machines {
@@ -222,12 +226,15 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 			}
 		}
 		if found != nil {
-			members[found] = member
+			members[found] = &member
 		} else {
-			extra = append(extra, *member)
+			extra = append(extra, member)
+		}
+		if member.Id > maxId {
+			maxId = member.Id
 		}
 	}
-	return members, extra
+	return members, extra, maxId
 }
 
 func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.Status {
