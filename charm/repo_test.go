@@ -42,6 +42,7 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.store = charm.NewStore(s.server.Address())
 	s.server.Downloads = nil
 	s.server.Authorizations = nil
+	s.server.Metadata = nil
 }
 
 // Uses the TearDownTest from testbase.LoggingSuite
@@ -250,6 +251,27 @@ func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.server.Authorizations, gc.HasLen, 0)
+}
+
+func (s *StoreSuite) TestMetadata(c *gc.C) {
+	store := s.store.WithJujuAttrs("juju-metadata")
+
+	base := "cs:series/good"
+	charmURL := charm.MustParseURL(base)
+	_, err := store.Get(charmURL)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.Metadata, gc.HasLen, 1)
+	c.Assert(s.server.Metadata[0], gc.Equals, "juju-metadata")
+}
+
+func (s *StoreSuite) TestNilMetadata(c *gc.C) {
+	base := "cs:series/good"
+	charmURL := charm.MustParseURL(base)
+	_, err := s.store.Get(charmURL)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.Metadata, gc.HasLen, 0)
 }
 
 func (s *StoreSuite) TestEventWarning(c *gc.C) {

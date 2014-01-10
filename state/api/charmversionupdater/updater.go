@@ -26,6 +26,8 @@ func (st *State) UpdateVersions() error {
 	if err != nil {
 		return err
 	}
-	return result.Error
-
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

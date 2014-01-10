@@ -49,15 +49,21 @@ func NewCharmVersionUpdaterAPI(
 // and updates each service and unit revision status to indicate whether the deployed charm
 // is out of date or not.
 func (api *CharmVersionUpdaterAPI) UpdateVersions() (params.ErrorResult, error) {
+	// First get the uuid for the environment to use when querying the charm store.
+	env, err := api.state.Environment()
+	if err != nil {
+		return params.ErrorResult{common.ServerError(err)}, nil
+	}
+	uuid := env.UUID()
+
 	context := versionContext{}
-	var err error
 	if context.services, context.units, err = fetchAllServicesAndUnits(api.state); err != nil {
 		return params.ErrorResult{common.ServerError(err)}, nil
 	}
 	// Gather charm and revision info for deployed services and units.
 	context.collateDeployedServiceRevisions()
 	// Look up the revision information for all the deployed charms.
-	if err = context.retrieveRevisionInformation(); err != nil {
+	if err = context.retrieveRevisionInformation(uuid); err != nil {
 		return params.ErrorResult{common.ServerError(err)}, nil
 	}
 	// Update the revision status for services and units according to the
@@ -207,7 +213,7 @@ func (context *versionContext) updateServiceUnitRevisionStatus() {
 	}
 }
 
-func (context *versionContext) retrieveRevisionInformation() error {
+func (context *versionContext) retrieveRevisionInformation(uuid string) error {
 	// We have previously recorded all the charms in use by the deployed services.
 	// Now, look up their latest versions from the charm store and record that so that
 	// we may then compare what's in the store with what's deployed.
@@ -224,7 +230,9 @@ func (context *versionContext) retrieveRevisionInformation() error {
 	}
 
 	// Do a bulk call to get the revision info for all charms.
-	revInfo, err := charm.Store.Latest(curls...)
+	logger.Infof("retrieving revision information for %d charms", len(curls))
+	store := charm.Store.WithJujuAttrs("environment_uuid=" + uuid)
+	revInfo, err := store.Latest(curls...)
 	if err != nil {
 		return log.LoggedErrorf(logger, "finding charm revision info: %v", err)
 	}

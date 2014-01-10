@@ -44,6 +44,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.server.Address()})
 	s.server.Downloads = nil
 	s.server.Authorizations = nil
+	s.server.Metadata = nil
 	s.charms = make(map[string]*state.Charm)
 }
 

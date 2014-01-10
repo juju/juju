@@ -87,6 +87,7 @@ func (e *NotFoundError) Error() string {
 type CharmStore struct {
 	BaseURL   string
 	authAttrs string // a list of attr=value pairs, comma separated
+	jujuAttrs string // a list of attr=value pairs, comma separated
 }
 
 var _ Repository = (*CharmStore)(nil)
@@ -101,6 +102,14 @@ func (s *CharmStore) WithAuthAttrs(authAttrs string) Repository {
 	return &authCS
 }
 
+// WithJujuAttrs returns a Repository with the Juju metadata attributes set.
+// jujuAttrs is a list of attr=value pairs.
+func (s *CharmStore) WithJujuAttrs(jujuAttrs string) Repository {
+	jujuCS := *s
+	jujuCS.jujuAttrs = jujuAttrs
+	return &jujuCS
+}
+
 // Perform an http get, adding custom auth header if necessary.
 func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -112,6 +121,10 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 		// the Authorization header with a custom auth scheme
 		// and the authentication attributes.
 		req.Header.Add("Authorization", "charmstore "+s.authAttrs)
+	}
+	if s.jujuAttrs != "" {
+		// The use of "X-" to prefix custom header values is deprecated.
+		req.Header.Add("Juju-Metadata", s.jujuAttrs)
 	}
 	return http.DefaultClient.Do(req)
 }
