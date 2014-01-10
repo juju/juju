@@ -102,9 +102,7 @@ func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 var echoSSH = `#!/bin/bash
 # Write the args to stderr
 echo "$*" >&2
-while read line
-do echo $line
-done <&0
+cat /dev/stdin
 `
 
 // slowSSH sleeps for a while after outputting some text to stdout and stderr

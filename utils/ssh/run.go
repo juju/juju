@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,22 +42,17 @@ func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err 
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
-	input, err := command.StdinPipe()
-	if err != nil {
-		return result, err
-	}
-	fmt.Fprintf(input, "%s\n", params.Command)
-	input.Close()
+	command.Stdin = strings.NewReader(params.Command + "\n")
 
-	var commandDone = make(chan error)
 	if err = command.Start(); err != nil {
 		return result, err
 	}
+	commandDone := make(chan error)
 	go func() {
+		defer close(commandDone)
 		err := command.Wait()
 		logger.Debugf("command.Wait finished: %v", err)
 		commandDone <- err
-		close(commandDone)
 	}()
 
 	select {
