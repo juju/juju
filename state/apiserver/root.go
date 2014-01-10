@@ -66,7 +66,7 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r, r.srv.agentConfig)
+	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r, r.srv.dataDir)
 	r.pingTimeout = newPingTimeout(action, maxPingInterval)
 	return r
 }

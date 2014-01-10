@@ -109,7 +109,7 @@ func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
 		execParam := remoteParamsForMachine(machine, run.Commands, run.Timeout)
 		params = append(params, execParam)
 	}
-	return ParallelExecute(c.api.agentConfig.DataDir(), params), nil
+	return ParallelExecute(c.api.dataDir, params), nil
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
@@ -122,7 +122,7 @@ func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
 	for _, machine := range machines {
 		params = append(params, remoteParamsForMachine(machine, run.Commands, run.Timeout))
 	}
-	return ParallelExecute(c.api.agentConfig.DataDir(), params), nil
+	return ParallelExecute(c.api.dataDir, params), nil
 }
 
 // RemoteExec extends the standard ssh.ExecParams by providing the machine and
