@@ -215,8 +215,63 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 	}
 }
 
-func (s *RunSuite) TestAllMachines(c *gc.C) {
+func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
+	mock := s.setupMockAPI()
+	machineResponse := mockResponse{
+		stdout:    "megatron\n",
+		machineId: "0",
+	}
+	unitResponse := mockResponse{
+		stdout:    "bumblebee",
+		machineId: "1",
+		unitId:    "unit/0",
+	}
+	mock.setResponse("0", machineResponse)
+	mock.setResponse("unit/0", unitResponse)
 
+	unformatted := ConvertRunResults([]api.RunResult{
+		makeRunResult(machineResponse),
+		makeRunResult(unitResponse),
+	})
+
+	jsonFormatted, err := cmd.FormatJson(unformatted)
+	c.Assert(err, gc.IsNil)
+
+	context, err := testing.RunCommand(c, &RunCommand{}, []string{
+		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
+}
+
+func (s *RunSuite) TestAllMachines(c *gc.C) {
+	mock := s.setupMockAPI()
+	mock.setMachinesAlive("0", "1")
+	response0 := mockResponse{
+		stdout:    "megatron\n",
+		machineId: "0",
+	}
+	response1 := mockResponse{
+		error:     "command timed out",
+		machineId: "1",
+	}
+	mock.setResponse("0", response0)
+
+	unformatted := ConvertRunResults([]api.RunResult{
+		makeRunResult(response0),
+		makeRunResult(response1),
+	})
+
+	jsonFormatted, err := cmd.FormatJson(unformatted)
+	c.Assert(err, gc.IsNil)
+
+	context, err := testing.RunCommand(c, &RunCommand{}, []string{
+		"--format=json", "--all", "hostname",
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
 }
 
 func (s *RunSuite) TestSingleResponse(c *gc.C) {
@@ -347,6 +402,23 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 
 	return result, nil
 }
-func (*mockRunAPI) Run(params api.RunParams) ([]api.RunResult, error) {
-	return nil, fmt.Errorf("todo")
+
+func (m *mockRunAPI) Run(params api.RunParams) ([]api.RunResult, error) {
+	var result []api.RunResult
+	// Just add in ids that match in order.
+	for _, id := range params.Machines {
+		response, found := m.responses[id]
+		if found {
+			result = append(result, response)
+		}
+	}
+	// mock ignores services
+	for _, id := range params.Units {
+		response, found := m.responses[id]
+		if found {
+			result = append(result, response)
+		}
+	}
+
+	return result, nil
 }
