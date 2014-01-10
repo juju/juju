@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var logger = loggo.GetLogger("juju.ssh")
+var logger = loggo.GetLogger("juju.utils.ssh")
 
 type ListMode bool
 

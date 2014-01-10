@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -318,7 +319,10 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 		}
 		path = defaultPath
 	}
-	path = expandTilde(path)
+	path, err := utils.NormalizePath(path)
+	if err != nil {
+		return err
+	}
 	if !filepath.IsAbs(path) {
 		path = JujuHomePath(path)
 	}
