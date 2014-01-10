@@ -183,13 +183,13 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	err = Set(session, mems)
 	c.Assert(err, gc.IsNil)
 
-	deadline := time.Now().Add(time.Second * 60)
-
-	for {
+	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
 		// can dial whichever replica address here, mongo will figure it out
 		session = instances[0].MustDialDirect()
 		err := session.Ping()
-		if err == nil || time.Now().After(deadline) {
+		if err == nil {
 			break
 		}
 	}
@@ -246,7 +246,14 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	defer inst2.Destroy()
 	defer Remove(session, inst2.Addr())
 
-	err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
+	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
+		err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
+		if err == nil {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 
 	expected := &Status{
@@ -275,8 +282,8 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		}},
 	}
 
-	strategy := utils.AttemptStrategy{Total: time.Second * 60, Delay: time.Millisecond * 100}
-	attempt := strategy.Start()
+	strategy = utils.AttemptStrategy{Total: time.Second * 60, Delay: time.Millisecond * 100}
+	attempt = strategy.Start()
 	var res *Status
 	for attempt.Next() {
 		var err error
