@@ -67,7 +67,7 @@ simplify:
 # PPA includes the required mongodb-server binaries. However, neither
 # PPA works on Saucy just yet.
 install-dependencies:
-ifneq ($(shell lsb_release -cs),saucy)
+ifeq ($(shell lsb_release -cs|sed -r 's/precise|quantal|raring/old/'),old)
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable

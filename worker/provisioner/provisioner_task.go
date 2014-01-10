@@ -51,7 +51,7 @@ func NewProvisionerTask(
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker environs.InstanceBroker,
-	auth AuthenticationProvider,
+	auth environs.AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
 		machineTag:     machineTag,
@@ -76,7 +76,7 @@ type provisionerTask struct {
 	machineWatcher Watcher
 	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
-	auth           AuthenticationProvider
+	auth           environs.AuthenticationProvider
 
 	safeMode     bool
 	safeModeChan chan bool

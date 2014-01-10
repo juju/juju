@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker/localstorage"
 )
@@ -26,16 +27,11 @@ type LocalStorageEnviron interface {
 }
 
 type BootstrapArgs struct {
-	Host          string
-	DataDir       string
-	Environ       LocalStorageEnviron
-	PossibleTools tools.List
-	Context       environs.BootstrapContext
-
-	// If series and hardware characteristics
-	// are known ahead of time, they can be
-	// set here and Bootstrap will not attempt
-	// to detect them again.
+	Host                    string
+	DataDir                 string
+	Environ                 LocalStorageEnviron
+	PossibleTools           tools.List
+	Context                 environs.BootstrapContext
 	Series                  string
 	HardwareCharacteristics *instance.HardwareCharacteristics
 }
@@ -47,6 +43,9 @@ func errMachineIdInvalid(machineId string) error {
 // NewManualBootstrapEnviron wraps a LocalStorageEnviron with another which
 // overrides the Bootstrap method; when Bootstrap is invoked, the specified
 // host will be manually bootstrapped.
+//
+// InitUbuntuUser is expected to have been executed successfully against
+// the host being bootstrapped.
 func Bootstrap(args BootstrapArgs) (err error) {
 	if args.Host == "" {
 		return errors.New("host argument is empty")
@@ -57,6 +56,15 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	if args.DataDir == "" {
 		return errors.New("data-dir argument is empty")
 	}
+	if args.Series == "" {
+		return errors.New("series argument is empty")
+	}
+	if args.HardwareCharacteristics == nil {
+		return errors.New("hardware characteristics argument is empty")
+	}
+	if len(args.PossibleTools) == 0 {
+		return errors.New("possible tools is empty")
+	}
 
 	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
@@ -66,23 +74,11 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return ErrProvisioned
 	}
 
-	var series string
-	var hc instance.HardwareCharacteristics
-	if args.Series != "" && args.HardwareCharacteristics != nil {
-		series = args.Series
-		hc = *args.HardwareCharacteristics
-	} else {
-		hc, series, err = DetectSeriesAndHardwareCharacteristics(args.Host)
-		if err != nil {
-			return fmt.Errorf("error detecting hardware characteristics: %v", err)
-		}
-	}
-
 	// Filter tools based on detected series/arch.
 	logger.Infof("Filtering possible tools: %v", args.PossibleTools)
 	possibleTools, err := args.PossibleTools.Match(tools.Filter{
-		Arch:   *hc.Arch,
-		Series: series,
+		Arch:   *args.HardwareCharacteristics.Arch,
+		Series: args.Series,
 	})
 	if err != nil {
 		return err
@@ -95,7 +91,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		bootstrapStorage,
 		&bootstrap.BootstrapState{
 			StateInstances:  []instance.Id{BootstrapInstanceId},
-			Characteristics: []instance.HardwareCharacteristics{hc},
+			Characteristics: []instance.HardwareCharacteristics{*args.HardwareCharacteristics},
 		},
 	)
 	if err != nil {
@@ -121,9 +117,14 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return err
 	}
 
+	privateKey, err := common.GenerateSystemSSHKey(args.Environ)
+	if err != nil {
+		return err
+	}
+
 	// Finally, provision the machine agent.
 	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, bootstrap.StateFile)
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL)
+	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	if args.DataDir != "" {
 		mcfg.DataDir = args.DataDir
 	}
@@ -135,5 +136,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(args.Host, mcfg, args.Context.Stdin(), args.Context.Stdout(), args.Context.Stderr())
+	return provisionMachineAgent(args.Host, mcfg, args.Context.Stderr())
 }
