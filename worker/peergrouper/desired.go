@@ -157,6 +157,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 			// This machine was not previously in the members list,
 			// so add it (as non-voting).
 			maxId++
+			logger.Infof("adding new member with id %d", maxId)
 			member := &replicaset.Member{
 				Tags: map[string]string{
 					"juju-machine-id": m.id,
