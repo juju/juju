@@ -262,7 +262,7 @@ func (s *AuthorisedKeysKeysSuite) TestParseAuthorisedKey(c *gc.C) {
 		comment: "a b c",
 	}, {
 		line: "ssh-xsa blah",
-		err:  "invalid keytype in line \"ssh-xsa\"",
+		err:  "invalid keytype \"ssh-xsa\" in line \"ssh-xsa blah\"",
 	}, {
 		// options should be skipped
 		line:    `no-pty,principals="\"",command="\!" ssh-rsa ` + b64("blah"),

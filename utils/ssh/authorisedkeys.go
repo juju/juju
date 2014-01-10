@@ -124,7 +124,7 @@ func ParseAuthorisedKey(line string) (*AuthorisedKey, error) {
 		}
 	}
 	if !validKeytype {
-		return nil, fmt.Errorf("invalid keytype in line %q", keytype)
+		return nil, fmt.Errorf("invalid keytype %q in line %q", keytype, line)
 	}
 	// Split key/comment (if any)
 	if i := strings.IndexAny(key, " \t"); i != -1 {

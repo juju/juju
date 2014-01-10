@@ -1,7 +1,5 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-//
-// +build !windows
 
 package ssh
 
@@ -12,19 +10,22 @@ import (
 )
 
 // KeyFingerprint returns the fingerprint and comment for the specified key
-// in authorized_key format.
+// in authorized_key format. Fingerprints are generated according to RFC4716.
+// See ttp://www.ietf.org/rfc/rfc4716.txt, section 4.
 func KeyFingerprint(key string) (fingerprint, comment string, err error) {
 	ak, err := ParseAuthorisedKey(key)
 	if err != nil {
 		return "", "", fmt.Errorf("generating key fingerprint: %v", err)
 	}
-	sum := md5.Sum(ak.Key)
+	hash := md5.New()
+	hash.Write(ak.Key)
+	sum := hash.Sum(nil)
 	var buf bytes.Buffer
-	for i, b := range sum {
+	for i := 0; i < hash.Size(); i++ {
 		if i > 0 {
 			buf.WriteByte(':')
 		}
-		buf.WriteString(fmt.Sprintf("%02x", b))
+		buf.WriteString(fmt.Sprintf("%02x", sum[i]))
 	}
 	return buf.String(), ak.Comment, nil
 }
