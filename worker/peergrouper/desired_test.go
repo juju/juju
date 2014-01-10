@@ -22,6 +22,8 @@ type desiredPeerGroupSuite struct {
 
 var _ = gc.Suite(&desiredPeerGroupSuite{})
 
+const mongoPort = 1234
+
 var desiredPeerGroupTests = []struct {
 	about     string
 	machines  []*machine
@@ -33,34 +35,17 @@ var desiredPeerGroupTests = []struct {
 	expectVoting  []bool
 	expectErr     string
 }{{
-	about:    "single machine, no change",
-	machines: mkMachines("11c"),
-	members:  mkMembers("1v"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}},
-	mongoPort:     1234,
+	about:         "single machine, no change",
+	machines:      mkMachines("11c"),
+	members:       mkMembers("1v"),
+	statuses:      mkStatuses("1p"),
 	expectVoting:  []bool{true},
 	expectMembers: nil,
 }, {
-	about:    "extra member with nil Vote",
-	machines: mkMachines("11c"),
-	members:  mkMembers("1v 2vT"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:    1234,
+	about:        "extra member with nil Vote",
+	machines:     mkMachines("11c"),
+	members:      mkMembers("1v 2vT"),
+	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
 	expectErr:    "voting non-machine member found in peer group",
 }, {
@@ -71,199 +56,95 @@ var desiredPeerGroupTests = []struct {
 		Votes:   newInt(2),
 		Address: "0.1.2.12:1234",
 	}),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:    1234,
+	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
 	expectErr:    "voting non-machine member found in peer group",
 }, {
-	about:    "new machine with no associated member",
-	machines: mkMachines("11c 12c"),
-	members:  mkMembers("1v"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}},
-	mongoPort:     1234,
+	about:         "new machine with no associated member",
+	machines:      mkMachines("11c 12c"),
+	members:       mkMembers("1v"),
+	statuses:      mkStatuses("1p"),
 	expectVoting:  []bool{true, false},
 	expectMembers: mkMembers("1v 2"),
 }, {
-	about:    "one machine has become ready to vote  (-> no change)",
-	machines: mkMachines("11c 12c"),
-	members:  mkMembers("1v 2"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:     1234,
+	about:         "one machine has become ready to vote  (-> no change)",
+	machines:      mkMachines("11c 12c"),
+	members:       mkMembers("1v 2"),
+	statuses:      mkStatuses("1p 2s"),
 	expectVoting:  []bool{true, false},
 	expectMembers: nil,
 }, {
-	about:    "two machines have become ready to vote (-> added)",
-	machines: mkMachines("11c 12c 13c"),
-	members:  mkMembers("1v 2 3"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}, {
-		Id:      3,
-		Address: "0.1.2.13:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:     1234,
+	about:         "two machines have become ready to vote (-> added)",
+	machines:      mkMachines("11c 12c 13c"),
+	members:       mkMembers("1v 2 3"),
+	statuses:      mkStatuses("1p 2s 3s"),
 	expectVoting:  []bool{true, true, true},
 	expectMembers: mkMembers("1v 2v 3v"),
 }, {
-	about:    "three machines have become ready to vote (-> 2 added)",
-	machines: mkMachines("11c 12c 13c 14c"),
-	members:  mkMembers("1v 2 3 4"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}, {
-		Id:      3,
-		Address: "0.1.2.13:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}, {
-		Id:      4,
-		Address: "0.1.2.14:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:     1234,
+	about:         "two machines have become ready to vote but one is not healthy (-> no change)",
+	machines:      mkMachines("11c 12c 13c"),
+	members:       mkMembers("1v 2 3"),
+	statuses:      mkStatuses("1p 2s 3sH"),
+	expectVoting:  []bool{true, false, false},
+	expectMembers: nil,
+}, {
+	about:         "three machines have become ready to vote (-> 2 added)",
+	machines:      mkMachines("11c 12c 13c 14c"),
+	members:       mkMembers("1v 2 3 4"),
+	statuses:      mkStatuses("1p 2s 3s 4s"),
 	expectVoting:  []bool{true, true, true, false},
 	expectMembers: mkMembers("1v 2v 3v 4"),
 }, {
-	about:    "one machine ready to lose vote with no others -> no change",
-	machines: mkMachines("11"),
-	members: []replicaset.Member{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Tags:    memberTag("11"),
-	}},
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}},
-	mongoPort:     1234,
+	about:         "one machine ready to lose vote with no others -> no change",
+	machines:      mkMachines("11"),
+	members:       mkMembers("1v"),
+	statuses:      mkStatuses("1p"),
 	expectVoting:  []bool{true},
 	expectMembers: nil,
 }, {
-	about:    "two machines ready to lose vote -> votes removed",
-	machines: mkMachines("11 12c 13"),
-	members:  mkMembers("1v 2v 3v"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}, {
-		Id:      3,
-		Address: "0.1.2.13:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:     1234,
+	about:         "two machines ready to lose vote -> votes removed",
+	machines:      mkMachines("11 12c 13"),
+	members:       mkMembers("1v 2v 3v"),
+	statuses:      mkStatuses("1p 2p 3p"),
 	expectVoting:  []bool{false, true, false},
 	expectMembers: mkMembers("1 2v 3"),
 }, {
-	about:    "one machine removed as state server -> removed from members",
-	machines: mkMachines("11c"),
-	members:  mkMembers("1v 2"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:    1234,
-	expectVoting: []bool{true},
-	expectMembers: []replicaset.Member{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Tags:    memberTag("11"),
-	}},
+	about:         "machines removed as state server -> removed from members",
+	machines:      mkMachines("11c"),
+	members:       mkMembers("1v 2 3"),
+	statuses:      mkStatuses("1p 2s 3s"),
+	expectVoting:  []bool{true},
+	expectMembers: mkMembers("1v"),
 }, {
-	about:    "candidates can take the vote of a non-candidates when they're ready",
-	machines: mkMachines("11c 12c 13 14c"),
-	members:  mkMembers("1v 2v 3v 4"),
-	statuses: []replicaset.Status{{
-		Id:      1,
-		Address: "0.1.2.11:1234",
-		Healthy: true,
-		State:   replicaset.PrimaryState,
-	}, {
-		Id:      2,
-		Address: "0.1.2.12:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}, {
-		Id:      3,
-		Address: "0.1.2.13:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}, {
-		Id:      4,
-		Address: "0.1.2.13:1234",
-		Healthy: true,
-		State:   replicaset.SecondaryState,
-	}},
-	mongoPort:     1234,
+	about:         "a candidate can take the vote of a non-candidate when they're ready",
+	machines:      mkMachines("11c 12c 13 14c"),
+	members:       mkMembers("1v 2v 3v 4"),
+	statuses:      mkStatuses("1p 2s 3s 4s"),
 	expectVoting:  []bool{true, true, false, true},
 	expectMembers: mkMembers("1v 2v 3 4v"),
+}, {
+	about:         "several candidates can take non-candidates' votes",
+	machines:      mkMachines("11c 12c 13 14 15 16c 17c 18c"),
+	members:       mkMembers("1v 2v 3v 4v 5v 6 7 8"),
+	statuses:      mkStatuses("1p 2s 3s 4s 5s 6s 7s 8s"),
+	expectVoting:  []bool{true, true, false, false, false, true, true, true},
+	expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v"),
+}, {
+	about: "a changed machine address should propagate to the members",
+	machines: append(mkMachines("11c 12c"), &machine{
+		id:        "13",
+		candidate: true,
+		host:      "0.1.99.13",
+	}),
+	statuses:     mkStatuses("1s 2p 3p"),
+	members:      mkMembers("1v 2v 3v"),
+	expectVoting: []bool{true, true, true},
+	expectMembers: append(mkMembers("1v 2v"), replicaset.Member{
+		Id:      3,
+		Address: "0.1.99.13:1234",
+		Tags:    memberTag("13"),
+	}),
 }}
-
-func memberTag(id string) map[string]string {
-	return map[string]string{
-		"juju-machine-id": id,
-	}
-}
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	for i, test := range desiredPeerGroupTests {
@@ -272,7 +153,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			machines:  test.machines,
 			statuses:  test.statuses,
 			members:   test.members,
-			mongoPort: test.mongoPort,
+			mongoPort: mongoPort,
 		}
 		members, err := desiredPeerGroup(info)
 		if test.expectErr != "" {
@@ -287,16 +168,33 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		for i, m := range info.machines {
 			c.Assert(m.voting, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
-		if len(members) > 0 {
-			// Make sure that when the members are set as
-			// required, that there's no further change
-			// if desiredPeerGroup is called again.
-			info.members = members
-			members, err := desiredPeerGroup(info)
-			c.Assert(members, gc.IsNil)
-			c.Assert(err, gc.IsNil)
+		if len(members) == 0 {
+			continue
 		}
+		// Assure ourselves that the total number of desired votes is odd in
+		// all circumstances.
+		c.Assert(countVotes(members)%2, gc.Equals, 1)
+
+		// Make sure that when the members are set as
+		// required, that there's no further change
+		// if desiredPeerGroup is called again.
+		info.members = members
+		members, err = desiredPeerGroup(info)
+		c.Assert(members, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 	}
+}
+
+func countVotes(members []replicaset.Member) int {
+	tot := 0
+	for _, m := range members {
+		v := 1
+		if m.Votes != nil {
+			v = *m.Votes
+		}
+		tot += v
+	}
+	return tot
 }
 
 func newInt(i int) *int {
@@ -325,6 +223,10 @@ func mkMachines(description string) []*machine {
 	return ms
 }
 
+func memberTag(id string) map[string]string {
+	return map[string]string{"juju-machine-id": id}
+}
+
 // mkMembers returns a slice of *replicaset.Member
 // based on the given description.
 // Each member in the description is white-space separated
@@ -340,7 +242,7 @@ func mkMembers(description string) []replicaset.Member {
 		machineId := d.id + 10
 		m := replicaset.Member{
 			Id:      d.id,
-			Address: fmt.Sprintf("0.1.2.%d:1234", machineId),
+			Address: fmt.Sprintf("0.1.2.%d:%d", machineId, mongoPort),
 			Tags:    memberTag(fmt.Sprint(machineId)),
 		}
 		if !strings.Contains(d.flags, "v") {
@@ -353,6 +255,40 @@ func mkMembers(description string) []replicaset.Member {
 		ms[i] = m
 	}
 	return ms
+}
+
+var stateFlags = map[rune]replicaset.MemberState{
+	'p': replicaset.PrimaryState,
+	's': replicaset.SecondaryState,
+}
+
+// mkStatuses returns a slice of *replicaset.Member
+// based on the given description.
+// Each member in the description is white-space separated
+// and holds the decimal replica-set id optionally followed by the
+// characters:
+// 	- 'H' if the instance is not healthy.
+//	- 'p' if the instance is in PrimaryState
+//	- 's' if the instance is in SecondaryState
+func mkStatuses(description string) []replicaset.Status {
+	descrs := parseDescr(description)
+	ss := make([]replicaset.Status, len(descrs))
+	for i, d := range descrs {
+		machineId := d.id + 10
+		s := replicaset.Status{
+			Id:      d.id,
+			Address: fmt.Sprintf("0.1.2.%d:1234", machineId),
+			Healthy: !strings.Contains(d.flags, "H"),
+			State:   replicaset.UnknownState,
+		}
+		for _, r := range d.flags {
+			if state, ok := stateFlags[r]; ok {
+				s.State = state
+			}
+		}
+		ss[i] = s
+	}
+	return ss
 }
 
 type descr struct {
@@ -396,6 +332,8 @@ func (*desiredPeerGroupSuite) TestParseDescr(c *gc.C) {
 	}
 }
 
+// parseDescr parses white-space separated fields of the form
+// <id><flags> into descr structures.
 func parseDescr(s string) []descr {
 	fields := strings.Fields(s)
 	descrs := make([]descr, len(fields))

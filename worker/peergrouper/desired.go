@@ -60,7 +60,9 @@ func min(i, j int) int {
 
 // desiredPeerGroup returns the mongo peer group according
 // to the given servers. It may return (nil, nil) if the current
-// group is already correct.
+// group is already correct. On return, the elements
+// in info.machines will have their voting status set
+// according to whether they are voting or not.
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	changed := false
 	members, extra, maxId := info.membersMap()
@@ -137,10 +139,9 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	toAddVote = toAddVote[nreplace:]
 	toRemoveVote = toRemoveVote[nreplace:]
 
-	// At this point, one or both of toAdd or toRemove
-	// is empty, so we can adjust the voting-member count
-	// by an even delta, maintaining the invariant
-	// that the total vote count is odd.
+	// At this point, one or both of toAdd or toRemove is empty, so
+	// we can adjust the voting-member count by an even delta,
+	// maintaining the invariant that the total vote count is odd.
 	if len(toAddVote) > 0 {
 		toAddVote = toAddVote[0 : len(toAddVote)-len(toAddVote)%2]
 		for _, m := range toAddVote {
@@ -155,9 +156,9 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	for _, m := range toKeep {
 		if members[m] == nil && m.host != "" {
 			// This machine was not previously in the members list,
-			// so add it (as non-voting).
+			// so add it (as non-voting). We maintain the
+			// id manually to make it easier for tests.
 			maxId++
-			logger.Infof("adding new member with id %d", maxId)
 			member := &replicaset.Member{
 				Tags: map[string]string{
 					"juju-machine-id": m.id,
