@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	stdlog "log"
 	"net"
 	"os"
 	"os/exec"
@@ -17,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	stdtesting "testing"
-	stdlog "log"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -282,7 +282,7 @@ func (inst *MgoInstance) DialInfo() *mgo.DialInfo {
 		ServerName: "anything",
 	}
 	return &mgo.DialInfo{
-		Addrs:  []string{inst.addr},
+		Addrs: []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		},

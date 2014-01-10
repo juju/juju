@@ -21,7 +21,7 @@ type peerGroupInfo struct {
 type machine struct {
 	id        string
 	candidate bool
-	host string
+	host      string
 
 	// Set by desiredPeerGroup
 	voting bool
