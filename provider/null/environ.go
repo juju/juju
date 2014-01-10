@@ -4,9 +4,12 @@
 package null
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"net"
 	"path"
+	"strings"
 	"sync"
 
 	"launchpad.net/loggo"
@@ -26,7 +29,9 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
+	"launchpad.net/juju-core/worker/terminationworker"
 )
 
 const (
@@ -228,8 +233,25 @@ func (e *nullEnviron) Storage() storage.Storage {
 	return nil
 }
 
+var runSSHCommand = func(host string, command []string) (stderr string, err error) {
+	cmd := ssh.Command(host, command, ssh.NoPasswordAuthentication)
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	err = cmd.Run()
+	return stderrBuf.String(), err
+}
+
 func (e *nullEnviron) Destroy() error {
-	return errors.New("null provider destruction is not implemented yet")
+	stderr, err := runSSHCommand(
+		"ubuntu@"+e.envConfig().bootstrapHost(),
+		[]string{"sudo", "pkill", fmt.Sprintf("-%d", terminationworker.TerminationSignal), "jujud"},
+	)
+	if err != nil {
+		if stderr := strings.TrimSpace(stderr); len(stderr) > 0 {
+			err = fmt.Errorf("%v (%v)", err, stderr)
+		}
+	}
+	return err
 }
 
 func (e *nullEnviron) OpenPorts(ports []instance.Port) error {

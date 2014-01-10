@@ -80,7 +80,35 @@ func (s *environSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	c.Assert(s.env.Destroy(), gc.ErrorMatches, "null provider destruction is not implemented yet")
+	var resultStderr string
+	var resultErr error
+	runSSHCommandTesting := func(host string, command []string) (string, error) {
+		c.Assert(host, gc.Equals, "ubuntu@hostname")
+		c.Assert(command, gc.DeepEquals, []string{"sudo", "pkill", "-6", "jujud"})
+		return resultStderr, resultErr
+	}
+	s.PatchValue(&runSSHCommand, runSSHCommandTesting)
+	type test struct {
+		stderr string
+		err    error
+		match  string
+	}
+	tests := []test{
+		{"", nil, ""},
+		{"abc", nil, ""},
+		{"", errors.New("oh noes"), "oh noes"},
+		{"123", errors.New("abc"), "abc \\(123\\)"},
+	}
+	for i, t := range tests {
+		c.Logf("test %d: %v", i, t)
+		resultStderr, resultErr = t.stderr, t.err
+		err := s.env.Destroy()
+		if t.match == "" {
+			c.Assert(err, gc.IsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, t.match)
+		}
+	}
 }
 
 func (s *environSuite) TestLocalStorageConfig(c *gc.C) {
