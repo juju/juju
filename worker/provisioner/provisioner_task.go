@@ -316,12 +316,14 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	}
 
 	for _, m := range task.machines {
-		if instId, err := m.InstanceId(); err == nil {
+		instId, err := m.InstanceId()
+		switch {
+		case err == nil:
 			delete(instances, instId)
-		} else if !params.IsCodeNotProvisioned(err) {
-			if !params.IsCodeNotFoundOrCodeUnauthorized(err) {
-				return nil, err
-			}
+		case params.IsCodeNotProvisioned(err):
+		case params.IsCodeNotFoundOrCodeUnauthorized(err):
+		default:
+			return nil, err
 		}
 	}
 	// Now remove all those instances that we are stopping already as we
