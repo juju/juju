@@ -14,7 +14,7 @@ import (
 
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -77,7 +77,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
-func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
+func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
 		return results, err
@@ -113,10 +113,10 @@ func (c *Client) Run(run api.RunParams) (results api.RunResults, err error) {
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
+func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, error) {
 	machines, err := c.api.state.AllMachines()
 	if err != nil {
-		return api.RunResults{}, err
+		return params.RunResults{}, err
 	}
 	var params []*RemoteExec
 	for _, machine := range machines {
@@ -126,7 +126,7 @@ func (c *Client) RunOnAllMachines(run api.RunParams) (api.RunResults, error) {
 }
 
 // RemoteExec extends the standard ssh.ExecParams by providing the machine and
-// perhaps the unit ids.  These are then returned in the api.RunResult return
+// perhaps the unit ids.  These are then returned in the params.RunResult return
 // values.
 type RemoteExec struct {
 	ssh.ExecParams
@@ -136,20 +136,20 @@ type RemoteExec struct {
 
 // ParallelExecute executes all of the requests defined in the params,
 // using the system identity stored in the dataDir.
-func ParallelExecute(dataDir string, params []*RemoteExec) api.RunResults {
-	logger.Debugf("exec %#v", params)
+func ParallelExecute(dataDir string, runParams []*RemoteExec) params.RunResults {
+	logger.Debugf("exec %#v", runParams)
 	var outstanding sync.WaitGroup
 	var lock sync.Mutex
-	var result []api.RunResult
+	var result []params.RunResult
 	identity := filepath.Join(dataDir, cloudinit.SystemIdentity)
-	for _, param := range params {
+	for _, param := range runParams {
 		outstanding.Add(1)
 		logger.Debugf("exec on %s: %#v", param.MachineId, *param)
 		param.IdentityFile = identity
 		go func(param *RemoteExec) {
 			response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
 			logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
-			execResponse := api.RunResult{
+			execResponse := params.RunResult{
 				RemoteResponse: response,
 				MachineId:      param.MachineId,
 				UnitId:         param.UnitId,
@@ -167,12 +167,12 @@ func ParallelExecute(dataDir string, params []*RemoteExec) api.RunResults {
 
 	outstanding.Wait()
 	sort.Sort(MachineOrder(result))
-	return api.RunResults{result}
+	return params.RunResults{result}
 }
 
 // MachineOrder is used to provide the api to sort the results by the machine
 // id.
-type MachineOrder []api.RunResult
+type MachineOrder []params.RunResult
 
 func (a MachineOrder) Len() int           { return len(a) }
 func (a MachineOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }

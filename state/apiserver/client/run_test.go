@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -226,10 +226,10 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	results, err := client.RunOnAllMachines("hostname", testing.ShortWait)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.HasLen, 3)
-	var expectedResults []api.RunResult
+	var expectedResults []params.RunResult
 	for i := 0; i < 3; i++ {
 		expectedResults = append(expectedResults,
-			api.RunResult{
+			params.RunResult{
 				RemoteResponse: cmd.RemoteResponse{Stdout: []byte("hostname\n")},
 				MachineId:      fmt.Sprint(i),
 			})
@@ -254,7 +254,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	// other client tests are written.
 	client := s.APIState.Client()
 	results, err := client.Run(
-		api.RunParams{
+		params.RunParams{
 			Commands: "hostname",
 			Timeout:  testing.ShortWait,
 			Machines: []string{"0"},
@@ -262,17 +262,17 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.HasLen, 3)
-	expectedResults := []api.RunResult{
-		api.RunResult{
+	expectedResults := []params.RunResult{
+		params.RunResult{
 			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("hostname\n")},
 			MachineId:      "0",
 		},
-		api.RunResult{
+		params.RunResult{
 			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
 			MachineId:      "1",
 			UnitId:         "magic/0",
 		},
-		api.RunResult{
+		params.RunResult{
 			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
 			MachineId:      "2",
 			UnitId:         "magic/1",
