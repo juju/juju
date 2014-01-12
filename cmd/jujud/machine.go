@@ -310,7 +310,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
+				dataDir := a.Conf.config.DataDir()
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
