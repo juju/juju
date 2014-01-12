@@ -39,6 +39,7 @@ import (
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -135,6 +136,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
 		return a.APIWorker(ensureStateWorker)
+	})
+	a.runner.StartWorker("termination", func() (worker.Worker, error) {
+		return terminationworker.NewWorker(), nil
 	})
 	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
