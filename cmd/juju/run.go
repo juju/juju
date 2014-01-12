@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // RunCommand is responsible for running arbitrary commands on remote machines.
@@ -145,7 +145,7 @@ func storeOutput(values map[string]interface{}, key string, input []byte) {
 
 // ConvertRunResults takes the results from the api and creates a map
 // suitable for format converstion to YAML or JSON.
-func ConvertRunResults(runResults []api.RunResult) interface{} {
+func ConvertRunResults(runResults []params.RunResult) interface{} {
 	var results = make([]interface{}, len(runResults))
 
 	for i, result := range runResults {
@@ -180,11 +180,11 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var runResults []api.RunResult
+	var runResults []params.RunResult
 	if c.all {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
-		params := api.RunParams{
+		params := params.RunParams{
 			Commands: c.commands,
 			Timeout:  c.timeout,
 			Machines: c.machines,
@@ -223,8 +223,8 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 
 type RunClient interface {
 	Close() error
-	RunOnAllMachines(commands string, timeout time.Duration) ([]api.RunResult, error)
-	Run(params api.RunParams) ([]api.RunResult, error)
+	RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error)
+	Run(run params.RunParams) ([]params.RunResult, error)
 }
 
 // Here we need the signature to be correct for the interface.
