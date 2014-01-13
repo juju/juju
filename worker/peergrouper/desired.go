@@ -58,12 +58,11 @@ func min(i, j int) int {
 	return j
 }
 
-// desiredPeerGroup returns the mongo peer group according
-// to the given servers. It may return (nil, nil) if the current
-// group is already correct. On return, the elements
-// in info.machines will have their voting status set
-// according to whether they are voting or not.
-func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
+// desiredPeerGroup returns the mongo peer group according to the given
+// servers and a map with an element for each machine in info.machines
+// specifying whether that machine has been configured as voting. It may
+// return (nil, nil, nil) if the current group is already correct.
+func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
 	changed := false
 	members, extra, maxId := info.membersMap()
 	logger.Infof("got members: %#v", members)
@@ -86,17 +85,18 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 	// 5) do nothing "nothing to see here"
 	for _, member := range extra {
 		if member.Votes == nil || *member.Votes > 0 {
-			return nil, fmt.Errorf("voting non-machine member found in peer group")
+			return nil, nil, fmt.Errorf("voting non-machine member found in peer group")
 		}
 		changed = true
 	}
 	statuses := info.statusesMap(members)
 
+	machineVoting := make(map[*machine]bool)
 	var toRemoveVote, toAddVote, toKeep []*machine
 	for _, m := range info.machines {
 		member := members[m]
 		isVoting := member != nil && (member.Votes == nil || *member.Votes > 0)
-		m.voting = isVoting
+		machineVoting[m] = isVoting
 		switch {
 		case m.candidate && isVoting:
 			toKeep = append(toKeep, m)
@@ -122,7 +122,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 
 	setVoting := func(m *machine, voting bool) {
 		setMemberVoting(members[m], voting)
-		m.voting = voting
+		machineVoting[m] = voting
 		changed = true
 	}
 
@@ -182,13 +182,13 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, error) {
 		}
 	}
 	if !changed {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var memberSet []replicaset.Member
 	for _, member := range members {
 		memberSet = append(memberSet, *member)
 	}
-	return memberSet, nil
+	return memberSet, machineVoting, nil
 }
 
 func isReady(status replicaset.Status) bool {

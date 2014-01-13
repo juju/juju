@@ -155,7 +155,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			members:   test.members,
 			mongoPort: mongoPort,
 		}
-		members, err := desiredPeerGroup(info)
+		members, voting, err := desiredPeerGroup(info)
 		if test.expectErr != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectErr)
 			c.Assert(members, gc.IsNil)
@@ -165,11 +165,11 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			_, err := deepdiff.DeepDiff(members, test.expectMembers)
 			c.Fatalf("diff err: %v", err)
 		}
-		for i, m := range info.machines {
-			c.Assert(m.voting, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
-		}
 		if len(members) == 0 {
 			continue
+		}
+		for i, m := range info.machines {
+			c.Assert(voting[m], gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		// Assure ourselves that the total number of desired votes is odd in
 		// all circumstances.
@@ -179,8 +179,9 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		// required, that there's no further change
 		// if desiredPeerGroup is called again.
 		info.members = members
-		members, err = desiredPeerGroup(info)
+		members, voting, err = desiredPeerGroup(info)
 		c.Assert(members, gc.IsNil)
+		c.Assert(voting, gc.IsNil)
 		c.Assert(err, gc.IsNil)
 	}
 }
