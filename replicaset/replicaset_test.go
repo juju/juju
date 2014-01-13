@@ -170,7 +170,16 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		members = append(members, Member{Address: inst.Addr(), Tags: tags})
 	}
 
-	err := Add(session, members...)
+	var err error
+
+	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
+		err = Add(session, members...)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers := make([]Member, len(members))
@@ -180,7 +189,15 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		expectedMembers[x] = m
 	}
 
-	cfg, err := CurrentConfig(session)
+	var cfg *Config
+	attempt = strategy.Start()
+	for attempt.Next() {
+		cfg, err = CurrentConfig(session)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
+
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name, gc.Equals, name)
 
@@ -192,7 +209,13 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
 	// Now remove the last two Members
-	err = Remove(session, members[3].Address, members[4].Address)
+	attempt = strategy.Start()
+	for attempt.Next() {
+		err = Remove(session, members[3].Address, members[4].Address)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers = expectedMembers[0:3]
@@ -205,16 +228,22 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// plus the new arbiter
 	mems = []Member{members[3], mems[2], mems[0], members[4]}
 
-	err = Set(session, mems)
+	attempt = strategy.Start()
+	for attempt.Next() {
+		err = Set(session, mems)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
+
 	c.Assert(err, gc.IsNil)
 
-	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
-	attempt := strategy.Start()
+	attempt = strategy.Start()
 	for attempt.Next() {
 		// can dial whichever replica address here, mongo will figure it out
 		session = instances[0].MustDialDirect()
-		err := session.Ping()
-		if err == nil {
+		err = session.Ping()
+		if err == nil || !attempt.HasNext() {
 			break
 		}
 	}
@@ -226,7 +255,13 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	expectedMembers[0].Id = 4
 	expectedMembers[3].Id = 5
 
-	mems, err = CurrentMembers(session)
+	attempt = strategy.Start()
+	for attempt.Next() {
+		mems, err = CurrentMembers(session)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 }
@@ -275,7 +310,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	attempt := strategy.Start()
 	for attempt.Next() {
 		err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
-		if err == nil {
+		if err == nil || !attempt.HasNext() {
 			break
 		}
 	}
@@ -307,7 +342,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		}},
 	}
 
-	strategy = utils.AttemptStrategy{Total: time.Second * 60, Delay: time.Millisecond * 100}
+	strategy.Total = time.Second * 60
 	attempt = strategy.Start()
 	var res *Status
 	for attempt.Next() {
