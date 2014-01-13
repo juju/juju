@@ -223,12 +223,13 @@ type replicaConfig struct {
 	Members []Member `bson:"members"`
 }
 
-// CurrentStatus returns the status of each member.
+// CurrentStatus returns the status of each member, keyed by member address.
 func CurrentStatus(session *mgo.Session) ([]Status, error) {
-	var list struct {
+	type statuslist struct {
 		Members []Status `bson:"members"`
 	}
-	err := session.Run("replSetGetStatus", &list)
+	list := &statuslist{}
+	err := session.Run("replSetGetStatus", list)
 	if err != nil {
 		return nil, fmt.Errorf("Error from replSetGetStatus: %v", err)
 	}
@@ -236,7 +237,7 @@ func CurrentStatus(session *mgo.Session) ([]Status, error) {
 }
 
 // Status holds the status of a replica set member returned from
-// CurrentStatus.
+// replSetGetStatus.
 type Status struct {
 	// Id holds the replica set id of the member that the status is describing.
 	Id int `bson:"_id"`
@@ -259,7 +260,7 @@ type Status struct {
 	Healthy bool `bson:"health"`
 
 	// State describes the current state of the member.
-	State MemberState `bson:"state"`
+	State MemberState `bson:"myState"`
 
 	// Uptime describes how long the member has been online.
 	Uptime time.Duration `bson:"uptime"`

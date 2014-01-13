@@ -75,8 +75,6 @@ type MgoSuite struct {
 	Session *mgo.Session
 }
 
-var serverKey = "not very secret"
-
 // Start starts a MongoDB server in a temporary directory.
 func (inst *MgoInstance) Start() error {
 	dbdir, err := ioutil.TempDir("", "test-mgo")
@@ -87,11 +85,6 @@ func (inst *MgoInstance) Start() error {
 	err = ioutil.WriteFile(pemPath, []byte(ServerCert+ServerKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
-	}
-	keyFilePath := filepath.Join(dbdir, "keyfile")
-	err = ioutil.WriteFile(keyFilePath, []byte(serverKey), 0600)
-	if err != nil {
-		return fmt.Errorf("cannot write key file: %v", err)
 	}
 	inst.port = FindTCPPort()
 	inst.addr = fmt.Sprintf("localhost:%d", inst.port)
@@ -113,12 +106,10 @@ func (inst *MgoInstance) run() error {
 	}
 	mgoport := strconv.Itoa(inst.port)
 	mgoargs := []string{
-		"--bind_ip", "127.0.0.1",
 		"--auth",
 		"--dbpath", inst.dir,
 		"--sslOnNormalPorts",
 		"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
-		"--keyFile", filepath.Join(inst.dir, "keyfile"),
 		"--sslPEMKeyPassword", "ignored",
 		"--port", mgoport,
 		"--nssize", "1",
@@ -138,7 +129,7 @@ func (inst *MgoInstance) run() error {
 	server.Stderr = server.Stdout
 	exited := make(chan struct{})
 	go func() {
-		lines := readLines(fmt.Sprintf("mongod:%v", mgoport), out, 20)
+		lines := readLines(out, 20)
 		err := server.Wait()
 		exitErr, _ := err.(*exec.ExitError)
 		if err == nil || exitErr != nil && exitErr.Exited() {
@@ -204,14 +195,13 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 
 // readLines reads lines from the given reader and returns
 // the last n non-empty lines, ignoring empty lines.
-func readLines(prefix string, r io.Reader, n int) []string {
+func readLines(r io.Reader, n int) []string {
 	br := bufio.NewReader(r)
 	lines := make([]string, n)
 	i := 0
 	for {
 		line, err := br.ReadString('\n')
 		if line = strings.TrimRight(line, "\n"); line != "" {
-			stdlog.Printf("%s: %s", prefix, line)
 			lines[i%n] = line
 			i++
 		}
