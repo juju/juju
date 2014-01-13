@@ -25,11 +25,10 @@ var _ = gc.Suite(&desiredPeerGroupSuite{})
 const mongoPort = 1234
 
 var desiredPeerGroupTests = []struct {
-	about     string
-	machines  []*machine
-	statuses  []replicaset.Status
-	members   []replicaset.Member
-	mongoPort int
+	about    string
+	machines []*machine
+	statuses []replicaset.Status
+	members  []replicaset.Member
 
 	expectMembers []replicaset.Member
 	expectVoting  []bool
@@ -134,7 +133,7 @@ var desiredPeerGroupTests = []struct {
 	machines: append(mkMachines("11v 12v"), &machine{
 		id:        "13",
 		wantsVote: true,
-		host:      "0.1.99.13",
+		hostPort:  "0.1.99.13:1234",
 	}),
 	statuses:     mkStatuses("1s 2p 3p"),
 	members:      mkMembers("1v 2v 3v"),
@@ -150,10 +149,9 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	for i, test := range desiredPeerGroupTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		info := &peerGroupInfo{
-			machines:  test.machines,
-			statuses:  test.statuses,
-			members:   test.members,
-			mongoPort: mongoPort,
+			machines: test.machines,
+			statuses: test.statuses,
+			members:  test.members,
 		}
 		members, voting, err := desiredPeerGroup(info)
 		if test.expectErr != "" {
@@ -214,7 +212,7 @@ func mkMachines(description string) []*machine {
 	for i, d := range descrs {
 		ms[i] = &machine{
 			id:        fmt.Sprint(d.id),
-			host:      fmt.Sprintf("0.1.2.%d", d.id),
+			hostPort:  fmt.Sprintf("0.1.2.%d:%d", d.id, mongoPort),
 			wantsVote: strings.Contains(d.flags, "v"),
 		}
 	}
@@ -275,7 +273,7 @@ func mkStatuses(description string) []replicaset.Status {
 		machineId := d.id + 10
 		s := replicaset.Status{
 			Id:      d.id,
-			Address: fmt.Sprintf("0.1.2.%d:1234", machineId),
+			Address: fmt.Sprintf("0.1.2.%d:%d", machineId, mongoPort),
 			Healthy: !strings.Contains(d.flags, "H"),
 			State:   replicaset.UnknownState,
 		}

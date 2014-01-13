@@ -2,7 +2,6 @@ package peergrouper
 
 import (
 	"fmt"
-	"net"
 	"sort"
 
 	"launchpad.net/juju-core/replicaset"
@@ -11,24 +10,19 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
+// peerGroupInfo holds information that may contribute to
+// a peer group.
 type peerGroupInfo struct {
-	machines  []*machine
-	statuses  []replicaset.Status
-	members   []replicaset.Member
-	mongoPort int
+	machines []*machine // possibly map[id] *machine
+	statuses []replicaset.Status
+	members  []replicaset.Member
 }
 
+// machine represents a machine in State.
 type machine struct {
 	id        string
 	wantsVote bool
-	host      string
-}
-
-func min(i, j int) int {
-	if i < j {
-		return i
-	}
-	return j
+	hostPort  string
 }
 
 // desiredPeerGroup returns the mongo peer group according to the given
@@ -38,8 +32,7 @@ func min(i, j int) int {
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
 	changed := false
 	members, extra, maxId := info.membersMap()
-	logger.Infof("got members: %#v", members)
-	logger.Infof("extra: %#v", extra)
+
 	// We may find extra peer group members if the machines
 	// have been removed or their state server status removed.
 	// This should only happen if they had been set to non-voting
@@ -62,14 +55,59 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 		}
 		changed = true
 	}
+
+	toRemoveVote, toAddVote, toKeep := possiblePeerGroupChanges(info, members)
+
+	// Set up initial record of machine votes. Any changes after
+	// this will trigger a peer group election.
+	machineVoting := make(map[*machine]bool)
+	for _, m := range info.machines {
+		if member := members[m]; member != nil && isVotingMember(member) {
+			machineVoting[m] = true
+		}
+	}
+	setVoting := func(m *machine, voting bool) {
+		setMemberVoting(members[m], voting)
+		machineVoting[m] = voting
+		changed = true
+	}
+	adjustVotes(toRemoveVote, toAddVote, setVoting)
+
+	addNewMembers(members, toKeep, maxId, setVoting)
+	if updateAddresses(members, info.machines) {
+		changed = true
+	}
+	if !changed {
+		return nil, nil, nil
+	}
+	var memberSet []replicaset.Member
+	for _, member := range members {
+		memberSet = append(memberSet, *member)
+	}
+	return memberSet, machineVoting, nil
+}
+
+func isVotingMember(member *replicaset.Member) bool {
+	return member.Votes == nil || *member.Votes > 0
+}
+
+// possiblePeerGroupChanges returns a set of slices
+// classifying all the existing machines according to
+// how their vote might move.
+// toRemoveVote holds machines whose vote should
+// be removed; toAddVote holds machines which are
+// ready to vote; toKeep holds machines with no desired
+// change to their voting status (this includes machines
+// that are not yet represented in the peer group).
+func possiblePeerGroupChanges(
+	info *peerGroupInfo,
+	members map[*machine]*replicaset.Member,
+) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
 
-	machineVoting := make(map[*machine]bool)
-	var toRemoveVote, toAddVote, toKeep []*machine
 	for _, m := range info.machines {
 		member := members[m]
-		isVoting := member != nil && (member.Votes == nil || *member.Votes > 0)
-		machineVoting[m] = isVoting
+		isVoting := member != nil && isVotingMember(member)
 		switch {
 		case m.wantsVote && isVoting:
 			toKeep = append(toKeep, m)
@@ -92,13 +130,32 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	sort.Sort(byId(toRemoveVote))
 	sort.Sort(byId(toAddVote))
 	sort.Sort(byId(toKeep))
+	return toRemoveVote, toAddVote, toKeep
+}
 
-	setVoting := func(m *machine, voting bool) {
-		setMemberVoting(members[m], voting)
-		machineVoting[m] = voting
-		changed = true
+// updateAddresses updates the members' addresses from the machines' addresses.
+// It reports whether any changes have been made.
+func updateAddresses(members map[*machine]*replicaset.Member, machines []*machine) bool {
+	changed := false
+	// Make sure all members' machine addresses are up to date.
+	for _, m := range machines {
+		if m.hostPort == "" {
+			continue
+		}
+		// TODO ensure that replicaset works correctly with IPv6 [host]:port addresses.
+		if m.hostPort != members[m].Address {
+			members[m].Address = m.hostPort
+			changed = true
+		}
 	}
+	return changed
+}
 
+// adjustVotes adjusts the votes of the given machines, taking
+// care not to let the total number of votes become even at
+// any time. It calls setVoting to change the voting status
+// of a machine.
+func adjustVotes(toRemoveVote, toAddVote []*machine, setVoting func(*machine, bool)) {
 	// Remove voting members if they can be replaced by
 	// candidates that are ready. This does not affect
 	// the total number of votes.
@@ -126,8 +183,20 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 			setVoting(m, false)
 		}
 	}
+}
+
+// addNewMembers adds new members from toKeep
+// to the given set of members, allocating ids from
+// maxId upwards. It calls setVoting to set the voting
+// status of each new member.
+func addNewMembers(
+	members map[*machine]*replicaset.Member,
+	toKeep []*machine,
+	maxId int,
+	setVoting func(*machine, bool),
+) {
 	for _, m := range toKeep {
-		if members[m] == nil && m.host != "" {
+		if members[m] == nil && m.hostPort != "" {
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
 			// id manually to make it easier for tests.
@@ -142,26 +211,6 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 			setVoting(m, false)
 		}
 	}
-	// Make sure all members' machine addresses are up to date.
-	for _, m := range info.machines {
-		if m.host == "" {
-			continue
-		}
-		// TODO ensure that replicset works correctly with IPv6 [host]:port addresses.
-		hostPort := net.JoinHostPort(m.host, fmt.Sprint(info.mongoPort))
-		if hostPort != members[m].Address {
-			members[m].Address = hostPort
-			changed = true
-		}
-	}
-	if !changed {
-		return nil, nil, nil
-	}
-	var memberSet []replicaset.Member
-	for _, member := range members {
-		memberSet = append(memberSet, *member)
-	}
-	return memberSet, machineVoting, nil
 }
 
 func isReady(status replicaset.Status) bool {
@@ -187,6 +236,10 @@ func (l byId) Len() int           { return len(l) }
 func (l byId) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l byId) Less(i, j int) bool { return l[i].id < l[j].id }
 
+// membersMap returns the replica-set members inside info keyed
+// by machine. Any members that do not have a corresponding
+// machine are returned in extra.
+// The maximum replica-set id is returned in maxId.
 func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member, extra []replicaset.Member, maxId int) {
 	maxId = -1
 	members = make(map[*machine]*replicaset.Member)
@@ -212,6 +265,9 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 	return members, extra, maxId
 }
 
+// statusesMap returns the statuses inside info keyed by machine.
+// The provided members map holds the members keyed by machine,
+// as returned by membersMap.
 func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.Status {
 	statuses := make(map[*machine]replicaset.Status)
 	for _, status := range info.statuses {
@@ -223,4 +279,11 @@ func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) 
 		}
 	}
 	return statuses
+}
+
+func min(i, j int) int {
+	if i < j {
+		return i
+	}
+	return j
 }
