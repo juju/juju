@@ -33,11 +33,11 @@ func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err 
 		return result, fmt.Errorf("missing host address")
 	}
 	logger.Debugf("execute on %s", params.Host)
-	options := []Option{NoPasswordAuthentication}
+	var options Options
 	if params.IdentityFile != "" {
-		options = append(options, Option{"-i", params.IdentityFile})
+		options.SetIdentities(params.IdentityFile)
 	}
-	command := Command(params.Host, []string{"/bin/bash", "-s"}, options...)
+	command := Command(params.Host, []string{"/bin/bash", "-s"}, &options)
 	// start a go routine to do the actual execution
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
@@ -71,7 +71,7 @@ func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err 
 	case <-time.After(params.Timeout):
 		logger.Infof("killing the command due to timeout")
 		err = fmt.Errorf("command timed out")
-		command.Process.Kill()
+		command.Kill()
 	}
 	// In either case, gather as much as we have from stdout and stderr
 	result.Stderr = stderr.Bytes()

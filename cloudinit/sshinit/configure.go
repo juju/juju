@@ -4,7 +4,6 @@
 package sshinit
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
@@ -22,6 +21,10 @@ type ConfigureParams struct {
 	// Host is the host to configure, in the format [user@]hostname.
 	Host string
 
+	// Client is the SSH client to connect with.
+	// If Client is nil, ssh.DefaultClient will be used.
+	Client ssh.Client
+
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
@@ -38,13 +41,11 @@ func Configure(params ConfigureParams) error {
 		return err
 	}
 	logger.Debugf("running script on %s: %s", params.Host, script)
-	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
-	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	cmd := ssh.Command(
-		params.Host,
-		[]string{"sudo", "-n", fmt.Sprintf("bash -c '%s'", script)},
-		ssh.NoPasswordAuthentication,
-	)
+	client := params.Client
+	if client == nil {
+		client = ssh.DefaultClient
+	}
+	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
 	cmd.Stderr = params.Stderr
 	return cmd.Run()
 }

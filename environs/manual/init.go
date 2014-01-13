@@ -27,10 +27,11 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 // exist on the host machine.
 func checkProvisioned(host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
-	cmd := ssh.Command("ubuntu@"+host, []string{"bash", "-c", utils.ShQuote(checkProvisionedScript)}, ssh.NoPasswordAuthentication)
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	cmd.Stdin = strings.NewReader(checkProvisionedScript)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
@@ -52,7 +53,7 @@ func checkProvisioned(host string) (bool, error) {
 // by connecting to the machine and executing a bash script.
 func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
-	cmd := ssh.Command("ubuntu@"+host, []string{"bash"}, ssh.NoPasswordAuthentication)
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -160,8 +161,9 @@ func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout 
 	//
 	// Note that we explicitly do not allocate a PTY, so we
 	// get a failure if sudo prompts.
-	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, ssh.NoPasswordAuthentication)
+	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
 	if cmd.Run() == nil {
+		logger.Infof("ubuntu user is already initialised")
 		return nil
 	}
 
@@ -171,7 +173,10 @@ func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout 
 		host = login + "@" + host
 	}
 	script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(authorizedKeys))
-	cmd = ssh.Command(host, []string{"sudo", "bash -c " + utils.ShQuote(script)}, ssh.AllocateTTY)
+	var options ssh.Options
+	options.AllowPasswordAuthentication()
+	options.EnablePTY()
+	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout // for sudo prompt

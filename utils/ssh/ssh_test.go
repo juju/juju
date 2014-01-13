@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -18,49 +19,101 @@ type SSHCommandSuite struct {
 	testbase.LoggingSuite
 	testbin string
 	fakessh string
+	fakescp string
+	client  ssh.Client
 }
 
 var _ = gc.Suite(&SSHCommandSuite{})
+
+const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" | tee $0.args"
 
 func (s *SSHCommandSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
-	err := ioutil.WriteFile(s.fakessh, nil, 0755)
+	s.fakescp = filepath.Join(s.testbin, "scp")
+	err := ioutil.WriteFile(s.fakessh, []byte(echoCommandScript), 0755)
 	c.Assert(err, gc.IsNil)
-	s.PatchEnvironment("PATH", s.testbin)
+	err = ioutil.WriteFile(s.fakescp, []byte(echoCommandScript), 0755)
+	c.Assert(err, gc.IsNil)
+	s.PatchEnvironment("PATH", s.testbin+":"+os.Getenv("PATH"))
+	s.client, err = ssh.NewOpenSSHClient()
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *SSHCommandSuite) TestCommand(c *gc.C) {
-	s.assertCommandArgs(c, "localhost", []string{"echo", "123"}, []string{
-		"ssh", "-o", "StrictHostKeyChecking no", "localhost", "--", "echo", "123",
-	})
+func (s *SSHCommandSuite) command(args ...string) *ssh.Cmd {
+	return s.commandOptions(args, nil)
 }
 
-func (s *SSHCommandSuite) assertCommandArgs(c *gc.C, hostname string, command []string, expected []string) {
-	cmd := ssh.Command("localhost", []string{"echo", "123"})
-	c.Assert(cmd, gc.NotNil)
-	c.Assert(cmd.Args, gc.DeepEquals, expected)
+func (s *SSHCommandSuite) commandOptions(args []string, opts *ssh.Options) *ssh.Cmd {
+	return s.client.Command("localhost", args, opts)
+}
+
+func (s *SSHCommandSuite) assertCommandArgs(c *gc.C, cmd *ssh.Cmd, expected string) {
+	out, err := cmd.Output()
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.TrimSpace(string(out)), gc.Equals, expected)
 }
 
 func (s *SSHCommandSuite) TestCommandSSHPass(c *gc.C) {
-	// First create a fake sshpass, but don't set SSHPASS
+	// First create a fake sshpass, but don't set $SSHPASS
 	fakesshpass := filepath.Join(s.testbin, "sshpass")
-	err := ioutil.WriteFile(fakesshpass, nil, 0755)
-	s.assertCommandArgs(c, "localhost", []string{"echo", "123"}, []string{
-		"ssh", "-o", "StrictHostKeyChecking no", "localhost", "--", "echo", "123",
-	})
-
-	// Now set SSHPASS.
+	err := ioutil.WriteFile(fakesshpass, []byte(echoCommandScript), 0755)
+	s.assertCommandArgs(c, s.command("echo", "123"),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no localhost -- echo 123",
+	)
+	// Now set $SSHPASS.
 	s.PatchEnvironment("SSHPASS", "anyoldthing")
-	s.assertCommandArgs(c, "localhost", []string{"echo", "123"}, []string{
-		fakesshpass, "-e", "ssh", "-o", "StrictHostKeyChecking no", "localhost", "--", "echo", "123",
-	})
-
+	s.assertCommandArgs(c, s.command("echo", "123"),
+		fakesshpass+" -e ssh -o StrictHostKeyChecking no -o PasswordAuthentication no localhost -- echo 123",
+	)
 	// Finally, remove sshpass from $PATH.
 	err = os.Remove(fakesshpass)
 	c.Assert(err, gc.IsNil)
-	s.assertCommandArgs(c, "localhost", []string{"echo", "123"}, []string{
-		"ssh", "-o", "StrictHostKeyChecking no", "localhost", "--", "echo", "123",
-	})
+	s.assertCommandArgs(c, s.command("echo", "123"),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no localhost -- echo 123",
+	)
+}
+
+func (s *SSHCommandSuite) TestCommand(c *gc.C) {
+	s.assertCommandArgs(c, s.command("echo", "123"),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no localhost -- echo 123",
+	)
+}
+
+func (s *SSHCommandSuite) TestCommandEnablePTY(c *gc.C) {
+	var opts ssh.Options
+	opts.EnablePTY()
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -t localhost -- echo 123",
+	)
+}
+
+func (s *SSHCommandSuite) TestCommandAllowPasswordAuthentication(c *gc.C) {
+	var opts ssh.Options
+	opts.AllowPasswordAuthentication()
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no localhost -- echo 123",
+	)
+}
+
+func (s *SSHCommandSuite) TestCommandIdentities(c *gc.C) {
+	var opts ssh.Options
+	opts.SetIdentities("x", "y")
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y localhost -- echo 123",
+	)
+}
+
+func (s *SSHCommandSuite) TestCopy(c *gc.C) {
+	var opts ssh.Options
+	opts.EnablePTY()
+	opts.AllowPasswordAuthentication()
+	opts.SetIdentities("x", "y")
+	err := s.client.Copy("/tmp/blah", "foo@bar.com:baz", &opts)
+	c.Assert(err, gc.IsNil)
+	out, err := ioutil.ReadFile(s.fakescp + ".args")
+	c.Assert(err, gc.IsNil)
+	// EnablePTY has no effect for Copy
+	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y /tmp/blah foo@bar.com:baz\n")
 }
