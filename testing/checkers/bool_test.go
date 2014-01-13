@@ -112,6 +112,10 @@ func (s *BoolSuite) TestDeepEquals(c *gc.C) {
 		c.Logf("test %d. %v == %v is %v", i, test.a, test.b, test.eq)
 		result, msg := jc.DeepEquals.Check([]interface{}{test.a, test.b}, nil)
 		c.Check(result, gc.Equals, test.eq)
-		c.Check(msg, gc.Equals, "")
+		if test.eq {
+			c.Check(msg, gc.Equals, "")
+		} else {
+			c.Check(msg, gc.Not(gc.Equals), "")
+		}
 	}
 }
