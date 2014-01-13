@@ -250,6 +250,7 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 			for _, m := range info.machines {
 				if m.id == mid {
 					found = m
+					break
 				}
 			}
 		}
