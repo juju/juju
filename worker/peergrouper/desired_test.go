@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/replicaset"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -35,21 +36,21 @@ var desiredPeerGroupTests = []struct {
 	expectErr     string
 }{{
 	about:         "single machine, no change",
-	machines:      mkMachines("11c"),
+	machines:      mkMachines("11v"),
 	members:       mkMembers("1v"),
 	statuses:      mkStatuses("1p"),
 	expectVoting:  []bool{true},
 	expectMembers: nil,
 }, {
 	about:        "extra member with nil Vote",
-	machines:     mkMachines("11c"),
+	machines:     mkMachines("11v"),
 	members:      mkMembers("1v 2vT"),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
 	expectErr:    "voting non-machine member found in peer group",
 }, {
 	about:    "extra member with >1 votes",
-	machines: mkMachines("11c"),
+	machines: mkMachines("11v"),
 	members: append(mkMembers("1v"), replicaset.Member{
 		Id:      2,
 		Votes:   newInt(2),
@@ -60,35 +61,35 @@ var desiredPeerGroupTests = []struct {
 	expectErr:    "voting non-machine member found in peer group",
 }, {
 	about:         "new machine with no associated member",
-	machines:      mkMachines("11c 12c"),
+	machines:      mkMachines("11v 12v"),
 	members:       mkMembers("1v"),
 	statuses:      mkStatuses("1p"),
 	expectVoting:  []bool{true, false},
 	expectMembers: mkMembers("1v 2"),
 }, {
 	about:         "one machine has become ready to vote  (-> no change)",
-	machines:      mkMachines("11c 12c"),
+	machines:      mkMachines("11v 12v"),
 	members:       mkMembers("1v 2"),
 	statuses:      mkStatuses("1p 2s"),
 	expectVoting:  []bool{true, false},
 	expectMembers: nil,
 }, {
 	about:         "two machines have become ready to vote (-> added)",
-	machines:      mkMachines("11c 12c 13c"),
+	machines:      mkMachines("11v 12v 13v"),
 	members:       mkMembers("1v 2 3"),
 	statuses:      mkStatuses("1p 2s 3s"),
 	expectVoting:  []bool{true, true, true},
 	expectMembers: mkMembers("1v 2v 3v"),
 }, {
 	about:         "two machines have become ready to vote but one is not healthy (-> no change)",
-	machines:      mkMachines("11c 12c 13c"),
+	machines:      mkMachines("11v 12v 13v"),
 	members:       mkMembers("1v 2 3"),
 	statuses:      mkStatuses("1p 2s 3sH"),
 	expectVoting:  []bool{true, false, false},
 	expectMembers: nil,
 }, {
 	about:         "three machines have become ready to vote (-> 2 added)",
-	machines:      mkMachines("11c 12c 13c 14c"),
+	machines:      mkMachines("11v 12v 13v 14v"),
 	members:       mkMembers("1v 2 3 4"),
 	statuses:      mkStatuses("1p 2s 3s 4s"),
 	expectVoting:  []bool{true, true, true, false},
@@ -102,37 +103,37 @@ var desiredPeerGroupTests = []struct {
 	expectMembers: nil,
 }, {
 	about:         "two machines ready to lose vote -> votes removed",
-	machines:      mkMachines("11 12c 13"),
+	machines:      mkMachines("11 12v 13"),
 	members:       mkMembers("1v 2v 3v"),
 	statuses:      mkStatuses("1p 2p 3p"),
 	expectVoting:  []bool{false, true, false},
 	expectMembers: mkMembers("1 2v 3"),
 }, {
 	about:         "machines removed as state server -> removed from members",
-	machines:      mkMachines("11c"),
+	machines:      mkMachines("11v"),
 	members:       mkMembers("1v 2 3"),
 	statuses:      mkStatuses("1p 2s 3s"),
 	expectVoting:  []bool{true},
 	expectMembers: mkMembers("1v"),
 }, {
 	about:         "a candidate can take the vote of a non-candidate when they're ready",
-	machines:      mkMachines("11c 12c 13 14c"),
+	machines:      mkMachines("11v 12v 13 14v"),
 	members:       mkMembers("1v 2v 3v 4"),
 	statuses:      mkStatuses("1p 2s 3s 4s"),
 	expectVoting:  []bool{true, true, false, true},
 	expectMembers: mkMembers("1v 2v 3 4v"),
 }, {
 	about:         "several candidates can take non-candidates' votes",
-	machines:      mkMachines("11c 12c 13 14 15 16c 17c 18c"),
+	machines:      mkMachines("11v 12v 13 14 15 16v 17v 18v"),
 	members:       mkMembers("1v 2v 3v 4v 5v 6 7 8"),
 	statuses:      mkStatuses("1p 2s 3s 4s 5s 6s 7s 8s"),
 	expectVoting:  []bool{true, true, false, false, false, true, true, true},
 	expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v"),
 }, {
 	about: "a changed machine address should propagate to the members",
-	machines: append(mkMachines("11c 12c"), &machine{
+	machines: append(mkMachines("11v 12v"), &machine{
 		id:        "13",
-		candidate: true,
+		wantsVote: true,
 		host:      "0.1.99.13",
 	}),
 	statuses:     mkStatuses("1s 2p 3p"),
@@ -160,7 +161,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			c.Assert(members, gc.IsNil)
 			continue
 		}
-		c.Assert(members, gc.DeepEquals, test.expectMembers)
+		c.Assert(members, jc.DeepEquals, test.expectMembers)
 		if len(members) == 0 {
 			continue
 		}
@@ -206,7 +207,7 @@ func newFloat64(f float64) *float64 {
 // the given description.
 // Each machine in the description is white-space separated
 // and holds the decimal machine id followed by an optional
-// "c" if the machine is a candidate.
+// "v" if the machine wants a vote.
 func mkMachines(description string) []*machine {
 	descrs := parseDescr(description)
 	ms := make([]*machine, len(descrs))
@@ -214,7 +215,7 @@ func mkMachines(description string) []*machine {
 		ms[i] = &machine{
 			id:        fmt.Sprint(d.id),
 			host:      fmt.Sprintf("0.1.2.%d", d.id),
-			candidate: strings.Contains(d.flags, "c"),
+			wantsVote: strings.Contains(d.flags, "v"),
 		}
 	}
 	return ms
@@ -325,7 +326,7 @@ var parseDescrTests = []struct {
 func (*desiredPeerGroupSuite) TestParseDescr(c *gc.C) {
 	for i, test := range parseDescrTests {
 		c.Logf("test %d. %q", i, test.descr)
-		c.Assert(parseDescr(test.descr), gc.DeepEquals, test.expect)
+		c.Assert(parseDescr(test.descr), jc.DeepEquals, test.expect)
 	}
 }
 

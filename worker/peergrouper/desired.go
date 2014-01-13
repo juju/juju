@@ -20,11 +20,8 @@ type peerGroupInfo struct {
 
 type machine struct {
 	id        string
-	candidate bool
+	wantsVote bool
 	host      string
-
-	// Set by desiredPeerGroup
-	voting bool
 }
 
 func min(i, j int) int {
@@ -74,17 +71,17 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 		isVoting := member != nil && (member.Votes == nil || *member.Votes > 0)
 		machineVoting[m] = isVoting
 		switch {
-		case m.candidate && isVoting:
+		case m.wantsVote && isVoting:
 			toKeep = append(toKeep, m)
-		case m.candidate && !isVoting:
+		case m.wantsVote && !isVoting:
 			if status, ok := statuses[m]; ok && isReady(status) {
 				toAddVote = append(toAddVote, m)
 			} else {
 				toKeep = append(toKeep, m)
 			}
-		case !m.candidate && isVoting:
+		case !m.wantsVote && isVoting:
 			toRemoveVote = append(toRemoveVote, m)
-		case !m.candidate && !isVoting:
+		case !m.wantsVote && !isVoting:
 			toKeep = append(toKeep, m)
 		}
 	}
