@@ -27,13 +27,16 @@ type error_ struct {
 	path []string
 }
 
-func (e error_) Error() string {
-	var path string
-	if e.path[0] == "." {
-		path = strings.Join(e.path[1:], "")
+func spath(path []string) string {
+	if path[0] == "." {
+		return strings.Join(path[1:], "")
 	} else {
-		path = strings.Join(e.path, "")
+		return strings.Join(path, "")
 	}
+}
+
+func (e error_) Error() string {
+	path := spath(e.path)
 	if e.want == "" {
 		return fmt.Sprintf("%s: unexpected value %#v", path, e.got)
 	}
@@ -398,18 +401,16 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 		return nil, error_{"map", v, path}
 	}
 
-	vpath := append(path, ".", "?")
-
 	if c.strict {
 		for _, k := range rv.MapKeys() {
 			ks := k.String()
 			if _, found := c.fields[ks]; !found {
-				vpath[len(vpath)-1] = ks
-				value := rv.MapIndex(k)
-				return nil, error_{"nothing", value.Interface(), vpath}
+				return nil, fmt.Errorf("%s: Unknown key %s", spath(path), ks)
 			}
 		}
 	}
+
+	vpath := append(path, ".", "?")
 
 	l := rv.Len()
 	out := make(map[string]interface{}, l)
