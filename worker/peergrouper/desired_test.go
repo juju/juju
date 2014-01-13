@@ -6,7 +6,6 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"code.google.com/p/rog-go/deepdiff"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/testing/testbase"
@@ -161,10 +160,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			c.Assert(members, gc.IsNil)
 			continue
 		}
-		if !c.Check(members, gc.DeepEquals, test.expectMembers) {
-			_, err := deepdiff.DeepDiff(members, test.expectMembers)
-			c.Fatalf("diff err: %v", err)
-		}
+		c.Assert(members, gc.DeepEquals, test.expectMembers)
 		if len(members) == 0 {
 			continue
 		}
