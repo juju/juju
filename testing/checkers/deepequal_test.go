@@ -2,6 +2,8 @@
 // Go source tree. We use testing rather than gocheck to preserve
 // as much source equivalence as possible.
 
+// TODO tests for error messages
+
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -9,9 +11,14 @@
 package checkers_test
 
 import (
-	. "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/checkers"
 	"testing"
 )
+
+func deepEqual(a1, a2 interface{}) bool {
+	ok, _ := checkers.DeepEqual(a1, a2)
+	return ok
+}
 
 type Basic struct {
 	x int
@@ -70,9 +77,6 @@ var deepEqualTests = []DeepEqualTest{
 	{[]int{}, []int(nil), true},
 	{[]int{}, []int{}, true},
 	{[]int(nil), []int(nil), true},
-	{map[int]int{}, map[int]int(nil), true},
-	{map[int]int{}, map[int]int{}, true},
-	{map[int]int(nil), map[int]int(nil), true},
 
 	// Mismatched types
 	{1, 1.0, false},
@@ -86,8 +90,12 @@ var deepEqualTests = []DeepEqualTest{
 
 func TestDeepEqual(t *testing.T) {
 	for _, test := range deepEqualTests {
-		if r := DeepEqual(test.a, test.b); r != test.eq {
-			t.Errorf("DeepEqual(%v, %v) = %v, want %v", test.a, test.b, r, test.eq)
+		r, err := checkers.DeepEqual(test.a, test.b)
+		if r != test.eq {
+			t.Errorf("deepEqual(%v, %v) = %v, want %v", test.a, test.b, r, test.eq)
+		}
+		if err != nil {
+			err.Error()
 		}
 	}
 }
@@ -101,8 +109,8 @@ func TestDeepEqualRecursiveStruct(t *testing.T) {
 	a, b := new(Recursive), new(Recursive)
 	*a = Recursive{12, a}
 	*b = Recursive{12, b}
-	if !DeepEqual(a, b) {
-		t.Error("DeepEqual(recursive same) = false, want true")
+	if !deepEqual(a, b) {
+		t.Error("deepEqual(recursive same) = false, want true")
 	}
 }
 
@@ -119,8 +127,8 @@ func TestDeepEqualComplexStruct(t *testing.T) {
 	a, b := new(_Complex), new(_Complex)
 	*a = _Complex{5, [3]*_Complex{a, b, a}, &stra, m}
 	*b = _Complex{5, [3]*_Complex{b, a, a}, &strb, m}
-	if !DeepEqual(a, b) {
-		t.Error("DeepEqual(complex same) = false, want true")
+	if !deepEqual(a, b) {
+		t.Error("deepEqual(complex same) = false, want true")
 	}
 }
 
@@ -130,8 +138,8 @@ func TestDeepEqualComplexStructInequality(t *testing.T) {
 	a, b := new(_Complex), new(_Complex)
 	*a = _Complex{5, [3]*_Complex{a, b, a}, &stra, m}
 	*b = _Complex{5, [3]*_Complex{b, a, a}, &strb, m}
-	if DeepEqual(a, b) {
-		t.Error("DeepEqual(complex different) = true, want false")
+	if deepEqual(a, b) {
+		t.Error("deepEqual(complex different) = true, want false")
 	}
 }
 
@@ -143,12 +151,12 @@ func TestDeepEqualUnexportedMap(t *testing.T) {
 	// Check that DeepEqual can look at unexported fields.
 	x1 := UnexpT{map[int]int{1: 2}}
 	x2 := UnexpT{map[int]int{1: 2}}
-	if !DeepEqual(&x1, &x2) {
-		t.Error("DeepEqual(x1, x2) = false, want true")
+	if !deepEqual(&x1, &x2) {
+		t.Error("deepEqual(x1, x2) = false, want true")
 	}
 
 	y1 := UnexpT{map[int]int{2: 3}}
-	if DeepEqual(&x1, &y1) {
-		t.Error("DeepEqual(x1, y1) = true, want false")
+	if deepEqual(&x1, &y1) {
+		t.Error("deepEqual(x1, y1) = true, want false")
 	}
 }
