@@ -46,6 +46,7 @@ func Configure(params ConfigureParams) error {
 		client = ssh.DefaultClient
 	}
 	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
+	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.Stderr
 	return cmd.Run()
 }
