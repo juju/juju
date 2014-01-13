@@ -15,9 +15,9 @@ import tarfile
 
 
 GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
-ISS_CMD = os.path.join('\\', 'progra~2', 'innse~1', 'scc.exe')
-JUJU_CMD = os.path.join('\\', 'progra~2', 'juju', 'juju.exe')
-JUJU_UNINSTALL = os.path.join('\\', 'progra~2', 'juju', 'uninstall.exe')
+ISS_CMD = os.path.join('\\', 'Progra~2', 'InnoSe~1', 'iscc.exe')
+JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
+JUJU_UNINSTALL = os.path.join('\\', 'Progra~2', 'Juju', 'uninstall.exe')
 
 CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
 TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
@@ -26,6 +26,19 @@ JUJU_CMD_DIR = os.path.join(
     GOPATH, 'src', 'launchpad.net', 'juju-core', 'cmd', 'juju')
 ISS_DIR = os.path.join(
     GOPATH, 'src', 'launchpad.net', 'juju-core', 'scripts', 'win-installer')
+
+
+class WorkingDirectory:
+    """Context manager for changing the current working directory"""
+    def __init__(self, working_path):
+        self.working_path = working_path
+
+    def __enter__(self):
+        self.savedPath = os.getcwd()
+        os.chdir(self.working_path)
+
+    def __exit__(self, etype, value, traceback):
+        os.chdir(self.savedPath)
 
 
 def run(command, *args, **kwargs):
@@ -50,6 +63,12 @@ def setup(tarball_name):
     juju_tars = [
         n for n in os.listdir(CI_DIR) if 'tar.gz' in n and n != tarball_name]
     for name in juju_tars:
+        path = os.path.join(CI_DIR, name)
+        os.remove(path)
+        print('Removed {0}'.format(path))
+    juju_execs = [
+        n for n in os.listdir(CI_DIR) if 'juju-setup' in n and '.exe' in n]
+    for name in juju_execs:
         path = os.path.join(CI_DIR, name)
         os.remove(path)
         print('Removed {0}'.format(path))
@@ -78,31 +97,45 @@ def untar(tarball_path):
 def move_source_to_gopath(tarball_name):
     dir_name = tarball_name.replace('.tar.gz', '')
     dir_path = os.path.join(TMP_DIR, dir_name)
-    os.rename(dir_path, GOPATH)
+    shutil.move(dir_path, GOPATH)
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
 
 
 def build():
-    os.chdir(JUJU_CMD_DIR)
-    run(GO_CMD, 'build')
-    shutil.move('juju.exe', ISS_DIR)
+    env = dict(os.environ)
+    env['GOPATH'] = GOPATH
+    # XXX sinzui 2014-01-13: amd64 works, but i386 needs
+    # go build runtime: windows/386 must be bootstrapped using make.bash
+    env['GOARCH'] = '386'
+    env['GOARCH'] = 'amd64'
+    with WorkingDirectory(JUJU_CMD_DIR):
+        output = run([GO_CMD, 'build'], env=env)
+        print(output)
+        print('Built Juju.exe')
+        shutil.move('juju.exe', ISS_DIR)
+        print('Moved {0} to {1}'.format('juju.exe', ISS_DIR))
 
 
 def package(version):
-    os.chdir(ISS_DIR)
-    run(ISS_CMD, 'setup.iss')
-    installer_name = 'juju-setup-{0}.exe'.format(version)
-    installer_path = os.path.join(ISS_DIR, 'output', installer_name)
-    shutil.move(installer_path, CI_DIR)
-    return installer_path
+    with WorkingDirectory(ISS_DIR):
+        output = run([ISS_CMD, 'setup.iss'])
+        print(output)
+        installer_name = 'juju-setup-{0}.exe'.format(version)
+        installer_path = os.path.join(ISS_DIR, 'output', installer_name)
+        shutil.move(installer_path, CI_DIR)
+        print('Moved {0} to {1}'.format(installer_path, CI_DIR))
+    return installer_name
 
 
-def install(installer_path):
-    run(installer_path, '/verysilent')
+def install(installer_name):
+    installer_path = os.path.join(CI_DIR, installer_name)
+    output = run([installer_path, '/verysilent'])
+    print(output)
+    print('Installed Juju')
 
 
 def test(version):
-    output = run(JUJU_CMD, 'version')
+    output = run([JUJU_CMD, 'version'])
     print(output)
     if version not in output:
         raise Exception("Juju did not install")
@@ -113,19 +146,21 @@ def main():
         print('USAGE: {0} juju-core_X.X.X.tar.gz')
         return 1
     tarball_name = sys.argv[1]
-    version, ignore = tarball_name.split('_')[-1].split('.', 1)
+    version = tarball_name.split('_')[-1].replace('.tar.gz', '')
     tarball_path = os.path.abspath(os.path.join(CI_DIR, tarball_name))
     if not is_sane(tarball_path):
         return 2
     try:
+        print('Building and installing Juju {0} from {1}'.format(
+            version, tarball_name))
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
-        return 0
         build()
-        installer_path = package(version)
-        install(installer_path)
+        installer_name = package(version)
+        install(installer_name)
         test(version)
+        return 0
     except Exception as e:
         print(str(e))
         print(sys.exc_info()[0])
