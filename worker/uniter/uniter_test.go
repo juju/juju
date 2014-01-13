@@ -908,6 +908,7 @@ var relationsTests = []uniterTest{
 		verifyRunning{},
 		relationState{life: state.Dying},
 		removeRelationUnit{"mysql/0"},
+		verifyRunning{},
 		relationState{removed: true},
 		verifyRunning{},
 	), ut(
@@ -917,6 +918,7 @@ var relationsTests = []uniterTest{
 		waitHooks{"db-relation-departed mysql/0 db:0"},
 		relationDying,
 		waitHooks{"db-relation-broken db:0"},
+		verifyRunning{},
 		relationState{removed: true},
 		verifyRunning{},
 	), ut(
