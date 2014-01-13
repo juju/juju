@@ -25,7 +25,7 @@ Installing prerequisites
 You can use `make install-dependencies` or, if you prefer to install
 them manually, check the Makefile target.
 
-This will add some PPAs to ensure that you have can install the required
+This will add some PPAs to ensure that you can install the required
 golang and mongodb-server versions for precise onwards, in addition to the
 other dependencies.
 

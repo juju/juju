@@ -94,6 +94,9 @@ Here's an example OpenStack configuration:
     # give the nodes a public IP address. Some installations assign public
     # IP addresses by default without requiring a floating IP address.
     # use-floating-ip: false
+    # Specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
     admin-secret: 13850d1b9786065cadd0f477e8c97cd3
     # Globally unique swift bucket name
     control-bucket: juju-fd6ab8d02393af742bfbe8b9629707ee

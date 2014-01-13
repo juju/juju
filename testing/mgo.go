@@ -30,7 +30,7 @@ import (
 
 var (
 	// MgoServer is a shared mongo server used by tests.
-	MgoServer = &MgoInstance{}
+	MgoServer = &MgoInstance{ssl: true}
 )
 
 type MgoInstance struct {
@@ -48,6 +48,9 @@ type MgoInstance struct {
 
 	// dir holds the directory that MongoDB is running in.
 	dir string
+
+	// ssl determines whether the MongoDB server will use TLS
+	ssl bool
 
 	// Params is a list of additional parameters that will be passed to
 	// the mongod application
@@ -76,7 +79,7 @@ type MgoSuite struct {
 }
 
 // Start starts a MongoDB server in a temporary directory.
-func (inst *MgoInstance) Start() error {
+func (inst *MgoInstance) Start(ssl bool) error {
 	dbdir, err := ioutil.TempDir("", "test-mgo")
 	if err != nil {
 		return err
@@ -89,6 +92,7 @@ func (inst *MgoInstance) Start() error {
 	inst.port = FindTCPPort()
 	inst.addr = fmt.Sprintf("localhost:%d", inst.port)
 	inst.dir = dbdir
+	inst.ssl = ssl
 	if err := inst.run(); err != nil {
 		inst.addr = ""
 		inst.port = 0
@@ -108,15 +112,18 @@ func (inst *MgoInstance) run() error {
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", inst.dir,
-		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
-		"--sslPEMKeyPassword", "ignored",
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
 		"--nounixsocket",
+	}
+	if inst.ssl {
+		mgoargs = append(mgoargs,
+			"--sslOnNormalPorts",
+			"--sslPEMKeyFile", filepath.Join(inst.dir, "server.pem"),
+			"--sslPEMKeyPassword", "ignored")
 	}
 	if inst.Params != nil {
 		mgoargs = append(mgoargs, inst.Params...)
@@ -169,7 +176,7 @@ func (inst *MgoInstance) Destroy() {
 // testing what happens when a state server goes down.
 func (inst *MgoInstance) Restart() {
 	inst.kill()
-	if err := inst.Start(); err != nil {
+	if err := inst.Start(inst.ssl); err != nil {
 		panic(err)
 	}
 }
@@ -177,7 +184,11 @@ func (inst *MgoInstance) Restart() {
 // MgoTestPackage should be called to register the tests for any package that
 // requires a MongoDB server.
 func MgoTestPackage(t *stdtesting.T) {
-	if err := MgoServer.Start(); err != nil {
+	MgoTestPackageSsl(t, true)
+}
+
+func MgoTestPackageSsl(t *stdtesting.T, ssl bool) {
+	if err := MgoServer.Start(ssl); err != nil {
 		t.Fatal(err)
 	}
 	defer MgoServer.Destroy()
@@ -299,7 +310,7 @@ func (inst *MgoInstance) Reset() {
 		// happen when tests fail.
 		log.Noticef("testing: restarting MongoDB server after unauthorized access")
 		inst.Destroy()
-		if err := inst.Start(); err != nil {
+		if err := inst.Start(inst.ssl); err != nil {
 			panic(err)
 		}
 		return
