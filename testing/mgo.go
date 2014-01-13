@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	stdlog "log"
 	"net"
 	"os"
 	"os/exec"
@@ -239,56 +238,54 @@ func (s *MgoSuite) TearDownSuite(c *gc.C) {
 // MustDial returns a new connection to the MongoDB server, and panics on
 // errors.
 func (inst *MgoInstance) MustDial() *mgo.Session {
-	session, err := inst.Dial()
+	s, err := inst.dial(false)
 	if err != nil {
 		panic(err)
 	}
-	return session
-}
-
-// MustDialDirect works like DialDirect, but panics on errors.
-func (inst *MgoInstance) MustDialDirect() *mgo.Session {
-	session, err := inst.DialDirect()
-	if err != nil {
-		panic(err)
-	}
-	return session
+	return s
 }
 
 // Dial returns a new connection to the MongoDB server.
 func (inst *MgoInstance) Dial() (*mgo.Session, error) {
-	return mgo.DialWithInfo(inst.DialInfo())
+	return inst.dial(false)
 }
 
 // DialDirect returns a new direct connection to the shared MongoDB server. This
 // must be used if you're connecting to a replicaset that hasn't been initiated
 // yet.
 func (inst *MgoInstance) DialDirect() (*mgo.Session, error) {
-	info := inst.DialInfo()
-	info.Direct = true
-	return mgo.DialWithInfo(info)
+	return inst.dial(true)
 }
 
-// DialInfo returns information suitable for dialling
-// the mongo instance.
-func (inst *MgoInstance) DialInfo() *mgo.DialInfo {
+// MustDialDirect works like DialDirect, but panics on errors.
+func (inst *MgoInstance) MustDialDirect() *mgo.Session {
+	session, err := inst.dial(true)
+	if err != nil {
+		panic(err)
+	}
+	return session
+}
+
+func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
-		panic(fmt.Errorf("cannot parse CACert: %v", err))
+		return nil, err
 	}
 	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
 		RootCAs:    pool,
 		ServerName: "anything",
 	}
-	return &mgo.DialInfo{
-		Addrs: []string{inst.addr},
+	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+		Direct: direct,
+		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			return tls.Dial("tcp", addr.String(), tlsConfig)
 		},
 		Timeout: mgoDialTimeout,
-	}
+	})
+	return session, err
 }
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
