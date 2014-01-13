@@ -1589,7 +1589,7 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	if s.dirty {
 		cmp = gc.Not(gc.Matches)
 	}
-	c.Assert(string(out), cmp, ".*?On branch master\nnothing to commit.*\n")
+	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
 }
 
 type startUpgradeError struct{}
