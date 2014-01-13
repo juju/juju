@@ -227,7 +227,10 @@ func DeepEqual(a1, a2 interface{}) (bool, error) {
 		}
 	}
 	if a1 == nil || a2 == nil {
-		return a1 == a2, errorf("nil vs non-nil mismatch")
+		if a1 == a2 {
+			return true, nil
+		}
+		return false, errorf("nil vs non-nil mismatch")
 	}
 	v1 := reflect.ValueOf(a1)
 	v2 := reflect.ValueOf(a2)
