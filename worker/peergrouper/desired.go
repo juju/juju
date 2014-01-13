@@ -27,30 +27,6 @@ type machine struct {
 	voting bool
 }
 
-//// getPeerGroupInfo collates current session information about the
-//// mongo peer group with information from state machines.
-//func getPeerGroupInfo(st *state.State, ms []*state.Machine) (*peerGroupInfo, error) {
-//	session := st.MongoSession()
-//	info := &peerGroupInfo{}
-//	var err error
-//	info.statuses, err = replicaset.CurrentStatus(session)
-//	if err != nil {
-//		return nil, fmt.Errorf("cannot get replica set status: %v", err)
-//	}
-//	info.members, err = replicaset.CurrentMembers(session)
-//	if err != nil {
-//		return nil, fmt.Errorf("cannot get replica set members: %v", err)
-//	}
-//	for _, m := range ms {
-//		info.machines = append(info.machines, &machine{
-//			id:        m.Id(),
-//			candidate: m.IsCandidate(),
-//			host: instance.SelectInternalAddress(m.Addresses(), false),
-//		})
-//	}
-//	return info, nil
-//}
-
 func min(i, j int) int {
 	if i < j {
 		return i
