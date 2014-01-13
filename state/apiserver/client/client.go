@@ -35,6 +35,7 @@ type API struct {
 	auth      common.Authorizer
 	resources *common.Resources
 	client    *Client
+	dataDir   string
 }
 
 // Client serves client-specific API methods.
@@ -43,11 +44,12 @@ type Client struct {
 }
 
 // NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, datadir string) *API {
 	r := &API{
 		state:     st,
 		auth:      authorizer,
 		resources: resources,
+		dataDir:   datadir,
 	}
 	r.client = &Client{
 		api: r,
