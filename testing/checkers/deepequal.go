@@ -5,8 +5,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// The deepdiff package implements a version of reflect.DeepEquals that
-// also returns an error message describing the first difference found.
 package checkers
 
 import (
