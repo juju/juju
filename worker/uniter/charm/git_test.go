@@ -162,6 +162,11 @@ func (s *GitDirSuite) TestClone(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dirty, jc.IsTrue)
 
+	err = repo.AddAll()
+	c.Assert(err, gc.IsNil)
+	dirty, err = repo.Dirty()
+	c.Assert(err, gc.IsNil)
+	c.Assert(dirty, jc.IsTrue)
 	err = repo.Commitf("blank overwrite")
 	c.Assert(err, gc.IsNil)
 	dirty, err = repo.Dirty()
