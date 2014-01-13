@@ -69,6 +69,31 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	dialAndTestInitiate(c)
 }
 
+func (s *MongoSuite) TearDownTest(c *gc.C) {
+	// remove all secondaries from the replicaset on test teardown
+	session, err := root.DialDirect()
+	if err != nil {
+		c.Logf("Failed to dial root during test cleanup: %v", err)
+		return
+	}
+	defer session.Close()
+	mems, err := CurrentMembers(session)
+	if err != nil {
+		c.Logf("Failed to get list of memners during test cleanup: %v", err)
+		return
+	}
+
+	addrs := []string{}
+	for _, m := range mems {
+		if root.Addr() != m.Address {
+			addrs = append(addrs, m.Address)
+		}
+	}
+	if err = Remove(session, addrs...); err != nil {
+		c.Logf("Error removing secondaries: %v", err)
+	}
+}
+
 func dialAndTestInitiate(c *gc.C) {
 	session := root.MustDialDirect()
 	defer session.Close()
