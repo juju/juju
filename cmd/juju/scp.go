@@ -79,8 +79,5 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 			c.Args[i] = "ubuntu@" + host + ":" + v[1]
 		}
 	}
-
-	var options ssh.Options
-	options.EnablePTY()
-	return ssh.Copy(c.Args[0], c.Args[1], &options)
+	return ssh.Copy(c.Args[0], c.Args[1], nil)
 }

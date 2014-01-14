@@ -55,10 +55,14 @@ fi`
 func InstallFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
-	if input, ok := input.(string); ok {
+	switch input := input.(type) {
+	case nil:
+	case string:
 		sshexpectedinput := ssh + ".expected-input"
 		err := ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
 		c.Assert(err, gc.IsNil)
+	default:
+		c.Errorf("input has invalid type: %T", input)
 	}
 	var stdout, stderr string
 	switch output := output.(type) {
@@ -66,6 +70,7 @@ func InstallFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restore
 	case string:
 		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
 	case []string:
+		c.Assert(output, gc.HasLen, 2)
 		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output[0])
 		stderr = fmt.Sprintf("cat>&2<<EOF\n%s\nEOF", output[1])
 	}
