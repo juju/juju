@@ -4,7 +4,6 @@
 package uniter
 
 import (
-	"fmt"
 	"sort"
 
 	"launchpad.net/loggo"
@@ -244,8 +243,12 @@ func (f *filter) maybeStopWatcher(w watcher.Stopper) {
 }
 
 func (f *filter) loop(unitTag string) (err error) {
-	f.unit, err = f.st.Unit(unitTag)
-	if err != nil {
+	defer func() {
+		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+			err = worker.ErrTerminateAgent
+		}
+	}()
+	if f.unit, err = f.st.Unit(unitTag); err != nil {
 		return err
 	}
 	if err = f.unitChanged(); err != nil {
@@ -343,7 +346,7 @@ func (f *filter) loop(unitTag string) (err error) {
 			for _, key := range keys {
 				relationTag := names.RelationTag(key)
 				rel, err := f.st.Relation(relationTag)
-				if params.IsCodeNotFound(err) {
+				if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 					// If it's actually gone, this unit cannot have entered
 					// scope, and therefore never needs to know about it.
 				} else if err != nil {
@@ -425,7 +428,7 @@ func (f *filter) loop(unitTag string) (err error) {
 			if err := f.unit.ClearResolved(); err != nil {
 				return err
 			}
-			if err = f.unitChanged(); err != nil {
+			if err := f.unitChanged(); err != nil {
 				return err
 			}
 			select {
@@ -443,9 +446,6 @@ func (f *filter) loop(unitTag string) (err error) {
 // unitChanged responds to changes in the unit.
 func (f *filter) unitChanged() error {
 	if err := f.unit.Refresh(); err != nil {
-		if params.IsCodeNotFound(err) {
-			return worker.ErrTerminateAgent
-		}
 		return err
 	}
 	if f.life != f.unit.Life() {
@@ -475,9 +475,6 @@ func (f *filter) unitChanged() error {
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
 	if err := f.service.Refresh(); err != nil {
-		if params.IsCodeNotFound(err) {
-			return fmt.Errorf("service unexpectedly removed")
-		}
 		return err
 	}
 	url, force, err := f.service.CharmURL()
@@ -491,7 +488,8 @@ func (f *filter) serviceChanged() error {
 			return err
 		}
 	case params.Dead:
-		return fmt.Errorf("service unexpectedly dead")
+		filterLogger.Infof("service is dead")
+		return worker.ErrTerminateAgent
 	}
 	return f.upgradeChanged()
 }

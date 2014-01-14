@@ -908,6 +908,7 @@ var relationsTests = []uniterTest{
 		verifyRunning{},
 		relationState{life: state.Dying},
 		removeRelationUnit{"mysql/0"},
+		verifyRunning{},
 		relationState{removed: true},
 		verifyRunning{},
 	), ut(
@@ -919,6 +920,7 @@ var relationsTests = []uniterTest{
 		waitHooks{"db-relation-broken db:0"},
 		verifyRunning{},
 		relationState{removed: true},
+		verifyRunning{},
 	), ut(
 		"service becomes dying while in a relation",
 		quickStartRelation{},
@@ -1589,7 +1591,7 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	if s.dirty {
 		cmp = gc.Not(gc.Matches)
 	}
-	c.Assert(string(out), cmp, "# On branch master\nnothing to commit.*\n")
+	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
 }
 
 type startUpgradeError struct{}

@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -734,7 +735,7 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisione
 	env := s.APIConn.Environ
 	watcher, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
-	auth, err := provisioner.NewAPIAuthenticator(s.provisioner)
+	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask("machine-0", safeMode, s.provisioner, watcher, env, auth)
 }

@@ -102,10 +102,15 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
 	if err != nil {
 		return nil, err
 	}
-	return findTools(sources, cloudSpec, majorVersion, minorVersion, filter)
+	return FindToolsForCloud(sources, cloudSpec, majorVersion, minorVersion, filter)
 }
 
-func findTools(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
+// FindToolsForCloud returns a List containing all tools with a given
+// major.minor version number and cloudSpec, filtered by filter.
+// If minorVersion = -1, then only majorVersion is considered.
+// If no *available* tools have the supplied major.minor version number, or match the
+// supplied filter, the function returns a *NotFoundError.
+func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
 	toolsConstraint, err := makeToolsConstraint(cloudSpec, majorVersion, minorVersion, filter)
@@ -114,6 +119,9 @@ func findTools(sources []simplestreams.DataSource, cloudSpec simplestreams.Cloud
 	}
 	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
+		if errors.IsNotFoundError(err) {
+			err = ErrNoTools
+		}
 		return nil, err
 	}
 	if len(toolsMetadata) == 0 {

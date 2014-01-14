@@ -26,14 +26,14 @@ func expandTilde(f string) string {
 	return f
 }
 
-// authorizedKeys implements the standard juju behaviour for finding
+// ReadAuthorizedKeys implements the standard juju behaviour for finding
 // authorized_keys. It returns a set of keys in in authorized_keys format
 // (see sshd(8) for a description).  If path is non-empty, it names the
 // file to use; otherwise the user's .ssh directory will be searched.
 // Home directory expansion will be performed on the path if it starts with
 // a ~; if the expanded path is relative, it will be interpreted relative
 // to $HOME/.ssh.
-func readAuthorizedKeys(path string) (string, error) {
+func ReadAuthorizedKeys(path string) (string, error) {
 	var files []string
 	if path == "" {
 		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub"}
