@@ -27,7 +27,9 @@ type error_ struct {
 	path []string
 }
 
-func spath(path []string) string {
+// Return a string consisting of the path elements. If path starts
+// with a ".", the dot is omitted.
+func path_as_string(path []string) string {
 	if path[0] == "." {
 		return strings.Join(path[1:], "")
 	} else {
@@ -36,7 +38,7 @@ func spath(path []string) string {
 }
 
 func (e error_) Error() string {
-	path := spath(e.path)
+	path := path_as_string(e.path)
 	if e.want == "" {
 		return fmt.Sprintf("%s: unexpected value %#v", path, e.got)
 	}
@@ -405,7 +407,14 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 		for _, k := range rv.MapKeys() {
 			ks := k.String()
 			if _, found := c.fields[ks]; !found {
-				return nil, fmt.Errorf("%s: Unknown key %s", spath(path), ks)
+				var value interface{}
+				valuev := rv.MapIndex(k)
+				if valuev.IsValid() {
+					value = valuev.Interface()
+				} else {
+					value = "(invalid)"
+				}
+				return nil, fmt.Errorf("%v: Unknown key %q (value %q)", path_as_string(path), ks, value)
 			}
 		}
 	}
