@@ -4,6 +4,9 @@
 package params
 
 import (
+	"time"
+
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
@@ -508,4 +511,30 @@ type RelationUnitsWatchResults struct {
 type CharmsResponse struct {
 	Error    string `json:",omitempty"`
 	CharmURL string `json:",omitempty"`
+}
+
+// RunParams is used to provide the parameters to the Run method.
+// Commands and Timeout are expected to have values, and one or more
+// values should be in the Machines, Services, or Units slices.
+type RunParams struct {
+	Commands string
+	Timeout  time.Duration
+	Machines []string
+	Services []string
+	Units    []string
+}
+
+// RunResult contains the result from an individual run call on a machine.
+// UnitId is populated if the command was run inside the unit context.
+type RunResult struct {
+	cmd.RemoteResponse
+	MachineId string
+	UnitId    string
+	Error     string
+}
+
+// RunResults is used to return the slice of results.  Api server side calls
+// need to return single structure values.
+type RunResults struct {
+	Results []RunResult
 }
