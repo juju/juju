@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -84,9 +83,6 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		toolsList, err = envtools.FindToolsForCloud(
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			version.Current.Major, minorVersion, coretools.Filter{})
-		if errors.IsNotFoundError(err) {
-			err = envtools.ErrNoTools
-		}
 	}
 	if err != nil {
 		return err

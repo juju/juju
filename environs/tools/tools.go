@@ -119,6 +119,9 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	}
 	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
+		if errors.IsNotFoundError(err) {
+			err = ErrNoTools
+		}
 		return nil, err
 	}
 	if len(toolsMetadata) == 0 {
