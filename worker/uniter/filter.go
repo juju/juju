@@ -4,7 +4,6 @@
 package uniter
 
 import (
-	"fmt"
 	"sort"
 
 	"launchpad.net/loggo"
