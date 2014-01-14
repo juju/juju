@@ -53,6 +53,8 @@ const bootstrapMachineId = "0"
 
 var retryDelay = 3 * time.Second
 
+var jujuRun = "/usr/local/bin/juju-run"
+
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
@@ -111,6 +113,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.dataDir, "charmcache")
+	if err := a.initAgent(); err != nil {
+		return err
+	}
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
@@ -351,6 +356,14 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
+func (a *MachineAgent) initAgent() error {
+	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	jujud := filepath.Join(a.Conf.dataDir, "tools", a.Tag(), "jujud")
+	return os.Symlink(jujud, jujuRun)
+}
+
 func (a *MachineAgent) uninstallAgent() error {
 	var errors []error
 	agentServiceName := a.Conf.config.Value(agent.AgentServiceName)
@@ -362,6 +375,10 @@ func (a *MachineAgent) uninstallAgent() error {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
+	}
+	// Remove the juju-run symlink.
+	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+		errors = append(errors, err)
 	}
 	// The machine agent may terminate without knowing its jobs,
 	// for example if the machine's entry in state was removed.
