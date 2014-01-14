@@ -2,6 +2,7 @@ package peergrouper
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	stdtesting "testing"
@@ -159,6 +160,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			c.Assert(members, gc.IsNil)
 			continue
 		}
+		sort.Sort(membersById(members))
 		c.Assert(members, jc.DeepEquals, test.expectMembers)
 		if len(members) == 0 {
 			continue
@@ -348,3 +350,9 @@ func parseDescr(s string) []descr {
 	}
 	return descrs
 }
+
+type membersById []replicaset.Member
+
+func (l membersById) Len() int           { return len(l) }
+func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
