@@ -126,6 +126,7 @@ func (inst *MgoInstance) run() error {
 		"--smallfiles",
 		"--nojournal",
 		"--nounixsocket",
+		"--oplogSize", "10",
 		"--keyFile", filepath.Join(inst.dir, "keyfile"),
 	}
 	if inst.ssl {
