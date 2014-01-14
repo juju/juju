@@ -12,6 +12,7 @@ BUILD_DIR="$TMP_DIR/build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
 DEVEL_SERIES=$(distro-info --devel)
+NEXT_SERIES_VERSION="14.04"
 
 
 usage() {
@@ -38,7 +39,7 @@ check_deps() {
 }
 
 
-make_soure_package_branch() {
+make_source_package_branch() {
     echo "Phase 1: Updating the source package branch."
     bzr branch $PACKAGING_BRANCH $PACKAGING_DIR
     cd $PACKAGING_DIR
@@ -63,7 +64,18 @@ make_soure_package_branch() {
     fi
     DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_VERSION -D $distro "$message"
     bzr ci -m "$message"
-    bzr tag UBUNTU_VERSION
+    bzr tag $UBUNTU_VERSION
+}
+
+
+update_source_package_branch() {
+    echo "Phase 1: Repeat updating the source package branch."
+    cd $PACKAGING_DIR
+    message="New upstream release candidate."
+    distro="UNRELEASED"
+    DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_NEXT -D $distro "$message"
+    bzr ci -m "$message"
+    bzr tag $UBUNTU_NEXT
 }
 
 
@@ -123,8 +135,12 @@ shift; shift; shift
 BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
 
 check_deps
-make_soure_package_branch
+make_source_package_branch
 if [[ $PURPOSE == "testing" ]]; then
+    make_binary_package
+    # Make the devel version too for testing.
+    UBUNTU_NEXT="${VERSION}-0ubuntu1${NEXT_SERIES_VERSION}"
+    update_source_package_branch
     make_binary_package
 else
     make_source_package
