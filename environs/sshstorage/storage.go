@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"path"
 	"sort"
@@ -44,12 +43,8 @@ type SSHStorage struct {
 	scanner *bufio.Scanner
 }
 
-var sshCommand = func(host string, tty bool, command string) *exec.Cmd {
-	var options []ssh.Option
-	if tty {
-		options = append(options, ssh.AllocateTTY)
-	}
-	return ssh.Command(host, []string{command}, options...)
+var sshCommand = func(host string, command string) *exec.Cmd {
+	return ssh.Command(host, []string{command}, ssh.NoPasswordAuthentication)
 }
 
 type flockmode string
@@ -59,32 +54,40 @@ const (
 	flockExclusive flockmode = "-x"
 )
 
+type NewSSHStorageParams struct {
+	// Host is the host to connect to, in the format [user@]hostname.
+	Host string
+
+	// StorageDir is the root of the remote storage directory.
+	StorageDir string
+
+	// TmpDir is the remote temporary directory for storage.
+	// A temporary directory must be specified, and should be located on the
+	// same filesystem as the storage directory to ensure atomic writes.
+	// The temporary directory will be created when NewSSHStorage is invoked
+	// if it doesn't already exist; it will never be removed. NewSSHStorage
+	// will attempt to reassign ownership to the login user, and will return
+	// an error if it cannot do so.
+	TmpDir string
+}
+
 // NewSSHStorage creates a new SSHStorage, connected to the
 // specified host, managing state under the specified remote path.
-//
-// A temporary directory must be specified, and should be located on the
-// same filesystem as the storage directory to ensure atomic writes.
-// The temporary directory will be created when NewSSHStorage is invoked
-// if it doesn't already exist; it will never be removed. NewSSHStorage
-// will attempt to reassign ownership to the login user, and will return
-// an error if it cannot do so.
-func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
-	if storagedir == "" {
+func NewSSHStorage(params NewSSHStorageParams) (*SSHStorage, error) {
+	if params.StorageDir == "" {
 		return nil, errors.New("storagedir must be specified and non-empty")
 	}
-	if tmpdir == "" {
+	if params.TmpDir == "" {
 		return nil, errors.New("tmpdir must be specified and non-empty")
 	}
 
 	script := fmt.Sprintf(
 		"install -d -g $SUDO_GID -o $SUDO_UID %s %s",
-		utils.ShQuote(storagedir),
-		utils.ShQuote(tmpdir),
+		utils.ShQuote(params.StorageDir),
+		utils.ShQuote(params.TmpDir),
 	)
 
-	cmd := sshCommand(host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout // for sudo prompts/output
+	cmd := sshCommand(params.Host, fmt.Sprintf("sudo -n bash -c %s", utils.ShQuote(script)))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -95,7 +98,7 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	// We could use sftp, but then we'd be at the mercy of
 	// sftp's output messages for checking errors. Instead,
 	// we execute an interactive bash shell.
-	cmd = sshCommand(host, false, "bash")
+	cmd = sshCommand(params.Host, "bash")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -109,9 +112,9 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	// get at catastrophic failure messages.
 	cmd.Stderr = cmd.Stdout
 	stor := &SSHStorage{
-		host:       host,
-		remotepath: storagedir,
-		tmpdir:     tmpdir,
+		host:       params.Host,
+		remotepath: params.StorageDir,
+		tmpdir:     params.TmpDir,
 		cmd:        cmd,
 		stdin:      stdin,
 		stdout:     stdout,
@@ -120,7 +123,7 @@ func NewSSHStorage(host, storagedir, tmpdir string) (*SSHStorage, error) {
 	cmd.Start()
 
 	// Verify we have write permissions.
-	_, err = stor.runf(flockExclusive, "touch %s", utils.ShQuote(storagedir))
+	_, err = stor.runf(flockExclusive, "touch %s", utils.ShQuote(params.StorageDir))
 	if err != nil {
 		stdin.Close()
 		stdout.Close()

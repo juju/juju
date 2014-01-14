@@ -30,10 +30,10 @@ remote_cmd() {
 
 	cd ~			# Make sure we've started in $HOME
 	next_step 'Preparing to perform backup'
-	if [ -d juju-backup ]; then
+	if [ -e juju-backup.tgz ]; then
 		echo Older juju backup exists, moving to juju-backup-previous
-		execute 'Removing existing backup archive' rm -rf juju-backup-previous
-		execute 'Archiving backup' mv juju-backup juju-backup-previous
+		execute 'Removing existing backup archive' rm -rf juju-backup-previous.tgz
+		execute 'Archiving backup' mv juju-backup.tgz juju-backup-previous.tgz
 	fi
 	execute 'Making backup directory' mkdir juju-backup
 	cd juju-backup
@@ -56,11 +56,9 @@ remote_cmd() {
 
 	next_step 'Copying Juju configuration'
 	copy_files() {
-		for i in "$@"; do
-			dest=$(dirname "./root/$i")
-			mkdir -p "$dest"
-			execute "Copying $i" cp -r "$i" "$dest"
-		done
+		# Make an archive within the main archive so that we
+		# can easily preserve file ownership and other metadata.
+		tar -cf root.tar "$@" 2>&1 | (grep -v 'Removing leading'; true)
 	}
 	# Make copies of:
 	#   - Upstart configuration files for juju-db, machine agent, but not any unit agents.
@@ -69,7 +67,7 @@ remote_cmd() {
 	#   - SSH authorized keys.
 	#   - /etc/rsyslog.d/*juju* config files for the agents (ignore any unit agents)
 	#  - Juju logs for machine 0 and all machines.
-	copy_files \
+	execute 'Archiving selected files' copy_files \
 		/etc/init/juju-db.conf \
 		/etc/init/jujud-machine-*.conf \
 		$LIBJUJU/agents/machine-* \
@@ -83,8 +81,9 @@ remote_cmd() {
 	#---------------------------------------------------------------------
 	next_step 'Creating tarball'
 	cd ..
-	execute 'Performing tar' tar -zcf juju-backup.tar.gz juju-backup
-	execute 'Changing ownership of backup files to ubuntu' chown -R ubuntu.ubuntu juju-backup*
+	execute 'Performing tar' tar -czf juju-backup.tgz juju-backup
+	rm -r juju-backup
+	execute 'Changing ownership of backup archive to ubuntu' chown -R ubuntu.ubuntu juju-backup*
 	
 	echo
 	echo Juju backup finished.
@@ -102,7 +101,7 @@ echo Connecting to machine 0
 juju ssh 0 "sudo -n bash -c $QUOTED_SCRIPT" && {
 	# The backup has succeeded; copy backup tarball locally.
 	NOW=$(date '+%Y%m%d-%H%M')
-	FILENAME=juju-backup-$NOW.tar.gz
+	FILENAME=juju-backup-$NOW.tgz
 	echo "Copying tarball to `pwd`/$FILENAME ..."
-	juju scp 0:~/juju-backup.tar.gz ./$FILENAME
+	juju scp 0:~/juju-backup.tgz ./$FILENAME
 }

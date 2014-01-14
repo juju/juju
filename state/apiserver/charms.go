@@ -31,12 +31,6 @@ type charmsHandler struct {
 	state *state.State
 }
 
-// CharmsResponse is the server response to a charm upload request.
-type CharmsResponse struct {
-	Error    string `json:",omitempty"`
-	CharmURL string `json:",omitempty"`
-}
-
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
 		h.authError(w)
@@ -50,7 +44,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		h.sendJSON(w, http.StatusOK, &CharmsResponse{CharmURL: charmURL.String()})
+		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
 	// Possible future extensions, like GET.
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -58,7 +52,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // sendJSON sends a JSON-encoded response to the client.
-func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *CharmsResponse) error {
+func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.CharmsResponse) error {
 	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {
@@ -70,7 +64,7 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 
 // sendError sends a JSON-encoded error response.
 func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
-	return h.sendJSON(w, statusCode, &CharmsResponse{Error: message})
+	return h.sendJSON(w, statusCode, &params.CharmsResponse{Error: message})
 }
 
 // authenticate parses HTTP basic authentication and authorizes the

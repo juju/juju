@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -332,12 +333,11 @@ func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
-	params := state.AddMachineParams{
+	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      config.DefaultSeries,
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
-	}
-	return s.BackingState.AddMachineWithConstraints(&params)
+	})
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -414,13 +414,11 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
-	params := state.AddMachineParams{
-		ParentId:      m.Id(),
-		ContainerType: instance.LXC,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	// the PA should not attempt to create it
@@ -737,7 +735,7 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisione
 	env := s.APIConn.Environ
 	watcher, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
-	auth, err := provisioner.NewAPIAuthenticator(s.provisioner)
+	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask("machine-0", safeMode, s.provisioner, watcher, env, auth)
 }

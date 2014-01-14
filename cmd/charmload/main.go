@@ -5,11 +5,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"launchpad.net/goyaml"
 	"launchpad.net/lpad"
 
 	"launchpad.net/juju-core/store"
@@ -23,27 +21,6 @@ func main() {
 	}
 }
 
-type config struct {
-	MongoURL string `yaml:"mongo-url"`
-}
-
-func readConfig(path string, conf interface{}) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("opening config file: %v", err)
-	}
-	data, err := ioutil.ReadAll(f)
-	f.Close()
-	if err != nil {
-		return fmt.Errorf("reading config file: %v", err)
-	}
-	err = goyaml.Unmarshal(data, conf)
-	if err != nil {
-		return fmt.Errorf("processing config file: %v", err)
-	}
-	return nil
-}
-
 func load() error {
 	var confPath string
 	if len(os.Args) == 2 {
@@ -54,8 +31,7 @@ func load() error {
 	if confPath == "" {
 		return fmt.Errorf("usage: %s <config path>", filepath.Base(os.Args[0]))
 	}
-	var conf config
-	err := readConfig(confPath, &conf)
+	conf, err := store.ReadConfig(confPath)
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -148,12 +149,16 @@ func decodeUserData(userData string) ([]byte, error) {
 	return utils.Gunzip(data)
 }
 
+func bootstrapContext(c *gc.C) environs.BootstrapContext {
+	return envtesting.NewBootstrapContext(coretesting.Context(c))
+}
+
 func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -285,7 +290,7 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	input := `{"system_id": "` + systemId + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{&node, suite.makeEnviron()}
+	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
 }
 
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
@@ -316,7 +321,7 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	testInstance := &maasInstance{&node, suite.makeEnviron()}
+	testInstance := &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
 	err := bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
@@ -367,7 +372,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -383,14 +388,14 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -402,7 +407,7 @@ func (suite *environSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode", "hostname": "host"}`)
 
 	// bootstrap.Bootstrap calls Environ.Bootstrap.  This works.
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 

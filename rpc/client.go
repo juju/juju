@@ -101,6 +101,10 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		}
 		err = conn.readBody(nil, false)
 	case hdr.Error != "":
+		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
+		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
+			hdr.ErrorCode = CodeNotImplemented
+		}
 		// We've got an error response. Give this to the request;
 		// any subsequent requests will get the ReadResponseBody
 		// error if there is one.
@@ -169,11 +173,4 @@ func (conn *Conn) Go(req Request, args, response interface{}, done chan *Call) *
 	}
 	conn.send(call)
 	return call
-}
-
-func IsNoSuchRequest(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.HasPrefix(err.Error(), "no such request ")
 }

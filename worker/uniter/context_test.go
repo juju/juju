@@ -351,8 +351,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "riak")
 	var err error
-	s.svc, err = s.State.AddService("u", ch)
-	c.Assert(err, gc.IsNil)
+	s.svc = s.AddTestingService(c, "u", ch)
 	rels, err := s.svc.Relations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(rels, gc.HasLen, 1)
@@ -643,8 +642,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	sch := s.AddTestingCharm(c, "wordpress")
-	s.service, err = s.State.AddService("u", sch)
-	c.Assert(err, gc.IsNil)
+	s.service = s.AddTestingService(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
 	password, err := utils.RandomPassword()
@@ -676,8 +674,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
-	_, err := s.State.AddService(name, s.relch)
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, name, s.relch)
 	eps, err := s.State.InferEndpoints([]string{"u", name})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)

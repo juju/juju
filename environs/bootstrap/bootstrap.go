@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
@@ -19,12 +20,12 @@ var logger = loggo.GetLogger("juju.environs.bootstrap")
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(environ environs.Environ, cons constraints.Value) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, cons constraints.Value) error {
 	cfg := environ.Config()
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	if authKeys := cfg.AuthorizedKeys(); authKeys == "" {
+	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
 		// Config will act differently (it's pretty crazy that, AFAICT, the
 		// authorized-keys are optional config settings... but it's impossible
@@ -43,7 +44,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 		return err
 	}
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	return environ.Bootstrap(cons)
+	return environ.Bootstrap(ctx, cons)
 }
 
 // SetBootstrapTools returns the newest tools from the given tools list,

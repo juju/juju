@@ -71,6 +71,10 @@ openstack:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
 
+    # use-default-secgroup specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
     # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
     # global public tools metadata location https://streams.canonical.com/tools.
     # tools-metadata-url:  https://you-tools-metadata-url
@@ -119,7 +123,11 @@ hpcloud:
     # to give the nodes a public IP address. Some installations assign public IP
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
-    
+
+    # use-default-secgroup specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
     # tenant-name holds the openstack tenant name. In HPCloud, this is 
     # synonymous with the project-name  It defaults to
     # the environment variable OS_TENANT_NAME.
@@ -282,24 +290,43 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 type openstackInstance struct {
-	*nova.ServerDetail
 	e        *environ
 	instType *instances.InstanceType
 	arch     *string
+
+	mu           sync.Mutex
+	serverDetail *nova.ServerDetail
 }
 
 func (inst *openstackInstance) String() string {
-	return inst.ServerDetail.Id
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*openstackInstance)(nil)
 
+func (inst *openstackInstance) Refresh() error {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	server, err := inst.e.nova().GetServer(inst.serverDetail.Id)
+	if err != nil {
+		return err
+	}
+	inst.serverDetail = server
+	return nil
+}
+
+func (inst *openstackInstance) getServerDetail() *nova.ServerDetail {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.serverDetail
+}
+
 func (inst *openstackInstance) Id() instance.Id {
-	return instance.Id(inst.ServerDetail.Id)
+	return instance.Id(inst.getServerDetail().Id)
 }
 
 func (inst *openstackInstance) Status() string {
-	return inst.ServerDetail.Status
+	return inst.getServerDetail().Status
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
@@ -326,7 +353,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 // getAddress returns the existing server information on addresses,
 // but fetches the details over the api again if no addresses exist.
 func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
-	addrs := inst.ServerDetail.Addresses
+	addrs := inst.getServerDetail().Addresses
 	if len(addrs) == 0 {
 		server, err := inst.e.nova().GetServer(string(inst.Id()))
 		if err != nil {
@@ -470,7 +497,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -478,7 +505,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(e, cons)
+	return common.Bootstrap(ctx, e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -726,7 +753,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 	inst := &openstackInstance{
 		e:            e,
-		ServerDetail: detail,
+		serverDetail: detail,
 		arch:         &spec.Image.Arch,
 		instType:     &spec.InstanceType,
 	}
@@ -787,7 +814,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 			switch server.Status {
 			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-				out[id] = &openstackInstance{e: e, ServerDetail: &server}
+				out[id] = &openstackInstance{e: e, serverDetail: &server}
 				continue
 			}
 		}
@@ -836,7 +863,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 			insts = append(insts, &openstackInstance{
 				e:            e,
-				ServerDetail: &s,
+				serverDetail: &s,
 			})
 		}
 	}
@@ -1039,7 +1066,15 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 	if err != nil {
 		return nil, err
 	}
-	return []nova.SecurityGroup{jujuGroup, machineGroup}, nil
+	groups := []nova.SecurityGroup{jujuGroup, machineGroup}
+	if e.ecfg().useDefaultSecurityGroup() {
+		defaultGroup, err := e.nova().SecurityGroupByName("default")
+		if err != nil {
+			return nil, fmt.Errorf("loading default security group: %v", err)
+		}
+		groups = append(groups, *defaultGroup)
+	}
+	return groups, nil
 }
 
 // zeroGroup holds the zero security group.

@@ -39,6 +39,7 @@ import (
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -136,6 +137,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
 		return a.APIWorker(ensureStateWorker)
 	})
+	a.runner.StartWorker("termination", func() (worker.Worker, error) {
+		return terminationworker.NewWorker(), nil
+	})
 	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
 		err = a.uninstallAgent()
@@ -172,9 +176,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-		return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
-	})
+
+	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
+	providerType := agentConfig.Value(agent.ProviderType)
+	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
+		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+		})
+	}
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity); err != nil {
@@ -301,7 +310,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
+				dataDir := a.Conf.config.DataDir()
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil

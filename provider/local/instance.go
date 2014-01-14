@@ -28,6 +28,10 @@ func (inst *localInstance) Status() string {
 	return ""
 }
 
+func (*localInstance) Refresh() error {
+	return nil
+}
+
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
 	return nil, errors.NewNotImplementedError("localInstance.Addresses")
 }

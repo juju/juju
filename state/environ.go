@@ -98,7 +98,7 @@ func (e *Environment) Destroy() error {
 		C:      e.st.environments.Name,
 		Id:     e.doc.UUID,
 		Update: D{{"$set", D{{"life", Dying}}}},
-		Assert: isAliveDoc,
+		Assert: isEnvAliveDoc,
 	}, e.st.newCleanupOp("services", "")}
 	err := e.st.runTransaction(ops)
 	switch err {
@@ -130,6 +130,15 @@ func (e *Environment) assertAliveOp() txn.Op {
 	return txn.Op{
 		C:      e.st.environments.Name,
 		Id:     e.UUID(),
-		Assert: isAliveDoc,
+		Assert: isEnvAliveDoc,
 	}
+}
+
+// isEnvAlive is an Environment-specific versio nof isAliveDoc.
+//
+// Environment documents from versions of Juju prior to 1.17
+// do not have the life field; if it does not exist, it should
+// be considered to have the value Alive.
+var isEnvAliveDoc = D{
+	{"life", D{{"$in", []interface{}{Alive, nil}}}},
 }

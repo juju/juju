@@ -36,7 +36,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey), "")
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
 
@@ -167,8 +167,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 
 func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	// Create a new service and unit to verify "agent alive" behavior.
-	service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()

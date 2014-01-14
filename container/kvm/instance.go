@@ -29,6 +29,10 @@ func (kvm *kvmInstance) Status() string {
 	return "stopped"
 }
 
+func (*kvmInstance) Refresh() error {
+	return nil
+}
+
 func (kvm *kvmInstance) Addresses() ([]instance.Address, error) {
 	logger.Errorf("kvmInstance.Addresses not implemented")
 	return nil, nil

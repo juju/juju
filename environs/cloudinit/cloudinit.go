@@ -33,6 +33,9 @@ import (
 // is bootstrapping.
 const BootstrapStateURLFile = "/tmp/provider-state-url"
 
+// SystemIdentity is the name of the file where the environment SSH key is kept.
+const SystemIdentity = "system-identity"
+
 // fileSchemePrefix is the prefix for file:// URLs.
 const fileSchemePrefix = "file://"
 
@@ -118,6 +121,11 @@ type MachineConfig struct {
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
+
+	// SystemPrivateSSHKey is created at bootstrap time and recorded on every
+	// node that has an API server. At this stage, that is any machine where
+	// StateServer (member above) is set to true.
+	SystemPrivateSSHKey string
 }
 
 func base64yaml(m *config.Config) string {
@@ -140,6 +148,11 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) error {
 
 const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 
+// NonceFile is written by cloud-init as the last thing it does.
+// The file will contain the machine's nonce. The filename is
+// relative to the Juju data-dir.
+const NonceFile = "nonce.txt"
+
 // ConfigureBasic updates the provided cloudinit.Config with
 // basic configuration to initialise an OS image, such that it can
 // be connected to via SSH, and log to a standard location.
@@ -155,6 +168,18 @@ const cloudInitOutputLog = "/var/log/cloud-init-output.log"
 func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
+	// Create a file in a well-defined location containing the machine's
+	// nonce. The presence and contents of this file will be verified
+	// during bootstrap.
+	//
+	// Note: this must be the last runcmd we do in ConfigureBasic, as
+	// the presence of the nonce file is used to gate the remainder
+	// of synchronous bootstrap.
+	noncefile := shquote(path.Join(cfg.DataDir, NonceFile))
+	c.AddScripts(
+		fmt.Sprintf("install -D -m %o /dev/null %s", 0644, noncefile),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(cfg.MachineNonce), noncefile),
+	)
 	return nil
 }
 
@@ -253,6 +278,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	cfg.MaybeAddCloudArchiveCloudTools(c)
 
 	if cfg.StateServer {
+		identityFile := cfg.dataFile(SystemIdentity)
+		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		// Disable the default mongodb installed by the mongodb-server package.
 		// Only do this if the file doesn't exist already, so users can run
 		// their own mongodb server if they wish to.
@@ -589,6 +616,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.APIPort == 0 {
 			return fmt.Errorf("missing API port")
+		}
+		if cfg.SystemPrivateSSHKey == "" {
+			return fmt.Errorf("missing system ssh identity")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

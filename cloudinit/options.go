@@ -5,7 +5,6 @@ package cloudinit
 
 import (
 	"fmt"
-	"strings"
 
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
@@ -281,17 +280,14 @@ func (cfg *Config) SetDisableRoot(disable bool) {
 // ssh authorized_keys format (see ssh(8) for details)
 // that will be added to ~/.ssh/authorized_keys for the
 // configured user (see SetUser).
-func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
+func (cfg *Config) AddSSHAuthorizedKeys(keyData string) {
 	akeys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
-	lines := strings.Split(keys, "\n")
-	for _, line := range lines {
-		if line == "" || line[0] == '#' {
-			continue
-		}
+	keys := ssh.SplitAuthorisedKeys(keyData)
+	for _, key := range keys {
 		// Ensure the key has a comment prepended with "Juju:" so we
 		// can distinguish between Juju managed keys and those added
 		// externally.
-		jujuKey := ssh.EnsureJujuComment(line)
+		jujuKey := ssh.EnsureJujuComment(key)
 		akeys = append(akeys, jujuKey)
 	}
 	cfg.attrs["ssh_authorized_keys"] = akeys
@@ -316,7 +312,7 @@ func (cfg *Config) AddFile(filename, data string, mode uint) {
 	// of escape sequences differs between shells, namely bash and
 	// dash. Instead, we use printf (or we could use /bin/echo).
 	cfg.AddScripts(
-		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
+		fmt.Sprintf("install -D -m %o /dev/null %s", mode, p),
 		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
 	)
 }

@@ -8,6 +8,20 @@ import (
 	"reflect"
 )
 
+// CallNotImplementedError is an error, returned an attempt to call to
+// an unknown API method is made.
+type CallNotImplementedError struct {
+	Method     string
+	RootMethod string
+}
+
+func (e *CallNotImplementedError) Error() string {
+	if e.Method == "" {
+		return fmt.Sprintf("unknown object type %q", e.RootMethod)
+	}
+	return fmt.Sprintf("no such request - method %s.%s is not implemented", e.RootMethod, e.Method)
+}
+
 // MethodCaller knows how to call a particular RPC method.
 type MethodCaller struct {
 	// ParamsType holds the required type of the parameter to the object method.
@@ -65,11 +79,16 @@ func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller,
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)
 	if err != nil {
-		return MethodCaller{}, fmt.Errorf("unknown object type %q", rootMethodName)
+		return MethodCaller{}, &CallNotImplementedError{
+			RootMethod: rootMethodName,
+		}
 	}
 	caller.objMethod, err = caller.rootMethod.ObjType.Method(objMethodName)
 	if err != nil {
-		return MethodCaller{}, fmt.Errorf("no such request %q on %s", objMethodName, rootMethodName)
+		return MethodCaller{}, &CallNotImplementedError{
+			RootMethod: rootMethodName,
+			Method:     objMethodName,
+		}
 	}
 	caller.ParamsType = caller.objMethod.Params
 	caller.ResultType = caller.objMethod.Result

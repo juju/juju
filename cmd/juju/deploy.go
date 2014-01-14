@@ -16,6 +16,8 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 type DeployCommand struct {
@@ -25,7 +27,7 @@ type DeployCommand struct {
 	ServiceName  string
 	Config       cmd.FileVar
 	Constraints  constraints.Value
-	BumpRevision bool
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
@@ -82,7 +84,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
-	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
+	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
@@ -111,6 +113,87 @@ func (c *DeployCommand) Init(args []string) error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	attrs, err := client.EnvironmentGet()
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("EnvironmentGet not supported by the API server, " +
+			"falling back to 1.16 compatibility mode (direct DB access)")
+		return c.run1dot16(ctx)
+	}
+	if err != nil {
+		return err
+	}
+	conf, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return err
+	}
+	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+	if err != nil {
+		return err
+	}
+	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	if err != nil {
+		return err
+	}
+
+	repo = config.AuthorizeCharmRepo(repo, conf)
+
+	curl, err = addCharmViaAPI(client, ctx, curl, repo)
+	if err != nil {
+		return err
+	}
+
+	if c.BumpRevision {
+		ctx.Stdout.Write([]byte("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.\n"))
+	}
+
+	charmInfo, err := client.CharmInfo(curl.String())
+	if err != nil {
+		return err
+	}
+
+	numUnits := c.NumUnits
+	if charmInfo.Meta.Subordinate {
+		if !constraints.IsEmpty(&c.Constraints) {
+			return errors.New("cannot use --constraints with subordinate service")
+		}
+		if numUnits == 1 && c.ToMachineSpec == "" {
+			numUnits = 0
+		} else {
+			return errors.New("cannot use --num-units or --to with subordinate service")
+		}
+	}
+	serviceName := c.ServiceName
+	if serviceName == "" {
+		serviceName = charmInfo.Meta.Name
+	}
+
+	var configYAML []byte
+	if c.Config.Path != "" {
+		configYAML, err = c.Config.Read(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return client.ServiceDeploy(
+		curl.String(),
+		serviceName,
+		numUnits,
+		string(configYAML),
+		c.Constraints,
+		c.ToMachineSpec,
+	)
+}
+
+// run1dot16 implements the deploy command in 1.16 compatibility mode,
+// with direct state access. Remove this when support for 1.16 is
+// dropped.
+func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -151,6 +234,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return errors.New("cannot use --num-units or --to with subordinate service")
 		}
 	}
+
 	serviceName := c.ServiceName
 	if serviceName == "" {
 		serviceName = ch.Meta().Name
@@ -166,13 +250,49 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    serviceName,
-		Charm:          ch,
-		NumUnits:       numUnits,
-		ConfigSettings: settings,
-		Constraints:    c.Constraints,
-		ToMachineSpec:  c.ToMachineSpec,
-	})
+	_, err = juju.DeployService(conn.State,
+		juju.DeployServiceParams{
+			ServiceName:    serviceName,
+			Charm:          ch,
+			NumUnits:       numUnits,
+			ConfigSettings: settings,
+			Constraints:    c.Constraints,
+			ToMachineSpec:  c.ToMachineSpec,
+		})
 	return err
+}
+
+// addCharmViaAPI calls the appropriate client API calls to add the
+// given charm URL to state. Also displays the charm URL of the added
+// charm on stdout.
+func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
+	if curl.Revision < 0 {
+		latest, err := repo.Latest(curl)
+		if err != nil {
+			return nil, err
+		}
+		curl = curl.WithRevision(latest)
+	}
+	switch curl.Schema {
+	case "local":
+		ch, err := repo.Get(curl)
+		if err != nil {
+			return nil, err
+		}
+		stateCurl, err := client.AddLocalCharm(curl, ch)
+		if err != nil {
+			return nil, err
+		}
+		curl = stateCurl
+	case "cs":
+		err := client.AddCharm(curl)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
+	}
+	report := fmt.Sprintf("Added charm %q to the environment.\n", curl)
+	ctx.Stdout.Write([]byte(report))
+	return curl, nil
 }

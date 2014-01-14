@@ -12,13 +12,17 @@ type nullBootstrapInstance struct {
 	host string
 }
 
-func (_ nullBootstrapInstance) Id() instance.Id {
+func (nullBootstrapInstance) Id() instance.Id {
 	// The only way to bootrap is via manual bootstrap.
 	return manual.BootstrapInstanceId
 }
 
-func (_ nullBootstrapInstance) Status() string {
+func (nullBootstrapInstance) Status() string {
 	return ""
+}
+
+func (nullBootstrapInstance) Refresh() error {
+	return nil
 }
 
 func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
@@ -43,14 +47,14 @@ func (i nullBootstrapInstance) WaitDNSName() (string, error) {
 	return i.DNSName()
 }
 
-func (_ nullBootstrapInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (nullBootstrapInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	return nil
 }
 
-func (_ nullBootstrapInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (nullBootstrapInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	return nil
 }
 
-func (_ nullBootstrapInstance) Ports(machineId string) ([]instance.Port, error) {
+func (nullBootstrapInstance) Ports(machineId string) ([]instance.Port, error) {
 	return []instance.Port{}, nil
 }
