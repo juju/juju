@@ -19,6 +19,9 @@ import urllib2
 from jujuconfig import get_selected_environment
 
 
+WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
+
+
 class ErroredUnit(Exception):
 
     def __init__(self, environment, unit_name, state):
@@ -70,7 +73,7 @@ class JujuClientDevel:
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
-            return os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
+            return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
