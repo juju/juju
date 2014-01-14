@@ -39,13 +39,9 @@ class WorkingDirectory:
         os.chdir(self.savedPath)
 
 
-def run(command, *args, **kwargs):
-    try:
-        output = subprocess.check_output(command, *args, **kwargs)
-        return output
-    except Exception as e:
-        print(str(e))
-        raise
+def run(*command, **kwargs):
+    output = subprocess.check_output(command, **kwargs)
+    return output
 
 
 def is_sane(tarball_path):
@@ -74,7 +70,7 @@ def setup(tarball_name):
         shutil.rmtree(GOPATH)
         print('Removed {0}'.format(GOPATH))
     if os.path.exists(JUJU_UNINSTALL):
-        run([JUJU_UNINSTALL, '/verysilent'])
+        run(JUJU_UNINSTALL, '/verysilent')
         print('Uninstalled Juju with {0}'.format(JUJU_UNINSTALL))
     if os.path.exists(TMP_DIR):
         shutil.rmtree(TMP_DIR)
@@ -104,7 +100,7 @@ def build():
     env['GOPATH'] = GOPATH
     env['GOARCH'] = '386'
     with WorkingDirectory(JUJU_CMD_DIR):
-        output = run([GO_CMD, 'build'], env=env)
+        output = run(GO_CMD, 'build', env=env)
         print(output)
         print('Built Juju.exe')
         shutil.move('juju.exe', ISS_DIR)
@@ -113,7 +109,7 @@ def build():
 
 def package(version):
     with WorkingDirectory(ISS_DIR):
-        output = run([ISS_CMD, 'setup.iss'])
+        output = run(ISS_CMD, 'setup.iss')
         print(output)
         installer_name = 'juju-setup-{0}.exe'.format(version)
         installer_path = os.path.join(ISS_DIR, 'output', installer_name)
@@ -124,13 +120,13 @@ def package(version):
 
 def install(installer_name):
     installer_path = os.path.join(CI_DIR, installer_name)
-    output = run([installer_path, '/verysilent'])
+    output = run(installer_path, '/verysilent')
     print(output)
     print('Installed Juju')
 
 
 def test(version):
-    output = run([JUJU_CMD, 'version'])
+    output = run(JUJU_CMD, 'version')
     print(output)
     if version not in output:
         raise Exception("Juju did not install")
