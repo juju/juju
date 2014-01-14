@@ -15,7 +15,7 @@ import tarfile
 GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
 ISS_CMD = os.path.join('\\', 'Progra~2', 'InnoSe~1', 'iscc.exe')
 JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
-JUJU_UNINSTALL = os.path.join('\\', 'Progra~2', 'Juju', 'uninstall.exe')
+JUJU_UNINSTALL = os.path.join('\\', 'Progra~2', 'Juju', 'unins000.exe')
 
 CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
 TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
@@ -74,7 +74,7 @@ def setup(tarball_name):
         shutil.rmtree(GOPATH)
         print('Removed {0}'.format(GOPATH))
     if os.path.exists(JUJU_UNINSTALL):
-        run(JUJU_UNINSTALL, '/verysilent')
+        run([JUJU_UNINSTALL, '/verysilent'])
         print('Uninstalled Juju with {0}'.format(JUJU_UNINSTALL))
     if os.path.exists(TMP_DIR):
         shutil.rmtree(TMP_DIR)
