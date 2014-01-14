@@ -414,7 +414,7 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 				} else {
 					value = "(invalid)"
 				}
-				return nil, fmt.Errorf("%v: Unknown key %q (value %q)", pathAsString(path), ks, value)
+				return nil, fmt.Errorf("%v: unknown key %q (value %q)", pathAsString(path), ks, value)
 			}
 		}
 	}
