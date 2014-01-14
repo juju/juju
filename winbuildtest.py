@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # This script builds the windows juju installer and verifies it works.
 # This is run on a window's machine with sshd, python and go installed.
 # CI must send this script and the tarball under test to the windows
