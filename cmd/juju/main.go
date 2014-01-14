@@ -86,6 +86,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&EndpointCommand{}))
 
 	// Error resolution and debugging commands.
+	jujucmd.Register(wrap(&RunCommand{}))
 	jujucmd.Register(wrap(&SCPCommand{}))
 	jujucmd.Register(wrap(&SSHCommand{}))
 	jujucmd.Register(wrap(&ResolvedCommand{}))

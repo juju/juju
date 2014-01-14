@@ -31,14 +31,10 @@ func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
 	return worker.NewNotifyWorker(mr)
 }
 
-func isNotFoundOrUnauthorized(err error) bool {
-	return params.IsCodeNotFound(err) || params.IsCodeUnauthorized(err)
-}
-
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.st.Machine(mr.tag)
-	if isNotFoundOrUnauthorized(err) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
 		return nil, err
@@ -55,7 +51,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 func (mr *Machiner) Handle() error {
-	if err := mr.machine.Refresh(); isNotFoundOrUnauthorized(err) {
+	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err

@@ -202,7 +202,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: invalid URL.*")
+	c.Check(err, gc.ErrorMatches, ".*no tools available")
 }
 
 type bootstrapEnviron struct {

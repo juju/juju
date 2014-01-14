@@ -240,11 +240,12 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
+	expectedAuthKeys := strings.TrimSpace(env.Config().AuthorizedKeys())
 	c.Assert(userDataMap, gc.DeepEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
-		"ssh_authorized_keys": []interface{}{"my-keys"},
+		"ssh_authorized_keys": []interface{}{expectedAuthKeys},
 		"runcmd": []interface{}{
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",

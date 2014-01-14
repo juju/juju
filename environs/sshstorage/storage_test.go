@@ -30,7 +30,7 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
-func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
+func sshCommandTesting(host string, command string) *exec.Cmd {
 	cmd := exec.Command("bash", "-c", command)
 	uid := fmt.Sprint(os.Getuid())
 	gid := fmt.Sprint(os.Getgid())
@@ -45,8 +45,6 @@ func newSSHStorage(host, storageDir, tmpDir string) (*SSHStorage, error) {
 		Host:       host,
 		StorageDir: storageDir,
 		TmpDir:     tmpDir,
-		Stdin:      &bytes.Buffer{},
-		Stdout:     ioutil.Discard,
 	}
 	return NewSSHStorage(params)
 }
@@ -65,8 +63,8 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	restoreEnv := testbase.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
 	s.AddSuiteCleanup(func(*gc.C) { restoreEnv() })
 
-	// Create a "sudo" command which just executes its args.
-	err = os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo"))
+	// Create a "sudo" command which shifts away the "-n" and executes the remaining args.
+	err = ioutil.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nshift; exec \"$@\""), 0755)
 	c.Assert(err, gc.IsNil)
 	restoreSshCommand := testbase.PatchValue(&sshCommand, sshCommandTesting)
 	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })
@@ -169,7 +167,7 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 	//  3: second "install"
 	//  4: touch
 	var invocations int
-	badSshCommand := func(host string, tty bool, command string) *exec.Cmd {
+	badSshCommand := func(host string, command string) *exec.Cmd {
 		invocations++
 		switch invocations {
 		case 1, 3:

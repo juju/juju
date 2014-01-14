@@ -53,7 +53,7 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
 	var mcfg *envcloudinit.MachineConfig
 	if stateServer {
-		mcfg = environs.NewBootstrapMachineConfig("http://whatever/dotcom")
+		mcfg = environs.NewBootstrapMachineConfig("http://whatever/dotcom", "private-key")
 	} else {
 		mcfg = environs.NewMachineConfig("0", "ya", nil, nil)
 	}
