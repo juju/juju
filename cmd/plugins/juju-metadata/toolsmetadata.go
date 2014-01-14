@@ -5,6 +5,9 @@ package main
 
 import (
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/loggo"
@@ -12,10 +15,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/provider/ec2/httpstorage"
+	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -23,16 +27,12 @@ import (
 
 var DefaultToolsLocation = sync.DefaultToolsLocation
 
-// ToolsMetadataCommand is used to generate simplestreams metadata for
-// juju tools.
+// ToolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type ToolsMetadataCommand struct {
 	cmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
 	public      bool
-
-	// noPublic is used in testing to disable the use of public storage as a backup.
-	noPublic bool
 }
 
 func (c *ToolsMetadataCommand) Info() *cmd.Info {
@@ -66,10 +66,27 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 	fmt.Fprintln(context.Stdout, "Finding tools...")
 	const minorVersion = -1
-	toolsList, err := tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
-	if err == tools.ErrNoTools && !c.noPublic {
-		sourceStorage = httpstorage.NewHTTPStorageReader(sync.DefaultToolsLocation)
-		toolsList, err = tools.ReadList(sourceStorage, version.Current.Major, minorVersion)
+	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
+	if err == envtools.ErrNoTools {
+		source := DefaultToolsLocation
+		var u *url.URL
+		u, err = url.Parse(source)
+		if err != nil {
+			return fmt.Errorf("invalid tools source %s: %v", source, err)
+		}
+		if u.Scheme == "" {
+			source = "file://" + source
+			if !strings.HasSuffix(source, "/"+storage.BaseToolsPath) {
+				source = path.Join(source, storage.BaseToolsPath)
+			}
+		}
+		sourceDataSource := simplestreams.NewURLDataSource(source, simplestreams.VerifySSLHostnames)
+		toolsList, err = envtools.FindToolsForCloud(
+			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
+			version.Current.Major, minorVersion, coretools.Filter{})
+		if errors.IsNotFoundError(err) {
+			err = envtools.ErrNoTools
+		}
 	}
 	if err != nil {
 		return err
@@ -79,9 +96,9 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	writeMirrors := tools.DoNotWriteMirrors
+	writeMirrors := envtools.DoNotWriteMirrors
 	if c.public {
-		writeMirrors = tools.WriteMirrors
+		writeMirrors = envtools.WriteMirrors
 	}
 	return mergeAndWriteMetadata(targetStorage, toolsList, writeMirrors)
 }
@@ -89,17 +106,17 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
 // resolves metadata for existing tools by fetching them and computing
 // size/sha256 locally.
-func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, writeMirrors tools.ShouldWriteMirrors) error {
-	existing, err := tools.ReadMetadata(stor)
+func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors) error {
+	existing, err := envtools.ReadMetadata(stor)
 	if err != nil {
 		return err
 	}
-	metadata := tools.MetadataFromTools(toolsList)
-	if metadata, err = tools.MergeMetadata(metadata, existing); err != nil {
+	metadata := envtools.MetadataFromTools(toolsList)
+	if metadata, err = envtools.MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
-	if err = tools.ResolveMetadata(stor, metadata); err != nil {
+	if err = envtools.ResolveMetadata(stor, metadata); err != nil {
 		return err
 	}
-	return tools.WriteMetadata(stor, metadata, writeMirrors)
+	return envtools.WriteMetadata(stor, metadata, writeMirrors)
 }
