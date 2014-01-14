@@ -10,7 +10,7 @@ import (
 
 type environInstance struct {
 	id  instance.Id
-	env *joyentEnviron
+	env *JoyentEnviron
 }
 
 var _ instance.Instance = (*environInstance)(nil)

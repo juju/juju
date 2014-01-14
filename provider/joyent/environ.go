@@ -23,7 +23,7 @@ import (
 // must be implemented ) and environ_firewall.go (which can be safely
 // ignored until you've got an environment bootstrapping successfully).
 
-type joyentEnviron struct {
+type JoyentEnviron struct {
 	name string
 	// All mutating operations should lock the mutex. Non-mutating operations
 	// should read all fields (other than name, which is immutable) from a
@@ -35,10 +35,10 @@ type joyentEnviron struct {
 	storage storage.Storage
 }
 
-var _ environs.Environ = (*joyentEnviron)(nil)
+var _ environs.Environ = (*JoyentEnviron)(nil)
 
-func NewEnviron(cfg *config.Config) (*joyentEnviron, error) {
-	env := new(joyentEnviron)
+func NewEnviron(cfg *config.Config) (*JoyentEnviron, error) {
+	env := new(JoyentEnviron)
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -48,15 +48,19 @@ func NewEnviron(cfg *config.Config) (*joyentEnviron, error) {
 	return env, nil
 }
 
-func (env *joyentEnviron) Name() string {
+func (env *JoyentEnviron) SetName(envName string) {
+	env.name = envName
+}
+
+func (env *JoyentEnviron) Name() string {
 	return env.name
 }
 
-func (*joyentEnviron) Provider() environs.EnvironProvider {
+func (*JoyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
-func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
+func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	ecfg, err := validateConfig(cfg, env.ecfg)
@@ -72,7 +76,7 @@ func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (env *joyentEnviron) getSnapshot() *joyentEnviron {
+func (env *JoyentEnviron) getSnapshot() *JoyentEnviron {
 	env.lock.Lock()
 	clone := *env
 	env.lock.Unlock()
@@ -80,26 +84,26 @@ func (env *joyentEnviron) getSnapshot() *joyentEnviron {
 	return &clone
 }
 
-func (env *joyentEnviron) Config() *config.Config {
+func (env *JoyentEnviron) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
-func (env *joyentEnviron) Storage() storage.Storage {
+func (env *JoyentEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *joyentEnviron) PublicStorage() storage.StorageReader {
+func (env *JoyentEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (env *JoyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	return common.Bootstrap(ctx, env, cons)
 }
 
-func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *JoyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 
-func (env *joyentEnviron) Destroy() error {
+func (env *JoyentEnviron) Destroy() error {
 	return common.Destroy(env)
 }

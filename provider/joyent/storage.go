@@ -18,7 +18,7 @@ import (
 	"launchpad.net/gojoyent/manta"
 )
 
-type joyentStorage struct {
+type JoyentStorage struct {
 	sync.Mutex
 	ecfg          *environConfig
 	madeContainer bool
@@ -34,9 +34,9 @@ func (byteCloser) Close() error {
 	return nil
 }
 
-var _ storage.Storage = (*joyentStorage)(nil)
+var _ storage.Storage = (*JoyentStorage)(nil)
 
-func NewStorage(env *joyentEnviron) storage.Storage {
+func NewStorage(env *JoyentEnviron) storage.Storage {
 	if stor, err := newStorage(env.ecfg); err == nil {
 		return stor
 	}
@@ -56,32 +56,44 @@ func getCredentials(ecfg *environConfig) *jpc.Credentials {
 func newStorage(ecfg *environConfig) (storage.Storage, error) {
 	client := client.NewClient(ecfg.mantaUrl(), "", getCredentials(ecfg), &logger)
 
-	return &joyentStorage{
+	return &JoyentStorage{
 		ecfg:          ecfg,
 		containerName: ecfg.controlDir(),
 		manta:         manta.New(client)}, nil
 }
 
-// makeContainer makes the environment's control container, the
+func (s *JoyentStorage) GetContainerName() string {
+	return s.containerName
+}
+
+func (s *JoyentStorage) GetMantaUrl() string {
+	return s.ecfg.mantaUrl()
+}
+
+func (s *JoyentStorage) GetMantaUser() string {
+	return s.ecfg.mantaUser()
+}
+
+// CreateContainer makes the environment's control container, the
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *joyentStorage) createContainer(containerName string) error {
+func (s *JoyentStorage) CreateContainer() error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeContainer {
 		return nil
 	}
 	// try to make the container
-	err := s.manta.PutDirectory(containerName)
+	err := s.manta.PutDirectory(s.containerName)
 	if err == nil {
 		s.madeContainer = true
 	}
 	return err
 }
 
-// deleteContainer deletes the named comtainer from the storage account.
-func (s *joyentStorage) deleteContainer(containerName string) error {
+// deleteContainer deletes the named container from the storage account.
+func (s *JoyentStorage) DeleteContainer(containerName string) error {
 	err := s.manta.DeleteDirectory(containerName)
 	if err == nil {
 		s.madeContainer = false
@@ -89,7 +101,7 @@ func (s *joyentStorage) deleteContainer(containerName string) error {
 	return err
 }
 
-func (s *joyentStorage) List(prefix string) ([]string, error) {
+func (s *JoyentStorage) List(prefix string) ([]string, error) {
 	// use empty opts, i.e. default values
 	// -- might be added in the provider config?
 	contents, err := s.manta.ListDirectory(s.containerName, manta.ListDirectoryOpts{})
@@ -103,13 +115,13 @@ func (s *joyentStorage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-func (s *joyentStorage) URL(name string) (string, error) {
-	//return something that a random wget can retrieve the object at, without any credentials
+//return something that a random wget can retrieve the object at, without any credentials
+func (s *JoyentStorage) URL(name string) (string, error) {
 	path := fmt.Sprintf("/%s/stor/%s/%s", s.ecfg.mantaUser(), s.containerName, name)
-	return s.manta.SignURL(path, time.Now().Add(time.Minute*5))
+	return s.manta.SignURL(path, time.Now().AddDate(10, 0, 0))
 }
 
-func (s *joyentStorage) Get(name string) (io.ReadCloser, error) {
+func (s *JoyentStorage) Get(name string) (io.ReadCloser, error) {
 	b, err := s.manta.GetObject(s.containerName, name)
 	if err != nil {
 		return nil, err
@@ -118,11 +130,10 @@ func (s *joyentStorage) Get(name string) (io.ReadCloser, error) {
 	return r, nil
 }
 
-func (s *joyentStorage) Put(name string, r io.Reader, length int64) error {
-	if err := s.createContainer(s.containerName); err != nil {
+func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
+	if err := s.CreateContainer(); err != nil {
 		return fmt.Errorf("cannot make Manta control container: %v", err)
 	}
-	//obj := r.Read()
 	err := s.manta.PutObject(s.containerName, name, r)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", name, s.containerName, err)
@@ -130,7 +141,7 @@ func (s *joyentStorage) Put(name string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *joyentStorage) Remove(name string) error {
+func (s *JoyentStorage) Remove(name string) error {
 	err := s.manta.DeleteObject(s.containerName, name)
 	if err != nil {
 		return err
@@ -138,8 +149,8 @@ func (s *joyentStorage) Remove(name string) error {
 	return nil
 }
 
-func (s *joyentStorage) RemoveAll() error {
-	names, err := storage.List(s, s.containerName)
+func (s *JoyentStorage) RemoveAll() error {
+	names, err := storage.List(s, "")
 	if err != nil {
 		return err
 	}
@@ -177,10 +188,10 @@ func (s *joyentStorage) RemoveAll() error {
 	return nil
 }
 
-func (s *joyentStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+func (s *JoyentStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-func (s *joyentStorage) ShouldRetry(err error) bool {
+func (s *JoyentStorage) ShouldRetry(err error) bool {
 	return false
 }
