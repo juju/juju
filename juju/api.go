@@ -154,16 +154,15 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		infoResult = apiInfoConnect(store, info, stop)
 	}
 	delay := providerConnectDelay
-	var cfgResult <-chan apiOpenResult
 	if infoResult == nil {
 		// There's no environment info, so no need to
 		// wait for the info connection.
 		logger.Infof("no cached API connection settings found")
 		delay = 0
-		cfgResult = apiConfigConnect(info, envs, envName, stop, delay)
 	} else {
 		logger.Infof("using cached API connection settings")
 	}
+	cfgResult := apiConfigConnect(info, envs, envName, stop, delay)
 
 	if infoResult == nil && cfgResult == nil {
 		return nil, errors.NotFoundf("environment %q", envName)
@@ -201,9 +200,8 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		})
 		_, username, err := names.ParseTag(connectedInfo.Tag, names.UserTagKind)
 		if err != nil {
-			logger.Errorf("invalid API user tag: %v", err)
-			st.Close()
-			return nil, err
+			logger.Warningf("not caching API connection settings: invalid API user tag: %v", err)
+			return st, nil
 		}
 		info.SetAPICredentials(configstore.APICredentials{
 			User:     username,
