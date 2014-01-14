@@ -15,8 +15,8 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/utils/parallel"
 	"launchpad.net/juju-core/state/api/keymanager"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 var logger = loggo.GetLogger("juju")
