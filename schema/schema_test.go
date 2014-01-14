@@ -377,7 +377,7 @@ func (s *S) TestStrictFieldMap(c *gc.C) {
 
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "d": "D"}, aPath)
 	c.Assert(out, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `<path>: Unknown key "d" \(value "D"\)`)
+	c.Assert(err, gc.ErrorMatches, `<path>: unknown key "d" \(value "D"\)`)
 }
 
 func (s *S) TestSchemaMap(c *gc.C) {
