@@ -62,7 +62,7 @@ func (s *MachineSuite) TearDownSuite(c *gc.C) {
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
-	s.PatchValue(&jujuRun, filepath.Join(c.MkDir(), "juju-run"))
+	os.Remove(jujuRun) // ignore error; may not exist
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
