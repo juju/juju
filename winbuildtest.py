@@ -104,10 +104,7 @@ def move_source_to_gopath(tarball_name):
 def build():
     env = dict(os.environ)
     env['GOPATH'] = GOPATH
-    # XXX sinzui 2014-01-13: amd64 works, but i386 needs
-    # go build runtime: windows/386 must be bootstrapped using make.bash
     env['GOARCH'] = '386'
-    env['GOARCH'] = 'amd64'
     with WorkingDirectory(JUJU_CMD_DIR):
         output = run([GO_CMD, 'build'], env=env)
         print(output)
