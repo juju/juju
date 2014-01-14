@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 __metaclass__ = type
 
 import yaml
@@ -6,6 +8,7 @@ from collections import defaultdict
 from cStringIO import StringIO
 from datetime import datetime, timedelta
 import httplib
+import os
 import socket
 import subprocess
 import sys
@@ -66,6 +69,8 @@ class JujuClientDevel:
 
     @classmethod
     def get_full_path(cls):
+        if sys.platform == 'win32':
+            return os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
@@ -113,7 +118,7 @@ class JujuClientDevel:
     def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
         args = self._full_args(environment, command, sudo, args)
-        print ' '.join(args)
+        print(' '.join(args))
         sys.stdout.flush()
         if check:
             return subprocess.check_call(args)
@@ -219,7 +224,7 @@ class Environment:
             states = status.check_agents_started(self.environment)
             if states is None:
                 break
-            print format_listing(states, 'started', self.environment)
+            print(format_listing(states, 'started', self.environment))
             sys.stdout.flush()
         else:
             raise Exception('Timed out waiting for agents to start in %s.' %
@@ -234,11 +239,11 @@ class Environment:
                 if 'Unable to connect to environment' not in e.stderr:
                     raise
                 else:
-                    print 'Supressing "Unable to connect to environment"'
+                    print('Supressing "Unable to connect to environment"')
                     continue
             if versions.keys() == [version]:
                 break
-            print format_listing(versions, version, self.environment)
+            print(format_listing(versions, version, self.environment))
             sys.stdout.flush()
         else:
             raise Exception('Some versions did not update.')
