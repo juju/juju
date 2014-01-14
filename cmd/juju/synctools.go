@@ -42,7 +42,7 @@ func (c *SyncToolsCommand) Info() *cmd.Info {
 This copies the Juju tools tarball from the official tools store (located
 at https://streams.canonical.com/juju) into your environment.
 This is generally done when you want Juju to be able to run without having to
-access the internet. Alternatively you can specify a local directory as source.
+access the Internet. Alternatively you can specify a local directory as source.
 
 Sometimes this is because the environment does not have public access,
 and sometimes you just want to avoid having to access data outside of

@@ -50,13 +50,8 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	envtesting.RemoveAllTools(c, s.env)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 
-	// Create a storage to override the default tools location.
-	// It is created with nothing in it - tests will add tools as needed.
-	s.publicStorageDir = c.MkDir()
-	//	publicStorage, err := filestorage.NewFileStorageWriter(s.publicStorageDir, filestorage.UseDefaultTmpDir)
-	//	c.Assert(err, gc.IsNil)
-
 	// Switch the default tools location.
+	s.publicStorageDir = c.MkDir()
 	s.PatchValue(&DefaultToolsLocation, s.publicStorageDir)
 }
 
