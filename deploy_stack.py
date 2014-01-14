@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 __metaclass__ = type
 
 
@@ -29,8 +30,11 @@ def deploy_stack(environments, charm_prefix):
                 break
             status = env.get_status()
         if agent_versions.keys() != [agent_version]:
-            print "Current versions: %s" % ', '.join(agent_versions.keys())
+            print("Current versions: %s" % ', '.join(agent_versions.keys()))
             env.juju('upgrade-juju', '--version', agent_version)
+    if sys.platform == 'win32':
+        # The win client tests only verify the client to the state-server.
+        return
     for env in envs:
         env.wait_for_version(env.get_matching_agent_version())
         env.juju('deploy', charm_prefix + 'wordpress')
@@ -52,7 +56,7 @@ def main():
     try:
         deploy_stack(args.env, args.charm_prefix)
     except Exception as e:
-        print e
+        print(e)
         sys.exit(1)
 
 
