@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"unicode"
 
 	"launchpad.net/goyaml"
 )
@@ -59,6 +60,38 @@ func ErrorContextf(err *error, format string, args ...interface{}) {
 func ShQuote(s string) string {
 	// single-quote becomes single-quote, double-quote, single-quote, double-quote, single-quote
 	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
+}
+
+// CommandString flattens a sequence of command arguments into a
+// string suitable for executing in a shell, escaping slashes,
+// variables and quotes as necessary; each argument is double-quoted
+// if and only if necessary.
+func CommandString(args ...string) string {
+	var buf bytes.Buffer
+	for i, arg := range args {
+		needsQuotes := false
+		var argBuf bytes.Buffer
+		for _, r := range arg {
+			if unicode.IsSpace(r) {
+				needsQuotes = true
+			} else if r == '"' || r == '$' || r == '\\' {
+				needsQuotes = true
+				argBuf.WriteByte('\\')
+			}
+			argBuf.WriteRune(r)
+		}
+		if i > 0 {
+			buf.WriteByte(' ')
+		}
+		if needsQuotes {
+			buf.WriteByte('"')
+			argBuf.WriteTo(&buf)
+			buf.WriteByte('"')
+		} else {
+			argBuf.WriteTo(&buf)
+		}
+	}
+	return buf.String()
 }
 
 // Gzip compresses the given data.

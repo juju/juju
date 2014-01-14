@@ -188,6 +188,8 @@ var DefaultClient Client
 func init() {
 	if client, err := NewOpenSSHClient(); err == nil {
 		DefaultClient = client
+	} else if client, err := NewGoCryptoClient(); err == nil {
+		DefaultClient = client
 	}
 }
 

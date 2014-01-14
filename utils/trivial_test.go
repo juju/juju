@@ -47,3 +47,24 @@ func (utilsSuite) TestCompression(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(data1, gc.DeepEquals, data)
 }
+
+func (utilsSuite) TestCommandString(c *gc.C) {
+	type test struct {
+		args     []string
+		expected string
+	}
+	tests := []test{
+		{nil, ""},
+		{[]string{"a"}, "a"},
+		{[]string{"a", "'b'"}, "a 'b'"},
+		{[]string{"a b"}, `"a b"`},
+		{[]string{"a", `"b"`}, `a "\"b\""`},
+		{[]string{"a", `"b\"`}, `a "\"b\\\""`},
+		{[]string{"a\n"}, "\"a\n\""},
+	}
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.args)
+		result := utils.CommandString(test.args...)
+		c.Assert(result, gc.Equals, test.expected)
+	}
+}
