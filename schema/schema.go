@@ -29,7 +29,7 @@ type error_ struct {
 
 // Return a string consisting of the path elements. If path starts
 // with a ".", the dot is omitted.
-func path_as_string(path []string) string {
+func pathAsString(path []string) string {
 	if path[0] == "." {
 		return strings.Join(path[1:], "")
 	} else {
@@ -38,7 +38,7 @@ func path_as_string(path []string) string {
 }
 
 func (e error_) Error() string {
-	path := path_as_string(e.path)
+	path := pathAsString(e.path)
 	if e.want == "" {
 		return fmt.Sprintf("%s: unexpected value %#v", path, e.got)
 	}
@@ -414,7 +414,7 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 				} else {
 					value = "(invalid)"
 				}
-				return nil, fmt.Errorf("%v: Unknown key %q (value %q)", path_as_string(path), ks, value)
+				return nil, fmt.Errorf("%v: Unknown key %q (value %q)", pathAsString(path), ks, value)
 			}
 		}
 	}
