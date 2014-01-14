@@ -315,6 +315,7 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []instance.Address) {
 		closed := make(chan struct{})
 		hc := &hostChecker{
 			addr:            addr,
+			client:          p.client,
 			checkDelay:      p.checkDelay,
 			checkHostScript: p.checkHostScript,
 			closed:          closed,
