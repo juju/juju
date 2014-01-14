@@ -9,14 +9,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
-
-var defaultIdentities = []string{"~/.ssh/identity", "~/.ssh/id_rsa", "~/.ssh/id_dsa"}
 
 type ClientKeysSuite struct {
 	testbase.LoggingSuite
@@ -26,12 +25,9 @@ var _ = gc.Suite(&ClientKeysSuite{})
 
 func (s *ClientKeysSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	fakeHome := testing.MakeFakeHomeNoEnvironments(c)
+	fakeHome := testing.MakeEmptyFakeHome(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
-	s.AddCleanup(func(*gc.C) { ssh.LoadClientKeys("") })
-	// fake home is created with a public key file; kill it.
-	err := os.RemoveAll(testing.HomePath(".juju", "ssh"))
-	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(*gc.C) { ssh.ClearClientKeys() })
 }
 
 func checkFiles(c *gc.C, obtained, expected []string) {
@@ -62,14 +58,14 @@ func (s *ClientKeysSuite) TestPublicKeyFiles(c *gc.C) {
 	// All files ending with .pub in the client key dir get picked up.
 	priv, pub, err := ssh.GenerateKey("whatever")
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(testing.HomePath(".juju", "ssh", "whatever.pub"), []byte(pub), 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("ssh", "whatever.pub"), []byte(pub), 0600)
 	c.Assert(err, gc.IsNil)
 	err = ssh.LoadClientKeys("~/.juju/ssh")
 	c.Assert(err, gc.IsNil)
 	// The new public key won't be observed until the
 	// corresponding private key exists.
 	checkPublicKeyFiles(c, "~/.juju/ssh/juju_id_rsa.pub")
-	err = ioutil.WriteFile(testing.HomePath(".juju", "ssh", "whatever"), []byte(priv), 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("ssh", "whatever"), []byte(priv), 0600)
 	c.Assert(err, gc.IsNil)
 	err = ssh.LoadClientKeys("~/.juju/ssh")
 	c.Assert(err, gc.IsNil)
@@ -85,14 +81,14 @@ func (s *ClientKeysSuite) TestPrivateKeyFiles(c *gc.C) {
 	checkPrivateKeyFiles(c, "~/.juju/ssh/juju_id_rsa")
 	priv, pub, err := ssh.GenerateKey("whatever")
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(testing.HomePath(".juju", "ssh", "whatever"), []byte(priv), 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("ssh", "whatever"), []byte(priv), 0600)
 	c.Assert(err, gc.IsNil)
 	err = ssh.LoadClientKeys("~/.juju/ssh")
 	c.Assert(err, gc.IsNil)
 	// The new private key won't be observed until the
 	// corresponding public key exists.
 	checkPrivateKeyFiles(c, "~/.juju/ssh/juju_id_rsa")
-	err = ioutil.WriteFile(testing.HomePath(".juju", "ssh", "whatever.pub"), []byte(pub), 0600)
+	err = ioutil.WriteFile(config.JujuHomePath("ssh", "whatever.pub"), []byte(pub), 0600)
 	c.Assert(err, gc.IsNil)
 	// new keys won't be reported until we call LoadClientKeys again
 	checkPublicKeyFiles(c, "~/.juju/ssh/juju_id_rsa.pub")
@@ -101,4 +97,12 @@ func (s *ClientKeysSuite) TestPrivateKeyFiles(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	checkPublicKeyFiles(c, "~/.juju/ssh/juju_id_rsa.pub", "~/.juju/ssh/whatever.pub")
 	checkPrivateKeyFiles(c, "~/.juju/ssh/juju_id_rsa", "~/.juju/ssh/whatever")
+}
+
+func (s *ClientKeysSuite) TestLoadClientKeysDirExists(c *gc.C) {
+	err := os.MkdirAll(config.JujuHomePath("ssh"), 0755)
+	c.Assert(err, gc.IsNil)
+	err = ssh.LoadClientKeys("~/.juju/ssh")
+	c.Assert(err, gc.IsNil)
+	checkPrivateKeyFiles(c, "~/.juju/ssh/juju_id_rsa")
 }

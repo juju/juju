@@ -19,6 +19,9 @@ import (
 
 const clientKeyName = "juju_id_rsa"
 
+// PublicKeySuffix is the file extension for public key files.
+const PublicKeySuffix = ".pub"
+
 var (
 	clientKeysMutex sync.Mutex
 
@@ -30,37 +33,33 @@ var (
 
 // LoadClientKeys loads the client SSH keys from the
 // specified directory, and caches them as a process-wide
-// global. If the directory does not exist, it is created
-// and populated with a new key pair.
+// global. If the directory does not exist, it is created;
+// if the directory did not exist, or contains no keys, it
+// is populated with a new key pair.
 //
 // If the directory exists, then all pairs of files where one
 // has the same name as the other + ".pub" will be loaded as
 // private/public key pairs.
 //
 // Calls to LoadClientKeys will clear the previously loaded
-// keys, and recompute the keys. If the dir specified is "",
-// then the keys will be cleared and nil is returned without
-// further action.
+// keys, and recompute the keys.
 func LoadClientKeys(dir string) error {
 	clientKeysMutex.Lock()
 	defer clientKeysMutex.Unlock()
-	if dir == "" {
-		// Primarily for testing.
-		clientKeys = nil
-		return nil
-	}
 	dir, err := utils.NormalizePath(dir)
 	if err != nil {
 		return err
 	}
 	if _, err := os.Stat(dir); err == nil {
-		// If the directory exists without keys,
-		// the user must remove the directory.
 		keys, err := loadClientKeys(dir)
-		if err == nil {
+		if err != nil {
+			return err
+		} else if len(keys) > 0 {
 			clientKeys = keys
+			return nil
 		}
-		return err
+		// Directory exists but contains no keys;
+		// fall through and create one.
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
@@ -72,6 +71,13 @@ func LoadClientKeys(dir string) error {
 	}
 	clientKeys = map[string]ssh.Signer{keyfile: key}
 	return nil
+}
+
+// ClearClientKeys clears the client keys cached in memory.
+func ClearClientKeys() {
+	clientKeysMutex.Lock()
+	defer clientKeysMutex.Unlock()
+	clientKeys = nil
 }
 
 func generateClientKey(dir string) (keyfile string, key ssh.Signer, err error) {
@@ -87,7 +93,7 @@ func generateClientKey(dir string) (keyfile string, key ssh.Signer, err error) {
 	if err = ioutil.WriteFile(privkeyFilename, []byte(private), 0600); err != nil {
 		return "", nil, err
 	}
-	if err := ioutil.WriteFile(privkeyFilename+".pub", []byte(public), 0600); err != nil {
+	if err := ioutil.WriteFile(privkeyFilename+PublicKeySuffix, []byte(public), 0600); err != nil {
 		os.Remove(privkeyFilename)
 		return "", nil, err
 	}
@@ -101,7 +107,7 @@ func loadClientKeys(dir string) (map[string]ssh.Signer, error) {
 	}
 	keys := make(map[string]ssh.Signer, len(publicKeyFiles))
 	for _, filename := range publicKeyFiles {
-		filename = filename[:len(filename)-len(".pub")]
+		filename = filename[:len(filename)-len(PublicKeySuffix)]
 		data, err := ioutil.ReadFile(filename)
 		if err != nil {
 			return nil, err
@@ -117,10 +123,10 @@ func loadClientKeys(dir string) (map[string]ssh.Signer, error) {
 // privateKeys returns the private keys loaded by LoadClientKeys.
 func privateKeys() (signers []ssh.Signer) {
 	clientKeysMutex.Lock()
+	defer clientKeysMutex.Unlock()
 	for _, key := range clientKeys {
 		signers = append(signers, key)
 	}
-	clientKeysMutex.Unlock()
 	return signers
 }
 
@@ -142,7 +148,7 @@ func PublicKeyFiles() []string {
 	privkeys := PrivateKeyFiles()
 	pubkeys := make([]string, len(privkeys))
 	for i, priv := range privkeys {
-		pubkeys[i] = priv + ".pub"
+		pubkeys[i] = priv + PublicKeySuffix
 	}
 	return pubkeys
 }
@@ -165,11 +171,11 @@ func publicKeyFiles(clientKeysDir string) ([]string, error) {
 	}
 	candidates := set.NewStrings(names...)
 	for _, name := range names {
-		if !strings.HasSuffix(name, ".pub") {
+		if !strings.HasSuffix(name, PublicKeySuffix) {
 			continue
 		}
 		// If the private key filename also exists, add the file.
-		priv := name[:len(name)-len(".pub")]
+		priv := name[:len(name)-len(PublicKeySuffix)]
 		if candidates.Contains(priv) {
 			keys = append(keys, filepath.Join(dir.Name(), name))
 		}

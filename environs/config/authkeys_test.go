@@ -25,6 +25,7 @@ type AuthKeysSuite struct {
 var _ = gc.Suite(&AuthKeysSuite{})
 
 func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	old := osenv.Home()
 	newhome := c.MkDir()
 	osenv.SetHome(newhome)
@@ -32,6 +33,11 @@ func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 	s.dotssh = filepath.Join(newhome, ".ssh")
 	err := os.Mkdir(s.dotssh, 0755)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *AuthKeysSuite) TearDownTest(c *gc.C) {
+	ssh.ClearClientKeys()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {
@@ -59,7 +65,6 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *gc.C) {
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *gc.C) {
-	defer ssh.LoadClientKeys("")
 	keydir := filepath.Join(s.dotssh, "juju")
 	err := ssh.LoadClientKeys(keydir) // auto-generates a key pair
 	c.Assert(err, gc.IsNil)
