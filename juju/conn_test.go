@@ -657,18 +657,20 @@ func (s *InitJujuHomeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
-	os.Setenv("JUJU_HOME", "/my/juju/home")
+	jujuHome := c.MkDir()
+	os.Setenv("JUJU_HOME", jujuHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, "/my/juju/home")
+	c.Assert(config.JujuHome(), gc.Equals, jujuHome)
 }
 
 func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
+	osHome := c.MkDir()
 	os.Setenv("JUJU_HOME", "")
-	osenv.SetHome("/my/home/")
+	osenv.SetHome(osHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, "/my/home/.juju")
+	c.Assert(config.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
 }
 
 func (s *InitJujuHomeSuite) TestError(c *gc.C) {
@@ -679,9 +681,10 @@ func (s *InitJujuHomeSuite) TestError(c *gc.C) {
 }
 
 func (s *InitJujuHomeSuite) TestCacheDir(c *gc.C) {
-	os.Setenv("JUJU_HOME", "/foo/bar")
+	jujuHome := c.MkDir()
+	os.Setenv("JUJU_HOME", jujuHome)
 	c.Assert(charm.CacheDir, gc.Equals, "")
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(charm.CacheDir, gc.Equals, "/foo/bar/charmcache")
+	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(jujuHome, "charmcache"))
 }
