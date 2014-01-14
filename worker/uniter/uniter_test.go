@@ -25,7 +25,6 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -35,6 +34,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
+	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
@@ -1961,7 +1961,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		c.Assert(err, gc.IsNil)
 		defer client.Close()
 
-		var result cmd.RemoteResponse
+		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)

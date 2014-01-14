@@ -12,13 +12,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -230,8 +230,8 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		expectedResults = append(expectedResults,
 			params.RunResult{
-				RemoteResponse: cmd.RemoteResponse{Stdout: []byte("hostname\n")},
-				MachineId:      fmt.Sprint(i),
+				ExecResponse: exec.ExecResponse{Stdout: []byte("hostname\n")},
+				MachineId:    fmt.Sprint(i),
 			})
 	}
 
@@ -264,18 +264,18 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 	expectedResults := []params.RunResult{
 		params.RunResult{
-			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("hostname\n")},
-			MachineId:      "0",
+			ExecResponse: exec.ExecResponse{Stdout: []byte("hostname\n")},
+			MachineId:    "0",
 		},
 		params.RunResult{
-			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
-			MachineId:      "1",
-			UnitId:         "magic/0",
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
+			MachineId:    "1",
+			UnitId:       "magic/0",
 		},
 		params.RunResult{
-			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
-			MachineId:      "2",
-			UnitId:         "magic/1",
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
+			MachineId:    "2",
+			UnitId:       "magic/1",
 		},
 	}
 

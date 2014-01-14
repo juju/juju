@@ -9,8 +9,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
@@ -49,7 +49,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer client.Close()
 
-	var result cmd.RemoteResponse
+	var result exec.ExecResponse
 	err = client.Call(uniter.JujuRunEndpoint, "some-command", &result)
 	c.Assert(err, gc.IsNil)
 
@@ -64,9 +64,9 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
+func (r *mockRunner) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	r.c.Log("mock runner: " + commands)
-	return &cmd.RemoteResponse{
+	return &exec.ExecResponse{
 		Code:   42,
 		Stdout: []byte(commands + " stdout"),
 		Stderr: []byte(commands + " stderr"),
