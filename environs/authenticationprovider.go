@@ -1,12 +1,11 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisioner
+package environs
 
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
@@ -27,7 +26,7 @@ type AuthenticationProvider interface {
 }
 
 // NewEnvironAuthenticator gets the state and api info once from the environ.
-func NewEnvironAuthenticator(environ environs.Environ) (AuthenticationProvider, error) {
+func NewEnvironAuthenticator(environ Environ) (AuthenticationProvider, error) {
 	stateInfo, apiInfo, err := environ.StateInfo()
 	if err != nil {
 		return nil, err

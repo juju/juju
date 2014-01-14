@@ -44,14 +44,6 @@ func (c *environConfig) bootstrapUser() string {
 	return c.attrs["bootstrap-user"].(string)
 }
 
-func (c *environConfig) sshHost() string {
-	host := c.bootstrapHost()
-	if user := c.bootstrapUser(); user != "" {
-		host = user + "@" + host
-	}
-	return host
-}
-
 func (c *environConfig) storageListenIPAddress() string {
 	return c.attrs["storage-listen-ip"].(string)
 }

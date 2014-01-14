@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 // FakeConfig() returns an environment configuration for a
@@ -232,4 +233,15 @@ func MakeSampleHome(c *gc.C) *FakeHome {
 
 func MakeMultipleEnvHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, SampleCertName+"-2")
+}
+
+type FakeHomeSuite struct {
+	testbase.LoggingSuite
+	Home *FakeHome
+}
+
+func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.Home = MakeSampleHome(c)
+	s.AddCleanup(func(*gc.C) { s.Home.Restore() })
 }
