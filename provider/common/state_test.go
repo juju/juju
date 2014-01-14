@@ -97,7 +97,7 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 	state := suite.setUpSavedState(c, stor)
 	url, err := stor.URL(common.StateFile)
 	c.Assert(err, gc.IsNil)
-	storedState, err := common.LoadStateFromURL(url)
+	storedState, err := common.LoadStateFromURL(url, false)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
