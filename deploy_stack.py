@@ -2,16 +2,17 @@
 __metaclass__ = type
 
 
+from argparse import ArgumentParser
+import sys
+
 from jujupy import (
     check_wordpress,
     Environment,
     until_timeout,
 )
 
-import sys
 
-
-def deploy_stack(environments):
+def deploy_stack(environments, charm_prefix):
     """"Deploy a Wordpress stack in the specified environment.
 
     :param environment: The name of the desired environment.
@@ -32,8 +33,8 @@ def deploy_stack(environments):
             env.juju('upgrade-juju', '--version', agent_version)
     for env in envs:
         env.wait_for_version(env.get_matching_agent_version())
-        env.juju('deploy', 'wordpress')
-        env.juju('deploy', 'mysql')
+        env.juju('deploy', charm_prefix + 'wordpress')
+        env.juju('deploy', charm_prefix + 'mysql')
         env.juju('add-relation', 'mysql', 'wordpress')
         env.juju('expose', 'wordpress')
     for env in envs:
@@ -43,8 +44,13 @@ def deploy_stack(environments):
 
 
 def main():
+    parser = ArgumentParser('Deploy a WordPress stack')
+    parser.add_argument('--charm-prefix', help='A prefix for charm urls.',
+                        default='')
+    parser.add_argument('env', nargs='*')
+    args = parser.parse_args()
     try:
-        deploy_stack(sys.argv[1:])
+        deploy_stack(args.env, args.charm_prefix)
     except Exception as e:
         print e
         sys.exit(1)
