@@ -63,7 +63,11 @@ func (c *SignMetadataCommand) Init(args []string) error {
 func (c *SignMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("signmetadata", cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("signmetadata")
-	c.dir = utils.NormalizePath(c.dir)
+	var err error
+	c.dir, err = utils.NormalizePath(c.dir)
+	if err != nil {
+		return err
+	}
 	keyData, err := ioutil.ReadFile(c.keyFile)
 	if err != nil {
 		return err

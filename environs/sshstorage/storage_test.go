@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -22,22 +23,23 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 type storageSuite struct {
 	testbase.LoggingSuite
+	bin string
 }
 
 var _ = gc.Suite(&storageSuite{})
 
-func sshCommandTesting(host string, tty bool, command string) *exec.Cmd {
-	cmd := exec.Command("bash", "-c", command)
-	uid := fmt.Sprint(os.Getuid())
-	gid := fmt.Sprint(os.Getgid())
-	defer testbase.PatchEnvironment("SUDO_UID", uid)()
-	defer testbase.PatchEnvironment("SUDO_GID", gid)()
-	cmd.Env = os.Environ()
-	return cmd
+func (s *storageSuite) sshCommand(c *gc.C, host string, command ...string) *ssh.Cmd {
+	script := []byte("#!/bin/bash\n" + strings.Join(command, " "))
+	err := ioutil.WriteFile(filepath.Join(s.bin, "ssh"), script, 0755)
+	c.Assert(err, gc.IsNil)
+	client, err := ssh.NewOpenSSHClient()
+	c.Assert(err, gc.IsNil)
+	return client.Command(host, command, nil)
 }
 
 func newSSHStorage(host, storageDir, tmpDir string) (*SSHStorage, error) {
@@ -45,8 +47,6 @@ func newSSHStorage(host, storageDir, tmpDir string) (*SSHStorage, error) {
 		Host:       host,
 		StorageDir: storageDir,
 		TmpDir:     tmpDir,
-		Stdin:      &bytes.Buffer{},
-		Stdout:     ioutil.Discard,
 	}
 	return NewSSHStorage(params)
 }
@@ -61,19 +61,24 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	flockBin, err = exec.LookPath("flock")
 	c.Assert(err, gc.IsNil)
 
-	bin := c.MkDir()
-	restoreEnv := testbase.PatchEnvironment("PATH", bin+":"+os.Getenv("PATH"))
+	s.bin = c.MkDir()
+	restoreEnv := testbase.PatchEnvironment("PATH", s.bin+":"+os.Getenv("PATH"))
 	s.AddSuiteCleanup(func(*gc.C) { restoreEnv() })
 
-	// Create a "sudo" command which just executes its args.
-	err = os.Symlink("/usr/bin/env", filepath.Join(bin, "sudo"))
+	// Create a "sudo" command which shifts away the "-n", sets
+	// SUDO_UID/SUDO_GID, and executes the remaining args.
+	err = ioutil.WriteFile(filepath.Join(s.bin, "sudo"), []byte(
+		"#!/bin/sh\nshift; export SUDO_UID=`id -u` SUDO_GID=`id -g`; exec \"$@\"",
+	), 0755)
 	c.Assert(err, gc.IsNil)
-	restoreSshCommand := testbase.PatchValue(&sshCommand, sshCommandTesting)
+	restoreSshCommand := testbase.PatchValue(&sshCommand, func(host string, command ...string) *ssh.Cmd {
+		return s.sshCommand(c, host, command...)
+	})
 	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })
 
 	// Create a new "flock" which calls the original, but in non-blocking mode.
 	data := []byte(fmt.Sprintf("#!/bin/sh\nexec %s --nonblock \"$@\"", flockBin))
-	err = ioutil.WriteFile(filepath.Join(bin, "flock"), data, 0755)
+	err = ioutil.WriteFile(filepath.Join(s.bin, "flock"), data, 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -169,18 +174,18 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 	//  3: second "install"
 	//  4: touch
 	var invocations int
-	badSshCommand := func(host string, tty bool, command string) *exec.Cmd {
+	badSshCommand := func(host string, command ...string) *ssh.Cmd {
 		invocations++
 		switch invocations {
 		case 1, 3:
-			return exec.Command("true")
+			return s.sshCommand(c, host, "true")
 		case 2:
 			// Note: must close stdin before responding the first time, or
 			// the second command will race with closing stdin, and may
 			// flush first.
-			return exec.Command("bash", "-c", "head -n 1 > /dev/null; exec 0<&-; echo JUJU-RC: 0; echo blah blah; echo more")
+			return s.sshCommand(c, host, "head -n 1 > /dev/null; exec 0<&-; echo JUJU-RC: 0; echo blah blah; echo more")
 		case 4:
-			return exec.Command("bash", "-c", `head -n 1 > /dev/null; echo "Hey it's JUJU-RC: , but not at the beginning of the line"; echo more`)
+			return s.sshCommand(c, host, `head -n 1 > /dev/null; echo "Hey it's JUJU-RC: , but not at the beginning of the line"; echo more`)
 		default:
 			c.Errorf("unexpected invocation: #%d, %s", invocations, command)
 			return nil

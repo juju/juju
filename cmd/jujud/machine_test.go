@@ -4,6 +4,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/addressupdater"
+	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
 )
 
@@ -60,6 +62,7 @@ func (s *MachineSuite) TearDownSuite(c *gc.C) {
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+	os.Remove(jujuRun) // ignore error; may not exist
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
@@ -576,6 +579,7 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -597,7 +601,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(ssh.FullKeys)
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, gc.IsNil)
 			keysStr := strings.Join(keys, "\n")
 			if sshKeyWithCommentPrefix != keysStr {
@@ -648,4 +652,44 @@ func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
 		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
+}
+
+func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
+	_, err := os.Stat(jujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		// juju-run should have been created
+		_, err := os.Stat(jujuRun)
+		c.Assert(err, gc.IsNil)
+	})
+}
+
+func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
+	err := os.Symlink("/nowhere/special", jujuRun)
+	c.Assert(err, gc.IsNil)
+	_, err = os.Stat(jujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+		// juju-run should have been recreated
+		_, err := os.Stat(jujuRun)
+		c.Assert(err, gc.IsNil)
+		link, err := os.Readlink(jujuRun)
+		c.Assert(err, gc.IsNil)
+		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
+	})
+}
+
+func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	err := m.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	a := s.newAgent(c, m)
+	err = runWithTimeout(a)
+	c.Assert(err, gc.IsNil)
+	// juju-run should have been removed on termination
+	_, err = os.Stat(jujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	// data-dir should have been removed on termination
+	_, err = os.Stat(ac.DataDir())
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }

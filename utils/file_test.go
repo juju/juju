@@ -5,6 +5,7 @@ package utils_test
 
 import (
 	"io/ioutil"
+	"os/user"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -31,9 +32,12 @@ func (s *fileSuite) TearDownTest(c *gc.C) {
 }
 
 func (*fileSuite) TestNormalizePath(c *gc.C) {
+	currentUser, err := user.Current()
+	c.Assert(err, gc.IsNil)
 	for _, test := range []struct {
 		path     string
 		expected string
+		err      string
 	}{{
 		path:     "/var/lib/juju",
 		expected: "/var/lib/juju",
@@ -44,10 +48,28 @@ func (*fileSuite) TestNormalizePath(c *gc.C) {
 		path:     "~/foo//../bar",
 		expected: "/home/test-user/bar",
 	}, {
-		path:     "~bob/foo",
-		expected: "~bob/foo",
+		path:     "~",
+		expected: "/home/test-user",
+	}, {
+		path:     "~" + currentUser.Username,
+		expected: currentUser.HomeDir,
+	}, {
+		path:     "~" + currentUser.Username + "/foo",
+		expected: currentUser.HomeDir + "/foo",
+	}, {
+		path:     "~" + currentUser.Username + "/foo//../bar",
+		expected: currentUser.HomeDir + "/bar",
+	}, {
+		path: "~foobar/path",
+		err:  "user: unknown user foobar",
 	}} {
-		c.Assert(utils.NormalizePath(test.path), gc.Equals, test.expected)
+		actual, err := utils.NormalizePath(test.path)
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Check(err, gc.IsNil)
+			c.Check(actual, gc.Equals, test.expected)
+		}
 	}
 }
 

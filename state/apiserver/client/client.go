@@ -6,7 +6,6 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -18,8 +17,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	jujuerrors "launchpad.net/juju-core/errors"
-	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -27,7 +25,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/worker/provisioner"
+	"launchpad.net/juju-core/state/statecmd"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -37,6 +35,7 @@ type API struct {
 	auth      common.Authorizer
 	resources *common.Resources
 	client    *Client
+	dataDir   string
 }
 
 // Client serves client-specific API methods.
@@ -45,11 +44,12 @@ type Client struct {
 }
 
 // NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, datadir string) *API {
 	r := &API{
 		state:     st,
 		auth:      authorizer,
 		resources: resources,
+		dataDir:   datadir,
 	}
 	r.client = &Client{
 		api: r,
@@ -68,26 +68,6 @@ func (r *API) Client(id string) (*Client, error) {
 		return nil, common.ErrBadId
 	}
 	return r.client, nil
-}
-
-func (c *Client) Status() (api.Status, error) {
-	ms, err := c.api.state.AllMachines()
-	if err != nil {
-		return api.Status{}, err
-	}
-	status := api.Status{
-		Machines: make(map[string]api.MachineInfo),
-	}
-	for _, m := range ms {
-		instId, err := m.InstanceId()
-		if err != nil && !state.IsNotProvisionedError(err) {
-			return api.Status{}, err
-		}
-		status.Machines[m.Id()] = api.MachineInfo{
-			InstanceId: string(instId),
-		}
-	}
-	return status, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -239,7 +219,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
-	if jujuerrors.IsNotFoundError(err) {
+	if errors.IsNotFoundError(err) {
 		// Remove this whole if block when 1.16 compatibility is dropped.
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
@@ -323,7 +303,7 @@ func (c *Client) serviceSetCharm(service *state.Service, url string, force bool)
 		return err
 	}
 	sch, err := c.api.state.Charm(curl)
-	if jujuerrors.IsNotFoundError(err) {
+	if errors.IsNotFoundError(err) {
 		// Charms should be added before trying to use them, with
 		// AddCharm or AddLocalCharm API calls. When they're not,
 		// we're reverting to 1.16 compatibility mode.
@@ -420,10 +400,10 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 		return nil, err
 	}
 	if args.NumUnits < 1 {
-		return nil, errors.New("must add at least one unit")
+		return nil, fmt.Errorf("must add at least one unit")
 	}
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
@@ -447,7 +427,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	for _, name := range args.UnitNames {
 		unit, err := c.api.state.Unit(name)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != state.Alive:
@@ -621,44 +601,7 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 // MachineConfig returns information from the environment config that is
 // needed for machine cloud-init (both state servers and host nodes).
 func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
-	result := params.MachineConfig{}
-	environConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return result, err
-	}
-	// The basic information.
-	result.EnvironAttrs = environConfig.AllAttrs()
-
-	// Find the appropriate tools information.
-	env, err := environs.New(environConfig)
-	if err != nil {
-		return result, err
-	}
-	tools, err := findInstanceTools(env, args.Series, args.Arch)
-	if err != nil {
-		return result, err
-	}
-	result.Tools = tools
-
-	// Find the secrets and API endpoints.
-	auth, err := provisioner.NewEnvironAuthenticator(env)
-	if err != nil {
-		return result, err
-	}
-	machine, err := c.api.state.Machine(args.MachineId)
-	if err != nil {
-		return result, err
-	}
-	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
-	if err != nil {
-		return result, err
-	}
-	result.APIAddrs = apiInfo.Addrs
-	result.StateAddrs = stateInfo.Addrs
-	result.CACert = stateInfo.CACert
-	result.Password = stateInfo.Password
-	result.Tag = stateInfo.Tag
-	return result, nil
+	return statecmd.MachineConfig(c.api.state, args)
 }
 
 // DestroyMachines removes a given set of machines.
@@ -667,7 +610,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	for _, id := range args.MachineNames {
 		machine, err := c.api.state.Machine(id)
 		switch {
-		case coreerrors.IsNotFoundError(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case args.Force:

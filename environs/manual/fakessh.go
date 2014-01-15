@@ -4,68 +4,13 @@
 package manual
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
-
-// sshscript should only print the result on the first execution,
-// to handle the case where it's called multiple times. On
-// subsequent executions, it should find the next 'ssh' in $PATH
-// and exec that.
-var sshscript = `#!/bin/bash --norc
-if [ ! -e "$0.run" ]; then
-    touch "$0.run"
-    diff "$0.expected-input" -
-    exitcode=$?
-    if [ $exitcode -ne 0 ]; then
-        echo "ERROR: did not match expected input" >&2
-        exit $exitcode
-    fi
-    # stdout
-    %s
-    # stderr
-    %s
-    exit %d
-else
-    export PATH=${PATH#*:}
-    exec ssh $*
-fi`
-
-// installFakeSSH creates a fake "ssh" command in a new $PATH,
-// updates $PATH, and returns a function to reset $PATH to
-// its original value when called.
-//
-// output may be:
-//    - nil (no output)
-//    - a string (stdout)
-//    - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *gc.C, input string, output interface{}, rc int) testbase.Restorer {
-	fakebin := c.MkDir()
-	ssh := filepath.Join(fakebin, "ssh")
-	sshexpectedinput := ssh + ".expected-input"
-	var stdout, stderr string
-	switch output := output.(type) {
-	case nil:
-	case string:
-		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output)
-	case []string:
-		stdout = fmt.Sprintf("cat<<EOF\n%s\nEOF", output[0])
-		stderr = fmt.Sprintf("cat>&2<<EOF\n%s\nEOF", output[1])
-	}
-	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
-	err := ioutil.WriteFile(ssh, []byte(script), 0777)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
-	c.Assert(err, gc.IsNil)
-	return testbase.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
-}
 
 // installDetectionFakeSSH installs a fake SSH command, which will respond
 // to the series/hardware detection script with the specified
@@ -83,16 +28,27 @@ func installDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
-	return installFakeSSH(c, detectionScript, detectionoutput, 0)
+	return sshtesting.InstallFakeSSH(c, detectionScript, detectionoutput, 0)
 }
 
-// FakeSSH wraps the invocation of installFakeSSH based on the parameters.
+// FakeSSH wraps the invocation of InstallFakeSSH based on the parameters.
 type fakeSSH struct {
 	Series string
 	Arch   string
 
+	// Provisioned should be set to true if the fakeSSH script
+	// should respond to checkProvisioned with a non-empty result.
+	Provisioned bool
+
+	// exit code for the checkProvisioned script.
+	CheckProvisionedExitCode int
+
 	// exit code for the machine agent provisioning script.
 	ProvisionAgentExitCode int
+
+	// InitUbuntuUser should be set to true if the fakeSSH script
+	// should respond to an attempt to initialise the ubuntu user.
+	InitUbuntuUser bool
 
 	// there are conditions other than error in the above
 	// that might cause provisioning to not go ahead, such
@@ -100,7 +56,8 @@ type fakeSSH struct {
 	SkipProvisionAgent bool
 
 	// detection will be skipped if the series/hardware were
-	// detected ahead of time.
+	// detected ahead of time. This should always be set to
+	// true when testing Bootstrap.
 	SkipDetection bool
 }
 
@@ -109,15 +66,22 @@ type fakeSSH struct {
 // output and exit codes.
 func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 	var restore testbase.Restorer
-	add := func(input string, output interface{}, rc int) {
-		restore = restore.Add(installFakeSSH(c, input, output, rc))
+	add := func(input, output interface{}, rc int) {
+		restore = restore.Add(sshtesting.InstallFakeSSH(c, input, output, rc))
 	}
 	if !r.SkipProvisionAgent {
-		add("", nil, r.ProvisionAgentExitCode)
+		add(nil, nil, r.ProvisionAgentExitCode)
 	}
 	if !r.SkipDetection {
 		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
 	}
-	add("", nil, 0) // checkProvisioned
+	var checkProvisionedOutput interface{}
+	if r.Provisioned {
+		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
+	}
+	add(checkProvisionedScript, checkProvisionedOutput, r.CheckProvisionedExitCode)
+	if r.InitUbuntuUser {
+		add("", nil, 0)
+	}
 	return restore
 }

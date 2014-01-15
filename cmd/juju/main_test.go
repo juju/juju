@@ -244,6 +244,7 @@ var commandNames = []string{
 	"remove-relation", // alias for destroy-relation
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
+	"run",
 	"scp",
 	"set",
 	"set-constraints",

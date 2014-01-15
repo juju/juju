@@ -4,7 +4,6 @@
 package sshinit
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
@@ -22,15 +21,12 @@ type ConfigureParams struct {
 	// Host is the host to configure, in the format [user@]hostname.
 	Host string
 
+	// Client is the SSH client to connect with.
+	// If Client is nil, ssh.DefaultClient will be used.
+	Client ssh.Client
+
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
-
-	// Stdin is required to respond to sudo prompts,
-	// and must be a terminal (except in tests)
-	Stdin io.Reader
-
-	// Stdout is required to present sudo prompts to the user.
-	Stdout io.Writer
 
 	// Stderr is required to present bootstrap progress to the user.
 	Stderr io.Writer
@@ -44,16 +40,14 @@ func Configure(params ConfigureParams) error {
 	if err != nil {
 		return err
 	}
-	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
-	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	cmd := ssh.Command(
-		params.Host,
-		[]string{"sudo", fmt.Sprintf("bash -c '%s'", script)},
-		ssh.AllocateTTY,
-	)
-	cmd.Stdout = params.Stdout
+	logger.Debugf("running script on %s: %s", params.Host, script)
+	client := params.Client
+	if client == nil {
+		client = ssh.DefaultClient
+	}
+	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
+	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.Stderr
-	cmd.Stdin = params.Stdin
 	return cmd.Run()
 }
 

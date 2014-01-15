@@ -24,7 +24,7 @@ func TestPackage(t *testing.T) {
 func newServer() (*coretesting.MgoInstance, error) {
 	inst := &coretesting.MgoInstance{Params: []string{"--replSet", name}}
 
-	err := inst.Start()
+	err := inst.Start(true)
 	if err != nil {
 		return nil, fmt.Errorf("Error starting mongo server: %s", err.Error())
 	}

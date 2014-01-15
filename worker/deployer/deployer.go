@@ -61,10 +61,6 @@ func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 	return worker.NewStringsWorker(d)
 }
 
-func isNotFoundOrUnauthorized(err error) bool {
-	return params.IsCodeNotFound(err) || params.IsCodeUnauthorized(err)
-}
-
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 	machineTag := d.ctx.AgentConfig().Tag()
 	machine, err := d.st.Machine(machineTag)
@@ -106,7 +102,7 @@ func (d *Deployer) changed(unitName string) error {
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life
 	unit, err := d.st.Unit(unitTag)
-	if isNotFoundOrUnauthorized(err) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		life = params.Dead
 	} else if err != nil {
 		return err

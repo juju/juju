@@ -6,6 +6,7 @@ package manual
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,12 +25,13 @@ const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 
 // checkProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
-func checkProvisioned(sshHost string) (bool, error) {
-	logger.Infof("Checking if %s is already provisioned", sshHost)
-	cmd := ssh.Command(sshHost, []string{"bash", "-c", utils.ShQuote(checkProvisionedScript)})
+func checkProvisioned(host string) (bool, error) {
+	logger.Infof("Checking if %s is already provisioned", host)
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	cmd.Stdin = strings.NewReader(checkProvisionedScript)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
@@ -39,9 +41,9 @@ func checkProvisioned(sshHost string) (bool, error) {
 	output := strings.TrimSpace(stdout.String())
 	provisioned := len(output) > 0
 	if provisioned {
-		logger.Infof("%s is already provisioned [%q]", sshHost, output)
+		logger.Infof("%s is already provisioned [%q]", host, output)
 	} else {
-		logger.Infof("%s is not provisioned", sshHost)
+		logger.Infof("%s is not provisioned", host)
 	}
 	return provisioned, nil
 }
@@ -49,11 +51,9 @@ func checkProvisioned(sshHost string) (bool, error) {
 // DetectSeriesAndHardwareCharacteristics detects the OS
 // series and hardware characteristics of the remote machine
 // by connecting to the machine and executing a bash script.
-//
-// The sshHost argument must be a hostname of the form [user@]host.
-func DetectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.HardwareCharacteristics, series string, err error) {
-	logger.Infof("Detecting series and characteristics on %s", sshHost)
-	cmd := ssh.Command(sshHost, []string{"bash"})
+func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
+	logger.Infof("Detecting series and characteristics on %s", host)
+	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -136,3 +136,70 @@ lsb_release -cs
 uname -m
 grep MemTotal /proc/meminfo
 cat /proc/cpuinfo`
+
+// InitUbuntuUser adds the ubuntu user if it doesn't
+// already exist, updates its ~/.ssh/authorized_keys,
+// and enables passwordless sudo for it.
+//
+// InitUbuntuUser will initially attempt to login as
+// the ubuntu user, and verify that passwordless sudo
+// is enabled; only if this is false will there be an
+// attempt with the specified login.
+//
+// authorizedKeys may be empty, in which case the file
+// will be created and left empty.
+//
+// stdin and stdout will be used for remote sudo prompts,
+// if the ubuntu user must be created/updated.
+func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
+	logger.Infof("initialising %q, user %q", host, login)
+
+	// To avoid unnecessary prompting for the specified login,
+	// initUbuntuUser will first attempt to ssh to the machine
+	// as "ubuntu" with password authentication disabled, and
+	// ensure that it can use sudo without a password.
+	//
+	// Note that we explicitly do not allocate a PTY, so we
+	// get a failure if sudo prompts.
+	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
+	if cmd.Run() == nil {
+		logger.Infof("ubuntu user is already initialised")
+		return nil
+	}
+
+	// Failed to login as ubuntu (or passwordless sudo is not enabled).
+	// Use specified login, and execute the initUbuntuScript below.
+	if login != "" {
+		host = login + "@" + host
+	}
+	script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(authorizedKeys))
+	var options ssh.Options
+	options.AllowPasswordAuthentication()
+	options.EnablePTY()
+	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
+	var stderr bytes.Buffer
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout // for sudo prompt
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() != 0 {
+			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
+		}
+		return err
+	}
+	return nil
+}
+
+const initUbuntuScript = `
+set -e
+(id ubuntu &> /dev/null) || useradd -m ubuntu
+umask 0077
+temp=$(mktemp)
+echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
+install -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu
+rm $temp
+su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
+export authorized_keys=%s
+if [ ! -z "$authorized_keys" ]; then
+    su ubuntu -c 'printf "%%s\n" "$authorized_keys" >> ~/.ssh/authorized_keys'
+fi`

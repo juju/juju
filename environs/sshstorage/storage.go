@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os/exec"
 	"path"
 	"sort"
 	"strconv"
@@ -37,18 +36,14 @@ type SSHStorage struct {
 	remotepath string
 	tmpdir     string
 
-	cmd     *exec.Cmd
+	cmd     *ssh.Cmd
 	stdin   io.WriteCloser
 	stdout  io.ReadCloser
 	scanner *bufio.Scanner
 }
 
-var sshCommand = func(host string, tty bool, command string) *exec.Cmd {
-	var options []ssh.Option
-	if tty {
-		options = append(options, ssh.AllocateTTY)
-	}
-	return ssh.Command(host, []string{command}, options...)
+var sshCommand = func(host string, command ...string) *ssh.Cmd {
+	return ssh.Command(host, command, nil)
 }
 
 type flockmode string
@@ -73,13 +68,6 @@ type NewSSHStorageParams struct {
 	// will attempt to reassign ownership to the login user, and will return
 	// an error if it cannot do so.
 	TmpDir string
-
-	// Stdin in required to respond to sudo passwords,
-	// and must be a terminal (except in tests).
-	Stdin io.Reader
-
-	// Stdout is required to present sudo prompts to the user.
-	Stdout io.Writer
 }
 
 // NewSSHStorage creates a new SSHStorage, connected to the
@@ -98,11 +86,10 @@ func NewSSHStorage(params NewSSHStorageParams) (*SSHStorage, error) {
 		utils.ShQuote(params.TmpDir),
 	)
 
-	cmd := sshCommand(params.Host, true, fmt.Sprintf("sudo bash -c %s", utils.ShQuote(script)))
-	cmd.Stdin = params.Stdin
-	cmd.Stdout = params.Stdout // for sudo prompts/output
+	cmd := sshCommand(params.Host, "sudo", "-n", "/bin/bash")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	cmd.Stdin = strings.NewReader(script)
 	if err := cmd.Run(); err != nil {
 		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(stderr.String()))
 		return nil, err
@@ -111,7 +98,7 @@ func NewSSHStorage(params NewSSHStorageParams) (*SSHStorage, error) {
 	// We could use sftp, but then we'd be at the mercy of
 	// sftp's output messages for checking errors. Instead,
 	// we execute an interactive bash shell.
-	cmd = sshCommand(params.Host, false, "bash")
+	cmd = sshCommand(params.Host, "bash")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err

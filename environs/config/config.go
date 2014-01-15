@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -147,7 +148,7 @@ func (c *Config) fillInDefaults() error {
 	keys := c.asString("authorized-keys")
 	if path != "" || keys == "" {
 		var err error
-		c.m["authorized-keys"], err = readAuthorizedKeys(path)
+		c.m["authorized-keys"], err = ReadAuthorizedKeys(path)
 		if err != nil {
 			return err
 		}
@@ -318,7 +319,10 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 		}
 		path = defaultPath
 	}
-	path = expandTilde(path)
+	path, err := utils.NormalizePath(path)
+	if err != nil {
+		return err
+	}
 	if !filepath.IsAbs(path) {
 		path = JujuHomePath(path)
 	}

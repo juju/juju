@@ -39,6 +39,15 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
+	// Get the bootstrap SSH client. Do this early, so we know
+	// not to bother with any of the below if we can't finish the job.
+	client := ssh.DefaultClient
+	if client == nil {
+		// This should never happen: if we don't have OpenSSH, then
+		// go.crypto/ssh should be used with an auto-generated key.
+		return fmt.Errorf("no SSH client available")
+	}
+
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
@@ -46,7 +55,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL)
+
+	privateKey, err := GenerateSystemSSHKey(env)
+	if err != nil {
+		return err
+	}
+	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 
 	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
@@ -73,7 +87,30 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
-	return FinishBootstrap(ctx, inst, machineConfig)
+	return FinishBootstrap(ctx, client, inst, machineConfig)
+}
+
+// GenerateSystemSSHKey creates a new key for the system identity. The
+// authorized_keys in the environment config is updated to include the public
+// key for the generated key.
+func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
+	logger.Debugf("generate a system ssh key")
+	// Create a new system ssh key and add that to the authorized keys.
+	privateKey, publicKey, err := ssh.GenerateKey("juju-system-key")
+	if err != nil {
+		return "", fmt.Errorf("failed to create system key: %v", err)
+	}
+	authorized_keys := env.Config().AuthorizedKeys() + publicKey
+	newConfig, err := env.Config().Apply(map[string]interface{}{
+		"authorized-keys": authorized_keys,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create new config: %v", err)
+	}
+	if err = env.SetConfig(newConfig); err != nil {
+		return "", fmt.Errorf("failed to set new config: %v", err)
+	}
+	return privateKey, nil
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
@@ -115,7 +152,7 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 // to the instance via SSH and carrying out the cloud-config.
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
-var FinishBootstrap = func(ctx environs.BootstrapContext, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
@@ -140,7 +177,7 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, inst instance.Instance
 	// TODO: jam 2013-12-04 bug #1257649
 	// It would be nice if users had some controll over their bootstrap
 	// timeout, since it is unlikely to be a perfect match for all clouds.
-	addr, err := waitSSH(ctx, interrupted, checkNonceCommand, inst, DefaultBootstrapSSHTimeout())
+	addr, err := waitSSH(ctx, interrupted, client, checkNonceCommand, inst, DefaultBootstrapSSHTimeout())
 	if err != nil {
 		return err
 	}
@@ -156,9 +193,8 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, inst instance.Instance
 	}
 	return sshinit.Configure(sshinit.ConfigureParams{
 		Host:   "ubuntu@" + addr,
+		Client: client,
 		Config: cloudcfg,
-		Stdin:  ctx.Stdin(),
-		Stdout: ctx.Stdout(),
 		Stderr: ctx.Stderr(),
 	})
 }
@@ -201,7 +237,8 @@ type addresser interface {
 }
 
 type hostChecker struct {
-	addr instance.Address
+	addr   instance.Address
+	client ssh.Client
 
 	// checkDelay is the amount of time to wait between retries.
 	checkDelay time.Duration
@@ -230,7 +267,7 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 	var lastErr error
 	for {
 		go func() {
-			done <- connectSSH(hc.addr.Value, hc.checkHostScript)
+			done <- connectSSH(hc.client, hc.addr.Value, hc.checkHostScript)
 		}()
 		select {
 		case <-hc.closed:
@@ -252,7 +289,7 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 
 type parallelHostChecker struct {
 	*parallel.Try
-
+	client ssh.Client
 	stderr io.Writer
 
 	// active is a map of adresses to channels for addresses actively
@@ -278,6 +315,7 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []instance.Address) {
 		closed := make(chan struct{})
 		hc := &hostChecker{
 			addr:            addr,
+			client:          p.client,
 			checkDelay:      p.checkDelay,
 			checkHostScript: p.checkHostScript,
 			closed:          closed,
@@ -303,8 +341,9 @@ func (p *parallelHostChecker) Close() error {
 
 // connectSSH is called to connect to the specified host and
 // execute the "checkHostScript" bash script on it.
-var connectSSH = func(host, checkHostScript string) error {
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash", "-c", utils.ShQuote(checkHostScript)})
+var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
+	cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	cmd.Stdin = strings.NewReader(checkHostScript)
 	output, err := cmd.CombinedOutput()
 	if err != nil && len(output) > 0 {
 		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
@@ -321,7 +360,7 @@ var connectSSH = func(host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, checkHostScript string, inst addresser, timeout SSHTimeoutOpts) (addr string, err error) {
+func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout SSHTimeoutOpts) (addr string, err error) {
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
@@ -330,6 +369,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, checkH
 	// or the tomb is killed.
 	checker := parallelHostChecker{
 		Try:             parallel.NewTry(0, nil),
+		client:          client,
 		stderr:          ctx.Stderr(),
 		active:          make(map[instance.Address]chan struct{}),
 		checkDelay:      timeout.ConnectDelay,

@@ -4,10 +4,14 @@
 package ssh
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -16,7 +20,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var logger = loggo.GetLogger("juju.ssh")
+var logger = loggo.GetLogger("juju.utils.ssh")
 
 type ListMode bool
 
@@ -26,13 +30,116 @@ var (
 )
 
 const (
-	authKeysDir  = "~/.ssh"
+	authKeysDir  = "~%s/.ssh"
 	authKeysFile = "authorized_keys"
 )
 
-// KeyFingerprint returns the fingerprint and comment for the specified key, using
-// the OS dependent function keyFingerprint.
-var KeyFingerprint = keyFingerprint
+// case-insensive public authorized_keys options
+var validOptions = [...]string{
+	"cert-authority",
+	"command",
+	"environment",
+	"from",
+	"no-agent",
+	"no-port-forwarding",
+	"no-pty",
+	"no-user",
+	"no-X11-forwarding",
+	"permitopen",
+	"principals",
+	"tunnel",
+}
+
+var validKeytypes = [...]string{
+	"ecdsa-sha2-nistp256",
+	"ecdsa-sha2-nistp384",
+	"ecdsa-sha2-nistp521",
+	"ssh-dss",
+	"ssh-rsa",
+}
+
+type AuthorisedKey struct {
+	KeyType string
+	Key     []byte
+	Comment string
+}
+
+// skipOptions takes a non-comment line from an
+// authorized_keys file, and returns the remainder
+// of the line after skipping any options at the
+// beginning of the line.
+func skipOptions(line string) string {
+	found := false
+	lower := strings.ToLower(line)
+	for _, o := range validOptions {
+		if strings.HasPrefix(lower, o) {
+			line = line[len(o):]
+			found = true
+			break
+		}
+	}
+	if !found {
+		return line
+	}
+	// Skip to the next unquoted whitespace, returning the remainder.
+	// Double quotes may be escaped with \".
+	var quoted bool
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case ' ', '\t':
+			if !quoted {
+				return strings.TrimLeft(line[i+1:], " \t")
+			}
+		case '\\':
+			if i+1 < len(line) && line[i+1] == '"' {
+				i++
+			}
+		case '"':
+			quoted = !quoted
+		}
+	}
+	return ""
+}
+
+// ParseAuthorisedKey parses a non-comment line from an
+// authorized_keys file and returns the constituent parts.
+// Based on description in "man sshd".
+//
+// TODO(axw) support version 1 format?
+func ParseAuthorisedKey(line string) (*AuthorisedKey, error) {
+	withoutOptions := skipOptions(line)
+	var keytype, key, comment string
+	if i := strings.IndexAny(withoutOptions, " \t"); i == -1 {
+		// There must be at least two fields: keytype and key.
+		return nil, fmt.Errorf("malformed line: %q", line)
+	} else {
+		keytype = withoutOptions[:i]
+		key = strings.TrimSpace(withoutOptions[i+1:])
+	}
+	validKeytype := false
+	for _, kt := range validKeytypes {
+		if keytype == kt {
+			validKeytype = true
+			break
+		}
+	}
+	if !validKeytype {
+		return nil, fmt.Errorf("invalid keytype %q in line %q", keytype, line)
+	}
+	// Split key/comment (if any)
+	if i := strings.IndexAny(key, " \t"); i != -1 {
+		key, comment = key[:i], key[i+1:]
+	}
+	keyBytes, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return nil, err
+	}
+	return &AuthorisedKey{
+		KeyType: keytype,
+		Key:     keyBytes,
+		Comment: comment,
+	}, nil
+}
 
 // SplitAuthorisedKeys extracts a key slice from the specified key data,
 // by splitting the key data into lines and ignoring comments and blank lines.
@@ -51,8 +158,13 @@ func SplitAuthorisedKeys(keyData string) []string {
 	return keys
 }
 
-func readAuthorisedKeys() ([]string, error) {
-	sshKeyFile := utils.NormalizePath(filepath.Join(authKeysDir, authKeysFile))
+func readAuthorisedKeys(username string) ([]string, error) {
+	keyDir := fmt.Sprintf(authKeysDir, username)
+	sshKeyFile, err := utils.NormalizePath(filepath.Join(keyDir, authKeysFile))
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("reading authorised keys file %s", sshKeyFile)
 	keyData, err := ioutil.ReadFile(sshKeyFile)
 	if os.IsNotExist(err) {
 		return []string{}, nil
@@ -70,9 +182,13 @@ func readAuthorisedKeys() ([]string, error) {
 	return keys, nil
 }
 
-func writeAuthorisedKeys(keys []string) error {
-	keyDir := utils.NormalizePath(authKeysDir)
-	err := os.MkdirAll(keyDir, 0755)
+func writeAuthorisedKeys(username string, keys []string) error {
+	keyDir := fmt.Sprintf(authKeysDir, username)
+	keyDir, err := utils.NormalizePath(keyDir)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(keyDir, os.FileMode(0755))
 	if err != nil {
 		return fmt.Errorf("cannot create ssh key directory: %v", err)
 	}
@@ -97,7 +213,36 @@ func writeAuthorisedKeys(keys []string) error {
 		return err
 	}
 
-	// Rename temp file to the final location
+	// Rename temp file to the final location and ensure its owner
+	// is set correctly.
+	logger.Debugf("writing authorised keys file %s", sshKeyFile)
+	// TODO (wallyworld) - what to do on windows (if anything)
+	if runtime.GOOS != "windows" {
+		// Ensure the resulting authorised keys file has its ownership
+		// set to the specified username.
+		var u *user.User
+		if username == "" {
+			u, err = user.Current()
+		} else {
+			u, err = user.Lookup(username)
+		}
+		if err != nil {
+			return err
+		}
+		// chown requires ints but user.User has strings for windows.
+		uid, err := strconv.Atoi(u.Uid)
+		if err != nil {
+			return err
+		}
+		gid, err := strconv.Atoi(u.Gid)
+		if err != nil {
+			return err
+		}
+		err = os.Chown(tempFile, uid, gid)
+		if err != nil {
+			return err
+		}
+	}
 	return os.Rename(tempFile, sshKeyFile)
 }
 
@@ -106,17 +251,17 @@ func writeAuthorisedKeys(keys []string) error {
 // at a time can use either Add, Delete, List.
 var mutex sync.Mutex
 
-// AddKeys adds the specified ssh keys to the authorized_keys file.
+// AddKeys adds the specified ssh keys to the authorized_keys file for user.
 // Returns an error if there is an issue with *any* of the supplied keys.
-func AddKeys(newKeys ...string) error {
+func AddKeys(user string, newKeys ...string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
-	existingKeys, err := readAuthorisedKeys()
+	existingKeys, err := readAuthorisedKeys(user)
 	if err != nil {
 		return err
 	}
 	for _, newKey := range newKeys {
-		fingerprint, comment, err := keyFingerprint(newKey)
+		fingerprint, comment, err := KeyFingerprint(newKey)
 		if err != nil {
 			return err
 		}
@@ -124,7 +269,7 @@ func AddKeys(newKeys ...string) error {
 			return fmt.Errorf("cannot add ssh key without comment")
 		}
 		for _, key := range existingKeys {
-			existingFingerprint, existingComment, err := keyFingerprint(key)
+			existingFingerprint, existingComment, err := KeyFingerprint(key)
 			if err != nil {
 				// Only log a warning if the unrecognised key line is not a comment.
 				if key[0] != '#' {
@@ -141,16 +286,16 @@ func AddKeys(newKeys ...string) error {
 		}
 	}
 	sshKeys := append(existingKeys, newKeys...)
-	return writeAuthorisedKeys(sshKeys)
+	return writeAuthorisedKeys(user, sshKeys)
 }
 
-// DeleteKeys removes the specified ssh keys from the authorized ssh keys file.
+// DeleteKeys removes the specified ssh keys from the authorized ssh keys file for user.
 // keyIds may be either key comments or fingerprints.
 // Returns an error if there is an issue with *any* of the keys to delete.
-func DeleteKeys(keyIds ...string) error {
+func DeleteKeys(user string, keyIds ...string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
-	existingKeyData, err := readAuthorisedKeys()
+	existingKeyData, err := readAuthorisedKeys(user)
 	if err != nil {
 		return err
 	}
@@ -161,7 +306,7 @@ func DeleteKeys(keyIds ...string) error {
 	var sshKeys = make(map[string]string)
 	var keyComments = make(map[string]string)
 	for _, key := range existingKeyData {
-		fingerprint, comment, err := keyFingerprint(key)
+		fingerprint, comment, err := KeyFingerprint(key)
 		if err != nil {
 			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
 			keysToWrite = append(keysToWrite, key)
@@ -191,29 +336,29 @@ func DeleteKeys(keyIds ...string) error {
 	if len(keysToWrite) == 0 {
 		return fmt.Errorf("cannot delete all keys")
 	}
-	return writeAuthorisedKeys(keysToWrite)
+	return writeAuthorisedKeys(user, keysToWrite)
 }
 
-// ReplaceKeys writes the specified ssh keys to the authorized_keys file,
+// ReplaceKeys writes the specified ssh keys to the authorized_keys file for user,
 // replacing any that are already there.
 // Returns an error if there is an issue with *any* of the supplied keys.
-func ReplaceKeys(newKeys ...string) error {
+func ReplaceKeys(user string, newKeys ...string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	existingKeyData, err := readAuthorisedKeys()
+	existingKeyData, err := readAuthorisedKeys(user)
 	if err != nil {
 		return err
 	}
 	var existingNonKeyLines []string
 	for _, line := range existingKeyData {
-		_, _, err := keyFingerprint(line)
+		_, _, err := KeyFingerprint(line)
 		if err != nil {
 			existingNonKeyLines = append(existingNonKeyLines, line)
 		}
 	}
 	for _, newKey := range newKeys {
-		_, comment, err := keyFingerprint(newKey)
+		_, comment, err := KeyFingerprint(newKey)
 		if err != nil {
 			return err
 		}
@@ -221,20 +366,20 @@ func ReplaceKeys(newKeys ...string) error {
 			return fmt.Errorf("cannot add ssh key without comment")
 		}
 	}
-	return writeAuthorisedKeys(append(existingNonKeyLines, newKeys...))
+	return writeAuthorisedKeys(user, append(existingNonKeyLines, newKeys...))
 }
 
-// ListKeys returns either the full keys or key comments from the authorized ssh keys file.
-func ListKeys(mode ListMode) ([]string, error) {
+// ListKeys returns either the full keys or key comments from the authorized ssh keys file for user.
+func ListKeys(user string, mode ListMode) ([]string, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	keyData, err := readAuthorisedKeys()
+	keyData, err := readAuthorisedKeys(user)
 	if err != nil {
 		return nil, err
 	}
 	var keys []string
 	for _, key := range keyData {
-		fingerprint, comment, err := keyFingerprint(key)
+		fingerprint, comment, err := KeyFingerprint(key)
 		if err != nil {
 			// Only log a warning if the unrecognised key line is not a comment.
 			if key[0] != '#' {
@@ -261,19 +406,19 @@ func ListKeys(mode ListMode) ([]string, error) {
 const JujuCommentPrefix = "Juju:"
 
 func EnsureJujuComment(key string) string {
-	_, comment, err := keyFingerprint(key)
+	ak, err := ParseAuthorisedKey(key)
 	// Just return an invalid key as is.
 	if err != nil {
 		logger.Warningf("invalid Juju ssh key %s: %v", key, err)
 		return key
 	}
-	if comment == "" {
+	if ak.Comment == "" {
 		return key + " " + JujuCommentPrefix + "sshkey"
 	} else {
 		// Add the Juju prefix to the comment if necessary.
-		if !strings.HasPrefix(comment, JujuCommentPrefix) {
-			commentIndex := strings.LastIndex(key, comment)
-			return key[:commentIndex] + JujuCommentPrefix + comment
+		if !strings.HasPrefix(ak.Comment, JujuCommentPrefix) {
+			commentIndex := strings.LastIndex(key, ak.Comment)
+			return key[:commentIndex] + JujuCommentPrefix + ak.Comment
 		}
 	}
 	return key

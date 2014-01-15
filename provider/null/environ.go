@@ -4,9 +4,12 @@
 package null
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"net"
 	"path"
+	"strings"
 	"sync"
 
 	"launchpad.net/loggo"
@@ -26,7 +29,9 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
+	"launchpad.net/juju-core/worker/terminationworker"
 )
 
 const (
@@ -48,8 +53,10 @@ var logger = loggo.GetLogger("juju.provider.null")
 type nullEnviron struct {
 	cfg                   *environConfig
 	cfgmutex              sync.Mutex
-	bootstrapStorage      *sshstorage.SSHStorage
+	bootstrapStorage      storage.Storage
 	bootstrapStorageMutex sync.Mutex
+	ubuntuUserInited      bool
+	ubuntuUserInitMutex   sync.Mutex
 }
 
 var _ environs.BootstrapStorager = (*nullEnviron)(nil)
@@ -85,9 +92,32 @@ func (e *nullEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
+var initUbuntuUser = manual.InitUbuntuUser
+
+func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
+	e.ubuntuUserInitMutex.Lock()
+	defer e.ubuntuUserInitMutex.Unlock()
+	if e.ubuntuUserInited {
+		return nil
+	}
+	cfg := e.envConfig()
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
+	if err != nil {
+		logger.Errorf("initializing ubuntu user: %v", err)
+		return err
+	}
+	logger.Infof("initialized ubuntu user")
+	e.ubuntuUserInited = true
+	return nil
+}
+
 func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
+		return err
+	}
 	envConfig := e.envConfig()
-	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(envConfig.sshHost())
+	host := envConfig.bootstrapHost()
+	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		return err
 	}
@@ -97,7 +127,7 @@ func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.
 	}
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Context:                 ctx,
-		Host:                    e.envConfig().sshHost(),
+		Host:                    host,
 		DataDir:                 dataDir,
 		Environ:                 e,
 		PossibleTools:           selectedTools,
@@ -144,6 +174,14 @@ func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instanc
 	return instances, err
 }
 
+var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
+		Host:       sshHost,
+		StorageDir: storageDir,
+		TmpDir:     storageTmpdir,
+	})
+}
+
 // Implements environs.BootstrapStorager.
 func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
 	e.bootstrapStorageMutex.Lock()
@@ -151,17 +189,13 @@ func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) erro
 	if e.bootstrapStorage != nil {
 		return nil
 	}
+	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
+		return err
+	}
 	cfg := e.envConfig()
 	storageDir := e.StorageDir()
 	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	params := sshstorage.NewSSHStorageParams{
-		Host:       cfg.sshHost(),
-		StorageDir: storageDir,
-		TmpDir:     storageTmpdir,
-		Stdin:      ctx.Stdin(),
-		Stdout:     ctx.Stdout(),
-	}
-	bootstrapStorage, err := sshstorage.NewSSHStorage(params)
+	bootstrapStorage, err := newSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
 	if err != nil {
 		return err
 	}
@@ -199,8 +233,25 @@ func (e *nullEnviron) Storage() storage.Storage {
 	return nil
 }
 
+var runSSHCommand = func(host string, command []string) (stderr string, err error) {
+	cmd := ssh.Command(host, command, nil)
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	err = cmd.Run()
+	return stderrBuf.String(), err
+}
+
 func (e *nullEnviron) Destroy() error {
-	return errors.New("null provider destruction is not implemented yet")
+	stderr, err := runSSHCommand(
+		"ubuntu@"+e.envConfig().bootstrapHost(),
+		[]string{"sudo", "pkill", fmt.Sprintf("-%d", terminationworker.TerminationSignal), "jujud"},
+	)
+	if err != nil {
+		if stderr := strings.TrimSpace(stderr); len(stderr) > 0 {
+			err = fmt.Errorf("%v (%v)", err, stderr)
+		}
+	}
+	return err
 }
 
 func (e *nullEnviron) OpenPorts(ports []instance.Port) error {
