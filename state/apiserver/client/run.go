@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
@@ -148,13 +147,12 @@ func ParallelExecute(dataDir string, runParams []*RemoteExec) params.RunResults 
 		logger.Debugf("exec on %s: %#v", param.MachineId, *param)
 		param.IdentityFile = identity
 		go func(param *RemoteExec) {
-			rc, stdout, stderr, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
-			response := cmd.RemoteResponse{rc, stdout, stderr}
-			logger.Debugf("reponse from %s: {%v %v %v} (err:%v)", param.MachineId, response, err)
+			response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
+			logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
 			execResponse := params.RunResult{
-				RemoteResponse: response,
-				MachineId:      param.MachineId,
-				UnitId:         param.UnitId,
+				ExecResponse: response,
+				MachineId:    param.MachineId,
+				UnitId:       param.UnitId,
 			}
 			if err != nil {
 				execResponse.Error = fmt.Sprint(err)

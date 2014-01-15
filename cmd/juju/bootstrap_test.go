@@ -6,9 +6,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -21,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -428,20 +426,15 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
-// createToolsSource writes the mock tools into a temporary
+// createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
-	source := c.MkDir()
-	for _, vers := range versions {
-		data := vers.String()
-		name := envtools.StorageName(vers)
-		filename := filepath.Join(source, name)
-		dir := filepath.Dir(filename)
-		err := os.MkdirAll(dir, 0755)
-		c.Assert(err, gc.IsNil)
-		err = ioutil.WriteFile(filename, []byte(data), 0666)
-		c.Assert(err, gc.IsNil)
+	versionStrings := make([]string, len(versions))
+	for i, vers := range versions {
+		versionStrings[i] = vers.String()
 	}
+	source := c.MkDir()
+	ttesting.MakeTools(c, source, "releases", versionStrings)
 	return source
 }
 

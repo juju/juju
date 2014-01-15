@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 
 	// Import the providers.
@@ -76,7 +77,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 		return
 	}
 	defer client.Close()
-	var resp cmd.RemoteResponse
+	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil {
 		return

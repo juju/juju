@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils/exec"
 )
 
 type RunSuite struct {
@@ -191,7 +192,7 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 		message: "stdout and stderr are base64 encoded if not valid utf8",
 		results: []params.RunResult{
 			params.RunResult{
-				RemoteResponse: cmd.RemoteResponse{
+				ExecResponse: exec.ExecResponse{
 					Stdout: []byte{0xff},
 					Stderr: []byte{0xfe},
 				},
@@ -386,7 +387,7 @@ func (m *mockRunAPI) setMachinesAlive(ids ...string) {
 
 func makeRunResult(mock mockResponse) params.RunResult {
 	return params.RunResult{
-		RemoteResponse: cmd.RemoteResponse{
+		ExecResponse: exec.ExecResponse{
 			Stdout: []byte(mock.stdout),
 			Stderr: []byte(mock.stderr),
 			Code:   mock.code,

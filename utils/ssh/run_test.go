@@ -40,36 +40,36 @@ func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {
 func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	s.fakeSSH(c, echoSSH)
 
-	rc, stdout, stderr, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
+	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		Host:    "hostname",
 		Command: "sudo apt-get update\nsudo apt-get upgrade",
 		Timeout: testing.ShortWait,
 	})
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(rc, gc.Equals, 0)
-	c.Assert(string(stdout), gc.Equals, "sudo apt-get update\nsudo apt-get upgrade\n")
-	c.Assert(string(stderr), gc.Equals,
+	c.Assert(response.Code, gc.Equals, 0)
+	c.Assert(string(response.Stdout), gc.Equals, "sudo apt-get update\nsudo apt-get upgrade\n")
+	c.Assert(string(response.Stderr), gc.Equals,
 		"-o StrictHostKeyChecking no -o PasswordAuthentication no hostname -- /bin/bash -s\n")
 }
 
 func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
 	s.fakeSSH(c, echoSSH)
 
-	_, _, stderr, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
+	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Timeout:      testing.ShortWait,
 	})
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(stderr), jc.Contains, " -i identity-file ")
+	c.Assert(string(response.Stderr), jc.Contains, " -i identity-file ")
 }
 
 func (s *ExecuteSSHCommandSuite) TestTimoutCaptureOutput(c *gc.C) {
 	s.fakeSSH(c, slowSSH)
 
-	rc, stdout, stderr, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
+	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Command:      "ignored",
@@ -77,15 +77,15 @@ func (s *ExecuteSSHCommandSuite) TestTimoutCaptureOutput(c *gc.C) {
 	})
 
 	c.Check(err, gc.ErrorMatches, "command timed out")
-	c.Assert(rc, gc.Equals, 0)
-	c.Assert(string(stdout), gc.Equals, "stdout\n")
-	c.Assert(string(stderr), gc.Equals, "stderr\n")
+	c.Assert(response.Code, gc.Equals, 0)
+	c.Assert(string(response.Stdout), gc.Equals, "stdout\n")
+	c.Assert(string(response.Stderr), gc.Equals, "stderr\n")
 }
 
 func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 	s.fakeSSH(c, passthroughSSH)
 
-	rc, stdout, stderr, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
+	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Command:      "echo stdout; exit 42",
@@ -93,9 +93,9 @@ func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 	})
 
 	c.Check(err, gc.IsNil)
-	c.Assert(rc, gc.Equals, 42)
-	c.Assert(string(stdout), gc.Equals, "stdout\n")
-	c.Assert(string(stderr), gc.Equals, "")
+	c.Assert(response.Code, gc.Equals, 42)
+	c.Assert(string(response.Stdout), gc.Equals, "stdout\n")
+	c.Assert(string(response.Stderr), gc.Equals, "")
 }
 
 // echoSSH outputs the command args to stderr, and copies stdin to stdout

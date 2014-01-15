@@ -25,7 +25,6 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -35,6 +34,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
+	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
@@ -908,6 +908,7 @@ var relationsTests = []uniterTest{
 		verifyRunning{},
 		relationState{life: state.Dying},
 		removeRelationUnit{"mysql/0"},
+		verifyRunning{},
 		relationState{removed: true},
 		verifyRunning{},
 	), ut(
@@ -919,6 +920,7 @@ var relationsTests = []uniterTest{
 		waitHooks{"db-relation-broken db:0"},
 		verifyRunning{},
 		relationState{removed: true},
+		verifyRunning{},
 	), ut(
 		"service becomes dying while in a relation",
 		quickStartRelation{},
@@ -1589,7 +1591,7 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	if s.dirty {
 		cmp = gc.Not(gc.Matches)
 	}
-	c.Assert(string(out), cmp, "# On branch master\nnothing to commit.*\n")
+	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
 }
 
 type startUpgradeError struct{}
@@ -1961,7 +1963,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		c.Assert(err, gc.IsNil)
 		defer client.Close()
 
-		var result cmd.RemoteResponse
+		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
@@ -125,9 +126,9 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
+func (r *mockRunner) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	r.c.Log("mock runner: " + commands)
-	return &cmd.RemoteResponse{
+	return &exec.ExecResponse{
 		Code:   42,
 		Stdout: []byte(commands + " stdout"),
 		Stderr: []byte(commands + " stderr"),

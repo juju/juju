@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	utilexec "launchpad.net/juju-core/utils/exec"
 )
 
 // ExecParams are used for the parameters for ExecuteCommandOnMachine.
@@ -24,11 +26,11 @@ type ExecParams struct {
 // the host specified. This is done using ssh, and passing the commands
 // through /bin/bash.  If the command is not finished within the timeout
 // specified, an error is returned.  Any output captured during that time
-// is also returned.
-func ExecuteCommandOnMachine(params ExecParams) (rc int, stdout, stderr []byte, err error) {
+// is also returned in the remote response.
+func ExecuteCommandOnMachine(params ExecParams) (result utilexec.ExecResponse, err error) {
 	// execute bash accepting commands on stdin
 	if params.Host == "" {
-		return -1, nil, nil, fmt.Errorf("missing host address")
+		return result, fmt.Errorf("missing host address")
 	}
 	logger.Debugf("execute on %s", params.Host)
 	var options Options
@@ -37,13 +39,13 @@ func ExecuteCommandOnMachine(params ExecParams) (rc int, stdout, stderr []byte, 
 	}
 	command := Command(params.Host, []string{"/bin/bash", "-s"}, &options)
 	// start a go routine to do the actual execution
-	var stdoutBuf, stderrBuf bytes.Buffer
-	command.Stdout = &stdoutBuf
-	command.Stderr = &stderrBuf
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
 	command.Stdin = strings.NewReader(params.Command + "\n")
 
 	if err = command.Start(); err != nil {
-		return -1, nil, nil, err
+		return result, err
 	}
 	commandDone := make(chan error)
 	go func() {
@@ -61,7 +63,7 @@ func ExecuteCommandOnMachine(params ExecParams) (rc int, stdout, stderr []byte, 
 			status := ee.ProcessState.Sys().(syscall.WaitStatus)
 			if status.Exited() {
 				// A non-zero return code isn't considered an error here.
-				rc = status.ExitStatus()
+				result.Code = status.ExitStatus()
 				err = nil
 			}
 		}
@@ -72,5 +74,7 @@ func ExecuteCommandOnMachine(params ExecParams) (rc int, stdout, stderr []byte, 
 		command.Kill()
 	}
 	// In either case, gather as much as we have from stdout and stderr
-	return rc, stdoutBuf.Bytes(), stderrBuf.Bytes(), err
+	result.Stderr = stderr.Bytes()
+	result.Stdout = stdout.Bytes()
+	return result, err
 }
