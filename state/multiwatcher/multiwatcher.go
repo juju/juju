@@ -61,7 +61,6 @@ func (w *Watcher) Next() ([]params.Delta, error) {
 		return nil, err
 	}
 	if ok := <-req.reply; !ok {
-		// TODO better error?
 		return nil, ErrWatcherStopped
 	}
 	return req.changes, nil

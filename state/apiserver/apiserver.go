@@ -83,9 +83,10 @@ func (srv *Server) Wait() error {
 
 type requestNotifier struct {
 	id    int64
-	mu    sync.Mutex
-	tag_  string
 	start time.Time
+
+	mu   sync.Mutex
+	tag_ string
 }
 
 var globalCounter int64
