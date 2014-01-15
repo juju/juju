@@ -5,9 +5,12 @@ package utils_test
 
 import (
 	"os"
+	"os/user"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -15,6 +18,8 @@ import (
 type sudoSuite struct {
 	testbase.LoggingSuite
 }
+
+var _ = gc.Suite(&sudoSuite{})
 
 func (s *sudoSuite) TestSudoCallerIds(c *gc.C) {
 	s.PatchEnvironment("SUDO_UID", "0")
@@ -55,4 +60,38 @@ func (s *sudoSuite) TestSudoCallerIds(c *gc.C) {
 			c.Assert(gid, gc.Equals, 0)
 		}
 	}
+}
+
+func (s *sudoSuite) TestMkDirForUserAsUser(c *gc.C) {
+	base := c.MkDir()
+	dir := filepath.Join(base, "new-dir")
+	err := utils.MkDirForUser(dir, 0755)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dir, jc.IsDirectory)
+}
+
+func (s *sudoSuite) TestMkDirForUserRoot(c *gc.C) {
+	user, err := user.Current()
+	c.Assert(err, gc.IsNil)
+	s.PatchEnvironment("SUDO_UID", user.Uid)
+	s.PatchEnvironment("SUDO_GID", user.Gid)
+	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
+
+	base := c.MkDir()
+	dir := filepath.Join(base, "new-dir")
+	err = utils.MkDirForUser(dir, 0755)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dir, jc.IsDirectory)
+}
+
+func (s *sudoSuite) TestMkDirForUserWithError(c *gc.C) {
+	s.PatchEnvironment("SUDO_UID", "omg")
+	s.PatchEnvironment("SUDO_GID", "omg")
+	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
+
+	base := c.MkDir()
+	dir := filepath.Join(base, "new-dir")
+	err := utils.MkDirForUser(dir, 0755)
+	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
+	c.Assert(dir, jc.DoesNotExist)
 }
