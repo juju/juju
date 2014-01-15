@@ -5,6 +5,7 @@ package juju
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"launchpad.net/loggo"
@@ -16,6 +17,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 var logger = loggo.GetLogger("juju")
@@ -28,6 +30,20 @@ var (
 	providerConnectDelay = 2 * time.Second
 )
 
+// apiState wraps an api.State, redefining its Close method
+// so we can abuse it for testing purposes.
+type apiState struct {
+	st            *api.State
+	connectedInfo *api.Info
+	// fromEnviron is true if the connection was made using the
+	// environment, rather than the local .jenv connection info.
+	fromEnviron bool
+}
+
+func (st apiState) Close() error {
+	return apiClose(st.st)
+}
+
 // APIConn holds a connection to a juju environment and its
 // associated state through its API interface.
 type APIConn struct {
@@ -37,25 +53,11 @@ type APIConn struct {
 
 var errAborted = fmt.Errorf("aborted")
 
-func prepareAPIInfo(environ environs.Environ) (*api.Info, error) {
-	_, info, err := environ.StateInfo()
-	if err != nil {
-		return nil, err
-	}
-	info.Tag = "user-admin"
-	password := environ.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
-	info.Password = password
-	return info, nil
-}
-
 // NewAPIConn returns a new Conn that uses the
 // given environment. The environment must have already
 // been bootstrapped.
 func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
-	info, err := prepareAPIInfo(environ)
+	info, err := environAPIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
@@ -141,59 +143,53 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 	// attributes from the config store, but for backward
 	// compatibility reasons, we fall back to information from
 	// ReadEnvirons if that does not exist.
-
-	stop := make(chan struct{})
-	defer close(stop)
+	chooseError := func(err0, err1 error) error {
+		if err0 == nil {
+			return err1
+		}
+		if errorImportance(err0) < errorImportance(err1) {
+			err0, err1 = err1, err0
+		}
+		logger.Warningf("discarding API open error: %v", err1)
+		return err0
+	}
+	try := parallel.NewTry(0, chooseError)
 
 	info, err := store.ReadInfo(envName)
 	if err != nil && !errors.IsNotFoundError(err) {
 		return nil, err
 	}
-	var infoResult <-chan apiOpenResult
-	if info != nil {
-		infoResult = apiInfoConnect(store, info, stop)
-	}
-	delay := providerConnectDelay
-	if infoResult == nil {
-		// There's no environment info, so no need to
-		// wait for the info connection.
-		logger.Infof("no cached API connection settings found")
-		delay = 0
+	var delay time.Duration
+	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
+		logger.Debugf("trying cached API connection settings")
+		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
+			return apiInfoConnect(store, info, stop)
+		})
+		// Delay the config connection until we've spent
+		// some time trying to connect to the cached info.
+		delay = providerConnectDelay
 	} else {
-		logger.Infof("using cached API connection settings")
+		logger.Debugf("no cached API connection settings found")
 	}
-	cfgResult := apiConfigConnect(info, envs, envName, stop, delay)
-
-	if infoResult == nil && cfgResult == nil {
-		return nil, errors.NotFoundf("environment %q", envName)
-	}
-	var (
-		st            *api.State
-		connectedInfo *api.Info
-		infoErr       error
-		cfgErr        error
-	)
-	for st == nil && (infoResult != nil || cfgResult != nil) {
-		select {
-		case r := <-infoResult:
-			st = r.st
-			infoErr = r.err
-			infoResult = nil
-			connectedInfo = r.info
-		case r := <-cfgResult:
-			st = r.st
-			cfgErr = r.err
-			cfgResult = nil
-			connectedInfo = r.info
+	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
+		return apiConfigConnect(info, envs, envName, stop, delay)
+	})
+	try.Close()
+	val, err := try.Result()
+	if err != nil {
+		if ierr, ok := err.(*infoConnectError); ok {
+			// lose error encapsulation:
+			err = ierr.error
 		}
+		return nil, err
 	}
-	if st != nil {
-		// One potential issue: there may still be a lingering
-		// API connection, which will use resources until it
-		// finally succeeds or fails. Unless we are making hundreds
-		// of API connections, this is unlikely to be a problem.
+	connectedInfo := val.(apiState).connectedInfo
+	connectedState := val.(apiState).st
+	connectedFromEnviron := val.(apiState).fromEnviron
 
-		// Cache the successful connection info for future use.
+	if connectedFromEnviron && info != nil {
+		// Cache the successful connection info for future use, but only if we
+		// connected using the environment config.
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses: connectedInfo.Addrs,
 			CACert:    string(connectedInfo.CACert),
@@ -201,7 +197,7 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		_, username, err := names.ParseTag(connectedInfo.Tag, names.UserTagKind)
 		if err != nil {
 			logger.Warningf("not caching API connection settings: invalid API user tag: %v", err)
-			return st, nil
+			return connectedState, nil
 		}
 		info.SetAPICredentials(configstore.APICredentials{
 			User:     username,
@@ -211,62 +207,52 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 			// Not fatal, just the cache won't be updated.
 			logger.Warningf("cannot cache API connection settings: %v", err)
 		}
-		logger.Infof("updated API connection settings cache")
-		return st, nil
+		logger.Debugf("updated API connection settings cache")
 	}
-	if cfgErr != nil {
-		// Return the error from the configuration lookup if we
-		// have one, because that information should be most current.
-		logger.Warningf("discarding API open error: %v", infoErr)
-		return nil, cfgErr
-	}
-	return nil, infoErr
+	return connectedState, nil
 }
 
-type apiOpenResult struct {
-	st   *api.State
-	info *api.Info
-	err  error
+func errorImportance(err error) int {
+	if err == nil {
+		return 0
+	}
+	if errors.IsNotFoundError(err) {
+		// An error from an actual connection attempt
+		// is more interesting than the fact that there's
+		// no environment info available.
+		return 1
+	}
+	if _, ok := err.(*infoConnectError); ok {
+		// A connection to a potentially stale cached address
+		// is less important than a connection from fresh info.
+		return 2
+	}
+	return 3
+}
+
+type infoConnectError struct {
+	error
 }
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, stop <-chan struct{}) <-chan apiOpenResult {
-	resultc := make(chan apiOpenResult)
+func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, stop <-chan struct{}) (apiState, error) {
 	endpoint := info.APIEndpoint()
-
 	if info == nil || len(endpoint.Addresses) == 0 {
-		return nil
+		return apiState{}, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
-	go func() {
-		logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-		apiInfo := &api.Info{
-			Addrs:    endpoint.Addresses,
-			CACert:   []byte(endpoint.CACert),
-			Tag:      names.UserTag(info.APICredentials().User),
-			Password: info.APICredentials().Password,
-		}
-		st, err := apiOpen(apiInfo, api.DefaultDialOpts())
-		if err != nil {
-			logger.Infof("failed to connect to API addresses: %v, %v", endpoint.Addresses, err)
-		}
-		sendAPIOpenResult(resultc, stop, st, apiInfo, err)
-	}()
-	return resultc
-}
-
-func sendAPIOpenResult(resultc chan apiOpenResult, stop <-chan struct{}, st *api.State, info *api.Info, err error) {
-	select {
-	case <-stop:
-		if err != nil {
-			if err != errAborted {
-				logger.Warningf("discarding stale API open error: %v", err)
-			}
-		} else {
-			apiClose(st)
-		}
-	case resultc <- apiOpenResult{st, info, err}:
+	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
+	apiInfo := &api.Info{
+		Addrs:    endpoint.Addresses,
+		CACert:   []byte(endpoint.CACert),
+		Tag:      names.UserTag(info.APICredentials().User),
+		Password: info.APICredentials().Password,
 	}
+	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
+	if err != nil {
+		return apiState{}, &infoConnectError{err}
+	}
+	return apiState{st, apiInfo, false}, err
 }
 
 // apiConfigConnect looks for configuration info on the given environment,
@@ -274,8 +260,7 @@ func sendAPIOpenResult(resultc chan apiOpenResult, stop <-chan struct{}, st *api
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) <-chan apiOpenResult {
-	resultc := make(chan apiOpenResult)
+func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) (apiState, error) {
 	var cfg *config.Config
 	var err error
 	if info != nil && len(info.BootstrapConfig()) > 0 {
@@ -283,37 +268,42 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	} else if envs != nil {
 		cfg, err = envs.Config(envName)
 		if errors.IsNotFoundError(err) {
-			return nil
+			return apiState{}, err
 		}
 	} else {
-		return nil
+		return apiState{}, errors.NotFoundf("environment %q", envName)
 	}
-	connect := func() (*api.State, *api.Info, error) {
-		if err != nil {
-			return nil, nil, err
-		}
-		select {
-		case <-time.After(delay):
-		case <-stop:
-			return nil, nil, errAborted
-		}
-		environ, err := environs.New(cfg)
-		if err != nil {
-			return nil, nil, err
-		}
-		apiInfo, err := prepareAPIInfo(environ)
-		if err != nil {
-			return nil, nil, err
-		}
-		apiConn, err := NewAPIConn(environ, api.DefaultDialOpts())
-		if err != nil {
-			return nil, nil, err
-		}
-		return apiConn.State, apiInfo, nil
+	select {
+	case <-time.After(delay):
+	case <-stop:
+		return apiState{}, errAborted
 	}
-	go func() {
-		st, apiInfo, err := connect()
-		sendAPIOpenResult(resultc, stop, st, apiInfo, err)
-	}()
-	return resultc
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return apiState{}, err
+	}
+	apiInfo, err := environAPIInfo(environ)
+	if err != nil {
+		return apiState{}, err
+	}
+	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
+	// TODO(rog): handle errUnauthorized when the API handles passwords.
+	if err != nil {
+		return apiState{}, err
+	}
+	return apiState{st, apiInfo, true}, nil
+}
+
+func environAPIInfo(environ environs.Environ) (*api.Info, error) {
+	_, info, err := environ.StateInfo()
+	if err != nil {
+		return nil, err
+	}
+	info.Tag = "user-admin"
+	password := environ.Config().AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect without admin-secret")
+	}
+	info.Password = password
+	return info, nil
 }

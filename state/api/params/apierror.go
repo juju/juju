@@ -82,6 +82,14 @@ func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
 }
 
+// IsCodeNotFoundOrCodeUnauthorized is used in API clients which, pre-API, used
+// IsNotFoundErr; this is because an API client is not necessarily privileged to
+// know about the existence or otherwise of a particular entity, and the server
+// may hence convert NotFound to Unauthorized at its discretion.
+func IsCodeNotFoundOrCodeUnauthorized(err error) bool {
+	return IsCodeNotFound(err) || IsCodeUnauthorized(err)
+}
+
 func IsCodeCannotEnterScope(err error) bool {
 	return ErrCode(err) == CodeCannotEnterScope
 }

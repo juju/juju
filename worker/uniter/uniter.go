@@ -522,7 +522,7 @@ func (u *Uniter) restoreRelations() error {
 	for id, dir := range dirs {
 		remove := false
 		rel, err := u.st.RelationById(id)
-		if params.IsCodeNotFound(err) {
+		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			remove = true
 		} else if err != nil {
 			return err
@@ -569,7 +569,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		// were not previously known anyway.
 		rel, err := u.st.RelationById(id)
 		if err != nil {
-			if params.IsCodeNotFound(err) {
+			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				continue
 			}
 			return nil, err
