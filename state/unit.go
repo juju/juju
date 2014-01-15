@@ -68,7 +68,6 @@ type unitDoc struct {
 	Service        string
 	Series         string
 	CharmURL       *charm.URL
-	RevisionStatus string
 	Principal      string
 	Subordinates   []string
 	PublicAddress  string
@@ -148,28 +147,6 @@ func (u *Unit) String() string {
 // Name returns the unit name.
 func (u *Unit) Name() string {
 	return u.doc.Name
-}
-
-// RevisionStatus returns the unit revision status, indicating
-// if the unit's charm is out of date or not.
-func (u *Unit) RevisionStatus() string {
-	return u.doc.RevisionStatus
-}
-
-// SetRevisionStatus updates the unit's revision status.
-func (u *Unit) SetRevisionStatus(status string) (err error) {
-	ops := []txn.Op{{
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: txn.DocExists,
-		Update: D{{"$set", D{{"revisionstatus", status}}}},
-	}}
-	if err := u.st.runTransaction(ops); err != nil {
-		return fmt.Errorf(
-			"cannot set revision status for unit %q to %v: %v", u, status, onAbort(err, errors.NotFoundf("unit")))
-	}
-	u.doc.RevisionStatus = status
-	return nil
 }
 
 // unitGlobalKey returns the global database key for the named unit.

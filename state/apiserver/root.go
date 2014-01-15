@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
-	"launchpad.net/juju-core/state/apiserver/charmversionupdater"
+	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
@@ -203,14 +203,14 @@ func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
 	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
 }
 
-// CharmVersionUpdater returns an object that provides access to the CharmVersionUpdater API facade.
+// CharmRevisionUpdater returns an object that provides access to the CharmRevisionUpdater API facade.
 // The id argument is reserved for future use and must be empty.
-func (r *srvRoot) CharmVersionUpdater(id string) (*charmversionupdater.CharmVersionUpdaterAPI, error) {
+func (r *srvRoot) CharmRevisionUpdater(id string) (*charmrevisionupdater.CharmRevisionUpdaterAPI, error) {
 	if id != "" {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return charmversionupdater.NewCharmVersionUpdaterAPI(r.srv.state, r.resources, r)
+	return charmrevisionupdater.NewCharmRevisionUpdaterAPI(r.srv.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
