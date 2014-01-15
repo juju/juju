@@ -157,7 +157,7 @@ func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 		&client.RemoteExec{
 			ExecParams: ssh.ExecParams{
 				Command: "foo",
-				Timeout: testing.ShortWait,
+				Timeout: testing.LongWait,
 			},
 		},
 	}
@@ -176,7 +176,7 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
-				Timeout: testing.ShortWait,
+				Timeout: testing.LongWait,
 			},
 		},
 	}
@@ -196,7 +196,7 @@ func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
-				Timeout: testing.ShortWait,
+				Timeout: testing.LongWait,
 			},
 			MachineId: "machine-id",
 			UnitId:    "unit-id",
@@ -223,7 +223,7 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	// through to the apiserver implementation. Not ideal, but it is how the
 	// other client tests are written.
 	client := s.APIState.Client()
-	results, err := client.RunOnAllMachines("hostname", testing.ShortWait)
+	results, err := client.RunOnAllMachines("hostname", testing.LongWait)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.HasLen, 3)
 	var expectedResults []params.RunResult
@@ -256,7 +256,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	results, err := client.Run(
 		params.RunParams{
 			Commands: "hostname",
-			Timeout:  testing.ShortWait,
+			Timeout:  testing.LongWait,
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
