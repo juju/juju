@@ -199,21 +199,12 @@ generate_streams() {
     if [[ $RELEASE != "IGNORE" ]]; then
         extract_new_juju
     fi
-    # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
-    # incompatibility. Note that 1.16 does not read the correct filesize
-    # when calling metadata generate-tools.
     juju_version=$($JUJU_EXEC --version)
-    minor_version=$(juju --version | cut -d - -f1 | cut -d . -f1,2)
     echo "Using juju: $juju_version"
-    if [[ $minor_version == "1.16" ]]; then
-        JUJU_HOME=$JUJU_DIR $JUJU_EXEC sync-tools --all --dev \
-            --source=${DESTINATION} --destination=${DEST_DIST};
-    else
-        mkdir -p ${DEST_DIST}/tools/streams/v1
-        mkdir -p ${DEST_DIST}/tools/releases
-        cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
-        JUJU_HOME=$JUJU_DIR $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
-    fi
+    mkdir -p ${DEST_DIST}/tools/streams/v1
+    mkdir -p ${DEST_DIST}/tools/releases
+    cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
+    JUJU_HOME=$JUJU_DIR $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     # Support old tools location so that deployments can upgrade to new tools.
     if [[ $IS_TESTING == "false" ]]; then
         cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
