@@ -45,7 +45,7 @@ func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	curl := charm.MustParseURL("cs:quantal/mysql")
-	pending, err := s.State.LatestPendingCharm(curl)
+	pending, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, gc.IsNil)
 	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
 }
