@@ -42,7 +42,7 @@ type EventResponse struct {
 	Time     string   `json:"time,omitempty"`
 }
 
-// CharmRevision holds the revision number of a charm an any error
+// CharmRevision holds the revision number of a charm and any error
 // encountered in retrieving it.
 type CharmRevision struct {
 	Revision int
