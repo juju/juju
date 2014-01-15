@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmversionupdater
+package charmrevisionupdater
 
 import (
 	"launchpad.net/juju-core/state/api/common"
@@ -18,11 +18,11 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-// UpdateVersions retrieves charm revision info from a repository
+// UpdateLatestRevisions retrieves charm revision info from a repository
 // and updates the revision info in state.
-func (st *State) UpdateVersions() error {
+func (st *State) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
-	err := st.caller.Call("CharmVersionUpdater", "", "UpdateVersions", nil, result)
+	err := st.caller.Call("CharmRevisionUpdater", "", "UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}
