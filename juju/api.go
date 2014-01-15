@@ -33,11 +33,10 @@ var (
 // apiState wraps an api.State, redefining its Close method
 // so we can abuse it for testing purposes.
 type apiState struct {
-	st            *api.State
-	connectedInfo *api.Info
-	// fromEnviron is true if the connection was made using the
-	// environment, rather than the local .jenv connection info.
-	fromEnviron bool
+	st *api.State
+	// cachedInfo is set only when the connection was made using the
+	// environment config.
+	cachedInfo *api.Info
 }
 
 func (st apiState) Close() error {
@@ -175,7 +174,7 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		return apiConfigConnect(info, envs, envName, stop, delay)
 	})
 	try.Close()
-	val, err := try.Result()
+	val0, err := try.Result()
 	if err != nil {
 		if ierr, ok := err.(*infoConnectError); ok {
 			// lose error encapsulation:
@@ -183,33 +182,16 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		}
 		return nil, err
 	}
-	connectedInfo := val.(apiState).connectedInfo
-	connectedState := val.(apiState).st
-	connectedFromEnviron := val.(apiState).fromEnviron
+	val := val0.(apiState)
 
-	if connectedFromEnviron && info != nil {
-		// Cache the successful connection info for future use, but only if we
-		// connected using the environment config.
-		info.SetAPIEndpoint(configstore.APIEndpoint{
-			Addresses: connectedInfo.Addrs,
-			CACert:    string(connectedInfo.CACert),
-		})
-		_, username, err := names.ParseTag(connectedInfo.Tag, names.UserTagKind)
-		if err != nil {
-			logger.Warningf("not caching API connection settings: invalid API user tag: %v", err)
-			return connectedState, nil
-		}
-		info.SetAPICredentials(configstore.APICredentials{
-			User:     username,
-			Password: connectedInfo.Password,
-		})
-		if err := info.Write(); err != nil {
-			// Not fatal, just the cache won't be updated.
-			logger.Warningf("cannot cache API connection settings: %v", err)
-		}
-		logger.Debugf("updated API connection settings cache")
+	if val.cachedInfo != nil && info != nil {
+		// Cache the connection settings only if we used the
+		// environment config, but ignore the error because it's not
+		// fatal when the cache is not updated (we'll update it the
+		// next time we connect successfully).
+		cacheAPIInfo(info, val.cachedInfo)
 	}
-	return connectedState, nil
+	return val.st, nil
 }
 
 func errorImportance(err error) int {
@@ -252,7 +234,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 	if err != nil {
 		return apiState{}, &infoConnectError{err}
 	}
-	return apiState{st, apiInfo, false}, err
+	return apiState{st, nil}, err
 }
 
 // apiConfigConnect looks for configuration info on the given environment,
@@ -291,7 +273,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	if err != nil {
 		return apiState{}, err
 	}
-	return apiState{st, apiInfo, true}, nil
+	return apiState{st, apiInfo}, nil
 }
 
 func environAPIInfo(environ environs.Environ) (*api.Info, error) {
@@ -306,4 +288,30 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 	}
 	info.Password = password
 	return info, nil
+}
+
+// cacheAPIInfo updates the local environment settings (.jenv file)
+// with the provided apiInfo, assuming we've just successfully
+// connected to the API server.
+func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses: apiInfo.Addrs,
+		CACert:    string(apiInfo.CACert),
+	})
+	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
+	if err != nil {
+		logger.Warningf("not caching API connection settings: invalid API user tag: %v", err)
+		return err
+	}
+	info.SetAPICredentials(configstore.APICredentials{
+		User:     username,
+		Password: apiInfo.Password,
+	})
+	if err := info.Write(); err != nil {
+		// Not fatal, just the cache won't be updated.
+		logger.Warningf("cannot cache API connection settings: %v", err)
+		return err
+	}
+	logger.Debugf("updated API connection settings cache")
+	return nil
 }
