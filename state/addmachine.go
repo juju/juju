@@ -54,6 +54,10 @@ type MachineTemplate struct {
 	// as unclean for unit-assignment purposes.
 	Dirty bool
 
+	// wantsVote holds whether a machine running
+	// a state server should ask for peer voting rights.
+	wantsVote bool
+
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
@@ -187,6 +191,9 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate) (MachineTemplate, e
 			return MachineTemplate{}, fmt.Errorf("duplicate job: %s", j)
 		}
 		jset[j] = true
+	}
+	if p.wantsVote && !jset[JobManageState] {
+		return MachineTemplate{}, fmt.Errorf("non state-server machine cannot be configured with a vote")
 	}
 
 	if p.InstanceId != "" {
@@ -354,6 +361,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		InstanceId: template.InstanceId,
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		WantsVote: template.wantsVote,
 	}
 }
 
@@ -376,13 +384,13 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, cons constraints.Value) [
 
 // EnsureAvailability adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
-// constraints will be attached to any new machines.
+// constraints and series will be attached to any new machines.
 //
 // TODO(rog):
 // If any current state servers are down, they will be
 // removed from the current set of state servers
 // (although the machines themselves will remain).
-func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value) error {
+func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
 	if numStateServers%2 != 1 || numStateServers <= 0 {
 		return fmt.Errorf("number of state servers must be odd and greater than zero")
 	}
@@ -393,41 +401,27 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	if err != nil {
 		return err
 	}
-	if len(info.MachineIds) == numStateServers {
-		// TODO check for machines that are down.
+	if len(info.VotingMachineIds) == numStateServers {
+		// TODO find machines which are down, clear
+		// their WantVote flag and add new machines to
+		// replace them.
 		return nil
 	}
-	if len(info.MachineIds) > numStateServers {
+	if len(info.VotingMachineIds) > numStateServers {
 		return fmt.Errorf("cannot reduce state server count")
 	}
-	envCons, err := st.EnvironConstraints()
-	if err != nil {
-		return err
-	}
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	cons = cons.WithFallbacks(envCons)
 	var ops []txn.Op
 	var newIds []string
 	for i := len(info.MachineIds); i < numStateServers; i++ {
-		mdoc := &machineDoc{
-			Series: cfg.DefaultSeries(),
-			Jobs: []MachineJob{
-				JobHostUnits,
-				JobManageState,
-				JobManageEnviron,
-			},
-		}
 		mdoc, addOps, err := st.addMachineOps(MachineTemplate{
-			Series: cfg.DefaultSeries(),
+			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageState,
 				JobManageEnviron,
 			},
 			Constraints: cons,
+			wantsVote: true,
 		})
 		if err != nil {
 			return err
@@ -438,8 +432,14 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	ops = append(ops, txn.Op{
 		C:      st.stateServers.Name,
 		Id:     environGlobalKey,
-		Assert: D{{"stateservers", D{{"$size", len(info.MachineIds)}}}},
-		Update: D{{"$addToSet", D{{"stateservers", D{{"$each", newIds}}}}}},
+		Assert: D{{
+			"$and", []D{
+				{{"machineids", D{{"$size", len(info.MachineIds)}}}},
+				{{"votingmachineids", D{{"$size", len(info.VotingMachineIds)}}}},
+			},
+		}}
+		Update: D{{"$addToSet", D{{"machineids", D{{"$each", newIds}}}}}},
+		Update: D{{"$addToSet", D{{"votingmachineids", D{{"$each", newIds}}}}}},
 	})
 	err = st.runTransaction(ops)
 	if err != nil {
