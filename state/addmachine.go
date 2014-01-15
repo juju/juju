@@ -437,9 +437,11 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 				{{"machineids", D{{"$size", len(info.MachineIds)}}}},
 				{{"votingmachineids", D{{"$size", len(info.VotingMachineIds)}}}},
 			},
-		}}
-		Update: D{{"$addToSet", D{{"machineids", D{{"$each", newIds}}}}}},
-		Update: D{{"$addToSet", D{{"votingmachineids", D{{"$each", newIds}}}}}},
+		}},
+		Update: D{
+			{"$addToSet", D{{"machineids", D{{"$each", newIds}}}}},
+			{"$addToSet", D{{"votingmachineids", D{{"$each", newIds}}}}},
+		},
 	})
 	err = st.runTransaction(ops)
 	if err != nil {
