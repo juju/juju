@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
@@ -140,6 +141,54 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 }
 
+func (s *StateSuite) TestAddCharmUpdatesPending(c *gc.C) {
+	// Check that adding charms updates any existing pending charm.
+	ch := testing.Charms.Dir("dummy")
+
+	// Add a pending charm.
+	curl := charm.MustParseURL("cs:quantal/dummy-1")
+	err := s.State.AddStoreCharmReference(curl)
+	c.Assert(err, gc.IsNil)
+
+	// Add a deployed charm.
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
+
+	// Charm doc has been updated.
+	var docs []state.CharmDoc
+	err = s.charms.FindId(curl).All(&docs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0].URL, gc.DeepEquals, curl)
+	c.Assert(docs[0].BundleURL, gc.DeepEquals, bundleURL)
+
+	// No more pending charm.
+	_, err = s.State.LatestPendingCharm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
+	// Find it directly and verify only the charm URL and
+	// PendingUpload are set.
+	doc := state.CharmDoc{}
+	err := s.charms.FindId(curl).One(&doc)
+	c.Assert(err, gc.IsNil)
+	c.Logf("%#v", doc)
+	c.Assert(doc.URL, gc.DeepEquals, curl)
+	c.Assert(doc.PendingUpload, jc.IsTrue)
+	c.Assert(doc.Meta, gc.IsNil)
+	c.Assert(doc.Config, gc.IsNil)
+	c.Assert(doc.BundleURL, gc.IsNil)
+	c.Assert(doc.BundleSha256, gc.Equals, "")
+
+	// Make sure we can't find it with st.Charm().
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
 func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	// First test the sanity checks.
 	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
@@ -155,22 +204,7 @@ func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.DeepEquals, testCurl)
 
-	// Find it directly and verify only the charm URL and
-	// PendingUpload are set.
-	doc := state.CharmDoc{}
-	err = s.charms.FindId(curl).One(&doc)
-	c.Assert(err, gc.IsNil)
-	c.Logf("%#v", doc)
-	c.Assert(doc.URL, gc.DeepEquals, curl)
-	c.Assert(doc.PendingUpload, jc.IsTrue)
-	c.Assert(doc.Meta, gc.IsNil)
-	c.Assert(doc.Config, gc.IsNil)
-	c.Assert(doc.BundleURL, gc.IsNil)
-	c.Assert(doc.BundleSha256, gc.Equals, "")
-
-	// Make sure we can't find it with st.Charm().
-	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	s.assertPendingCharmExists(c, curl)
 
 	// Try adding it again with the same revision and ensure it gets bumped.
 	curl, err = s.State.PrepareLocalCharmUpload(curl)
@@ -219,6 +253,108 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
 	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+}
+
+func (s *StateSuite) TestLatestPendingCharm(c *gc.C) {
+	// Add a deployed charm
+	ch := testing.Charms.Dir("dummy")
+	curl := charm.MustParseURL("cs:quantal/dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+
+	// Deployed charm not found.
+	_, err = s.State.LatestPendingCharm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Add a charm reference
+	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	err = s.State.AddStoreCharmReference(curl2)
+	c.Assert(err, gc.IsNil)
+
+	// Use a URL with an arbitrary rev to search.
+	curl = charm.MustParseURL("cs:quantal/dummy-23")
+	pending, err := s.State.LatestPendingCharm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pending.URL(), gc.DeepEquals, curl2)
+	c.Assert(pending.IsUploaded(), jc.IsFalse)
+	c.Assert(pending.Meta(), gc.IsNil)
+	c.Assert(pending.Config(), gc.IsNil)
+	c.Assert(pending.BundleURL(), gc.IsNil)
+	c.Assert(pending.BundleSha256(), gc.Equals, "")
+}
+
+func (s *StateSuite) TestAddStoreCharmReferenceErrors(c *gc.C) {
+	ch := testing.Charms.Dir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	err := s.State.AddStoreCharmReference(curl)
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
+
+	curl = charm.MustParseURL("cs:quantal/dummy")
+	err = s.State.AddStoreCharmReference(curl)
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
+}
+
+func (s *StateSuite) TestAddStoreCharmReference(c *gc.C) {
+	curl := charm.MustParseURL("cs:quantal/dummy-1")
+	err := s.State.AddStoreCharmReference(curl)
+	c.Assert(err, gc.IsNil)
+	s.assertPendingCharmExists(c, curl)
+
+	// Add the same one again, should be a no-op
+	err = s.State.AddStoreCharmReference(curl)
+	c.Assert(err, gc.IsNil)
+	s.assertPendingCharmExists(c, curl)
+}
+
+func (s *StateSuite) assertAddStoreCharmReference(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
+	// Add a deployed charm
+	ch := testing.Charms.Dir("dummy")
+	curl := charm.MustParseURL("cs:quantal/dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+
+	// Add a charm reference
+	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	err = s.State.AddStoreCharmReference(curl2)
+	c.Assert(err, gc.IsNil)
+	s.assertPendingCharmExists(c, curl2)
+
+	// Deployed charm is still there.
+	existing, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(existing, jc.DeepEquals, dummy)
+
+	return curl, curl2, dummy
+}
+
+func (s *StateSuite) TestAddStoreCharmReferenceLeavesDeployedCharmsAlone(c *gc.C) {
+	s.assertAddStoreCharmReference(c)
+}
+
+func (s *StateSuite) TestAddStoreCharmReferenceDeletesOlder(c *gc.C) {
+	curl, curlOldRef, dummy := s.assertAddStoreCharmReference(c)
+
+	// Add a new charm reference
+	curl3 := charm.MustParseURL("cs:quantal/dummy-3")
+	err := s.State.AddStoreCharmReference(curl3)
+	c.Assert(err, gc.IsNil)
+	s.assertPendingCharmExists(c, curl3)
+
+	// Deployed charm is still there.
+	existing, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(existing, jc.DeepEquals, dummy)
+
+	// Older charm reference is gone.
+	doc := state.CharmDoc{}
+	err = s.charms.FindId(curlOldRef).One(&doc)
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {

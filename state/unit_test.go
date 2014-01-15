@@ -50,16 +50,6 @@ func (s *UnitSuite) TestService(c *gc.C) {
 	c.Assert(svc.Name(), gc.Equals, s.unit.ServiceName())
 }
 
-func (s *UnitSuite) TestRevisionStatus(c *gc.C) {
-	c.Assert(s.unit.RevisionStatus(), gc.Equals, "")
-	err := s.unit.SetRevisionStatus("foo")
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit.RevisionStatus(), gc.Equals, "foo")
-	fromDb, err := s.State.Unit("wordpress/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(fromDb.RevisionStatus(), gc.Equals, "foo")
-}
-
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit charm not set")

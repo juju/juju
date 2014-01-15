@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmversionupdater_test
+package charmrevisionupdater_test
 
 import (
 	stdtesting "testing"
