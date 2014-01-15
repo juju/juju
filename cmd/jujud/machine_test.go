@@ -63,6 +63,10 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	os.Remove(jujuRun) // ignore error; may not exist
+	// Fake $HOME, and ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
+	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
+	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+	s.PatchValue(&authenticationworker.SSHUser, "")
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
@@ -577,10 +581,6 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
-	s.PatchValue(&authenticationworker.SSHUser, "")
-
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
