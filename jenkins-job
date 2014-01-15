@@ -28,7 +28,7 @@ if ! $SCRIPTS/deploy_stack.py $ENVS; then
 fi
 EXIT_STATUS=0
 
-PACKAGE=$WORKSPACE/new-version.deb $SCRIPTS/test-new-version || EXIT_STATUS=$?
+PACKAGE=$WORKSPACE/new-precise.deb $SCRIPTS/test-new-version || EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi

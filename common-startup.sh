@@ -7,14 +7,14 @@ dump_logs(){
   fi
 }
 export JUJU_HOME=$HOME/juju-ci
-export PACKAGE=$WORKSPACE/new-version.deb
+export PACKAGE=$WORKSPACE/new-precise.deb
 artifacts_path=$WORKSPACE/artifacts
 set -x
 rm * -rf
 mkdir -p $artifacts_path
 touch $artifacts_path/empty
 artifact=localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact
-wget -q $artifact/new-version.deb
+wget -q $artifact/new-precise.deb
 # Determine BRANCH and REVNO
 wget -q $artifact/buildvars.bash
 source buildvars.bash

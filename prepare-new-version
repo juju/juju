@@ -10,4 +10,4 @@ set -x
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
 $SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
-ln -s $PACKAGE $WORKSPACE/new-version.deb
+ln -s $PACKAGE $WORKSPACE/new-precise.deb
