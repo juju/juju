@@ -34,8 +34,8 @@ var (
 // so we can abuse it for testing purposes.
 type apiState struct {
 	st *api.State
-	// cachedInfo is set only when the connection was made using the
-	// environment config.
+	// If cachedInfo is non-nil, it indicates that the info has been
+	// newly retrieved, and should be cached in the config store.
 	cachedInfo *api.Info
 }
 
@@ -186,10 +186,14 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 
 	if val.cachedInfo != nil && info != nil {
 		// Cache the connection settings only if we used the
-		// environment config, but ignore the error because it's not
-		// fatal when the cache is not updated (we'll update it the
-		// next time we connect successfully).
-		cacheAPIInfo(info, val.cachedInfo)
+		// environment config, but any errors are just logged
+		// as warnings, because they're not fatal.
+		err = cacheAPIInfo(info, val.cachedInfo)
+		if err != nil {
+			logger.Warningf(err.Error())
+		} else {
+			logger.Debugf("updated API connection settings cache")
+		}
 	}
 	return val.st, nil
 }
@@ -300,18 +304,14 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 	})
 	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
 	if err != nil {
-		logger.Warningf("not caching API connection settings: invalid API user tag: %v", err)
-		return err
+		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
 	}
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     username,
 		Password: apiInfo.Password,
 	})
 	if err := info.Write(); err != nil {
-		// Not fatal, just the cache won't be updated.
-		logger.Warningf("cannot cache API connection settings: %v", err)
-		return err
+		return fmt.Errorf("cannot cache API connection settings: %v", err)
 	}
-	logger.Debugf("updated API connection settings cache")
 	return nil
 }

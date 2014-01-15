@@ -137,13 +137,15 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		called++
 		return expectState, nil
 	}
-	// Give NewAPIFromName a read-only store interface that panics on
-	// mutation methods to ensure the cache isn't updated.
+	// Give NewAPIFromName a store interface that can report when the
+	// config was written to, to ensure the cache isn't updated.
 	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
-	st, err := juju.NewAPIFromName("noconfig", &readOnlyStore{store})
+	mockStore := &storageWithWriteNotify{store: store}
+	st, err := juju.NewAPIFromName("noconfig", mockStore)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
+	c.Assert(mockStore.written, jc.IsFalse)
 }
 
 func (*NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
@@ -528,18 +530,32 @@ func newConfigStore(envName string, info *environInfo) configstore.Storage {
 	return store
 }
 
-type readOnlyStore struct {
-	store configstore.Storage
+type storageWithWriteNotify struct {
+	written bool
+	store   configstore.Storage
 }
 
-func (*readOnlyStore) CreateInfo(envName string) (configstore.EnvironInfo, error) {
-	panic("CreateInfo() was called when it shouldn't")
+func (*storageWithWriteNotify) CreateInfo(envName string) (configstore.EnvironInfo, error) {
+	panic("CreateInfo not implemented")
 }
 
-func (*readOnlyStore) Write() error {
-	panic("Write() was called when it shouldn't")
+func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
+	info, err := s.store.ReadInfo(envName)
+	if err != nil {
+		return nil, err
+	}
+	return &infoWithWriteNotify{
+		written:     &s.written,
+		EnvironInfo: info,
+	}, nil
 }
 
-func (s *readOnlyStore) ReadInfo(envName string) (configstore.EnvironInfo, error) {
-	return s.store.ReadInfo(envName)
+type infoWithWriteNotify struct {
+	configstore.EnvironInfo
+	written *bool
+}
+
+func (info *infoWithWriteNotify) Write() error {
+	*info.written = true
+	return info.EnvironInfo.Write()
 }
