@@ -42,7 +42,7 @@ func (w *Watcher) Stop() error {
 	return w.all.tomb.Err()
 }
 
-var ErrWatcherStopped = errors.New("state watcher was stopped")
+var ErrWatcherStopped = errors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
@@ -56,7 +56,7 @@ func (w *Watcher) Next() ([]params.Delta, error) {
 	case <-w.all.tomb.Dead():
 		err := w.all.tomb.Err()
 		if err == nil {
-			err = ErrWatcherStopped
+			err = errors.New("shared state watcher was stopped")
 		}
 		return nil, err
 	}

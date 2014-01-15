@@ -82,33 +82,56 @@ func (srv *Server) Wait() error {
 }
 
 type requestNotifier struct {
-	connCounter int64
-	identifier  string
+	id    int64
+	mu    sync.Mutex
+	tag_  string
+	start time.Time
 }
 
 var globalCounter int64
 
-func nextCounter() int64 {
-	return atomic.AddInt64(&globalCounter, 1)
+func newRequestNotifier() *requestNotifier {
+	return &requestNotifier{
+		id:    atomic.AddInt64(&globalCounter, 1),
+		tag_:  "<unknown>",
+		start: time.Now(),
+	}
 }
 
-func (n *requestNotifier) SetIdentifier(identifier string) {
-	n.identifier = identifier
+func (n *requestNotifier) login(tag string) {
+	n.mu.Lock()
+	n.tag_ = tag
+	n.mu.Unlock()
 }
 
-func (n requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) tag() (tag string) {
+	n.mu.Lock()
+	tag = n.tag_
+	n.mu.Unlock()
+	return
+}
+
+func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		return
 	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	logger.Debugf("<- [%X] %s %s", n.connCounter, n.identifier, jsoncodec.DumpRequest(hdr, body))
+	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
 }
 
-func (n requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
+func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.connCounter, n.identifier, timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+}
+
+func (n *requestNotifier) join(req *http.Request) {
+	logger.Debugf("[%X] API connection from %s", n.id, req.RemoteAddr)
+}
+
+func (n *requestNotifier) leave() {
+	logger.Debugf("[%X] API connection terminated after %v", n.id, time.Since(n.start))
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -126,25 +149,37 @@ func (srv *Server) run(lis net.Listener) {
 		lis.Close()
 		srv.wg.Done()
 	}()
-	handler := websocket.Handler(func(conn *websocket.Conn) {
-		srv.wg.Add(1)
-		defer srv.wg.Done()
-		// If we've got to this stage and the tomb is still
-		// alive, we know that any tomb.Kill must occur after we
-		// have called wg.Add, so we avoid the possibility of a
-		// handler goroutine running after Stop has returned.
-		if srv.tomb.Err() != tomb.ErrStillAlive {
-			return
-		}
-		if err := srv.serveConn(conn); err != nil {
-			logger.Errorf("error serving RPCs: %v", err)
-		}
-	})
 	mux := http.NewServeMux()
-	mux.Handle("/", handler)
+	mux.HandleFunc("/", srv.apiHandler)
 	mux.Handle("/charms", &charmsHandler{state: srv.state})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
+}
+
+func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
+	var reqNotifier *requestNotifier
+	if logger.EffectiveLogLevel() <= loggo.DEBUG {
+		reqNotifier = newRequestNotifier()
+		reqNotifier.join(req)
+		defer reqNotifier.leave()
+	}
+	wsServer := websocket.Server{
+		Handler: func(conn *websocket.Conn) {
+			srv.wg.Add(1)
+			defer srv.wg.Done()
+			// If we've got to this stage and the tomb is still
+			// alive, we know that any tomb.Kill must occur after we
+			// have called wg.Add, so we avoid the possibility of a
+			// handler goroutine running after Stop has returned.
+			if srv.tomb.Err() != tomb.ErrStillAlive {
+				return
+			}
+			if err := srv.serveConn(conn, reqNotifier); err != nil {
+				logger.Errorf("error serving RPCs: %v", err)
+			}
+		},
+	}
+	wsServer.ServeHTTP(w, req)
 }
 
 // Addr returns the address that the server is listening on.
@@ -152,20 +187,17 @@ func (srv *Server) Addr() string {
 	return srv.addr.String()
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
 		codec.SetLogging(true)
 	}
 	var notifier rpc.RequestNotifier
-	var loginCallback func(string)
-	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		reqNotifier := &requestNotifier{nextCounter(), "<unknown>"}
-		loginCallback = reqNotifier.SetIdentifier
+	if reqNotifier != nil {
 		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	conn.Serve(newStateServer(srv, conn, loginCallback), serverError)
+	conn.Serve(newStateServer(srv, conn, reqNotifier), serverError)
 	conn.Start()
 	select {
 	case <-conn.Dead():
