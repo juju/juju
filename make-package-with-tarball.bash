@@ -139,9 +139,9 @@ make_source_package_branch
 if [[ $PURPOSE == "testing" ]]; then
     make_binary_package
     # Make the devel version too for testing.
-    UBUNTU_NEXT="${VERSION}-0ubuntu1${NEXT_SERIES_VERSION}"
-    update_source_package_branch
-    make_binary_package
+    #UBUNTU_NEXT="${VERSION}-0ubuntu1${NEXT_SERIES_VERSION}"
+    #update_source_package_branch
+    #make_binary_package
 else
     make_source_package
 fi
