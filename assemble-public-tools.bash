@@ -200,13 +200,19 @@ generate_streams() {
         extract_new_juju
     fi
     # XXX abentley 2013-11-07: Bug #1247175 Work around commandline
-    # incompatibility
+    # incompatibility. Note that 1.16 does not read the correct filesize
+    # when calling metadata generate-tools.
     juju_version=$($JUJU_EXEC --version)
+    minor_version=$(juju --version | cut -d - -f1 | cut -d . -f1,2)
     echo "Using juju: $juju_version"
-    if ! JUJU_HOME=$JUJU_DIR $JUJU_EXEC sync-tools --all --dev \
-        --source=${DESTINATION} --destination=${DEST_DIST}; then
+    if [[ $minor_version == "1.16" ]]; then
         JUJU_HOME=$JUJU_DIR $JUJU_EXEC sync-tools --all --dev \
-            --source=${DESTINATION} --local-dir=${DEST_DIST}
+            --source=${DESTINATION} --destination=${DEST_DIST};
+    else
+        mkdir -p ${DEST_DIST}/tools/streams/v1
+        mkdir -p ${DEST_DIST}/tools/releases
+        cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
+        JUJU_HOME=$JUJU_DIR $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     fi
     # Support old tools location so that deployments can upgrade to new tools.
     if [[ $IS_TESTING == "false" ]]; then
@@ -234,9 +240,9 @@ sign_metadata() {
         signed_file=$(echo "$meta_file" | sed -e $pattern)
         echo "Creating $signed_file"
         sed -e $pattern $meta_file |
-            gpg --clearsign --default-key $SIGNING_KEY > $signed_file
+            gpg --clearsign --default-key "$SIGNING_KEY" > $signed_file
         cat $meta_file |
-            gpg --detach-sign --default-key $SIGNING_KEY  > $meta_file.gpg
+            gpg --detach-sign --default-key "$SIGNING_KEY"  > $meta_file.gpg
     done
     echo "The signed tools are in ${DEST_DIST}."
 }
