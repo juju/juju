@@ -449,18 +449,17 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	// The charm may already exist in state as pending, so we check for that situation and update the
+	// The charm may already exist in state as a placeholder, so we check for that situation and update the
 	// existing charm record if necessary, otherwise add a new record.
 	var existing charmDoc
-	err = st.charms.Find(D{{"_id", curl.String()}, {"pendingupload", true}}).One(&existing)
+	err = st.charms.Find(D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
 		cdoc := &charmDoc{
-			URL:           curl,
-			Meta:          ch.Meta(),
-			Config:        ch.Config(),
-			BundleURL:     bundleURL,
-			BundleSha256:  bundleSha256,
-			PendingUpload: false,
+			URL:          curl,
+			Meta:         ch.Meta(),
+			Config:       ch.Config(),
+			BundleURL:    bundleURL,
+			BundleSha256: bundleSha256,
 		}
 		err = st.charms.Insert(cdoc)
 		if err != nil {
@@ -470,13 +469,13 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 	} else if err != nil {
 		return nil, err
 	}
-	return st.updateUploadedCharmDoc(&existing, ch, curl, bundleURL, bundleSha256)
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPlaceholder)
 }
 
 // Charm returns the charm with the given URL.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}}).One(cdoc)
+	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}, {"placeholder", false}}).One(cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -489,12 +488,12 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, cdoc)
 }
 
-// LatestPendingCharm returns the latest charm described by the given URL but which is not yet deployed.
-func (st *State) LatestPendingCharm(curl *charm.URL) (*Charm, error) {
+// LatestPlaceholderCharm returns the latest charm described by the given URL but which is not yet deployed.
+func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 	var docs []charmDoc
-	err := st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}, {"pendingupload", true}}).All(&docs)
+	err := st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
@@ -506,7 +505,7 @@ func (st *State) LatestPendingCharm(curl *charm.URL) (*Charm, error) {
 		}
 	}
 	if latest.URL == nil {
-		return nil, errors.NotFoundf("pending charm %q", noRevURL)
+		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
 	}
 	return newCharm(st, &latest)
 }
@@ -577,11 +576,12 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 }
 
 var StillPending = D{{"pendingupload", true}}
+var StillPlaceholder = D{{"placeholder", true}}
 
-// AddStoreCharmReference creates a charm document in state for the given charm URL which
-// must reference a charm from the store. The charm document is marked as pending which means
-// that if the charm is to be deployed, it will need to first be uploaded to env storage.
-func (st *State) AddStoreCharmReference(curl *charm.URL) (err error) {
+// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
+// must reference a charm from the store. The charm document is marked as a placeholder which
+// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
+func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	// Perform sanity checks first.
 	if curl.Schema != "cs" {
 		return fmt.Errorf("expected charm URL with cs schema, got %q", curl)
@@ -601,22 +601,22 @@ func (st *State) AddStoreCharmReference(curl *charm.URL) (err error) {
 			return nil
 		}
 
-		// Delete all previous references so we don't fill up the database with unused data.
+		// Delete all previous placeholders so we don't fill up the database with unused data.
 		var ops []txn.Op
-		ops, err = st.deleteOldPendingCharmsOps(curl)
+		ops, err = st.deleteOldPlaceholderCharmsOps(curl)
 		if err != nil {
 			return nil
 		}
 		// Add the new charm doc.
-		storeCharm := &charmDoc{
-			URL:           curl,
-			PendingUpload: true,
+		placeholderCharm := &charmDoc{
+			URL:         curl,
+			Placeholder: true,
 		}
 		ops = append(ops, txn.Op{
 			C:      st.charms.Name,
-			Id:     storeCharm.URL.String(),
+			Id:     placeholderCharm.URL.String(),
 			Assert: txn.DocMissing,
-			Insert: storeCharm,
+			Insert: placeholderCharm,
 		})
 
 		// Run the transaction, and retry on abort.
@@ -633,15 +633,15 @@ func (st *State) AddStoreCharmReference(curl *charm.URL) (err error) {
 	return nil
 }
 
-// deleteOldPendingCharmsOps returns the txn ops required to delete all pending charm
+// deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
 // records older than the specified charm URL.
-func (st *State) deleteOldPendingCharmsOps(curl *charm.URL) ([]txn.Op, error) {
+func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 	var docs []charmDoc
 	err := st.charms.Find(
-		D{{"_id", D{{"$regex", curlRegex}}}, {"pendingupload", true}}).Select(D{{"_id", 1}}).All(&docs)
+		D{{"_id", D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -653,7 +653,7 @@ func (st *State) deleteOldPendingCharmsOps(curl *charm.URL) ([]txn.Op, error) {
 		ops = append(ops, txn.Op{
 			C:      st.charms.Name,
 			Id:     doc.URL.String(),
-			Assert: StillPending,
+			Assert: StillPlaceholder,
 			Remove: true,
 		})
 	}
@@ -671,15 +671,17 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 	if err != nil {
 		return nil, err
 	}
-	return st.updateUploadedCharmDoc(doc, ch, curl, bundleURL, bundleSha256)
-}
-
-func (st *State) updateUploadedCharmDoc(
-	doc *charmDoc, ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
-
 	if !doc.PendingUpload {
 		return nil, fmt.Errorf("charm %q already uploaded", curl)
 	}
+
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPending)
+}
+
+// updateCharmDoc updates the charm with specified URL with the given data, and resets the placeholder
+// and pendingupdate flags.
+func (st *State) updateCharmDoc(
+	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
 	updateFields := D{{"$set", D{
 		{"meta", ch.Meta()},
@@ -687,15 +689,16 @@ func (st *State) updateUploadedCharmDoc(
 		{"bundleurl", bundleURL},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
+		{"placeholder", false},
 	}}}
 	ops := []txn.Op{{
 		C:      st.charms.Name,
 		Id:     curl,
-		Assert: StillPending,
+		Assert: preReq,
 		Update: updateFields,
 	}}
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, fmt.Errorf("charm revision already uploaded"))
+		return nil, onAbort(err, fmt.Errorf("charm revision already modified"))
 	}
 	return st.Charm(curl)
 }
