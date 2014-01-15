@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/environs/replicaset"
+	"launchpad.net/juju-core/replicaset"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -387,17 +387,17 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 		return fmt.Errorf("number of state servers must be odd and greater than zero")
 	}
 	if numStateServers > replicaset.MaxPeers {
-		return fmt.Errorf("state server count is too large (allowed %d)", MaxPeers)
+		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	machineIds, err := st.stateServerMachineIds()
+	info, err := st.stateServerInfo()
 	if err != nil {
 		return err
 	}
-	if len(machineIds) == numStateServers {
+	if len(info.MachineIds) == numStateServers {
 		// TODO check for machines that are down.
 		return nil
 	}
-	if len(machineIds) > numStateServers {
+	if len(info.MachineIds) > numStateServers {
 		return fmt.Errorf("cannot reduce state server count")
 	}
 	envCons, err := st.EnvironConstraints()
@@ -411,7 +411,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	cons = cons.WithFallbacks(envCons)
 	var ops []txn.Op
 	var newIds []string
-	for i := len(machineIds); i < numStateServers; i++ {
+	for i := len(info.MachineIds); i < numStateServers; i++ {
 		mdoc := &machineDoc{
 			Series: cfg.DefaultSeries(),
 			Jobs: []MachineJob{
@@ -420,7 +420,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 				JobManageEnviron,
 			},
 		}
-		mdoc, addOps, err := st.addMachineOps(machineTemplate{
+		mdoc, addOps, err := st.addMachineOps(MachineTemplate{
 			Series: cfg.DefaultSeries(),
 			Jobs: []MachineJob{
 				JobHostUnits,
@@ -438,7 +438,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value)
 	ops = append(ops, txn.Op{
 		C:      st.stateServers.Name,
 		Id:     environGlobalKey,
-		Assert: D{{"stateservers", D{{"$size", len(machineIds)}}}},
+		Assert: D{{"stateservers", D{{"$size", len(info.MachineIds)}}}},
 		Update: D{{"$addToSet", D{{"stateservers", D{{"$each", newIds}}}}}},
 	})
 	err = st.runTransaction(ops)

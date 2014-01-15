@@ -2337,10 +2337,11 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	}
 }
 
-func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
-	ids, err := state.StateServerMachineIds(s.State)
+func (s *StateSuite) TestStateServerInfo(c *gc.C) {
+	ids, err := state.GetStateServerInfo(s.State)
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.HasLen, 0)
+	c.Assert(ids.MachineIds, gc.HasLen, 0)
+	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
 
 	// TODO(rog) more testing here when we can actually add
 	// state servers.
@@ -2361,9 +2362,9 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Sanity check that we have in fact deleted the right info.
-	ids, err := state.StateServerMachineIds(s.State)
+	info, err := state.GetStateServerInfo(s.State)
 	c.Assert(err, gc.NotNil)
-	c.Assert(ids, gc.HasLen, 0)
+	c.Assert(info, gc.IsNil)
 
 	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
@@ -2371,13 +2372,16 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 
 	expectIds := []string{m1.Id(), m2.Id()}
 	sort.Strings(expectIds)
-	ids, err = state.StateServerMachineIds(st)
+	info, err = state.GetStateServerInfo(st)
 	c.Assert(err, gc.IsNil)
-	sort.Strings(ids)
-	c.Assert(ids, gc.DeepEquals, expectIds)
+	sort.Strings(info.MachineIds)
+	sort.Strings(info.VotingMachineIds)
+	c.Assert(info.MachineIds, gc.DeepEquals, expectIds)
+	c.Assert(info.VotingMachineIds, gc.DeepEquals, expectIds)
 
 	// Check that it works with the original connection too.
-	ids, err = state.StateServerMachineIds(s.State)
+	info, err = state.GetStateServerInfo(s.State)
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, expectIds)
+	c.Assert(len(info.MachineIds), gc.DeepEquals, len(expectIds))
+	c.Assert(len(info.VotingMachineIds), gc.DeepEquals, len(expectIds))
 }

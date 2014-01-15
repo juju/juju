@@ -286,7 +286,7 @@ func (st *State) createStateServersDoc() error {
 	// that we can avoid transaction overhead in most cases.
 	// We don't care what the error is - if it's something
 	// unexpected, it'll be picked up again below.
-	if _, err := st.stateServerMachineIds(); err == nil {
+	if _, err := st.stateServerInfo(); err == nil {
 		return nil
 	}
 	// Find all current state servers and add the state servers
@@ -312,6 +312,7 @@ func (st *State) createStateServersDoc() error {
 	for _, m := range machineDocs {
 		doc.MachineIds = append(doc.MachineIds, m.Id)
 	}
+	doc.VotingMachineIds = doc.MachineIds
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
 		Id:     environGlobalKey,
