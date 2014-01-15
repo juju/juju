@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -398,6 +399,23 @@ func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
+}
+
+// RunOnAllMachines runs the command on all the machines with the specified
+// timeout.
+func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
+	var results params.RunResults
+	args := params.RunParams{Commands: commands, Timeout: timeout}
+	err := c.st.Call("Client", "", "RunOnAllMachines", args, &results)
+	return results.Results, err
+}
+
+// Run the Commands specified on the machines identified through the ids
+// provided in the machines, services and units slices.
+func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
+	var results params.RunResults
+	err := c.st.Call("Client", "", "Run", run, &results)
+	return results.Results, err
 }
 
 // DestroyEnvironment puts the environment into a "dying" state,

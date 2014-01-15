@@ -96,7 +96,29 @@ func (d *GitDir) AddAll() error {
 	if err := filepath.Walk(d.path, walker); err != nil {
 		return err
 	}
-	return d.cmd("add", "-A", ".")
+
+	// special handling for addall, since there is an error condition that
+	// we need to suppress
+	return d.addAll()
+}
+
+// addAll runs "git add -A ."" and swallows errors about no matching files. This
+// is to replicate the behavior of older versions of git that returned no error
+// in that situation.
+func (d *GitDir) addAll() error {
+	args := []string{"add", "-A", "."}
+	cmd := exec.Command("git", args...)
+	cmd.Dir = d.path
+	if out, err := cmd.CombinedOutput(); err != nil {
+		output := string(out)
+		// Swallow this specific error. It's a change in behavior from older
+		// versions of git, and we want AddAll to be able to be used on empty
+		// directories.
+		if !strings.Contains(output, "pathspec '.' did not match any files") {
+			return d.logError(err, string(out), args...)
+		}
+	}
+	return nil
 }
 
 // Commitf commits a new revision to the repository with the supplied message.
@@ -184,11 +206,15 @@ func (d *GitDir) cmd(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = d.path
 	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Errorf("worker/uniter/charm: git command failed: %s\npath: %s\nargs: %#v\n%s",
-			err, d.path, args, string(out))
-		return fmt.Errorf("git %s failed: %s", args[0], err)
+		return d.logError(err, string(out), args...)
 	}
 	return nil
+}
+
+func (d *GitDir) logError(err error, output string, args ...string) error {
+	log.Errorf("worker/uniter/charm: git command failed: %s\npath: %s\nargs: %#v\n%s",
+		err, d.path, args, output)
+	return fmt.Errorf("git %s failed: %s", args[0], err)
 }
 
 // statuses returns a list of XY-coded git statuses for the files in the directory.

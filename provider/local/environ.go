@@ -114,6 +114,10 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	}
 
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
+	privateKey, err := common.GenerateSystemSSHKey(env)
+	if err != nil {
+		return err
+	}
 
 	cert, key, err := env.setupLocalMongoService()
 	if err != nil {
@@ -151,7 +155,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	return env.setupLocalMachineAgent(cons, selectedTools)
+	return env.setupLocalMachineAgent(cons, selectedTools, privateKey)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -459,11 +463,18 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
-func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List) error {
+func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List, privateKey string) error {
 	dataDir := env.config.rootDir()
 	// unpack the first tools into the agent dir.
 	agentTools := possibleTools[0]
 	logger.Debugf("tools: %#v", agentTools)
+	// save the system identity file
+	systemIdentityFilename := filepath.Join(dataDir, cloudinit.SystemIdentity)
+	logger.Debugf("writing system identity to %s", systemIdentityFilename)
+	if err := ioutil.WriteFile(systemIdentityFilename, []byte(privateKey), 0600); err != nil {
+		return fmt.Errorf("failed to write system identity: %v", err)
+	}
+
 	// brutally abuse our knowledge of storage to directly open the file
 	toolsUrl, err := url.Parse(agentTools.URL)
 	if err != nil {

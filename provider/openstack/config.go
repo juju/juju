@@ -14,28 +14,30 @@ import (
 )
 
 var configFields = schema.Fields{
-	"username":        schema.String(),
-	"password":        schema.String(),
-	"tenant-name":     schema.String(),
-	"auth-url":        schema.String(),
-	"auth-mode":       schema.String(),
-	"access-key":      schema.String(),
-	"secret-key":      schema.String(),
-	"region":          schema.String(),
-	"control-bucket":  schema.String(),
-	"use-floating-ip": schema.Bool(),
+	"username":             schema.String(),
+	"password":             schema.String(),
+	"tenant-name":          schema.String(),
+	"auth-url":             schema.String(),
+	"auth-mode":            schema.String(),
+	"access-key":           schema.String(),
+	"secret-key":           schema.String(),
+	"region":               schema.String(),
+	"control-bucket":       schema.String(),
+	"use-floating-ip":      schema.Bool(),
+	"use-default-secgroup": schema.Bool(),
 }
 var configDefaults = schema.Defaults{
-	"username":        "",
-	"password":        "",
-	"tenant-name":     "",
-	"auth-url":        "",
-	"auth-mode":       string(AuthUserPass),
-	"access-key":      "",
-	"secret-key":      "",
-	"region":          "",
-	"control-bucket":  "",
-	"use-floating-ip": false,
+	"username":             "",
+	"password":             "",
+	"tenant-name":          "",
+	"auth-url":             "",
+	"auth-mode":            string(AuthUserPass),
+	"access-key":           "",
+	"secret-key":           "",
+	"region":               "",
+	"control-bucket":       "",
+	"use-floating-ip":      false,
+	"use-default-secgroup": false,
 }
 
 type environConfig struct {
@@ -81,6 +83,10 @@ func (c *environConfig) controlBucket() string {
 
 func (c *environConfig) useFloatingIP() bool {
 	return c.attrs["use-floating-ip"].(bool)
+}
+
+func (c *environConfig) useDefaultSecurityGroup() bool {
+	return c.attrs["use-default-secgroup"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

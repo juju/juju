@@ -51,7 +51,7 @@ func NewProvisionerTask(
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker environs.InstanceBroker,
-	auth AuthenticationProvider,
+	auth environs.AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
 		machineTag:     machineTag,
@@ -76,7 +76,7 @@ type provisionerTask struct {
 	machineWatcher Watcher
 	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
-	auth           AuthenticationProvider
+	auth           environs.AuthenticationProvider
 
 	safeMode     bool
 	safeModeChan chan bool
@@ -244,7 +244,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 		machineTag := names.MachineTag(id)
 		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
-		case params.IsCodeNotFound(err):
+		case params.IsCodeNotFoundOrCodeUnauthorized(err):
 			logger.Debugf("machine %q not found in state", id)
 			delete(task.machines, id)
 		case err == nil:
@@ -316,9 +316,13 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	}
 
 	for _, m := range task.machines {
-		if instId, err := m.InstanceId(); err == nil {
+		instId, err := m.InstanceId()
+		switch {
+		case err == nil:
 			delete(instances, instId)
-		} else if !params.IsCodeNotProvisioned(err) && !params.IsCodeNotFound(err) {
+		case params.IsCodeNotProvisioned(err):
+		case params.IsCodeNotFoundOrCodeUnauthorized(err):
+		default:
 			return nil, err
 		}
 	}

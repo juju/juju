@@ -40,6 +40,7 @@ import (
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -52,6 +53,8 @@ var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) 
 const bootstrapMachineId = "0"
 
 var retryDelay = 3 * time.Second
+
+var jujuRun = "/usr/local/bin/juju-run"
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -111,6 +114,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.dataDir, "charmcache")
+	if err := a.initAgent(); err != nil {
+		return err
+	}
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
@@ -136,6 +142,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
 		return a.APIWorker(ensureStateWorker)
+	})
+	a.runner.StartWorker("termination", func() (worker.Worker, error) {
+		return terminationworker.NewWorker(), nil
 	})
 	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
@@ -173,9 +182,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-		return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
-	})
+
+	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
+	providerType := agentConfig.Value(agent.ProviderType)
+	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
+		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+		})
+	}
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity); err != nil {
@@ -304,7 +318,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
+				dataDir := a.Conf.config.DataDir()
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -344,6 +359,14 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
+func (a *MachineAgent) initAgent() error {
+	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	jujud := filepath.Join(a.Conf.dataDir, "tools", a.Tag(), "jujud")
+	return os.Symlink(jujud, jujuRun)
+}
+
 func (a *MachineAgent) uninstallAgent() error {
 	var errors []error
 	agentServiceName := a.Conf.config.Value(agent.AgentServiceName)
@@ -355,6 +378,10 @@ func (a *MachineAgent) uninstallAgent() error {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
+	}
+	// Remove the juju-run symlink.
+	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+		errors = append(errors, err)
 	}
 	// The machine agent may terminate without knowing its jobs,
 	// for example if the machine's entry in state was removed.
