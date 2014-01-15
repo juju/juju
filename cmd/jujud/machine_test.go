@@ -26,7 +26,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
-	charmtesting "launchpad.net/juju-core/state/apiserver/charmversionupdater/testing"
+	charmtesting "launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
@@ -711,11 +711,11 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	// Create a state server machine.
 	var err error
 	s.machine, err = s.State.AddOneMachine(state.MachineTemplate{
-	Series:     "quantal",
-	InstanceId: "ardbeg-0",
-	Nonce:      state.BootstrapNonce,
-	Jobs:       []state.MachineJob{state.JobManageState},
-})
+		Series:     "quantal",
+		InstanceId: "ardbeg-0",
+		Nonce:      state.BootstrapNonce,
+		Jobs:       []state.MachineJob{state.JobManageState},
+	})
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
@@ -728,7 +728,7 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword)
 }
 
-func (s *MachineWithCharmsSuite) TestManageStateRunsCharmVersionUpdater(c *gc.C) {
+func (s *MachineWithCharmsSuite) TestManageStateRunsCharmRevisionUpdater(c *gc.C) {
 	s.SetupScenario(c)
 
 	// Start the machine agent.
@@ -742,19 +742,14 @@ func (s *MachineWithCharmsSuite) TestManageStateRunsCharmVersionUpdater(c *gc.C)
 	}()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
-	checkStatus := func() bool {
-		svc, err := s.State.Service("mysql")
-		c.Assert(err, gc.IsNil)
-		unit, err := s.State.Unit("mysql/0")
-		c.Assert(err, gc.IsNil)
-		if svc.RevisionStatus() != "out of date (available: 23)" {
-			return false
-		}
-		return unit.RevisionStatus() == "unknown"
+	checkRevision := func() bool {
+		curl := charm.MustParseURL("cs:quantal/mysql")
+		pending, err := s.State.LatestPendingCharm(curl)
+		return err == nil && pending.String() == curl.WithRevision(23).String()
 	}
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if success = checkStatus(); success {
+		if success = checkRevision(); success {
 			break
 		}
 	}

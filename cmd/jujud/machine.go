@@ -30,7 +30,7 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
-	"launchpad.net/juju-core/worker/charmversionworker"
+	"launchpad.net/juju-core/worker/charmrevisionworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -209,8 +209,8 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
-			runner.StartWorker("charm-version-updater", func() (worker.Worker, error) {
-				return charmversionworker.NewVersionUpdateWorker(st.CharmVersionUpdater()), nil
+			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
 		default:
 			// TODO(dimitern): Once all workers moved over to using
