@@ -36,10 +36,10 @@ func SudoCallerIds() (uid int, gid int, err error) {
 	return
 }
 
-// MkDirForUser will call down to os.MkDir and if the user is running as root,
+// MkdirForUser will call down to os.Mkdir and if the user is running as root,
 // the ownership will be changed to the sudo user.  If there is an error
 // getting the SudoCallerIds, the directory is removed and an error returned.
-func MkDirForUser(dir string, perm os.FileMode) error {
+func MkdirForUser(dir string, perm os.FileMode) error {
 	if err := os.Mkdir(dir, perm); err != nil {
 		return err
 	}
@@ -57,11 +57,11 @@ func MkDirForUser(dir string, perm os.FileMode) error {
 	return nil
 }
 
-// MkDirAllForUser will call down to os.MkDirAll and if the user is running as
+// MkdirAllForUser will call down to os.MkdirAll and if the user is running as
 // root, the ownership will be changed to the sudo user for each directory
 // that was created.  If there is an error getting the SudoCallerIds, the
 // directory is removed and an error returned.
-func MkDirAllForUser(dir string, perm os.FileMode) error {
+func MkdirAllForUser(dir string, perm os.FileMode) error {
 	// First thing we need to do is to walk the path upwards to find out which
 	// directories we are going to be creating, so we can change the ownership
 	// of them and remove them on error.

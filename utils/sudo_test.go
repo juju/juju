@@ -65,7 +65,7 @@ func (s *sudoSuite) TestSudoCallerIds(c *gc.C) {
 func (s *sudoSuite) TestMkDirForUserAsUser(c *gc.C) {
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir")
-	err := utils.MkDirForUser(dir, 0755)
+	err := utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
@@ -79,7 +79,7 @@ func (s *sudoSuite) TestMkDirForUserRoot(c *gc.C) {
 
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir")
-	err = utils.MkDirForUser(dir, 0755)
+	err = utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
@@ -91,7 +91,7 @@ func (s *sudoSuite) TestMkDirForUserWithError(c *gc.C) {
 
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir")
-	err := utils.MkDirForUser(dir, 0755)
+	err := utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
 	c.Assert(dir, jc.DoesNotExist)
 }
@@ -99,7 +99,7 @@ func (s *sudoSuite) TestMkDirForUserWithError(c *gc.C) {
 func (s *sudoSuite) TestMkDirAllForUserAsUser(c *gc.C) {
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir", "and-another")
-	err := utils.MkDirAllForUser(dir, 0755)
+	err := utils.MkdirAllForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
@@ -113,7 +113,7 @@ func (s *sudoSuite) TestMkDirAllForUserRoot(c *gc.C) {
 
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir", "and-another")
-	err = utils.MkDirAllForUser(dir, 0755)
+	err = utils.MkdirAllForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
@@ -125,7 +125,7 @@ func (s *sudoSuite) TestMkDirAllForUserWithError(c *gc.C) {
 
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir", "and-another")
-	err := utils.MkDirAllForUser(dir, 0755)
+	err := utils.MkdirAllForUser(dir, 0755)
 	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Dir(dir), jc.DoesNotExist)
