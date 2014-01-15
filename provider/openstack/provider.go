@@ -71,6 +71,10 @@ openstack:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
 
+    # use-default-secgroup specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
     # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
     # global public tools metadata location https://streams.canonical.com/tools.
     # tools-metadata-url:  https://you-tools-metadata-url
@@ -119,7 +123,11 @@ hpcloud:
     # to give the nodes a public IP address. Some installations assign public IP
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
-    
+
+    # use-default-secgroup specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
     # tenant-name holds the openstack tenant name. In HPCloud, this is 
     # synonymous with the project-name  It defaults to
     # the environment variable OS_TENANT_NAME.
@@ -1058,7 +1066,15 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 	if err != nil {
 		return nil, err
 	}
-	return []nova.SecurityGroup{jujuGroup, machineGroup}, nil
+	groups := []nova.SecurityGroup{jujuGroup, machineGroup}
+	if e.ecfg().useDefaultSecurityGroup() {
+		defaultGroup, err := e.nova().SecurityGroupByName("default")
+		if err != nil {
+			return nil, fmt.Errorf("loading default security group: %v", err)
+		}
+		groups = append(groups, *defaultGroup)
+	}
+	return groups, nil
 }
 
 // zeroGroup holds the zero security group.

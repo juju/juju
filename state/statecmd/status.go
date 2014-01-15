@@ -282,10 +282,10 @@ func (context *statusContext) processMachine(machines []*state.Machine, host *ap
 func (context *statusContext) makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	status.Id = machine.Id()
 	status.Life,
-		status.AgentVersion,
-		status.AgentState,
-		status.AgentStateInfo,
-		status.Err = processAgent(machine)
+	status.AgentVersion,
+	status.AgentState,
+	status.AgentStateInfo,
+	status.Err = processAgent(machine)
 	status.Series = machine.Series()
 	instid, err := machine.InstanceId()
 	if err == nil {
@@ -367,10 +367,10 @@ func (context *statusContext) processUnit(unit *state.Unit) (status api.UnitStat
 		status.Machine, _ = unit.AssignedMachineId()
 	}
 	status.Life,
-		status.AgentVersion,
-		status.AgentState,
-		status.AgentStateInfo,
-		status.Err = processAgent(unit)
+	status.AgentVersion,
+	status.AgentState,
+	status.AgentStateInfo,
+	status.Err = processAgent(unit)
 	status.RevisionStatus = unit.RevisionStatus()
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]api.UnitStatus)
@@ -429,7 +429,7 @@ type lifer interface {
 }
 
 type stateAgent interface {
-	lifer
+lifer
 	AgentAlive() (bool, error)
 	AgentTools() (*tools.Tools, error)
 	Status() (params.Status, string, params.StatusData, error)

@@ -25,13 +25,6 @@ type ConfigureParams struct {
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
-	// Stdin is required to respond to sudo prompts,
-	// and must be a terminal (except in tests)
-	Stdin io.Reader
-
-	// Stdout is required to present sudo prompts to the user.
-	Stdout io.Writer
-
 	// Stderr is required to present bootstrap progress to the user.
 	Stderr io.Writer
 }
@@ -44,16 +37,15 @@ func Configure(params ConfigureParams) error {
 	if err != nil {
 		return err
 	}
+	logger.Debugf("running script on %s: %s", params.Host, script)
 	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
 	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
 	cmd := ssh.Command(
 		params.Host,
-		[]string{"sudo", fmt.Sprintf("bash -c '%s'", script)},
-		ssh.AllocateTTY,
+		[]string{"sudo", "-n", fmt.Sprintf("bash -c '%s'", script)},
+		ssh.NoPasswordAuthentication,
 	)
-	cmd.Stdout = params.Stdout
 	cmd.Stderr = params.Stderr
-	cmd.Stdin = params.Stdin
 	return cmd.Run()
 }
 

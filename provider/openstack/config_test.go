@@ -57,6 +57,7 @@ type configTest struct {
 	controlBucket           string
 	toolsURL                string
 	useFloatingIP           bool
+	useDefaultSecurityGroup bool
 	username                string
 	password                string
 	tenantName              string
@@ -159,6 +160,7 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
+	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
 	// Default should be true
 	expectedHostnameVerification := true
 	if t.sslHostnameSet {
@@ -371,6 +373,16 @@ var configTests = []configTest{
 			"use-floating-ip": true,
 		},
 		useFloatingIP: true,
+	}, {
+		summary: "default use default security group",
+		// Do not use default security group by default.
+		useDefaultSecurityGroup: false,
+	}, {
+		summary: "use default security group",
+		config: attrs{
+			"use-default-secgroup": true,
+		},
+		useDefaultSecurityGroup: true,
 	}, {
 		summary: "admin-secret given",
 		config: attrs{

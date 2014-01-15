@@ -4,6 +4,7 @@
 package ssh_test
 
 import (
+	"encoding/base64"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -232,5 +233,55 @@ func (s *AuthorisedKeysKeysSuite) TestSplitAuthorisedKeys(c *gc.C) {
 	} {
 		actual := ssh.SplitAuthorisedKeys(test.keyData)
 		c.Assert(actual, gc.DeepEquals, test.expected)
+	}
+}
+
+func b64(s string) string {
+	return base64.StdEncoding.EncodeToString([]byte(s))
+}
+
+func (s *AuthorisedKeysKeysSuite) TestParseAuthorisedKey(c *gc.C) {
+	for i, test := range []struct {
+		line    string
+		keytype string
+		key     string
+		comment string
+		err     string
+	}{{
+		line:    "ssh-rsa " + b64("abc def"),
+		keytype: "ssh-rsa",
+		key:     "abc def",
+	}, {
+		line:    "ssh-dss " + b64("abc def"),
+		keytype: "ssh-dss",
+		key:     "abc def",
+	}, {
+		line:    "ssh-rsa " + b64("abc def") + " a b c",
+		keytype: "ssh-rsa",
+		key:     "abc def",
+		comment: "a b c",
+	}, {
+		line: "ssh-xsa blah",
+		err:  "invalid keytype \"ssh-xsa\" in line \"ssh-xsa blah\"",
+	}, {
+		// options should be skipped
+		line:    `no-pty,principals="\"",command="\!" ssh-rsa ` + b64("blah"),
+		keytype: "ssh-rsa",
+		key:     "blah",
+	}, {
+		line: "ssh-rsa",
+		err:  "malformed line: \"ssh-rsa\"",
+	}} {
+		c.Logf("test %d: %s", i, test.line)
+		ak, err := ssh.ParseAuthorisedKey(test.line)
+		if test.err != "" {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+			c.Assert(ak, gc.Not(gc.IsNil))
+			c.Assert(ak.KeyType, gc.Equals, test.keytype)
+			c.Assert(string(ak.Key), gc.Equals, test.key)
+			c.Assert(ak.Comment, gc.Equals, test.comment)
+		}
 	}
 }

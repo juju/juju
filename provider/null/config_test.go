@@ -103,13 +103,11 @@ func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
 	testConfig := getEnvironConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "hostname")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "")
-	c.Assert(testConfig.sshHost(), gc.Equals, "hostname")
 	values["bootstrap-host"] = "127.0.0.1"
 	values["bootstrap-user"] = "ubuntu"
 	testConfig = getEnvironConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "127.0.0.1")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "ubuntu")
-	c.Assert(testConfig.sshHost(), gc.Equals, "ubuntu@127.0.0.1")
 }
 
 func (s *configSuite) TestStorageParams(c *gc.C) {
