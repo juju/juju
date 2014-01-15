@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/utils/set"
 )
 
 // The Bundle type encapsulates access to data and operations
@@ -140,10 +142,12 @@ func (b *Bundle) Config() *Config {
 	return b.config
 }
 
-// ExpandTo expands the charm bundle into dir, creating it if necessary.
-// If any errors occur during the expansion procedure, the process will
-// continue. Only the last error found is returned.
-func (b *Bundle) ExpandTo(dir string) (err error) {
+type withZipReaderFunc func(zr *zip.Reader) error
+
+// withZipReader creates a zip reader, giving access to the files in the bundle,
+// and passes it into the supplied function. The returned zip reader must not be
+// used outside that function.
+func (b *Bundle) withZipReader(f withZipReaderFunc) error {
 	// If we have a Path, reopen the file. Otherwise, try to use
 	// the original ReaderAt.
 	r := b.r
@@ -161,30 +165,55 @@ func (b *Bundle) ExpandTo(dir string) (err error) {
 		r = f
 		size = fi.Size()
 	}
-
 	zipr, err := zip.NewReader(r, size)
 	if err != nil {
 		return err
 	}
+	return f(zipr)
+}
 
-	hooks := b.meta.Hooks()
-	var lasterr error
-	for _, zfile := range zipr.File {
-		if err := b.expand(hooks, dir, zfile); err != nil {
-			lasterr = err
+// Manifest returns a sorted list of the charm's contents.
+func (b *Bundle) Manifest() ([]string, error) {
+	manifest := set.NewStrings()
+	err := b.withZipReader(func(zipr *zip.Reader) error {
+		for _, zfile := range zipr.File {
+			manifest.Add(zfile.Name)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	// We always write out a revision file, even if there isn't one in the
+	// bundle; and we always strip "./", because that's sometimes not present.
+	manifest.Add("revision")
+	manifest.Remove("./")
+	return manifest.SortedValues(), nil
+}
 
-	revFile, err := os.Create(filepath.Join(dir, "revision"))
-	if err != nil {
-		return err
-	}
-	_, err = revFile.Write([]byte(strconv.Itoa(b.revision)))
-	revFile.Close()
-	if err != nil {
-		return err
-	}
-	return lasterr
+// ExpandTo expands the charm bundle into dir, creating it if necessary.
+// If any errors occur during the expansion procedure, the process will
+// continue. Only the last error found is returned.
+func (b *Bundle) ExpandTo(dir string) (err error) {
+	return b.withZipReader(func(zipr *zip.Reader) error {
+		hooks := b.meta.Hooks()
+		var lasterr error
+		for _, zfile := range zipr.File {
+			if err := b.expand(hooks, dir, zfile); err != nil {
+				lasterr = err
+			}
+		}
+		revFile, err := os.Create(filepath.Join(dir, "revision"))
+		if err != nil {
+			return err
+		}
+		_, err = revFile.Write([]byte(strconv.Itoa(b.revision)))
+		revFile.Close()
+		if err != nil {
+			return err
+		}
+		return lasterr
+	})
 }
 
 // expand unpacks a charm's zip file into the given directory.
