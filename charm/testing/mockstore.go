@@ -65,6 +65,11 @@ func (s *MockStore) Address() string {
 	return "http://" + s.listener.Addr().String()
 }
 
+// UpdateStoreRevision sets the revision of the specified charm to rev.
+func (s *MockStore) UpdateStoreRevision(ch string, rev int) {
+	s.charms[ch] = rev
+}
+
 // ServeHTTP implements http.ServeHTTP
 func (s *MockStore) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
