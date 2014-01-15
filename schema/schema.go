@@ -27,8 +27,8 @@ type error_ struct {
 	path []string
 }
 
-// Return a string consisting of the path elements. If path starts
-// with a ".", the dot is omitted.
+// pathAsString returns a string consisting of the path elements. If path
+// starts with a ".", the dot is omitted.
 func pathAsString(path []string) string {
 	if path[0] == "." {
 		return strings.Join(path[1:], "")
@@ -407,12 +407,10 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 		for _, k := range rv.MapKeys() {
 			ks := k.String()
 			if _, found := c.fields[ks]; !found {
-				var value interface{}
+				value := interface{}("invalid")
 				valuev := rv.MapIndex(k)
 				if valuev.IsValid() {
 					value = valuev.Interface()
-				} else {
-					value = "(invalid)"
 				}
 				return nil, fmt.Errorf("%v: unknown key %q (value %q)", pathAsString(path), ks, value)
 			}
@@ -424,8 +422,8 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 	l := rv.Len()
 	out := make(map[string]interface{}, l)
 	for k, checker := range c.fields {
-		var value interface{}
 		valuev := rv.MapIndex(reflect.ValueOf(k))
+		var value interface{}
 		if valuev.IsValid() {
 			value = valuev.Interface()
 		} else if dflt, ok := c.defaults[k]; ok {
