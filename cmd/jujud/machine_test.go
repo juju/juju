@@ -744,8 +744,8 @@ func (s *MachineWithCharmsSuite) TestManageStateRunsCharmRevisionUpdater(c *gc.C
 
 	checkRevision := func() bool {
 		curl := charm.MustParseURL("cs:quantal/mysql")
-		pending, err := s.State.LatestPendingCharm(curl)
-		return err == nil && pending.String() == curl.WithRevision(23).String()
+		placeholder, err := s.State.LatestPlaceholderCharm(curl)
+		return err == nil && placeholder.String() == curl.WithRevision(23).String()
 	}
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {

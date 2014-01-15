@@ -68,8 +68,8 @@ func (s *RevisionUpdateSuite) runUpdater(c *gc.C, updateInterval time.Duration) 
 func (s *RevisionUpdateSuite) checkCharmRevision(c *gc.C, expectedRev int) bool {
 	checkRevision := func() bool {
 		curl := charm.MustParseURL("cs:quantal/mysql")
-		pending, err := s.State.LatestPendingCharm(curl)
-		return err == nil && pending.String() == curl.WithRevision(expectedRev).String()
+		placeholder, err := s.State.LatestPlaceholderCharm(curl)
+		return err == nil && placeholder.String() == curl.WithRevision(expectedRev).String()
 	}
 
 	success := false
