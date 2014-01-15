@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os/exec"
 	"path"
 	"sort"
 	"strconv"
@@ -37,14 +36,14 @@ type SSHStorage struct {
 	remotepath string
 	tmpdir     string
 
-	cmd     *exec.Cmd
+	cmd     *ssh.Cmd
 	stdin   io.WriteCloser
 	stdout  io.ReadCloser
 	scanner *bufio.Scanner
 }
 
-var sshCommand = func(host string, command string) *exec.Cmd {
-	return ssh.Command(host, []string{command}, ssh.NoPasswordAuthentication)
+var sshCommand = func(host string, command ...string) *ssh.Cmd {
+	return ssh.Command(host, command, nil)
 }
 
 type flockmode string
@@ -87,9 +86,10 @@ func NewSSHStorage(params NewSSHStorageParams) (*SSHStorage, error) {
 		utils.ShQuote(params.TmpDir),
 	)
 
-	cmd := sshCommand(params.Host, fmt.Sprintf("sudo -n bash -c %s", utils.ShQuote(script)))
+	cmd := sshCommand(params.Host, "sudo", "-n", "/bin/bash")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	cmd.Stdin = strings.NewReader(script)
 	if err := cmd.Run(); err != nil {
 		err = fmt.Errorf("failed to create storage dir: %v (%v)", err, strings.TrimSpace(stderr.String()))
 		return nil, err
