@@ -449,6 +449,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
+	// The charm may already exist in state as pending, so we check for that situation and update the
+	// existing charm record if necessary, otherwise add a new record.
 	var existing charmDoc
 	err = st.charms.Find(D{{"_id", curl.String()}, {"pendingupload", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
