@@ -6,10 +6,10 @@ package params
 import (
 	"time"
 
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/version"
 )
 
@@ -527,7 +527,7 @@ type RunParams struct {
 // RunResult contains the result from an individual run call on a machine.
 // UnitId is populated if the command was run inside the unit context.
 type RunResult struct {
-	cmd.RemoteResponse
+	exec.ExecResponse
 	MachineId string
 	UnitId    string
 	Error     string

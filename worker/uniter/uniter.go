@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -365,7 +366,7 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 }
 
 // RunCommands executes the supplied commands in a hook context.
-func (u *Uniter) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
+func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())

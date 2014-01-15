@@ -11,16 +11,16 @@ import (
 	"net/rpc"
 	"sync"
 
-	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/utils/exec"
 )
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"
 
 // A CommandRunner is something that will actually execute the commands and
-// return the results of that execution in the cmd.RemoteResponse (which
+// return the results of that execution in the exec.ExecResponse (which
 // contains stdout, stderr, and return code).
 type CommandRunner interface {
-	RunCommands(commands string) (results *cmd.RemoteResponse, err error)
+	RunCommands(commands string) (results *exec.ExecResponse, err error)
 }
 
 // RunListener is responsible for listening on the network connection and
@@ -42,7 +42,7 @@ type JujuRunServer struct {
 
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
-func (r *JujuRunServer) RunCommands(commands string, result *cmd.RemoteResponse) error {
+func (r *JujuRunServer) RunCommands(commands string, result *exec.ExecResponse) error {
 	logger.Debugf("RunCommands: %q", commands)
 	runResult, err := r.runner.RunCommands(commands)
 	*result = *runResult

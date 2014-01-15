@@ -150,9 +150,9 @@ func ParallelExecute(dataDir string, runParams []*RemoteExec) params.RunResults 
 			response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
 			logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
 			execResponse := params.RunResult{
-				RemoteResponse: response,
-				MachineId:      param.MachineId,
-				UnitId:         param.UnitId,
+				ExecResponse: response,
+				MachineId:    param.MachineId,
+				UnitId:       param.UnitId,
 			}
 			if err != nil {
 				execResponse.Error = fmt.Sprint(err)

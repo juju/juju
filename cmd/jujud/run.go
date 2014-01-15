@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
@@ -96,7 +97,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var result cmd.RemoteResponse
+	var result exec.ExecResponse
 	err = client.Call(uniter.JujuRunEndpoint, c.commands, &result)
 	if err != nil {
 		return err

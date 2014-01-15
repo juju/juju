@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"launchpad.net/juju-core/cmd"
+	utilexec "launchpad.net/juju-core/utils/exec"
 )
 
 // ExecParams are used for the parameters for ExecuteCommandOnMachine.
@@ -27,7 +27,7 @@ type ExecParams struct {
 // through /bin/bash.  If the command is not finished within the timeout
 // specified, an error is returned.  Any output captured during that time
 // is also returned in the remote response.
-func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err error) {
+func ExecuteCommandOnMachine(params ExecParams) (result utilexec.ExecResponse, err error) {
 	// execute bash accepting commands on stdin
 	if params.Host == "" {
 		return result, fmt.Errorf("missing host address")
