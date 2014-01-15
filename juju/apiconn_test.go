@@ -115,7 +115,7 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 
 func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	store := newConfigStore("noconfig", &environInfo{
+	storeConfig := &environInfo{
 		creds: configstore.APICredentials{
 			User:     "foo",
 			Password: "foopass",
@@ -124,24 +124,82 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 			Addresses: []string{"foo.invalid"},
 			CACert:    "certificated",
 		},
-	})
+	}
+	store := newConfigStore("noconfig", storeConfig)
 
 	called := 0
 	expectState := new(api.State)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
 		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
 		c.Check(apiInfo.Password, gc.Equals, "foopass")
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
 	}
+	// Give NewAPIFromName a store interface that can report when the
+	// config was written to, to ensure the cache isn't updated.
 	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
-	st, err := juju.NewAPIFromName("noconfig", store)
+	mockStore := &storageWithWriteNotify{store: store}
+	st, err := juju.NewAPIFromName("noconfig", mockStore)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
+	c.Assert(mockStore.written, jc.IsFalse)
+}
+
+func (*NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
+	defer coretesting.MakeSampleHome(c).Restore()
+
+	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
+		bootstrapConfig: map[string]interface{}{
+			"type":                      "dummy",
+			"name":                      "myenv",
+			"state-server":              true,
+			"authorized-keys":           "i-am-a-key",
+			"default-series":            config.DefaultSeries,
+			"firewall-mode":             config.FwInstance,
+			"development":               false,
+			"ssl-hostname-verification": true,
+			"admin-secret":              "adminpass",
+		},
+	})
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
+
+	// Verify the cache is empty.
+	info, err := store.ReadInfo("myenv")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{})
+	c.Assert(info.APICredentials(), jc.DeepEquals, configstore.APICredentials{})
+
+	called := 0
+	expectState := new(api.State)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
+		c.Check(apiInfo.Tag, gc.Equals, "user-admin")
+		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
+		c.Check(apiInfo.Password, gc.Equals, "adminpass")
+		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		called++
+		return expectState, nil
+	}
+	defer testbase.PatchValue(juju.APIOpen, apiOpen).Restore()
+	st, err := juju.NewAPIFromName("myenv", store)
+	c.Assert(err, gc.IsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 1)
+
+	// Make sure the cache is updated.
+	info, err = store.ReadInfo("myenv")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	ep := info.APIEndpoint()
+	c.Check(ep.Addresses, gc.HasLen, 1)
+	c.Check(ep.Addresses[0], gc.Matches, `127\.0\.0\.1:\d+`)
+	c.Check(ep.CACert, gc.Not(gc.Equals), "")
+	creds := info.APICredentials()
+	c.Check(creds.User, gc.Equals, "admin")
+	c.Check(creds.Password, gc.Equals, "adminpass")
 }
 
 func (*NewAPIClientSuite) TestWithInfoError(c *gc.C) {
@@ -470,4 +528,34 @@ func newConfigStore(envName string, info *environInfo) configstore.Storage {
 		panic(err)
 	}
 	return store
+}
+
+type storageWithWriteNotify struct {
+	written bool
+	store   configstore.Storage
+}
+
+func (*storageWithWriteNotify) CreateInfo(envName string) (configstore.EnvironInfo, error) {
+	panic("CreateInfo not implemented")
+}
+
+func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
+	info, err := s.store.ReadInfo(envName)
+	if err != nil {
+		return nil, err
+	}
+	return &infoWithWriteNotify{
+		written:     &s.written,
+		EnvironInfo: info,
+	}, nil
+}
+
+type infoWithWriteNotify struct {
+	configstore.EnvironInfo
+	written *bool
+}
+
+func (info *infoWithWriteNotify) Write() error {
+	*info.written = true
+	return info.EnvironInfo.Write()
 }
