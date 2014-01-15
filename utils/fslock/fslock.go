@@ -20,24 +20,26 @@ import (
 	"regexp"
 	"time"
 
-	"launchpad.net/juju-core/log"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/utils"
 )
 
 const (
-	// NameRegexp specifies the regular expression used to itentify valid lock names.
+	// NameRegexp specifies the regular expression used to identify valid lock names.
 	NameRegexp      = "^[a-z]+[a-z0-9.-]*$"
 	heldFilename    = "held"
 	messageFilename = "message"
 )
 
 var (
+	logger         = loggo.GetLogger("juju.utils.fslock")
 	ErrLockNotHeld = errors.New("lock not held")
 	ErrTimeout     = errors.New("lock timeout exceeded")
 
 	validName = regexp.MustCompile(NameRegexp)
 
-	lockWaitDelay = 1 * time.Second
+	LockWaitDelay = 1 * time.Second
 )
 
 type Lock struct {
@@ -141,10 +143,10 @@ func (lock *Lock) lockLoop(message string, continueFunc func() error) error {
 		}
 		currMessage := lock.Message()
 		if currMessage != heldMessage {
-			log.Infof("attempted lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
+			logger.Infof("attempted lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
 			heldMessage = currMessage
 		}
-		time.Sleep(lockWaitDelay)
+		time.Sleep(LockWaitDelay)
 	}
 }
 

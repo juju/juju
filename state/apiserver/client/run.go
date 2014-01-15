@@ -106,7 +106,8 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if err != nil {
 			return results, err
 		}
-		execParam := remoteParamsForMachine(machine, run.Commands, run.Timeout)
+		command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
+		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		params = append(params, execParam)
 	}
 	return ParallelExecute(c.api.dataDir, params), nil
@@ -119,8 +120,10 @@ func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, erro
 		return params.RunResults{}, err
 	}
 	var params []*RemoteExec
+	quotedCommands := utils.ShQuote(run.Commands)
+	command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
 	for _, machine := range machines {
-		params = append(params, remoteParamsForMachine(machine, run.Commands, run.Timeout))
+		params = append(params, remoteParamsForMachine(machine, command, run.Timeout))
 	}
 	return ParallelExecute(c.api.dataDir, params), nil
 }

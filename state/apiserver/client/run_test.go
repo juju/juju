@@ -126,7 +126,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		units:    []string{"magic/0"},
 		expected: []string{"magic/0", "magic/1"},
 	}} {
-		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		c.Logf("%v: %s", i, test.message)
 		result, err := client.GetAllUnitNames(s.State, test.units, test.services)
 		if test.error == "" {
 			c.Check(err, gc.IsNil)
@@ -230,7 +230,7 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		expectedResults = append(expectedResults,
 			params.RunResult{
-				ExecResponse: exec.ExecResponse{Stdout: []byte("hostname\n")},
+				ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
 				MachineId:    fmt.Sprint(i),
 			})
 	}
@@ -264,7 +264,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 	expectedResults := []params.RunResult{
 		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("hostname\n")},
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
 			MachineId:    "0",
 		},
 		params.RunResult{
