@@ -55,8 +55,9 @@ func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult,
 	if err != nil {
 		return params.ErrorResult{common.ServerError(err)}, nil
 	}
+	// Add the charms and latest revision info to state as charm placeholders.
 	for _, curl := range curls {
-		if err = api.state.AddStoreCharmReference(curl); err != nil {
+		if err = api.state.AddStoreCharmPlaceholder(curl); err != nil {
 			return params.ErrorResult{common.ServerError(err)}, nil
 		}
 	}
