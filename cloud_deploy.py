@@ -17,6 +17,8 @@ def deploy_stack(environment):
     :param environment: The name of the desired environment.
     """
     env = Environment.from_config(environment)
+    # Clean up any leftover junk
+    env.destroy_environment()
     env.bootstrap()
     try:
         # wait for status info....
