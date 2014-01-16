@@ -17,6 +17,7 @@ type charmDoc struct {
 	BundleURL     *url.URL
 	BundleSha256  string
 	PendingUpload bool
+	Placeholder   bool
 }
 
 // Charm represents the state of a charm in the environment.
@@ -70,4 +71,10 @@ func (c *Charm) BundleSha256() string {
 // provider storage.
 func (c *Charm) IsUploaded() bool {
 	return !c.doc.PendingUpload
+}
+
+// IsPlaceholder returns whether the charm record is just a placeholder
+// rather than representing a deployed charm.
+func (c *Charm) IsPlaceholder() bool {
+	return c.doc.Placeholder
 }
