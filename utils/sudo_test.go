@@ -63,65 +63,60 @@ func (s *sudoSuite) TestSudoCallerIds(c *gc.C) {
 }
 
 func (s *sudoSuite) TestMkDirForUserAsUser(c *gc.C) {
-	base := c.MkDir()
-	dir := filepath.Join(base, "new-dir")
+	dir := filepath.Join(c.MkDir(), "new-dir")
 	err := utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
 
-func (s *sudoSuite) TestMkDirForUserRoot(c *gc.C) {
+func (s *sudoSuite) setupBadSudoUid() {
+	s.PatchEnvironment("SUDO_UID", "omg")
+	s.PatchEnvironment("SUDO_GID", "omg")
+	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
+}
+
+func (s *sudoSuite) setupGoodSudoUid(c *gc.C) {
 	user, err := user.Current()
 	c.Assert(err, gc.IsNil)
 	s.PatchEnvironment("SUDO_UID", user.Uid)
 	s.PatchEnvironment("SUDO_GID", user.Gid)
 	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
+}
 
-	base := c.MkDir()
-	dir := filepath.Join(base, "new-dir")
-	err = utils.MkdirForUser(dir, 0755)
+func (s *sudoSuite) TestMkDirForUserRoot(c *gc.C) {
+	s.setupGoodSudoUid(c)
+	dir := filepath.Join(c.MkDir(), "new-dir")
+	err := utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *sudoSuite) TestMkDirForUserWithError(c *gc.C) {
-	s.PatchEnvironment("SUDO_UID", "omg")
-	s.PatchEnvironment("SUDO_GID", "omg")
-	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
-
-	base := c.MkDir()
-	dir := filepath.Join(base, "new-dir")
+	s.setupBadSudoUid()
+	dir := filepath.Join(c.MkDir(), "new-dir")
 	err := utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
 	c.Assert(dir, jc.DoesNotExist)
 }
 
 func (s *sudoSuite) TestMkDirAllForUserAsUser(c *gc.C) {
-	base := c.MkDir()
-	dir := filepath.Join(base, "new-dir", "and-another")
+	dir := filepath.Join(c.MkDir(), "new-dir", "and-another")
 	err := utils.MkdirAllForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *sudoSuite) TestMkDirAllForUserRoot(c *gc.C) {
-	user, err := user.Current()
-	c.Assert(err, gc.IsNil)
-	s.PatchEnvironment("SUDO_UID", user.Uid)
-	s.PatchEnvironment("SUDO_GID", user.Gid)
-	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
+	s.setupGoodSudoUid(c)
 
-	base := c.MkDir()
-	dir := filepath.Join(base, "new-dir", "and-another")
-	err = utils.MkdirAllForUser(dir, 0755)
+	dir := filepath.Join(c.MkDir(), "new-dir", "and-another")
+	err := utils.MkdirAllForUser(dir, 0755)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *sudoSuite) TestMkDirAllForUserWithError(c *gc.C) {
-	s.PatchEnvironment("SUDO_UID", "omg")
-	s.PatchEnvironment("SUDO_GID", "omg")
-	s.PatchValue(&utils.CheckIfRoot, func() bool { return true })
+	s.setupBadSudoUid()
 
 	base := c.MkDir()
 	dir := filepath.Join(base, "new-dir", "and-another")
@@ -129,4 +124,25 @@ func (s *sudoSuite) TestMkDirAllForUserWithError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Dir(dir), jc.DoesNotExist)
+}
+
+func (s *sudoSuite) TestChownToUserNotRoot(c *gc.C) {
+	// Just in case someone runs the suite as root, we don't want to fail.
+	s.PatchValue(&utils.CheckIfRoot, func() bool { return false })
+
+	nonExistant := filepath.Join(c.MkDir(), "non-existant")
+	err := utils.ChownToUser(nonExistant)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *sudoSuite) TestChownToUserBadUid(c *gc.C) {
+	s.setupBadSudoUid()
+	err := utils.ChownToUser(c.MkDir())
+	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
+}
+
+func (s *sudoSuite) TestChownToUser(c *gc.C) {
+	s.setupGoodSudoUid(c)
+	err := utils.ChownToUser(c.MkDir(), c.MkDir())
+	c.Assert(err, gc.IsNil)
 }

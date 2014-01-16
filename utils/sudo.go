@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+// CheckIfRoot is a simple function that we can use to determine if
+// the ownership of files and directories we create.
 var CheckIfRoot = func() bool {
 	return os.Getuid() == 0
 }
@@ -43,16 +45,9 @@ func MkdirForUser(dir string, perm os.FileMode) error {
 	if err := os.Mkdir(dir, perm); err != nil {
 		return err
 	}
-	if CheckIfRoot() {
-		uid, gid, err := SudoCallerIds()
-		if err != nil {
-			os.RemoveAll(dir)
-			return err
-		}
-		if err := os.Chown(dir, uid, gid); err != nil {
-			os.RemoveAll(dir)
-			return err
-		}
+	if err := ChownToUser(dir); err != nil {
+		os.RemoveAll(dir)
+		return err
 	}
 	return nil
 }
@@ -80,17 +75,27 @@ func MkdirAllForUser(dir string, perm os.FileMode) error {
 	if err := os.MkdirAll(dir, perm); err != nil {
 		return err
 	}
-	if CheckIfRoot() {
-		uid, gid, err := SudoCallerIds()
-		if err != nil {
-			os.RemoveAll(topMostDir)
+	if err := ChownToUser(toCreate...); err != nil {
+		os.RemoveAll(topMostDir)
+		return err
+	}
+	return nil
+}
+
+// ChownToUser will attempt to change the ownership of all the paths
+// to the user returned by the SudoCallerIds method.  Ownership change
+// will only be attempted if we are running as root.
+func ChownToUser(paths ...string) error {
+	if !CheckIfRoot() {
+		return nil
+	}
+	uid, gid, err := SudoCallerIds()
+	if err != nil {
+		return err
+	}
+	for _, path := range paths {
+		if err := os.Chown(path, uid, gid); err != nil {
 			return err
-		}
-		for _, toChown := range toCreate {
-			if err := os.Chown(toChown, uid, gid); err != nil {
-				os.RemoveAll(topMostDir)
-				return err
-			}
 		}
 	}
 	return nil
