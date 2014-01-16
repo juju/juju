@@ -152,14 +152,14 @@ func (s machineStatus) GetYAML() (tag string, value interface{}) {
 }
 
 type serviceStatus struct {
-	Err            error                 `json:"-" yaml:",omitempty"`
-	Charm          string                `json:"charm" yaml:"charm"`
-	RevisionStatus string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
-	Exposed        bool                  `json:"exposed" yaml:"exposed"`
-	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
-	Relations      map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
-	SubordinateTo  []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
-	Units          map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
+	Err           error                 `json:"-" yaml:",omitempty"`
+	Charm         string                `json:"charm" yaml:"charm"`
+	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	Exposed       bool                  `json:"exposed" yaml:"exposed"`
+	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
+	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
+	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
 
 type serviceStatusNoMarshal serviceStatus
@@ -182,7 +182,7 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 
 type unitStatus struct {
 	Err            error                 `json:"-" yaml:",omitempty"`
-	RevisionStatus string                `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
+	Charm          string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
 	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
@@ -251,14 +251,14 @@ func formatMachine(machine api.MachineStatus) machineStatus {
 
 func formatService(service api.ServiceStatus) serviceStatus {
 	out := serviceStatus{
-		Err:            service.Err,
-		Charm:          service.Charm,
-		Exposed:        service.Exposed,
-		Life:           service.Life,
-		Relations:      service.Relations,
-		RevisionStatus: service.RevisionStatus,
-		SubordinateTo:  service.SubordinateTo,
-		Units:          make(map[string]unitStatus),
+		Err:           service.Err,
+		Charm:         service.Charm,
+		Exposed:       service.Exposed,
+		Life:          service.Life,
+		Relations:     service.Relations,
+		CanUpgradeTo:  service.CanUpgradeTo,
+		SubordinateTo: service.SubordinateTo,
+		Units:         make(map[string]unitStatus),
 	}
 	for k, m := range service.Units {
 		out.Units[k] = formatUnit(m)
@@ -276,7 +276,7 @@ func formatUnit(unit api.UnitStatus) unitStatus {
 		Machine:        unit.Machine,
 		OpenedPorts:    unit.OpenedPorts,
 		PublicAddress:  unit.PublicAddress,
-		RevisionStatus: unit.RevisionStatus,
+		Charm:          unit.Charm,
 		Subordinates:   make(map[string]unitStatus),
 	}
 	for k, m := range unit.Subordinates {
