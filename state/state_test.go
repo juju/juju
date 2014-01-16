@@ -2385,3 +2385,12 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(len(info.MachineIds), gc.DeepEquals, len(expectIds))
 	c.Assert(len(info.VotingMachineIds), gc.DeepEquals, len(expectIds))
 }
+
+func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
+	for _, n := range []int{-1, 0, 2, 6} {
+		err := st.EnsureAvailability(n, constraints.Value{}, "")
+		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+	}
+	err := st.EnsureAvailability(replicaset.MaxPeers + 1, constraints.Value{}, "")
+	c.Assert(err, gc.ErrorMatches, `state server count is too large \(allowed \d+\)`)
+}
