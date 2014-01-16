@@ -53,6 +53,7 @@ wget -q $JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/artifact/$tarfi
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
 cd \$GOPATH/src/launchpad.net/juju-core
+sudo apt-get update
 sudo apt-get install -y build-essential
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
