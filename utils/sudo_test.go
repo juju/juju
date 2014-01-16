@@ -96,7 +96,8 @@ func (s *sudoSuite) TestMkDirForUserWithError(c *gc.C) {
 	dir := filepath.Join(c.MkDir(), "new-dir")
 	err := utils.MkdirForUser(dir, 0755)
 	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
-	c.Assert(dir, jc.DoesNotExist)
+	// The directory is still there.
+	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *sudoSuite) TestMkDirAllForUserAsUser(c *gc.C) {
@@ -122,8 +123,8 @@ func (s *sudoSuite) TestMkDirAllForUserWithError(c *gc.C) {
 	dir := filepath.Join(base, "new-dir", "and-another")
 	err := utils.MkdirAllForUser(dir, 0755)
 	c.Assert(err, gc.ErrorMatches, `invalid value "omg" for SUDO_UID`)
-	c.Assert(dir, jc.DoesNotExist)
-	c.Assert(filepath.Dir(dir), jc.DoesNotExist)
+	// The directory is still there.
+	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *sudoSuite) TestChownToUserNotRoot(c *gc.C) {

@@ -39,47 +39,34 @@ func SudoCallerIds() (uid int, gid int, err error) {
 }
 
 // MkdirForUser will call down to os.Mkdir and if the user is running as root,
-// the ownership will be changed to the sudo user.  If there is an error
-// getting the SudoCallerIds, the directory is removed and an error returned.
+// the ownership will be changed to the sudo user.
 func MkdirForUser(dir string, perm os.FileMode) error {
 	if err := os.Mkdir(dir, perm); err != nil {
 		return err
 	}
-	if err := ChownToUser(dir); err != nil {
-		os.RemoveAll(dir)
-		return err
-	}
-	return nil
+	return ChownToUser(dir)
 }
 
 // MkdirAllForUser will call down to os.MkdirAll and if the user is running as
 // root, the ownership will be changed to the sudo user for each directory
-// that was created.  If there is an error getting the SudoCallerIds, the
-// directory is removed and an error returned.
+// that was created.
 func MkdirAllForUser(dir string, perm os.FileMode) error {
-	// First thing we need to do is to walk the path upwards to find out which
-	// directories we are going to be creating, so we can change the ownership
-	// of them and remove them on error.
-	if IsDirectory(dir) {
-		// We are done.
-		return nil
-	}
-
-	topMostDir := dir
-	toCreate := []string{dir}
-	for parent := filepath.Dir(dir); !IsDirectory(parent); parent = filepath.Dir(parent) {
-		toCreate = append(toCreate, parent)
-		topMostDir = parent
+	toCreate := []string{}
+	path := dir
+	for {
+		_, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			toCreate = append(toCreate, path)
+		} else {
+			break
+		}
+		path = filepath.Dir(path)
 	}
 
 	if err := os.MkdirAll(dir, perm); err != nil {
 		return err
 	}
-	if err := ChownToUser(toCreate...); err != nil {
-		os.RemoveAll(topMostDir)
-		return err
-	}
-	return nil
+	return ChownToUser(toCreate...)
 }
 
 // ChownToUser will attempt to change the ownership of all the paths

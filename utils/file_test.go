@@ -11,7 +11,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -88,15 +87,4 @@ func (*fileSuite) TestCopyFile(c *gc.C) {
 	data, err := ioutil.ReadFile(dest)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "hello world")
-}
-
-func (*fileSuite) TestIsDirectory(c *gc.C) {
-	dir := c.MkDir()
-	file := filepath.Join(dir, "a-file")
-	err := ioutil.WriteFile(file, []byte("data"), 0700)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(utils.IsDirectory(dir), jc.IsTrue)
-	c.Assert(utils.IsDirectory(file), jc.IsFalse)
-	c.Assert(utils.IsDirectory(filepath.Join(dir, "unknown")), jc.IsFalse)
 }

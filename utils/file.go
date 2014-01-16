@@ -98,16 +98,3 @@ func CopyFile(dest, source string) error {
 	_, err = io.Copy(df, f)
 	return err
 }
-
-// IsDirectory is a simple helper method to determine if a path points at a
-// directory.
-func IsDirectory(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	if err != nil {
-		return false
-	}
-	return fileInfo.IsDir()
-}
