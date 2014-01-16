@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -20,6 +24,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
@@ -1650,7 +1655,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 
 func (s *clientSuite) TestMachineConfig(c *gc.C) {
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
+	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Jobs:       []params.MachineJob{params.JobHostUnits},
 		InstanceId: instance.Id("1234"),
@@ -1663,7 +1668,7 @@ func (s *clientSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId, config.DefaultSeries, "amd64")
+	machineConfig, err := s.APIState.Client().MachineConfig(machineId)
 	c.Assert(err, gc.IsNil)
 
 	envConfig, err := s.State.EnvironConfig()
@@ -1682,9 +1687,22 @@ func (s *clientSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
 }
 
+func (s *clientSuite) TestMachineConfigNoArch(c *gc.C) {
+	apiParams := params.AddMachineParams{
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+	}
+	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
+	c.Assert(err, gc.ErrorMatches, "arch is not set for machine-"+machines[0].Machine)
+}
+
 func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
+	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Series:     "quantal",
 		Jobs:       []params.MachineJob{params.JobHostUnits},
@@ -1695,8 +1713,53 @@ func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
+	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
 	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
+}
+
+func (s *clientSuite) TestProvisioningScript(c *gc.C) {
+	// Inject a machine and then call the ProvisioningScript API.
+	// The result should be the same as when calling MachineConfig,
+	// converting it to a cloudinit.MachineConfig, and disabling
+	// apt_upgrade.
+	apiParams := params.AddMachineParams{
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
+	}
+	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+	machineId := machines[0].Machine
+	machineConfig, err := s.APIState.Client().MachineConfig(machineId)
+	c.Assert(err, gc.IsNil)
+	// Call ProvisioningScript. Normally ProvisioningScript and
+	// MachineConfig are mutually exclusive; both of them will
+	// allocate a state/api password for the machine agent.
+	script, err := s.APIState.Client().ProvisioningScript(machineId, apiParams.Nonce)
+	c.Assert(err, gc.IsNil)
+	mcfg, err := statecmd.FinishMachineConfig(machineConfig, machineId, apiParams.Nonce, "")
+	c.Assert(err, gc.IsNil)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	cloudcfg.SetAptUpgrade(false)
+	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	c.Assert(err, gc.IsNil)
+	// ProvisioningScript internally calls MachineConfig,
+	// which allocates a new, random password. Everything
+	// about the scripts should be the same other than
+	// the line containing "oldpassword" from agent.conf.
+	scriptLines := strings.Split(script, "\n")
+	sshinitScriptLines := strings.Split(sshinitScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	for i, line := range scriptLines {
+		if strings.Contains(line, "oldpassword") {
+			continue
+		}
+		c.Assert(line, gc.Equals, sshinitScriptLines[i])
+	}
 }
 
 func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {

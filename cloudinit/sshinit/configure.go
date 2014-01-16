@@ -36,7 +36,7 @@ type ConfigureParams struct {
 // and executes a script that carries out cloud-config.
 func Configure(params ConfigureParams) error {
 	logger.Infof("Provisioning machine agent on %s", params.Host)
-	script, err := generateScript(params.Config)
+	script, err := ConfigureScript(params.Config)
 	if err != nil {
 		return err
 	}
@@ -51,9 +51,9 @@ func Configure(params ConfigureParams) error {
 	return cmd.Run()
 }
 
-// generateScript generates the script that applies
+// ConfigureScript generates the bash script that applies
 // the specified cloud-config.
-func generateScript(cloudcfg *cloudinit.Config) (string, error) {
+func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.

@@ -14,8 +14,6 @@ import (
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -118,10 +116,6 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	if err != nil {
 		return "", err
 	}
-	arch := ""
-	if machineParams.HardwareCharacteristics.Arch != nil {
-		arch = *machineParams.HardwareCharacteristics.Arch
-	}
 
 	// Inform Juju that the machine exists.
 	machineId, err = recordMachineInState(client, *machineParams)
@@ -139,20 +133,15 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 
 	var configParameters params.MachineConfig
 	if stateConn == nil {
-		configParameters, err = client.MachineConfig(machineId, machineParams.Series, arch)
+		configParameters, err = client.MachineConfig(machineId)
 	} else {
-		request := params.MachineConfigParams{
-			MachineId: machineId,
-			Series:    machineParams.Series,
-			Arch:      arch,
-		}
-		configParameters, err = statecmd.MachineConfig(stateConn.State, request)
+		configParameters, err = statecmd.MachineConfig(stateConn.State, machineId)
 	}
 	if err != nil {
 		return "", err
 	}
 	// Gather the information needed by the machine agent to run the provisioning script.
-	mcfg, err := finishMachineConfig(configParameters, machineId, machineParams.Nonce, args.DataDir)
+	mcfg, err := statecmd.FinishMachineConfig(configParameters, machineId, machineParams.Nonce, args.DataDir)
 	if err != nil {
 		return machineId, err
 	}
@@ -298,35 +287,6 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 	}
 	return machineParams, nil
-}
-
-func finishMachineConfig(configParameters params.MachineConfig, machineId, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
-	stateInfo := &state.Info{
-		Addrs:    configParameters.StateAddrs,
-		Password: configParameters.Password,
-		Tag:      configParameters.Tag,
-		CACert:   configParameters.CACert,
-	}
-	apiInfo := &api.Info{
-		Addrs:    configParameters.APIAddrs,
-		Password: configParameters.Password,
-		Tag:      configParameters.Tag,
-		CACert:   configParameters.CACert,
-	}
-	environConfig, err := config.New(config.NoDefaults, configParameters.EnvironAttrs)
-	if err != nil {
-		return nil, err
-	}
-	mcfg := environs.NewMachineConfig(machineId, nonce, stateInfo, apiInfo)
-	if dataDir != "" {
-		mcfg.DataDir = dataDir
-	}
-	mcfg.Tools = configParameters.Tools
-	err = environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
-	if err != nil {
-		return nil, err
-	}
-	return mcfg, nil
 }
 
 func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
