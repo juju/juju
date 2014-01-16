@@ -87,7 +87,9 @@ make_binary_package() {
     cd $PACKAGING_DIR
     bzr bd --build-dir=$BUILD_DIR -- -uc -us
     new_package=$(ls ${TMP_DIR}/juju-core_${package_version}*.deb)
-    ln -s $newpackage ${TMP_DIR}/new-${package_series}.deb
+    echo "Made $new_package"
+    ln -s $new_package ${TMP_DIR}/new-${package_series}.deb
+    echo "linked $new_package to ${TMP_DIR}/new-${package_series}.deb"
 }
 
 
@@ -98,7 +100,8 @@ update_source_package_branch() {
     cd $PACKAGING_DIR
     message="New upstream release candidate."
     distro="UNRELEASED"
-    DEBEMAIL=$DEBEMAIL dch --newversion $package_version -D $distro "$message"
+    DEBEMAIL=$DEBEMAIL dch -b --newversion $package_version \
+        -D $distro "$message"
     bzr ci -m "$message"
     bzr tag $package_version
 }
@@ -140,13 +143,14 @@ if [[ $PURPOSE == "testing" ]]; then
     echo "  sudo dpkg -i $PACKAGE"
     # Make extra packages for supported series.
     for series_release in $EXTRA_RELEASES; do
-        this_series=$(echo "$series_version" | cut -d ':' -f1)
-        this_release=$(echo "$series_version" | cut -d ':' -f2)
+        this_series=$(echo "$series_release" | cut -d ':' -f1)
+        this_release=$(echo "$series_release" | cut -d ':' -f2)
         package_version="${UBUNTU_VERSION}~ubuntu${this_release}.1"
         update_source_package_branch $package_version $this_series
         make_binary_package $package_version $this_series
     done
     NEW_PACKAGES=$(ls ${TMP_DIR}/new-*.deb)
+    echo "New packages for testing: $NEW_PACKAGES"
 else
     make_source_package
 fi
