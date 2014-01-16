@@ -128,11 +128,11 @@ func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body int
 }
 
 func (n *requestNotifier) join(req *http.Request) {
-	logger.Debugf("[%X] API connection from %s", n.id, req.RemoteAddr)
+	logger.Infof("[%X] API connection from %s", n.id, req.RemoteAddr)
 }
 
 func (n *requestNotifier) leave() {
-	logger.Debugf("[%X] API connection terminated after %v", n.id, time.Since(n.start))
+	logger.Infof("[%X] API connection terminated after %v", n.id, time.Since(n.start))
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -158,12 +158,9 @@ func (srv *Server) run(lis net.Listener) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	var reqNotifier *requestNotifier
-	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		reqNotifier = newRequestNotifier()
-		reqNotifier.join(req)
-		defer reqNotifier.leave()
-	}
+	reqNotifier := newRequestNotifier()
+	reqNotifier.join(req)
+	defer reqNotifier.leave()
 	wsServer := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			srv.wg.Add(1)
@@ -194,7 +191,9 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		codec.SetLogging(true)
 	}
 	var notifier rpc.RequestNotifier
-	if reqNotifier != nil {
+	if logger.EffectiveLogLevel() <= loggo.DEBUG {
+		// Incur request monitoring overhead only if we
+		// know we'll need it.
 		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
