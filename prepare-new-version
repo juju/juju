@@ -7,7 +7,11 @@ source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
 # Now that we aren't sourcing credentials, it's safe to enable command echo.
 set -x
 
+for new_package in $NEW_PACKAGES; do
+    mv $new_package $WORKSPACE/
+done
+
 mkdir -p new-tools
-$SCRIPTS/assemble-public-tools.bash $PACKAGE new-tools
+$SCRIPTS/assemble-public-tools.bash $PACKAGES new-tools
 $SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
-ln -s $PACKAGE $WORKSPACE/new-precise.deb
+

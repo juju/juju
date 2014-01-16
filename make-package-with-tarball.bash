@@ -11,8 +11,9 @@ PACKAGING_DIR="$TMP_DIR/packaging"
 BUILD_DIR="$TMP_DIR/build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
-DEVEL_SERIES=$(distro-info --devel)
-NEXT_SERIES_VERSION="14.04"
+DEVEL_SERIES=$(distro-info --devel --codename)
+DEVEL_VERSION=$(distro-info --release --devel | cut -d ' ' -f1)
+EXTRA_RELEASES="saucy:13.12 precise:12.04"
 
 
 usage() {
@@ -68,19 +69,8 @@ make_source_package_branch() {
 }
 
 
-update_source_package_branch() {
-    echo "Phase 1: Repeat updating the source package branch."
-    cd $PACKAGING_DIR
-    message="New upstream release candidate."
-    distro="UNRELEASED"
-    DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_NEXT -D $distro "$message"
-    bzr ci -m "$message"
-    bzr tag $UBUNTU_NEXT
-}
-
-
 make_source_package() {
-    echo "Phase 2: Creating the source package."
+    echo "Phase 2: Creating the source package for ubuntu devel."
     cd $PACKAGING_DIR
     bzr bd -S --build-dir=$BUILD_DIR
     cd $BUILD_DIR
@@ -91,13 +81,26 @@ make_source_package() {
 
 
 make_binary_package() {
-    echo "Phase 3: Creating the binary package."
+    package_version=$1
+    package_series=$2
+    echo "Phase 3: Creating the binary package for $package_series."
     cd $PACKAGING_DIR
     bzr bd --build-dir=$BUILD_DIR -- -uc -us
-    PACKAGE=$(ls ${TMP_DIR}/juju-core_*.deb)
-    echo "The binary package can be installed:"
-    echo "  sudo dpkg -i $PACKAGE"
+    new_package=$(ls ${TMP_DIR}/juju-core_${package_version}*.deb)
+    ln -s $newpackage ${TMP_DIR}/new-${package_series}.deb
+}
 
+
+update_source_package_branch() {
+    package_version=$1
+    package_series=$2
+    echo "Phase 4: Backport the source package branch to $package_series."
+    cd $PACKAGING_DIR
+    message="New upstream release candidate."
+    distro="UNRELEASED"
+    DEBEMAIL=$DEBEMAIL dch --newversion $package_version -D $distro "$message"
+    bzr ci -m "$message"
+    bzr tag $package_version
 }
 
 
@@ -120,14 +123,8 @@ if [[ ! -f "$TARBALL" ]]; then
     usage
 fi
 
-if [[ $PURPOSE == "testing" ]]; then
-    source /etc/lsb-release
-    SERIES_VERSION="~ubuntu${DISTRIB_RELEASE}.1"
-else
-    SERIES_VERSION=""
-fi
 VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
-UBUNTU_VERSION="${VERSION}-0ubuntu1${SERIES_VERSION}"
+UBUNTU_VERSION="${VERSION}-0ubuntu1"
 
 DEBEMAIL=$3
 
@@ -137,11 +134,19 @@ BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
 check_deps
 make_source_package_branch
 if [[ $PURPOSE == "testing" ]]; then
-    make_binary_package
-    # Make the devel version too for testing.
-    #UBUNTU_NEXT="${VERSION}-0ubuntu1${NEXT_SERIES_VERSION}"
-    #update_source_package_branch
-    #make_binary_package
+    make_binary_package $UBUNTU_VERSION $DEVEL_SERIES
+    PACKAGE=$(ls ${TMP_DIR}/juju-core_*.deb)
+    echo "The binary package can be installed:"
+    echo "  sudo dpkg -i $PACKAGE"
+    # Make extra packages for supported series.
+    for series_release in $EXTRA_RELEASES; do
+        this_series=$(echo "$series_version" | cut -d ':' -f1)
+        this_release=$(echo "$series_version" | cut -d ':' -f2)
+        package_version="${UBUNTU_VERSION}~ubuntu${this_release}.1"
+        update_source_package_branch $package_version $this_series
+        make_binary_package $package_version $this_series
+    done
+    NEW_PACKAGES=$(ls ${TMP_DIR}/new-*.deb)
 else
     make_source_package
 fi
