@@ -16,14 +16,12 @@ import (
 
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -32,7 +30,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type MainSuite struct {
-	testbase.LoggingSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -77,10 +75,6 @@ func deployHelpText() string {
 
 func syncToolsHelpText() string {
 	return helpText(&SyncToolsCommand{}, "juju sync-tools")
-}
-
-func (s *MainSuite) TestTearDown(c *gc.C) {
-	loggo.ResetLoggers()
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
