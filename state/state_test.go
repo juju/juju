@@ -293,6 +293,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
 	err = s.State.AddStoreCharmPlaceholder(curl2)
 	c.Assert(err, gc.IsNil)
+	s.assertPlaceholderCharmExists(c, curl2)
 
 	// Use a URL with an arbitrary rev to search.
 	curl = charm.MustParseURL("cs:quantal/dummy-23")
@@ -300,7 +301,6 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(pending.URL(), gc.DeepEquals, curl2)
 	c.Assert(pending.IsPlaceholder(), jc.IsTrue)
-	c.Assert(pending.IsUploaded(), jc.IsFalse)
 	c.Assert(pending.Meta(), gc.IsNil)
 	c.Assert(pending.Config(), gc.IsNil)
 	c.Assert(pending.BundleURL(), gc.IsNil)
