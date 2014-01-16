@@ -170,7 +170,7 @@ func (c *Conn) updateSecrets() error {
 // and the revision number will be incremented before pushing.
 func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := repo.Latest(curl)
+		rev, err := charm.Latest(repo, curl)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
