@@ -1,0 +1,70 @@
+#!/bin/bash
+set -eux
+: ${LOCAL_JENKINS_URL=$JENKINS_URL}
+INSTANCE_ID="i-514c2871"
+tarfile=$(python <<EOT
+import json
+import sys
+import urllib2
+
+build_data = urllib2.urlopen(
+    '$LOCAL_JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/api/json')
+build_json = json.load(build_data)
+for artifact in build_json['artifacts']:
+    filename = artifact['fileName']
+    if filename.endswith('.tar.gz'):
+        break
+else:
+    sys.exit(1)
+print filename
+EOT
+)
+artifact=$LOCAL_JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/artifact
+wget -q $artifact/$tarfile
+
+echo Starting instance $INSTANCE_ID
+euca-start-instances $INSTANCE_ID
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+set +x
+
+instance_ip=''
+echo -n Waiting for IP address
+while [ -z "$instance_ip" ]; do
+    sleep 1
+        instance_ip=$(euca-describe-instances $INSTANCE_ID |
+            sed '/^INSTANCE/!d' |
+            cut -f 17)
+    echo -n .
+done
+echo
+echo Instance has ip $instance_ip
+sleep 30
+
+echo -n Waiting for SSH
+while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
+  sleep 1
+  echo -n .
+done
+echo
+
+set -x
+set +e
+scp -i $JUJU_HOME/staging-juju-rsa \
+    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    $WORKSPACE/$tarfile $SCRIPTS/winbuildtest.py \
+    Administrator@$instance_ip:/cygdrive/c/Users/Administrator/ci/
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+ssh -i $JUJU_HOME/staging-juju-rsa \
+    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    Administrator@$instance_ip \
+    '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\winbuildtest.py' \
+    $tarfile
+EXIT_STATUS=$?
+set -e
+euca-stop-instances $INSTANCE_ID
+exit $EXIT_STATUS
