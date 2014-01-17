@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -59,6 +60,7 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddresses(c *gc.C) {
+	c.Skip("waiting for EnsureAvailability")
 	var err error
 	machines := make([]*state.Machine, 3)
 	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -254,8 +256,12 @@ func (s *StateSuite) TestAddMachineErrors(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachines(c *gc.C) {
-	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.AddMachine("quantal", oneJob...)
+	allJobs := []state.MachineJob{
+		state.JobHostUnits,
+		state.JobManageEnviron,
+		state.JobManageState,
+	}
+	m0, err := s.State.AddMachine("quantal", allJobs...)
 	c.Assert(err, gc.IsNil)
 	check := func(m *state.Machine, id, series string, jobs []state.MachineJob) {
 		c.Assert(m.Id(), gc.Equals, id)
@@ -263,29 +269,25 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 		c.Assert(m.Jobs(), gc.DeepEquals, jobs)
 		s.assertMachineContainers(c, m, nil)
 	}
-	check(m0, "0", "quantal", oneJob)
+	check(m0, "0", "quantal", allJobs)
 	m0, err = s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
-	check(m0, "0", "quantal", oneJob)
+	check(m0, "0", "quantal", allJobs)
 
-	allJobs := []state.MachineJob{
-		state.JobHostUnits,
-		state.JobManageEnviron,
-		state.JobManageState,
-	}
-	m1, err := s.State.AddMachine("blahblah", allJobs...)
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m1, err := s.State.AddMachine("blahblah", oneJob...)
 	c.Assert(err, gc.IsNil)
-	check(m1, "1", "blahblah", allJobs)
+	check(m1, "1", "blahblah", oneJob)
 
 	m1, err = s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	check(m1, "1", "blahblah", allJobs)
+	check(m1, "1", "blahblah", oneJob)
 
 	m, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.HasLen, 2)
-	check(m[0], "0", "quantal", oneJob)
-	check(m[1], "1", "blahblah", allJobs)
+	check(m[0], "0", "quantal", allJobs)
+	check(m[1], "1", "blahblah", oneJob)
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
@@ -607,6 +609,35 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
+}
+
+func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
+	template := state.MachineTemplate{
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobManageState},
+	}
+	// Check that we can add the bootstrap machine.
+	m, err := s.State.AddOneMachine(template)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, "0")
+	c.Assert(m.WantsVote(), jc.IsTrue)
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageState})
+
+	// Check that the state server information is correct.
+	info, err := state.GetStateServerInfo(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
+	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
+
+	const errCannotAdd = "cannot add a new machine: state server jobs specified without calling EnsureAvailability"
+	m, err = s.State.AddOneMachine(template)
+	c.Assert(err, gc.ErrorMatches, errCannotAdd)
+
+	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXC)
+	c.Assert(err, gc.ErrorMatches, errCannotAdd)
+
+	m, err = s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 }
 
 func (s *StateSuite) TestReadMachine(c *gc.C) {
@@ -2348,11 +2379,7 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
-	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
 	c.Assert(err, gc.IsNil)
 
 	// Delete the stateServers collection to pretend this
@@ -2386,11 +2413,50 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(len(info.VotingMachineIds), gc.DeepEquals, len(expectIds))
 }
 
+func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+
+	// Clear the voting machine ids from the stateServers collection
+	// to pretend this is a semi-old environment that had
+	// created the collection but not the voting ids.
+	_, err = s.stateServers.UpdateAll(nil, bson.D{{
+		"$set",
+		bson.D{
+			{"votingmachineids", nil},
+			{"machineids", nil},
+		},
+	}})
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that they have actually been removed.
+	info, err := state.GetStateServerInfo(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.MachineIds, gc.HasLen, 0)
+	c.Assert(info.VotingMachineIds, gc.HasLen, 0)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	info, err = state.GetStateServerInfo(s.State)
+	c.Assert(err, gc.IsNil)
+	expectIds := []string{m0.Id()}
+	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
+		MachineIds: expectIds,
+		VotingMachineIds: expectIds,
+	})
+}
+
 func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
 	for _, n := range []int{-1, 0, 2, 6} {
-		err := st.EnsureAvailability(n, constraints.Value{}, "")
+		err := s.State.EnsureAvailability(n, constraints.Value{}, "")
 		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
 	}
-	err := st.EnsureAvailability(replicaset.MaxPeers + 1, constraints.Value{}, "")
+	err := s.State.EnsureAvailability(replicaset.MaxPeers+2, constraints.Value{}, "")
 	c.Assert(err, gc.ErrorMatches, `state server count is too large \(allowed \d+\)`)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
+
 }

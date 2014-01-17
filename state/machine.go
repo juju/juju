@@ -84,7 +84,7 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
-	WantsVote bool
+	NoVote bool
 	PasswordHash  string
 	Clean         bool
 	Addresses     []address
@@ -192,6 +192,12 @@ func (m *Machine) Life() Life {
 // Jobs returns the responsibilities that must be fulfilled by m's agent.
 func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
+}
+
+// WantsVote reports whether the machine is a state server
+// that wants to take part in peer voting.
+func (m *Machine) WantsVote() bool {
+	return hasJob(m.doc.Jobs, JobManageState) && !m.doc.NoVote
 }
 
 // IsManager returns true if the machine has JobManageState or JobManageEnviron.

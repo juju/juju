@@ -775,6 +775,15 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
+	// Add a state management machine which can host units and check it is not chosen.
+	// Note that this must the first machine added, as AddMachine can only
+	// be used to add state-manager machines for the bootstrap machine.
+	m, err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	m, err = s.assignUnit(unit)
+	c.Assert(m, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
+
 	// Add a dying machine and check that it is not chosen.
 	m, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -791,12 +800,6 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
-	// Add a state management machine which can host units and check it is not chosen.
-	m, err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	m, err = s.assignUnit(unit)
-	c.Assert(m, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add a environ management machine which can host units and check it is not chosen.
 	m, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)

@@ -29,7 +29,7 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -65,17 +65,17 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
+	// Note: we can't add a state server machine without
+	// calling EnsureAvailability.
 	tests := []struct {
 		isStateServer bool
 		jobs          []state.MachineJob
 	}{
 		{false, []state.MachineJob{state.JobHostUnits}},
-		{true, []state.MachineJob{state.JobManageState}},
 		{true, []state.MachineJob{state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState}},
 		{true, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 	}
+	c.Assert(s.machine.IsManager(), jc.IsTrue)
 	for _, test := range tests {
 		m, err := s.State.AddMachine("quantal", test.jobs...)
 		c.Assert(err, gc.IsNil)
