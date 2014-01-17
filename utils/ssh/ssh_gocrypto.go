@@ -15,6 +15,8 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+const sshDefaultPort = 22
+
 // GoCryptoClient is an implementation of Client that
 // uses the embedded go.crypto/ssh SSH client.
 //
@@ -41,9 +43,17 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 	if len(signers) == 0 {
 		signers = privateKeys()
 	}
+	user, host := splitUserHost(host)
+	port := sshDefaultPort
+	if options != nil {
+		if options.port != 0 {
+			port = options.port
+		}
+	}
 	return &Cmd{impl: &goCryptoCommand{
 		signers: signers,
-		host:    host,
+		user:    user,
+		addr:    fmt.Sprintf("%s:%d", host, port),
 		command: shellCommand,
 	}}
 }
@@ -57,7 +67,8 @@ func (c *GoCryptoClient) Copy(source, dest string, options *Options) error {
 
 type goCryptoCommand struct {
 	signers []ssh.Signer
-	host    string
+	user    string
+	addr    string
 	command string
 	stdin   io.Reader
 	stdout  io.Writer
@@ -73,21 +84,20 @@ func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 	if len(c.signers) == 0 {
 		return nil, fmt.Errorf("no private keys available")
 	}
-	username, host := splitUserHost(c.host)
-	if username == "" {
+	if c.user == "" {
 		currentUser, err := user.Current()
 		if err != nil {
 			return nil, fmt.Errorf("getting current user: %v", err)
 		}
-		username = currentUser.Username
+		c.user = currentUser.Username
 	}
 	config := &ssh.ClientConfig{
-		User: username,
+		User: c.user,
 		Auth: []ssh.ClientAuth{
 			ssh.ClientAuthKeyring(keyring{c.signers}),
 		},
 	}
-	conn, err := ssh.Dial("tcp", host+":22", config)
+	conn, err := ssh.Dial("tcp", c.addr, config)
 	if err != nil {
 		return nil, err
 	}

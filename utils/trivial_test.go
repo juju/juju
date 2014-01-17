@@ -56,6 +56,9 @@ func (utilsSuite) TestCommandString(c *gc.C) {
 	tests := []test{
 		{nil, ""},
 		{[]string{"a"}, "a"},
+		{[]string{"a$"}, `"a\$"`},
+		{[]string{""}, ""},
+		{[]string{"\\"}, `"\\"`},
 		{[]string{"a", "'b'"}, "a 'b'"},
 		{[]string{"a b"}, `"a b"`},
 		{[]string{"a", `"b"`}, `a "\"b\""`},

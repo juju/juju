@@ -55,6 +55,14 @@ func (s *SSHCommandSuite) assertCommandArgs(c *gc.C, cmd *ssh.Cmd, expected stri
 	c.Assert(strings.TrimSpace(string(out)), gc.Equals, expected)
 }
 
+func (s *SSHCommandSuite) TestDefaultClient(c *gc.C) {
+	ssh.InitDefaultClient()
+	c.Assert(ssh.DefaultClient, gc.FitsTypeOf, &ssh.OpenSSHClient{})
+	s.PatchEnvironment("PATH", "")
+	ssh.InitDefaultClient()
+	c.Assert(ssh.DefaultClient, gc.FitsTypeOf, &ssh.GoCryptoClient{})
+}
+
 func (s *SSHCommandSuite) TestCommandSSHPass(c *gc.C) {
 	// First create a fake sshpass, but don't set $SSHPASS
 	fakesshpass := filepath.Join(s.testbin, "sshpass")
@@ -105,15 +113,24 @@ func (s *SSHCommandSuite) TestCommandIdentities(c *gc.C) {
 	)
 }
 
+func (s *SSHCommandSuite) TestCommandPort(c *gc.C) {
+	var opts ssh.Options
+	opts.SetPort(2022)
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -p 2022 localhost -- echo 123",
+	)
+}
+
 func (s *SSHCommandSuite) TestCopy(c *gc.C) {
 	var opts ssh.Options
 	opts.EnablePTY()
 	opts.AllowPasswordAuthentication()
 	opts.SetIdentities("x", "y")
+	opts.SetPort(2022)
 	err := s.client.Copy("/tmp/blah", "foo@bar.com:baz", &opts)
 	c.Assert(err, gc.IsNil)
 	out, err := ioutil.ReadFile(s.fakescp + ".args")
 	c.Assert(err, gc.IsNil)
 	// EnablePTY has no effect for Copy
-	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y /tmp/blah foo@bar.com:baz\n")
+	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 /tmp/blah foo@bar.com:baz\n")
 }

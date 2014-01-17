@@ -16,6 +16,8 @@ import (
 
 // Options is a client-implementation independent SSH options set.
 type Options struct {
+	// ssh server port; zero means use the default (22)
+	port int
 	// no PTY forced by default
 	allocatePTY bool
 	// password authentication is disallowed by default
@@ -24,6 +26,11 @@ type Options struct {
 	// to use when attempting to login. A client implementaton may attempt
 	// with additional identities, but must give preference to these
 	identities []string
+}
+
+// SetPort sets the SSH server port to connect to.
+func (o *Options) SetPort(port int) {
+	o.port = port
 }
 
 // EnablePTY forces the allocation of a pseudo-TTY.
@@ -180,12 +187,16 @@ type command interface {
 
 // DefaultClient is the default SSH client for the process.
 //
-// There is currently only one client available: OpenSSH.
-// If the OpenSSH client is not installed, then DefaultClient
-// will be nil.
+// If the OpenSSH client is found in $PATH, then it will be
+// used for DefaultClient; otherwise, DefaultClient will use
+// an embedded client based on go.crypto/ssh.
 var DefaultClient Client
 
 func init() {
+	initDefaultClient()
+}
+
+func initDefaultClient() {
 	if client, err := NewOpenSSHClient(); err == nil {
 		DefaultClient = client
 	} else if client, err := NewGoCryptoClient(); err == nil {
