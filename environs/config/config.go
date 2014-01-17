@@ -105,7 +105,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
-	c.configureLogging()
+	c.m["logging-config"] = c.ensureUnitLogging(c.asString("logging-config"))
 	// no old config to compare against
 	if err = Validate(c, nil); err != nil {
 		return nil, err
@@ -119,10 +119,9 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	return c, nil
 }
 
-func (c *Config) configureLogging() {
+func (c *Config) ensureUnitLogging(loggingConfig string) string {
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
-	loggingConfig := c.asString("logging-config")
 	if loggingConfig == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
 			loggingConfig = environmentValue
@@ -141,7 +140,7 @@ func (c *Config) configureLogging() {
 	if _, ok := levels["unit"]; !ok {
 		loggingConfig = loggingConfig + ";unit=DEBUG"
 	}
-	c.m["logging-config"] = loggingConfig
+	return loggingConfig
 }
 
 func (c *Config) fillInDefaults() error {
@@ -533,6 +532,11 @@ func (c *Config) AllAttrs() map[string]interface{} {
 // Apply returns a new configuration that has the attributes of c plus attrs.
 func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	m := c.AllAttrs()
+	if value, ok := attrs["logging-config"]; ok {
+		if loggingConfig, ok := value.(string); ok {
+			attrs["logging-config"] = c.ensureUnitLogging(loggingConfig)
+		}
+	}
 	for k, v := range attrs {
 		m[k] = v
 	}
