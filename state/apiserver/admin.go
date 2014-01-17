@@ -139,12 +139,20 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 	})
 	if ok {
 		// A machine or unit agent has connected, so start a pinger to
-		// announce it's now alive.
+		// announce it's now alive, and set up the API pinger
+		// so that the connection will be terminated if a sufficient
+		// interval passes between pings.
 		pinger, err := setAgentAliver.SetAgentAlive()
 		if err != nil {
 			return nil, err
 		}
 		newRoot.resources.Register(&machinePinger{pinger})
+		action := func() {
+			if err := newRoot.rpcConn.Close(); err != nil {
+				logger.Errorf("error closing the RPC connection: %v", err)
+			}
+		}
+		newRoot.pingTimeout = newPingTimeout(action, maxPingInterval)
 	}
 	return newRoot, nil
 }

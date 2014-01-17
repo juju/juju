@@ -37,7 +37,7 @@ type taggedAuthenticator interface {
 // timeout closes the monitored connection.
 // TODO(mue): Idea by Roger: Move to API (e.g. params) so
 // that the pinging there may depend on the interval.
-const maxPingInterval = 3 * time.Minute
+var maxPingInterval = 3 * time.Minute
 
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
@@ -61,14 +61,7 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		resources: common.NewResources(),
 		entity:    entity,
 	}
-	action := func() {
-		err := r.rpcConn.Close()
-		if err != nil {
-			logger.Errorf("error closing the RPC connection: %v", err)
-		}
-	}
 	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r, r.srv.dataDir)
-	r.pingTimeout = newPingTimeout(action, maxPingInterval)
 	return r
 }
 
@@ -76,7 +69,9 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
-	r.pingTimeout.stop()
+	if r.pingTimeout != nil {
+		r.pingTimeout.stop()
+	}
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -292,8 +287,15 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 // is not called frequently enough, the connection
 // will be dropped.
 func (r *srvRoot) Pinger(id string) (pinger, error) {
+	if r.pingTimeout == nil {
+		return nullPinger{}, nil
+	}
 	return r.pingTimeout, nil
 }
+
+type nullPinger struct{}
+
+func (nullPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
