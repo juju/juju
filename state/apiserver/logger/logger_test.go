@@ -96,7 +96,7 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertNoChange()
 
-	s.setLoggingConfig(c, "<root>=WARN;juju.log.test=DEBUG")
+	s.setLoggingConfig(c, "<root>=WARN;juju.log.test=DEBUG;unit=INFO")
 
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
@@ -132,7 +132,7 @@ func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
-	loggingConfig := "<root>=WARN;juju.log.test=DEBUG"
+	loggingConfig := "<root>=WARN;juju.log.test=DEBUG;unit=INFO"
 	s.setLoggingConfig(c, loggingConfig)
 
 	args := params.Entities{
