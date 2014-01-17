@@ -4,11 +4,7 @@
 package charmrevisionupdater_test
 
 import (
-	"fmt"
-	"strings"
-
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
@@ -110,29 +106,13 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 }
 
 func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
-	// There's no easy way to check that the environment uuid is used, apart from
-	// inspecting the log messages produced by the mock store. But at least it is
-	// tested - the auth headers which are implemented similarly are not tested AFAICS'
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("version-update-tester", tw, loggo.DEBUG), gc.IsNil)
-	defer func() {
-		loggo.RemoveWriter("version-update-tester")
-	}()
-
 	s.AddMachine(c, "0", state.JobManageEnviron)
 	s.SetupScenario(c)
-	result, err := s.charmversionupdater.UpdateVersions()
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	messageFound := false
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	expectedMessageSnippet := fmt.Sprintf("Juju metadata: environment_uuid=%s", env.UUID())
-	for _, log := range tw.Log {
-		if messageFound = strings.Contains(log.Message, expectedMessageSnippet); messageFound {
-			break
-		}
-	}
-	c.Assert(messageFound, jc.IsTrue)
+	c.Assert(s.Server.Metadata, gc.DeepEquals, []string{"environment_uuid=" + env.UUID()})
 }
