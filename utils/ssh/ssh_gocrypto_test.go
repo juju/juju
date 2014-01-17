@@ -109,7 +109,8 @@ func (s *SSHGoCryptoCommandSuite) TestClientNoKeys(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cmd = client.Command("test.invalid", []string{"echo", "123"}, nil)
 	_, err = cmd.Output()
-	c.Assert(err, gc.ErrorMatches, "dial tcp: lookup test.invalid: no such host")
+	// error message differs based on whether using cgo or not
+	c.Assert(err, gc.ErrorMatches, "(dial tcp: )?lookup test.invalid: no such host")
 }
 
 func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
