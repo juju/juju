@@ -105,24 +105,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
-	// If the logging config hasn't been set, then look for the os environment
-	// variable, and failing that, get the config from loggo itself.
-	if c.asString("logging-config") == "" {
-		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
-			c.m["logging-config"] = environmentValue
-		} else {
-			//TODO(wallyworld) - 2013-10-10 bug=1237731
-			// We need better way to ensure default logging is set to debug.
-			// This is a *quick* fix to get 1.16 out the door.
-			loggoConfig := loggo.LoggerInfo()
-			if loggoConfig != "<root>=WARNING" {
-				c.m["logging-config"] = loggoConfig
-			} else {
-				c.m["logging-config"] = "<root>=DEBUG"
-			}
-		}
-	}
-
+	c.configureLogging()
 	// no old config to compare against
 	if err = Validate(c, nil); err != nil {
 		return nil, err
@@ -134,6 +117,31 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		}
 	}
 	return c, nil
+}
+
+func (c *Config) configureLogging() {
+	// If the logging config hasn't been set, then look for the os environment
+	// variable, and failing that, get the config from loggo itself.
+	loggingConfig := c.asString("logging-config")
+	if loggingConfig == "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
+			loggingConfig = environmentValue
+		} else {
+			loggingConfig = loggo.LoggerInfo()
+		}
+	}
+	levels, err := loggo.ParseConfigurationString(loggingConfig)
+	if err != nil {
+		logger.Warningf("Logging config %q is invalid: %v", loggingConfig, err)
+		loggingConfig = loggo.LoggerInfo()
+		// We know that anything we get out of LoggerInfo can be parsed.
+		levels, _ = loggo.ParseConfigurationString(loggingConfig)
+	}
+	// If there is is no specified level for "unit", then set one.
+	if _, ok := levels["unit"]; !ok {
+		loggingConfig = loggingConfig + ";unit=DEBUG"
+	}
+	c.m["logging-config"] = loggingConfig
 }
 
 func (c *Config) fillInDefaults() error {
