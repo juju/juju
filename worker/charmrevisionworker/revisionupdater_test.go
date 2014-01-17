@@ -33,7 +33,7 @@ type RevisionUpdateSuite struct {
 var _ = gc.Suite(&RevisionUpdateSuite{})
 
 func (s *RevisionUpdateSuite) SetUpSuite(c *gc.C) {
-	c.Assert(*charmrevisionworker.Interval, gc.Equals, 6*time.Hour)
+	c.Assert(*charmrevisionworker.Interval, gc.Equals, 24*time.Hour)
 	s.CharmSuite.SetUpSuite(c)
 }
 

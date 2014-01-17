@@ -15,7 +15,7 @@ import (
 )
 
 // interval sets how often the resuming is called.
-var interval = 6 * time.Hour
+var interval = 24 * time.Hour
 
 var _ worker.Worker = (*RevisionUpdateWorker)(nil)
 
