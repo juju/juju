@@ -64,6 +64,13 @@ ssh -i $JUJU_HOME/staging-juju-rsa \
     Administrator@$instance_ip \
     '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\winbuildtest.py' \
     $tarfile
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+scp -i $JUJU_HOME/staging-juju-rsa \
+    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    Administrator@$instance_ip:/cygdrive/c/Users/Administrator/ci/juju-setup-*.exe \
+    $WORKSPACE/
 EXIT_STATUS=$?
 set -e
 euca-stop-instances $INSTANCE_ID
