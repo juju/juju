@@ -1,14 +1,14 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshinit_test
+package charmrevisionupdater_test
 
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing"
 )
 
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+func TestAll(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
 }

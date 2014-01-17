@@ -518,8 +518,6 @@ type ContainerConfig struct {
 
 type MachineConfigParams struct {
 	MachineId string
-	Series    string
-	Arch      string
 }
 
 // MachineConfig contains information from the environment config that is
@@ -533,6 +531,20 @@ type MachineConfig struct {
 	CACert     []byte
 	Tag        string
 	Password   string
+}
+
+// ProvisioningScriptParams contains the parameters for the
+// ProvisioningScript client API call.
+type ProvisioningScriptParams struct {
+	MachineId string
+	Nonce     string
+	DataDir   string
+}
+
+// ProvisioningScriptResult contains the result of the
+// ProvisioningScript client API call.
+type ProvisioningScriptResult struct {
+	Script string
 }
 
 // EnvironmentGetResults contains the result of EnvironmentGet client
