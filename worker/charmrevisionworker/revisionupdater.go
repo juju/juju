@@ -14,11 +14,8 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-// defaultInterval is the standard value for the interval setting.
-const defaultInterval = 6 * time.Hour
-
 // interval sets how often the resuming is called.
-var interval = defaultInterval
+var interval = 6 * time.Hour
 
 var _ worker.Worker = (*RevisionUpdateWorker)(nil)
 

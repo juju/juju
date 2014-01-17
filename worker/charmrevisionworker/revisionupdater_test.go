@@ -52,17 +52,13 @@ func (s *RevisionUpdateSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.st, gc.NotNil)
 }
 
-func (s *RevisionUpdateSuite) TearDownTest(c *gc.C) {
-	c.Assert(s.versionUpdater.Stop(), gc.IsNil)
-	s.CharmSuite.TearDownTest(c)
-}
-
 func (s *RevisionUpdateSuite) runUpdater(c *gc.C, updateInterval time.Duration) {
 	s.PatchValue(charmrevisionworker.Interval, updateInterval)
 	revisionUpdaterState := s.st.CharmRevisionUpdater()
 	c.Assert(revisionUpdaterState, gc.NotNil)
 
 	s.versionUpdater = charmrevisionworker.NewRevisionUpdateWorker(revisionUpdaterState)
+	s.AddCleanup(func(c *gc.C) { s.versionUpdater.Stop() })
 }
 
 func (s *RevisionUpdateSuite) checkCharmRevision(c *gc.C, expectedRev int) bool {
