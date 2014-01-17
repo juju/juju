@@ -63,6 +63,7 @@ func Main(args []string) {
 		helpProviderStart+helpAzureProvider+helpProviderEnd)
 	jujucmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
 	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
+	jujucmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
