@@ -14,6 +14,13 @@ import (
 
 var opensshCommonOptions = []string{"-o", "StrictHostKeyChecking no"}
 
+type opensshCommandKind int
+
+const (
+	sshKind opensshCommandKind = iota
+	scpKind
+)
+
 // sshpassWrap wraps the command/args with sshpass if it is found in $PATH
 // and the SSHPASS environment variable is set. Otherwise, the original
 // command/args are returned.
@@ -44,7 +51,7 @@ func NewOpenSSHClient() (*OpenSSHClient, error) {
 	return &c, nil
 }
 
-func opensshOptions(options *Options, scp bool) []string {
+func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	args := append([]string{}, opensshCommonOptions...)
 	if options == nil {
 		options = &Options{}
@@ -59,7 +66,8 @@ func opensshOptions(options *Options, scp bool) []string {
 		args = append(args, "-i", identity)
 	}
 	if options.port != 0 {
-		if scp {
+		if commandKind == scpKind {
+			// scp uses -P instead of -p (-p means preserve).
 			args = append(args, "-P")
 		} else {
 			args = append(args, "-p")
@@ -71,7 +79,7 @@ func opensshOptions(options *Options, scp bool) []string {
 
 // Command implements Client.Command.
 func (c *OpenSSHClient) Command(host string, command []string, options *Options) *Cmd {
-	args := opensshOptions(options, false)
+	args := opensshOptions(options, sshKind)
 	args = append(args, host)
 	if len(command) > 0 {
 		args = append(args, "--")
@@ -88,7 +96,7 @@ func (c *OpenSSHClient) Copy(source, dest string, userOptions *Options) error {
 		options = *userOptions
 		options.allocatePTY = false // doesn't make sense for scp
 	}
-	args := opensshOptions(&options, true)
+	args := opensshOptions(&options, scpKind)
 	args = append(args, source, dest)
 	bin, args := sshpassWrap("scp", args)
 	cmd := exec.Command(bin, args...)
