@@ -105,9 +105,11 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
-	c.m["logging-config"] = c.ensureUnitLogging(c.asString("logging-config"))
+	if err := c.ensureUnitLogging(); err != nil {
+		return nil, err
+	}
 	// no old config to compare against
-	if err = Validate(c, nil); err != nil {
+	if err := Validate(c, nil); err != nil {
 		return nil, err
 	}
 	// Copy unknown attributes onto the type-specific map.
@@ -119,7 +121,8 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	return c, nil
 }
 
-func (c *Config) ensureUnitLogging(loggingConfig string) string {
+func (c *Config) ensureUnitLogging() error {
+	loggingConfig := c.asString("logging-config")
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
@@ -131,16 +134,14 @@ func (c *Config) ensureUnitLogging(loggingConfig string) string {
 	}
 	levels, err := loggo.ParseConfigurationString(loggingConfig)
 	if err != nil {
-		logger.Warningf("Logging config %q is invalid: %v", loggingConfig, err)
-		loggingConfig = loggo.LoggerInfo()
-		// We know that anything we get out of LoggerInfo can be parsed.
-		levels, _ = loggo.ParseConfigurationString(loggingConfig)
+		return err
 	}
 	// If there is is no specified level for "unit", then set one.
 	if _, ok := levels["unit"]; !ok {
 		loggingConfig = loggingConfig + ";unit=DEBUG"
 	}
-	return loggingConfig
+	c.m["logging-config"] = loggingConfig
+	return nil
 }
 
 func (c *Config) fillInDefaults() error {
@@ -532,11 +533,6 @@ func (c *Config) AllAttrs() map[string]interface{} {
 // Apply returns a new configuration that has the attributes of c plus attrs.
 func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	m := c.AllAttrs()
-	if value, ok := attrs["logging-config"]; ok {
-		if loggingConfig, ok := value.(string); ok {
-			attrs["logging-config"] = c.ensureUnitLogging(loggingConfig)
-		}
-	}
 	for k, v := range attrs {
 		m[k] = v
 	}

@@ -284,6 +284,7 @@ var topicNames = []string{
 	"global-options",
 	"glossary",
 	"hpcloud",
+	"logging",
 	"local",
 	"openstack",
 	"plugins",
