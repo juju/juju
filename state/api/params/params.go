@@ -534,7 +534,7 @@ type MachineConfig struct {
 }
 
 // ProvisioningScriptParams contains the parameters for the
-// ProvisioningSCript client API call.
+// ProvisioningScript client API call.
 type ProvisioningScriptParams struct {
 	MachineId string
 	Nonce     string
@@ -542,7 +542,7 @@ type ProvisioningScriptParams struct {
 }
 
 // ProvisioningScriptResult contains the result of the
-// ProvisioningSCript client API call.
+// ProvisioningScript client API call.
 type ProvisioningScriptResult struct {
 	Script string
 }

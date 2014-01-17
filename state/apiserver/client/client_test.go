@@ -1697,7 +1697,7 @@ func (s *clientSuite) TestMachineConfigNoArch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
-	c.Assert(err, gc.ErrorMatches, "arch is not set for machine-"+machines[0].Machine)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
 }
 
 func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {

@@ -187,8 +187,10 @@ func (c *Client) ProvisioningScript(machineId, nonce string) (script string, err
 		Nonce:     nonce,
 	}
 	var result params.ProvisioningScriptResult
-	err = c.st.Call("Client", "", "ProvisioningScript", args, &result)
-	return result.Script, err
+	if err = c.st.Call("Client", "", "ProvisioningScript", args, &result); err != nil {
+		return "", err
+	}
+	return result.Script, nil
 }
 
 // DestroyMachines removes a given set of machines.

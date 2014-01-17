@@ -56,7 +56,7 @@ func MachineConfig(st *state.State, machineId string) (params.MachineConfig, err
 		return result, err
 	}
 	if hc.Arch == nil {
-		return result, fmt.Errorf("arch is not set for %s", machine.Tag())
+		return result, fmt.Errorf("arch is not set for %q", machine.Tag())
 	}
 
 	// Find the appropriate tools information.
