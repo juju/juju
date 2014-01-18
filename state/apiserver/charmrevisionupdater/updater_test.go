@@ -104,3 +104,15 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	_, err = s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
+
+func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
+	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.SetupScenario(c)
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.Server.Metadata, gc.DeepEquals, []string{"environment_uuid=" + env.UUID()})
+}

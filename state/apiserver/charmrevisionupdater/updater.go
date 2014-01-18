@@ -46,12 +46,19 @@ func NewCharmRevisionUpdaterAPI(
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
 // and records this information in state.
 func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult, error) {
+	// First get the uuid for the environment to use when querying the charm store.
+	env, err := api.state.Environment()
+	if err != nil {
+		return params.ErrorResult{common.ServerError(err)}, nil
+	}
+	uuid := env.UUID()
+
 	deployedCharms, err := fetchAllDeployedCharms(api.state)
 	if err != nil {
 		return params.ErrorResult{common.ServerError(err)}, nil
 	}
 	// Look up the revision information for all the deployed charms.
-	curls, err := retrieveLatestCharmInfo(deployedCharms)
+	curls, err := retrieveLatestCharmInfo(deployedCharms, uuid)
 	if err != nil {
 		return params.ErrorResult{common.ServerError(err)}, nil
 	}
@@ -84,7 +91,7 @@ func fetchAllDeployedCharms(st *state.State) (map[string]*charm.URL, error) {
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
-func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL) ([]*charm.URL, error) {
+func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) ([]*charm.URL, error) {
 	var curls []*charm.URL
 	for _, curl := range deployedCharms {
 		if curl.Schema == "local" {
@@ -97,7 +104,9 @@ func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL) ([]*charm.URL
 	}
 
 	// Do a bulk call to get the revision info for all charms.
-	revInfo, err := charm.Store.Latest(curls...)
+	logger.Infof("retrieving revision information for %d charms", len(curls))
+	store := charm.Store.WithJujuAttrs("environment_uuid=" + uuid)
+	revInfo, err := store.Latest(curls...)
 	if err != nil {
 		return nil, log.LoggedErrorf(logger, "finding charm revision info: %v", err)
 	}

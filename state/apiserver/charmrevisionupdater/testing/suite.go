@@ -22,13 +22,13 @@ import (
 type CharmSuite struct {
 	jujutesting.JujuConnSuite
 
-	server *charmtesting.MockStore
+	Server *charmtesting.MockStore
 	charms map[string]*state.Charm
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.server = charmtesting.NewMockStore(c, map[string]int{
+	s.Server = charmtesting.NewMockStore(c, map[string]int{
 		"cs:quantal/mysql":     23,
 		"cs:quantal/dummy":     24,
 		"cs:quantal/riak":      25,
@@ -41,20 +41,21 @@ func (s *CharmSuite) SetUpSuite(c *gc.C) {
 func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&charm.CacheDir, c.MkDir())
-	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.server.Address()})
-	s.server.Downloads = nil
-	s.server.Authorizations = nil
+	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.Server.Address()})
+	s.Server.Downloads = nil
+	s.Server.Authorizations = nil
+	s.Server.Metadata = nil
 	s.charms = make(map[string]*state.Charm)
 }
 
 func (s *CharmSuite) TearDownSuite(c *gc.C) {
-	s.server.Close()
+	s.Server.Close()
 	s.JujuConnSuite.TearDownSuite(c)
 }
 
 // UpdateStoreRevision sets the revision of the specified charm to rev.
 func (s *CharmSuite) UpdateStoreRevision(ch string, rev int) {
-	s.server.UpdateStoreRevision(ch, rev)
+	s.Server.UpdateStoreRevision(ch, rev)
 }
 
 // AddMachine adds a new machine to state.

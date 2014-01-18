@@ -14,10 +14,13 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
 )
+
+var logger = loggo.GetLogger("juju.charm.testing.mockstore")
 
 // MockStore provides a mock charm store implementation useful when testing.
 type MockStore struct {
@@ -27,6 +30,7 @@ type MockStore struct {
 	bundleSha256   string
 	Downloads      []*charm.URL
 	Authorizations []string
+	Metadata       []string
 
 	charms map[string]int
 }
@@ -72,6 +76,11 @@ func (s *MockStore) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
+	if metadata := r.Header.Get("Juju-Metadata"); metadata != "" {
+		s.Metadata = append(s.Metadata, metadata)
+		logger.Infof("Juju metadata: " + metadata)
+	}
+
 	r.ParseForm()
 	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
