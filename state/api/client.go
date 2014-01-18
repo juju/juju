@@ -47,6 +47,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
 }
@@ -61,6 +62,7 @@ type UnitStatus struct {
 	Machine        string
 	OpenedPorts    []string
 	PublicAddress  string
+	Charm          string
 	Subordinates   map[string]UnitStatus
 }
 

@@ -192,11 +192,11 @@ var (
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"charm":   "local:quantal/dummy-1",
+		"charm":   "cs:quantal/dummy-1",
 		"exposed": false,
 	}
 	exposedService = M{
-		"charm":   "local:quantal/dummy-1",
+		"charm":   "cs:quantal/dummy-1",
 		"exposed": true,
 	}
 )
@@ -430,7 +430,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -444,7 +444,7 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -500,7 +500,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -514,7 +514,7 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -539,7 +539,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -563,7 +563,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -589,7 +589,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -613,7 +613,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -640,7 +640,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
@@ -652,7 +652,7 @@ var statusTests = []testCase{
 						},
 					},
 					"exposed-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
 						"units": M{
 							"exposed-service/0": M{
@@ -688,7 +688,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":   "local:quantal/dummy-1",
+						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"life":    "dying",
 						"units": M{
@@ -760,7 +760,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"project": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"project/0": M{
@@ -774,7 +774,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -787,7 +787,7 @@ var statusTests = []testCase{
 						},
 					},
 					"varnish": M{
-						"charm":   "local:quantal/varnish-1",
+						"charm":   "cs:quantal/varnish-1",
 						"exposed": true,
 						"units": M{
 							"varnish/0": M{
@@ -800,7 +800,7 @@ var statusTests = []testCase{
 						},
 					},
 					"private": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"private/0": M{
@@ -853,7 +853,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"riak": M{
-						"charm":   "local:quantal/riak-7",
+						"charm":   "cs:quantal/riak-7",
 						"exposed": true,
 						"units": M{
 							"riak/0": M{
@@ -929,7 +929,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -948,7 +948,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -968,7 +968,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:quantal/logging-1",
+						"charm":   "cs:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -992,7 +992,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1011,7 +1011,7 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -1031,7 +1031,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:quantal/logging-1",
+						"charm":   "cs:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -1054,7 +1054,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1073,7 +1073,7 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "local:quantal/logging-1",
+						"charm":   "cs:quantal/logging-1",
 						"exposed": true,
 						"relations": M{
 							"logging-directory": L{"wordpress"},
@@ -1129,7 +1129,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":   "local:quantal/wordpress-3",
+						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
@@ -1148,7 +1148,7 @@ var statusTests = []testCase{
 						},
 					},
 					"monitoring": M{
-						"charm":   "local:quantal/monitoring-0",
+						"charm":   "cs:quantal/monitoring-0",
 						"exposed": true,
 						"relations": M{
 							"monitoring-port": L{"wordpress"},
@@ -1196,7 +1196,7 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
@@ -1224,12 +1224,169 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
+						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
 						"units": M{
 							"mysql/1": M{
 								"machine":     "1/lxc/0",
 								"agent-state": "started",
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"service with out of date charm",
+		addMachine{machineId: "0", job: state.JobManageState},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addCharmPlaceholder{"mysql", 23},
+		addAliveUnit{"mysql", "1"},
+
+		expect{
+			"services and units with correct charm status",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":          "cs:quantal/mysql-1",
+						"can-upgrade-to": "cs:quantal/mysql-23",
+						"exposed":        true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "1",
+								"agent-state": "pending",
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"unit with out of date charm",
+		addMachine{machineId: "0", job: state.JobManageState},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addAliveUnit{"mysql", "1"},
+		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
+		addCharmWithRevision{addCharm{"mysql"}, "local", 1},
+		setServiceCharm{"mysql", "local:quantal/mysql-1"},
+
+		expect{
+			"services and units with correct charm status",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "local:quantal/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":        "1",
+								"agent-state":    "started",
+								"upgrading-from": "cs:quantal/mysql-1",
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"service and unit with out of date charms",
+		addMachine{machineId: "0", job: state.JobManageState},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addAliveUnit{"mysql", "1"},
+		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
+		addCharmWithRevision{addCharm{"mysql"}, "cs", 2},
+		setServiceCharm{"mysql", "cs:quantal/mysql-2"},
+		addCharmPlaceholder{"mysql", 23},
+
+		expect{
+			"services and units with correct charm status",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":          "cs:quantal/mysql-2",
+						"can-upgrade-to": "cs:quantal/mysql-23",
+						"exposed":        true,
+						"units": M{
+							"mysql/0": M{
+								"machine":        "1",
+								"agent-state":    "started",
+								"upgrading-from": "cs:quantal/mysql-1",
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"service with local charm not shown as out of date",
+		addMachine{machineId: "0", job: state.JobManageState},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+		addAliveUnit{"mysql", "1"},
+		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
+		addCharmWithRevision{addCharm{"mysql"}, "local", 1},
+		setServiceCharm{"mysql", "local:quantal/mysql-1"},
+		addCharmPlaceholder{"mysql", 23},
+
+		expect{
+			"services and units with correct charm status",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "local:quantal/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":        "1",
+								"agent-state":    "started",
+								"upgrading-from": "cs:quantal/mysql-1",
 							},
 						},
 					},
@@ -1333,15 +1490,30 @@ type addCharm struct {
 	name string
 }
 
-func (ac addCharm) step(c *gc.C, ctx *context) {
+func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := coretesting.Charms.Dir(ac.name)
-	name, rev := ch.Meta().Name, ch.Revision()
-	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", name, rev))
+	name := ch.Meta().Name
+	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
 	c.Assert(err, gc.IsNil)
 	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
 	c.Assert(err, gc.IsNil)
 	ctx.charms[ac.name] = dummy
+}
+
+func (ac addCharm) step(c *gc.C, ctx *context) {
+	ch := coretesting.Charms.Dir(ac.name)
+	ac.addCharmStep(c, ctx, "cs", ch.Revision())
+}
+
+type addCharmWithRevision struct {
+	addCharm
+	scheme string
+	rev    int
+}
+
+func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
+	ac.addCharmStep(c, ctx, ac.scheme, ac.rev)
 }
 
 type addService struct {
@@ -1368,6 +1540,33 @@ func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 		err = s.SetExposed()
 		c.Assert(err, gc.IsNil)
 	}
+}
+
+type setServiceCharm struct {
+	name  string
+	charm string
+}
+
+func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
+	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
+	c.Assert(err, gc.IsNil)
+	s, err := ctx.st.Service(ssc.name)
+	c.Assert(err, gc.IsNil)
+	err = s.SetCharm(ch, false)
+	c.Assert(err, gc.IsNil)
+}
+
+type addCharmPlaceholder struct {
+	name string
+	rev  int
+}
+
+func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
+	ch := coretesting.Charms.Dir(ac.name)
+	name := ch.Meta().Name
+	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
+	err := ctx.st.AddStoreCharmPlaceholder(curl)
+	c.Assert(err, gc.IsNil)
 }
 
 type addUnit struct {
@@ -1428,6 +1627,21 @@ func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, gc.IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo, nil)
+	c.Assert(err, gc.IsNil)
+}
+
+type setUnitCharmURL struct {
+	unitName string
+	charm    string
+}
+
+func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(uc.unitName)
+	c.Assert(err, gc.IsNil)
+	curl := charm.MustParseURL(uc.charm)
+	err = u.SetCharmURL(curl)
+	c.Assert(err, gc.IsNil)
+	err = u.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1545,7 +1759,9 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		args := append([]string{"--format", format.name}, e.scope...)
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
-		c.Assert(stderr, gc.HasLen, 0)
+		if !c.Check(stderr, gc.HasLen, 0) {
+			c.Fatalf("status failed: %s", string(stderr))
+		}
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
