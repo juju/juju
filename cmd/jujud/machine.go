@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
+	"launchpad.net/juju-core/worker/charmrevisionworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -208,7 +209,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 			// TODO(dimitern): Add firewaller here, when using the API.
 		case params.JobManageState:
-			// Not yet implemented with the API.
+			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
+			})
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -267,7 +270,7 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 }
 
 // StateJobs returns a worker running all the workers that require
-// a *state.State cofnnection.
+// a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.Conf.config
 	st, entity, err := openState(agentConfig, a)

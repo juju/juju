@@ -52,6 +52,11 @@ func (s *CharmSuite) TearDownSuite(c *gc.C) {
 	s.JujuConnSuite.TearDownSuite(c)
 }
 
+// UpdateStoreRevision sets the revision of the specified charm to rev.
+func (s *CharmSuite) UpdateStoreRevision(ch string, rev int) {
+	s.server.UpdateStoreRevision(ch, rev)
+}
+
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
