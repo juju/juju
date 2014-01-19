@@ -406,6 +406,47 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
+// HttpProxy returns the http proxy for the environment.
+func (c *Config) HttpProxy() string {
+	return c.asString("http-proxy")
+}
+
+// HttpsProxy returns the https proxy for the environment.
+func (c *Config) HttpsProxy() string {
+	return c.asString("https-proxy")
+}
+
+// FtpProxy returns the ftp proxy for the environment.
+func (c *Config) FtpProxy() string {
+	return c.asString("ftp-proxy")
+}
+
+func (c *Config) getWithFallback(key, fallback string) string {
+	value := c.asString(key)
+	if value == "" {
+		value = c.asString(fallback)
+	}
+	return value
+}
+
+// AptHttpProxy returns the apt http proxy for the environment.
+// Falls back to the default http-proxy if not specified.
+func (c *Config) AptHttpProxy() string {
+	return c.getWithFallback("apt-http-proxy", "http-proxy")
+}
+
+// AptHttpsProxy returns the apt https proxy for the environment.
+// Falls back to the default https-proxy if not specified.
+func (c *Config) AptHttpsProxy() string {
+	return c.getWithFallback("apt-https-proxy", "https-proxy")
+}
+
+// AptFtpProxy returns the apt ftp proxy for the environment.
+// Falls back to the default ftp-proxy if not specified.
+func (c *Config) AptFtpProxy() string {
+	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
+}
+
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() ([]byte, bool) {
