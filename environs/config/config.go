@@ -554,6 +554,12 @@ var fields = schema.Fields{
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
+	"http-proxy":                schema.String(),
+	"https-proxy":               schema.String(),
+	"ftp-proxy":                 schema.String(),
+	"apt-http-proxy":            schema.String(),
+	"apt-https-proxy":           schema.String(),
+	"apt-ftp-proxy":             schema.String(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -576,6 +582,12 @@ var alwaysOptional = schema.Defaults{
 	"ca-private-key-path":   schema.Omit,
 	"logging-config":        schema.Omit,
 	"provisioner-safe-mode": schema.Omit,
+	"http-proxy":            schema.Omit,
+	"https-proxy":           schema.Omit,
+	"ftp-proxy":             schema.Omit,
+	"apt-http-proxy":        schema.Omit,
+	"apt-https-proxy":       schema.Omit,
+	"apt-ftp-proxy":         schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
