@@ -32,9 +32,3 @@ func DetectProxies() ProxySettings {
 		Ftp:   getProxySetting("ftp_proxy"),
 	}
 }
-
-// DetectAptProxies will shell out to apt-config to dump the http, https, and
-// ftp proxy settings.
-func DetectAptProxies() ProxySettings {
-	return ProxySettings{}
-}

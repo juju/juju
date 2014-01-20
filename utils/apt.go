@@ -12,11 +12,13 @@ import (
 	"strings"
 
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 var (
 	aptLogger  = loggo.GetLogger("juju.utils.apt")
-	aptProxyRE = regexp.MustCompile(`(?im)^\s*Acquire::[a-z]+::Proxy\s+"[^"]+";\s*$`)
+	aptProxyRE = regexp.MustCompile(`(?im)^\s*Acquire::(?P<protocol>[a-z]+)::Proxy\s+"(?P<proxy>[^"]+)";\s*$`)
 )
 
 // Some helpful functions for running apt in a sane way
@@ -72,6 +74,12 @@ func AptConfigProxy() (string, error) {
 		return "", fmt.Errorf("apt-config failed: %v", err)
 	}
 	return string(bytes.Join(aptProxyRE.FindAll(out, -1), []byte("\n"))), nil
+}
+
+// DetectAptProxies will shell out to apt-config to dump the http, https, and
+// ftp proxy settings.
+func DetectAptProxies() osenv.ProxySettings {
+	return osenv.ProxySettings{}
 }
 
 // IsUbuntu executes lxb_release to see if the host OS is Ubuntu.
