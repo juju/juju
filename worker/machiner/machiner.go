@@ -4,10 +4,12 @@ package machiner
 
 import (
 	"fmt"
+	"net"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -47,7 +49,45 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	logger.Infof("%q started", mr.tag)
 
+	// Set host addresses for the Machine; this is necessary for containers
+	// and manual machines, where there is no external provider to consult
+	// for the addresses.
+	if err := mr.setMachineHostAddresses(m); err != nil {
+		logger.Warningf("failed to set host addresses for %q: %v", mr.tag, err)
+	}
+
 	return m.Watch()
+}
+
+// setMachineHostAddresses detects the local host's addresses, and then
+// sets them in state.
+func (mr *Machiner) setMachineHostAddresses(m *machiner.Machine) error {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return err
+	}
+	var hostAddresses []instance.Address
+	for _, addr := range addrs {
+		var ip net.IP
+		switch addr := addr.(type) {
+		case *net.IPAddr:
+			ip = addr.IP
+		case *net.IPNet:
+			ip = addr.IP
+		default:
+			continue
+		}
+		if ip.IsLoopback() {
+			continue
+		}
+		hostAddresses = append(hostAddresses, instance.NewAddress(ip.String()))
+	}
+	if hostAddresses == nil {
+		return nil
+	}
+	logger.Infof("set addresses: %q", hostAddresses)
+	// TODO(axw) call machiner API
+	return nil
 }
 
 func (mr *Machiner) Handle() error {
