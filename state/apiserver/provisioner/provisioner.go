@@ -25,6 +25,7 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 	*common.EnvironWatcher
 	*common.EnvironMachinesWatcher
+	*common.InstanceIdGetter
 
 	st          *state.State
 	resources   *common.Resources
@@ -89,10 +90,11 @@ func NewProvisionerAPI(
 		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
-		st:          st,
-		resources:   resources,
-		authorizer:  authorizer,
-		getAuthFunc: getAuthFunc,
+		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
+		st:                     st,
+		resources:              resources,
+		authorizer:             authorizer,
+		getAuthFunc:            getAuthFunc,
 	}, nil
 }
 
@@ -283,30 +285,6 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 		machine, err := p.getMachine(canAccess, arg.Tag)
 		if err == nil {
 			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// InstanceId returns the provider specific instance id for each given
-// machine or an CodeNotProvisioned error, if not set.
-func (p *ProvisionerAPI) InstanceId(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		machine, err := p.getMachine(canAccess, entity.Tag)
-		if err == nil {
-			var instanceId instance.Id
-			instanceId, err = machine.InstanceId()
-			if err == nil {
-				result.Results[i].Result = string(instanceId)
-			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

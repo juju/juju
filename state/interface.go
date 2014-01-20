@@ -5,6 +5,7 @@ package state
 
 import (
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -177,3 +178,10 @@ type EnvironMachinesWatcher interface {
 }
 
 var _ EnvironMachinesWatcher = (*State)(nil)
+
+// InstanceIdGetter defines a single method - InstanceId.
+type InstanceIdGetter interface {
+	InstanceId() (instance.Id, error)
+}
+
+var _ InstanceIdGetter = (*Machine)(nil)
