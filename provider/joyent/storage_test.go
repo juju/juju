@@ -1,7 +1,7 @@
 // Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package joyent
+package joyent_test
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
+	jp "launchpad.net/juju-core/provider/joyent"
 	jc "launchpad.net/juju-core/testing/checkers"
 
 	"launchpad.net/gojoyent/errors"
@@ -19,6 +20,7 @@ import (
 
 type storageSuite struct {
 	providerSuite
+	localMantaService
 }
 
 const (
@@ -29,21 +31,31 @@ const (
 
 var _ = gc.Suite(&storageSuite{})
 
+func (s *storageSuite) SetUpSuite(c *gc.C) {
+	s.providerSuite.SetUpSuite(c)
+	s.localMantaService.Start(c)
+}
+
+func (s *storageSuite) TearDownSuite(c *gc.C) {
+	s.localMantaService.Stop()
+	s.providerSuite.TearDownSuite(c)
+}
+
 // s.makeStorage creates a Manta storage object for the running test.
-func (s *storageSuite) assertStorage(name string, c *gc.C) *joyentStorage {
-	env := s.makeEnviron()
-	env.name = name
-	storage := NewStorage(env).(*joyentStorage)
+func (s *storageSuite) assertStorage(name string, c *gc.C) *jp.JoyentStorage {
+	env := s.makeEnviron("localhost", s.localMantaService.Server.URL)
+	env.SetName(name)
+	storage := jp.NewStorage(env).(*jp.JoyentStorage)
 	c.Assert(storage, gc.NotNil)
 	return storage
 }
 
-func (s *storageSuite) assertContainer(storage *joyentStorage, c *gc.C) {
-	err := storage.createContainer(storage.containerName)
+func (s *storageSuite) assertContainer(storage *jp.JoyentStorage, c *gc.C) {
+	err := storage.CreateContainer()
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *storageSuite) assertFile(storage *joyentStorage, c *gc.C) {
+func (s *storageSuite) assertFile(storage *jp.JoyentStorage, c *gc.C) {
 	err := storage.Put(fileName, strings.NewReader(fileBlobContent), int64(len(fileBlobContent)))
 	c.Assert(err, gc.IsNil)
 }
@@ -133,8 +145,8 @@ func (s *storageSuite) TestURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	parsedURL, err := url.Parse(URL)
 	c.Assert(err, gc.IsNil)
-	c.Check(parsedURL.Host, gc.Matches, mantaStorage.ecfg.mantaUrl()[strings.LastIndex(mantaStorage.ecfg.mantaUrl(), "/")+1:])
-	c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/stor/%s/%s", mantaStorage.ecfg.mantaUser(), mantaStorage.containerName, fileName))
+	c.Check(parsedURL.Host, gc.Matches, mantaStorage.GetMantaUrl()[strings.LastIndex(mantaStorage.GetMantaUrl(), "/")+1:])
+	c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/stor/%s/%s", mantaStorage.GetMantaUser(), mantaStorage.GetContainerName(), fileName))
 }
 
 func (s *storageSuite) TestCreateContainer(c *gc.C) {
@@ -154,7 +166,7 @@ func (s *storageSuite) TestDeleteContainer(c *gc.C) {
 	mantaStorage := s.assertStorage(storageName, c)
 	s.assertContainer(mantaStorage, c)
 
-	err := mantaStorage.deleteContainer(mantaStorage.containerName)
+	err := mantaStorage.DeleteContainer(mantaStorage.GetContainerName())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -163,7 +175,7 @@ func (s *storageSuite) TestDeleteContainerNotEmpty(c *gc.C) {
 	s.assertContainer(mantaStorage, c)
 	s.assertFile(mantaStorage, c)
 
-	err := mantaStorage.deleteContainer(mantaStorage.containerName)
+	err := mantaStorage.DeleteContainer(mantaStorage.GetContainerName())
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
@@ -171,7 +183,7 @@ func (s *storageSuite) TestDeleteContainerNotEmpty(c *gc.C) {
 func (s *storageSuite) TestDeleteContainerNotExists(c *gc.C) {
 	mantaStorage := s.assertStorage(storageName, c)
 
-	err := mantaStorage.deleteContainer("noContainer")
+	err := mantaStorage.DeleteContainer("noContainer")
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, jc.Satisfies, errors.IsResourceNotFound)
 }

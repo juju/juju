@@ -1,13 +1,14 @@
 // Copyright 2013 Joyent Inc.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package joyent
+package joyent_test
 
 import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	jp "launchpad.net/juju-core/provider/joyent"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -22,12 +23,12 @@ func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
 func validAttrs() testing.Attrs {
 	return testing.FakeConfig().Merge(testing.Attrs{
 		"type":         "joyent",
-		"sdc-user":     "dstroppa",
-		"sdc-key-id":   "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"sdc-url":      "https://us-west-1.api.joyentcloud.com",
-		"manta-user":   "dstroppa",
-		"manta-key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"manta-url":    "https://us-east.manta.joyent.com",
+		"sdc-user":     "juju-test",
+		"sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":      "https://test.api.joyentcloud.com",
+		"manta-user":   "juju-test",
+		"manta-key-id": "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"manta-url":    "https://test.manta.joyent.com",
 		"key-file":     "~/.ssh/id_rsa",
 		"algorithm":    "rsa-sha256",
 		"control-dir":  "juju-test",
@@ -42,10 +43,10 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.PatchEnvironment(SdcAccount, "tester")
-	s.PatchEnvironment(SdcKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
-	s.PatchEnvironment(MantaUser, "tester")
-	s.PatchEnvironment(MantaKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
+	s.PatchEnvironment(jp.SdcAccount, "tester")
+	s.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
+	s.PatchEnvironment(jp.MantaUser, "tester")
+	s.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 }
 
 var newConfigTests = []struct {
@@ -72,15 +73,15 @@ var newConfigTests = []struct {
 	err:    "sdc-key-id: must not be empty",
 }, {
 	info:   "sdc-url is inserted if missing",
-	expect: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
+	expect: testing.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
 }, {
 	info:   "sdc-url cannot be empty",
 	insert: testing.Attrs{"sdc-url": ""},
 	err:    "sdc-url: must not be empty",
 }, {
 	info:   "sdc-url is untouched if present",
-	insert: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
-	expect: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
+	insert: testing.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	expect: testing.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
@@ -99,15 +100,15 @@ var newConfigTests = []struct {
 	err:    "manta-key-id: must not be empty",
 }, {
 	info:   "manta-url is inserted if missing",
-	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+	expect: testing.Attrs{"manta-url": "https://test.manta.joyent.com"},
 }, {
 	info:   "manta-url cannot be empty",
 	insert: testing.Attrs{"manta-url": ""},
 	err:    "manta-url: must not be empty",
 }, {
 	info:   "manta-url is untouched if present",
-	insert: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
-	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+	insert: testing.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	expect: testing.Attrs{"manta-url": "https://test.manta.joyent.com"},
 }, {
 	info:   "key-file is inserted if missing",
 	expect: testing.Attrs{"key-file": "~/.ssh/id_rsa"},
@@ -201,24 +202,24 @@ var changeConfigTests = []struct {
 	expect: testing.Attrs{"sdc-user": "joyent_user"},
 }, {
 	info:   "can change sdc-key-id",
-	insert: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: testing.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
+	expect: testing.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can change sdc-url",
-	insert: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
-	expect: testing.Attrs{"sdc-url": "https://us-west-1.api.joyentcloud.com"},
+	insert: testing.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	expect: testing.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
 }, {
 	info:   "can change manta-user",
 	insert: testing.Attrs{"manta-user": "manta_user"},
 	expect: testing.Attrs{"manta-user": "manta_user"},
 }, {
 	info:   "can change manta-key-id",
-	insert: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: testing.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
+	expect: testing.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can change manta-url",
-	insert: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
-	expect: testing.Attrs{"manta-url": "https://us-east.manta.joyent.com"},
+	insert: testing.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	expect: testing.Attrs{"manta-url": "https://test.manta.joyent.com"},
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
@@ -285,7 +286,7 @@ var prepareConfigTests = []struct {
 }, {
 	info:   "can get sdc-key-id from env variable",
 	insert: testing.Attrs{"sdc-key-id": ""},
-	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	expect: testing.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can get manta-user from env variable",
 	insert: testing.Attrs{"manta-user": ""},
@@ -293,7 +294,7 @@ var prepareConfigTests = []struct {
 }, {
 	info:   "can get manta-key-id from env variable",
 	insert: testing.Attrs{"manta-key-id": ""},
-	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	expect: testing.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {

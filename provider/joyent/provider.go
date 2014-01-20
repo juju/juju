@@ -45,7 +45,7 @@ func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env := &joyentEnviron{name: cfg.Name()}
+	env := &JoyentEnviron{name: cfg.Name()}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -117,4 +117,8 @@ func (environProvider) PrivateAddress() (string, error) {
 	// called in code running on an instance in an environment using this
 	// provider; and it needs to return the address of *that* instance.
 	return "", errNotImplemented
+}
+
+func GetProviderInstance() environs.EnvironProvider {
+	return providerInstance
 }
