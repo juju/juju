@@ -1123,6 +1123,18 @@ func (*ConfigSuite) TestProxyValues(c *gc.C) {
 	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.2")
 }
 
+func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.HttpProxy(), gc.Equals, "")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "")
+	c.Assert(config.HttpsProxy(), gc.Equals, "")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
+	c.Assert(config.FtpProxy(), gc.Equals, "")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+}
+
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
 	// a fake home.
