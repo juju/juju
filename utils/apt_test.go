@@ -20,8 +20,7 @@ type AptSuite struct {
 var _ = gc.Suite(&AptSuite{})
 
 func (s *AptSuite) TestOnePackage(c *gc.C) {
-	cmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
-	defer cleanup()
+	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
 	err := utils.AptGetInstall("test-package")
 	c.Assert(err, gc.IsNil)
 	cmd := <-cmdChan
@@ -37,8 +36,7 @@ func (s *AptSuite) TestAptGetError(c *gc.C) {
 	const expected = `E: frobnicator failure detected`
 	cmdError := fmt.Errorf("error")
 	cmdExpectedError := fmt.Errorf("apt-get failed: error")
-	cmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(expected), cmdError)
-	defer cleanup()
+	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte(expected), cmdError)
 	err := utils.AptGetInstall("foo")
 	c.Assert(err, gc.DeepEquals, cmdExpectedError)
 	cmd := <-cmdChan
@@ -50,8 +48,7 @@ func (s *AptSuite) TestAptGetError(c *gc.C) {
 }
 
 func (s *AptSuite) TestConfigProxyEmpty(c *gc.C) {
-	cmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
-	defer cleanup()
+	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
 	out, err := utils.AptConfigProxy()
 	c.Assert(err, gc.IsNil)
 	cmd := <-cmdChan
@@ -65,8 +62,7 @@ func (s *AptSuite) TestConfigProxyEmpty(c *gc.C) {
 func (s *AptSuite) TestConfigProxyConfigured(c *gc.C) {
 	const expected = `Acquire::http::Proxy "10.0.3.1:3142";
 Acquire::https::Proxy "false";`
-	cmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(expected), nil)
-	defer cleanup()
+	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte(expected), nil)
 	out, err := utils.AptConfigProxy()
 	c.Assert(err, gc.IsNil)
 	cmd := <-cmdChan
@@ -85,8 +81,7 @@ Acquire::https::Proxy "false";`
 		expected = `Acquire::http::Proxy  "10.0.3.1:3142";
 Acquire::https::Proxy "false";`
 	)
-	cmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(output), nil)
-	defer cleanup()
+	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte(output), nil)
 	out, err := utils.AptConfigProxy()
 	c.Assert(err, gc.IsNil)
 	cmd := <-cmdChan
@@ -101,8 +96,7 @@ func (s *AptSuite) TestConfigProxyError(c *gc.C) {
 	const expected = `E: frobnicator failure detected`
 	cmdError := fmt.Errorf("error")
 	cmdExpectedError := fmt.Errorf("apt-config failed: error")
-	cmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(expected), cmdError)
-	defer cleanup()
+	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte(expected), cmdError)
 	out, err := utils.AptConfigProxy()
 	c.Assert(err, gc.DeepEquals, cmdExpectedError)
 	cmd := <-cmdChan
