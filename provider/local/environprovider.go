@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -69,6 +70,40 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
+	// If the user has specified no values for any of the three normal
+	// proxies, then look in the environment and set them.
+	attrs := make(map[string]interface{})
+	setIfNotBlank := func(key, value string) {
+		if value != "" {
+			attrs[key] = value
+		}
+	}
+	if cfg.HttpProxy() == "" &&
+		cfg.HttpsProxy() == "" &&
+		cfg.FtpProxy() == "" {
+		proxy := osenv.DetectProxies()
+		setIfNotBlank("http-proxy", proxy.Http)
+		setIfNotBlank("https-proxy", proxy.Https)
+		setIfNotBlank("ftp-proxy", proxy.Ftp)
+	}
+	if cfg.AptHttpProxy() == "" &&
+		cfg.AptHttpsProxy() == "" &&
+		cfg.AptFtpProxy() == "" {
+		proxy, err := utils.DetectAptProxies()
+		if err != nil {
+			return nil, err
+		}
+		setIfNotBlank("apt-http-proxy", proxy.Http)
+		setIfNotBlank("apt-https-proxy", proxy.Https)
+		setIfNotBlank("apt-ftp-proxy", proxy.Ftp)
+	}
+	if len(attrs) > 0 {
+		cfg, err = cfg.Apply(attrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return p.Open(cfg)
 }
 

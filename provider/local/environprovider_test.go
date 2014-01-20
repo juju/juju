@@ -10,6 +10,7 @@ import (
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type baseProviderSuite struct {
@@ -29,4 +30,14 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 	s.restore()
 	s.home.Restore()
 	s.TestSuite.TearDownTest(c)
+}
+
+type prepareSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&prepareSuite{})
+
+func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
+
 }
