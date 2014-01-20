@@ -1069,8 +1069,8 @@ func (st *State) setMongoPassword(name, password string) error {
 }
 
 type stateServersDoc struct {
-	Id         string `bson:"_id"`
-	MachineIds []string
+	Id               string `bson:"_id"`
+	MachineIds       []string
 	VotingMachineIds []string
 }
 
@@ -1099,8 +1099,8 @@ func (st *State) stateServerInfo() (*StateServerInfo, error) {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
 	return &StateServerInfo{
-		MachineIds: doc.MachineIds,
-		VotingMachineIds:  doc.VotingMachineIds,
+		MachineIds:       doc.MachineIds,
+		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
 }
 

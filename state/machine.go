@@ -84,7 +84,7 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
-	NoVote bool
+	NoVote        bool
 	PasswordHash  string
 	Clean         bool
 	Addresses     []address

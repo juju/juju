@@ -12,9 +12,9 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/replicaset"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -204,7 +204,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	}
 	if jset[JobManageState] {
 		if !allowStateServer {
-			return MachineTemplate{}, fmt.Errorf("cannot add state server except by calling EnsureAvailability")
+			return MachineTemplate{}, errStateServerNotAllowed
 		}
 	}
 
@@ -373,7 +373,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		InstanceId: template.InstanceId,
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
-		NoVote: template.NoVote,
+		NoVote:     template.NoVote,
 	}
 }
 
@@ -401,7 +401,9 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 		}
 	}
 	return false
-} 
+}
+
+var errStateServerNotAllowed = fmt.Errorf("state server jobs specified without calling EnsureAvailability")
 
 // maintainStateServersOps returns a set of operations that will maintain
 // the state server information when the given machine documents
@@ -424,13 +426,13 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	}
 	if currentInfo == nil {
 		if len(mdocs) != 1 || mdocs[0].Id != "0" {
-			return nil, fmt.Errorf("state server jobs specified without calling EnsureAvailability")
+			return nil, errStateServerNotAllowed
 		}
 		currentInfo = &StateServerInfo{}
 	}
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
-		Id:     environGlobalKey,
+		C:  st.stateServers.Name,
+		Id: environGlobalKey,
 		Assert: D{{
 			"$and", []D{
 				{{"machineids", D{{"$size", len(currentInfo.MachineIds)}}}},
@@ -473,7 +475,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 	if len(info.VotingMachineIds) > numStateServers {
 		return fmt.Errorf("cannot reduce state server count")
 	}
-	mdocs := make([]*machineDoc, 0, numStateServers - len(info.MachineIds))
+	mdocs := make([]*machineDoc, 0, numStateServers-len(info.MachineIds))
 	var ops []txn.Op
 	for i := len(info.MachineIds); i < numStateServers; i++ {
 		template := MachineTemplate{

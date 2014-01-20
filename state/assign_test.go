@@ -800,7 +800,6 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
-
 	// Add a environ management machine which can host units and check it is not chosen.
 	m, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)

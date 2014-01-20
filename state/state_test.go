@@ -613,8 +613,8 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	template := state.MachineTemplate{
-		Series:    "quantal",
-		Jobs:      []state.MachineJob{state.JobManageState},
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobManageState},
 	}
 	// Check that we can add the bootstrap machine.
 	m, err := s.State.AddOneMachine(template)
@@ -2397,20 +2397,19 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	expectIds := []string{m1.Id(), m2.Id()}
-	sort.Strings(expectIds)
+	expectIds := []string{m0.Id()}
+	expectStateServerInfo := &state.StateServerInfo{
+		MachineIds:       expectIds,
+		VotingMachineIds: expectIds,
+	}
 	info, err = state.GetStateServerInfo(st)
 	c.Assert(err, gc.IsNil)
-	sort.Strings(info.MachineIds)
-	sort.Strings(info.VotingMachineIds)
-	c.Assert(info.MachineIds, gc.DeepEquals, expectIds)
-	c.Assert(info.VotingMachineIds, gc.DeepEquals, expectIds)
+	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
 
 	// Check that it works with the original connection too.
 	info, err = state.GetStateServerInfo(s.State)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(info.MachineIds), gc.DeepEquals, len(expectIds))
-	c.Assert(len(info.VotingMachineIds), gc.DeepEquals, len(expectIds))
+	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
 }
 
 func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
@@ -2443,7 +2442,7 @@ func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	expectIds := []string{m0.Id()}
 	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
-		MachineIds: expectIds,
+		MachineIds:       expectIds,
 		VotingMachineIds: expectIds,
 	})
 }
@@ -2458,5 +2457,52 @@ func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
+	ids := make([]string, 3)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	c.Assert(err, gc.IsNil)
+	ids[0] = m0.Id()
 
+	// Add a non-state-server machine just to make sure.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	info, err := state.GetStateServerInfo(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{m0.Id()},
+		VotingMachineIds: []string{m0.Id()},
+	})
+
+	cons := constraints.Value{
+		Mem: newInt64(100),
+	}
+	err = s.State.EnsureAvailability(3, cons, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	for i := 1; i < 3; i++ {
+		m, err := s.State.Machine(fmt.Sprint(i + 1))
+		c.Assert(err, gc.IsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageState,
+			state.JobManageEnviron,
+		})
+		c.Assert(m.Constraints, gc.DeepEquals, cons)
+		c.Assert(m.WantsVote(), jc.IsTrue)
+		ids[i] = m.Id()
+	}
+	sort.Strings(ids)
+
+	info, err = state.GetStateServerInfo(s.State)
+	c.Assert(err, gc.IsNil)
+	sort.Strings(info.MachineIds)
+	sort.Strings(info.VotingMachineIds)
+	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       ids,
+		VotingMachineIds: ids,
+	})
+}
+
+func newInt64(i int64) *int64 {
+	return &i
 }

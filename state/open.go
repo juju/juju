@@ -287,30 +287,11 @@ func (st *State) createStateServersDoc() error {
 	// We don't care what the error is - if it's something
 	// unexpected, it'll be picked up again below.
 	if info, err := st.stateServerInfo(); err == nil {
-		if len(info.MachineIds) == 0 || len(info.VotingMachineIds) > 0 {
+		if len(info.MachineIds) > 0 && len(info.VotingMachineIds) > 0 {
 			return nil
 		}
 	}
-		// An earlier version of this code did not add the voting
-		// server ids to the state server info, so add them now.
-		ops := []txn.Op{{
-			C:      st.stateServers.Name,
-			Id:     environGlobalKey,
-			Assert: D{{
-				"$and", []D{{{"votingmachineids", D{{"$size", 0}}}}},
-			}},
-			Update: D{
-				{"$addToSet", D{{"votingmachineids", D{{"$each", info.MachineIds}}}}},
-			},
-		}}
-		// If the transaction is aborted, another Open got there first
-		// which is fine - the job's done.
-		err := onAbort(st.runTransaction(ops), nil)
-		if err != nil {
-			return fmt.Errorf("cannot initialise state server info: %v", err)
-		}
-		return nil
-	}
+	logger.Infof("adding state server info to legacy environment")
 	// Find all current state servers and add the state servers
 	// record containing them. We don't need to worry about
 	// this being concurrent-safe, because in the juju versions
@@ -326,13 +307,14 @@ func (st *State) createStateServersDoc() error {
 		doc.MachineIds = append(doc.MachineIds, m.Id)
 	}
 	doc.VotingMachineIds = doc.MachineIds
+	logger.Infof("found existing state servers %v", doc.MachineIds)
 
 	// We remove the document before inserting it because
 	// an earlier version of this code did not insert voting machine
 	// ids or maintain the ids correctly.
 	ops := []txn.Op{{
-		C: st.stateServers.Name,
-		Id: environGlobalKey,
+		C:      st.stateServers.Name,
+		Id:     environGlobalKey,
 		Remove: true,
 	}, {
 		C:      st.stateServers.Name,
