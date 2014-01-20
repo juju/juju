@@ -45,6 +45,7 @@ var _ = gc.Suite(&prepareSuite{})
 
 func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
+	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.PatchEnvironment("http-proxy", "")
 	s.PatchEnvironment("HTTP-PROXY", "")
 	s.PatchEnvironment("https-proxy", "")
@@ -66,20 +67,148 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 
 	for i, test := range []struct {
 		message          string
+		extraConfig      map[string]interface{}
 		env              map[string]string
 		aptOutput        string
 		expectedProxy    osenv.ProxySettings
 		expectedAptProxy osenv.ProxySettings
 	}{{
 		message: "nothing set",
+	}, {
+		message: "grabs proxy from environment",
+		env: map[string]string{
+			"http_proxy":  "http://user@10.0.0.1",
+			"HTTPS_PROXY": "https://user@10.0.0.1",
+			"ftp_proxy":   "ftp://user@10.0.0.1",
+		},
+		expectedProxy: osenv.ProxySettings{
+			Http:  "http://user@10.0.0.1",
+			Https: "https://user@10.0.0.1",
+			Ftp:   "ftp://user@10.0.0.1",
+		},
+		expectedAptProxy: osenv.ProxySettings{
+			Http:  "http://user@10.0.0.1",
+			Https: "https://user@10.0.0.1",
+			Ftp:   "ftp://user@10.0.0.1",
+		},
+	}, {
+		message: "skips proxy from environment if http-proxy set",
+		extraConfig: map[string]interface{}{
+			"http-proxy": "http://user@10.0.0.42",
+		},
+		env: map[string]string{
+			"http_proxy":  "http://user@10.0.0.1",
+			"HTTPS_PROXY": "https://user@10.0.0.1",
+			"ftp_proxy":   "ftp://user@10.0.0.1",
+		},
+		expectedProxy: osenv.ProxySettings{
+			Http: "http://user@10.0.0.42",
+		},
+		expectedAptProxy: osenv.ProxySettings{
+			Http: "http://user@10.0.0.42",
+		},
+	}, {
+		message: "skips proxy from environment if https-proxy set",
+		extraConfig: map[string]interface{}{
+			"https-proxy": "https://user@10.0.0.42",
+		},
+		env: map[string]string{
+			"http_proxy":  "http://user@10.0.0.1",
+			"HTTPS_PROXY": "https://user@10.0.0.1",
+			"ftp_proxy":   "ftp://user@10.0.0.1",
+		},
+		expectedProxy: osenv.ProxySettings{
+			Https: "https://user@10.0.0.42",
+		},
+		expectedAptProxy: osenv.ProxySettings{
+			Https: "https://user@10.0.0.42",
+		},
+	}, {
+		message: "skips proxy from environment if ftp-proxy set",
+		extraConfig: map[string]interface{}{
+			"ftp-proxy": "ftp://user@10.0.0.42",
+		},
+		env: map[string]string{
+			"http_proxy":  "http://user@10.0.0.1",
+			"HTTPS_PROXY": "https://user@10.0.0.1",
+			"ftp_proxy":   "ftp://user@10.0.0.1",
+		},
+		expectedProxy: osenv.ProxySettings{
+			Ftp: "ftp://user@10.0.0.42",
+		},
+		expectedAptProxy: osenv.ProxySettings{
+			Ftp: "ftp://user@10.0.0.42",
+		},
+	}, {
+		message: "apt-proxies detected",
+		aptOutput: `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "none";
+Acquire::magic::Proxy "none";
+`,
+		expectedAptProxy: osenv.ProxySettings{
+			Http:  "10.0.3.1:3142",
+			Https: "false",
+			Ftp:   "none",
+		},
+	}, {
+		message: "apt-proxies not used of apt-http-proxy set",
+		extraConfig: map[string]interface{}{
+			"apt-http-proxy": "value-set",
+		},
+		aptOutput: `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "none";
+Acquire::magic::Proxy "none";
+`,
+		expectedAptProxy: osenv.ProxySettings{
+			Http: "value-set",
+		},
+	}, {
+		message: "apt-proxies not used of apt-https-proxy set",
+		extraConfig: map[string]interface{}{
+			"apt-https-proxy": "value-set",
+		},
+		aptOutput: `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "none";
+Acquire::magic::Proxy "none";
+`,
+		expectedAptProxy: osenv.ProxySettings{
+			Https: "value-set",
+		},
+	}, {
+		message: "apt-proxies not used of apt-ftp-proxy set",
+		extraConfig: map[string]interface{}{
+			"apt-ftp-proxy": "value-set",
+		},
+		aptOutput: `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "none";
+Acquire::magic::Proxy "none";
+`,
+		expectedAptProxy: osenv.ProxySettings{
+			Ftp: "value-set",
+		},
 	}} {
-		c.Logf("%v: %s", i, test.message)
+		c.Logf("\n%v: %s", i, test.message)
+		cleanup := []func(){}
 		for key, value := range test.env {
-			s.PatchEnvironment(key, value)
+			restore := testbase.PatchEnvironment(key, value)
+			cleanup = append(cleanup, restore)
 		}
 		_, restore := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
-
-		env, err := provider.Prepare(baseConfig)
+		cleanup = append(cleanup, restore)
+		testConfig := baseConfig
+		if test.extraConfig != nil {
+			testConfig, err = baseConfig.Apply(test.extraConfig)
+			c.Assert(err, gc.IsNil)
+		}
+		env, err := provider.Prepare(testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -87,6 +216,12 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		c.Assert(envConfig.HttpsProxy(), gc.Equals, test.expectedProxy.Https)
 		c.Assert(envConfig.FtpProxy(), gc.Equals, test.expectedProxy.Ftp)
 
-		restore()
+		c.Assert(envConfig.AptHttpProxy(), gc.Equals, test.expectedAptProxy.Http)
+		c.Assert(envConfig.AptHttpsProxy(), gc.Equals, test.expectedAptProxy.Https)
+		c.Assert(envConfig.AptFtpProxy(), gc.Equals, test.expectedAptProxy.Ftp)
+
+		for _, clean := range cleanup {
+			clean()
+		}
 	}
 }

@@ -78,10 +78,12 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 			attrs[key] = value
 		}
 	}
+	logger.Tracef("Look for proxies?")
 	if cfg.HttpProxy() == "" &&
 		cfg.HttpsProxy() == "" &&
 		cfg.FtpProxy() == "" {
 		proxy := osenv.DetectProxies()
+		logger.Tracef("Proxies detected %#v", proxy)
 		setIfNotBlank("http-proxy", proxy.Http)
 		setIfNotBlank("https-proxy", proxy.Https)
 		setIfNotBlank("ftp-proxy", proxy.Ftp)
