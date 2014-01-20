@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -113,6 +114,25 @@ func (s *machinerSuite) TestRefresh(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Dead)
+}
+
+func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
+	machine, err := s.machiner.Machine("machine-0")
+	c.Assert(err, gc.IsNil)
+
+	addr := s.machine.Addresses()
+	c.Assert(addr, gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetMachineAddresses(addresses)
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, addresses)
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {
