@@ -43,26 +43,28 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
+	// Set the addresses in state to the host's addresses.
+	if err := setMachineAddresses(m); err != nil {
+		return nil, err
+	}
+
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, fmt.Errorf("%s failed to set status started: %v", mr.tag, err)
 	}
 	logger.Infof("%q started", mr.tag)
 
-	// Set host addresses for the Machine; this is necessary for containers
-	// and manual machines, where there is no external provider to consult
-	// for the addresses.
-	if err := mr.setMachineHostAddresses(m); err != nil {
-		logger.Warningf("failed to set host addresses for %q: %v", mr.tag, err)
-	}
-
 	return m.Watch()
 }
 
-// setMachineHostAddresses detects the local host's addresses, and then
-// sets them in state.
-func (mr *Machiner) setMachineHostAddresses(m *machiner.Machine) error {
-	addrs, err := net.InterfaceAddrs()
+var interfaceAddrs = net.InterfaceAddrs
+
+// setMachineAddresses sets the addresses for this machine to all of the
+// host's non-loopback interface IP addresses. We only need to do this for
+// containers; instances' addresses are updated via the addressupdater worker
+// by querying the provider.
+func setMachineAddresses(m *machiner.Machine) error {
+	addrs, err := interfaceAddrs()
 	if err != nil {
 		return err
 	}
@@ -82,11 +84,13 @@ func (mr *Machiner) setMachineHostAddresses(m *machiner.Machine) error {
 		}
 		hostAddresses = append(hostAddresses, instance.NewAddress(ip.String()))
 	}
-	if hostAddresses == nil {
+	if len(hostAddresses) == 0 {
 		return nil
 	}
-	logger.Infof("set addresses: %q", hostAddresses)
-	// TODO(axw) call machiner API
+	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
+	// TODO(axw)
+	//return m.SetAddresses(hostAddresses)
+	_ = m
 	return nil
 }
 
