@@ -60,9 +60,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 var interfaceAddrs = net.InterfaceAddrs
 
 // setMachineAddresses sets the addresses for this machine to all of the
-// host's non-loopback interface IP addresses. We only need to do this for
-// containers; instances' addresses are updated via the addressupdater worker
-// by querying the provider.
+// host's non-loopback interface IP addresses.
 func setMachineAddresses(m *machiner.Machine) error {
 	addrs, err := interfaceAddrs()
 	if err != nil {
