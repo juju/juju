@@ -159,3 +159,13 @@ type EnvironAccessor interface {
 }
 
 var _ EnvironAccessor = (*State)(nil)
+
+// UnitsWatcher defines the methods needed to retrieve an entity (a
+// machine or a service) and watch its units.
+type UnitsWatcher interface {
+	Entity
+	WatchUnits() StringsWatcher
+}
+
+var _ UnitsWatcher = (*Machine)(nil)
+var _ UnitsWatcher = (*Service)(nil)
