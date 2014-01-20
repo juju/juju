@@ -1088,6 +1088,53 @@ func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
 }
 
+func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{
+		"http-proxy":  "http://user@10.0.0.1",
+		"https-proxy": "https://user@10.0.0.1",
+		"ftp-proxy":   "ftp://user@10.0.0.1",
+	})
+	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.HttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+}
+
+func (*ConfigSuite) TestProxyValues(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{
+		"http-proxy":      "http://user@10.0.0.1",
+		"https-proxy":     "https://user@10.0.0.1",
+		"ftp-proxy":       "ftp://user@10.0.0.1",
+		"apt-http-proxy":  "http://user@10.0.0.2",
+		"apt-https-proxy": "https://user@10.0.0.2",
+		"apt-ftp-proxy":   "ftp://user@10.0.0.2",
+	})
+	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.2")
+	c.Assert(config.HttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.2")
+	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.2")
+}
+
+func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.HttpProxy(), gc.Equals, "")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "")
+	c.Assert(config.HttpsProxy(), gc.Equals, "")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
+	c.Assert(config.FtpProxy(), gc.Equals, "")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+}
+
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
 	// a fake home.
