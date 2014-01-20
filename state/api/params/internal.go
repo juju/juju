@@ -305,20 +305,6 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// MachineSetStatus holds a machine tag, status and extra info.
-// DEPRECATE(v1.14)
-type MachineSetStatus struct {
-	Tag    string
-	Status Status
-	Info   string
-}
-
-// MachinesSetStatus holds the parameters for making a Machiner.SetStatus call.
-// DEPRECATE(v1.14)
-type MachinesSetStatus struct {
-	Machines []MachineSetStatus
-}
-
 // SetEntityStatus holds an entity tag, status and extra info.
 type SetEntityStatus struct {
 	Tag    string
@@ -330,9 +316,6 @@ type SetEntityStatus struct {
 // SetStatus holds the parameters for making a SetStatus call.
 type SetStatus struct {
 	Entities []SetEntityStatus
-	// Machines is only here to ensure compatibility with v1.12.
-	// DEPRECATE(v1.14)
-	Machines []SetEntityStatus
 }
 
 // StatusResult holds an entity status, extra information, or an
@@ -348,6 +331,17 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
+// MachineAddresses holds an machine tag and addresses.
+type MachineAddresses struct {
+	Tag       string
+	Addresses []instance.Address
+}
+
+// SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
+type SetMachinesAddresses struct {
+	MachineAddresses []MachineAddresses
+}
+
 // ConstraintsResult holds machine constraints or an error.
 type ConstraintsResult struct {
 	Error       *Error
@@ -357,22 +351,6 @@ type ConstraintsResult struct {
 // ConstraintsResults holds multiple constraints results.
 type ConstraintsResults struct {
 	Results []ConstraintsResult
-}
-
-// MachineAgentGetMachinesResults holds the results of a
-// machineagent.API.GetMachines call.
-// DEPRECATE(v1.14)
-type MachineAgentGetMachinesResults struct {
-	Machines []MachineAgentGetMachinesResult
-}
-
-// MachineAgentGetMachinesResult holds the results of a
-// machineagent.API.GetMachines call for a single machine.
-// DEPRECATE(v1.14)
-type MachineAgentGetMachinesResult struct {
-	Life  Life
-	Jobs  []MachineJob
-	Error *Error
 }
 
 // AgentGetEntitiesResults holds the results of a
