@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -50,4 +51,27 @@ func jujuHomeWin() string {
 		return ""
 	}
 	return filepath.Join(appdata, "Juju")
+}
+
+type ProxySettings struct {
+	Http  string
+	Https string
+	Ftp   string
+}
+
+func getProxySetting(key string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		value = os.Getenv(strings.ToUpper(value))
+	}
+	return value
+}
+
+// DetectProxies returns the proxy settings found the environment.
+func DetectProxies() ProxySettings {
+	return ProxySettings{
+		Http:  getProxySetting("http_proxy"),
+		Https: getProxySetting("https_proxy"),
+		Ftp:   getProxySetting("ftp_proxy"),
+	}
 }
