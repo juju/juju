@@ -53,6 +53,8 @@ func jujuHomeWin() string {
 	return filepath.Join(appdata, "Juju")
 }
 
+// ProxySettings holds the values for the http, https and ftp proxies found by
+// Detect Proxies.
 type ProxySettings struct {
 	Http  string
 	Https string
@@ -62,7 +64,7 @@ type ProxySettings struct {
 func getProxySetting(key string) string {
 	value := os.Getenv(key)
 	if value == "" {
-		value = os.Getenv(strings.ToUpper(value))
+		value = os.Getenv(strings.ToUpper(key))
 	}
 	return value
 }
