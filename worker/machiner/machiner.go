@@ -88,10 +88,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 		return nil
 	}
 	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
-	// TODO(axw)
-	//return m.SetAddresses(hostAddresses)
-	_ = m
-	return nil
+	return m.SetMachineAddresses(hostAddresses)
 }
 
 func (mr *Machiner) Handle() error {

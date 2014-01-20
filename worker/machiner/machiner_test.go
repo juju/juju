@@ -143,7 +143,7 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 			&net.IPAddr{IP: net.IPv4(127, 0, 0, 1)}, // loopback, ignored
 			&net.IPAddr{IP: net.IPv6loopback},       // loopback, ignored
 			&net.UnixAddr{},                         // not IP, ignored
-			&net.IPNet{IP: net.ParseIP("2001:DB8::1")},
+			&net.IPNet{IP: net.ParseIP("2001:db8::1")},
 		}
 		return addrs, nil
 	})
@@ -155,6 +155,6 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []instance.Address{
 		instance.NewAddress("10.0.0.1"),
-		instance.NewAddress("2001:DB8::1"),
+		instance.NewAddress("2001:db8::1"),
 	})
 }
