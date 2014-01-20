@@ -17,14 +17,11 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
-
-var DefaultToolsLocation = sync.DefaultToolsLocation
 
 // ToolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type ToolsMetadataCommand struct {
@@ -67,7 +64,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	const minorVersion = -1
 	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	if err == envtools.ErrNoTools {
-		source := DefaultToolsLocation
+		source := envtools.DefaultBaseURL
 		var u *url.URL
 		u, err = url.Parse(source)
 		if err != nil {

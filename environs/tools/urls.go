@@ -4,8 +4,13 @@
 package tools
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 )
 
 // SupportsCustomSources represents an environment that
@@ -44,11 +49,37 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		sources = append(sources, customSources...)
 	}
 
-	if DefaultBaseURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource(DefaultBaseURL, simplestreams.VerifySSLHostnames))
+	defaultURL, err := ToolsURL(DefaultBaseURL)
+	if err != nil {
+		return nil, err
+	}
+	if defaultURL != "" {
+		sources = append(sources, simplestreams.NewURLDataSource(defaultURL, simplestreams.VerifySSLHostnames))
 	}
 	for _, source := range sources {
 		source.SetAllowRetry(allowRetry)
 	}
 	return sources, nil
+}
+
+// ToolsURL returns a valid tools URL constructed from source.
+// source may be a directory, or a URL like file://foo or http://foo.
+func ToolsURL(source string) (string, error) {
+	if source == "" {
+		return "", nil
+	}
+	// If source is a raw directory, we need to append the file:// prefix
+	// so it can be used as a URL.
+	defaultURL := source
+	u, err := url.Parse(source)
+	if err != nil {
+		return "", fmt.Errorf("invalid default tools URL %s: %v", defaultURL, err)
+	}
+	if u.Scheme == "" {
+		defaultURL = "file://" + defaultURL
+		if !strings.HasSuffix(defaultURL, "/"+storage.BaseToolsPath) {
+			defaultURL = fmt.Sprintf("%s/%s", defaultURL, storage.BaseToolsPath)
+		}
+	}
+	return defaultURL, nil
 }
