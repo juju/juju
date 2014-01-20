@@ -126,17 +126,6 @@ func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
 	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
 }
 
-// MachineAgent returns an object that provides access to the machine
-// agent API.  The id argument is reserved for future use and must currently
-// be empty.
-// DEPRECATED(v1.14)
-func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
-	if id != "" {
-		return nil, common.ErrBadId
-	}
-	return machine.NewAgentAPI(r.srv.state, r)
-}
-
 // Uniter returns an object that provides access to the Uniter API
 // facade. The id argument is reserved for future use and currently
 // needs to be empty.

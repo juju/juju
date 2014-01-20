@@ -86,7 +86,12 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
-	Addresses     []address
+	// We store 2 different sets of addresses for the machine, obtained
+	// from different sources.
+	// Addresses is the set of addresses obtained by asking the provider.
+	Addresses []address
+	// MachineAddresses is the set of addresses obtained from the machine itself.
+	MachineAddresses []address
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
@@ -714,7 +719,8 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
-// Addresses returns any hostnames and ips associated with a machine
+// Addresses returns any hostnames and ips associated with a machine,
+// determined by asking the provider.
 func (m *Machine) Addresses() (addresses []instance.Address) {
 	for _, address := range m.doc.Addresses {
 		addresses = append(addresses, address.InstanceAddress())
@@ -722,7 +728,8 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 	return
 }
 
-// SetAddresses records any addresses related to the machine
+// SetAddresses records any addresses related to the machine, sourced
+// by asking the provider.
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
@@ -738,6 +745,35 @@ func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.Addresses = stateAddresses
+	return nil
+}
+
+// MachineAddresses returns any hostnames and ips associated with a machine,
+// determined by asking the machine itself.
+func (m *Machine) MachineAddresses() (addresses []instance.Address) {
+	for _, address := range m.doc.MachineAddresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
+}
+
+// SetMachineAddresses records any addresses related to the machine, sourced
+// by asking the machine.
+func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) {
+	stateAddresses := instanceAddressesToAddresses(addresses)
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: D{{"$set", D{{"machineaddresses", stateAddresses}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.MachineAddresses = stateAddresses
 	return nil
 }
 
