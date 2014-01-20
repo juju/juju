@@ -127,6 +127,8 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
+// TODO(dimitern) bug #1270795 2014-01-20
+// Add a doc comment here.
 func (s *Service) GetOwnerTag() (string, error) {
 	var result params.StringResult
 	args := params.Entities{
