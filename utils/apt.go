@@ -78,8 +78,22 @@ func AptConfigProxy() (string, error) {
 
 // DetectAptProxies will shell out to apt-config to dump the http, https, and
 // ftp proxy settings.
-func DetectAptProxies() osenv.ProxySettings {
-	return osenv.ProxySettings{}
+func DetectAptProxies() (result osenv.ProxySettings, err error) {
+	output, err := AptConfigProxy()
+	if err != nil {
+		return result, err
+	}
+	for _, match := range aptProxyRE.FindAllStringSubmatch(output, -1) {
+		switch match[1] {
+		case "http":
+			result.Http = match[2]
+		case "https":
+			result.Https = match[2]
+		case "ftp":
+			result.Ftp = match[2]
+		}
+	}
+	return result, nil
 }
 
 // IsUbuntu executes lxb_release to see if the host OS is Ubuntu.

@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/juju/osenv"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
@@ -71,6 +72,31 @@ Acquire::https::Proxy "false";`
 		"Acquire::https::Proxy", "Acquire::ftp::Proxy",
 	})
 	c.Assert(out, gc.Equals, expected)
+}
+
+func (s *AptSuite) TestDetectAptProxy(c *gc.C) {
+	const output = `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "none";
+Acquire::magic::Proxy "none";
+`
+	_ = s.HookCommandOutput(&utils.AptCommandOutput, []byte(output), nil)
+
+	proxy, err := utils.DetectAptProxies()
+	c.Assert(err, gc.IsNil)
+	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{
+		Http:  "10.0.3.1:3142",
+		Https: "false",
+		Ftp:   "none",
+	})
+}
+
+func (s *AptSuite) TestDetectAptProxyNone(c *gc.C) {
+	_ = s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	proxy, err := utils.DetectAptProxies()
+	c.Assert(err, gc.IsNil)
+	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{})
 }
 
 func (s *AptSuite) TestConfigProxyConfiguredFilterOutput(c *gc.C) {
