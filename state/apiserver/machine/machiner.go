@@ -59,9 +59,6 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}
-	if len(args.MachineAddresses) == 0 {
-		return results, nil
-	}
 	canModify, err := api.getCanModify()
 	if err != nil {
 		return params.ErrorResults{}, err

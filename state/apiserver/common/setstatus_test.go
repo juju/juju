@@ -83,19 +83,6 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	c.Assert(get("x1").info, gc.Equals, "")
 	c.Assert(get("x2").status, gc.Equals, params.StatusPending)
 	c.Assert(get("x2").info, gc.Equals, "not really")
-
-	result, err = s.SetStatus(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{&params.Error{Message: "x0 fails"}},
-			{nil},
-			{nil},
-			{&params.Error{Message: "x3 error"}},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
 }
 
 func (*statusSetterSuite) TestSetStatusError(c *gc.C) {
