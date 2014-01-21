@@ -237,12 +237,14 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 
 	// Write out the normal proxy settings so that the settings are
 	// sourced by bash, and ssh through that.
+	c.AddScripts(
+		// We look to see if the proxy line is there already as
+		// the manual provider may have had it aleady.
+		`grep -q '.juju-proxy' /home/ubuntu/.profile || printf '\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
 	if (cfg.ProxySettings != osenv.ProxySettings{}) {
 		c.AddScripts(
-			// We look to see if the proxy line is there already
-			`grep -q '.juju-proxy' $HOME/.profile || printf '\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> $HOME/.profile`,
 			fmt.Sprintf(
-				`printf '%%s\n' %s > $HOME/.juju-proxy && chown ubuntu:ubuntu $HOME/.juju-proxy`,
+				`printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy`,
 				shquote(cfg.ProxySettings.AsEnvironmentValues())))
 	}
 
