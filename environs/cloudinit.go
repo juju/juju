@@ -114,6 +114,8 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
 		return err
 	}
+	mcfg.ProxySettings = cfg.ProxySettings()
+	mcfg.AptProxySettings = cfg.AptProxySettings()
 
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()

@@ -406,6 +406,15 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
+// ProxySettings returns all three proxy settings; http, https and ftp.
+func (c *Config) ProxySettings() osenv.ProxySettings {
+	return osenv.ProxySettings{
+		Http:  c.HttpProxy(),
+		Https: c.HttpsProxy(),
+		Ftp:   c.FtpProxy(),
+	}
+}
+
 // HttpProxy returns the http proxy for the environment.
 func (c *Config) HttpProxy() string {
 	return c.asString("http-proxy")
@@ -427,6 +436,15 @@ func (c *Config) getWithFallback(key, fallback string) string {
 		value = c.asString(fallback)
 	}
 	return value
+}
+
+// AptProxySettings returns all three proxy settings; http, https and ftp.
+func (c *Config) AptProxySettings() osenv.ProxySettings {
+	return osenv.ProxySettings{
+		Http:  c.AptHttpProxy(),
+		Https: c.AptHttpsProxy(),
+		Ftp:   c.AptFtpProxy(),
+	}
 }
 
 // AptHttpProxy returns the apt http proxy for the environment.
