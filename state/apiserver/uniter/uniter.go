@@ -953,6 +953,9 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	return result, nil
 }
 
+// TODO(dimitern) bug #1270795 2014-01-20
+// Add a doc comment here and use u.accessService()
+// below in the body to check for permissions.
 func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, error) {
 
 	nothing := params.StringResult{}

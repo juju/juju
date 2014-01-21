@@ -44,8 +44,8 @@ func (s *FirewallerSuite) assertPorts(c *gc.C, inst instance.Instance, machineId
 			c.Fatal(err)
 			return
 		}
-		state.SortPorts(got)
-		state.SortPorts(expected)
+		instance.SortPorts(got)
+		instance.SortPorts(expected)
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
@@ -69,8 +69,8 @@ func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []instance.Port) 
 			c.Fatal(err)
 			return
 		}
-		state.SortPorts(got)
-		state.SortPorts(expected)
+		instance.SortPorts(got)
+		instance.SortPorts(expected)
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return

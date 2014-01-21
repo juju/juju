@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -64,7 +65,7 @@ type Instance interface {
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
-	// The ports are returned as sorted by state.SortPorts.
+	// The ports are returned as sorted by SortPorts.
 	Ports(machineId string) ([]Port, error)
 }
 
@@ -266,4 +267,23 @@ var mbSuffixes = map[string]float64{
 	"G": 1024,
 	"T": 1024 * 1024,
 	"P": 1024 * 1024 * 1024,
+}
+
+type portSlice []Port
+
+func (p portSlice) Len() int      { return len(p) }
+func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	return p1.Number < p2.Number
+}
+
+// SortPorts sorts the given ports, first by protocol,
+// then by number.
+func SortPorts(ports []Port) {
+	sort.Sort(portSlice(ports))
 }

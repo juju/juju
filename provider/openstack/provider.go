@@ -959,7 +959,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 			})
 		}
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return ports, nil
 }
 

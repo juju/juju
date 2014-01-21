@@ -4,10 +4,12 @@ package machiner
 
 import (
 	"fmt"
+	"net"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -41,6 +43,11 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
+	// Set the addresses in state to the host's addresses.
+	if err := setMachineAddresses(m); err != nil {
+		return nil, err
+	}
+
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, fmt.Errorf("%s failed to set status started: %v", mr.tag, err)
@@ -48,6 +55,38 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	logger.Infof("%q started", mr.tag)
 
 	return m.Watch()
+}
+
+var interfaceAddrs = net.InterfaceAddrs
+
+// setMachineAddresses sets the addresses for this machine to all of the
+// host's non-loopback interface IP addresses.
+func setMachineAddresses(m *machiner.Machine) error {
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return err
+	}
+	var hostAddresses []instance.Address
+	for _, addr := range addrs {
+		var ip net.IP
+		switch addr := addr.(type) {
+		case *net.IPAddr:
+			ip = addr.IP
+		case *net.IPNet:
+			ip = addr.IP
+		default:
+			continue
+		}
+		if ip.IsLoopback() {
+			continue
+		}
+		hostAddresses = append(hostAddresses, instance.NewAddress(ip.String()))
+	}
+	if len(hostAddresses) == 0 {
+		return nil
+	}
+	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
+	return m.SetMachineAddresses(hostAddresses)
 }
 
 func (mr *Machiner) Handle() error {

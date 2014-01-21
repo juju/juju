@@ -1105,6 +1105,22 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.DeepEquals, addresses)
 }
 
+func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetMachineAddresses(addresses)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.MachineAddresses(), gc.DeepEquals, addresses)
+}
+
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)

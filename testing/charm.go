@@ -81,7 +81,7 @@ func (r *Repo) ClonedDir(dst, name string) *charm.Dir {
 // charm.
 func (r *Repo) ClonedURL(dst, series, name string) *charm.URL {
 	dst = filepath.Join(dst, series)
-	if err := os.MkdirAll(dst, 0777); err != nil {
+	if err := os.MkdirAll(dst, os.FileMode(0777)); err != nil {
 		panic(fmt.Errorf("cannot make destination directory: %v", err))
 	}
 	clone(dst, r.DirPath(name))
@@ -182,11 +182,16 @@ func (s *MockCharmStore) Get(charmURL *charm.URL) (charm.Charm, error) {
 }
 
 // Latest implements charm.Repository.Latest.
-func (s *MockCharmStore) Latest(charmURL *charm.URL) (int, error) {
-	charmURL = charmURL.WithRevision(-1)
-	base, rev := s.interpret(charmURL)
-	if _, found := s.charms[base][rev]; !found {
-		return 0, fmt.Errorf("charm not found in mock store: %s", charmURL)
+func (s *MockCharmStore) Latest(charmURLs ...*charm.URL) ([]charm.CharmRevision, error) {
+	result := make([]charm.CharmRevision, len(charmURLs))
+	for i, curl := range charmURLs {
+		charmURL := curl.WithRevision(-1)
+		base, rev := s.interpret(charmURL)
+		if _, found := s.charms[base][rev]; !found {
+			result[i].Err = fmt.Errorf("charm not found in mock store: %s", charmURL)
+		} else {
+			result[i].Revision = rev
+		}
 	}
-	return rev, nil
+	return result, nil
 }

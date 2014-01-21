@@ -288,6 +288,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
+	// Remove the default tools URL from the search path, just look in cloud storage.
+	s.PatchValue(&envtools.DefaultBaseURL, "")
 	for i, test := range envtesting.BootstrapToolsTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		attrs := map[string]interface{}{

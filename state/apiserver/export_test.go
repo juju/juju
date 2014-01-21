@@ -9,4 +9,5 @@ var (
 	RootType          = reflect.TypeOf(&srvRoot{})
 	NewPingTimeout    = newPingTimeout
 	GetEnvironStorage = getEnvironStorage
+	MaxPingInterval   = &maxPingInterval
 )

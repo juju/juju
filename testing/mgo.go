@@ -83,6 +83,14 @@ func (inst *MgoInstance) Start(ssl bool) error {
 	if err != nil {
 		return err
 	}
+
+	// give them all the same keyfile so they can talk appropriately
+	keyFilePath := filepath.Join(dbdir, "keyfile")
+	err = ioutil.WriteFile(keyFilePath, []byte("not very secret"), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write key file: %v", err)
+	}
+
 	pemPath := filepath.Join(dbdir, "server.pem")
 	err = ioutil.WriteFile(pemPath, []byte(ServerCert+ServerKey), 0600)
 	if err != nil {
@@ -107,6 +115,7 @@ func (inst *MgoInstance) run() error {
 	if inst.server != nil {
 		panic("mongo server is already running")
 	}
+
 	mgoport := strconv.Itoa(inst.port)
 	mgoargs := []string{
 		"--auth",
@@ -117,6 +126,8 @@ func (inst *MgoInstance) run() error {
 		"--smallfiles",
 		"--nojournal",
 		"--nounixsocket",
+		"--oplogSize", "10",
+		"--keyFile", filepath.Join(inst.dir, "keyfile"),
 	}
 	if inst.ssl {
 		mgoargs = append(mgoargs,

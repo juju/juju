@@ -47,6 +47,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
 }
@@ -61,6 +62,7 @@ type UnitStatus struct {
 	Machine        string
 	OpenedPorts    []string
 	PublicAddress  string
+	Charm          string
 	Subordinates   map[string]UnitStatus
 }
 
@@ -171,14 +173,26 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 
 // MachineConfig returns information from the environment config that are
 // needed for machine cloud-init.
-func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
+func (c *Client) MachineConfig(machineId string) (result params.MachineConfig, err error) {
 	args := params.MachineConfigParams{
 		MachineId: machineId,
-		Series:    series,
-		Arch:      arch,
 	}
 	err = c.st.Call("Client", "", "MachineConfig", args, &result)
 	return result, err
+}
+
+// ProvisioningScript returns a shell script that, when run,
+// provisions a machine agent on the machine executing the script.
+func (c *Client) ProvisioningScript(machineId, nonce string) (script string, err error) {
+	args := params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     nonce,
+	}
+	var result params.ProvisioningScriptResult
+	if err = c.st.Call("Client", "", "ProvisioningScript", args, &result); err != nil {
+		return "", err
+	}
+	return result.Script, nil
 }
 
 // DestroyMachines removes a given set of machines.

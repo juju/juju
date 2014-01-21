@@ -4,6 +4,8 @@
 package testbase
 
 import (
+	"os/exec"
+
 	gc "launchpad.net/gocheck"
 )
 
@@ -67,4 +69,17 @@ func (s *CleanupSuite) PatchEnvironment(name, value string) {
 func (s *CleanupSuite) PatchValue(dest, value interface{}) {
 	restore := PatchValue(dest, value)
 	s.AddCleanup(func(*gc.C) { restore() })
+}
+
+// HookCommandOutput calls the package function of the same name to mock out
+// the result of a particular comand execution, and will call the restore
+// function on test teardown.
+func (s *CleanupSuite) HookCommandOutput(
+	outputFunc *func(cmd *exec.Cmd) ([]byte, error),
+	output []byte,
+	err error,
+) <-chan *exec.Cmd {
+	result, restore := HookCommandOutput(outputFunc, output, err)
+	s.AddCleanup(func(*gc.C) { restore() })
+	return result
 }

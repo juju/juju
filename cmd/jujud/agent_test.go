@@ -214,22 +214,14 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 	return conf, agentTools
 }
 
-// primeStateAgent writes the configuration file and tools for an agent with the
-// given entity name.  It returns the agent's configuration and the current
-// tools.
-func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
-	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
-	c.Assert(err, gc.IsNil)
-	c.Assert(tools1, gc.DeepEquals, agentTools)
-
-	stateInfo := s.StateInfo(c)
+// makeStateAgentConfig creates and writes a state agent config.
+func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string) agent.Config {
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.StateMachineConfigParams{
 			AgentConfigParams: agent.AgentConfigParams{
-				DataDir:        s.DataDir(),
+				DataDir:        dataDir,
 				Tag:            tag,
 				Password:       password,
 				Nonce:          state.BootstrapNonce,
@@ -242,7 +234,22 @@ func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Confi
 			StatePort:       coretesting.MgoServer.Port(),
 			APIPort:         port,
 		})
+	c.Assert(err, gc.IsNil)
 	c.Assert(conf.Write(), gc.IsNil)
+	return conf
+}
+
+// primeStateAgent writes the configuration file and tools for an agent with the
+// given entity name.  It returns the agent's configuration and the current
+// tools.
+func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tools1, gc.DeepEquals, agentTools)
+
+	stateInfo := s.StateInfo(c)
+	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password)
 	return conf, agentTools
 }
 
