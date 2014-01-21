@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -27,7 +28,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1701,6 +1702,7 @@ func (s *clientSuite) TestMachineConfigNoArch(c *gc.C) {
 }
 
 func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
+	s.PatchValue(&envtools.DefaultBaseURL, "")
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
@@ -1714,7 +1716,7 @@ func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
 	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
-	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
+	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
 }
 
 func (s *clientSuite) TestProvisioningScript(c *gc.C) {

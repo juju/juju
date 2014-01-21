@@ -92,7 +92,7 @@ environments:
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
 	c.Assert(err, gc.IsNil)
-	s.PatchValue(&sync.DefaultToolsLocation, baseURL)
+	s.PatchValue(&envtools.DefaultBaseURL, baseURL)
 }
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
