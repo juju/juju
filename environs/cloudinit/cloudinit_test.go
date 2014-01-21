@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -741,6 +742,44 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 	}
+}
+
+func (*cloudinitSuite) createMachineConfig(c *gc.C) *cloudinit.MachineConfig {
+	environConfig := minimalConfig(c)
+	machineId := "42"
+	machineNonce := "fake-nonce"
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig.Tools = &tools.Tools{
+		Version: version.MustParseBinary("2.3.4-foo-bar"),
+		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+	}
+	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	return machineConfig
+}
+
+func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
+	machineCfg := s.createMachineConfig(c)
+	cloudcfg := coreCloudinit.New()
+	err := cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	cmds := cloudcfg.BootCmds()
+	c.Assert(cmds, gc.DeepEquals, []interface{}{})
+}
+
+func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
+	machineCfg := s.createMachineConfig(c)
+	machineCfg.AptProxySettings.Http = "http://user@10.0.0.1"
+	cloudcfg := coreCloudinit.New()
+	err := cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	cmds := cloudcfg.BootCmds()
+	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf %s 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
+	c.Assert(cmds, gc.DeepEquals, []interface{}{expected})
 }
 
 var serverCert = []byte(`
