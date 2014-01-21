@@ -3,6 +3,7 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import subprocess
 import sys
 
 from jujupy import (
@@ -22,8 +23,13 @@ def deploy_stack(environment):
     env.bootstrap()
     try:
         # wait for status info....
-        env.get_status()
-        env.wait_for_started()
+        try:
+            env.get_status()
+            env.wait_for_started()
+        except subprocess.CalledProcessError as e:
+            if getattr(e, 'stderr', None) is not None:
+                sys.stderr.write(e.stderr)
+            raise
     finally:
         env.destroy_environment()
 
