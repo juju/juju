@@ -28,24 +28,62 @@ func (s *proxySuite) TestDetectNoSettings(c *gc.C) {
 
 	proxies := osenv.DetectProxies()
 
-	c.Assert(proxies.Http, gc.Equals, "")
-	c.Assert(proxies.Https, gc.Equals, "")
-	c.Assert(proxies.Ftp, gc.Equals, "")
+	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{})
+}
+
+func (s *proxySuite) TestDetectPrimary(c *gc.C) {
+	// Patch all of the environment variables we check out just in case the
+	// user has one set.
+	s.PatchEnvironment("http_proxy", "http://user@10.0.0.1")
+	s.PatchEnvironment("HTTP_PROXY", "")
+	s.PatchEnvironment("https_proxy", "https://user@10.0.0.1")
+	s.PatchEnvironment("HTTPS_PROXY", "")
+	s.PatchEnvironment("ftp_proxy", "ftp://user@10.0.0.1")
+	s.PatchEnvironment("FTP_PROXY", "")
+
+	proxies := osenv.DetectProxies()
+
+	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{
+		Http:  "http://user@10.0.0.1",
+		Https: "https://user@10.0.0.1",
+		Ftp:   "ftp://user@10.0.0.1",
+	})
 }
 
 func (s *proxySuite) TestDetectFallback(c *gc.C) {
 	// Patch all of the environment variables we check out just in case the
 	// user has one set.
-	s.PatchEnvironment("http_proxy", "http://user@10.0.0.1")
-	s.PatchEnvironment("HTTP_PROXY", "")
+	s.PatchEnvironment("http_proxy", "")
+	s.PatchEnvironment("HTTP_PROXY", "http://user@10.0.0.2")
 	s.PatchEnvironment("https_proxy", "")
 	s.PatchEnvironment("HTTPS_PROXY", "https://user@10.0.0.2")
 	s.PatchEnvironment("ftp_proxy", "")
-	s.PatchEnvironment("FTP_PROXY", "")
+	s.PatchEnvironment("FTP_PROXY", "ftp://user@10.0.0.2")
 
 	proxies := osenv.DetectProxies()
 
-	c.Assert(proxies.Http, gc.Equals, "http://user@10.0.0.1")
-	c.Assert(proxies.Https, gc.Equals, "https://user@10.0.0.2")
-	c.Assert(proxies.Ftp, gc.Equals, "")
+	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{
+		Http:  "http://user@10.0.0.2",
+		Https: "https://user@10.0.0.2",
+		Ftp:   "ftp://user@10.0.0.2",
+	})
+}
+
+func (s *proxySuite) TestDetectPrimaryPreference(c *gc.C) {
+	// Patch all of the environment variables we check out just in case the
+	// user has one set.
+	s.PatchEnvironment("http_proxy", "http://user@10.0.0.1")
+	s.PatchEnvironment("https_proxy", "https://user@10.0.0.1")
+	s.PatchEnvironment("ftp_proxy", "ftp://user@10.0.0.1")
+	s.PatchEnvironment("HTTP_PROXY", "http://user@10.0.0.2")
+	s.PatchEnvironment("HTTPS_PROXY", "https://user@10.0.0.2")
+	s.PatchEnvironment("FTP_PROXY", "ftp://user@10.0.0.2")
+
+	proxies := osenv.DetectProxies()
+
+	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{
+		Http:  "http://user@10.0.0.1",
+		Https: "https://user@10.0.0.1",
+		Ftp:   "ftp://user@10.0.0.1",
+	})
 }
