@@ -13,7 +13,7 @@ DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
 DEVEL_SERIES=$(distro-info --devel --codename)
 DEVEL_VERSION=$(distro-info --release --devel | cut -d ' ' -f1)
-EXTRA_RELEASES="saucy:13.12 precise:12.04"
+EXTRA_RELEASES="saucy:13.10 precise:12.04"
 
 
 usage() {
