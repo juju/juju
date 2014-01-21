@@ -221,7 +221,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if (cfg.AptProxySettings != osenv.ProxySettings{}) {
 		filename := "/etc/apt/apt.conf.d/42-juju-proxy-settings"
 		c.AddBootCmd(fmt.Sprintf(
-			`[ -f %s ] || (printf %%s %s > %s)`,
+			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
 			filename,
 			shquote(utils.AptProxyContent(cfg.AptProxySettings)),
 			filename))
@@ -234,6 +234,19 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// juju requires git for managing charm directories.
 	c.AddPackage("git")
 	c.AddPackage("cpu-checker")
+
+	// Write out the normal proxy settings to a file that is sourced
+	// by ssh.
+	if (cfg.ProxySettings != osenv.ProxySettings{}) {
+		dirname := "/home/ubuntu/.ssh"
+		filename := path.Join(dirname, "environment")
+		c.AddScripts(
+			fmt.Sprintf("mkdir -p %s", dirname),
+			fmt.Sprintf(
+				`printf '%%s\n' %s > %s`,
+				shquote(cfg.ProxySettings.AsEnvironmentValues()),
+				filename))
+	}
 
 	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.

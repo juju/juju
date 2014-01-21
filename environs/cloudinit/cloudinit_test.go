@@ -782,8 +782,34 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cmds := cloudcfg.BootCmds()
-	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf %s 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
+	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
 	c.Assert(cmds, gc.DeepEquals, []interface{}{expected})
+}
+
+func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"http-proxy": "http://user@10.0.0.1",
+	})
+	c.Assert(err, gc.IsNil)
+	machineCfg := s.createMachineConfig(c, environConfig)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	cmds := cloudcfg.RunCmds()
+	first := "mkdir -p /home/ubuntu/.ssh"
+	second := "printf '%s\\n' 'http_proxy=http://user@10.0.0.1\nHTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.ssh/environment"
+	found := false
+	for i, cmd := range cmds {
+		if cmd == first {
+			if cmds[i+1] == second {
+				found = true
+				break
+			}
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 var serverCert = []byte(`
