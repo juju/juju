@@ -2405,11 +2405,20 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	info, err = state.GetStateServerInfo(st)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
+}
 
-	// Check that it works with the original connection too.
+func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
+	info, err := state.GetStateServerInfo(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
 	info, err = state.GetStateServerInfo(s.State)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
 }
 
 func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
@@ -2474,7 +2483,7 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	})
 
 	cons := constraints.Value{
-		Mem: newInt64(100),
+		Mem: newUint64(100),
 	}
 	err = s.State.EnsureAvailability(3, cons, "quantal")
 	c.Assert(err, gc.IsNil)
@@ -2487,7 +2496,9 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 			state.JobManageState,
 			state.JobManageEnviron,
 		})
-		c.Assert(m.Constraints, gc.DeepEquals, cons)
+		gotCons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(gotCons, gc.DeepEquals, cons)
 		c.Assert(m.WantsVote(), jc.IsTrue)
 		ids[i] = m.Id()
 	}
@@ -2503,6 +2514,6 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	})
 }
 
-func newInt64(i int64) *int64 {
+func newUint64(i uint64) *uint64 {
 	return &i
 }

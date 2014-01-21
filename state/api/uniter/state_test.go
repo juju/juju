@@ -5,8 +5,6 @@ package uniter_test
 
 import (
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/juju/testing"
 )
 
 type stateSuite struct {
@@ -24,7 +22,6 @@ func (s *stateSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *stateSuite) TestAPIAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
 
 	stateAPIAddresses, err := s.State.APIAddresses()
 	c.Assert(err, gc.IsNil)
@@ -38,7 +35,13 @@ func (s *stateSuite) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *stateSuite) TestAPIAddressesFailure(c *gc.C) {
-	_, err := s.uniter.APIAddresses()
+	err := s.stateServerMachine.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.stateServerMachine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.stateServerMachine.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = s.uniter.APIAddresses()
 	c.Assert(err, gc.ErrorMatches, "no state server machines found")
 }
 

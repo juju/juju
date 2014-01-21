@@ -148,8 +148,12 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 // OpenAPIAsNewMachine creates a new machine entry that lives in system state,
 // and then uses that to open the API. The returned *api.State should not be
 // closed by the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+// The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (*api.State, *state.Machine) {
+	if len(jobs) == 0 {
+		jobs = []state.MachineJob{state.JobHostUnits}
+	}
+	machine, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

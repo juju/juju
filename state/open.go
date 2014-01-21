@@ -313,19 +313,19 @@ func (st *State) createStateServersDoc() error {
 	// an earlier version of this code did not insert voting machine
 	// ids or maintain the ids correctly.
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
-		Id:     environGlobalKey,
-		Remove: true,
+		C:  st.stateServers.Name,
+		Id: environGlobalKey,
+		Update: D{{"$set", D{
+			{"machineids", doc.MachineIds},
+			{"votingmachineids", doc.VotingMachineIds},
+		}}},
 	}, {
 		C:      st.stateServers.Name,
 		Id:     environGlobalKey,
 		Insert: &doc,
 	}}
-	err = st.runTransaction(ops)
-	// If the transaction aborted, it's because the record has already
-	// been created, so we return a nil error because our work
-	// is already done.
-	return onAbort(err, nil)
+
+	return st.runTransaction(ops)
 }
 
 // CACert returns the certificate used to validate the state connection.

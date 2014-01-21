@@ -428,7 +428,14 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 		if len(mdocs) != 1 || mdocs[0].Id != "0" {
 			return nil, errStateServerNotAllowed
 		}
-		currentInfo = &StateServerInfo{}
+		var err error
+		currentInfo, err = st.stateServerInfo()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get state server info: %v", err)
+		}
+		if len(currentInfo.MachineIds) != 0 || len(currentInfo.VotingMachineIds) != 0 {
+			return nil, fmt.Errorf("state servers already exist")
+		}
 	}
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
