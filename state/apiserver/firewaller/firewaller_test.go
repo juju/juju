@@ -108,17 +108,11 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	s.assertLife(c, 1, state.Dead)
 	s.assertLife(c, 2, state.Alive)
 
-	args := params.Entities{Entities: []params.Entity{
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag()},
 		{Tag: s.machines[1].Tag()},
 		{Tag: s.machines[2].Tag()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
-		{Tag: "user-foo"},
-		{Tag: "foo-bar"},
-		{Tag: ""},
-	}}
+	}})
 	result, err := s.firewaller.Life(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
@@ -141,11 +135,12 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	result, err = s.firewaller.Life(params.Entities{
+	args = params.Entities{
 		Entities: []params.Entity{
 			{Tag: s.machines[1].Tag()},
 		},
-	})
+	}
+	result, err = s.firewaller.Life(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -192,16 +187,13 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", &hwChars)
 	c.Assert(err, gc.IsNil)
 
-	args := params.Entities{Entities: []params.Entity{
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag()},
 		{Tag: s.machines[1].Tag()},
 		{Tag: s.machines[2].Tag()},
 		{Tag: s.service.Tag()},
 		{Tag: s.units[2].Tag()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
-	}}
+	}})
 	result, err := s.firewaller.InstanceId(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
@@ -212,6 +204,9 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -242,17 +237,11 @@ func (s *firewallerSuite) TestWatchEnvironMachines(c *gc.C) {
 func (s *firewallerSuite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	args := params.Entities{Entities: []params.Entity{
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag()},
 		{Tag: s.service.Tag()},
 		{Tag: s.units[0].Tag()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
-		{Tag: "user-foo"},
-		{Tag: "foo-bar"},
-		{Tag: ""},
-	}}
+	}})
 	result, err := s.firewaller.Watch(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
@@ -289,17 +278,11 @@ func (s *firewallerSuite) TestWatch(c *gc.C) {
 func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	args := params.Entities{Entities: []params.Entity{
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag()},
 		{Tag: s.service.Tag()},
 		{Tag: s.units[0].Tag()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
-		{Tag: "user-foo"},
-		{Tag: "foo-bar"},
-		{Tag: ""},
-	}}
+	}})
 	result, err := s.firewaller.WatchUnits(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
@@ -329,16 +312,149 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetExposed(c *gc.C) {
+	// Set the service to exposed first.
+	err := s.service.SetExposed()
+	c.Assert(err, gc.IsNil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.service.Tag()},
+	}})
+	result, err := s.firewaller.GetExposed(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: true},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`service "bar"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now reset the exposed flag for the service and check again.
+	err = s.service.ClearExposed()
+	c.Assert(err, gc.IsNil)
+
+	args = params.Entities{Entities: []params.Entity{
+		{Tag: s.service.Tag()},
+	}}
+	result, err = s.firewaller.GetExposed(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: false},
+		},
+	})
 }
 
 func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
+	// Open some ports on two of the units.
+	err := s.units[0].OpenPort("foo", 1234)
+	c.Assert(err, gc.IsNil)
+	err = s.units[0].OpenPort("bar", 4321)
+	c.Assert(err, gc.IsNil)
+	err = s.units[2].OpenPort("baz", 1111)
+	c.Assert(err, gc.IsNil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.units[0].Tag()},
+		{Tag: s.units[1].Tag()},
+		{Tag: s.units[2].Tag()},
+	}})
+	result, err := s.firewaller.OpenedPorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, params.PortsResults{
+		Results: []params.PortsResult{
+			{Ports: []instance.Port{{"bar", 4321}, {"foo", 1234}}},
+			{Ports: []instance.Port{}},
+			{Ports: []instance.Port{{"baz", 1111}}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now close unit 2's port and check again.
+	err = s.units[2].ClosePort("baz", 1111)
+	c.Assert(err, gc.IsNil)
+
+	args = params.Entities{Entities: []params.Entity{
+		{Tag: s.units[2].Tag()},
+	}}
+	result, err = s.firewaller.OpenedPorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, params.PortsResults{
+		Results: []params.PortsResult{
+			{Ports: []instance.Port{}},
+		},
+	})
 }
 
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
+	// Unassign a unit first.
+	err := s.units[2].UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.units[0].Tag()},
+		{Tag: s.units[1].Tag()},
+		{Tag: s.units[2].Tag()},
+	}})
+	result, err := s.firewaller.GetAssignedMachine(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: s.machines[0].Tag()},
+			{Result: s.machines[1].Tag()},
+			{Error: apiservertesting.NotAssignedError("wordpress/2")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now reset assign unit 2 again and check.
+	err = s.units[2].AssignToMachine(s.machines[0])
+	c.Assert(err, gc.IsNil)
+
+	args = params.Entities{Entities: []params.Entity{
+		{Tag: s.units[2].Tag()},
+	}}
+	result, err = s.firewaller.GetAssignedMachine(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: s.machines[0].Tag()},
+		},
+	})
 }
 
 func (s *firewallerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
+}
+
+var commonFakeEntities = []params.Entity{
+	{Tag: "machine-42"},
+	{Tag: "unit-foo-0"},
+	{Tag: "service-bar"},
+	{Tag: "user-foo"},
+	{Tag: "foo-bar"},
+	{Tag: ""},
+}
+
+func addFakeEntities(actual params.Entities) params.Entities {
+	for _, entity := range commonFakeEntities {
+		actual.Entities = append(actual.Entities, entity)
+	}
+	return actual
 }

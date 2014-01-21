@@ -18,12 +18,11 @@ type FirewallerAPI struct {
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
 
-	st              *state.State
-	resources       *common.Resources
-	authorizer      common.Authorizer
-	getAuthMachines common.GetAuthFunc
-	getAuthUnits    common.GetAuthFunc
-	getAuthServices common.GetAuthFunc
+	st            *state.State
+	resources     *common.Resources
+	authorizer    common.Authorizer
+	accessUnit    common.GetAuthFunc
+	accessService common.GetAuthFunc
 }
 
 // NewFirewallerAPI creates a new server-side FirewallerAPI facade.
@@ -36,38 +35,61 @@ func NewFirewallerAPI(
 		// Firewaller must run as environment manager.
 		return nil, common.ErrPerm
 	}
-	// We can get the life of machines, units or services.
-	getAuthLife := getAuthFuncForTagKinds(
-		names.UnitTagKind,
-		names.ServiceTagKind,
-		names.MachineTagKind,
+	// Setup the various authorization checkers.
+	accessUnit := getAuthFuncForTagKind(names.UnitTagKind)
+	accessService := getAuthFuncForTagKind(names.ServiceTagKind)
+	accessMachine := getAuthFuncForTagKind(names.MachineTagKind)
+	accessEnviron := getAuthFuncForTagKind("")
+	accessUnitOrService := common.AuthEither(accessUnit, accessService)
+	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
+
+	// Life() is supported for units, services or machines.
+	lifeGetter := common.NewLifeGetter(
+		st,
+		accessUnitServiceOrMachine,
 	)
-	// We can watch units and services only.
-	getAuthWatch := getAuthFuncForTagKinds(
-		names.UnitTagKind,
-		names.ServiceTagKind,
+	// EnvironConfig() and WatchForEnvironConfigChanges() are allowed
+	// with unrestriced access.
+	environWatcher := common.NewEnvironWatcher(
+		st,
+		resources,
+		accessEnviron,
+		accessEnviron,
 	)
-	// We can watch the environ config and read it.
-	getAuthEnviron := getAuthFuncForTagKinds("")
-	// We can watch environment machines and their instance ids.
-	getAuthMachines := getAuthFuncForTagKinds(names.MachineTagKind)
-	// We can get opened ports for units.
-	getAuthUnits := getAuthFuncForTagKinds(names.UnitTagKind)
-	// We can get exposed flag for services.
-	getAuthServices := getAuthFuncForTagKinds(names.ServiceTagKind)
+	// Watch() is supported for units or services.
+	entityWatcher := common.NewAgentEntityWatcher(
+		st,
+		resources,
+		accessUnitOrService,
+	)
+	// WatchUnits() is supported for machines.
+	unitsWatcher := common.NewUnitsWatcher(st,
+		resources,
+		accessMachine,
+	)
+	// WatchEnvironMachines() is allowed with unrestricted access.
+	machinesWatcher := common.NewEnvironMachinesWatcher(
+		st,
+		resources,
+		accessEnviron,
+	)
+	// InstanceId() is supported for machines.
+	instanceIdGetter := common.NewInstanceIdGetter(
+		st,
+		accessMachine,
+	)
 	return &FirewallerAPI{
-		LifeGetter:             common.NewLifeGetter(st, getAuthLife),
-		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getAuthEnviron, getAuthEnviron),
-		AgentEntityWatcher:     common.NewAgentEntityWatcher(st, resources, getAuthWatch),
-		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getAuthMachines),
-		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getAuthEnviron),
-		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthMachines),
+		LifeGetter:             lifeGetter,
+		EnvironWatcher:         environWatcher,
+		AgentEntityWatcher:     entityWatcher,
+		UnitsWatcher:           unitsWatcher,
+		EnvironMachinesWatcher: machinesWatcher,
+		InstanceIdGetter:       instanceIdGetter,
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
-		getAuthMachines:        getAuthMachines,
-		getAuthUnits:           getAuthUnits,
-		getAuthServices:        getAuthServices,
+		accessUnit:             accessUnit,
+		accessService:          accessService,
 	}, nil
 }
 
@@ -76,7 +98,7 @@ func (f *FirewallerAPI) OpenedPorts(args params.Entities) (params.PortsResults, 
 	result := params.PortsResults{
 		Results: make([]params.PortsResult, len(args.Entities)),
 	}
-	canAccess, err := f.getAuthUnits()
+	canAccess, err := f.accessUnit()
 	if err != nil {
 		return params.PortsResults{}, err
 	}
@@ -96,7 +118,7 @@ func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, er
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := f.getAuthServices()
+	canAccess, err := f.accessService()
 	if err != nil {
 		return params.BoolResults{}, err
 	}
@@ -117,7 +139,7 @@ func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringR
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := f.getAuthUnits()
+	canAccess, err := f.accessUnit()
 	if err != nil {
 		return params.StringResults{}, err
 	}
@@ -173,35 +195,24 @@ func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag string) (*stat
 	return entity.(*state.Service), nil
 }
 
-// getAuthFuncForTagKinds returns a GetAuthFunc which creates an
-// AuthFunc allowing only the given tag kinds and denies all
+// getAuthFuncForTagKind returns a GetAuthFunc which creates an
+// AuthFunc allowing only the given tag kind and denies all
 // others. In the special case where a single empty string is given,
 // it's assumed only environment tags are allowed, but not specified
 // (for now).
-func getAuthFuncForTagKinds(kinds ...string) common.GetAuthFunc {
-	getAuthFunc := func() (common.AuthFunc, error) {
+func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
+	return func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			if tag == "" {
 				// Assume an empty tag means a missing environment tag.
-				// In this case kinds must contain a single item.
-				if len(kinds) != 1 {
-					return false
-				}
-				return kinds[0] == ""
+				return kind == ""
 			}
-			// Allow only the given tag kinds.
-			parsedKind, _, err := names.ParseTag(tag, "")
+			// Allow only the given tag kind.
+			_, _, err := names.ParseTag(tag, kind)
 			if err != nil {
 				return false
 			}
-			found := false
-			for _, kind := range kinds {
-				if kind == parsedKind {
-					found = true
-				}
-			}
-			return found
+			return true
 		}, nil
 	}
-	return getAuthFunc
 }
