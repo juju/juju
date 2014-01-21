@@ -85,9 +85,9 @@ func (e *EnvironWatcher) EnvironConfig() (params.EnvironConfigResult, error) {
 		// with values of the same type, so it'll pass validation.
 		//
 		// TODO(dimitern) 201309-26 bug #1231384
-		// This needs to change so we won't return anything to
-		// entities other than the environment manager, but the
-		// provisioner code should be refactored first.
+		// Delete the code below and mark the bug as fixed,
+		// once it's live tested on MAAS and 1.16 compatibility
+		// is dropped.
 		env, err := environs.New(config)
 		if err != nil {
 			return result, err

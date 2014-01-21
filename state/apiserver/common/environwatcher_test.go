@@ -8,24 +8,28 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
-	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 type environWatcherSuite struct {
 	testbase.LoggingSuite
+
+	testingEnvConfig *config.Config
 }
 
 var _ = gc.Suite(&environWatcherSuite{})
 
 type fakeEnvironAccessor struct {
-	envConfig      map[string]interface{}
+	envConfig      *config.Config
 	envConfigError error
 }
 
@@ -40,7 +44,12 @@ func (f *fakeEnvironAccessor) EnvironConfig() (*config.Config, error) {
 	if f.envConfigError != nil {
 		return nil, f.envConfigError
 	}
-	return config.New(config.UseDefaults, f.envConfig)
+	return f.envConfig, nil
+}
+
+func (s *environWatcherSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (*environWatcherSuite) TestWatchSuccess(c *gc.C) {
@@ -97,23 +106,6 @@ func (*environWatcherSuite) TestWatchAuthError(c *gc.C) {
 	c.Assert(resources.Count(), gc.Equals, 0)
 }
 
-var testingEnvConfig = testing.FakeConfig().Merge(map[string]interface{}{
-	"type":         "dummy",
-	"name":         "none",
-	"state-server": false,
-	"state-id":     "1", // needed by the dummy provider to signal an environment is prepared.
-	"secret":       "pork",
-	// These are optional, but with defaults; we still need them
-	// in order to compare the retrieved config, after it passes
-	// the config.Validate method.
-	"logging-config":     "<root>=DEBUG",
-	"tools-metadata-url": "",
-	"charm-store-auth":   "",
-	"tools-url":          "",
-	"syslog-port":        1234,
-	"image-metadata-url": "",
-})
-
 func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 	getCanReadSecrets := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
@@ -121,6 +113,7 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 		}, nil
 	}
 
+	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
@@ -132,7 +125,7 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], gc.Equals, "pork")
-	c.Check(testing.Attrs(result.Config), jc.DeepEquals, testingEnvConfig)
+	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
 }
 
 func (*environWatcherSuite) TestEnvironConfigFetchError(c *gc.C) {
@@ -158,7 +151,7 @@ func (*environWatcherSuite) TestEnvironConfigGetAuthError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{envConfig: testingEnvConfig},
+		&fakeEnvironAccessor{envConfig: testingEnvConfig(c)},
 		nil,
 		nil,
 		getCanReadSecrets,
@@ -174,6 +167,7 @@ func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
 		}, nil
 	}
 
+	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
@@ -187,5 +181,13 @@ func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
 	c.Check(result.Config["secret"], gc.Equals, "not available")
 	// And only that is masked.
 	result.Config["secret"] = "pork"
-	c.Check(testing.Attrs(result.Config), jc.DeepEquals, testingEnvConfig)
+	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
+}
+
+func testingEnvConfig(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	return env.Config()
 }
