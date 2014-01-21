@@ -98,8 +98,8 @@ func (s *proxySuite) TestAsEnvironmentValuesOneValue(c *gc.C) {
 		Http: "some-value",
 	}
 	expected := `
-http_proxy=some-value
-HTTP_PROXY=some-value`[1:]
+export http_proxy=some-value
+export HTTP_PROXY=some-value`[1:]
 	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, expected)
 }
 
@@ -110,11 +110,11 @@ func (s *proxySuite) TestAsEnvironmentValuesAllValue(c *gc.C) {
 		Ftp:   "who uses this?",
 	}
 	expected := `
-http_proxy=some-value
-HTTP_PROXY=some-value
-https_proxy=special
-HTTPS_PROXY=special
-ftp_proxy=who uses this?
-FTP_PROXY=who uses this?`[1:]
+export http_proxy=some-value
+export HTTP_PROXY=some-value
+export https_proxy=special
+export HTTPS_PROXY=special
+export ftp_proxy=who uses this?
+export FTP_PROXY=who uses this?`[1:]
 	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, expected)
 }

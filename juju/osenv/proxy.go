@@ -44,8 +44,8 @@ func (s *ProxySettings) AsEnvironmentValues() string {
 		if value != "" {
 			lines = append(
 				lines,
-				fmt.Sprintf("%s=%s", proxy, value),
-				fmt.Sprintf("%s=%s", strings.ToUpper(proxy), value))
+				fmt.Sprintf("export %s=%s", proxy, value),
+				fmt.Sprintf("export %s=%s", strings.ToUpper(proxy), value))
 		}
 	}
 	addLine("http_proxy", s.Http)
