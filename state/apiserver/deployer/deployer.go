@@ -53,13 +53,7 @@ func NewDeployerAPI(
 		}, nil
 	}
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			_, _, err := names.ParseTag(tag, names.MachineTagKind)
-			if err != nil {
-				return false
-			}
-			return authorizer.AuthOwner(tag)
-		}, nil
+		return authorizer.AuthOwner, nil
 	}
 	return &DeployerAPI{
 		Remover:         common.NewRemover(st, true, getAuthFunc),
