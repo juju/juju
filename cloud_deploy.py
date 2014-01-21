@@ -3,6 +3,7 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import subprocess
 import sys
 
 from jujupy import (
