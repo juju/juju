@@ -4,6 +4,7 @@
 package state
 
 import (
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -149,3 +150,12 @@ var (
 	_ AgentEntity = (*Machine)(nil)
 	_ AgentEntity = (*Unit)(nil)
 )
+
+// EnvironAccessor defines the methods needed to watch for environment
+// config changes, and read the environment config.
+type EnvironAccessor interface {
+	WatchForEnvironConfigChanges() NotifyWatcher
+	EnvironConfig() (*config.Config, error)
+}
+
+var _ EnvironAccessor = (*State)(nil)
