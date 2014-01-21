@@ -12,9 +12,10 @@ SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 
 usage() {
-    echo "usage: $0 RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
-    echo "  RELEASE: The pattern (version) to match packages in the archives,"
-    echo "    or a path to a local package built for testing."
+    options="[-t TEST_DEBS_DIR]"
+    echo "usage: $0 $options RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
+    echo "  TEST_DEBS_DIR: The optional directory with testing debs."
+    echo "  RELEASE: The pattern (version) to match packages in the archives."
     echo "  DESTINATION_DIRECTORY: The directory to assemble the tools in."
     echo "  SIGNING_KEY: When provided, the metadata will be signed."
     exit 1
@@ -66,7 +67,11 @@ retrieve_packages() {
     [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 3: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
-        cp $RELEASE $DEST_DEBS
+        for linked_file in $TEST_DEBS_DIR/*.deb; do
+            # We need the real file location which includes series and arch.
+            deb_file=$(readlink -f $linked_file)
+            cp $deb_file $DEST_DEBS
+        done
     else
         cd $DEST_DEBS
         for archive in $ALL_ARCHIVES; do
@@ -173,18 +178,14 @@ archive_tools() {
 
 
 extract_new_juju() {
-    # Extract a juju-core that was found in the archives to run sync-tools.
+    # Extract a juju-core that was found in the archives to run metadata.
     # Match by release version and arch, prefer exact series, but fall back
     # to generic ubuntu.
     echo "Phase 5.1: Using juju from a downloaded deb."
-    if [[ $IS_TESTING == "true" ]]; then
-        juju_core=$RELEASE
-    else
-        juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
-        juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
-        if [[ $juju_core == "" ]]; then
-            juju_core=$(echo "$juju_cores" | head -1)
-        fi
+    juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
+    juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
+    if [[ $juju_core == "" ]]; then
+        juju_core=$(echo "$juju_cores" | head -1)
     fi
     dpkg-deb -x $juju_core $JUJU_PATH/
     JUJU_EXEC=$(find $JUJU_PATH -name 'juju' | grep bin/juju)
@@ -291,14 +292,25 @@ version_names+=(["trusty"]="trusty")
 declare -a added_tools
 added_tools=()
 
+IS_TESTING="false"
+while getopts ":t:" o; do
+    case "${o}" in
+        t)
+            TEST_DEBS_DIR=${OPTARG}
+            [[ -d $TEST_DEBS_DIR ]] || usage
+            IS_TESTING="true"
+            echo "# Assembling test tools from $TEST_DEBS_DIR"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
 test $# -eq 2 || test $# -eq 3 || usage
 
+
 RELEASE=$1
-IS_TESTING="false"
-if [[ -f "$RELEASE" ]]; then
-    RELEASE=$(readlink -f $RELEASE)
-    IS_TESTING="true"
-fi
 DESTINATION=$(cd $2; pwd)
 DEST_DEBS="${DESTINATION}/debs"
 DEST_TOOLS="${DESTINATION}/tools/releases"
@@ -319,7 +331,6 @@ if [[ $EXTRA == "PRIVATE" ]]; then
 else
     SIGNING_KEY=$EXTRA
 fi
-
 
 PACKAGES=""
 WORK=$(mktemp -d)
