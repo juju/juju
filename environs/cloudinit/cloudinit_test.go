@@ -744,8 +744,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) createMachineConfig(c *gc.C) *cloudinit.MachineConfig {
-	environConfig := minimalConfig(c)
+func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *cloudinit.MachineConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
@@ -761,7 +760,8 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 }
 
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
-	machineCfg := s.createMachineConfig(c)
+	environConfig := minimalConfig(c)
+	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
 	err := cloudinit.Configure(machineCfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
@@ -771,10 +771,14 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 }
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
-	machineCfg := s.createMachineConfig(c)
-	machineCfg.AptProxySettings.Http = "http://user@10.0.0.1"
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"apt-http-proxy": "http://user@10.0.0.1",
+	})
+	c.Assert(err, gc.IsNil)
+	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
-	err := cloudinit.Configure(machineCfg, cloudcfg)
+	err = cloudinit.Configure(machineCfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
 
 	cmds := cloudcfg.BootCmds()
