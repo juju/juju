@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
 	"launchpad.net/juju-core/utils/parallel"
@@ -33,6 +34,9 @@ var (
 // so we can abuse it for testing purposes.
 type apiState struct {
 	st *api.State
+	// If cachedInfo is non-nil, it indicates that the info has been
+	// newly retrieved, and should be cached in the config store.
+	cachedInfo *api.Info
 }
 
 func (st apiState) Close() error {
@@ -52,16 +56,10 @@ var errAborted = fmt.Errorf("aborted")
 // given environment. The environment must have already
 // been bootstrapped.
 func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
-	_, info, err := environ.StateInfo()
+	info, err := environAPIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
-	info.Tag = "user-admin"
-	password := environ.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
-	info.Password = password
 
 	st, err := apiOpen(info, dialOpts)
 	// TODO(rog): handle errUnauthorized when the API handles passwords.
@@ -162,18 +160,21 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 	}
 	var delay time.Duration
 	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
+		logger.Debugf("trying cached API connection settings")
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			return apiInfoConnect(store, info, stop)
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
 		delay = providerConnectDelay
+	} else {
+		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 		return apiConfigConnect(info, envs, envName, stop, delay)
 	})
 	try.Close()
-	val, err := try.Result()
+	val0, err := try.Result()
 	if err != nil {
 		if ierr, ok := err.(*infoConnectError); ok {
 			// lose error encapsulation:
@@ -181,7 +182,20 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 		}
 		return nil, err
 	}
-	return val.(apiState).st, nil
+	val := val0.(apiState)
+
+	if val.cachedInfo != nil && info != nil {
+		// Cache the connection settings only if we used the
+		// environment config, but any errors are just logged
+		// as warnings, because they're not fatal.
+		err = cacheAPIInfo(info, val.cachedInfo)
+		if err != nil {
+			logger.Warningf(err.Error())
+		} else {
+			logger.Debugf("updated API connection settings cache")
+		}
+	}
+	return val.st, nil
 }
 
 func errorImportance(err error) int {
@@ -214,16 +228,17 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 		return apiState{}, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	st, err := apiOpen(&api.Info{
+	apiInfo := &api.Info{
 		Addrs:    endpoint.Addresses,
 		CACert:   []byte(endpoint.CACert),
-		Tag:      "user-" + info.APICredentials().User,
+		Tag:      names.UserTag(info.APICredentials().User),
 		Password: info.APICredentials().Password,
-	}, api.DefaultDialOpts())
+	}
+	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
 	if err != nil {
 		return apiState{}, &infoConnectError{err}
 	}
-	return apiState{st}, err
+	return apiState{st, nil}, err
 }
 
 // apiConfigConnect looks for configuration info on the given environment,
@@ -253,9 +268,50 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	if err != nil {
 		return apiState{}, err
 	}
-	apiConn, err := NewAPIConn(environ, api.DefaultDialOpts())
+	apiInfo, err := environAPIInfo(environ)
 	if err != nil {
 		return apiState{}, err
 	}
-	return apiState{apiConn.State}, nil
+	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
+	// TODO(rog): handle errUnauthorized when the API handles passwords.
+	if err != nil {
+		return apiState{}, err
+	}
+	return apiState{st, apiInfo}, nil
+}
+
+func environAPIInfo(environ environs.Environ) (*api.Info, error) {
+	_, info, err := environ.StateInfo()
+	if err != nil {
+		return nil, err
+	}
+	info.Tag = "user-admin"
+	password := environ.Config().AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect without admin-secret")
+	}
+	info.Password = password
+	return info, nil
+}
+
+// cacheAPIInfo updates the local environment settings (.jenv file)
+// with the provided apiInfo, assuming we've just successfully
+// connected to the API server.
+func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses: apiInfo.Addrs,
+		CACert:    string(apiInfo.CACert),
+	})
+	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
+	if err != nil {
+		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
+	}
+	info.SetAPICredentials(configstore.APICredentials{
+		User:     username,
+		Password: apiInfo.Password,
+	})
+	if err := info.Write(); err != nil {
+		return fmt.Errorf("cannot cache API connection settings: %v", err)
+	}
+	return nil
 }

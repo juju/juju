@@ -88,3 +88,17 @@ func (s *URLsSuite) TestToolsSourcesWithRetry(c *gc.C) {
 	c.Assert(haveExpectedSources, jc.IsTrue)
 	c.Assert(haveExpectedSources, jc.IsTrue)
 }
+
+func (s *URLsSuite) TestToolsURL(c *gc.C) {
+	for source, expected := range map[string]string{
+		"":           "",
+		"foo":        "file://foo/tools",
+		"/home/foo":  "file:///home/foo/tools",
+		"file://foo": "file://foo",
+		"http://foo": "http://foo",
+	} {
+		URL, err := tools.ToolsURL(source)
+		c.Assert(err, gc.IsNil)
+		c.Assert(URL, gc.Equals, expected)
+	}
+}

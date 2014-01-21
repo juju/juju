@@ -163,6 +163,8 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 
 		version.Current = test.CliVersion
 		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), test.Available...)
+		// Remove the default tools URL from the search path, just look in cloud storage.
+		s.PatchValue(&envtools.DefaultBaseURL, "")
 
 		cons := constraints.Value{}
 		if test.Arch != "" {

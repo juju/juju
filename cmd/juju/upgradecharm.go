@@ -150,7 +150,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := repo.Latest(newURL)
+		latest, err := charm.Latest(repo, newURL)
 		if err != nil {
 			return err
 		}
@@ -222,7 +222,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := repo.Latest(newURL)
+		latest, err := charm.Latest(repo, newURL)
 		if err != nil {
 			return err
 		}

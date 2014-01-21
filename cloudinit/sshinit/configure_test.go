@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshinit
+package sshinit_test
 
 import (
 	"regexp"
@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	envcloudinit "launchpad.net/juju-core/environs/cloudinit"
@@ -79,12 +80,12 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
-var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta(aptget)
+var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta(sshinit.Aptget)
 
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := generateScript(s.getCloudConfig(c, true, vers))
+		script, err := sshinit.ConfigureScript(s.getCloudConfig(c, true, vers))
 		c.Assert(err, gc.IsNil)
 
 		// Only Precise requires the cloud-tools pocket.
@@ -122,7 +123,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 }
 
 func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match bool) {
-	script, err := generateScript(cfg)
+	script, err := sshinit.ConfigureScript(cfg)
 	c.Assert(err, gc.IsNil)
 	checker := gc.Matches
 	if !match {

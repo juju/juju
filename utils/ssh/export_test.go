@@ -6,4 +6,5 @@ package ssh
 var (
 	ReadAuthorisedKeys  = readAuthorisedKeys
 	WriteAuthorisedKeys = writeAuthorisedKeys
+	InitDefaultClient   = initDefaultClient
 )

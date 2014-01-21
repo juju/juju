@@ -267,7 +267,7 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 // charm on stdout.
 func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
 	if curl.Revision < 0 {
-		latest, err := repo.Latest(curl)
+		latest, err := charm.Latest(repo, curl)
 		if err != nil {
 			return nil, err
 		}
