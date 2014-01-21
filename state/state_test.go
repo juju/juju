@@ -60,14 +60,17 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddresses(c *gc.C) {
-	c.Skip("waiting for EnsureAvailability")
 	var err error
-	machines := make([]*state.Machine, 3)
-	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
+	machines := make([]*state.Machine, 4)
+	machines[0], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	machines[1], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	machines[2], err = s.State.Machine("2")
+	c.Assert(err, gc.IsNil)
+	machines[3], err = s.State.Machine("3")
 	c.Assert(err, gc.IsNil)
 
 	for i, m := range machines {
@@ -95,18 +98,20 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 	addrs, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.1:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.0:%d", envConfig.StatePort()),
 		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.3:%d", envConfig.StatePort()),
 	})
 
 	addrs, err = s.State.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.1:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.0:%d", envConfig.APIPort()),
 		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.3:%d", envConfig.APIPort()),
 	})
 }
 
