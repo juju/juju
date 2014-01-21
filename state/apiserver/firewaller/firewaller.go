@@ -35,7 +35,7 @@ func NewFirewallerAPI(
 		// Firewaller must run as environment manager.
 		return nil, common.ErrPerm
 	}
-	// Setup the various authorization checkers.
+	// Set up the various authorization checkers.
 	accessUnit := getAuthFuncForTagKind(names.UnitTagKind)
 	accessService := getAuthFuncForTagKind(names.ServiceTagKind)
 	accessMachine := getAuthFuncForTagKind(names.MachineTagKind)
