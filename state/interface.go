@@ -169,3 +169,11 @@ type UnitsWatcher interface {
 
 var _ UnitsWatcher = (*Machine)(nil)
 var _ UnitsWatcher = (*Service)(nil)
+
+// EnvironMachinesWatcher defines a single method -
+// WatchEnvironMachines.
+type EnvironMachinesWatcher interface {
+	WatchEnvironMachines() StringsWatcher
+}
+
+var _ EnvironMachinesWatcher = (*State)(nil)

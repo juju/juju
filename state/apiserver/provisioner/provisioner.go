@@ -4,8 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -26,6 +24,7 @@ type ProvisionerAPI struct {
 	*common.APIAddresser
 	*common.ToolsGetter
 	*common.EnvironWatcher
+	*common.EnvironMachinesWatcher
 
 	st          *state.State
 	resources   *common.Resources
@@ -72,19 +71,20 @@ func NewProvisionerAPI(
 	// Only the environment provisioner can read secrets.
 	getCanReadSecrets := common.AuthAlways(authorizer.AuthEnvironManager())
 	return &ProvisionerAPI{
-		Remover:         common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
-		DeadEnsurer:     common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:  common.NewStateAddresser(st),
-		APIAddresser:    common.NewAPIAddresser(st),
-		ToolsGetter:     common.NewToolsGetter(st, getAuthFunc),
-		EnvironWatcher:  common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
-		st:              st,
-		resources:       resources,
-		authorizer:      authorizer,
-		getAuthFunc:     getAuthFunc,
+		Remover:                common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:         common.NewStateAddresser(st),
+		APIAddresser:           common.NewAPIAddresser(st),
+		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
+		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
+		st:          st,
+		resources:   resources,
+		authorizer:  authorizer,
+		getAuthFunc: getAuthFunc,
 	}, nil
 }
 
@@ -301,26 +301,6 @@ func (p *ProvisionerAPI) InstanceId(args params.Entities) (params.StringResults,
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// WatchEnvironMachines returns a StringsWatcher that notifies of
-// changes to the lifecycles of the machines (but not containers) in
-// the current environment.
-func (p *ProvisionerAPI) WatchEnvironMachines() (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	if !p.authorizer.AuthEnvironManager() {
-		return result, common.ErrPerm
-	}
-	watch := p.st.WatchEnvironMachines()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = p.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		err := watcher.MustErr(watch)
-		return result, fmt.Errorf("cannot obtain initial environment machines: %v", err)
 	}
 	return result, nil
 }
