@@ -31,8 +31,8 @@ func NewEnvironMachinesWatcher(st state.EnvironMachinesWatcher, resources *Resou
 }
 
 // WatchEnvironMachines returns a StringsWatcher that notifies of
-// changes to the lifecycles of the machines (but not containers) in
-// the current environment.
+// changes to the life cycles of the top level machines in the current
+// environment.
 func (e *EnvironMachinesWatcher) WatchEnvironMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	canWatch, err := e.getCanWatch()
