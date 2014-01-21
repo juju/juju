@@ -99,6 +99,22 @@ func (s *AptSuite) TestDetectAptProxyNone(c *gc.C) {
 	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{})
 }
 
+func (s *AptSuite) TestDetectAptProxyPartial(c *gc.C) {
+	const output = `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::ftp::Proxy "here-it-is";
+Acquire::magic::Proxy "none";
+`
+	_ = s.HookCommandOutput(&utils.AptCommandOutput, []byte(output), nil)
+
+	proxy, err := utils.DetectAptProxies()
+	c.Assert(err, gc.IsNil)
+	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{
+		Http: "10.0.3.1:3142",
+		Ftp:  "here-it-is",
+	})
+}
+
 func (s *AptSuite) TestConfigProxyConfiguredFilterOutput(c *gc.C) {
 	const (
 		output = `CommandLine::AsString "apt-config dump";

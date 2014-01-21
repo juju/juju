@@ -76,8 +76,8 @@ func AptConfigProxy() (string, error) {
 	return string(bytes.Join(aptProxyRE.FindAll(out, -1), []byte("\n"))), nil
 }
 
-// DetectAptProxies will shell out to apt-config to dump the http, https, and
-// ftp proxy settings.
+// DetectAptProxies will parse the results of AptConfigProxy to return a
+// ProxySettings instance.
 func DetectAptProxies() (result osenv.ProxySettings, err error) {
 	output, err := AptConfigProxy()
 	if err != nil {
