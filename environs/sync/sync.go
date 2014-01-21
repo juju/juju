@@ -10,11 +10,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 
 	"launchpad.net/loggo"
 
@@ -28,9 +25,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
-
-// DefaultToolsLocation leads to the default juju tools location.
-var DefaultToolsLocation = "https://streams.canonical.com/juju"
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {
@@ -140,22 +134,14 @@ func SyncTools(syncContext *SyncContext) error {
 func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource, error) {
 	source := syncContext.Source
 	if source == "" {
-		source = DefaultToolsLocation
+		source = envtools.DefaultBaseURL
 	}
-	logger.Infof("using sync tools source: %v", source)
-	// If source is a raw directory, we need to append the file:// prefix
-	// so it can be used as a URL.
-	u, err := url.Parse(source)
+	sourceURL, err := envtools.ToolsURL(source)
 	if err != nil {
-		return nil, fmt.Errorf("invalid data source %s: %v", source, err)
+		return nil, err
 	}
-	if u.Scheme == "" {
-		source = "file://" + source
-		if !strings.HasSuffix(source, "/"+storage.BaseToolsPath) {
-			source = path.Join(source, storage.BaseToolsPath)
-		}
-	}
-	return simplestreams.NewURLDataSource(source, simplestreams.VerifySSLHostnames), nil
+	logger.Infof("using sync tools source: %v", sourceURL)
+	return simplestreams.NewURLDataSource(sourceURL, simplestreams.VerifySSLHostnames), nil
 }
 
 // copyTools copies a set of tools from the source to the target.

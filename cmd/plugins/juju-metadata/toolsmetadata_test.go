@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
-	//	"launchpad.net/juju-core/environs/filestorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
@@ -52,7 +51,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 
 	// Switch the default tools location.
 	s.publicStorageDir = c.MkDir()
-	s.PatchValue(&DefaultToolsLocation, s.publicStorageDir)
+	s.PatchValue(&tools.DefaultBaseURL, s.publicStorageDir)
 }
 
 var currentVersionStrings = []string{

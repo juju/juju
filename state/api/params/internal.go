@@ -65,6 +65,19 @@ type StringsResult struct {
 	Result []string
 }
 
+// PortsResults holds the bulk operation result of an API call
+// that returns a slice of instance.Port.
+type PortsResults struct {
+	Results []PortsResult
+}
+
+// PortsResult holds the result of an API call that returns a slice
+// of instance.Port or an error.
+type PortsResult struct {
+	Error *Error
+	Ports []instance.Port
+}
+
 // StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {

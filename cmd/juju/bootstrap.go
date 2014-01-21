@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
@@ -120,7 +121,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// If --source is specified, override the default tools source.
 	if c.Source != "" {
 		logger.Infof("Setting default tools source: %s", c.Source)
-		sync.DefaultToolsLocation = c.Source
+		tools.DefaultBaseURL = c.Source
 	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an

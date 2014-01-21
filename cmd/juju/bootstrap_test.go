@@ -47,7 +47,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&sync.DefaultToolsLocation, sourceDir)
+	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -120,7 +120,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	sourceDir := createToolsSource(c, toolsVersions)
-	s.PatchValue(&sync.DefaultToolsLocation, sourceDir)
+	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
 	var findToolsRetryValues []bool
 	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
@@ -348,7 +348,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
 	s.PatchValue(&sync.Upload, mockUploadTools)
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&sync.DefaultToolsLocation, sourceDir)
+	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
 	// Change the tools location to be the test location and also
 	// the version and ensure their later restoring.
