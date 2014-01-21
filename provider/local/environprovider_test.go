@@ -64,6 +64,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	provider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
+	defer local.MockAddressForInterface()()
 
 	for i, test := range []struct {
 		message          string
