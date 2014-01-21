@@ -15,9 +15,12 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type environWatcherSuite struct{}
+type environWatcherSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&environWatcherSuite{})
 

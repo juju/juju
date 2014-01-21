@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
-// EnvironWatcher implements two common method for use by various
+// EnvironWatcher implements two common methods for use by various
 // facades - WatchForEnvironConfigChanges and EnvironConfig.
 type EnvironWatcher struct {
 	st                state.EnvironAccessor
@@ -19,9 +19,12 @@ type EnvironWatcher struct {
 	getCanReadSecrets GetAuthFunc
 }
 
-// NewEnvironWatcher returns a new EnvironWatcher. The two GetAuthFunc
+// NewEnvironWatcher returns a new EnvironWatcher. Active watchers
+// will be stored in the provided Resources. The two GetAuthFunc
 // callbacks will be used on each invocation of the methods to
 // determine current permissions.
+// Right now, environment tags are not used, so both created AuthFuncs
+// are called with "" for tag, which means "the current environment".
 func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanWatch, getCanReadSecrets GetAuthFunc) *EnvironWatcher {
 	return &EnvironWatcher{
 		st:                st,
@@ -31,7 +34,7 @@ func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanWat
 	}
 }
 
-// WatchForEnvironConfigChanges returns a NotifyWatcher to observe
+// WatchForEnvironConfigChanges returns a NotifyWatcher that observes
 // changes to the environment configuration.
 func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
