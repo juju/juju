@@ -87,3 +87,34 @@ func (s *proxySuite) TestDetectPrimaryPreference(c *gc.C) {
 		Ftp:   "ftp://user@10.0.0.1",
 	})
 }
+
+func (s *proxySuite) TestAsEnvironmentValuesEmpty(c *gc.C) {
+	proxies := osenv.ProxySettings{}
+	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, "")
+}
+
+func (s *proxySuite) TestAsEnvironmentValuesOneValue(c *gc.C) {
+	proxies := osenv.ProxySettings{
+		Http: "some-value",
+	}
+	expected := `
+http_proxy=some-value
+HTTP_PROXY=some-value`[1:]
+	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, expected)
+}
+
+func (s *proxySuite) TestAsEnvironmentValuesAllValue(c *gc.C) {
+	proxies := osenv.ProxySettings{
+		Http:  "some-value",
+		Https: "special",
+		Ftp:   "who uses this?",
+	}
+	expected := `
+http_proxy=some-value
+HTTP_PROXY=some-value
+https_proxy=special
+HTTPS_PROXY=special
+ftp_proxy=who uses this?
+FTP_PROXY=who uses this?`[1:]
+	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, expected)
+}
