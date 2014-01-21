@@ -165,16 +165,6 @@ func (f *FirewallerAPI) getEntity(canAccess common.AuthFunc, tag string) (state.
 	return f.st.FindEntity(tag)
 }
 
-func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag string) (*state.Machine, error) {
-	entity, err := f.getEntity(canAccess, tag)
-	if err != nil {
-		return nil, err
-	}
-	// The authorization function guarantees that the tag represents a
-	// machine.
-	return entity.(*state.Machine), nil
-}
-
 func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag string) (*state.Unit, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
