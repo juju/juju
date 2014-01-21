@@ -153,7 +153,7 @@ Acquire::magic::Proxy "none";
 			Ftp:   "none",
 		},
 	}, {
-		message: "apt-proxies not used of apt-http-proxy set",
+		message: "apt-proxies not used if apt-http-proxy set",
 		extraConfig: map[string]interface{}{
 			"apt-http-proxy": "value-set",
 		},
@@ -167,7 +167,7 @@ Acquire::magic::Proxy "none";
 			Http: "value-set",
 		},
 	}, {
-		message: "apt-proxies not used of apt-https-proxy set",
+		message: "apt-proxies not used if apt-https-proxy set",
 		extraConfig: map[string]interface{}{
 			"apt-https-proxy": "value-set",
 		},
@@ -181,7 +181,7 @@ Acquire::magic::Proxy "none";
 			Https: "value-set",
 		},
 	}, {
-		message: "apt-proxies not used of apt-ftp-proxy set",
+		message: "apt-proxies not used if apt-ftp-proxy set",
 		extraConfig: map[string]interface{}{
 			"apt-ftp-proxy": "value-set",
 		},
