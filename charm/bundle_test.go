@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"syscall"
 
@@ -20,6 +19,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/set"
 )
 
 type BundleSuite struct {
@@ -74,7 +74,7 @@ func (s *BundleSuite) TestManifest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	manifest, err := bundle.Manifest()
 	c.Assert(err, gc.IsNil)
-	c.Assert(manifest, gc.DeepEquals, dummyManifest)
+	c.Assert(manifest, gc.DeepEquals, set.NewStrings(dummyManifest...))
 }
 
 func (s *BundleSuite) TestManifestNoRevision(c *gc.C) {
@@ -89,7 +89,7 @@ func (s *BundleSuite) TestManifestNoRevision(c *gc.C) {
 	bundle = extBundleDir(c, dirPath)
 	manifest, err := bundle.Manifest()
 	c.Assert(err, gc.IsNil)
-	c.Assert(manifest, gc.DeepEquals, dummyManifest)
+	c.Assert(manifest, gc.DeepEquals, set.NewStrings(dummyManifest...))
 }
 
 func (s *BundleSuite) TestManifestSymlink(c *gc.C) {
@@ -98,12 +98,11 @@ func (s *BundleSuite) TestManifestSymlink(c *gc.C) {
 		c.Skip("cannot symlink")
 	}
 	expected := append([]string{"hooks/symlink"}, dummyManifest...)
-	sort.Strings(expected)
 
 	bundle := bundleDir(c, srcPath)
 	manifest, err := bundle.Manifest()
 	c.Assert(err, gc.IsNil)
-	c.Assert(manifest, gc.DeepEquals, expected)
+	c.Assert(manifest, gc.DeepEquals, set.NewStrings(expected...))
 }
 
 func (s *BundleSuite) TestExpandTo(c *gc.C) {

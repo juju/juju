@@ -142,78 +142,82 @@ func (b *Bundle) Config() *Config {
 	return b.config
 }
 
-type withZipReaderFunc func(zr *zip.Reader) error
+type zipReadCloser struct {
+	io.Closer
+	*zip.Reader
+}
 
-// withZipReader creates a zip reader, giving access to the files in the bundle,
-// and passes it into the supplied function. The returned zip reader must not be
-// used outside that function.
-func (b *Bundle) withZipReader(f withZipReaderFunc) error {
-	// If we have a Path, reopen the file. Otherwise, try to use
-	// the original ReaderAt.
-	r := b.r
-	size := b.size
-	if b.Path != "" {
-		f, err := os.Open(b.Path)
+// zipOpen returns a zipReadCloser.
+func (b *Bundle) zipOpen() (*zipReadCloser, error) {
+	// If we don't have a Path, try to use the original ReaderAt.
+	if b.Path == "" {
+		r, err := zip.NewReader(b.r, b.size)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		defer f.Close()
-		fi, err := f.Stat()
-		if err != nil {
-			return err
-		}
-		r = f
-		size = fi.Size()
+		return &zipReadCloser{Closer: ioutil.NopCloser(nil), Reader: r}, nil
 	}
-	zipr, err := zip.NewReader(r, size)
+	f, err := os.Open(b.Path)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return f(zipr)
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	r, err := zip.NewReader(f, fi.Size())
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	return &zipReadCloser{Closer: f, Reader: r}, nil
 }
 
 // Manifest returns a sorted list of the charm's contents.
-func (b *Bundle) Manifest() ([]string, error) {
-	manifest := set.NewStrings()
-	err := b.withZipReader(func(zipr *zip.Reader) error {
-		for _, zfile := range zipr.File {
-			manifest.Add(zfile.Name)
-		}
-		return nil
-	})
+func (b *Bundle) Manifest() (set.Strings, error) {
+	zipr, err := b.zipOpen()
 	if err != nil {
-		return nil, err
+		return set.NewStrings(), err
+	}
+	defer zipr.Close()
+	manifest := set.NewStrings()
+	for _, zfile := range zipr.File {
+		manifest.Add(zfile.Name)
 	}
 	// We always write out a revision file, even if there isn't one in the
 	// bundle; and we always strip "./", because that's sometimes not present.
 	manifest.Add("revision")
 	manifest.Remove("./")
-	return manifest.SortedValues(), nil
+	return manifest, nil
 }
 
 // ExpandTo expands the charm bundle into dir, creating it if necessary.
 // If any errors occur during the expansion procedure, the process will
 // continue. Only the last error found is returned.
 func (b *Bundle) ExpandTo(dir string) (err error) {
-	return b.withZipReader(func(zipr *zip.Reader) error {
-		hooks := b.meta.Hooks()
-		var lasterr error
-		for _, zfile := range zipr.File {
-			if err := b.expand(hooks, dir, zfile); err != nil {
-				lasterr = err
-			}
+	zipr, err := b.zipOpen()
+	if err != nil {
+		return err
+	}
+	defer zipr.Close()
+	hooks := b.meta.Hooks()
+	var lasterr error
+	for _, zfile := range zipr.File {
+		if err := b.expand(hooks, dir, zfile); err != nil {
+			lasterr = err
 		}
-		revFile, err := os.Create(filepath.Join(dir, "revision"))
-		if err != nil {
-			return err
-		}
-		_, err = revFile.Write([]byte(strconv.Itoa(b.revision)))
-		revFile.Close()
-		if err != nil {
-			return err
-		}
-		return lasterr
-	})
+	}
+	revFile, err := os.Create(filepath.Join(dir, "revision"))
+	if err != nil {
+		return err
+	}
+	_, err = revFile.Write([]byte(strconv.Itoa(b.revision)))
+	revFile.Close()
+	if err != nil {
+		return err
+	}
+	return lasterr
 }
 
 // expand unpacks a charm's zip file into the given directory.
