@@ -1507,24 +1507,6 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-var sortPortsTests = []struct {
-	have, want []instance.Port
-}{
-	{nil, []instance.Port{}},
-	{[]instance.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []instance.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
-}
-
-func (*StateSuite) TestSortPorts(c *gc.C) {
-	for _, t := range sortPortsTests {
-		p := make([]instance.Port, len(t.have))
-		copy(p, t.have)
-		state.SortPorts(p)
-		c.Check(p, gc.DeepEquals, t.want)
-		state.SortPorts(p)
-		c.Check(p, gc.DeepEquals, t.want)
-	}
-}
-
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {

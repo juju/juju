@@ -861,7 +861,7 @@ func (e *environ) Ports() (ports []instance.Port, err error) {
 	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return
 }
 
@@ -978,7 +978,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return
 }
 

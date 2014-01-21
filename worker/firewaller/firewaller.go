@@ -248,14 +248,14 @@ func (fw *Firewaller) reconcileGlobal() error {
 		if err := fw.environ.OpenPorts(toOpen); err != nil {
 			return err
 		}
-		state.SortPorts(toOpen)
+		instance.SortPorts(toOpen)
 	}
 	if len(toClose) > 0 {
 		log.Infof("worker/firewaller: closing global ports %v", toClose)
 		if err := fw.environ.ClosePorts(toClose); err != nil {
 			return err
 		}
-		state.SortPorts(toClose)
+		instance.SortPorts(toClose)
 	}
 	return nil
 }
@@ -298,7 +298,7 @@ func (fw *Firewaller) reconcileInstances() error {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
-			state.SortPorts(toOpen)
+			instance.SortPorts(toOpen)
 		}
 		if len(toClose) > 0 {
 			log.Infof("worker/firewaller: closing instance ports %v for machine %s",
@@ -307,7 +307,7 @@ func (fw *Firewaller) reconcileInstances() error {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
-			state.SortPorts(toClose)
+			instance.SortPorts(toClose)
 		}
 	}
 	return nil
@@ -415,7 +415,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []instance.Port) error 
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		state.SortPorts(toOpen)
+		instance.SortPorts(toOpen)
 		log.Infof("worker/firewaller: opened ports %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
@@ -423,7 +423,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []instance.Port) error 
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		state.SortPorts(toClose)
+		instance.SortPorts(toClose)
 		log.Infof("worker/firewaller: closed ports %v in environment", toClose)
 	}
 	return nil
@@ -459,7 +459,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		state.SortPorts(toOpen)
+		instance.SortPorts(toOpen)
 		log.Infof("worker/firewaller: opened ports %v on machine %s", toOpen, machined.id)
 	}
 	if len(toClose) > 0 {
@@ -467,7 +467,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		state.SortPorts(toClose)
+		instance.SortPorts(toClose)
 		log.Infof("worker/firewaller: closed ports %v on machine %s", toClose, machined.id)
 	}
 	return nil
