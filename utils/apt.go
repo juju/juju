@@ -100,15 +100,15 @@ func DetectAptProxies() (result osenv.ProxySettings, err error) {
 // from the ProxySettings struct.
 func AptProxyContent(proxy osenv.ProxySettings) string {
 	lines := []string{}
-	addLine := func(proxy, value) {
+	addLine := func(proxy, value string) {
 		if value != "" {
 			lines = append(lines, fmt.Sprintf(
 				"Acquire::%s::Proxy %q;", proxy, value))
 		}
 	}
-	addLine("http", proxies.Http)
-	addLine("https", proxies.Https)
-	addLine("ftp", proxies.Ftp)
+	addLine("http", proxy.Http)
+	addLine("https", proxy.Https)
+	addLine("ftp", proxy.Ftp)
 	return strings.Join(lines, "\n")
 }
 
