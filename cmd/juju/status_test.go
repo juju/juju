@@ -324,6 +324,26 @@ var statusTests = []testCase{
 			},
 		},
 	), test(
+		"instance without addresses",
+		addMachine{"0", machineCons, state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		expect{
+			"machine 0 has no dns-name",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": M{
+						"agent-state": "started",
+						"instance-id": "dummyenv-0",
+						"series":      "quantal",
+						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+					},
+				},
+				"services": M{},
+			},
+		},
+	), test(
 		"test pending and missing machines",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
