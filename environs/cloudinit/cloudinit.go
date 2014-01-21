@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -109,6 +110,9 @@ type MachineConfig struct {
 	// the machine agent config.
 	AgentEnvironment map[string]string
 
+	// WARNING: this is only set if the machine being configured is
+	// a state server node.
+	//
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
@@ -126,6 +130,13 @@ type MachineConfig struct {
 	// node that has an API server. At this stage, that is any machine where
 	// StateServer (member above) is set to true.
 	SystemPrivateSSHKey string
+
+	// ProxySettings define normal http, https and ftp proxies.
+	ProxySettings osenv.ProxySettings
+
+	// AptProxySettings define the http, https and ftp proxy settings to use
+	// for apt, which may or may not be the same as the normal ProxySettings.
+	AptProxySettings osenv.ProxySettings
 }
 
 func base64yaml(m *config.Config) string {
@@ -204,6 +215,14 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.SetOutput(cloudinit.OutAll, ">> "+cloudInitOutputLog, "")
 		c.AddBootCmd(initProgressCmd)
 		c.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", cloudInitOutputLog))
+	}
+
+	// Write out the apt proxy settings
+	if (cfg.AptProxySettings != osenv.ProxySettings{}) {
+		c.AddBootCmd(fmt.Sprintf(
+			`[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] ||
+             (printf %%s %s > /etc/apt/apt.conf.d/42-juju-proxy-settings)`),
+			shquote(utils.AptProxyContent(cfg.AptProxySettings)))
 	}
 
 	// Bring packages up-to-date.

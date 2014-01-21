@@ -96,6 +96,22 @@ func DetectAptProxies() (result osenv.ProxySettings, err error) {
 	return result, nil
 }
 
+// AptProxyContent produces the format expected by the apt config files
+// from the ProxySettings struct.
+func AptProxyContent(proxy osenv.ProxySettings) string {
+	lines := []string{}
+	addLine := func(proxy, value) {
+		if value != "" {
+			lines = append(lines, fmt.Sprintf(
+				"Acquire::%s::Proxy %q;", proxy, value))
+		}
+	}
+	addLine("http", proxies.Http)
+	addLine("https", proxies.Https)
+	addLine("ftp", proxies.Ftp)
+	return strings.Join(lines, "\n")
+}
+
 // IsUbuntu executes lxb_release to see if the host OS is Ubuntu.
 func IsUbuntu() bool {
 	out, err := RunCommand("lsb_release", "-i", "-s")
