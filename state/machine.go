@@ -720,10 +720,20 @@ func IsNotProvisionedError(err error) bool {
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
-// determined by asking the provider.
+// determined both by the machine itself, and by asking the provider.
+//
+// The addresses returned by the provider shadow any of the addresses
+// that the machine reported with the same address value.
 func (m *Machine) Addresses() (addresses []instance.Address) {
+	merged := make(map[string]instance.Address)
+	for _, address := range m.doc.MachineAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
 	for _, address := range m.doc.Addresses {
-		addresses = append(addresses, address.InstanceAddress())
+		merged[address.Value] = address.InstanceAddress()
+	}
+	for _, address := range merged {
+		addresses = append(addresses, address)
 	}
 	return
 }

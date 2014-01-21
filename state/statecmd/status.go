@@ -315,7 +315,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		status.InstanceId = instid
 		inst, ok := context.instances[instid]
 		if ok {
-			status.DNSName, _ = inst.DNSName()
+			status.DNSName = instance.SelectPublicAddress(machine.Addresses())
 			status.InstanceState = inst.Status()
 		} else {
 			// Double plus ungood.  There is an instance id recorded
