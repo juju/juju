@@ -14,6 +14,10 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	imtesting "launchpad.net/juju-core/environs/imagemetadata/testing"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -319,13 +323,58 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", c.MkDir()})
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", c.MkDir()})
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
 	_, err := envtools.FindTools(
 		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
+}
+
+// createImageMetadata creates some image metadata in a local directory.
+func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
+	// Generate some image metadata.
+	im := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "1234",
+			Arch:       "amd64",
+			Version:    "13.04",
+			RegionName: "region",
+			Endpoint:   "endpoint",
+		},
+	}
+	cloudSpec := &simplestreams.CloudSpec{
+		Region:   "region",
+		Endpoint: "endpoint",
+	}
+	sourceDir := c.MkDir()
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
+	c.Assert(err, gc.IsNil)
+	return sourceDir, im
+}
+
+// checkImageMetadata checks that the environment contains the expected image metadata.
+func checkImageMetadata(c *gc.C, stor storage.StorageReader, expected []*imagemetadata.ImageMetadata) {
+	metadata := imtesting.ParseMetadataFromStorage(c, stor)
+	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(expected[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
+	sourceDir, expected := createImageMetadata(c)
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	// Bootstrap the environment with the valid source.
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
+	c.Check(code, gc.Equals, 0)
+
+	// Now check the image metadata has been uploaded.
+	checkImageMetadata(c, env.Storage(), expected)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -338,7 +387,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", sourceDir})
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
 	c.Check(code, gc.Equals, 0)
 
 	// Now check the available tools which are the 1.2.0 envtools.

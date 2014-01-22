@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -130,16 +131,15 @@ image metadata files have been written to:
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
 
-1. Use image-metadata-url in $JUJU_HOME/environments.yaml
+1. Use the --metadata-source parameter when bootstrapping:
+   juju bootstrap --metadata-source %s
+
+2. Use image-metadata-url in $JUJU_HOME/environments.yaml
 Configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.
 
-2. Upload the contents of
-%s
-to your cloud's private storage (for ec2 and openstack).
-eg for openstack
-"cd %s; swift upload %s images/streams/v1/*"
+"
 
 `
 
@@ -162,11 +162,11 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
-	dest := filepath.Join(c.Dir, "images", "streams", "v1")
+	dest := filepath.Join(c.Dir, storage.BaseImagesPath, "streams", "v1")
 	dir, err := utils.NormalizePath(c.Dir)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir, dir, c.privateStorage))
+	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir))
 	return nil
 }
