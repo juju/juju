@@ -103,9 +103,9 @@ func (u *Unit) OpenedPorts() ([]instance.Port, error) {
 	return result.Ports, nil
 }
 
-// AssignedMachineId returns the id of this unit's assigned machine
-// (if any), or a CodeNotAssigned error.
-func (u *Unit) AssignedMachineId() (string, error) {
+// AssignedMachine returns the tag of this unit's assigned machine (if
+// any), or a CodeNotAssigned error.
+func (u *Unit) AssignedMachine() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
