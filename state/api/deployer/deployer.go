@@ -6,18 +6,18 @@ package deployer
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // State provides access to the deployer worker's idea of the state.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 }
 
 // NewState creates a new State instance that makes API calls
 // through the given caller.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 

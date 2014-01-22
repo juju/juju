@@ -4,17 +4,17 @@
 package charmrevisionupdater
 
 import (
-	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // State provides access to a worker's view of the state.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 }
 
 // NewState returns a version of the state that provides functionality required by the worker.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 

@@ -8,19 +8,19 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // State provides access to the Uniter API facade.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
 	unitTag string
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller common.Caller, authTag string) *State {
+func NewState(caller base.Caller, authTag string) *State {
 	return &State{caller, authTag}
 }
 
