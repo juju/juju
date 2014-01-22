@@ -48,7 +48,7 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
 	defaultLogConfig := os.Getenv(osenv.JujuLoggingConfig)
-	f.StringVar(&l.Config, "log-config", defaultLogConfig, "specify log levels for modules")
+	f.StringVar(&l.Config, "logging-config", defaultLogConfig, "specify log levels for modules")
 	f.BoolVar(&l.ShowLog, "show-log", false, "if set, write the log file to stderr")
 }
 

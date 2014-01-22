@@ -424,7 +424,7 @@ Service Unit Agent
 
 const helpLogging = `
 Juju  has logging available for both client and server components. Most
-users exposure to the logging mechanism is through either the 'debug-log'
+users' exposure to the logging mechanism is through either the 'debug-log'
 command, or through the log file stored on the bootstrap node at
 /var/log/juju/all-machines.log.
 
@@ -443,6 +443,17 @@ the filename without the extension).
 Juju has a hierarchical logging system internally, and as a user you can
 control how much information is logged out.
 
+Output from the charm hook execution comes under the log name "unit".
+By default Juju makes sure that this information is logged out at
+the DEBUG level.  If you explicitly specify a value for unit, then
+this is used instead.
+
+Juju internal logging comes under the log name "juju".  Different areas
+of the codebase have different anmes. For example:
+  providers are under juju.provider
+  workers are under juju.worker
+  database parts are under juju.state
+
 All the agents are started with all logging set to DEBUG. Which means you
 see all the internal juju logging statements until the logging worker starts
 and updates the logging configuration to be what is stored for the environment.
@@ -457,19 +468,6 @@ environment variable
 setting the logging-config at bootstrap time
  - juju bootstrap --logging-config='...'
 juju set-environment logging-config='...'
-
-The value that is set is based on the hierarchical logging system.
-
-Output from the charm hook execution comes under the logger "unit".
-By default Juju makes sure that this information is logged out at
-the DEBUG level.  If you explicitly specify a value for unit, then
-this is used instead.
-
-Juju internal logging comes under the logger "juju".  Different areas
-of the codebase have different loggers. For example:
-  providers are under juju.provider
-  workers are under juju.worker
-  database parts are under juju.state
 
 Configuration values are separated by semicolons.
 
