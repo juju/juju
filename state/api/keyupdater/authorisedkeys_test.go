@@ -41,7 +41,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
 }
 
 func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	_, err = s.keyupdater.AuthorisedKeys(m.Tag())
 	c.Assert(err, gc.ErrorMatches, "permission denied")

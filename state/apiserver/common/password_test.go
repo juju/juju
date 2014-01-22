@@ -107,8 +107,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			},
 			"x4": &fakeUnitAuthenticator{},
 			"x5": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageState}},
-			"x7": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
+			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
@@ -150,8 +149,6 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	c.Check(st.entities["x5"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
 	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).pass, gc.Equals, "x6pass")
 	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x6pass")
-	c.Check(st.entities["x7"].(*fakeMachineAuthenticator).pass, gc.Equals, "x7pass")
-	c.Check(st.entities["x7"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x7pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *gc.C) {

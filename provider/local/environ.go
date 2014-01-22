@@ -603,7 +603,6 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 		Constraints: cons,
 		Jobs: []state.MachineJob{
 			state.JobManageEnviron,
-			state.JobManageState,
 		},
 		InstanceId: bootstrapInstanceId,
 	}, state.DialOpts{

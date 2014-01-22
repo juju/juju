@@ -64,9 +64,9 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	machines := make([]*state.Machine, 3)
 	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	machines[1], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	machines[2], err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	for i, m := range machines {
@@ -429,7 +429,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
-		state.JobManageState,
 	}
 	m1, err := s.State.AddMachine("blahblah", allJobs...)
 	c.Assert(err, gc.IsNil)
@@ -2489,9 +2488,9 @@ func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
 func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Delete the stateServers collection to pretend this

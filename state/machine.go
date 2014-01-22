@@ -37,18 +37,22 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
+
+	// Deprecated in 1.18.
 	JobManageState
 )
 
 var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
+
+	// Deprecated in 1.18.
 	JobManageState:   params.JobManageState,
 }
 
 // AllJobs returns all supported machine jobs.
 func AllJobs() []MachineJob {
-	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+	return []MachineJob{JobHostUnits, JobManageEnviron}
 }
 
 // ToParams returns the job as params.MachineJob.
@@ -198,11 +202,11 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// IsManager returns true if the machine has JobManageState or JobManageEnviron.
+// IsManager returns true if the machine has JJobManageEnviron.
 func (m *Machine) IsManager() bool {
 	for _, job := range m.doc.Jobs {
 		switch job {
-		case JobManageEnviron, JobManageState:
+		case JobManageEnviron:
 			return true
 		}
 	}
@@ -345,7 +349,7 @@ func (m *Machine) ForceDestroy() error {
 		ops := []txn.Op{{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageState}}}}},
+			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 		}, m.st.newCleanupOp("machine", m.doc.Id)}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err

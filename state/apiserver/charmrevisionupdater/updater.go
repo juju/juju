@@ -36,7 +36,7 @@ func NewCharmRevisionUpdaterAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthStateManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 	return &CharmRevisionUpdaterAPI{

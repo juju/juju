@@ -70,11 +70,8 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 		jobs          []state.MachineJob
 	}{
 		{false, []state.MachineJob{state.JobHostUnits}},
-		{true, []state.MachineJob{state.JobManageState}},
 		{true, []state.MachineJob{state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState}},
 		{true, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
 	}
 	for _, test := range tests {
 		m, err := s.State.AddMachine("quantal", test.jobs...)
