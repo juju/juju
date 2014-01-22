@@ -18,13 +18,6 @@ type peerGroupInfo struct {
 	members  []replicaset.Member
 }
 
-// machine represents a machine in State.
-type machine struct {
-	id        string
-	wantsVote bool
-	hostPort  string
-}
-
 // desiredPeerGroup returns the mongo peer group according to the given
 // servers and a map with an element for each machine in info.machines
 // specifying whether that machine has been configured as voting. It may

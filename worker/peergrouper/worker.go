@@ -1,4 +1,22 @@
 type worker struct {
+	wg sync.WaitGroup
+
+	// When something changes that might might affect
+	// the peer group membership, it sends a function
+	// on notifyc that is run inside the main worker
+	// goroutine to mutate the state. It reports whether
+	// the state has actually changed.
+	notifyc chan func() (bool, error)
+}
+
+// machine represents a machine in State.
+type machine struct {
+	id        string
+	wantsVote bool
+	hostPort  string
+	mongoPort string
+
+	worker *worker
 }
 
 func (w *worker) loop() error {
@@ -33,7 +51,7 @@ func (w *worker) loop() error {
 						continue
 					}
 				}
-				info.machines[id] = newMachine(id, w.wg, stm, notifyc)
+				info.machines[id] = w.newMachine(stm)
 			}
 		case f := <-notifyc:
 			changed, err := f()
@@ -54,8 +72,57 @@ func (w *worker) loop() error {
 	}
 }
 
+perhaps rename machine to machineInfo?
+
+func (w *worker) newMachine(stm *state.Machine) *machine {
+	m := &machine{
+		worker: w,
+		id: stm.Id(),
+		wantsVote: stm.WantsVote(),
+		hostPort: w.mongoHostPort(stm.Addresses()),
+
+		stm *state.Machine
+	}
+	go func() {
+		if err := m.loop(stm.Watch()); err != nil {
+			w.notifyError(err)
+		}
+	}()
+	return m
+}
+
+func (w *worker) notifyError(err error) {
+	w.notify(func() (bool, error) {
+		return false, err
+	})
+}
+
+func (w *worker) notify(func() (bool, error)) bool {
+	select {
+	case w.notifyc <- f:
+		return true
+	case <-w.tomb.Dying():
+		return false
+	}
+}
+
+func (m *
+
+XXX should we kill everything if a machine isn't found?
+
+func (m *machine) loop(watcher *state.NotifyWatcher) error {
+	defer m.worker.wg.Done()
+	for {
+	case <-watcher.Changes():
+		if err := m.stm.Refresh(); err != nil {
+			return err
+		}
+
+	case <-w.tomb.Dying():
+}
+
 func (w *worker) peerGroupSetter(memberc <-chan []replicaset.Member) {
-	ok := true
+	upToDate := true
 	for {
 		var pollc <-chan time.Time
 		if !ok {
@@ -64,13 +131,14 @@ func (w *worker) peerGroupSetter(memberc <-chan []replicaset.Member) {
 		select {
 		case <-w.tomb.Dying():
 			w.wg.Done()
+			return
 		case members := <-memberc:
-			ok = false
+			upToDate = false
 		case <-pollc:
 			if err := replicset.Set(session, members); err != nil {
 				log.Errorf("cannot set replicaset: %v", err)
 			} else {
-				ok = true
+				upToDate = true
 			}
 		}
 	}
