@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from jujupy import (
+    CannotConnectEnv,
     Environment,
     until_timeout,
 )
@@ -24,7 +25,11 @@ def deploy_stack(environment):
     try:
         # wait for status info....
         try:
-            env.get_status()
+            try:
+                env.get_status()
+            except CannotConnectEnv:
+                print "Status got Unable to connect to env.  Retrying..."
+                env.get_status()
             env.wait_for_started()
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
@@ -41,7 +46,7 @@ def main():
     try:
         deploy_stack(args.env)
     except Exception as e:
-        print e
+        print '%s: %s' % (type(e), e)
         sys.exit(1)
 
 

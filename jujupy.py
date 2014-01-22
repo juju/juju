@@ -56,6 +56,12 @@ def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
 
 
+class CannotConnectEnv(subprocess.CalledProcessError):
+
+    def __init__(self, e):
+        super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
+
+
 class JujuClientDevel:
     # This client is meant to work with the latest version of juju.
     # Subclasses will retain support for older versions of juju, so that the
@@ -112,7 +118,9 @@ class JujuClientDevel:
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
                 e.stderr = stderr.read()
-                raise
+                if 'Unable to connect to environment' not in e.stderr:
+                    raise
+                raise CannotConnectEnv(e)
 
     def get_status(self, environment):
         """Get the current status as a dict."""
@@ -238,12 +246,9 @@ class Environment:
         for ignored in until_timeout(300):
             try:
                 versions = self.get_status().get_agent_versions()
-            except subprocess.CalledProcessError as e:
-                if 'Unable to connect to environment' not in e.stderr:
-                    raise
-                else:
-                    print('Supressing "Unable to connect to environment"')
-                    continue
+            except CannotConnectEnv as e:
+                print('Supressing "Unable to connect to environment"')
+                continue
             if versions.keys() == [version]:
                 break
             print(format_listing(versions, version, self.environment))
