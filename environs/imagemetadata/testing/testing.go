@@ -6,26 +6,34 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
+	"path"
 	"sort"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils/set"
 )
 
-// ParseMetadata loads ImageMetadata from the specified directory.
-func ParseMetadata(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
+// ParseMetadataFromDir loads ImageMetadata from the specified directory.
+func ParseMetadataFromDir(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
+	stor, err := filestorage.NewFileStorageReader(metadataDir)
+	c.Assert(err, gc.IsNil)
+	return ParseMetadataFromStorage(c, stor)
+}
+
+// ParseMetadataFromStorage loads ImageMetadata from the specified storage reader.
+func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetadata.ImageMetadata {
+	source := storage.NewStorageSimpleStreamsDataSource(stor, "images")
+
+	// Find the simplestreams index file.
 	params := simplestreams.ValueParams{
 		DataType:      "image-ids",
 		ValueTemplate: imagemetadata.ImageMetadata{},
 	}
-
-	metadataPath := filepath.Join(metadataDir, "images")
-	source := simplestreams.NewURLDataSource("file://"+metadataPath, simplestreams.VerifySSLHostnames)
-
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex
 	indexRef, err := simplestreams.GetIndexWithFormat(
@@ -36,14 +44,20 @@ func ParseMetadata(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
 	imageIndexMetadata := indexRef.Indexes["com.ubuntu.cloud:custom"]
 	c.Assert(imageIndexMetadata, gc.NotNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(metadataPath, imageIndexMetadata.ProductsFilePath))
+	// Read the products file contents.
+	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
+	defer r.Close()
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 
+	// Parse the products file metadata.
 	url, err := source.URL(imageIndexMetadata.ProductsFilePath)
 	c.Assert(err, gc.IsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, imagemetadata.ImageMetadata{})
 	c.Assert(err, gc.IsNil)
 
+	// Collate the metadata.
 	imageMetadataMap := make(map[string]*imagemetadata.ImageMetadata)
 	var expectedProductIds set.Strings
 	var imageVersions set.Strings

@@ -35,6 +35,8 @@ var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	// Make sure that the defaults are used, which
+	// is <root>=WARNING
 	loggo.ResetLoggers()
 }
 
@@ -838,12 +840,6 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
 	}
 
-	if v, ok := test.attrs["logging-config"]; ok {
-		c.Assert(cfg.LoggingConfig(), gc.Equals, v)
-	} else {
-		c.Assert(cfg.LoggingConfig(), gc.Equals, "<root>=DEBUG")
-	}
-
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -897,12 +893,11 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
-	attrs["logging-config"] = loggo.LoggerInfo()
+	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
-	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
@@ -1074,18 +1069,25 @@ func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
 	defer makeFakeHome(c).Restore()
 
-	logConfig := "<root>=WARNING;juju=DEBUG"
-	config := newTestConfig(c, testing.Attrs{"logging-config": logConfig})
-	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
+	config := newTestConfig(c, testing.Attrs{
+		"logging-config": "<root>=WARNING;juju=DEBUG"})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;juju=DEBUG;unit=DEBUG")
+}
+
+func (*ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{
+		"logging-config": "<root>=WARNING;unit=INFO"})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;unit=INFO")
 }
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	defer makeFakeHome(c).Restore()
-	logConfig := "<root>=INFO"
-	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, logConfig)
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
 
 	config := newTestConfig(c, nil)
-	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
 }
 
 func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {

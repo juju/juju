@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -109,6 +110,9 @@ type MachineConfig struct {
 	// the machine agent config.
 	AgentEnvironment map[string]string
 
+	// WARNING: this is only set if the machine being configured is
+	// a state server node.
+	//
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
@@ -126,6 +130,13 @@ type MachineConfig struct {
 	// node that has an API server. At this stage, that is any machine where
 	// StateServer (member above) is set to true.
 	SystemPrivateSSHKey string
+
+	// ProxySettings define normal http, https and ftp proxies.
+	ProxySettings osenv.ProxySettings
+
+	// AptProxySettings define the http, https and ftp proxy settings to use
+	// for apt, which may or may not be the same as the normal ProxySettings.
+	AptProxySettings osenv.ProxySettings
 }
 
 func base64yaml(m *config.Config) string {
@@ -166,6 +177,9 @@ const NonceFile = "nonce.txt"
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
 func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
+	c.AddScripts(
+		"set -xe", // ensure we run all the scripts or abort.
+	)
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
@@ -206,6 +220,16 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", cloudInitOutputLog))
 	}
 
+	// Write out the apt proxy settings
+	if (cfg.AptProxySettings != osenv.ProxySettings{}) {
+		filename := "/etc/apt/apt.conf.d/42-juju-proxy-settings"
+		c.AddBootCmd(fmt.Sprintf(
+			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
+			filename,
+			shquote(utils.AptProxyContent(cfg.AptProxySettings)),
+			filename))
+	}
+
 	// Bring packages up-to-date.
 	c.SetAptUpdate(true)
 	c.SetAptUpgrade(true)
@@ -214,8 +238,20 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	c.AddPackage("git")
 	c.AddPackage("cpu-checker")
 
+	// Write out the normal proxy settings so that the settings are
+	// sourced by bash, and ssh through that.
 	c.AddScripts(
-		"set -xe", // ensure we run all the scripts or abort.
+		// We look to see if the proxy line is there already as
+		// the manual provider may have had it aleady.
+		`grep -q '.juju-proxy' /home/ubuntu/.profile || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
+	if (cfg.ProxySettings != osenv.ProxySettings{}) {
+		c.AddScripts(
+			fmt.Sprintf(
+				`printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy`,
+				shquote(cfg.ProxySettings.AsEnvironmentValues())))
+	}
+
+	c.AddScripts(
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 

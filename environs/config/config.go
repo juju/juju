@@ -105,26 +105,11 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
-	// If the logging config hasn't been set, then look for the os environment
-	// variable, and failing that, get the config from loggo itself.
-	if c.asString("logging-config") == "" {
-		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
-			c.m["logging-config"] = environmentValue
-		} else {
-			//TODO(wallyworld) - 2013-10-10 bug=1237731
-			// We need better way to ensure default logging is set to debug.
-			// This is a *quick* fix to get 1.16 out the door.
-			loggoConfig := loggo.LoggerInfo()
-			if loggoConfig != "<root>=WARNING" {
-				c.m["logging-config"] = loggoConfig
-			} else {
-				c.m["logging-config"] = "<root>=DEBUG"
-			}
-		}
+	if err := c.ensureUnitLogging(); err != nil {
+		return nil, err
 	}
-
 	// no old config to compare against
-	if err = Validate(c, nil); err != nil {
+	if err := Validate(c, nil); err != nil {
 		return nil, err
 	}
 	// Copy unknown attributes onto the type-specific map.
@@ -134,6 +119,29 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		}
 	}
 	return c, nil
+}
+
+func (c *Config) ensureUnitLogging() error {
+	loggingConfig := c.asString("logging-config")
+	// If the logging config hasn't been set, then look for the os environment
+	// variable, and failing that, get the config from loggo itself.
+	if loggingConfig == "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
+			loggingConfig = environmentValue
+		} else {
+			loggingConfig = loggo.LoggerInfo()
+		}
+	}
+	levels, err := loggo.ParseConfigurationString(loggingConfig)
+	if err != nil {
+		return err
+	}
+	// If there is is no specified level for "unit", then set one.
+	if _, ok := levels["unit"]; !ok {
+		loggingConfig = loggingConfig + ";unit=DEBUG"
+	}
+	c.m["logging-config"] = loggingConfig
+	return nil
 }
 
 func (c *Config) fillInDefaults() error {
@@ -406,6 +414,15 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
+// ProxySettings returns all three proxy settings; http, https and ftp.
+func (c *Config) ProxySettings() osenv.ProxySettings {
+	return osenv.ProxySettings{
+		Http:  c.HttpProxy(),
+		Https: c.HttpsProxy(),
+		Ftp:   c.FtpProxy(),
+	}
+}
+
 // HttpProxy returns the http proxy for the environment.
 func (c *Config) HttpProxy() string {
 	return c.asString("http-proxy")
@@ -427,6 +444,15 @@ func (c *Config) getWithFallback(key, fallback string) string {
 		value = c.asString(fallback)
 	}
 	return value
+}
+
+// AptProxySettings returns all three proxy settings; http, https and ftp.
+func (c *Config) AptProxySettings() osenv.ProxySettings {
+	return osenv.ProxySettings{
+		Http:  c.AptHttpProxy(),
+		Https: c.AptHttpsProxy(),
+		Ftp:   c.AptFtpProxy(),
+	}
 }
 
 // AptHttpProxy returns the apt http proxy for the environment.

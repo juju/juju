@@ -247,6 +247,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 		},
 		"ssh_authorized_keys": []interface{}{expectedAuthKeys},
 		"runcmd": []interface{}{
+			"set -xe",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 		},

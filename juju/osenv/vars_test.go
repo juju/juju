@@ -6,16 +6,11 @@ package osenv
 import (
 	"path/filepath"
 	"runtime"
-	"testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
 )
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type importSuite struct {
 	testbase.LoggingSuite

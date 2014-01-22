@@ -115,6 +115,35 @@ Acquire::magic::Proxy "none";
 	})
 }
 
+func (s *AptSuite) TestAptProxyContentEmpty(c *gc.C) {
+	output := utils.AptProxyContent(osenv.ProxySettings{})
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *AptSuite) TestAptProxyContentPartial(c *gc.C) {
+	proxy := osenv.ProxySettings{
+		Http: "user@10.0.0.1",
+	}
+	output := utils.AptProxyContent(proxy)
+	expected := `Acquire::http::Proxy "user@10.0.0.1";`
+	c.Assert(output, gc.Equals, expected)
+}
+
+func (s *AptSuite) TestAptProxyContentRoundtrip(c *gc.C) {
+	proxy := osenv.ProxySettings{
+		Http:  "http://user@10.0.0.1",
+		Https: "https://user@10.0.0.1",
+		Ftp:   "ftp://user@10.0.0.1",
+	}
+	output := utils.AptProxyContent(proxy)
+
+	s.HookCommandOutput(&utils.AptCommandOutput, []byte(output), nil)
+
+	detected, err := utils.DetectAptProxies()
+	c.Assert(err, gc.IsNil)
+	c.Assert(detected, gc.DeepEquals, proxy)
+}
+
 func (s *AptSuite) TestConfigProxyConfiguredFilterOutput(c *gc.C) {
 	const (
 		output = `CommandLine::AsString "apt-config dump";

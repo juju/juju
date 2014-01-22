@@ -15,6 +15,12 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 )
 
+// WriterFactory defines the single method to create a new
+// logging writer for a specified output target.
+type WriterFactory interface {
+	NewWriter(target io.Writer) loggo.Writer
+}
+
 // Log supplies the necessary functionality for Commands that wish to set up
 // logging.
 type Log struct {
@@ -23,6 +29,15 @@ type Log struct {
 	Debug   bool
 	ShowLog bool
 	Config  string
+	Factory WriterFactory
+}
+
+// GetLogWriter returns a logging writer for the specified target.
+func (l *Log) GetLogWriter(target io.Writer) loggo.Writer {
+	if l.Factory != nil {
+		return l.Factory.NewWriter(target)
+	}
+	return loggo.NewSimpleWriter(target, &loggo.DefaultFormatter{})
 }
 
 // AddFlags adds appropriate flags to f.
@@ -33,7 +48,7 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
 	defaultLogConfig := os.Getenv(osenv.JujuLoggingConfigEnvKey)
-	f.StringVar(&l.Config, "log-config", defaultLogConfig, "specify log levels for modules")
+	f.StringVar(&l.Config, "logging-config", defaultLogConfig, "specify log levels for modules")
 	f.BoolVar(&l.ShowLog, "show-log", false, "if set, write the log file to stderr")
 }
 
@@ -45,7 +60,7 @@ func (l *Log) Start(ctx *Context) error {
 		if err != nil {
 			return err
 		}
-		writer := loggo.NewSimpleWriter(target, &loggo.DefaultFormatter{})
+		writer := l.GetLogWriter(target)
 		err = loggo.RegisterWriter("logfile", writer, loggo.TRACE)
 		if err != nil {
 			return err
@@ -66,7 +81,7 @@ func (l *Log) Start(ctx *Context) error {
 
 	if l.ShowLog {
 		// We replace the default writer to use ctx.Stderr rather than os.Stderr.
-		writer := loggo.NewSimpleWriter(ctx.Stderr, &loggo.DefaultFormatter{})
+		writer := l.GetLogWriter(ctx.Stderr)
 		_, err := loggo.ReplaceDefaultWriter(writer)
 		if err != nil {
 			return err

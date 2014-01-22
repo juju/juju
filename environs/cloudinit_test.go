@@ -217,6 +217,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			},
 			"runcmd": []interface{}{
 				"script1", "script2",
+				"set -xe",
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
 			},
