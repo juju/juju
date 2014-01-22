@@ -104,7 +104,7 @@ func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputDirectory)
-	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
+	metadata := ttesting.ParseMetadata(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -122,7 +122,7 @@ func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputDirectory)
-	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
+	metadata := ttesting.ParseMetadata(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -141,7 +141,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	metadataDir := c.MkDir()
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
-	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
+	metadata := ttesting.ParseMetadata(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -159,7 +159,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputMirrors)
-	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, true)
+	metadata := ttesting.ParseMetadata(c, metadataDir, true)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -200,7 +200,7 @@ Finding tools\.\.\.
 .*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
-	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
+	metadata := ttesting.ParseMetadata(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, 2)
 
 	filename := fmt.Sprintf("juju-%s-precise-amd64.tgz", currentVersion)

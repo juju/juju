@@ -315,7 +315,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
+	metadata := ttesting.ParseMetadata(c, dir, false)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -347,7 +347,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	}
 	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadataFromDir(c, dir, withMirrors)
+	metadata := ttesting.ParseMetadata(c, dir, withMirrors)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -387,7 +387,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
+	metadata := ttesting.ParseMetadata(c, dir, false)
 	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 

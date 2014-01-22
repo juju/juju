@@ -358,7 +358,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 
 // checkImageMetadata checks that the environment contains the expected image metadata.
 func checkImageMetadata(c *gc.C, stor storage.StorageReader, expected []*imagemetadata.ImageMetadata) {
-	metadata := imtesting.ParseMetadataFromFromStorage(c, stor)
+	metadata := imtesting.ParseMetadataFromStorage(c, stor)
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(expected[0], gc.DeepEquals, metadata[0])
 }
