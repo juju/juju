@@ -264,7 +264,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 	expectedResults := []params.RunResult{
 		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+			ExecResponse: exec.ExecResponse{Stdout: []byte("[ -f \"$HOME/.juju-proxy\" ] && . \"$HOME/.juju-proxy\"\njuju-run --no-context 'hostname'\n")},
 			MachineId:    "0",
 		},
 		params.RunResult{
