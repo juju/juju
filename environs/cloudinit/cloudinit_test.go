@@ -800,14 +800,13 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	cmds := cloudcfg.RunCmds()
 	first := `grep -q '.juju-proxy' /home/ubuntu/.profile || printf '\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
 	second := `printf '%s\n' 'export http_proxy=http://user@10.0.0.1
-export HTTP_PROXY=http://user@10.0.0.1' > $HOME/.juju-proxy && chown ubuntu:ubuntu $HOME/.juju-proxy`
+export HTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy`
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			if cmds[i+1] == second {
-				found = true
-				break
-			}
+			c.Assert(cmds[i+1], gc.Equals, second)
+			found = true
+			break
 		}
 	}
 	c.Assert(found, jc.IsTrue)
