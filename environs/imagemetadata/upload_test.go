@@ -26,13 +26,14 @@ type uploadSuite struct {
 	testbase.LoggingSuite
 }
 
-func createImageMetadata(c *gc.C) (string, string, storage.Storage, *imagemetadata.ImageMetadata) {
-	destDir := c.MkDir()
-	destStor, err := filestorage.NewFileStorageWriter(destDir, filestorage.UseDefaultTmpDir)
+func createImageMetadata(c *gc.C) (sourceDir string, destDir string, destStor storage.Storage, metadata *imagemetadata.ImageMetadata) {
+	destDir = c.MkDir()
+	var err error
+	destStor, err = filestorage.NewFileStorageWriter(destDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 
 	// Generate some metadata.
-	sourceDir := c.MkDir()
+	sourceDir = c.MkDir()
 	im := []*imagemetadata.ImageMetadata{
 		{
 			Id:      "1234",
@@ -46,7 +47,8 @@ func createImageMetadata(c *gc.C) (string, string, storage.Storage, *imagemetada
 	}
 	im[0].RegionName = cloudSpec.Region
 	im[0].Endpoint = cloudSpec.Endpoint
-	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	var sourceStor storage.Storage
+	sourceStor, err = filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
 	c.Assert(err, gc.IsNil)
