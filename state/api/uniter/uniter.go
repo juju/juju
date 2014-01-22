@@ -26,21 +26,7 @@ func NewState(caller base.Caller, authTag string) *State {
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Uniter", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, "Uniter", tag)
 }
 
 // relation requests relation information from the server.

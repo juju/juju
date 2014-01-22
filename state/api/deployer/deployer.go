@@ -4,8 +4,6 @@
 package deployer
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -23,21 +21,7 @@ func NewState(caller base.Caller) *State {
 
 // unitLife returns the lifecycle state of the given unit.
 func (st *State) unitLife(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Deployer", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, "Deployer", tag)
 }
 
 // Unit returns the unit with the given tag.
