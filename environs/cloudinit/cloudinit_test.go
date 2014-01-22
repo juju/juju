@@ -90,10 +90,11 @@ var cloudinitTests = []cloudinitTest{
 		setEnvConfig: true,
 		expectScripts: `
 echo ENABLE_MONGODB="no" > /etc/default/mongodb
+set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
-set -xe
+grep -q '.juju-proxy' /home/ubuntu/.profile \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
@@ -205,10 +206,11 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			SyslogPort: 514,
 		},
 		expectScripts: `
+set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
-set -xe
+grep -q '.juju-proxy' /home/ubuntu/.profile \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 echo 'Fetching tools.*

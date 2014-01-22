@@ -177,6 +177,9 @@ const NonceFile = "nonce.txt"
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
 func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
+	c.AddScripts(
+		"set -xe", // ensure we run all the scripts or abort.
+	)
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.SetOutput(cloudinit.OutAll, "| tee -a "+cloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
@@ -249,7 +252,6 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	c.AddScripts(
-		"set -xe", // ensure we run all the scripts or abort.
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
