@@ -425,6 +425,7 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 		return nil, nil
 	}
 	if currentInfo == nil {
+		// Allow bootstrap machine only.
 		if len(mdocs) != 1 || mdocs[0].Id != "0" {
 			return nil, errStateServerNotAllowed
 		}
@@ -433,7 +434,7 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 		if err != nil {
 			return nil, fmt.Errorf("cannot get state server info: %v", err)
 		}
-		if len(currentInfo.MachineIds) != 0 || len(currentInfo.VotingMachineIds) != 0 {
+		if len(currentInfo.MachineIds) > 0 || len(currentInfo.VotingMachineIds) > 0 {
 			return nil, fmt.Errorf("state servers already exist")
 		}
 	}
@@ -460,8 +461,11 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 //
 // TODO(rog):
 // If any current state servers are down, they will be
-// removed from the current set of state servers
-// (although the machines themselves will remain).
+// removed from the current set of voting replica set
+// peers (although the machines themselves will remain
+// and they will still remain part of the replica set).
+// Once a machine's voting status has been removed,
+// the machine itself may be removed.
 func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
 	if numStateServers%2 != 1 || numStateServers <= 0 {
 		return fmt.Errorf("number of state servers must be odd and greater than zero")
@@ -474,8 +478,9 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		return err
 	}
 	if len(info.VotingMachineIds) == numStateServers {
-		// TODO find machines which are down, clear
-		// their WantVote flag and add new machines to
+		// TODO(rog) #1271504 2014-01-22
+		// Find machines which are down, set
+		// their NoVote flag and add new machines to
 		// replace them.
 		return nil
 	}

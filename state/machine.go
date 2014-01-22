@@ -495,13 +495,11 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		for _, j := range m.doc.Jobs {
-			if j == JobManageEnviron {
-				// (NOTE: When we enable multiple JobManageEnviron machines,
-				// the restriction will become "there must be at least one
-				// machine with this job".)
-				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
-			}
+		if hasJob(m.doc.Jobs, JobManageEnviron) || hasJob(m.doc.Jobs, JobManageState) {
+			// (NOTE: When we enable multiple JobManageEnviron machines,
+			// this restriction will be lifted, but we will assert that the
+			// machine is not voting)
+			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
 			return &HasAssignedUnitsError{

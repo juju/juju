@@ -13,16 +13,7 @@ type stateSuite struct {
 
 var _ = gc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-}
-
-func (s *stateSuite) TearDownTest(c *gc.C) {
-	s.uniterSuite.TearDownTest(c)
-}
-
 func (s *stateSuite) TestAPIAddresses(c *gc.C) {
-
 	stateAPIAddresses, err := s.State.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	addresses, err := s.uniter.APIAddresses()
@@ -34,17 +25,6 @@ func (s *stateSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(addresses, gc.Not(gc.DeepEquals), apiInfo.Addrs)
 }
 
-func (s *stateSuite) TestAPIAddressesFailure(c *gc.C) {
-	err := s.stateServerMachine.Destroy()
-	c.Assert(err, gc.IsNil)
-	err = s.stateServerMachine.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	err = s.stateServerMachine.Remove()
-	c.Assert(err, gc.IsNil)
-	_, err = s.uniter.APIAddresses()
-	c.Assert(err, gc.ErrorMatches, "no state server machines found")
-}
-
 func (s *stateSuite) TestProviderType(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -52,4 +32,20 @@ func (s *stateSuite) TestProviderType(c *gc.C) {
 	providerType, err := s.uniter.ProviderType()
 	c.Assert(err, gc.IsNil)
 	c.Assert(providerType, gc.DeepEquals, cfg.Type())
+}
+
+type noStateServerSuite struct {
+	uniterSuite
+}
+
+var _ = gc.Suite(&noStateServerSuite{})
+
+func (s *noStateServerSuite) SetUpTest(c *gc.C) {
+	// avoid adding the state server machine.
+	s.setUpTest(c, false)
+}
+
+func (s *noStateServerSuite) TestAPIAddressesFailure(c *gc.C) {
+	_, err := s.uniter.APIAddresses()
+	c.Assert(err, gc.ErrorMatches, "no state server machines found")
 }
