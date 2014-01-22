@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -138,6 +139,14 @@ func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	}
 	resp, err := s.get(baseURL + strings.Join(charmSnippets, "&"))
 	if err != nil {
+		if url_error, ok := err.(*url.Error); ok {
+			switch url_error.Err.(type) {
+			case *net.DNSError:
+				return nil, fmt.Errorf("Cannot access the charm store. Are you connected to the internet? Error details: %v", err)
+			case *net.OpError:
+				return nil, fmt.Errorf("Cannot access the charm store. Are you connected to the internet? Error details: %v", err)
+			}
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
