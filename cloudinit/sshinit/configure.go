@@ -35,12 +35,19 @@ type ConfigureParams struct {
 // Configure connects to the specified host over SSH,
 // and executes a script that carries out cloud-config.
 func Configure(params ConfigureParams) error {
-	logger.Infof("Provisioning machine agent on %s", params.Host)
 	script, err := ConfigureScript(params.Config)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("running script on %s: %s", params.Host, script)
+	return RunConfigureScript(script, params)
+}
+
+// Run connects to the specified host over SSH,
+// and executes the provided script which is expected
+// to have been returned by ConfigureScript.
+func RunConfigureScript(script string, params ConfigureParams) error {
+	logger.Infof("Provisioning machine agent on %s", params.Host)
+	logger.Debugf("Running script on %s: %s", params.Host, script)
 	client := params.Client
 	if client == nil {
 		client = ssh.DefaultClient
