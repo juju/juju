@@ -285,6 +285,7 @@ var topicNames = []string{
 	"glossary",
 	"hpcloud",
 	"local",
+	"logging",
 	"openstack",
 	"plugins",
 	"topics",
@@ -312,8 +313,8 @@ var globalFlags = []string{
 	"--debug .*",
 	"--description .*",
 	"-h, --help .*",
-	"--log-config .*",
 	"--log-file .*",
+	"--logging-config .*",
 	"--show-log .*",
 	"-v, --verbose .*",
 }

@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
@@ -220,6 +222,10 @@ func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath str
 	return result, ctx.finalizeContext("run commands", err)
 }
 
+func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
+	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
+}
+
 // RunHook executes a hook in an environment which allows it to to call back
 // into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
@@ -230,12 +236,12 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
-		err = runCharmHook(hookName, charmDir, env)
+		err = ctx.runCharmHook(hookName, charmDir, env)
 	}
 	return ctx.finalizeContext(hookName, err)
 }
 
-func runCharmHook(hookName, charmDir string, env []string) error {
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = env
 	ps.Dir = charmDir
@@ -246,8 +252,9 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
 	hookLogger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
+		r:      outReader,
+		done:   make(chan struct{}),
+		logger: ctx.GetLogger(hookName),
 	}
 	go hookLogger.run()
 	err = ps.Start()
@@ -271,6 +278,7 @@ type hookLogger struct {
 	done    chan struct{}
 	mu      sync.Mutex
 	stopped bool
+	logger  loggo.Logger
 }
 
 func (l *hookLogger) run() {
@@ -290,7 +298,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		logger.Infof("HOOK %s", line)
+		l.logger.Infof("%s", line)
 		l.mu.Unlock()
 	}
 }
