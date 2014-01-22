@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-const Provisioner = "Provisioner"
+const provisioner = "Provisioner"
 
 // State provides access to the Machiner API facade.
 type State struct {
@@ -25,7 +25,7 @@ type State struct {
 // NewState creates a new client-side Machiner facade.
 func NewState(caller base.Caller) *State {
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(Provisioner, caller),
+		EnvironWatcher: common.NewEnvironWatcher(provisioner, caller),
 
 		caller: caller}
 }
@@ -36,7 +36,7 @@ func (st *State) machineLife(tag string) (params.Life, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.Call(Provisioner, "", "Life", args, &result)
+	err := st.caller.Call(provisioner, "", "Life", args, &result)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +67,7 @@ func (st *State) Machine(tag string) (*Machine, error) {
 // the current environment.
 func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.caller.Call(Provisioner, "", "WatchEnvironMachines", nil, &result)
+	err := st.caller.Call(provisioner, "", "WatchEnvironMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.Call(Provisioner, "", "StateAddresses", nil, &result)
+	err := st.caller.Call(provisioner, "", "StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (st *State) StateAddresses() ([]string, error) {
 // APIAddresses returns the list of addresses used to connect to the API.
 func (st *State) APIAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.Call(Provisioner, "", "APIAddresses", nil, &result)
+	err := st.caller.Call(provisioner, "", "APIAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (st *State) APIAddresses() ([]string, error) {
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() ([]byte, error) {
 	var result params.BytesResult
-	err := st.caller.Call(Provisioner, "", "CACert", nil, &result)
+	err := st.caller.Call(provisioner, "", "CACert", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.Call(Provisioner, "", "Tools", args, &results)
+	err := st.caller.Call(provisioner, "", "Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -133,6 +133,6 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 // ContainerConfig returns information from the environment config that are
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
-	err = st.caller.Call(Provisioner, "", "ContainerConfig", nil, &result)
+	err = st.caller.Call(provisioner, "", "ContainerConfig", nil, &result)
 	return result, err
 }
