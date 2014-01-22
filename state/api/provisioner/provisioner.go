@@ -25,21 +25,7 @@ func NewState(caller common.Caller) *State {
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Provisioner", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, "Provisioner", tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
