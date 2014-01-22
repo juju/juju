@@ -187,6 +187,15 @@ func (s *StoreSuite) TestInfoWarning(c *gc.C) {
 	c.Assert(info[0].Warnings, gc.DeepEquals, []string{"foolishness"})
 }
 
+func (s *StoreSuite) TestInfoDNSError(c *gc.C) {
+	store := charm.NewStore("http://example.invalid")
+	charmURL := charm.MustParseURL("cs:series/good")
+	resp, err := store.Info(charmURL)
+	c.Assert(resp, gc.IsNil)
+	expect := `Cannot access the charm store. Are you connected to the internet. Error details:.*`
+	c.Assert(err, gc.ErrorMatches, expect)
+}
+
 func (s *StoreSuite) TestEvent(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/good")
 	event, err := s.store.Event(charmURL, "")

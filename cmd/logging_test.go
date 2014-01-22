@@ -51,7 +51,7 @@ func (s *LogSuite) TestNoFlags(c *gc.C) {
 
 func (s *LogSuite) TestFlags(c *gc.C) {
 	log := newLogWithFlags(c, []string{"--log-file", "foo", "--verbose", "--debug",
-		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
+		"--logging-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
 	c.Assert(log.Path, gc.Equals, "foo")
 	c.Assert(log.Verbose, gc.Equals, true)
 	c.Assert(log.Debug, gc.Equals, true)
