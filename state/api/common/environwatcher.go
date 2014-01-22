@@ -11,19 +11,21 @@ import (
 )
 
 type EnvironWatcher struct {
-	name   string
-	caller base.Caller
+	façadeName string
+	caller     base.Caller
 }
 
-func NewEnvironWatcher(name string, caller base.Caller) *EnvironWatcher {
-	return &EnvironWatcher{name, caller}
+// NewEnvironWatcher creates a EnvironWatcher on the api end point
+//
+func NewEnvironWatcher(façadeName string, caller base.Caller) *EnvironWatcher {
+	return &EnvironWatcher{façadeName, caller}
 }
 
 // WatchForEnvironConfigChanges return a NotifyWatcher waiting for the
 // environment configuration to change.
 func (e *EnvironWatcher) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := e.caller.Call(e.name, "", "WatchForEnvironConfigChanges", nil, &result)
+	err := e.caller.Call(e.façadeName, "", "WatchForEnvironConfigChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +39,7 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, 
 // EnvironConfig returns the current environment configuration.
 func (e *EnvironWatcher) EnvironConfig() (*config.Config, error) {
 	var result params.EnvironConfigResult
-	err := e.caller.Call(e.name, "", "EnvironConfig", nil, &result)
+	err := e.caller.Call(e.façadeName, "", "EnvironConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}
