@@ -110,9 +110,9 @@ func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
 
 	for _, name := range certNames {
-		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
+		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
 		c.Assert(err, gc.IsNil)
-		err = ioutil.WriteFile(config.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
+		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
 		c.Assert(err, gc.IsNil)
 	}
 
@@ -134,7 +134,7 @@ func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
 func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
 	fake := MakeFakeHomeNoEnvironments(c, certNames...)
 
-	envs := config.JujuHomePath("environments.yaml")
+	envs := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
 	c.Assert(err, gc.IsNil)
 
@@ -143,7 +143,7 @@ func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
 
 func MakeEmptyFakeHome(c *gc.C) *FakeHome {
 	fake := MakeEmptyFakeHomeWithoutJuju(c)
-	err := os.Mkdir(config.JujuHome(), 0700)
+	err := os.Mkdir(osenv.JujuHome(), 0700)
 	c.Assert(err, gc.IsNil)
 	return fake
 }
@@ -152,19 +152,19 @@ func MakeEmptyFakeHomeWithoutJuju(c *gc.C) *FakeHome {
 	oldHomeEnv := osenv.Home()
 	oldEnvironment := make(map[string]string)
 	for _, name := range []string{
-		osenv.JujuHome,
-		osenv.JujuEnv,
-		osenv.JujuLoggingConfig,
+		osenv.JujuHomeEnvKey,
+		osenv.JujuEnvEnvKey,
+		osenv.JujuLoggingConfigEnvKey,
 	} {
 		oldEnvironment[name] = os.Getenv(name)
 	}
 	fakeHome := c.MkDir()
 	osenv.SetHome(fakeHome)
-	os.Setenv(osenv.JujuHome, "")
-	os.Setenv(osenv.JujuEnv, "")
-	os.Setenv(osenv.JujuLoggingConfig, "")
+	os.Setenv(osenv.JujuHomeEnvKey, "")
+	os.Setenv(osenv.JujuEnvEnvKey, "")
+	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
-	oldJujuHome := config.SetJujuHome(jujuHome)
+	oldJujuHome := osenv.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
 		oldEnvironment: oldEnvironment,
@@ -179,7 +179,7 @@ func HomePath(names ...string) string {
 }
 
 func (h *FakeHome) Restore() {
-	config.SetJujuHome(h.oldJujuHome)
+	osenv.SetJujuHome(h.oldJujuHome)
 	for name, value := range h.oldEnvironment {
 		os.Setenv(name, value)
 	}

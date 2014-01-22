@@ -149,7 +149,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Cmd:     cmd,
 		Out:     logPath,
 		Env: map[string]string{
-			osenv.JujuContainerType: containerType,
+			osenv.JujuContainerTypeEnvKey: containerType,
 		},
 	}
 	return uconf.Install()

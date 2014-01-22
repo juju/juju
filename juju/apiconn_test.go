@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -421,7 +422,7 @@ func (*NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) 
 	c.Assert(info.BootstrapConfig(), gc.NotNil)
 	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
 
-	err = os.Remove(config.JujuHomePath("environments.yaml"))
+	err = os.Remove(osenv.JujuHomePath("environments.yaml"))
 	c.Assert(err, gc.IsNil)
 
 	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)

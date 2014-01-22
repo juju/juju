@@ -1,10 +1,12 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package config
+package osenv
 
 import (
+	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -43,4 +45,35 @@ func JujuHome() string {
 func JujuHomePath(names ...string) string {
 	all := append([]string{JujuHome()}, names...)
 	return filepath.Join(all...)
+}
+
+// JujuHome returns the directory where juju should store application-specific files
+func JujuHomeDir() string {
+	JujuHomeEnvKey := os.Getenv(JujuHomeEnvKey)
+	if JujuHomeEnvKey == "" {
+		if runtime.GOOS == "windows" {
+			JujuHomeEnvKey = jujuHomeWin()
+		} else {
+			JujuHomeEnvKey = jujuHomeLinux()
+		}
+	}
+	return JujuHomeEnvKey
+}
+
+// jujuHomeLinux returns the directory where juju should store application-specific files on Linux.
+func jujuHomeLinux() string {
+	home := Home()
+	if home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".juju")
+}
+
+// jujuHomeWin returns the directory where juju should store application-specific files on Windows.
+func jujuHomeWin() string {
+	appdata := os.Getenv("APPDATA")
+	if appdata == "" {
+		return ""
+	}
+	return filepath.Join(appdata, "Juju")
 }

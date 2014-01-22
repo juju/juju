@@ -108,7 +108,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if c.asString("logging-config") == "" {
-		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
 			c.m["logging-config"] = environmentValue
 		} else {
 			//TODO(wallyworld) - 2013-10-10 bug=1237731
@@ -324,7 +324,7 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 		return err
 	}
 	if !filepath.IsAbs(path) {
-		path = JujuHomePath(path)
+		path = osenv.JujuHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {

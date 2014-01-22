@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -148,7 +149,7 @@ func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
 
 func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
 		URL:     "http://foo.com/tools/releases/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
