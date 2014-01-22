@@ -141,9 +141,7 @@ func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	if err != nil {
 		if url_error, ok := err.(*url.Error); ok {
 			switch url_error.Err.(type) {
-			case *net.DNSError:
-				return nil, fmt.Errorf("Cannot access the charm store. Are you connected to the internet? Error details: %v", err)
-			case *net.OpError:
+			case *net.DNSError, *net.OpError:
 				return nil, fmt.Errorf("Cannot access the charm store. Are you connected to the internet? Error details: %v", err)
 			}
 		}
