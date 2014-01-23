@@ -24,6 +24,7 @@ import (
 // storage implements the storage.Storage interface.
 type localStorage struct {
 	addr   string
+	scheme string
 	client *http.Client
 
 	authkey           string
@@ -37,6 +38,7 @@ type localStorage struct {
 func Client(addr string) storage.Storage {
 	return &localStorage{
 		addr:   addr,
+		scheme: "http",
 		client: http.DefaultClient,
 	}
 }
@@ -54,6 +56,7 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, 
 	}
 	return &localStorage{
 		addr:    addr,
+		scheme:  "https",
 		authkey: authkey,
 		client: &http.Client{
 			Transport: &http.Transport{
@@ -64,7 +67,7 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, 
 }
 
 func (s *localStorage) getHTTPSBaseURL() (string, error) {
-	url, _ := s.URL("/") // never fails
+	url, _ := s.URL("") // never fails
 	resp, err := s.client.Head(url)
 	if err != nil {
 		return "", err
@@ -134,7 +137,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 
 // URL returns a URL that can be used to access the given storage file.
 func (s *localStorage) URL(name string) (string, error) {
-	return fmt.Sprintf("http://%s/%s", s.addr, name), nil
+	return fmt.Sprintf("%s://%s/%s", s.scheme, s.addr, name), nil
 }
 
 // modURL returns a URL that can be used to modify the given storage file.

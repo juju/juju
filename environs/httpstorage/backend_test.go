@@ -18,14 +18,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/httpstorage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-const testAuthkey = "jabberwocky"
+const testAuthkey = envtesting.TestAuthkey
 
 func TestLocal(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -37,31 +36,17 @@ type backendSuite struct {
 
 var _ = gc.Suite(&backendSuite{})
 
-// startServer starts a new local storage server
-// using a temporary directory and returns the listener,
-// a base URL for the server and the directory path.
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
-	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
-	c.Assert(err, gc.IsNil)
-	listener, err = httpstorage.Serve("localhost:0", embedded)
-	c.Assert(err, gc.IsNil)
-	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
+	listener, addr, dataDir := envtesting.StartStorageServer(c)
+	url = fmt.Sprintf("http://%s/", addr)
+	return
 }
 
-// startServerTLS starts a new TLS-based local storage server
-// using a temporary directory and returns the listener,
-// a base URL for the server and the directory path.
 func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
-	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
-	c.Assert(err, gc.IsNil)
-	hostnames := []string{"127.0.0.1"}
-	caCertPEM := []byte(coretesting.CACert)
-	caKeyPEM := []byte(coretesting.CAKey)
-	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, testAuthkey)
-	c.Assert(err, gc.IsNil)
-	return listener, fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port), dataDir
+	listener, addr, dataDir := envtesting.StartStorageServerTLS(c)
+	// XXX: This should use https: surely
+	url = fmt.Sprintf("http://%s/", addr)
+	return
 }
 
 type testCase struct {

@@ -20,20 +20,53 @@ import (
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
+
+const TestAuthkey = "jabberwocky"
+
+// StartStorageServer starts a new local storage server using a temporary
+// directory and returns the listener, a base URL for the server and the
+// directory path.
+func StartStorageServer(c *gc.C) (listener net.Listener, url, dataDir string) {
+	dataDir = c.MkDir()
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	listener, err = httpstorage.Serve("localhost:0", embedded)
+	c.Assert(err, gc.IsNil)
+	return listener, listener.Addr().String(), dataDir
+}
+
+// StartStorageServerTLS starts a new TLS-based local storage server using a
+// temporary directory and returns the listener, a base URL for the server and
+// the directory path.
+func StartStorageServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
+	dataDir = c.MkDir()
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	hostnames := []string{"127.0.0.1"}
+	caCertPEM := []byte(coretesting.CACert)
+	caKeyPEM := []byte(coretesting.CAKey)
+	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, TestAuthkey)
+	c.Assert(err, gc.IsNil)
+	return listener, fmt.Sprintf("localhost:%d", listener.Addr().(*net.TCPAddr).Port), dataDir
+}
 
 // CreateLocalTestStorage returns the listener, which needs to be closed, and
 // the storage that is backed by a directory created in the running tests temp
 // directory.
 func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
-	dataDir = c.MkDir()
-	underlying, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	closer, addr, dataDir := StartStorageServer(c)
+	stor = httpstorage.Client(addr)
+	return
+}
+
+// CreateLocalTestStorageTLS
+func CreateLocalTestStorageTLS(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
+	closer, addr, dataDir := StartStorageServerTLS(c)
+	stor, err := httpstorage.ClientTLS(addr, []byte(coretesting.CACert), TestAuthkey)
 	c.Assert(err, gc.IsNil)
-	listener, err := httpstorage.Serve("localhost:0", underlying)
-	c.Assert(err, gc.IsNil)
-	stor = httpstorage.Client(listener.Addr().String())
-	closer = listener
 	return
 }
 

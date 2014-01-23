@@ -102,6 +102,41 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
+func (suite *StateSuite) TestLoadStateFromURLGoodCert(c *gc.C) {
+	closer, stor, _ := envtesting.CreateLocalTestStorageTLS(c)
+	suite.AddCleanup(func(*gc.C) { closer.Close() })
+	state := suite.setUpSavedState(c, stor)
+	url, err := stor.URL(common.StateFile)
+	c.Assert(err, gc.IsNil)
+	storedState, err := common.LoadStateFromURL(url, false)
+	c.Assert(err, gc.IsNil)
+	c.Check(*storedState, gc.DeepEquals, state)
+}
+
+func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
+	// XXX: Provide a cert that will not validate somehow
+	closer, stor, _ := envtesting.CreateLocalTestStorageTLS(c)
+	suite.AddCleanup(func(*gc.C) { closer.Close() })
+	url, err := stor.URL(common.StateFile)
+	c.Assert(err, gc.IsNil)
+	storedState, err := common.LoadStateFromURL(url, false)
+	c.Assert(err, gc.ErrorMatches, "could not load state.* 401 .*")
+	c.Assert(storedState, gc.IsNil)
+}
+
+func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
+	// XXX: Provide a cert that will not validate somehow
+	closer, stor, _ := envtesting.CreateLocalTestStorageTLS(c)
+	suite.AddCleanup(func(*gc.C) { closer.Close() })
+	// XXX: Setup state despite bad cert somehow
+	state := suite.setUpSavedState(c, stor)
+	url, err := stor.URL(common.StateFile)
+	c.Assert(err, gc.IsNil)
+	storedState, err := common.LoadStateFromURL(url, true)
+	c.Assert(err, gc.IsNil)
+	c.Check(*storedState, gc.DeepEquals, state)
+}
+
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 	stor := newStorage(suite, c)
 	_, err := common.LoadState(stor)

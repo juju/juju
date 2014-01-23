@@ -78,6 +78,9 @@ func LoadStateFromURL(url string, disableSSLHostnameVerification bool) (*Bootstr
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not load state from url: %v %s", url, resp.Status)
+	}
 	return loadState(resp.Body)
 }
 
