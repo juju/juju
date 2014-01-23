@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/base"
+	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 

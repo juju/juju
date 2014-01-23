@@ -32,7 +32,7 @@ func NewState(caller base.Caller) *State {
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag string) (params.Life, error) {
-	return common.Life(st.caller, Provisioner, tag)
+	return common.Life(st.caller, provisioner, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.

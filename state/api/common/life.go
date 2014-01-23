@@ -6,12 +6,13 @@ package common
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // Life requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
-func Life(caller Caller, facadeName, tag string) (params.Life, error) {
+func Life(caller base.Caller, facadeName, tag string) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
