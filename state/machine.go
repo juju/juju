@@ -10,7 +10,6 @@ import (
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
-	"local/runtime/debug"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
