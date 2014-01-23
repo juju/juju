@@ -668,7 +668,7 @@ func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
 	os.Setenv("JUJU_HOME", jujuHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, jujuHome)
+	c.Assert(osenv.JujuHome(), gc.Equals, jujuHome)
 }
 
 func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
@@ -677,7 +677,7 @@ func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
 	osenv.SetHome(osHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
+	c.Assert(osenv.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
 }
 
 func (s *InitJujuHomeSuite) TestError(c *gc.C) {

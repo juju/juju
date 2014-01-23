@@ -6,8 +6,8 @@ package tools
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/juju/osenv"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -52,7 +52,7 @@ func (s *ValidateSuite) TearDownTest(c *gc.C) {
 
 func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
@@ -70,7 +70,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 
 func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
 		Minor: -1,
@@ -89,7 +89,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 
 func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
 		Minor: 11,
@@ -108,7 +108,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{

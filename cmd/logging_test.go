@@ -25,7 +25,7 @@ type LogSuite struct {
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	s.AddCleanup(func(_ *gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
@@ -51,7 +51,7 @@ func (s *LogSuite) TestNoFlags(c *gc.C) {
 
 func (s *LogSuite) TestFlags(c *gc.C) {
 	log := newLogWithFlags(c, []string{"--log-file", "foo", "--verbose", "--debug",
-		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
+		"--logging-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
 	c.Assert(log.Path, gc.Equals, "foo")
 	c.Assert(log.Verbose, gc.Equals, true)
 	c.Assert(log.Debug, gc.Equals, true)
@@ -60,7 +60,7 @@ func (s *LogSuite) TestFlags(c *gc.C) {
 
 func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
-	testbase.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	testbase.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, config)
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
 	c.Assert(log.Verbose, gc.Equals, false)

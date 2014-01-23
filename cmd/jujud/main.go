@@ -5,9 +5,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
+
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/utils/exec"
@@ -93,7 +98,7 @@ func jujuDMain(args []string) (code int, err error) {
 	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
-		Log:  &cmd.Log{},
+		Log:  &cmd.Log{Factory: &writerFactory{}},
 	})
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
@@ -128,4 +133,36 @@ func Main(args []string) {
 
 func main() {
 	Main(os.Args)
+}
+
+type writerFactory struct{}
+
+func (*writerFactory) NewWriter(target io.Writer) loggo.Writer {
+	return &jujudWriter{target: target}
+}
+
+type jujudWriter struct {
+	target           io.Writer
+	unitFormatter    simpleFormatter
+	defaultFormatter loggo.DefaultFormatter
+}
+
+var _ loggo.Writer = (*jujudWriter)(nil)
+
+func (w *jujudWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
+	if strings.HasPrefix(module, "unit.") {
+		fmt.Fprintln(w.target, w.unitFormatter.Format(level, module, timestamp, message))
+	} else {
+		fmt.Fprintln(w.target, w.defaultFormatter.Format(level, module, filename, line, timestamp, message))
+	}
+}
+
+type simpleFormatter struct{}
+
+func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.Time, message string) string {
+	ts := timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
+	// Just show the last element of the module.
+	lastDot := strings.LastIndex(module, ".")
+	module = module[lastDot+1:]
+	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
 }
