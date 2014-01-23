@@ -152,7 +152,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 	environ, err := local.Provider.Prepare(testConfig)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
-	defer envtesting.RemoveFakeTools(c, environ.Storage())
+	defer environ.Storage().RemoveAll()
 	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
 	err = environ.Bootstrap(ctx, constraints.Value{})
 	c.Assert(err, gc.IsNil)
