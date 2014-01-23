@@ -711,7 +711,7 @@ type notProvisionedError struct {
 }
 
 func NotProvisionedError(machineId string) error {
-	return &notProvisionedError{machineId, string(debug.Callers(0, 20))}
+	return &notProvisionedError{machineId}
 }
 
 func (e *notProvisionedError) Error() string {

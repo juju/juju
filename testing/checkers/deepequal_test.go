@@ -98,7 +98,7 @@ func TestDeepEqual(t *testing.T) {
 		}
 		if test.eq {
 			if err != nil {
-				t.Errorf("deepEqual(%v, %v): unexpected error message %q when equal", test.a, test.b, i, err)
+				t.Errorf("deepEqual(%v, %v): unexpected error message %q when equal", test.a, test.b, err)
 			}
 		} else {
 			if ok, _ := regexp.MatchString(test.msg, err.Error()); !ok {
