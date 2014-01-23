@@ -126,7 +126,7 @@ func (c *Config) ensureUnitLogging() error {
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
-		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
 			loggingConfig = environmentValue
 		} else {
 			loggingConfig = loggo.LoggerInfo()
@@ -332,7 +332,7 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 		return err
 	}
 	if !filepath.IsAbs(path) {
-		path = JujuHomePath(path)
+		path = osenv.JujuHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {

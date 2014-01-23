@@ -10,6 +10,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
@@ -23,7 +24,7 @@ var _ = gc.Suite(&EnvironProviderSuite{})
 
 func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes(c *gc.C) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
@@ -42,7 +43,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 
 func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
 		"maas-oauth":  "aa:bb:cc",
@@ -65,7 +66,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 
 func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "maas",
 		"maas-oauth":      "aa:bb:cc",
@@ -117,7 +118,7 @@ func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMach
 
 func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	const oauth = "wrongly-formatted-oauth-string"
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",

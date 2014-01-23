@@ -32,12 +32,12 @@ func (s *importSuite) TestJujuHomeLinux(c *gc.C) {
 
 func (s *importSuite) TestJujuHomeEnvVar(c *gc.C) {
 	path := "/foo/bar/baz"
-	s.PatchEnvironment(JujuHome, path)
+	s.PatchEnvironment(JujuHomeEnvKey, path)
 	c.Assert(JujuHomeDir(), gc.Equals, path)
 }
 
 func (s *importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
-	s.PatchEnvironment(JujuHome, "")
+	s.PatchEnvironment(JujuHomeEnvKey, "")
 
 	if runtime.GOOS == "windows" {
 		s.PatchEnvironment("APPDATA", `P:\foobar`)
