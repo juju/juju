@@ -620,7 +620,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (string, error) {
-	//SCHEMACHANGE
+	// SCHEMACHANGE
 	// InstanceId may not be stored in the instanceData doc, so we
 	// get it using an API on machine which knows to look in the old
 	// place if necessary.
@@ -642,12 +642,14 @@ func (m *Machine) InstanceStatus() (string, error) {
 func (m *Machine) SetInstanceStatus(status string) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance status for machine %q", m)
 
-	provisioned := D{{"instanceid", D{{"$ne", ""}}}}
+	// SCHEMACHANGE - we can't do this yet until the schema is updated
+	// so just do a txn.DocExists for now.
+	// provisioned := D{{"instanceid", D{{"$ne", ""}}}}
 	ops := []txn.Op{
 		{
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
-			Assert: provisioned,
+			Assert: txn.DocExists,
 			Update: D{{"$set", D{{"status", status}}}},
 		},
 	}

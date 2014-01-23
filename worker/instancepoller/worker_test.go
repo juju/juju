@@ -1,6 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(wallyworld) - move to instancepoller_test
 package instancepoller
 
 import (
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -40,8 +40,8 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// Most functionality is already tested in detail - we
 	// just need to test that things are wired together
 	// correctly.
-	defer testbase.PatchValue(&ShortPoll, 10*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, 10*time.Millisecond).Restore()
+	s.PatchValue(&ShortPoll, 10*time.Millisecond)
+	s.PatchValue(&LongPoll, 10*time.Millisecond)
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w := NewWorker(s.State)

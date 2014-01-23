@@ -465,6 +465,26 @@ func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 }
 
+// SCHEMACHANGE
+func (s *MachineSuite) TestInstanceStatusOldSchema(c *gc.C) {
+	// Machine needs to be provisioned first.
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	// Remove the InstanceId from instanceData doc to simulate an old schema.
+	state.ClearInstanceDocId(c, s.machine)
+
+	err = s.machine.SetInstanceStatus("ALIVE")
+	c.Assert(err, gc.IsNil)
+
+	// Reload machine and check result.
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	status, err := s.machine.InstanceStatus()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.DeepEquals, "ALIVE")
+}
+
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
