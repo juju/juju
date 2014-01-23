@@ -28,7 +28,7 @@ func Test(t *stdtesting.T) {
 
 type firewallerSuite struct {
 	testing.JujuConnSuite
-	*common.EnvironWatcherTest
+	*commontesting.EnvironWatcherTest
 
 	machines []*state.Machine
 	service  *state.Service
