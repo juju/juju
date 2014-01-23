@@ -26,7 +26,6 @@ var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	s.PatchEnvironment("USER", "tester")
 }
 
 func minimalConfigValues() map[string]interface{} {
@@ -108,28 +107,15 @@ func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
 
 func (s *configSuite) TestNamespace(c *gc.C) {
 	testConfig := minimalConfig(c)
+	s.PatchEnvironment("USER", "tester")
 	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
 }
 
-func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
+func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	restore := local.SetRootCheckFunction(func() bool { return true })
 	defer restore()
-	err := os.Setenv("USER", "root")
-	c.Assert(err, gc.IsNil)
-	testConfig := minimalConfig(c)
-	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "root-test")
-}
-
-func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
-	restore := local.SetRootCheckFunction(func() bool { return true })
-	defer restore()
-	err := os.Setenv("USER", "root")
-	c.Assert(err, gc.IsNil)
-	err = os.Setenv("SUDO_USER", "tester")
-	c.Assert(err, gc.IsNil)
-	defer os.Setenv("SUDO_USER", "")
-	testConfig := minimalConfig(c)
-	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
+	_, err := local.Provider.Prepare(minimalConfig(c))
+	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }
 
 type configRootSuite struct {

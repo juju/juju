@@ -96,14 +96,13 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	s.oldUpstartLocation = local.SetUpstartScriptLocation(c.MkDir())
 	s.oldPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
 	os.Setenv("PATH", s.testPath+":"+s.oldPath)
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
-	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return true })
+	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return false })
 	s.Tests.SetUpTest(c)
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
@@ -115,7 +114,6 @@ func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	os.Setenv("PATH", s.oldPath)
 	s.restoreRootCheck()
-	local.SetUpstartScriptLocation(s.oldUpstartLocation)
 	s.baseProviderSuite.TearDownTest(c)
 }
 
