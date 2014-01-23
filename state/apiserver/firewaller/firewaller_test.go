@@ -87,7 +87,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	s.firewaller = firewallerAPI
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, commontesting.HasSecrets)
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
@@ -150,26 +150,6 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 			{Error: apiservertesting.NotFoundError("machine 1")},
 		},
 	})
-}
-
-func (s *firewallerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	result, err := s.firewaller.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
-		NotifyWatcherId: "1",
-	})
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
 }
 
 func (s *firewallerSuite) TestInstanceId(c *gc.C) {

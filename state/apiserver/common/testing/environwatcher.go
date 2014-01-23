@@ -9,6 +9,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
+	statetesting "launchpad.net/juju-core/state/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -25,17 +27,16 @@ type Implementer interface {
 type EnvironWatcherTest struct {
 	implementer Implementer
 	st          *state.State
-	//backing     *state.State
-	hasSecrets bool
+	resources   *common.Resources
+	hasSecrets  bool
 }
 
 func NewEnvironWatcherTest(
 	implementer Implementer,
 	st *state.State,
-	//backing *state.State,
+	resources *common.Resources,
 	hasSecrets bool) *EnvironWatcherTest {
-	//return &EnvironWatcherTest{implementer, st, backing, hasSecrets}
-	return &EnvironWatcherTest{implementer, st, hasSecrets}
+	return &EnvironWatcherTest{implementer, st, resources, hasSecrets}
 }
 
 // AssertEnvironConfig provides a method to test the config from the
@@ -67,4 +68,24 @@ func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, implementer Implemente
 
 func (s *EnvironWatcherTest) TestEnvironConfig(c *gc.C) {
 	s.AssertEnvironConfig(c, s.implementer, s.hasSecrets)
+}
+
+func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	result, err := s.implementer.WatchForEnvironConfigChanges()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
+		NotifyWatcherId: "1",
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.st, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }
