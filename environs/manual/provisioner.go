@@ -290,12 +290,12 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
+func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
 	script, err := generateProvisioningScript(mcfg)
 	if err != nil {
 		return err
 	}
-	return runProvisionScript(script, host, stderr)
+	return runProvisionScript(script, host, progressWriter)
 }
 
 func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
@@ -309,10 +309,10 @@ func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	return sshinit.ConfigureScript(cloudcfg)
 }
 
-func runProvisionScript(script, host string, stderr io.Writer) error {
+func runProvisionScript(script, host string, progressWriter io.Writer) error {
 	params := sshinit.ConfigureParams{
-		Host:   "ubuntu@" + host,
-		Stderr: stderr,
+		Host:           "ubuntu@" + host,
+		ProgressWriter: progressWriter,
 	}
 	return sshinit.RunConfigureScript(script, params)
 }

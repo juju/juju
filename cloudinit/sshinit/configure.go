@@ -28,13 +28,15 @@ type ConfigureParams struct {
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
-	// Stderr is required to present bootstrap progress to the user.
-	Stderr io.Writer
+	// ProgressWriter is an io.Writer to which progress will be written,
+	// for realtime feedback.
+	ProgressWriter io.Writer
 }
 
 // Configure connects to the specified host over SSH,
 // and executes a script that carries out cloud-config.
 func Configure(params ConfigureParams) error {
+	logger.Infof("Provisioning machine agent on %s", params.Host)
 	script, err := ConfigureScript(params.Config)
 	if err != nil {
 		return err
@@ -42,11 +44,10 @@ func Configure(params ConfigureParams) error {
 	return RunConfigureScript(script, params)
 }
 
-// Run connects to the specified host over SSH,
-// and executes the provided script which is expected
+// RunConfigureScript connects to the specified host over
+// SSH, and executes the provided script which is expected
 // to have been returned by ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
-	logger.Infof("Provisioning machine agent on %s", params.Host)
 	logger.Debugf("Running script on %s: %s", params.Host, script)
 	client := params.Client
 	if client == nil {
@@ -54,7 +55,7 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 	}
 	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stderr = params.Stderr
+	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()
 }
 

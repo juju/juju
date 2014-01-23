@@ -192,10 +192,10 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		return err
 	}
 	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" + addr,
-		Client: client,
-		Config: cloudcfg,
-		Stderr: ctx.Stderr(),
+		Host:           "ubuntu@" + addr,
+		Client:         client,
+		Config:         cloudcfg,
+		ProgressWriter: ctx.Stderr(),
 	})
 }
 
