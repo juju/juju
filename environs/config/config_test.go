@@ -869,7 +869,7 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
-	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
@@ -1084,7 +1084,7 @@ func (*ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	defer makeFakeHome(c).Restore()
-	s.PatchEnvironment(osenv.JujuLoggingConfig, "<root>=INFO")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
 
 	config := newTestConfig(c, nil)
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
