@@ -119,6 +119,9 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+
+	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
+
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,

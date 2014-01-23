@@ -56,14 +56,6 @@ type MachineTemplate struct {
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
-
-	// instanceId holds the instance id to be associated with the
-	// new machine. It should only be set by InjectMachine.
-	instanceId instance.Id
-
-	// nonce holds the nonce for the new machine.
-	// It should only be set by InjectMachine.
-	nonce string
 }
 
 // AddMachineInsideNewMachine creates a new machine within a container
@@ -221,7 +213,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			Assert: txn.DocMissing,
 			Insert: &instanceData{
 				Id:         mdoc.Id,
-				InstanceId: template.instanceId,
+				InstanceId: template.InstanceId,
 				Arch:       template.HardwareCharacteristics.Arch,
 				Mem:        template.HardwareCharacteristics.Mem,
 				RootDisk:   template.HardwareCharacteristics.RootDisk,

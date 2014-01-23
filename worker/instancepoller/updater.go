@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package addressupdater
+package instancepoller
 
 import (
 	"fmt"
@@ -12,18 +12,19 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.worker.addressupdater")
+var logger = loggo.GetLogger("juju.worker.instanceupdater")
 
-// ShortPoll and LongPoll hold the polling intervals for the address
-// updater. When a machine has no address, it will be polled at
-// ShortPoll intervals until it does, exponentially backing off with an
-// exponent of ShortPollBackoff until a maximum(ish) of LongPoll.
+// ShortPoll and LongPoll hold the polling intervals for the instance
+// updater. When a machine has no address or is not started, it will be
+// polled at ShortPoll intervals until it does, exponentially backing off
+// with an exponent of ShortPollBackoff until a maximum(ish) of LongPoll.
 //
-// When a machine has an address LongPoll will be used to check that the
-// instance address has not changed.
+// When a machine has an address and is started LongPoll will be used to
+// check that the instance address or status has not changed.
 var (
 	ShortPoll        = 1 * time.Second
 	ShortPollBackoff = 2.0
@@ -32,17 +33,25 @@ var (
 
 type machine interface {
 	Id() string
-	Addresses() []instance.Address
 	InstanceId() (instance.Id, error)
+	Addresses() []instance.Address
 	SetAddresses([]instance.Address) error
+	InstanceStatus() (string, error)
+	SetInstanceStatus(status string) error
 	String() string
 	Refresh() error
 	Life() state.Life
+	Status() (status params.Status, info string, data params.StatusData, err error)
+}
+
+type instanceInfo struct {
+	addresses []instance.Address
+	status    string
 }
 
 type machineContext interface {
 	killAll(err error)
-	addresses(id instance.Id) ([]instance.Address, error)
+	instanceInfo(id instance.Id) (instanceInfo, error)
 	dying() <-chan struct{}
 }
 
@@ -133,7 +142,7 @@ func (p *updater) startMachines(ids []string) error {
 	return nil
 }
 
-// runMachine processes the address publishing for a given machine.
+// runMachine processes the address and status publishing for a given machine.
 // We assume that the machine is alive when this is first called.
 func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine) {
 	defer func() {
@@ -155,39 +164,44 @@ func runMachine(context machineContext, m machine, changed <-chan struct{}, died
 
 func machineLoop(context machineContext, m machine, changed <-chan struct{}) error {
 	// Use a short poll interval when initially waiting for
-	// a machine's address, and a long one when it already
-	// has an address.
+	// a machine's address and machine agent to start, and a long one when it already
+	// has an address and the machine agent is started.
 	pollInterval := ShortPoll
-	checkAddress := true
+	pollInstance := true
 	for {
-		if checkAddress {
-			if err := checkMachineAddresses(context, m); err != nil {
-				// If the provider doesn't implement addresses now,
+		if pollInstance {
+			instInfo, err := pollInstanceInfo(context, m)
+			if err != nil {
+				// If the provider doesn't implement Addresses/Status now,
 				// it never will until we're upgraded, so don't bother
 				// asking any more. We could use less resources
-				// by taking down the entire address updater worker,
-				// but this is easier for now (and hopefully the local
-				// provider will implement Addresses in the not-too-distant
-				// future), so we won't need to worry about this case at all.
+				// by taking down the entire worker, but this is easier for now
+				// (and hopefully the local provider will implement
+				// Addresses/Status in the not-too-distant future),
+				// so we won't need to worry about this case at all.
 				if errors.IsNotImplementedError(err) {
 					pollInterval = 365 * 24 * time.Hour
 				} else {
 					return err
 				}
 			}
-			if len(m.Addresses()) > 0 {
-				// We've got at least one address, so poll infrequently.
+			machineStatus, _, _, err := m.Status()
+			if err != nil {
+				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+			}
+			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == params.StatusStarted {
+				// We've got at least one address and a status and instance is started, so poll infrequently.
 				pollInterval = LongPoll
 			} else if pollInterval < LongPoll {
-				// We have no addresses - poll increasingly rarely
+				// We have no addresses or not started - poll increasingly rarely
 				// until we do.
 				pollInterval = time.Duration(float64(pollInterval) * ShortPollBackoff)
 			}
-			checkAddress = false
+			pollInstance = false
 		}
 		select {
 		case <-time.After(pollInterval):
-			checkAddress = true
+			pollInstance = true
 		case <-context.dying():
 			return nil
 		case <-changed:
@@ -201,33 +215,43 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	}
 }
 
-// checkMachineAddresses checks the current provider addresses
-// for the given machine's instance, and sets them
-// on the machine if they've changed.
-func checkMachineAddresses(context machineContext, m machine) error {
+// pollInstanceInfo checks the current provider addresses and status
+// for the given machine's instance, and sets them on the machine if they've changed.
+func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo, err error) {
+	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
 	if err != nil && !state.IsNotProvisionedError(err) {
-		return fmt.Errorf("cannot get machine's instance id: %v", err)
+		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
-	var newAddrs []instance.Address
-	if err == nil {
-		newAddrs, err = context.addresses(instId)
-		if err != nil {
-			if errors.IsNotImplementedError(err) {
-				return err
+	instInfo, err = context.instanceInfo(instId)
+	if err != nil {
+		if errors.IsNotImplementedError(err) {
+			return instInfo, err
+		}
+		logger.Warningf("cannot get instance info for instance %q: %v", instId, err)
+		return instInfo, nil
+	}
+	currentInstStatus, err := m.InstanceStatus()
+	if err != nil {
+		// This should never occur since the machine is provisioned.
+		// But just in case, we reset polled status so we try again next time.
+		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
+		instInfo.status = ""
+	} else {
+		if instInfo.status != currentInstStatus {
+			logger.Infof("machine %q has new instance status: %v", m.Id(), instInfo.status)
+			if err = m.SetInstanceStatus(instInfo.status); err != nil {
+				logger.Errorf("cannot set instance status on %q: %v", m, err)
 			}
-			logger.Warningf("cannot get addresses for instance %q: %v", instId, err)
-			return nil
 		}
 	}
-	if addressesEqual(m.Addresses(), newAddrs) {
-		return nil
+	if !addressesEqual(m.Addresses(), instInfo.addresses) {
+		logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
+		if err = m.SetAddresses(instInfo.addresses); err != nil {
+			logger.Errorf("cannot set addresses on %q: %v", m, err)
+		}
 	}
-	logger.Infof("machine %q has new addresses: %v", m.Id(), newAddrs)
-	if err := m.SetAddresses(newAddrs); err != nil {
-		return fmt.Errorf("cannot set addresses on %q: %v", m, err)
-	}
-	return nil
+	return instInfo, err
 }
 
 func addressesEqual(a0, a1 []instance.Address) bool {
