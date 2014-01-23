@@ -144,8 +144,10 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	lock.Lock("juju-run")
 	defer lock.Unlock()
 
+	runCmd := `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
+
 	return exec.RunCommands(
 		exec.RunParams{
-			Commands: c.commands,
+			Commands: runCmd,
 		})
 }

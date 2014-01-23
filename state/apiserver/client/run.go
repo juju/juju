@@ -106,8 +106,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if err != nil {
 			return results, err
 		}
-		command := `[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"`
-		command += fmt.Sprintf("\njuju-run --no-context %s", quotedCommands)
+		command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		params = append(params, execParam)
 	}
