@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	commontesting "launchpad.net/juju-core/state/apiserver/common/testing"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -29,6 +30,7 @@ func Test(t *stdtesting.T) {
 
 type uniterSuite struct {
 	testing.JujuConnSuite
+	*commontesting.EnvironWatcherTest
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -88,6 +90,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 	)
 	c.Assert(err, gc.IsNil)
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.uniter, s.State, s.resources, commontesting.NoSecrets)
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
