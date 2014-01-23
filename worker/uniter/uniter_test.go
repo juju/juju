@@ -110,7 +110,6 @@ func (s *UniterSuite) ResetContext(c *gc.C) {
 	coretesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, gc.IsNil)
-	uniter.SetPackageProxy(osenv.ProxySettings{})
 }
 
 func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
@@ -1961,7 +1960,24 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 type setProxySettings osenv.ProxySettings
 
 func (s setProxySettings) step(c *gc.C, ctx *context) {
-	uniter.SetPackageProxy(osenv.ProxySettings(s))
+	old, err := ctx.st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	cfg, err := old.Apply(map[string]interface{}{
+		"http-proxy":  s.Http,
+		"https-proxy": s.Https,
+		"ftp-proxy":   s.Ftp,
+	})
+	c.Assert(err, gc.IsNil)
+	err = ctx.st.SetEnvironConfig(cfg, old)
+	c.Assert(err, gc.IsNil)
+	// wait for the new values...
+	expected := (osenv.ProxySettings)(s)
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if ctx.uniter.GetProxyValues() == expected {
+			return
+		}
+	}
+	c.Fatal("settings didn't get noticed by the uniter")
 }
 
 type runCommands []string

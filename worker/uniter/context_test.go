@@ -26,6 +26,8 @@ import (
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
+var noProxies = osenv.ProxySettings{}
+
 type RunHookSuite struct {
 	HookContextSuite
 }
@@ -214,12 +216,10 @@ var runHookTests = []struct {
 
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	uuid, err := utils.NewUUID()
-	defer uniter.SetPackageProxy(osenv.ProxySettings{})
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		uniter.SetPackageProxy(t.proxySettings)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote)
+		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, t.proxySettings)
 		var charmDir, outPath string
 		var hookExists bool
 		if t.spec.perm == 0 {
@@ -271,7 +271,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "")
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -561,7 +561,7 @@ func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
 	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies)
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
@@ -705,13 +705,13 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 }
 
 func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string) *uniter.HookContext {
+	remote string, proxies osenv.ProxySettings) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, gc.Equals, true)
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid, relid, remote,
-		s.relctxs, apiAddrs, "test-owner")
+		s.relctxs, apiAddrs, "test-owner", proxies)
 	c.Assert(err, gc.IsNil)
 	return context
 }
@@ -741,7 +741,7 @@ var _ = gc.Suite(&RunCommandSuite{})
 func (s *RunCommandSuite) getHookContext(c *gc.C) *uniter.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "")
+	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
 }
 
 func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
