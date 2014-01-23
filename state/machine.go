@@ -620,8 +620,16 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (string, error) {
+	//SCHEMACHANGE
+	// InstanceId may not be stored in the instanceData doc, so we
+	// get it using an API on machine which knows to look in the old
+	// place if necessary.
+	instId, err := m.InstanceId()
+	if err != nil {
+		return "", err
+	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instData.InstanceId == "") || errors.IsNotFoundError(err) {
+	if (err == nil && instId == "") || errors.IsNotFoundError(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
