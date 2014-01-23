@@ -53,7 +53,7 @@ func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, implementer Implemente
 	configAttributes := envConfig.AllAttrs()
 	// If the implementor doesn't provide secrets, we need to replace the config
 	// values in our environment to compare against with the secrets replaced.
-	if !s.hasSecrets {
+	if !hasSecrets {
 		env, err := environs.New(envConfig)
 		c.Assert(err, gc.IsNil)
 		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
