@@ -14,6 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -123,12 +124,13 @@ var apiAddrs = []string{"a1:123", "a2:123"}
 var expectedApiAddrs = strings.Join(apiAddrs, " ")
 
 var runHookTests = []struct {
-	summary string
-	relid   int
-	remote  string
-	spec    hookSpec
-	err     string
-	env     map[string]string
+	summary       string
+	relid         int
+	remote        string
+	spec          hookSpec
+	err           string
+	env           map[string]string
+	proxySettings osenv.ProxySettings
 }{
 	{
 		summary: "missing hook is not an error",
@@ -170,12 +172,19 @@ var runHookTests = []struct {
 			stdout: strings.Repeat("a", lineBufferSize+10),
 		},
 	}, {
-		summary: "check shell environment for non-relation hook context",
-		relid:   -1,
-		spec:    hookSpec{perm: 0700},
+		summary:       "check shell environment for non-relation hook context",
+		relid:         -1,
+		spec:          hookSpec{perm: 0700},
+		proxySettings: osenv.ProxySettings{Http: "http", Https: "https", Ftp: "ftp"},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
 			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"http_proxy":         "http",
+			"HTTP_PROXY":         "http",
+			"https_proxy":        "https",
+			"HTTPS_PROXY":        "https",
+			"ftp_proxy":          "ftp",
+			"FTP_PROXY":          "ftp",
 		},
 	}, {
 		summary: "check shell environment for relation-broken hook context",
@@ -205,9 +214,11 @@ var runHookTests = []struct {
 
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	uuid, err := utils.NewUUID()
+	defer uniter.SetPackageProxy(osenv.ProxySettings{})
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
+		uniter.SetPackageProxy(t.proxySettings)
 		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote)
 		var charmDir, outPath string
 		var hookExists bool
