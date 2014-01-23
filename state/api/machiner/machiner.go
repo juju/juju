@@ -4,17 +4,18 @@
 package machiner
 
 import (
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // State provides access to the Machiner API facade.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 
