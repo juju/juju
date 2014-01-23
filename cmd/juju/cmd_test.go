@@ -109,10 +109,10 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 
 		// JUJU_ENV is the final place the environment can be overriden
 		com, args = cmdFunc()
-		oldenv := os.Getenv(osenv.JujuEnv)
-		os.Setenv(osenv.JujuEnv, "walthamstow")
+		oldenv := os.Getenv(osenv.JujuEnvEnvKey)
+		os.Setenv(osenv.JujuEnvEnvKey, "walthamstow")
 		testInit(c, com, args, "")
-		os.Setenv(osenv.JujuEnv, oldenv)
+		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
 		assertConnName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
@@ -199,8 +199,8 @@ func initDeployCommand(args ...string) (*DeployCommand, error) {
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
-	defer os.Setenv(osenv.JujuRepository, os.Getenv(osenv.JujuRepository))
-	os.Setenv(osenv.JujuRepository, "/path/to/repo")
+	defer os.Setenv(osenv.JujuRepositoryEnvKey, os.Getenv(osenv.JujuRepositoryEnvKey))
+	os.Setenv(osenv.JujuRepositoryEnvKey, "/path/to/repo")
 
 	for _, t := range deployTests {
 		initExpectations(t.com)

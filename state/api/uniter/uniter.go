@@ -8,39 +8,33 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
+const uniter = "Uniter"
+
 // State provides access to the Uniter API facade.
 type State struct {
-	caller common.Caller
+	*common.EnvironWatcher
+
+	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
 	unitTag string
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller common.Caller, authTag string) *State {
-	return &State{caller, authTag}
+func NewState(caller base.Caller, authTag string) *State {
+	return &State{
+		EnvironWatcher: common.NewEnvironWatcher(uniter, caller),
+		caller:         caller,
+		unitTag:        authTag}
 }
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Uniter", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, uniter, tag)
 }
 
 // relation requests relation information from the server.
@@ -52,7 +46,7 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 			{Relation: relationTag, Unit: unitTag},
 		},
 	}
-	err := st.caller.Call("Uniter", "", "Relation", args, &result)
+	err := st.caller.Call(uniter, "", "Relation", args, &result)
 	if err != nil {
 		return nothing, err
 	}
@@ -98,7 +92,7 @@ func (st *State) Service(tag string) (*Service, error) {
 // addresses implemented fully. See also LP bug 1221798.
 func (st *State) ProviderType() (string, error) {
 	var result params.StringResult
-	err := st.caller.Call("Uniter", "", "ProviderType", nil, &result)
+	err := st.caller.Call(uniter, "", "ProviderType", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -139,7 +133,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
-	err := st.caller.Call("Uniter", "", "RelationById", args, &results)
+	err := st.caller.Call(uniter, "", "RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +161,7 @@ func (st *State) Environment() (*Environment, error) {
 // APIAddresses returns the list of addresses used to connect to the API.
 func (st *State) APIAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.Call("Uniter", "", "APIAddresses", nil, &result)
+	err := st.caller.Call(uniter, "", "APIAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}

@@ -207,7 +207,12 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
-			// TODO(dimitern): Add firewaller here, when using the API.
+			// TODO(axw) 2013-09-24 bug #1229506
+			// Make another job to enable the firewaller. Not all environments
+			// are capable of managing ports centrally.
+			runner.StartWorker("firewaller", func() (worker.Worker, error) {
+				return firewaller.NewFirewaller(st.Firewaller())
+			})
 			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
@@ -298,12 +303,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			// TODO(axw) 2013-09-24 bug #1229506
-			// Make another job to enable the firewaller. Not all environments
-			// are capable of managing ports centrally.
-			runner.StartWorker("firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st), nil
-			})
 			runner.StartWorker("addressupdater", func() (worker.Worker, error) {
 				return addressupdater.NewWorker(st), nil
 			})

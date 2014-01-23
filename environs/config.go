@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -159,7 +160,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 
 func environsPath(path string) string {
 	if path == "" {
-		path = config.JujuHomePath("environments.yaml")
+		path = osenv.JujuHomePath("environments.yaml")
 	}
 	return path
 }

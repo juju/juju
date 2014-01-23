@@ -15,11 +15,11 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -97,7 +97,7 @@ var expectedOutputMirrors = expectedOutputCommon + `
 `
 
 func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
-	metadataDir := config.JujuHome() // default metadata dir
+	metadataDir := osenv.JujuHome() // default metadata dir
 	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
@@ -186,7 +186,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
 	}
-	metadataDir := config.JujuHome() // default metadata dir
+	metadataDir := osenv.JujuHome() // default metadata dir
 	ttesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)

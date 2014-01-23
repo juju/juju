@@ -4,40 +4,25 @@
 package deployer
 
 import (
-	"fmt"
-
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // State provides access to the deployer worker's idea of the state.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 }
 
 // NewState creates a new State instance that makes API calls
 // through the given caller.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 
 // unitLife returns the lifecycle state of the given unit.
 func (st *State) unitLife(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Deployer", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, "Deployer", tag)
 }
 
 // Unit returns the unit with the given tag.
