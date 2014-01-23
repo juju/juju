@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	commontesting "launchpad.net/juju-core/state/apiserver/common/testing"
 	"launchpad.net/juju-core/state/apiserver/firewaller"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -27,6 +28,7 @@ func Test(t *stdtesting.T) {
 
 type firewallerSuite struct {
 	testing.JujuConnSuite
+	*common.EnvironWatcherTest
 
 	machines []*state.Machine
 	service  *state.Service
@@ -85,6 +87,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	s.firewaller = firewallerAPI
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, commontesting.HasSecrets)
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
@@ -167,16 +170,6 @@ func (s *firewallerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	// in the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
-}
-
-func (s *firewallerSuite) TestEnvironConfig(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.firewaller.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Config, jc.DeepEquals, params.EnvironConfig(envConfig.AllAttrs()))
 }
 
 func (s *firewallerSuite) TestInstanceId(c *gc.C) {
