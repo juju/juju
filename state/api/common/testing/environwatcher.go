@@ -19,20 +19,20 @@ const (
 	NoSecrets  = false
 )
 
-type Facade interface {
+type Façade interface {
 	WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error)
 	EnvironConfig() (*config.Config, error)
 }
 
 type EnvironWatcherTest struct {
-	facade     Facade
+	facade     Façade
 	st         *state.State
 	backing    *state.State
 	hasSecrets bool
 }
 
 func NewEnvironWatcherTest(
-	facade Facade,
+	facade Façade,
 	st *state.State,
 	backing *state.State,
 	hasSecrets bool) *EnvironWatcherTest {

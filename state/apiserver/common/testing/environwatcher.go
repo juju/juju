@@ -19,34 +19,34 @@ const (
 	NoSecrets  = false
 )
 
-type Implementer interface {
+type EnvironmentWatcher interface {
 	WatchForEnvironConfigChanges() (params.NotifyWatchResult, error)
 	EnvironConfig() (params.EnvironConfigResult, error)
 }
 
 type EnvironWatcherTest struct {
-	implementer Implementer
-	st          *state.State
-	resources   *common.Resources
-	hasSecrets  bool
+	envWatcher EnvironmentWatcher
+	st         *state.State
+	resources  *common.Resources
+	hasSecrets bool
 }
 
 func NewEnvironWatcherTest(
-	implementer Implementer,
+	envWatcher EnvironmentWatcher,
 	st *state.State,
 	resources *common.Resources,
 	hasSecrets bool) *EnvironWatcherTest {
-	return &EnvironWatcherTest{implementer, st, resources, hasSecrets}
+	return &EnvironWatcherTest{envWatcher, st, resources, hasSecrets}
 }
 
 // AssertEnvironConfig provides a method to test the config from the
-// implementer.  This allows other tests that embed this type to have
+// envWatcher.  This allows other tests that embed this type to have
 // more than just the default test.
-func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, implementer Implementer, hasSecrets bool) {
+func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, envWatcher EnvironmentWatcher, hasSecrets bool) {
 	envConfig, err := s.st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 
-	result, err := implementer.EnvironConfig()
+	result, err := envWatcher.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 
@@ -67,13 +67,13 @@ func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, implementer Implemente
 }
 
 func (s *EnvironWatcherTest) TestEnvironConfig(c *gc.C) {
-	s.AssertEnvironConfig(c, s.implementer, s.hasSecrets)
+	s.AssertEnvironConfig(c, s.envWatcher, s.hasSecrets)
 }
 
 func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	result, err := s.implementer.WatchForEnvironConfigChanges()
+	result, err := s.envWatcher.WatchForEnvironConfigChanges()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",
