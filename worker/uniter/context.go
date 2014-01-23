@@ -187,6 +187,10 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		name, _ := ctx.RemoteUnitName()
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
+	// Add in the proxy values if they are set.
+	proxyMutex.Lock()
+	defer proxyMutex.Unlock()
+	vars = append(vars, proxy.AsEnvironmentValues()...)
 	return vars
 }
 

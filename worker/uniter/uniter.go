@@ -104,6 +104,32 @@ func (u *Uniter) loop(unitTag string) (err error) {
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
 
+	environWatcher, err := u.st.WatchForEnvironConfigChanges()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(environWatcher, &u.tomb)
+
+	go func() {
+		for {
+			select {
+			case <-u.tomb.Dying():
+				return
+			case _, ok := <-environWatcher.Changes():
+				logger.Debugf("new environment change")
+				if !ok {
+					return
+				}
+				environConfig, err := u.st.EnvironConfig()
+				if err != nil {
+					logger.Errorf("cannot load environment configuration: %v", err)
+				} else {
+					UpdatePackageProxy(environConfig)
+				}
+			}
+		}
+	}()
+
 	// Start filtering state change events for consumption by modes.
 	u.f, err = newFilter(u.st, unitTag)
 	if err != nil {

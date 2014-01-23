@@ -26,6 +26,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -109,6 +110,7 @@ func (s *UniterSuite) ResetContext(c *gc.C) {
 	coretesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, gc.IsNil)
+	uniter.SetPackageProxy(osenv.ProxySettings{})
 }
 
 func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
@@ -869,6 +871,22 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			verifyFile{
 				testFile("jujuc.output"),
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
+			},
+		), ut(
+			"run commands: proxy settings set",
+			quickStartRelation{},
+			setProxySettings{Http: "http", Https: "https", Ftp: "ftp"},
+			runCommands{
+				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $HTTP_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $https_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $HTTPS_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $ftp_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $FTP_PROXY >> %s", testFile("proxy.output")),
+			},
+			verifyFile{
+				testFile("proxy.output"),
+				"http\nhttp\nhttps\nhttps\nftp\nftp\n",
 			},
 		), ut(
 			"run commands: async using rpc client",
@@ -1939,6 +1957,12 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
+
+type setProxySettings osenv.ProxySettings
+
+func (s setProxySettings) step(c *gc.C, ctx *context) {
+	uniter.SetPackageProxy(osenv.ProxySettings(s))
+}
 
 type runCommands []string
 
