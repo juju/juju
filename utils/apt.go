@@ -11,8 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 var (

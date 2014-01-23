@@ -49,15 +49,15 @@ func JujuHomePath(names ...string) string {
 
 // JujuHome returns the directory where juju should store application-specific files
 func JujuHomeDir() string {
-	JujuHomeEnvKey := os.Getenv(JujuHomeEnvKey)
-	if JujuHomeEnvKey == "" {
+	JujuHomeDir := os.Getenv(JujuHomeEnvKey)
+	if JujuHomeDir == "" {
 		if runtime.GOOS == "windows" {
-			JujuHomeEnvKey = jujuHomeWin()
+			JujuHomeDir = jujuHomeWin()
 		} else {
-			JujuHomeEnvKey = jujuHomeLinux()
+			JujuHomeDir = jujuHomeLinux()
 		}
 	}
-	return JujuHomeEnvKey
+	return JujuHomeDir
 }
 
 // jujuHomeLinux returns the directory where juju should store application-specific files on Linux.
