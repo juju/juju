@@ -79,17 +79,6 @@ func (s *storageWorker) waitForDeath() error {
 	}
 	defer storageListener.Close()
 
-	if config.sharedStorageAddr != "" && config.sharedStorageDir != "" {
-		sharedStorageListener, err := s.serveStorage(config.sharedStorageAddr, config.sharedStorageDir, config)
-		if err != nil {
-			logger.Errorf("error with local storage: %v", err)
-			return err
-		}
-		defer sharedStorageListener.Close()
-	} else {
-		logger.Infof("no shared storage: dir=%q addr=%q", config.sharedStorageDir, config.sharedStorageAddr)
-	}
-
 	logger.Infof("storage routines started, awaiting death")
 
 	<-s.tomb.Dying()

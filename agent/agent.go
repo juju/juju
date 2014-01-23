@@ -21,16 +21,14 @@ import (
 var logger = loggo.GetLogger("juju.agent")
 
 const (
-	LxcBridge         = "LXC_BRIDGE"
-	ProviderType      = "PROVIDER_TYPE"
-	ContainerType     = "CONTAINER_TYPE"
-	Namespace         = "NAMESPACE"
-	StorageDir        = "STORAGE_DIR"
-	StorageAddr       = "STORAGE_ADDR"
-	SharedStorageDir  = "SHARED_STORAGE_DIR"
-	SharedStorageAddr = "SHARED_STORAGE_ADDR"
-	AgentServiceName  = "AGENT_SERVICE_NAME"
-	MongoServiceName  = "MONGO_SERVICE_NAME"
+	LxcBridge        = "LXC_BRIDGE"
+	ProviderType     = "PROVIDER_TYPE"
+	ContainerType    = "CONTAINER_TYPE"
+	Namespace        = "NAMESPACE"
+	StorageDir       = "STORAGE_DIR"
+	StorageAddr      = "STORAGE_ADDR"
+	AgentServiceName = "AGENT_SERVICE_NAME"
+	MongoServiceName = "MONGO_SERVICE_NAME"
 )
 
 // The Config interface is the sole way that the agent gets access to the
