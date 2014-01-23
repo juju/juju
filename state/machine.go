@@ -708,7 +708,6 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // notProvisionedError records an error when a machine is not provisioned.
 type notProvisionedError struct {
 	machineId string
-	stack     string
 }
 
 func NotProvisionedError(machineId string) error {
@@ -716,7 +715,7 @@ func NotProvisionedError(machineId string) error {
 }
 
 func (e *notProvisionedError) Error() string {
-	return fmt.Sprintf("machine %v is not provisioned; callers %s", e.machineId, e.stack)
+	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
 }
 
 // IsNotProvisionedError returns true if err is a notProvisionedError.
