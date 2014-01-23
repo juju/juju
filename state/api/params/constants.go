@@ -21,7 +21,7 @@ const (
 	JobHostUnits     MachineJob = "JobHostUnits"
 	JobManageEnviron MachineJob = "JobManageEnviron"
 	// Deprecated in 1.18
-	JobManageState   MachineJob = "JobManageState"
+	JobManageState MachineJob = "JobManageState"
 )
 
 // NeedsState returns true if the job requires a state connection.

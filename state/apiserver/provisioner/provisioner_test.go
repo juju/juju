@@ -838,4 +838,3 @@ func (s *withStateServerSuite) TestCACert(c *gc.C) {
 		Result: s.State.CACert(),
 	})
 }
-
