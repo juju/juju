@@ -12,8 +12,8 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.environs.configstore")
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
 func Default() (Storage, error) {
-	return NewDisk(config.JujuHome())
+	return NewDisk(osenv.JujuHome())
 }
 
 type diskStore struct {

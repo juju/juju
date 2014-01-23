@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -17,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider"
@@ -40,6 +42,11 @@ about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has 
 completed, you can run other juju commands against your environment.
 
+Private clouds may need to specify their own custom image metadata, and possibly upload
+Juju tools to cloud storage if no outgoing Internet access is available. In this case,
+use the --metadata-source paramater to tell bootstrap a local directory from which to
+upload tools and/or image metadata.
+
 See Also:
    juju help switch
    juju help constraints
@@ -50,10 +57,10 @@ See Also:
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	cmd.EnvCommandBase
-	Constraints constraints.Value
-	UploadTools bool
-	Series      []string
-	Source      string
+	Constraints    constraints.Value
+	UploadTools    bool
+	Series         []string
+	MetadataSource string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -69,7 +76,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
-	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -118,14 +125,23 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
-	// If --source is specified, override the default tools source.
-	if c.Source != "" {
-		logger.Infof("Setting default tools source: %s", c.Source)
-		tools.DefaultBaseURL = c.Source
+	// If --metadata-source is specified, override the default tools and image metadata sources.
+	if c.MetadataSource != "" {
+		logger.Infof("Setting default tools and image metadata sources: %s", c.MetadataSource)
+		tools.DefaultBaseURL = c.MetadataSource
+		imagemetadata.DefaultBaseURL = c.MetadataSource
+		if err := imagemetadata.UploadImageMetadata(environ.Storage(), c.MetadataSource); err != nil {
+			// Do not error if image metadata directory doesn't exist.
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("uploading image metadata: %v", err)
+			}
+		} else {
+			logger.Infof("custom image metadata uploaded")
+		}
 	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
-	// unecessary upload.
+	// unnecessary upload.
 	if environ.Config().Type() == provider.Local {
 		c.UploadTools = true
 	}

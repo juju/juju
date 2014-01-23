@@ -53,7 +53,7 @@ func (s *generateSuite) TestWriteMetadata(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
-	metadata := testing.ParseMetadata(c, dir)
+	metadata := testing.ParseMetadataFromDir(c, dir)
 	c.Assert(metadata, gc.HasLen, 1)
 	im[0].RegionName = cloudSpec.Region
 	im[0].Endpoint = cloudSpec.Endpoint
@@ -92,7 +92,7 @@ func (s *generateSuite) TestWriteMetadataMergeOverwriteSameArch(c *gc.C) {
 	}
 	err = imagemetadata.MergeAndWriteMetadata("raring", newImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
-	metadata := testing.ParseMetadata(c, dir)
+	metadata := testing.ParseMetadataFromDir(c, dir)
 	c.Assert(metadata, gc.HasLen, 2)
 	for _, im := range newImageMetadata {
 		im.RegionName = cloudSpec.Region
@@ -134,7 +134,7 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentSeries(c *gc.C) {
 	}
 	err = imagemetadata.MergeAndWriteMetadata("precise", newImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
-	metadata := testing.ParseMetadata(c, dir)
+	metadata := testing.ParseMetadataFromDir(c, dir)
 	c.Assert(metadata, gc.HasLen, 3)
 	newImageMetadata = append(newImageMetadata, existingImageMetadata[0])
 	for _, im := range newImageMetadata {
@@ -183,7 +183,7 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentRegion(c *gc.C) {
 	}
 	err = imagemetadata.MergeAndWriteMetadata("raring", newImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
-	metadata := testing.ParseMetadata(c, dir)
+	metadata := testing.ParseMetadataFromDir(c, dir)
 	c.Assert(metadata, gc.HasLen, 3)
 	for _, im := range newImageMetadata {
 		im.RegionName = "region2"

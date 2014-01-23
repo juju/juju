@@ -262,9 +262,9 @@ func InitJujuHome() error {
 		return stderrors.New(
 			"cannot determine juju home, required environment variables are not set")
 	}
-	config.SetJujuHome(jujuHome)
-	charm.CacheDir = config.JujuHomePath("charmcache")
-	if err := ssh.LoadClientKeys(config.JujuHomePath("ssh")); err != nil {
+	osenv.SetJujuHome(jujuHome)
+	charm.CacheDir = osenv.JujuHomePath("charmcache")
+	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
 		return fmt.Errorf("cannot load ssh client keys: %v", err)
 	}
 	return nil

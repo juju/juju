@@ -13,11 +13,11 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -48,7 +48,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = config.JujuHome()
+		c.metadataDir = osenv.JujuHome()
 	}
 	var err error
 	c.metadataDir, err = utils.NormalizePath(c.metadataDir)

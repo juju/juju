@@ -105,6 +105,8 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification(), cfg.SyslogPort()); err != nil {
 		return err
 	}
+	mcfg.ProxySettings = cfg.ProxySettings()
+	mcfg.AptProxySettings = cfg.AptProxySettings()
 
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this

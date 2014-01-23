@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -94,10 +95,11 @@ var cloudinitTests = []cloudinitTest{
 		setEnvConfig: true,
 		expectScripts: `
 echo ENABLE_MONGODB="no" > /etc/default/mongodb
+set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
-set -xe
+grep -q '.juju-proxy' /home/ubuntu/.profile \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
@@ -218,10 +220,11 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			MachineAgentServiceName: "jujud-machine-99",
 		},
 		expectScripts: `
+set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
-set -xe
+grep -q '.juju-proxy' /home/ubuntu/.profile \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
@@ -788,6 +791,74 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 	}
+}
+
+func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *cloudinit.MachineConfig {
+	machineId := "42"
+	machineNonce := "fake-nonce"
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig.Tools = &tools.Tools{
+		Version: version.MustParseBinary("2.3.4-foo-bar"),
+		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+	}
+	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	return machineConfig
+}
+
+func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
+	environConfig := minimalConfig(c)
+	machineCfg := s.createMachineConfig(c, environConfig)
+	cloudcfg := coreCloudinit.New()
+	err := cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	cmds := cloudcfg.BootCmds()
+	c.Assert(cmds, gc.DeepEquals, []interface{}{})
+}
+
+func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"apt-http-proxy": "http://user@10.0.0.1",
+	})
+	c.Assert(err, gc.IsNil)
+	machineCfg := s.createMachineConfig(c, environConfig)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	cmds := cloudcfg.BootCmds()
+	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
+	c.Assert(cmds, gc.DeepEquals, []interface{}{expected})
+}
+
+func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"http-proxy": "http://user@10.0.0.1",
+	})
+	c.Assert(err, gc.IsNil)
+	machineCfg := s.createMachineConfig(c, environConfig)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	cmds := cloudcfg.RunCmds()
+	first := `grep -q '.juju-proxy' /home/ubuntu/.profile || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
+	second := `printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+export HTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy`
+	found := false
+	for i, cmd := range cmds {
+		if cmd == first {
+			c.Assert(cmds[i+1], gc.Equals, second)
+			found = true
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
 }
 
 var serverCert = []byte(`

@@ -181,7 +181,7 @@ func (*formatter_1_16) migrate(config *configInternal) {
 		JujuProviderType,
 		ProviderType,
 	}, {
-		osenv.JujuContainerType,
+		osenv.JujuContainerTypeEnvKey,
 		ContainerType,
 	}, {
 		JujuLxcBridge,

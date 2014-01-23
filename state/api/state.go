@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/firewaller"
 	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
@@ -54,6 +55,12 @@ func (st *State) Provisioner() *provisioner.State {
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
 	return uniter.NewState(st, st.authTag)
+}
+
+// Firewaller returns a version of the state that provides functionality
+// required by the firewaller worker.
+func (st *State) Firewaller() *firewaller.State {
+	return firewaller.NewState(st)
 }
 
 // Agent returns a version of the state that provides

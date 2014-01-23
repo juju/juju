@@ -199,7 +199,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		return nil, err
 	}
 	if dir == "." {
-		dir = config.JujuHomePath(cfg.Name())
+		dir = osenv.JujuHomePath(cfg.Name())
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir

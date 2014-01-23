@@ -53,7 +53,6 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("ftp-proxy", "")
 	s.PatchEnvironment("FTP-PROXY", "")
 	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
-
 }
 
 func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
