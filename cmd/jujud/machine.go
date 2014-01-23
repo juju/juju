@@ -28,12 +28,12 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/localstorage"
 	workerlogger "launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
@@ -303,8 +303,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
 			})
-			runner.StartWorker("addressupdater", func() (worker.Worker, error) {
-				return addressupdater.NewWorker(st), nil
+			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+				return instancepoller.NewWorker(st), nil
 			})
 		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {

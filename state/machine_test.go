@@ -420,6 +420,9 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	// Clear the deprecated machineDoc InstanceId attribute and ensure that CheckProvisioned()
 	// still works as expected with the new data model.
 	state.SetMachineInstanceId(s.machine, "")
+	id, err = s.machine.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(id), gc.Equals, "umbrella/0")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
 
 	// Try it twice, it should fail.
@@ -434,6 +437,32 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
 	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
 		return s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	})
+}
+
+func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
+	// Machine needs to be provisioned first.
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.SetInstanceStatus("ALIVE")
+	c.Assert(err, gc.IsNil)
+
+	// Reload machine and check result.
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	status, err := s.machine.InstanceStatus()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.DeepEquals, "ALIVE")
+}
+
+func (s *MachineSuite) TestNotProvisionedMachineSetInstanceStatus(c *gc.C) {
+	err := s.machine.SetInstanceStatus("ALIVE")
+	c.Assert(err, gc.ErrorMatches, ".* not provisioned")
+}
+
+func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
+	_, err := s.machine.InstanceStatus()
+	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {

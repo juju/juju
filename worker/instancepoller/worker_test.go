@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package addressupdater_test
+package instancepoller
 
 import (
 	"fmt"
@@ -15,9 +15,9 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/addressupdater"
 )
 
 var _ = gc.Suite(&workerSuite{})
@@ -40,42 +40,96 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// Most functionality is already tested in detail - we
 	// just need to test that things are wired together
 	// correctly.
-	defer testbase.PatchValue(&addressupdater.ShortPoll, 10*time.Millisecond).Restore()
-	defer testbase.PatchValue(&addressupdater.LongPoll, 10*time.Millisecond).Restore()
+	defer testbase.PatchValue(&ShortPoll, 10*time.Millisecond).Restore()
+	defer testbase.PatchValue(&LongPoll, 10*time.Millisecond).Restore()
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
-	w := addressupdater.NewWorker(s.State)
+	w := NewWorker(s.State)
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
 
+	checkInstanceInfo := func(index int, m machine, expectedStatus string) bool {
+		isProvisioned := true
+		status, err := m.InstanceStatus()
+		if state.IsNotProvisionedError(err) {
+			isProvisioned = false
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+		return reflect.DeepEqual(m.Addresses(), s.addressesForIndex(index)) && (!isProvisioned || status == expectedStatus)
+	}
+
 	// Wait for the odd numbered machines in the
 	// first half of the machine slice to be given their
-	// addresses.
+	// addresses and status.
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
-			c.Fatalf("timed out waiting for machine addresses")
+			c.Fatalf("timed out waiting for instance info")
 		}
+
 		if machinesSatisfy(c, machines, func(i int, m *state.Machine) bool {
 			if i < len(machines)/2 && i%2 == 1 {
-				return reflect.DeepEqual(m.Addresses(), s.addressesForIndex(i))
+				return checkInstanceInfo(i, m, "running")
+			}
+			status, err := m.InstanceStatus()
+			if i%2 == 0 {
+				// Even machines not provisioned yet.
+				c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+			} else {
+				c.Assert(status, gc.Equals, "")
 			}
 			return len(m.Addresses()) == 0
 		}) {
 			break
 		}
 	}
-	// Now provision the second half of the machines and
-	// watch them get addresses.
-	for i := len(insts) / 2; i < len(insts); i++ {
+	// Now provision the even machines in the first half and watch them get addresses.
+	for i := 0; i < len(insts)/2; i += 2 {
+		m := machines[i]
+		err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
+		c.Assert(err, gc.IsNil)
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
+		dummy.SetInstanceStatus(insts[i], "running")
 	}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
-			c.Fatalf("timed out waiting for machine addresses")
+			c.Fatalf("timed out waiting for machine instance info")
 		}
 		if machinesSatisfy(c, machines, func(i int, m *state.Machine) bool {
-			return reflect.DeepEqual(m.Addresses(), s.addressesForIndex(i))
+			if i < len(machines)/2 {
+				return checkInstanceInfo(i, m, "running")
+			}
+			// Machines in second half still have no addresses, nor status.
+			status, err := m.InstanceStatus()
+			if i%2 == 0 {
+				// Even machines not provisioned yet.
+				c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+			} else {
+				c.Assert(status, gc.Equals, "")
+			}
+			return len(m.Addresses()) == 0
+		}) {
+			break
+		}
+	}
+
+	// Provision the remaining machines and check the address and status.
+	for i := len(insts) / 2; i < len(insts); i++ {
+		if i%2 == 0 {
+			m := machines[i]
+			err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
+			c.Assert(err, gc.IsNil)
+		}
+		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
+		dummy.SetInstanceStatus(insts[i], "running")
+	}
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if !a.HasNext() {
+			c.Fatalf("timed out waiting for machine instance info")
+		}
+		if machinesSatisfy(c, machines, func(i int, m *state.Machine) bool {
+			return checkInstanceInfo(i, m, "running")
 		}) {
 			break
 		}
@@ -114,9 +168,10 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 		err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
 		c.Assert(err, gc.IsNil)
 	}
-	// Associate the first half of the instances with an address.
+	// Associate the first half of the instances with an address and status.
 	for i := 0; i < len(machines)/2; i++ {
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
+		dummy.SetInstanceStatus(insts[i], "running")
 	}
 	return machines, insts
 }

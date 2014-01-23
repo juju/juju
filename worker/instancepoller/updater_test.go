@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package addressupdater
+package instancepoller
 
 import (
 	"errors"
@@ -72,8 +72,8 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 		dyingc: dyingc,
 		newMachineContextFunc: func() machineContext {
 			return &testMachineContext{
-				getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
-				dyingc:       dyingc,
+				getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "running", nil),
+				dyingc:          dyingc,
 			}
 		},
 		getMachineFunc: func(id string) (machine, error) {

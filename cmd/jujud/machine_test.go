@@ -36,9 +36,9 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/instancepoller"
 )
 
 type MachineSuite struct {
@@ -326,8 +326,8 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
-	defer testbase.PatchValue(&addressupdater.ShortPoll, 500*time.Millisecond).Restore()
+func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
+	defer testbase.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond).Restore()
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
@@ -353,6 +353,7 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
 	dummy.SetInstanceAddresses(insts[0], addrs)
+	dummy.SetInstanceStatus(insts[0], "running")
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
@@ -361,7 +362,9 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 		}
 		err := m.Refresh()
 		c.Assert(err, gc.IsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) {
+		instStatus, err := m.InstanceStatus()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
 			break
 		}
 	}
