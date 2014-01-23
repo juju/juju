@@ -11,14 +11,17 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -139,7 +142,20 @@ var _ = gc.Suite(&localJujuTestSuite{
 })
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	c.Skip("Cannot test bootstrap at this stage.")
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
+		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
+		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		return nil
+	})
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Prepare(testConfig)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, environ.Storage())
+	defer envtesting.RemoveFakeTools(c, environ.Storage())
+	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
+	err = environ.Bootstrap(ctx, constraints.Value{})
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *localJujuTestSuite) TestStartStop(c *gc.C) {

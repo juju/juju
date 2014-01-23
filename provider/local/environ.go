@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -146,16 +147,21 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	if err := environs.FinishMachineConfig(mcfg, env.Config(), cons); err != nil {
 		return err
 	}
-	return finishBootstrap(mcfg, ctx)
-}
-
-// finishBootstrap converts the machine config to cloud-config,
-// converts that to a script, and then executes it locally.
-var finishBootstrap = func(mcfg *cloudinit.MachineConfig, ctx environs.BootstrapContext) error {
+	// don't write proxy settings for local machine
+	mcfg.AptProxySettings = osenv.ProxySettings{}
+	mcfg.ProxySettings = osenv.ProxySettings{}
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
+	return finishBootstrap(mcfg, cloudcfg, ctx)
+}
+
+// finishBootstrap converts the machine config to cloud-config,
+// converts that to a script, and then executes it locally.
+//
+// mcfg is supplied for testing purposes.
+var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
 	script, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return nil
