@@ -5,6 +5,7 @@ package firewaller
 
 import (
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -12,11 +13,11 @@ import (
 
 // State provides access to the Firewaller API facade.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 }
 
 // NewState creates a new client-side Firewaller facade.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 

@@ -5,6 +5,7 @@ package machiner
 
 import (
 	"launchpad.net/juju-core/state/api/base"
+	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
