@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"local/runtime/debug"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 
@@ -47,7 +48,7 @@ var jobNames = map[MachineJob]params.MachineJob{
 	JobManageEnviron: params.JobManageEnviron,
 
 	// Deprecated in 1.18.
-	JobManageState:   params.JobManageState,
+	JobManageState: params.JobManageState,
 }
 
 // AllJobs returns all supported machine jobs.
@@ -707,14 +708,15 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // notProvisionedError records an error when a machine is not provisioned.
 type notProvisionedError struct {
 	machineId string
+	stack     string
 }
 
 func NotProvisionedError(machineId string) error {
-	return &notProvisionedError{machineId}
+	return &notProvisionedError{machineId, string(debug.Callers(0, 20))}
 }
 
 func (e *notProvisionedError) Error() string {
-	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
+	return fmt.Sprintf("machine %v is not provisioned; callers %s", e.machineId, e.stack)
 }
 
 // IsNotProvisionedError returns true if err is a notProvisionedError.

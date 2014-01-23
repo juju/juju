@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -128,13 +129,12 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 		Changes: changes,
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
 			{&params.Error{Message: "x2 error"}},
 			{&params.Error{Message: "x3 error"}},
-			{nil},
 			{nil},
 			{nil},
 			{nil},
