@@ -6,6 +6,8 @@ package joyent
 import (
 	"sync"
 
+	"launchpad.net/gojoyent/jpc"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -15,13 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-// This file contains the core of the joyent Environ implementation. You will
-// probably not need to change this file very much to begin with; and if you
-// never need to add any more fields, you may never need to touch it.
-//
-// The rest of the implementation is split into environ_instance.go (which
-// must be implemented ) and environ_firewall.go (which can be safely
-// ignored until you've got an environment bootstrapping successfully).
+// This file contains the core of the Joyent Environ implementation.
 
 type JoyentEnviron struct {
 	name string
@@ -32,7 +28,9 @@ type JoyentEnviron struct {
 	// affected fields.
 	lock    sync.Mutex
 	ecfg    *environConfig
+	creds   *jpc.Credentials
 	storage storage.Storage
+	compute *joyentCompute
 }
 
 var _ environs.Environ = (*JoyentEnviron)(nil)
@@ -44,7 +42,9 @@ func NewEnviron(cfg *config.Config) (*JoyentEnviron, error) {
 		return nil, err
 	}
 	env.name = cfg.Name()
+	env.creds = getCredentials(env)
 	env.storage = NewStorage(env)
+	env.compute = NewCompute(env)
 	return env, nil
 }
 
@@ -61,18 +61,18 @@ func (*JoyentEnviron) Provider() environs.EnvironProvider {
 }
 
 func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {
-	env.lock.Lock()
-	defer env.lock.Unlock()
+	//env.lock.Lock()
+	//defer env.lock.Unlock()
 	ecfg, err := validateConfig(cfg, env.ecfg)
 	if err != nil {
 		return err
 	}
-	storage, err := newStorage(ecfg)
-	if err != nil {
-		return err
-	}
+	//storage, err := newStorage(ecfg)
+	//if err != nil {
+	//	return err
+	//}
 	env.ecfg = ecfg
-	env.storage = storage
+	//env.storage = storage
 	return nil
 }
 
@@ -106,4 +106,20 @@ func (env *JoyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
 
 func (env *JoyentEnviron) Destroy() error {
 	return common.Destroy(env)
+}
+
+func (env *JoyentEnviron) Ecfg() *environConfig {
+	return env.getSnapshot().ecfg
+}
+
+func getCredentials(env *JoyentEnviron) *jpc.Credentials {
+	auth := jpc.Auth{User: env.ecfg.mantaUser(), KeyFile: env.ecfg.keyFile(), Algorithm: env.ecfg.algorithm()}
+
+	return &jpc.Credentials{
+		UserAuthentication: auth,
+		MantaKeyId:         env.ecfg.mantaKeyId(),
+		MantaEndpoint:      jpc.Endpoint{URL: env.ecfg.mantaUrl()},
+		SdcKeyId:           env.ecfg.sdcKeyId(),
+		SdcEndpoint:        jpc.Endpoint{URL: env.ecfg.sdcUrl()},
+	}
 }

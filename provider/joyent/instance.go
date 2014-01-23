@@ -4,46 +4,58 @@
 package joyent
 
 import (
+	"launchpad.net/gojoyent/cloudapi"
+
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 )
 
-type environInstance struct {
-	id  instance.Id
-	env *JoyentEnviron
+type joyentInstance struct {
+	machine  *cloudapi.Machine
+	env 	 *JoyentEnviron
 }
 
-var _ instance.Instance = (*environInstance)(nil)
+var _ instance.Instance = (*joyentInstance)(nil)
 
-func (inst *environInstance) Id() instance.Id {
-	return inst.id
+func (inst *joyentInstance) Id() instance.Id {
+	return instance.Id(inst.machine.Id)
 }
 
-func (inst *environInstance) Status() string {
-	_ = inst.env.getSnapshot()
-	return "unknown (not implemented)"
+func (inst *joyentInstance) Status() string {
+	return inst.machine.State
 }
 
-func (inst *environInstance) Refresh() error {
+func (inst *joyentInstance) Refresh() error {
 	return nil
 }
 
-func (inst *environInstance) Addresses() ([]instance.Address, error) {
-	_ = inst.env.getSnapshot()
-	return nil, errNotImplemented
+func (inst *joyentInstance) Addresses() ([]instance.Address, error) {
+	addresses := make([]instance.Address, len(inst.machine.IPs))
+	for _, ip := range inst.machine.IPs {
+		address := instance.NewAddress(ip)
+		if ip == inst.machine.PrimaryIP {
+			address.NetworkScope = instance.NetworkPublic
+		} else {
+			address.NetworkScope = instance.NetworkCloudLocal
+		}
+		addresses = append(addresses, address)
+	}
+
+	return addresses, nil
 }
 
-func (inst *environInstance) DNSName() (string, error) {
-	// This method is likely to be replaced entirely by Addresses() at some point,
-	// but remains necessary for now. It's probably smart to implement it in
-	// terms of Addresses above, to minimise churn when it's removed.
-	_ = inst.env.getSnapshot()
-	return "", errNotImplemented
+func (inst *joyentInstance) DNSName() (string, error) {
+	addresses, err := inst.Addresses()
+	if err != nil {
+		return "", err
+	}
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
+		return "", instance.ErrNoDNSName
+	}
+	return addr, nil
 }
 
-func (inst *environInstance) WaitDNSName() (string, error) {
-	// This method is likely to be replaced entirely by Addresses() at some point,
-	// but remains necessary for now. Until it's finally removed, you can probably
-	// ignore this method; the common implementation should work.
+func (inst *joyentInstance) WaitDNSName() (string, error) {
 	return common.WaitDNSName(inst)
 }

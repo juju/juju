@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/utils"
 
 	"launchpad.net/gojoyent/client"
-	"launchpad.net/gojoyent/jpc"
 	"launchpad.net/gojoyent/manta"
 )
 
@@ -37,28 +36,18 @@ func (byteCloser) Close() error {
 var _ storage.Storage = (*JoyentStorage)(nil)
 
 func NewStorage(env *JoyentEnviron) storage.Storage {
-	if stor, err := newStorage(env.ecfg); err == nil {
+	if stor, err := newStorage(env); err == nil {
 		return stor
 	}
 	return nil
 }
 
-func getCredentials(ecfg *environConfig) *jpc.Credentials {
-	auth := jpc.Auth{User: ecfg.mantaUser(), KeyFile: ecfg.keyFile(), Algorithm: ecfg.algorithm()}
-
-	return &jpc.Credentials{
-		UserAuthentication: auth,
-		MantaKeyId:         ecfg.mantaKeyId(),
-		MantaEndpoint:      jpc.Endpoint{URL: ecfg.mantaUrl()},
-	}
-}
-
-func newStorage(ecfg *environConfig) (storage.Storage, error) {
-	client := client.NewClient(ecfg.mantaUrl(), "", getCredentials(ecfg), &logger)
+func newStorage(env *JoyentEnviron) (storage.Storage, error) {
+	client := client.NewClient(env.ecfg.mantaUrl(), "", env.creds, &logger)
 
 	return &JoyentStorage{
-		ecfg:          ecfg,
-		containerName: ecfg.controlDir(),
+		ecfg:          env.ecfg,
+		containerName: env.ecfg.controlDir(),
 		manta:         manta.New(client)}, nil
 }
 

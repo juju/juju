@@ -20,7 +20,8 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 
 	"launchpad.net/gojoyent/jpc"
-	localmanta "launchpad.net/gojoyent/localservices/manta"
+	lc "launchpad.net/gojoyent/localservices/cloudapi"
+	lm "launchpad.net/gojoyent/localservices/manta"
 )
 
 const (
@@ -65,7 +66,7 @@ type localMantaService struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
-	manta      *localmanta.Manta
+	manta      *lm.Manta
 }
 
 func (s *localMantaService) Start(c *gc.C) {
@@ -84,12 +85,47 @@ func (s *localMantaService) Start(c *gc.C) {
 		MantaKeyId:         testKeyFingerprint,
 		MantaEndpoint:      jpc.Endpoint{URL: s.Server.URL},
 	}
-	s.manta = localmanta.New(s.creds.MantaEndpoint.URL, s.creds.UserAuthentication.User)
+	s.manta = lm.New(s.creds.MantaEndpoint.URL, s.creds.UserAuthentication.User)
 	s.manta.SetupHTTP(s.Mux)
 	c.Logf("Started local Manta service at: %v", s.Server.URL)
 }
 
 func (s *localMantaService) Stop() {
+	s.Mux = nil
+	s.Server.Config.Handler = s.oldHandler
+	s.Server.Close()
+}
+
+type localCloudAPIService struct {
+	creds      *jpc.Credentials
+	Server     *httptest.Server
+	Mux        *http.ServeMux
+	oldHandler http.Handler
+	cloudapi   *lc.CloudAPI
+}
+
+func (s *localCloudAPIService) Start(c *gc.C) {
+	// Set up the HTTP server.
+	s.Server = httptest.NewServer(nil)
+	c.Assert(s.Server, gc.NotNil)
+	s.oldHandler = s.Server.Config.Handler
+	s.Mux = http.NewServeMux()
+	s.Server.Config.Handler = s.Mux
+
+	// Set up a Joyent CloudAPI service.
+	auth := jpc.Auth{User: testUser, KeyFile: testKeyFileName, Algorithm: "rsa-sha256"}
+
+	s.creds = &jpc.Credentials{
+		UserAuthentication: auth,
+		SdcKeyId:         	testKeyFingerprint,
+		SdcEndpoint:      	jpc.Endpoint{URL: s.Server.URL},
+	}
+	s.cloudapi = lc.New(s.creds.SdcEndpoint.URL, s.creds.UserAuthentication.User)
+	s.cloudapi.SetupHTTP(s.Mux)
+	c.Logf("Started local CloudAPI service at: %v", s.Server.URL)
+}
+
+func (s *localCloudAPIService) Stop() {
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
 	s.Server.Close()
@@ -143,20 +179,6 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 
 // makeEnviron creates a functional Joyent environ for a test.
 func (suite *providerSuite) makeEnviron(sdcUrl, mantaUrl string) *jp.JoyentEnviron {
-	/*attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":         "joyent test environment",
-		"type":         "joyent",
-		"sdc-user":     "dstroppa",
-		"sdc-key-id":   "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"sdc-url":      "https://us-west-1.api.joyentcloud.com",
-		"manta-user":   "dstroppa",
-		"manta-key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"manta-url":    "https://us-east.manta.joyent.com",
-		"key-file":     fmt.Sprintf("%s/.ssh/id_rsa", os.Getenv("HOME")),
-		"algorithm":    "rsa-sha256",
-		"control-dir":  "juju-test",
-	})*/
-
 	attrs := GetFakeConfig(sdcUrl, mantaUrl)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {

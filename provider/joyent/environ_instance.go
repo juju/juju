@@ -4,44 +4,205 @@
 package joyent
 
 import (
+	"fmt"
+	"strings"
+	"sync"
+
+	"launchpad.net/gojoyent/client"
+	"launchpad.net/gojoyent/cloudapi"
+
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 )
 
-func (env *JoyentEnviron) StartInstance(
-	cons constraints.Value, possibleTools tools.List, machineConf *cloudinit.MachineConfig,
-) (
-	instance.Instance, *instance.HardwareCharacteristics, error,
-) {
-	// Please note that in order to fulfil the demands made of Instances and
-	// AllInstances, it is imperative that some environment feature be used to
-	// keep track of which instances were actually started by juju.
-	_ = env.getSnapshot()
-	return nil, nil, errNotImplemented
+var (
+	vTypeSmartmachine 		= "smartmachine"
+	vTypeVirtualmachine 	= "virtualmachine"
+ 	signedImageDataOnly 	= true
+)
+
+type joyentCompute struct {
+	sync.Mutex
+	ecfg          *environConfig
+	cloudapi      *cloudapi.Client
+}
+
+func NewCompute(env *JoyentEnviron) *joyentCompute {
+	if compute, err := newCompute(env); err == nil {
+		return compute
+	}
+	return nil
+}
+
+func newCompute(env *JoyentEnviron) (*joyentCompute, error) {
+	client := client.NewClient(env.ecfg.sdcUrl(), cloudapi.DefaultAPIVersion, env.creds, &logger)
+
+	return &joyentCompute{
+		ecfg:          env.ecfg,
+		cloudapi:      cloudapi.New(client)}, nil
+}
+
+func contains(ids []instance.Id, id instance.Id) bool {
+	for _, i := range ids {
+		if i == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConf *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	arches := possibleTools.Arches()
+
+	series := possibleTools.OneSeries()
+	spec, err := env.findInstanceSpec(&instances.InstanceConstraint{
+		Region:      env.Ecfg().sdcUrl(),
+		Series:      series,
+		Arches:      arches,
+		Constraints: cons,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	if err != nil {
+		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+	}
+
+	machineConf.Tools = tools[0]
+	if err := environs.FinishMachineConfig(machineConf, env.Config(), cons); err != nil {
+		return nil, nil, err
+	}
+
+	var machine *cloudapi.Machine
+	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
+		Package:         spec.InstanceType.Name,
+		Image:           spec.Image.Id,
+		Tags:            map[string]string {"group" : "juju"},
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
+	}
+
+	inst := &joyentInstance{
+		machine:	machine,
+		env:        env,
+	}
+	logger.Infof("started instance %q", inst.Id())
+
+	disk64 := uint64(machine.Disk)
+	hc := instance.HardwareCharacteristics{
+		Arch:     &spec.Image.Arch,
+		Mem:      &spec.InstanceType.Mem,
+		CpuCores: &spec.InstanceType.CpuCores,
+		CpuPower: spec.InstanceType.CpuPower,
+		RootDisk: &disk64,
+	}
+
+	return inst, &hc, nil
 }
 
 func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
-	// Please note that this must *not* return instances that have not been
-	// allocated as part of this environment -- if it does, juju will see they
-	// are not tracked in state, assume they're stale/rogue, and shut them down.
-	_ = env.getSnapshot()
-	return nil, errNotImplemented
+	instances := []instance.Instance{}
+
+	filter := cloudapi.NewFilter()
+	filter.Set("tag.group", "juju")
+
+	machines, err := env.compute.cloudapi.ListMachines(filter)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve instances: %v", err)
+	}
+
+	for _, m := range machines {
+		instances = append(instances, &joyentInstance{machine: &m, env: env})
+	}
+
+	return instances, nil
 }
 
 func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	// Please note that this must *not* return instances that have not been
-	// allocated as part of this environment -- if it does, juju will see they
-	// are not tracked in state, assume they're stale/rogue, and shut them down.
-	// This advice applies even if an instance id passed in corresponds to a
-	// real instance that's not part of the environment -- the Environ should
-	// treat that no differently to a request for one that does not exist.
-	_ = env.getSnapshot()
-	return nil, errNotImplemented
+	instances := []instance.Instance{}
+
+	allInstances, err := env.AllInstances()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, i := range allInstances {
+		if contains(ids, i.Id()) {
+			instances = append(instances, i)
+		}
+	}
+
+	return instances, nil
 }
 
 func (env *JoyentEnviron) StopInstances(instances []instance.Instance) error {
-	_ = env.getSnapshot()
-	return errNotImplemented
+	ids := make([]instance.Id, len(instances))
+	for i, inst := range instances {
+		ids[i] = inst.(*joyentInstance).Id()
+	}
+
+	for _, id := range ids {
+		err := env.compute.cloudapi.StopMachine(string(id))
+		if err != nil {
+			return fmt.Errorf("cannot stop instance %s: %v", string(id), err)
+		}
+	}
+
+	return nil
+}
+
+func getRegion(URL string) string {
+	return URL[strings.LastIndex(URL, "/") + 1:strings.Index(URL, ".")]
+}
+
+// findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
+func (env *JoyentEnviron) findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	packages, err := env.compute.cloudapi.ListPackages(nil)
+	if err != nil {
+		return nil, err
+	}
+	allInstanceTypes := []instances.InstanceType{}
+	for _, pkg := range packages {
+		instanceType := instances.InstanceType{
+			Id:       pkg.Id,
+			Name:     pkg.Name,
+			Arches:   ic.Arches,
+			Mem:      uint64(pkg.Memory),
+			CpuCores: uint64(pkg.VCPUs),
+			RootDisk: uint64(pkg.Disk * 1024),
+			VType:	  &vTypeVirtualmachine,
+		}
+		allInstanceTypes = append(allInstanceTypes, instanceType)
+	}
+
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{getRegion(ic.Region), ic.Region},
+		Series:    []string{ic.Series},
+		Arches:    ic.Arches,
+	})
+	sources, err := imagemetadata.GetMetadataSources(env)
+	if err != nil {
+		return nil, err
+	}
+
+	matchingImages, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
+	if err != nil {
+		return nil, err
+	}
+	images := instances.ImageMetadataToImages(matchingImages)
+	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
+	if err != nil {
+		return nil, err
+	}
+	return spec, nil
 }
