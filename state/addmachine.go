@@ -29,13 +29,13 @@ type MachineTemplate struct {
 
 	// Jobs holds the jobs to run on the machine's instance.
 	// A machine must have at least one job to do.
-	// JobManageState can only be part of the jobs
+	// JobManageEnviron can only be part of the jobs
 	// when the first (bootstrap) machine is added.
 	Jobs []MachineJob
 
 	// NoVote holds whether a machine running
 	// a state server should abstain from peer voting.
-	// It is ignored if Jobs does not contain JobManageState.
+	// It is ignored if Jobs does not contain JobManageEnviron.
 	NoVote bool
 
 	// Addresses holds the addresses to be associated with the
@@ -202,7 +202,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 		}
 		jset[j] = true
 	}
-	if jset[JobManageState] {
+	if jset[JobManageEnviron] {
 		if !allowStateServer {
 			return MachineTemplate{}, errStateServerNotAllowed
 		}
@@ -413,7 +413,7 @@ var errStateServerNotAllowed = fmt.Errorf("state server jobs specified without c
 func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *StateServerInfo) ([]txn.Op, error) {
 	var newIds, newVotingIds []string
 	for _, doc := range mdocs {
-		if !hasJob(doc.Jobs, JobManageState) {
+		if !hasJob(doc.Jobs, JobManageEnviron) {
 			continue
 		}
 		newIds = append(newIds, doc.Id)
@@ -494,7 +494,6 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
-				JobManageState,
 				JobManageEnviron,
 			},
 			Constraints: cons,

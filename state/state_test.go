@@ -422,7 +422,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
-		state.JobManageState,
 	}
 	m0, err := s.State.AddMachine("quantal", allJobs...)
 	c.Assert(err, gc.IsNil)
@@ -777,14 +776,14 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	template := state.MachineTemplate{
 		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobManageState},
+		Jobs:   []state.MachineJob{state.JobManageEnviron},
 	}
 	// Check that we can add the bootstrap machine.
 	m, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.WantsVote(), jc.IsTrue)
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageState})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 
 	// Check that the state server information is correct.
 	info, err := state.GetStateServerInfo(s.State)
@@ -2567,7 +2566,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Clear the voting machine ids from the stateServers collection
@@ -2612,7 +2611,7 @@ func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
 
 func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	ids := make([]string, 3)
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	ids[0] = m0.Id()
 
@@ -2638,7 +2637,6 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
 			state.JobHostUnits,
-			state.JobManageState,
 			state.JobManageEnviron,
 		})
 		gotCons, err := m.Constraints()

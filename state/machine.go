@@ -206,7 +206,7 @@ func (m *Machine) Jobs() []MachineJob {
 // WantsVote reports whether the machine is a state server
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
-	return hasJob(m.doc.Jobs, JobManageState) && !m.doc.NoVote
+	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
 }
 
 // IsManager returns true if the machine has JobManageEnviron.
@@ -493,7 +493,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		if hasJob(m.doc.Jobs, JobManageEnviron) || hasJob(m.doc.Jobs, JobManageState) {
+		if hasJob(m.doc.Jobs, JobManageEnviron) {
 			// (NOTE: When we enable multiple JobManageEnviron machines,
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)

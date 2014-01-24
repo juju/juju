@@ -21,7 +21,8 @@ import (
 
 type MachineSuite struct {
 	ConnSuite
-	machine *state.Machine
+	machine0 *state.Machine
+	machine  *state.Machine
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -29,7 +30,8 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -65,37 +67,23 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
-	// Note: we can't add a state server machine without
-	// calling EnsureAvailability.
-	tests := []struct {
-		isStateServer bool
-		jobs          []state.MachineJob
-	}{
-		{false, []state.MachineJob{state.JobHostUnits}},
-		{true, []state.MachineJob{state.JobManageEnviron}},
-		{true, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
-	}
-	c.Assert(s.machine.IsManager(), jc.IsTrue)
-	for _, test := range tests {
-		m, err := s.State.AddMachine("quantal", test.jobs...)
-		c.Assert(err, gc.IsNil)
-		c.Assert(m.IsManager(), gc.Equals, test.isStateServer)
-	}
+	c.Assert(s.machine0.IsManager(), jc.IsTrue)
+	c.Assert(s.machine.IsManager(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
-	c.Assert(s.machine.Id(), gc.Equals, "0")
-	manual, err := s.machine.IsManual()
+	c.Assert(s.machine.Id(), gc.Equals, "1")
+	manual, err := s.machine0.IsManual()
 	c.Assert(err, gc.IsNil)
 	c.Assert(manual, jc.IsFalse)
 	newcfg, err := cfg.Apply(map[string]interface{}{"type": "null"})
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newcfg, cfg)
 	c.Assert(err, gc.IsNil)
-	manual, err = s.machine.IsManual()
+	manual, err = s.machine0.IsManual()
 	c.Assert(err, gc.IsNil)
 	c.Assert(manual, jc.IsTrue)
 }
@@ -127,14 +115,13 @@ func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
+	m := s.machine0
+	err := m.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
 	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 1 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
 }
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
@@ -146,7 +133,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})
-	c.Assert(err, gc.ErrorMatches, `machine 0 is hosting containers "0/lxc/0"`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxc/0"`)
 	err1 := s.machine.EnsureDead()
 	c.Assert(err1, gc.DeepEquals, err)
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -161,7 +148,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
-	c.Assert(err, gc.ErrorMatches, `machine 0 has unit "wordpress/0" assigned`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 	err1 := s.machine.EnsureDead()
 	c.Assert(err1, gc.DeepEquals, err)
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -220,12 +207,12 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 		c, s.State, perturb, perturb, perturb,
 	).Check()
 	err = s.machine.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 cannot advance lifecycle: state changing too quickly; try again soon")
+	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
 	err := s.machine.Remove()
-	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine is not dead")
+	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Remove()
@@ -268,7 +255,7 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
-	c.Assert(s.machine.Tag(), gc.Equals, "machine-0")
+	c.Assert(s.machine.Tag(), gc.Equals, "machine-1")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
@@ -296,7 +283,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 
 	s.State.StartSync()
 	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
-	c.Assert(err, gc.ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
+	c.Assert(err, gc.ErrorMatches, `waiting for agent of machine 1: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, gc.IsNil)
@@ -402,11 +389,11 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 
 	// Either one should not be empty.
 	err := s.machine.SetProvisioned("umbrella/0", "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": instance id and nonce cannot be empty`)
 	err = s.machine.SetProvisioned("", "fake_nonce", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": instance id and nonce cannot be empty`)
 	err = s.machine.SetProvisioned("", "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": instance id and nonce cannot be empty`)
 
 	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -424,7 +411,7 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 
 	// Try it twice, it should fail.
 	err = s.machine.SetProvisioned("doesn't-matter", "phony", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "0": already set`)
+	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": already set`)
 
 	// Check it with invalid nonce.
 	c.Assert(s.machine.CheckProvisioned("not-really"), gc.Equals, false)
@@ -987,7 +974,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
 	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
@@ -997,7 +984,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "0": not found or not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
 	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
