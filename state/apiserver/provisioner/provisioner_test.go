@@ -698,7 +698,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, gc.IsNil)
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Check(results.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.SyslogPort, gc.Equals, 2345)
 }
