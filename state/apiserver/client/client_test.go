@@ -504,9 +504,9 @@ func assertRemoved(c *gc.C, entity state.Living) {
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -515,7 +515,7 @@ func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.
 	wordpress := s.AddTestingService(c, "wordpress", sch)
 	u, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = u.AssignToMachine(m0)
+	err = u.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
 
 	return m0, m1, m2, u
@@ -525,7 +525,7 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Dying)
@@ -533,9 +533,9 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	err = u.UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	assertLife(c, m0, state.Dying)
-	assertLife(c, m1, state.Alive)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
 }
 
@@ -543,7 +543,7 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)
@@ -551,8 +551,8 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 
 	err = s.State.Cleanup()
 	c.Assert(err, gc.IsNil)
-	assertLife(c, m0, state.Dead)
-	assertLife(c, m1, state.Alive)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
 }
