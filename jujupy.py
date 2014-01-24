@@ -56,6 +56,12 @@ def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
 
 
+class CannotConnectEnv(subprocess.CalledProcessError):
+
+    def __init__(self, e):
+        super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
+
+
 class JujuClientDevel:
     # This client is meant to work with the latest version of juju.
     # Subclasses will retain support for older versions of juju, so that the
@@ -86,9 +92,9 @@ class JujuClientDevel:
             return JujuClientDevel(version, full_path)
 
     def _full_args(self, environment, command, sudo, args):
+        # sudo is not needed for devel releases.
         e_arg = () if environment is None else ('-e', environment.environment)
-        sudo_args = ('sudo', '-E', self.full_path) if sudo else ('juju',)
-        return sudo_args + ('--show-log', command,) + e_arg + args
+        return ('juju', '--show-log', command,) + e_arg + args
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
@@ -112,7 +118,9 @@ class JujuClientDevel:
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
                 e.stderr = stderr.read()
-                raise
+                if 'Unable to connect to environment' not in e.stderr:
+                    raise
+                raise CannotConnectEnv(e)
 
     def get_status(self, environment):
         """Get the current status as a dict."""
@@ -133,6 +141,14 @@ class JujuClient16(JujuClientDevel):
     def destroy_environment(self, environment):
         self.juju(environment, 'destroy-environment', ('-y',),
                   environment.needs_sudo(), check=False)
+
+    def _full_args(self, environment, command, sudo, args):
+        # juju 1.16.x required sudo, so replace the juju command with it, as
+        # appropriate.
+        full = super(JujuClient16, self)._full_args(
+            environment, command, sudo, args)
+        sudo_args = ('sudo', '-E', self.full_path) if sudo else ('juju',)
+        return sudo_args + full[1:]
 
 
 class Status:
@@ -238,12 +254,9 @@ class Environment:
         for ignored in until_timeout(300):
             try:
                 versions = self.get_status().get_agent_versions()
-            except subprocess.CalledProcessError as e:
-                if 'Unable to connect to environment' not in e.stderr:
-                    raise
-                else:
-                    print('Supressing "Unable to connect to environment"')
-                    continue
+            except CannotConnectEnv as e:
+                print('Supressing "Unable to connect to environment"')
+                continue
             if versions.keys() == [version]:
                 break
             print(format_listing(versions, version, self.environment))
