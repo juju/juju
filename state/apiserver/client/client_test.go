@@ -15,10 +15,8 @@ import (
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -28,7 +26,6 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1654,71 +1651,6 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
 
-func (s *clientSuite) TestMachineConfig(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
-	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 1)
-
-	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
-
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	env, err := environs.New(envConfig)
-	c.Assert(err, gc.IsNil)
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machineConfig.StateAddrs, gc.DeepEquals, stateInfo.Addrs)
-	c.Assert(machineConfig.APIAddrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Assert(machineConfig.Tag, gc.Equals, "machine-0")
-	caCert, _ := envConfig.CACert()
-	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
-	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
-}
-
-func (s *clientSuite) TestMachineConfigNoArch(c *gc.C) {
-	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 1)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
-}
-
-func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
-	s.PatchValue(&envtools.DefaultBaseURL, "")
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	apiParams := params.AddMachineParams{
-		Series:     "quantal",
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
-	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
-	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
-}
-
 func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// Inject a machine and then call the ProvisioningScript API.
 	// The result should be the same as when calling MachineConfig,
@@ -1734,14 +1666,12 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
 	// Call ProvisioningScript. Normally ProvisioningScript and
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a state/api password for the machine agent.
 	script, err := s.APIState.Client().ProvisioningScript(machineId, apiParams.Nonce)
 	c.Assert(err, gc.IsNil)
-	mcfg, err := statecmd.FinishMachineConfig(machineConfig, machineId, apiParams.Nonce, "")
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
 	cloudcfg := coreCloudinit.New()
 	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)

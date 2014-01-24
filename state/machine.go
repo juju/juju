@@ -150,6 +150,7 @@ func (m *Machine) globalKey() string {
 type instanceData struct {
 	Id         string      `bson:"_id"`
 	InstanceId instance.Id `bson:"instanceid"`
+	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
@@ -610,13 +611,58 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 		return m.doc.InstanceId, nil
 	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instData.InstanceId == "") || (err != nil && errors.IsNotFoundError(err)) {
+	if (err == nil && instData.InstanceId == "") || errors.IsNotFoundError(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
 		return "", err
 	}
 	return instData.InstanceId, nil
+}
+
+// InstanceStatus returns the provider specific instance status for this machine,
+// or a NotProvisionedError if instance is not yet provisioned.
+func (m *Machine) InstanceStatus() (string, error) {
+	// SCHEMACHANGE
+	// InstanceId may not be stored in the instanceData doc, so we
+	// get it using an API on machine which knows to look in the old
+	// place if necessary.
+	instId, err := m.InstanceId()
+	if err != nil {
+		return "", err
+	}
+	instData, err := getInstanceData(m.st, m.Id())
+	if (err == nil && instId == "") || errors.IsNotFoundError(err) {
+		err = NotProvisionedError(m.Id())
+	}
+	if err != nil {
+		return "", err
+	}
+	return instData.Status, nil
+}
+
+// SetInstanceStatus sets the provider specific instance status for a machine.
+func (m *Machine) SetInstanceStatus(status string) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set instance status for machine %q", m)
+
+	// SCHEMACHANGE - we can't do this yet until the schema is updated
+	// so just do a txn.DocExists for now.
+	// provisioned := D{{"instanceid", D{{"$ne", ""}}}}
+	ops := []txn.Op{
+		{
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Update: D{{"$set", D{{"status", status}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err == nil {
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	}
+	return NotProvisionedError(m.Id())
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -659,7 +705,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	if characteristics == nil {
 		characteristics = &instance.HardwareCharacteristics{}
 	}
-	hc := &instanceData{
+	instData := &instanceData{
 		Id:         m.doc.Id,
 		InstanceId: id,
 		Arch:       characteristics.Arch,
@@ -682,7 +728,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
-			Insert: hc,
+			Insert: instData,
 		},
 	}
 

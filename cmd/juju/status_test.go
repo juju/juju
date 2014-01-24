@@ -1544,6 +1544,8 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
+	err = m.SetInstanceStatus("missing")
+	c.Assert(err, gc.IsNil)
 }
 
 type startAliveMachine struct {
