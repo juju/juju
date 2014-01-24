@@ -488,6 +488,42 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(string(instId), gc.Equals, "inst-id")
 }
 
+func (s *StateSuite) TestAddMachines(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+	hc := instance.MustParseHardware("mem=2G")
+	machineTemplate := state.MachineTemplate{
+		Series:                  "precise",
+		Constraints:             cons,
+		HardwareCharacteristics: hc,
+		InstanceId:              "inst-id",
+		Nonce:                   "nonce",
+		Jobs:                    oneJob,
+	}
+	machines, err := s.State.AddMachines(machineTemplate)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	m, err := s.State.Machine(machines[0].Id())
+	c.Assert(err, gc.IsNil)
+	instId, err := m.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(instId), gc.Equals, "inst-id")
+	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
+	c.Assert(m.Series(), gc.Equals, "precise")
+	mcons, err := m.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcons, gc.DeepEquals, cons)
+	mhc, err := m.HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(*mhc, gc.DeepEquals, hc)
+	// Clear the deprecated machineDoc InstanceId attribute and do it again.
+	// still works as expected with the new data model.
+	state.SetMachineInstanceId(m, "")
+	instId, err = m.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(instId), gc.Equals, "inst-id")
+}
+
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
