@@ -1,7 +1,7 @@
 #!/bin/bash
 source $SCRIPTS/common-startup.sh
 # Do the deployment for upgrade testing.
-CHARM_PREFIX=${CHARM_PREFIX:-"''"}
+CHARM_PREFIX=${CHARM_PREFIX:-\'\'}
 if ! $SCRIPTS/deploy_stack.py --charm-prefix $CHARM_PREFIX $ENV; then
   dump_logs
   $SCRIPTS/destroy-environment $ENV
