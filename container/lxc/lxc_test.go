@@ -186,6 +186,25 @@ func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
+func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, gc.IsNil)
+
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	autostartLink := lxc.RestartSymlink(string(instance.Id()))
+
+	config := lxc.NetworkConfigTemplate("foo", "bar")
+	expected := `
+lxc.network.type = foo
+lxc.network.link = bar
+lxc.network.flags = up
+lxc.start.auto = 1
+`
+	c.Assert(config, gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+}
+
 func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")

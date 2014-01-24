@@ -109,12 +109,14 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	logger.Tracef("lxc container created")
-	// Now symlink the config file into the restart directory.
-	containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
-	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
-		return nil, nil, err
+	// Now symlink the config file into the restart directory, if it exists
+	if restartDirExists() {
+		containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
+		if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
+			return nil, nil, err
+		}
+		logger.Tracef("auto-restart link created")
 	}
-	logger.Tracef("auto-restart link created")
 
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
@@ -198,7 +200,12 @@ lxc.network.flags = up
 `
 
 func networkConfigTemplate(networkType, networkLink string) string {
-	return fmt.Sprintf(networkTemplate, networkType, networkLink)
+	networkConfig := fmt.Sprintf(networkTemplate, networkType, networkLink)
+	if !restartDirExists() {
+		networkConfig += "lxc.start.auto = 1\n"
+		logger.Tracef("Setting auto start to true in lxc config.")
+	}
+	return networkConfig
 }
 
 func generateNetworkConfig(network *container.NetworkConfig) string {
