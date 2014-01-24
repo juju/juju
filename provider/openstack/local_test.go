@@ -368,7 +368,10 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	inst, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "(?s)cannot run instance: .*itemNotFound.*")
+	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
+		"caused by: "+
+		"request \\(.*/servers\\) returned unexpected status: "+
+		"404; error info: .*itemNotFound.*")
 }
 
 var instanceGathering = []struct {

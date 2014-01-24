@@ -76,7 +76,7 @@ openstack:
     # Openstack security group assigned.
     # use-default-secgroup: false
 
-    # networks specifies the network label or uuid to bring machines up on, in
+    # network specifies the network label or uuid to bring machines up on, in
     # the case where multiple networks exist. It may be omitted otherwise.
     # network: <your network label or uuid>
 
