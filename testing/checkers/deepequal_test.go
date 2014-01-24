@@ -91,7 +91,7 @@ var deepEqualTests = []DeepEqualTest{
 }
 
 func TestDeepEqual(t *testing.T) {
-	for i, test := range deepEqualTests {
+	for _, test := range deepEqualTests {
 		r, err := checkers.DeepEqual(test.a, test.b)
 		if r != test.eq {
 			t.Errorf("deepEqual(%v, %v) = %v, want %v", test.a, test.b, r, test.eq)
