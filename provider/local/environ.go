@@ -405,7 +405,9 @@ func (env *localEnviron) Destroy() error {
 		if err != nil {
 			return err
 		}
-		cmd := exec.Command("sudo", append([]string{juju}, os.Args[1:]...)...)
+		args := append([]string{juju}, os.Args[1:]...)
+		args = append(args, "-y")
+		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()

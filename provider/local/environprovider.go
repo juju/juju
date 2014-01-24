@@ -47,7 +47,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// Set the "namespace" attribute. We do this here, and not in Prepare,
 	// for backwards compatibility: older versions did not store the namespace
 	// in config.
-	if namespace := cfg.UnknownAttrs()["namespace"]; namespace == "" {
+	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
 		var err error
 		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
 		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
