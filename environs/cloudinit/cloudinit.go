@@ -271,7 +271,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddScripts(
 			fmt.Sprintf(
 				`[ -e /home/ubuntu ] && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
-				shquote(cfg.ProxySettings.AsEnvironmentValues())))
+				shquote(cfg.ProxySettings.AsScriptEnvironment())))
 	}
 
 	c.AddScripts(
