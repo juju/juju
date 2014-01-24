@@ -101,7 +101,7 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 
 // setupEnvironment adds an environment manager machine and login to the API.
 func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	err = machine.SetAddresses([]instance.Address{

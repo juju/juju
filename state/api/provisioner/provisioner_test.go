@@ -45,7 +45,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

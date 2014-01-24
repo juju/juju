@@ -199,7 +199,7 @@ func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, 
 		return nil, fmt.Errorf("cannot retrieve environment storage; perhaps the environment was not bootstrapped: %v", err)
 	}
 	if len(state.StateInstances) == 0 {
-		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped", err)
+		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped")
 	}
 	if len(state.StateInstances) > 1 {
 		return nil, fmt.Errorf("restore does not support HA juju configurations yet")

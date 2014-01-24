@@ -214,10 +214,11 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st.Firewaller())
 			})
-		case params.JobManageState:
 			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
+		case params.JobManageState:
+			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -306,7 +307,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
-		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -333,6 +333,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
+		case state.JobManageState:
+			// Legacy environments may set this, but we ignore it.
 		default:
 			logger.Warningf("ignoring unknown job %q", job)
 		}
