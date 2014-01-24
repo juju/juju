@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
@@ -174,8 +173,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, gc.IsNil)
 	osenv.SetHome(home)
-	s.oldJujuHome = config.SetJujuHome(filepath.Join(home, ".juju"))
-	err = os.Mkdir(config.JujuHome(), 0777)
+	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".juju"))
+	err = os.Mkdir(osenv.JujuHome(), 0777)
 	c.Assert(err, gc.IsNil)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
@@ -184,12 +183,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
+	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
 
-	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
+	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, gc.IsNil)
 
-	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
+	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, gc.IsNil)
 
 	store, err := configstore.Default()
@@ -253,7 +252,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	s.Conn = nil
 	s.State = nil
 	osenv.SetHome(s.oldHome)
-	config.SetJujuHome(s.oldJujuHome)
+	osenv.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }
@@ -270,7 +269,7 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
 		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
 	}
-	path := config.JujuHomePath("environments.yaml")
+	path := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
 	if err != nil {
 		panic(err)

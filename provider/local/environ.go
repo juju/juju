@@ -325,17 +325,33 @@ func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	// NOTE: do we actually care about checking the existance of the instances?
-	// I posit that here we don't really care, and that we are only called with
-	// instance ids that we know exist.
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]instance.Instance, len(ids))
-	for i, id := range ids {
-		insts[i] = &localInstance{id, env}
+	insts, err := env.AllInstances()
+	if err != nil {
+		return nil, err
 	}
-	return insts, nil
+	allInstances := make(map[instance.Id]instance.Instance)
+	for _, inst := range insts {
+		allInstances[inst.Id()] = inst
+	}
+	var found int
+	insts = make([]instance.Instance, len(ids))
+	for i, id := range ids {
+		if inst, ok := allInstances[id]; ok {
+			insts[i] = inst
+			found++
+		}
+	}
+	if found == 0 {
+		insts, err = nil, environs.ErrNoInstances
+	} else if found < len(ids) {
+		err = environs.ErrPartialInstances
+	} else {
+		err = nil
+	}
+	return insts, err
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -587,7 +603,6 @@ func (env *localEnviron) initializeState(agentConfig agent.Config, cons constrai
 		Constraints: cons,
 		Jobs: []state.MachineJob{
 			state.JobManageEnviron,
-			state.JobManageState,
 		},
 		InstanceId: bootstrapInstanceId,
 	}, state.DialOpts{

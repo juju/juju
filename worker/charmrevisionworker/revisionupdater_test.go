@@ -40,7 +40,7 @@ func (s *RevisionUpdateSuite) SetUpSuite(c *gc.C) {
 func (s *RevisionUpdateSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
 
-	machine, err := s.State.AddMachine("quantal", state.JobManageState)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	commontesting "launchpad.net/juju-core/state/apiserver/common/testing"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -30,6 +31,7 @@ func Test(t *stdtesting.T) {
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
+	*commontesting.EnvironWatcherTest
 
 	machines []*state.Machine
 
@@ -41,15 +43,21 @@ type provisionerSuite struct {
 var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	s.setUpTest(c, false)
+}
+
+func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Reset previous machines (if any) and create 3 machines
-	// for the tests.
+	// for the tests, plus an optional state server machine.
 	s.machines = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
-	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
-	for i := 0; i < 2; i++ {
+	if withStateServer {
+		s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	}
+	for i := 0; i < 3; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -74,6 +82,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	s.provisioner = provisionerAPI
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(provisionerAPI, s.State, s.resources, commontesting.HasSecrets)
 }
 
 func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
@@ -445,35 +454,7 @@ func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	result, err := s.provisioner.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
-		NotifyWatcherId: "1",
-	})
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-}
-
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Config, gc.DeepEquals, params.EnvironConfig(envConfig.AllAttrs()))
-
+func (s *provisionerSuite) TestEnvironConfigNonManager(c *gc.C) {
 	// Now test it with a non-environment manager and make sure
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
@@ -482,14 +463,7 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, gc.IsNil)
-
-	// We need to see the secret attributes masked out, and for
-	// the dummy provider it's only one: "secret".
-	expectedConfig := envConfig.AllAttrs()
-	expectedConfig["secret"] = "not available"
-	result, err = aProvisioner.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
+	s.AssertEnvironConfig(c, aProvisioner, commontesting.NoSecrets)
 }
 
 func (s *provisionerSuite) TestStatus(c *gc.C) {
@@ -690,35 +664,6 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	addresses, err := s.State.Addresses()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.StateAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addresses,
-	})
-}
-
-func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addrs,
-	})
-}
-
-func (s *provisionerSuite) TestCACert(c *gc.C) {
-	result := s.provisioner.CACert()
-	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: s.State.CACert(),
-	})
-}
-
 func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.provisioner.Tools(params.Entities{})
@@ -855,4 +800,41 @@ func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
+}
+
+type withStateServerSuite struct {
+	provisionerSuite
+}
+
+func (s *withStateServerSuite) SetUpTest(c *gc.C) {
+	s.provisionerSuite.setUpTest(c, true)
+}
+
+func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addrs,
+	})
+}
+
+func (s *withStateServerSuite) TestStateAddresses(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *withStateServerSuite) TestCACert(c *gc.C) {
+	result := s.provisioner.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
+	})
 }

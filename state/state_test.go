@@ -63,7 +63,7 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 func (s *StateSuite) TestAddresses(c *gc.C) {
 	var err error
 	machines := make([]*state.Machine, 4)
-	machines[0], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	machines[0], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	machines[1], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -2524,7 +2524,7 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Delete the stateServers collection to pretend this

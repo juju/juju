@@ -9,7 +9,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -114,14 +114,14 @@ func (w *commonWatcher) Err() error {
 // It does not send content for those changes.
 type notifyWatcher struct {
 	commonWatcher
-	caller          common.Caller
+	caller          base.Caller
 	notifyWatcherId string
 	out             chan struct{}
 }
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) NotifyWatcher {
+func NewNotifyWatcher(caller base.Caller, result params.NotifyWatchResult) NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -172,12 +172,12 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 // The content of the changes is a list of strings.
 type stringsWatcher struct {
 	commonWatcher
-	caller           common.Caller
+	caller           base.Caller
 	stringsWatcherId string
 	out              chan []string
 }
 
-func NewStringsWatcher(caller common.Caller, result params.StringsWatchResult) StringsWatcher {
+func NewStringsWatcher(caller base.Caller, result params.StringsWatchResult) StringsWatcher {
 	w := &stringsWatcher{
 		caller:           caller,
 		stringsWatcherId: result.StringsWatcherId,
@@ -230,12 +230,12 @@ func (w *stringsWatcher) Changes() <-chan []string {
 // those units known to have entered.
 type relationUnitsWatcher struct {
 	commonWatcher
-	caller                 common.Caller
+	caller                 base.Caller
 	relationUnitsWatcherId string
 	out                    chan params.RelationUnitsChange
 }
 
-func NewRelationUnitsWatcher(caller common.Caller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
+func NewRelationUnitsWatcher(caller base.Caller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		caller:                 caller,
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,

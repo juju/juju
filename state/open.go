@@ -298,7 +298,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(D{{"jobs", JobManageState}}).All(&machineDocs)
+	err := st.machines.Find(D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}

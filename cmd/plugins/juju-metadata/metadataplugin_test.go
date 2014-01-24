@@ -13,7 +13,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
@@ -62,7 +61,7 @@ func badrun(c *gc.C, exit int, args ...string) string {
 
 	ps := exec.Command(os.Args[0], localArgs...)
 
-	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))

@@ -18,7 +18,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -50,7 +49,7 @@ func TestRunMain(t *stdtesting.T) {
 func badrun(c *gc.C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
 	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
 	output, err := ps.CombinedOutput()
 	c.Logf("command output: %q", output)
 	if exit != 0 {
@@ -83,7 +82,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
 	// setting the flags (which is needed for the help text) it is accessing
-	// config.JujuHome(), which panics if SetJujuHome has not been called.
+	// osenv.JujuHome(), which panics if SetJujuHome has not been called.
 	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
@@ -175,7 +174,7 @@ var brokenConfig = `
 // breakJuju writes a dummy environment with incomplete configuration.
 // environMethod is called.
 func breakJuju(c *gc.C, environMethod string) (msg string) {
-	path := config.JujuHomePath("environments.yaml")
+	path := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(brokenConfig), 0666)
 	c.Assert(err, gc.IsNil)
 	return `cannot parse "[^"]*": YAML error.*`
@@ -260,7 +259,7 @@ var commandNames = []string{
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -285,6 +284,7 @@ var topicNames = []string{
 	"glossary",
 	"hpcloud",
 	"local",
+	"logging",
 	"openstack",
 	"plugins",
 	"topics",
@@ -293,7 +293,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -312,8 +312,8 @@ var globalFlags = []string{
 	"--debug .*",
 	"--description .*",
 	"-h, --help .*",
-	"--log-config .*",
 	"--log-file .*",
+	"--logging-config .*",
 	"--show-log .*",
 	"-v, --verbose .*",
 }
@@ -321,7 +321,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 

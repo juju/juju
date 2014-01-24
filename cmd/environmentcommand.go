@@ -12,7 +12,6 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 )
 
@@ -26,7 +25,7 @@ type EnvCommandBase struct {
 }
 
 func getCurrentEnvironmentFilePath() string {
-	return filepath.Join(config.JujuHome(), CurrentEnvironmentFilename)
+	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
 }
 
 // Read the file $JUJU_HOME/current-environment and return the value stored
@@ -56,7 +55,7 @@ func WriteCurrentEnvironment(envName string) error {
 // JUJU_ENV environment variable.  If that is set, it gets used.  If it isn't
 // set, look in the $JUJU_HOME/current-environment file.
 func getDefaultEnvironment() string {
-	defaultEnv := os.Getenv(osenv.JujuEnv)
+	defaultEnv := os.Getenv(osenv.JujuEnvEnvKey)
 	if defaultEnv != "" {
 		return defaultEnv
 	}
