@@ -38,8 +38,7 @@ var (
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,
-		// namespace has a default of "", for backwards compatibility.
-		"namespace": "",
+		"namespace":           "",
 	}
 )
 
