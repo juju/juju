@@ -15,13 +15,15 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
+const FakeAuthKeys = `ssh-rsa BBBB jo@bloggs.com`
+
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
 		"ca-cert":                   CACert,

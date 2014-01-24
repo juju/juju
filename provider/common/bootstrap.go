@@ -100,7 +100,7 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create system key: %v", err)
 	}
-	authorized_keys := env.Config().AuthorizedKeys() + publicKey
+	authorized_keys := concatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
 	newConfig, err := env.Config().Apply(map[string]interface{}{
 		"authorized-keys": authorized_keys,
 	})
@@ -111,6 +111,19 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 		return "", fmt.Errorf("failed to set new config: %v", err)
 	}
 	return privateKey, nil
+}
+
+func concatAuthKeys(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	if a[len(a)-1] != '\n' {
+		return a + "\n" + b
+	}
+	return a + b
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
